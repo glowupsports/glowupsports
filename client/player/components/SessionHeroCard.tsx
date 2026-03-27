@@ -1021,16 +1021,10 @@ export function SessionHeroCard({
                     ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      navigation.navigate("MatchLive", {
-                        challengeId: c.id,
-                        opponentName: opponentDisplayName,
-                        matchType: c.matchType || "singles",
-                        matchFormat: c.matchFormat || "friendly",
-                        scheduledDate: c.scheduledDate,
-                        scheduledTime: c.scheduledTime,
-                        courtName: c.courtName,
-                        challengerId: c.challengerId,
+                      navigation.navigate("StartLiveMatch", {
                         opponentId: c.opponentId,
+                        opponentName: opponentDisplayName,
+                        challengeId: c.id,
                       });
                     }}
                   >

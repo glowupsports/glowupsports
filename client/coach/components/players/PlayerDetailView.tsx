@@ -677,6 +677,12 @@ export function PlayerDetailView({
             >
               <Ionicons name="videocam-outline" size={22} color="#4DA3FF" />
             </Pressable>
+            <Pressable
+              style={styles.premiumExportButton}
+              onPress={() => navigation.navigate("PlayerMatchHistory", { playerId: player.id, playerName: player.name })}
+            >
+              <Ionicons name="trophy-outline" size={22} color="#CCFF00" />
+            </Pressable>
           </View>
         </View>
       </LinearGradient>

@@ -6560,3 +6560,57 @@ export const playRequestParticipants = pgTable("play_request_participants", {
 export const insertPlayRequestParticipantSchema = createInsertSchema(playRequestParticipants).omit({ id: true, joinedAt: true });
 export type InsertPlayRequestParticipant = z.infer<typeof insertPlayRequestParticipantSchema>;
 export type PlayRequestParticipant = typeof playRequestParticipants.$inferSelect;
+
+// ==================== LIVE MATCHES ====================
+
+export const liveMatches = pgTable("live_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Participants
+  creatorId: varchar("creator_id").references(() => players.id).notNull(),
+  opponentIds: jsonb("opponent_ids").$type<string[]>().notNull().default([]),
+
+  // Match settings
+  sport: text("sport").notNull().default("tennis"), // tennis | padel | pickleball
+  matchType: text("match_type").notNull().default("singles"), // singles | doubles
+  matchFormat: text("match_format").notNull().default("best_of_3"), // best_of_1 | best_of_3 | best_of_5 | tiebreak_only
+  scoringMode: text("scoring_mode").notNull().default("standard"), // standard | no_ad | super_tiebreak
+  challengeId: varchar("challenge_id"), // optional link to match_challenges
+
+  // Live score state (JSONB for flexibility)
+  currentScore: jsonb("current_score").$type<{
+    sets: Array<{ creator: number; opponent: number }>;
+    currentGame: { creator: number; opponent: number; server?: "creator" | "opponent" };
+    setsWon: { creator: number; opponent: number };
+    pointHistory: Array<{ point: number; winner: "creator" | "opponent"; timestamp: string }>;
+  }>().default(sql`'{"sets":[{"creator":0,"opponent":0}],"currentGame":{"creator":0,"opponent":0},"setsWon":{"creator":0,"opponent":0},"pointHistory":[]}'::jsonb`),
+
+  // Match result
+  status: text("status").notNull().default("live"), // live | completed | abandoned
+  winnerId: varchar("winner_id").references(() => players.id),
+  setScoreSummary: text("set_score_summary"), // e.g. "6-4, 7-5"
+  gamesDiff: integer("games_diff").default(0),
+
+  // MMR impact (filled after completion)
+  mmrDeltaCreator: integer("mmr_delta_creator"),
+  mmrDeltaOpponent: integer("mmr_delta_opponent"),
+  previousMmrCreator: integer("previous_mmr_creator"),
+  previousMmrOpponent: integer("previous_mmr_opponent"),
+  newMmrCreator: integer("new_mmr_creator"),
+  newMmrOpponent: integer("new_mmr_opponent"),
+  previousRankCreator: integer("previous_rank_creator"),
+  newRankCreator: integer("new_rank_creator"),
+
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("live_matches_creator_idx").on(table.creatorId),
+  index("live_matches_status_idx").on(table.status),
+  index("live_matches_started_idx").on(table.startedAt),
+]);
+
+export const insertLiveMatchSchema = createInsertSchema(liveMatches).omit({ id: true, createdAt: true, completedAt: true });
+export type InsertLiveMatch = z.infer<typeof insertLiveMatchSchema>;
+export type LiveMatch = typeof liveMatches.$inferSelect;

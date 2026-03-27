@@ -83,6 +83,10 @@ import MyGamesScreen from "@/player/screens/MyGamesScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
+import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
+import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
+import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
+import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
 import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
@@ -212,16 +216,44 @@ export type PlayerStackParamList = {
   CreateGameRequest: undefined;
   MyGames: undefined;
   MatchLive: {
-    challengeId: string;
+    matchId: string;
     opponentName: string;
-    matchType: string;
-    matchFormat: string;
-    scheduledDate: string;
-    scheduledTime: string;
-    courtName?: string;
-    challengerId: string;
     opponentId: string;
+    sport: string;
+    matchFormat: string;
+    scoringMode: string;
+    challengeId?: string;
+    matchType?: string;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    courtName?: string;
+    challengerId?: string;
   };
+  StartLiveMatch: {
+    opponentId: string;
+    opponentName: string;
+    challengeId?: string;
+  };
+  MatchSummary: {
+    matchId: string;
+    opponentName: string;
+    opponentId: string;
+    winnerId?: string;
+    setScoreSummary?: string;
+    mmrDeltaCreator?: number;
+    previousMmrCreator?: number;
+    newMmrCreator?: number;
+    previousRankCreator?: number;
+    newRankCreator?: number;
+    creatorId: string;
+  };
+  LiveMatchViewer: {
+    matchId: string;
+    playerName?: string;
+  };
+  MatchHistory: {
+    playerId?: string;
+  } | undefined;
 };
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -801,6 +833,48 @@ function PlayerStackNavigator() {
           presentation: "fullScreenModal",
           headerShown: false,
           animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
+        name="StartLiveMatch"
+        component={StartLiveMatchScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Start Live Match",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen
+        name="MatchSummary"
+        component={MatchSummaryScreen}
+        options={{
+          presentation: "fullScreenModal",
+          headerShown: false,
+          animation: "slide_from_bottom",
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="LiveMatchViewer"
+        component={LiveMatchViewerScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MatchHistory"
+        component={MatchHistoryScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Match History",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen 

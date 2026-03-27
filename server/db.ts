@@ -153,6 +153,42 @@ pool.query('SELECT 1').then(async () => {
   }
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS live_matches (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        creator_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        opponent_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+        sport TEXT NOT NULL DEFAULT 'tennis',
+        match_type TEXT NOT NULL DEFAULT 'singles',
+        match_format TEXT NOT NULL DEFAULT 'best_of_3',
+        scoring_mode TEXT NOT NULL DEFAULT 'standard',
+        challenge_id VARCHAR,
+        current_score JSONB DEFAULT '{"sets":[{"creator":0,"opponent":0}],"currentGame":{"creator":0,"opponent":0},"setsWon":{"creator":0,"opponent":0},"pointHistory":[]}'::jsonb,
+        status TEXT NOT NULL DEFAULT 'live',
+        winner_id VARCHAR REFERENCES players(id),
+        set_score_summary TEXT,
+        games_diff INTEGER DEFAULT 0,
+        mmr_delta_creator INTEGER,
+        mmr_delta_opponent INTEGER,
+        previous_mmr_creator INTEGER,
+        previous_mmr_opponent INTEGER,
+        new_mmr_creator INTEGER,
+        new_mmr_opponent INTEGER,
+        previous_rank_creator INTEGER,
+        new_rank_creator INTEGER,
+        started_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP,
+        last_updated_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS live_matches_creator_idx ON live_matches(creator_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS live_matches_status_idx ON live_matches(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS live_matches_started_idx ON live_matches(started_at)`);
+  } catch (e: any) {
+    console.log('[Database] live_matches migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS equipment_rentals (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         equipment_id VARCHAR NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,

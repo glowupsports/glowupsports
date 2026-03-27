@@ -201,6 +201,14 @@ export default function PlayerPublicProfileScreen() {
     enabled: !!playerId && !profile?.isOwnProfile,
   });
 
+  // Live match polling for this player (followers/coaches can see if someone they follow is playing live)
+  const { data: publicActiveLiveMatch } = useQuery<{ matches?: Array<{ id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }> }>({
+    queryKey: [`/api/live-scoring/player/${playerId}/active`],
+    enabled: !!playerId,
+    refetchInterval: 10000,
+    staleTime: 8000,
+  });
+
   const sendFriendRequestMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/player/connections/request", { targetPlayerId: playerId });
@@ -374,6 +382,24 @@ export default function PlayerPublicProfileScreen() {
               </View>
             );
           })()}
+
+          {/* Live Match Banner — visible to followers & coaches when this player is playing live */}
+          {publicActiveLiveMatch?.matches && publicActiveLiveMatch.matches.length > 0 ? (
+            <Pressable
+              style={({ pressed }) => [styles.liveBanner, pressed && { opacity: 0.8 }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("LiveMatchViewer" as any, {
+                  matchId: publicActiveLiveMatch.matches![0].id,
+                  playerName: profile?.name,
+                });
+              }}
+            >
+              <View style={styles.liveDot} />
+              <Text style={styles.liveBannerText}>Live Now — Watch Match</Text>
+              <Ionicons name="chevron-forward" size={16} color="#FF4444" />
+            </Pressable>
+          ) : null}
 
           {/* Level & Glow Score Chips */}
           <View style={styles.chipRow}>
@@ -988,6 +1014,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
+  },
+  liveBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255,68,68,0.08)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,68,68,0.25)",
+    marginBottom: Spacing.md,
+  },
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF4444",
+  },
+  liveBannerText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FF4444",
+    flex: 1,
   },
   chipRow: {
     flexDirection: "row",

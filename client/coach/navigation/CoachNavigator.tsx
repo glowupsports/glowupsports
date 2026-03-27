@@ -33,6 +33,8 @@ import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibr
 import WellbeingDetailScreen from "@/coach/screens/WellbeingDetailScreen";
 import WellnessLogScreen from "@/coach/screens/WellnessLogScreen";
 import VideoFeedbackScreen from "@/coach/screens/VideoFeedbackScreen";
+import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
+import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
@@ -88,6 +90,8 @@ export type CoachStackParamList = {
   WellbeingDetail: undefined;
   WellnessLog: undefined;
   VideoFeedback: { playerId?: string } | undefined;
+  PlayerMatchHistory: { playerId: string; playerName?: string };
+  LiveMatchViewer: { matchId: string; playerName?: string };
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -317,6 +321,25 @@ function CoachStackNavigator() {
       <Stack.Screen 
         name="VideoFeedback" 
         component={VideoFeedbackScreen}
+        options={{
+          headerShown: false,
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="PlayerMatchHistory"
+        component={MatchHistoryScreen}
+        options={({ route }) => ({
+          headerShown: true,
+          headerTitle: route.params?.playerName
+            ? `${route.params.playerName}'s Matches`
+            : "Match History",
+          presentation: "card",
+        })}
+      />
+      <Stack.Screen
+        name="LiveMatchViewer"
+        component={LiveMatchViewerScreen}
         options={{
           headerShown: false,
           presentation: "card",

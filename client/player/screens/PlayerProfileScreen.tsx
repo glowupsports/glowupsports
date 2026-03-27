@@ -206,6 +206,13 @@ export default function PlayerProfileScreen() {
     enabled: !!data?.player,
   });
 
+  const { data: activeLiveMatch } = useQuery<{ matches?: Array<{ id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }> }>({
+    queryKey: ["/api/live-scoring/player/me/active"],
+    enabled: !!data?.player,
+    refetchInterval: 10000,
+    staleTime: 8000,
+  });
+
   const { data: badgesData } = useQuery<BadgeData[]>({
     queryKey: ["/api/player/badges"],
     enabled: !!data?.player,
@@ -726,6 +733,42 @@ export default function PlayerProfileScreen() {
             </LinearGradient>
           </View>
         ) : null}
+
+        {/* Live Match Banner — shows when the player has an active live match */}
+        {activeLiveMatch?.matches && activeLiveMatch.matches.length > 0 ? (
+          <Pressable
+            style={({ pressed }) => [profileStyles.liveMatchBanner, pressed && { opacity: 0.8 }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("MatchLive", {
+                matchId: activeLiveMatch.matches![0].id,
+                opponentName: "Match",
+                opponentId: activeLiveMatch.matches![0].opponentIds?.[0] || "",
+                sport: activeLiveMatch.matches![0].sport || "tennis",
+                matchFormat: "best_of_3",
+                scoringMode: "standard",
+              });
+            }}
+          >
+            <View style={profileStyles.liveDot} />
+            <Text style={profileStyles.liveMatchBannerText}>Live Match in Progress — Tap to Score</Text>
+            <Ionicons name="chevron-forward" size={16} color="#FF4444" />
+          </Pressable>
+        ) : null}
+
+        {/* Match History Button */}
+        <Pressable
+          style={({ pressed }) => [profileStyles.matchHistoryBtn, pressed && { opacity: 0.75 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("MatchHistory");
+          }}
+        >
+          <Ionicons name="trophy-outline" size={18} color="#CCFF00" />
+          <Text style={profileStyles.matchHistoryBtnText}>Match History</Text>
+          <View style={profileStyles.matchHistoryBtnSpacer} />
+          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
 
         {/* My Credits Section - matches Home screen design */}
         {dashboardData?.credits ? (
@@ -2323,5 +2366,51 @@ const styles = StyleSheet.create({
   playStyleModalDismissText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+});
+
+const profileStyles = StyleSheet.create({
+  matchHistoryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(204,255,0,0.06)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(204,255,0,0.15)",
+    marginHorizontal: Spacing.xs,
+  },
+  matchHistoryBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  matchHistoryBtnSpacer: {
+    flex: 1,
+  },
+  liveMatchBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255,68,68,0.08)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,68,68,0.25)",
+    marginHorizontal: Spacing.xs,
+  },
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF4444",
+  },
+  liveMatchBannerText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FF4444",
+    flex: 1,
   },
 });
