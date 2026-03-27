@@ -13,6 +13,8 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+import { SPORTS, getSportConfig, type Sport } from "@shared/sportConfig";
+import { SportMultiSelector } from "@/components/SportBadge";
 interface ResetOptions {
   sessions: boolean;
   attendance: boolean;
@@ -104,6 +106,7 @@ interface AcademySettings {
   xpVisibleToPlayers?: boolean;
   notificationsEnabled?: boolean;
   welcomeVideoUrl?: string;
+  sports?: string[];
 }
 
 export default function SettingsScreen() {
@@ -437,6 +440,23 @@ export default function SettingsScreen() {
         </View>
 
         
+          <Section title="Sports">
+            <View style={styles.sportsSection}>
+              <Text style={styles.sportsSectionLabel}>Sports offered at your academy</Text>
+              <SportMultiSelector
+                selectedSports={settings.sports?.length ? settings.sports : ["tennis"]}
+                onToggle={(sport) => {
+                  const current = settings.sports?.length ? settings.sports : ["tennis"];
+                  const updated = current.includes(sport)
+                    ? current.filter((s) => s !== sport)
+                    : [...current, sport];
+                  const finalSports = updated.length ? updated : ["tennis"];
+                  updateSettingsMutation.mutate({ sports: finalSports });
+                }}
+              />
+            </View>
+          </Section>
+
           <Section title="Academy Settings">
             <SettingRow
               icon="time"
@@ -1073,5 +1093,13 @@ const styles = StyleSheet.create({
   clearVideoText: {
     ...Typography.small,
     color: Colors.dark.error,
+  },
+  sportsSection: {
+    padding: Spacing.md,
+  },
+  sportsSectionLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
   },
 });

@@ -196,6 +196,9 @@ export const academies = pgTable("academies", {
   acceptsCash: boolean("accepts_cash").default(true),
   acceptsBankTransfer: boolean("accepts_bank_transfer").default(true),
   
+  // Multi-sport support: list of sports this academy offers (e.g., ["tennis", "padel"])
+  sports: jsonb("sports").$type<string[]>().default(["tennis"]),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -573,6 +576,9 @@ export const courts = pgTable("courts", {
   
   // XP Rewards (game layer)
   xpRewardPerHour: integer("xp_reward_per_hour").default(10),
+  
+  // Multi-sport support
+  sport: text("sport").default("tennis"), // tennis | padel | pickleball | multi
   
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1019,6 +1025,15 @@ export const players = pgTable("players", {
   lastLongitude: doublePrecision("last_longitude"),
   locationUpdatedAt: timestamp("location_updated_at"),
   
+  // Multi-sport profiles: per-sport attributes
+  // e.g., { tennis: { ballLevel: "green", skillLevel: 2 }, padel: { category: "c4" }, pickleball: { rating: "intermediate" } }
+  sportProfiles: jsonb("sport_profiles").$type<Record<string, {
+    ballLevel?: string | null;
+    skillLevel?: number | null;
+    category?: string | null;
+    rating?: string | null;
+  }>>(),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1056,6 +1071,12 @@ export const updatePlayerSchema = z.object({
   nickname: z.string().max(50).optional().nullable(),
   quizScore: z.number().int().min(0).max(100).optional().nullable(),
   playStyle: z.enum(["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"]).optional().nullable(),
+  sportProfiles: z.record(z.string(), z.object({
+    ballLevel: z.string().optional().nullable(),
+    skillLevel: z.number().int().min(1).max(3).optional().nullable(),
+    category: z.string().optional().nullable(),
+    rating: z.string().optional().nullable(),
+  })).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,
@@ -1496,6 +1517,9 @@ export const sessions = pgTable("sessions", {
   reminder1hSent: boolean("reminder_1h_sent").default(false),
   reminder30mSent: boolean("reminder_30m_sent").default(false),
   
+  // Multi-sport support
+  sport: text("sport").default("tennis"), // tennis | padel | pickleball
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1545,6 +1569,9 @@ export const coachingSeries = pgTable("coaching_series", {
   status: text("status").default("active"),
   pausedAt: timestamp("paused_at"),
   endedAt: timestamp("ended_at"),
+  
+  // Multi-sport support
+  sport: text("sport").default("tennis"), // tennis | padel | pickleball
   
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -237,6 +237,65 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] corporate accounts migration skipped:', e.message);
   }
+  try {
+    // Multi-sport platform foundation migration
+    await pool.query(`ALTER TABLE academies ADD COLUMN IF NOT EXISTS sports JSONB DEFAULT '["tennis"]'::jsonb`);
+    await pool.query(`ALTER TABLE courts ADD COLUMN IF NOT EXISTS sport TEXT DEFAULT 'tennis'`);
+    await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS sport TEXT DEFAULT 'tennis'`);
+    await pool.query(`ALTER TABLE coaching_series ADD COLUMN IF NOT EXISTS sport TEXT DEFAULT 'tennis'`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS sport_profiles JSONB`);
+    console.log('[Database] Multi-sport migration applied');
+  } catch (e: any) {
+    console.log('[Database] Multi-sport migration skipped:', e.message);
+  }
+  try {
+    // Add CHECK constraints for sport columns (enforce valid sport values at DB level)
+    // Use DO block to handle IF NOT EXISTS safely across Postgres versions
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'courts_sport_check'
+        ) THEN
+          ALTER TABLE courts ADD CONSTRAINT courts_sport_check
+            CHECK (sport IN ('tennis', 'padel', 'pickleball', 'multi'));
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'sessions_sport_check'
+        ) THEN
+          ALTER TABLE sessions ADD CONSTRAINT sessions_sport_check
+            CHECK (sport IN ('tennis', 'padel', 'pickleball'));
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'coaching_series_sport_check'
+        ) THEN
+          ALTER TABLE coaching_series ADD CONSTRAINT coaching_series_sport_check
+            CHECK (sport IN ('tennis', 'padel', 'pickleball'));
+        END IF;
+      END $$;
+    `);
+    console.log('[Database] Sport CHECK constraints applied');
+  } catch (e: any) {
+    console.log('[Database] Sport CHECK constraints migration skipped:', e.message);
+  }
+  try {
+    // Backfill tennis sport_profiles from existing player ball_level data
+    // Only for players where sport_profiles is null (first-time migration)
+    await pool.query(`
+      UPDATE players
+      SET sport_profiles = jsonb_build_object(
+        'tennis', jsonb_build_object(
+          'ballLevel', ball_level,
+          'skillLevel', skill_level
+        )
+      )
+      WHERE ball_level IS NOT NULL
+        AND (sport_profiles IS NULL OR sport_profiles->'tennis' IS NULL)
+    `);
+    console.log('[Database] Tennis sport_profiles backfill applied');
+  } catch (e: any) {
+    console.log('[Database] Tennis sport_profiles backfill skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

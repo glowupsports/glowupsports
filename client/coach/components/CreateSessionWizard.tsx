@@ -1,5 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+
 import {
   View,
   Text,
@@ -35,6 +36,8 @@ import Animated, {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { getSportConfig, SPORTS, type Sport, type SportOrMulti } from "@shared/sportConfig";
+import { SportSingleSelector } from "@/components/SportBadge";
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
@@ -104,7 +107,7 @@ interface CreateSessionWizardProps {
 }
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
-type BallLevel = "blue" | "red" | "orange" | "green" | "yellow" | "glow";
+type BallLevel = string;
 type SkillLevel = 1 | 2 | 3;
 
 const SESSION_TYPE_CARDS: { 
@@ -270,6 +273,7 @@ export default function CreateSessionWizard({
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [isOpenGroup, setIsOpenGroup] = useState(true);
   const [ballLevelOverride, setBallLevelOverride] = useState(false); // Manual override toggle
+  const [sessionSport, setSessionSport] = useState<Sport>("tennis");
   
   // Slide 4: Players
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
@@ -637,6 +641,7 @@ export default function CreateSessionWizard({
     setSkillLevel(null);
     setBallLevelOverride(false);
     setIsOpenGroup(true);
+    setSessionSport("tennis");
     setSelectedPlayers([]);
     setPlayerSearch("");
     setVisibleToPlayers(true);
@@ -853,6 +858,7 @@ export default function CreateSessionWizard({
         isOpen: isOpenGroup,
         visibleToPlayers,
         flexibleSessions,
+        sport: sessionSport,
       };
       
       const endpoint = adminMode ? "/api/admin/sessions/bulk" : "/api/coach/sessions/bulk";
@@ -902,6 +908,7 @@ export default function CreateSessionWizard({
         courtId: selectedCourtId,
         playerIds: selectedPlayers.map(p => p.id),
         isRecurring: true,
+        sport: sessionSport,
       };
 
       const endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
@@ -929,6 +936,7 @@ export default function CreateSessionWizard({
       isOpen: isOpenGroup,
       visibleToPlayers,
       enableWaitlist,
+      sport: sessionSport,
     };
 
     const endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
@@ -940,7 +948,7 @@ export default function CreateSessionWizard({
     sessionType, ballLevel, skillLevel, notes, travelTime,
     selectedPlayers, effectiveCoach, isRecurring, isFlexible, weekCount, maxPlayers,
     isOpenGroup, visibleToPlayers, enableWaitlist, createSeriesMode,
-    flexibleDates, flexibleDefaultTime
+    flexibleDates, flexibleDefaultTime, sessionSport
   ]);
 
   // Progress bar animated style
@@ -1721,11 +1729,11 @@ export default function CreateSessionWizard({
           </View>
         )}
 
-        {/* Ball Level */}
+        {/* Ball Level / Skill Level (sport-aware) */}
         {showLevels && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionLabel}>Ball Level</Text>
+              <Text style={styles.sectionLabel}>{getSportConfig(sessionSport).skillLevelLabel}</Text>
               {selectedPlayers.length > 0 && !ballLevelOverride && ballLevel && (
                 <View style={styles.autoSelectedBadge}>
                   <Ionicons name="sparkles" size={12} color={Colors.dark.xpCyan} />
@@ -1753,33 +1761,76 @@ export default function CreateSessionWizard({
               </View>
             )}
             
-            <View style={styles.optionRow}>
-              {BALL_LEVELS.map((level) => (
-                <Pressable
-                  key={level.value}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setBallLevelOverride(true); // Enable override when manually selecting
-                    setBallLevel(ballLevel === level.value ? null : level.value);
-                  }}
-                  style={[
-                    styles.ballLevelChip,
-                    { borderColor: level.color + "60" },
-                    ballLevel === level.value && { backgroundColor: level.color, borderColor: level.color },
-                  ]}
-                >
-                  <View style={[styles.ballDot, { backgroundColor: level.color }]} />
-                  <Text style={[
-                    styles.ballLevelText,
-                    ballLevel === level.value && { color: Colors.dark.buttonText },
-                  ]}>
-                    {level.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {sessionSport === "tennis" ? (
+              <View style={styles.optionRow}>
+                {BALL_LEVELS.map((level) => (
+                  <Pressable
+                    key={level.value}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setBallLevelOverride(true);
+                      setBallLevel(ballLevel === level.value ? null : level.value);
+                    }}
+                    style={[
+                      styles.ballLevelChip,
+                      { borderColor: level.color + "60" },
+                      ballLevel === level.value && { backgroundColor: level.color, borderColor: level.color },
+                    ]}
+                  >
+                    <View style={[styles.ballDot, { backgroundColor: level.color }]} />
+                    <Text style={[
+                      styles.ballLevelText,
+                      ballLevel === level.value && { color: Colors.dark.buttonText },
+                    ]}>
+                      {level.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.optionRow}>
+                {getSportConfig(sessionSport).skillLevels.map((level) => (
+                  <Pressable
+                    key={level.key}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setBallLevelOverride(true);
+                      setBallLevel(ballLevel === level.key ? null : level.key);
+                    }}
+                    style={[
+                      styles.ballLevelChip,
+                      { borderColor: Colors.dark.gold + "60" },
+                      ballLevel === level.key && { backgroundColor: Colors.dark.gold, borderColor: Colors.dark.gold },
+                    ]}
+                  >
+                    <Text style={[
+                      styles.ballLevelText,
+                      ballLevel === level.key && { color: Colors.dark.buttonText },
+                    ]}>
+                      {level.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
         )}
+
+        {/* Sport */}
+        <View style={styles.section}>
+          <SportSingleSelector
+            selectedSport={sessionSport}
+            onSelect={(sport) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (sport !== "multi") {
+                setSessionSport(sport);
+                setBallLevel(null);
+                setBallLevelOverride(false);
+              }
+            }}
+            label="Sport"
+          />
+        </View>
 
         {/* Open/Closed Group */}
         {showOpenClosed && (

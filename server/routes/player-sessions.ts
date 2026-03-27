@@ -1639,6 +1639,7 @@ import fs from "fs";
             displayName: (player as any).displayName || null,
             profilePhotoUrl: (player as any).profilePhotoUrl || null,
             playStyle: (player as any).playStyle || null,
+            sportProfiles: (player as any).sportProfiles || null,
           },
           coach: coach
             ? {
@@ -1752,6 +1753,12 @@ import fs from "fs";
           }
           await db.execute(
             sql`UPDATE players SET play_style = ${playStyleValue} WHERE id = ${playerId}`,
+          );
+        }
+        if (req.body.sportProfiles !== undefined) {
+          const sportProfilesJson = JSON.stringify(req.body.sportProfiles);
+          await db.execute(
+            sql`UPDATE players SET sport_profiles = ${sportProfilesJson}::jsonb WHERE id = ${playerId}`,
           );
         }
 
@@ -2701,6 +2708,14 @@ import fs from "fs";
           });
         }
 
+        // Build sportProfiles.tennis from the onboarding ball level so it is represented
+        // in the per-sport profile model from the start
+        const existingPlayer = await storage.getPlayer(playerId);
+        const existingSportProfiles = (existingPlayer as any)?.sportProfiles || {};
+        const updatedSportProfiles = ballLevel
+          ? { ...existingSportProfiles, tennis: { ...(existingSportProfiles.tennis || {}), ballLevel } }
+          : existingSportProfiles;
+
         const updatedPlayer = await storage.updatePlayer(playerId, {
           onboardingCompleted: true,
           academyId: selectedAcademyId,
@@ -2715,6 +2730,7 @@ import fs from "fs";
           focusGoals,
           ballLevel,
           selfConfidenceFlags,
+          sportProfiles: Object.keys(updatedSportProfiles).length > 0 ? updatedSportProfiles : undefined,
           playStyle: (() => {
             const VALID_PLAY_STYLES = ["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"];
             const ps = req.body.playStyle;
@@ -3700,6 +3716,7 @@ import fs from "fs";
           xpVisibleToPlayers: (academy as any).xpVisibleToPlayers ?? true,
           notificationsEnabled: (academy as any).notificationsEnabled ?? true,
           welcomeVideoUrl: extendedSettings?.welcomeVideoUrl || "",
+          sports: (academy as any).sports || ["tennis"],
         });
       } catch (error) {
         console.error("Get academy settings error:", error);
@@ -3721,11 +3738,16 @@ import fs from "fs";
         }
 
         // Whitelist allowed settings fields — never allow id, ownerId, or other privileged fields
-        const { defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl } = req.body;
+        const { defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl, sports } = req.body;
         const updates: Record<string, any> = {};
         if (defaultSessionLength !== undefined) updates.defaultSessionLength = defaultSessionLength;
         if (xpVisibleToPlayers !== undefined) updates.xpVisibleToPlayers = xpVisibleToPlayers;
         if (notificationsEnabled !== undefined) updates.notificationsEnabled = notificationsEnabled;
+        if (sports !== undefined && Array.isArray(sports) && sports.length > 0) {
+          const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+          const validatedSports = sports.filter((s: unknown) => typeof s === "string" && VALID_SPORTS.includes(s));
+          if (validatedSports.length > 0) updates.sports = validatedSports;
+        }
 
         // Handle welcomeVideoUrl separately in academy_settings table
         if (welcomeVideoUrl !== undefined) {
@@ -3736,7 +3758,7 @@ import fs from "fs";
           await storage.updateAcademy(academyId, updates);
         }
 
-        res.json({ success: true, defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl });
+        res.json({ success: true, defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl, sports });
       } catch (error) {
         console.error("Update academy settings error:", error);
         res.status(500).json({ error: "Failed to update academy settings" });

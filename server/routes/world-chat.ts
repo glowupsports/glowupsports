@@ -960,9 +960,12 @@ async function autoCancel(
         isOpenGroup,
         visibleToPlayers,
         notes,
+        sport,
       } = req.body;
       
       const FLEXIBLE_DAY = -1;
+      const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
 
       if (!coachId || !startTime || !duration || !sessionType) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -1330,6 +1333,7 @@ async function autoCancel(
             seriesStartDate: seriesStartDateStr,
             seriesEndDate: seriesEndDateStr,
             status: "active",
+            sport: validatedSport,
           });
           seriesId = series.id;
           
@@ -1414,6 +1418,7 @@ async function autoCancel(
             status: "scheduled",
             seriesId: seriesId || undefined,
             weekNumber: i + 1,
+            sport: validatedSport,
             ...pricingSnapshot,
           });
           
@@ -1543,6 +1548,7 @@ async function autoCancel(
           status: "scheduled",
           seriesId: seriesId || undefined,
           weekNumber: seriesId ? week + 1 : undefined,
+          sport: validatedSport,
           ...pricingSnapshot,
         });
 
@@ -1676,11 +1682,15 @@ async function autoCancel(
         isOpen,
         visibleToPlayers,
         flexibleSessions, // Array of { date, time, startTime, endTime }
+        sport,
       } = req.body;
       
       if (!coachId || !courtId || !flexibleSessions || !Array.isArray(flexibleSessions) || flexibleSessions.length === 0) {
         return res.status(400).json({ error: "Missing required fields" });
       }
+      
+      const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
       
       const createdSessions: any[] = [];
       const skippedDates: string[] = [];
@@ -1753,6 +1763,7 @@ async function autoCancel(
           seriesStartDate: firstDate,
           seriesEndDate: lastDate,
           status: "active",
+          sport: validatedSport,
         });
         seriesId = newSeries.id;
         
@@ -1800,6 +1811,7 @@ async function autoCancel(
           maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : maxPlayers || 6,
           recurringGroupId: null,
           seriesId: seriesId || undefined,
+          sport: validatedSport,
           ...pricingSnapshot,
         });
         

@@ -7,6 +7,8 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { SPORTS, getSportConfig, getSportDisplayName } from "@shared/sportConfig";
+import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
 
 interface Court {
   id: string;
@@ -15,6 +17,7 @@ interface Court {
   capacity?: number;
   indoor?: boolean;
   status?: string;
+  sport?: string;
 }
 
 export default function CourtsManagementScreen() {
@@ -29,6 +32,7 @@ export default function CourtsManagementScreen() {
     surface: "hard",
     capacity: "4",
     indoor: false,
+    sport: "tennis",
   });
 
   const { data: courts = [], isLoading } = useQuery<Court[]>({
@@ -77,7 +81,7 @@ export default function CourtsManagementScreen() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", surface: "hard", capacity: "4", indoor: false });
+    setFormData({ name: "", surface: "hard", capacity: "4", indoor: false, sport: "tennis" });
   };
 
   const handleAdd = () => {
@@ -93,6 +97,7 @@ export default function CourtsManagementScreen() {
       surface: court.surface || "hard",
       capacity: String(court.capacity || 4),
       indoor: court.indoor || false,
+      sport: court.sport || "tennis",
     });
     setShowModal(true);
   };
@@ -130,6 +135,7 @@ export default function CourtsManagementScreen() {
       surface: formData.surface,
       capacity: parseInt(formData.capacity) || 4,
       indoor: formData.indoor,
+      sport: formData.sport || "tennis",
     };
 
     if (editingCourt) {
@@ -214,6 +220,7 @@ export default function CourtsManagementScreen() {
                     <Ionicons name={court.indoor ? "home-outline" : "sunny-outline"} size={16} color={Colors.dark.textMuted} />
                     <Text style={styles.courtStatText}>{court.indoor ? "Indoor" : "Outdoor"}</Text>
                   </View>
+                  <SportBadge sport={court.sport || "tennis"} size="sm" />
                 </View>
               </View>
             ))}
@@ -295,6 +302,15 @@ export default function CourtsManagementScreen() {
                   <View style={[styles.toggleKnob, formData.indoor && styles.toggleKnobActive]} />
                 </View>
               </Pressable>
+            </View>
+
+            <View style={styles.formGroup}>
+              <SportSingleSelector
+                selectedSport={formData.sport}
+                onSelect={(sport) => setFormData(prev => ({ ...prev, sport }))}
+                label="Sport"
+                includeMulti
+              />
             </View>
 
             <Pressable

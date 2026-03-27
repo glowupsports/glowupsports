@@ -373,9 +373,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const { name } = req.body;
+        const { name, sport } = req.body;
         if (!name || !name.trim()) {
           return res.status(400).json({ error: "Court name is required" });
+        }
+
+        const VALID_COURT_SPORTS = ["tennis", "padel", "pickleball", "multi"];
+        if (sport && !VALID_COURT_SPORTS.includes(sport)) {
+          return res.status(400).json({ error: `Invalid sport. Must be one of: ${VALID_COURT_SPORTS.join(", ")}` });
         }
 
         // Check for duplicate court name within academy
@@ -415,6 +420,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const { valid } = await validateCourtOwnership(id, academyId, storage);
         if (!valid) {
           return res.status(404).json({ error: "Court not found" });
+        }
+
+        const VALID_COURT_SPORTS = ["tennis", "padel", "pickleball", "multi"];
+        if (req.body.sport && !VALID_COURT_SPORTS.includes(req.body.sport)) {
+          return res.status(400).json({ error: `Invalid sport. Must be one of: ${VALID_COURT_SPORTS.join(", ")}` });
         }
 
         const court = await storage.updateCourt(

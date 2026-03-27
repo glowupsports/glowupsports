@@ -24,6 +24,8 @@ import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/consta
 import { apiRequest } from "@/lib/query-client";
 import { countries, getCitiesForCountry } from "@shared/countries";
 import { useAuth } from "@/coach/context/AuthContext";
+import { SPORTS, getSportConfig, type Sport } from "@shared/sportConfig";
+import { SportMultiSelector } from "@/components/SportBadge";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -33,6 +35,7 @@ interface OnboardingData {
   city: string;
   location: string;
   sport: string;
+  sports: string[];
   theme: "dark" | "light";
   accentColor: string;
   lessonTypes: string[];
@@ -321,12 +324,17 @@ function Step2Identity({ data, setData, onNext, onBack, showCountryPicker, setSh
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Sport</Text>
-            <View style={styles.sportBadge}>
-              <Ionicons name="tennisball-outline" size={18} color={Colors.dark.primary} />
-              <Text style={styles.sportBadgeText}>Tennis</Text>
-            </View>
-            <Text style={styles.hintText}>More sports coming soon</Text>
+            <SportMultiSelector
+              selectedSports={data.sports?.length ? data.sports : ["tennis"]}
+              onToggle={(sport) => {
+                const current = data.sports?.length ? data.sports : ["tennis"];
+                const updated = current.includes(sport)
+                  ? current.filter((s) => s !== sport)
+                  : [...current, sport];
+                setData(prev => ({ ...prev, sports: updated.length ? updated : ["tennis"] }));
+              }}
+              label="Sports Offered"
+            />
           </View>
           
           <View style={styles.previewCard}>
@@ -812,6 +820,7 @@ export default function AcademyOnboardingScreen({ navigation }: any) {
     city: "",
     location: "",
     sport: "tennis",
+    sports: ["tennis"],
     theme: "dark",
     accentColor: "green",
     lessonTypes: [],

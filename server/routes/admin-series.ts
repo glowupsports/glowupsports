@@ -318,6 +318,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         courtId,
         locationId,
         playerIds,
+        sport,
       } = req.body;
 
       if (!coachId) {
@@ -333,6 +334,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       if (!coach) {
         return res.status(404).json({ error: "Coach not found" });
       }
+
+      const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
 
       // Create the series
       const series = await storage.createCoachingSeries({
@@ -355,6 +359,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         vibe: vibe || "casual",
         price: price || null,
         status: "active",
+        sport: validatedSport,
       });
 
       // Add players if provided
@@ -497,6 +502,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           travelTime: 0,
           paymentStatus: "unpaid",
           status: "scheduled",
+          sport: validatedSport,
           ...pricingSnapshot,
         });
 
@@ -1076,11 +1082,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         visibleToPlayers,
         enableWaitlist,
         isOpen,
+        sport,
       } = req.body;
 
       if (!coachId || !courtId || !startTime || !duration || !sessionType) {
         return res.status(400).json({ error: "Missing required fields: coachId, courtId, startTime, duration, sessionType" });
       }
+
+      const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
 
       // Verify coach belongs to this academy
       const coach = await storage.getCoach(coachId, academyId);
@@ -1147,6 +1157,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           xpPerSession: 100,
           seriesStartDate: dateStr,
           weekCount: sessionsToCreate,
+          sport: validatedSport,
         });
         seriesId = newSeries.id;
       }
@@ -1206,6 +1217,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           visibleToPlayers,
           enableWaitlist,
           isOpen,
+          sport: validatedSport,
           ...pricingSnapshot,
         });
 
@@ -1279,11 +1291,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         isOpen,
         visibleToPlayers,
         flexibleSessions,
+        sport,
       } = req.body;
       
       if (!coachId || !courtId || !flexibleSessions || !Array.isArray(flexibleSessions) || flexibleSessions.length === 0) {
         return res.status(400).json({ error: "Missing required fields: coachId, courtId, and flexibleSessions are required" });
       }
+
+      const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
       
       const createdSessions: any[] = [];
       const skippedDates: string[] = [];
@@ -1367,6 +1383,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           seriesStartDate: firstDate,
           seriesEndDate: lastDate,
           status: "active",
+          sport: validatedSport,
         });
         seriesId = newSeries.id;
         
@@ -1416,6 +1433,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           seriesId: seriesId || undefined,
           visibleToPlayers,
           isOpen,
+          sport: validatedSport,
           ...pricingSnapshot,
         });
         

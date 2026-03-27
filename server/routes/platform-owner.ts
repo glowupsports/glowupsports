@@ -264,14 +264,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           focus,
           expectations,
           additionalFeedback,
+          sports,
         } = req.body;
 
-        // Update academy with name, country, and city if provided
+        // Update academy with name, country, city and sports if provided
         if (academyName?.trim()) {
+          const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+          const validatedSports = Array.isArray(sports)
+            ? sports.filter((s: unknown) => typeof s === "string" && VALID_SPORTS.includes(s))
+            : [];
           await storage.updateAcademy(academyId, {
             name: academyName.trim(),
             country: country || null,
             city: city || null,
+            sports: validatedSports.length ? validatedSports : ["tennis"],
           });
         }
 

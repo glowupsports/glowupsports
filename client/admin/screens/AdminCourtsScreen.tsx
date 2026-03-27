@@ -23,6 +23,8 @@ import { Colors, Backgrounds, Spacing, BorderRadius, CardStyles, Typography, Glo
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
+import { SPORTS, type SportOrMulti } from "@shared/sportConfig";
 
 interface Court {
   id: string;
@@ -36,6 +38,7 @@ interface Court {
   locationName?: string;
   photoUrl?: string | null;
   pricePerHour?: string | null;
+  sport?: string | null;
 }
 
 interface Location {
@@ -64,6 +67,7 @@ export default function AdminCourtsScreen() {
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [sportFilter, setSportFilter] = useState<SportOrMulti | "all">("all");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -73,6 +77,7 @@ export default function AdminCourtsScreen() {
     bookingEnabled: true,
     photoUrl: "" as string | null,
     pricePerHour: "",
+    sport: "tennis" as string,
   });
 
   const pickAndUploadPhoto = async (courtId?: string) => {
@@ -238,6 +243,7 @@ export default function AdminCourtsScreen() {
       bookingEnabled: true,
       photoUrl: null,
       pricePerHour: "",
+      sport: "tennis",
     });
   };
 
@@ -254,6 +260,7 @@ export default function AdminCourtsScreen() {
       bookingEnabled: formData.bookingEnabled,
       photoUrl: formData.photoUrl || null,
       pricePerHour: formData.pricePerHour ? formData.pricePerHour : null,
+      sport: formData.sport || "tennis",
     });
   };
 
@@ -272,6 +279,7 @@ export default function AdminCourtsScreen() {
         bookingEnabled: formData.bookingEnabled,
         photoUrl: formData.photoUrl || null,
         pricePerHour: formData.pricePerHour ? formData.pricePerHour : null,
+        sport: formData.sport || "tennis",
       },
     });
   };
@@ -303,11 +311,16 @@ export default function AdminCourtsScreen() {
       bookingEnabled: court.bookingEnabled !== false,
       photoUrl: court.photoUrl || null,
       pricePerHour: court.pricePerHour || "",
+      sport: court.sport || "tennis",
     });
     setShowEditModal(true);
   };
 
-  const groupedCourts = courts.reduce((acc, court) => {
+  const filteredCourts = sportFilter === "all"
+    ? courts
+    : courts.filter(c => (c.sport || "tennis") === sportFilter);
+
+  const groupedCourts = filteredCourts.reduce((acc, court) => {
     const key = court.locationName || "No Location";
     if (!acc[key]) acc[key] = [];
     acc[key].push(court);
@@ -359,6 +372,22 @@ export default function AdminCourtsScreen() {
           </Pressable>
         </View>
 
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
+          {(["all", ...SPORTS, "multi"] as Array<SportOrMulti | "all">).map((s) => {
+            const isSelected = sportFilter === s;
+            const label = s === "all" ? "All" : s === "multi" ? "Multi" : s.charAt(0).toUpperCase() + s.slice(1);
+            return (
+              <Pressable
+                key={s}
+                style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                onPress={() => setSportFilter(s)}
+              >
+                <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.dark.gold} />
@@ -391,9 +420,12 @@ export default function AdminCourtsScreen() {
                     <Text style={[styles.courtName, !court.isActive && styles.inactiveText]}>
                       {court.name}
                     </Text>
-                    {!court.isActive && (
-                      <Text style={styles.inactiveLabel}>Inactive</Text>
-                    )}
+                    <View style={styles.courtMeta}>
+                      <SportBadge sport={court.sport || "tennis"} size="sm" />
+                      {!court.isActive ? (
+                        <Text style={styles.inactiveLabel}>Inactive</Text>
+                      ) : null}
+                    </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
                 </Pressable>
@@ -522,6 +554,15 @@ export default function AdminCourtsScreen() {
                   />
                 </View>
                 <Text style={styles.helperText}>Leave empty if court rental is free</Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <SportSingleSelector
+                  selectedSport={formData.sport}
+                  onSelect={(s) => setFormData({ ...formData, sport: s })}
+                  label="Sport"
+                  includeMulti
+                />
               </View>
 
               <Pressable
@@ -684,6 +725,15 @@ export default function AdminCourtsScreen() {
                   />
                 </View>
                 <Text style={styles.helperText}>Leave empty if court rental is free</Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <SportSingleSelector
+                  selectedSport={formData.sport}
+                  onSelect={(s) => setFormData({ ...formData, sport: s })}
+                  label="Sport"
+                  includeMulti
+                />
               </View>
 
               <Pressable
@@ -865,13 +915,46 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
+  courtMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: 4,
+  },
   inactiveLabel: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
-    marginTop: 2,
   },
   inactiveText: {
     color: Colors.dark.textMuted,
+  },
+  filterRow: {
+    marginHorizontal: -Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  filterRowContent: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.card,
+  },
+  filterChipActive: {
+    backgroundColor: `${Colors.dark.gold}20`,
+    borderColor: Colors.dark.gold,
+  },
+  filterChipText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  filterChipTextActive: {
+    color: Colors.dark.gold,
   },
   modalOverlay: {
     flex: 1,

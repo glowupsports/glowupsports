@@ -16,6 +16,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors, RoleColors } from "@/constants/theme";
+import { SportBadge } from "@/components/SportBadge";
+import { SPORTS, type Sport } from "@shared/sportConfig";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import { TIME_COLUMN_WIDTH, START_HOUR } from "@/coach/components/calendar/calendarConstants";
 const ADMIN_COLOR = RoleColors.admin;
@@ -32,6 +34,7 @@ interface Session {
   status?: string;
   coachId?: string;
   courtId?: string;
+  sport?: string | null;
   players?: { id: string; name: string }[];
 }
 
@@ -74,6 +77,7 @@ export default function AdminCalendarScreen() {
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [gridMode, setGridMode] = useState<"coach" | "court">("coach");
   const [selectedCoachFilter, setSelectedCoachFilter] = useState<string | null>(null);
+  const [sportFilter, setSportFilter] = useState<Sport | "all">("all");
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     coachId?: string;
@@ -141,12 +145,17 @@ export default function AdminCalendarScreen() {
     return `${hour.toString().padStart(2, "0")}:00`;
   };
 
+  const sportFilteredSessions = useMemo(() => {
+    if (sportFilter === "all") return sessions;
+    return sessions.filter(s => (s.sport || "tennis") === sportFilter);
+  }, [sessions, sportFilter]);
+
   const allTodaySessions = useMemo(() => {
     const today = selectedDate.toDateString();
-    return sessions
+    return sportFilteredSessions
       .filter((s) => new Date(s.startTime).toDateString() === today)
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [sessions, selectedDate]);
+  }, [sportFilteredSessions, selectedDate]);
 
   const todaySessions = useMemo(() => {
     if (selectedCoachFilter && gridMode === "coach") {
@@ -167,7 +176,7 @@ export default function AdminCalendarScreen() {
       day.setDate(startOfWeek.getDate() + i);
       const dayString = day.toDateString();
       
-      let daySessions = sessions.filter((s) => {
+      let daySessions = sportFilteredSessions.filter((s) => {
         const sessionDate = new Date(s.startTime).toDateString();
         return sessionDate === dayString;
       });
@@ -179,7 +188,7 @@ export default function AdminCalendarScreen() {
       days.push({ date: day, sessions: daySessions });
     }
     return days;
-  }, [sessions, selectedDate, selectedCoachFilter]);
+  }, [sportFilteredSessions, selectedDate, selectedCoachFilter]);
 
   const totalWeekSessions = useMemo(() => {
     return weekDays.reduce((sum, day) => sum + day.sessions.length, 0);
@@ -379,6 +388,9 @@ export default function AdminCalendarScreen() {
                                 <Text style={styles.sessionPlayers} numberOfLines={1}>
                                   {session.players.length} player{session.players.length > 1 ? "s" : ""}
                                 </Text>
+                              ) : null}
+                              {session.sport && session.sport !== "tennis" ? (
+                                <SportBadge sport={session.sport} size="sm" showLabel={false} />
                               ) : null}
                             </LinearGradient>
                           </Pressable>
@@ -655,6 +667,32 @@ export default function AdminCalendarScreen() {
             <View style={[styles.filterDot, { backgroundColor: COACH_COLORS[index % COACH_COLORS.length] }]} />
             <Text style={[styles.filterChipText, selectedCoachFilter === coach.id && styles.filterChipTextActive]}>
               {coach.name.split(" ")[0]}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.coachFilter}
+        contentContainerStyle={styles.coachFilterContent}
+      >
+        <Pressable
+          style={[styles.filterChip, sportFilter === "all" && styles.filterChipActive]}
+          onPress={() => { setSportFilter("all"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+        >
+          <Text style={[styles.filterChipText, sportFilter === "all" && styles.filterChipTextActive]}>All Sports</Text>
+        </Pressable>
+        {SPORTS.map((sport) => (
+          <Pressable
+            key={sport}
+            style={[styles.filterChip, sportFilter === sport && styles.filterChipActive]}
+            onPress={() => { setSportFilter(sport); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+          >
+            <SportBadge sport={sport} size="sm" showLabel={false} />
+            <Text style={[styles.filterChipText, sportFilter === sport && styles.filterChipTextActive]}>
+              {sport.charAt(0).toUpperCase() + sport.slice(1)}
             </Text>
           </Pressable>
         ))}

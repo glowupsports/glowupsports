@@ -644,6 +644,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           playerIds,
           isFlexible,
           flexibleDates,
+          sport,
         } = req.body;
 
         // Flexible series: dayOfWeek = -1, sessions from flexibleDates array
@@ -705,6 +706,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           effectiveWeekCount = flexibleDates.length;
         }
 
+        const VALID_SPORTS = ["tennis", "padel", "pickleball"];
+        const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
+
         // Create the series
         const series = await storage.createCoachingSeries({
           academyId,
@@ -726,6 +730,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           vibe: vibe || "casual",
           price: price || null,
           status: "active",
+          sport: validatedSport,
         });
 
         // Add players if provided
@@ -868,6 +873,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               travelTime: 0,
               paymentStatus: "unpaid",
               status: "scheduled",
+              sport: validatedSport,
               ...pricingSnapshot,
             });
 
@@ -1170,6 +1176,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             travelTime: 0,
             paymentStatus: "unpaid",
             status: "scheduled",
+            sport: validatedSport,
             ...pricingSnapshot,
           });
 

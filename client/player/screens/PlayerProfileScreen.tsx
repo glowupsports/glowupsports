@@ -20,6 +20,8 @@ import { formatCredits } from "@/lib/dateUtils";
 import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
+import { SportBadge } from "@/components/SportBadge";
+import { SPORTS, getSportConfig } from "@shared/sportConfig";
 
 interface ProfileData {
   player: {
@@ -42,6 +44,7 @@ interface ProfileData {
     displayName: string | null;
     profilePhotoUrl: string | null;
     playStyle: string | null;
+    sportProfiles: Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: number | null }> | null;
   };
   coach: {
     id: string;
@@ -259,6 +262,20 @@ export default function PlayerProfileScreen() {
     },
     onError: () => {
       Alert.alert("Error", "Could not update play style. Please try again.");
+    },
+  });
+
+  const updateSportProfile = useMutation({
+    mutationFn: async ({ sport, level, profileField, currentProfiles }: { sport: string; level: string | null; profileField: string; currentProfiles: Record<string, any> }) => {
+      const updatedProfiles = { ...currentProfiles, [sport]: { ...currentProfiles[sport], [profileField]: level } };
+      return apiRequest("PATCH", "/api/player/me/profile", { sportProfiles: updatedProfiles });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not update sport profile. Please try again.");
     },
   });
 
@@ -573,6 +590,11 @@ export default function PlayerProfileScreen() {
                 {ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1)} Ball
               </Text>
             </View>
+            {player.sportProfiles && Object.keys(player.sportProfiles).length > 0 ? (
+              Object.keys(player.sportProfiles).map((sport) => (
+                <SportBadge key={sport} sport={sport} size="sm" />
+              ))
+            ) : null}
             <View style={styles.glowBadge}>
               <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
               <Text style={styles.glowText}>{player.glowScore} Glow</Text>
@@ -952,6 +974,47 @@ export default function PlayerProfileScreen() {
             </LinearGradient>
           </View>
         ) : null}
+
+        {/* Sport Profiles Section */}
+        <View style={styles.statsCard}>
+          <Text style={styles.sectionTitle}>Sport Profiles</Text>
+          <Text style={[styles.emptyTabSubtext, { marginBottom: Spacing.md }]}>Your skill level for each sport</Text>
+          {SPORTS.map((sport) => {
+            const sportCfg = getSportConfig(sport);
+            const profile = player.sportProfiles?.[sport] || {};
+            const currentLevel = (profile[sportCfg.profileField] as string | null | undefined) || null;
+            return (
+              <View key={sport} style={[styles.settingsItem, { flexDirection: "column", alignItems: "flex-start", gap: Spacing.sm }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                  <SportBadge sport={sport} size="sm" />
+                </View>
+                <Text style={[styles.emptyTabSubtext, { marginBottom: 4 }]}>{sportCfg.skillLevelLabel}</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.xs }}>
+                  {sportCfg.skillLevels.map((level) => {
+                    const isSelected = currentLevel === level.key;
+                    return (
+                      <Pressable
+                        key={level.key}
+                        style={[
+                          styles.sportLevelChip,
+                          isSelected && styles.sportLevelChipActive,
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          updateSportProfile.mutate({ sport, level: isSelected ? null : level.key, profileField: sportCfg.profileField, currentProfiles: player.sportProfiles || {} });
+                        }}
+                      >
+                        <Text style={[styles.sportLevelChipText, isSelected && styles.sportLevelChipTextActive]}>
+                          {level.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+        </View>
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>{t("player.profile.settings")}</Text>
@@ -1497,6 +1560,26 @@ const styles = StyleSheet.create({
     ...CardStyles.elevated,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
+  },
+  sportLevelChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.card,
+  },
+  sportLevelChipActive: {
+    backgroundColor: `${Colors.dark.gold}20`,
+    borderColor: Colors.dark.gold,
+  },
+  sportLevelChipText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  sportLevelChipTextActive: {
+    color: Colors.dark.gold,
   },
   statsGrid: {
     flexDirection: "row",

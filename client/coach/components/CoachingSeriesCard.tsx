@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { SportBadge } from "@/components/SportBadge";
 
 interface PlayerPreview {
   id: string;
@@ -38,6 +39,7 @@ interface CoachingSeries {
   playerPreview?: PlayerPreview[];
   primaryBallLevel?: string | null;
   nextSessionDate?: string | null;
+  sport?: string | null;
 }
 
 interface Props {
@@ -171,6 +173,9 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
               </View>
               <Text style={styles.seriesTitle} numberOfLines={1}>{displayTitle}</Text>
             </View>
+            {series.sport && series.sport !== "tennis" ? (
+              <SportBadge sport={series.sport} size="sm" />
+            ) : null}
             {series.primaryBallLevel ? (
               <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor + '20', borderColor: ballLevelColor }]}>
                 <View style={[styles.ballLevelDot, { backgroundColor: ballLevelColor }]} />
