@@ -180,7 +180,7 @@ export default function PlayerBookingWizard({
   onBookingSuccess,
   playerId,
   playerBallLevel,
-  sport,
+  sport = "tennis",
 }: PlayerBookingWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -1298,13 +1298,11 @@ export default function PlayerBookingWizard({
               <Text style={styles.headerSlide}>
                 Step {currentSlide + 1} of {getTotalSlides()}
               </Text>
-              {sport ? (
-                <View style={{ backgroundColor: getSportColor(sport as any) + "22", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
-                  <Text style={{ color: getSportColor(sport as any), fontSize: 10, fontWeight: "600" }}>
-                    {getSportLabel(sport as any)}
-                  </Text>
-                </View>
-              ) : null}
+              <View style={{ backgroundColor: getSportColor(sport) + "22", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: getSportColor(sport), fontSize: 10, fontWeight: "600" }}>
+                  {getSportLabel(sport)}
+                </Text>
+              </View>
             </View>
           </View>
 
