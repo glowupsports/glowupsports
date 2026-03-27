@@ -2216,16 +2216,24 @@ import fs from "fs";
           .orderBy(desc(postsTable.createdAt))
           .limit(50);
 
-        // Add author info
+        // Add author info (prefer player name, fallback to email prefix)
         const postsWithAuthor = await Promise.all(
           groupPosts.map(async (post) => {
             const [author] = await db
               .select()
               .from(users)
               .where(eq(users.id, post.authorId));
+            let authorName = author?.email?.split("@")[0] || "Unknown";
+            if (author?.playerId) {
+              const [player] = await db
+                .select({ name: players.name })
+                .from(players)
+                .where(eq(players.id, author.playerId));
+              if (player?.name) authorName = player.name;
+            }
             return {
               ...post,
-              authorName: author?.email?.split("@")[0] || "Unknown",
+              authorName,
             };
           }),
         );
