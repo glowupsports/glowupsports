@@ -3466,39 +3466,84 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   });
 
   // Get player social and availability data for the new 5-zone Player Home
-  // Get player's friends list (players from same academy)
+  // Get player's friends list (only from playerConnections with status=accepted)
   router.get("/api/player/me/friends", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user!.playerId) {
         return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
-      const player = await storage.getPlayer(playerId);
-      
-      if (!player || !player.academyId) {
-        return res.json({ friends: [], pendingRequests: [] });
-      }
-      
-      // Get all players in the same academy
-      const allPlayers = await storage.getPlayersByAcademy(player.academyId);
-      
-      // Filter out current player and return friend info
-      const friends = allPlayers
-        .filter((p: any) => p.id !== playerId)
-        .map((p: any) => ({
+
+      const { playerConnections: pc } = await import("@shared/schema");
+
+      // Accepted connections where player is requester (player1) or receiver (player2)
+      const acceptedConnections = await db
+        .select()
+        .from(pc)
+        .where(
+          and(
+            eq(pc.status, "accepted"),
+            or(
+              eq(pc.player1Id, playerId),
+              eq(pc.player2Id, playerId)
+            )
+          )
+        );
+
+      // Pending requests received (player is player2)
+      const pendingReceived = await db
+        .select()
+        .from(pc)
+        .where(
+          and(
+            eq(pc.status, "pending"),
+            eq(pc.player2Id, playerId)
+          )
+        );
+
+      const friendPlayerIds = acceptedConnections.map((c) =>
+        c.player1Id === playerId ? c.player2Id : c.player1Id
+      );
+      const pendingPlayerIds = pendingReceived.map((c) => c.player1Id);
+
+      const fetchPlayerInfo = async (pid: string) => {
+        const p = await storage.getPlayer(pid);
+        if (!p) return null;
+        return {
           id: p.id,
-          name: p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Player',
-          firstName: p.firstName || p.name?.split(' ')[0] || 'Player',
-          lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
-          profilePhotoUrl: p.profilePhotoUrl,
-          ballLevel: p.ballLevel,
-          glowLevel: p.glowLevel,
-        }));
-      
-      res.json({ friends, pendingRequests: [] });
+          name: p.name || p.displayName || 'Player',
+          photoUrl: p.profilePhotoUrl || null,
+          ballLevel: p.ballLevel || null,
+          skillLevel: p.level || null,
+          openToPlay: false,
+        };
+      };
+
+      const friends = (await Promise.all(friendPlayerIds.map(fetchPlayerInfo))).filter(Boolean);
+      const pendingRequests = (await Promise.all(pendingPlayerIds.map(fetchPlayerInfo))).filter(Boolean);
+
+      res.json({ friends, pendingRequests });
     } catch (error) {
       console.error("Error fetching player friends:", error);
       res.status(500).json({ error: "Failed to fetch friends" });
+    }
+  });
+
+  // Generate invite link for the current player
+  router.get("/api/player/me/invite-link", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      const baseUrl = process.env.EXPO_PUBLIC_DOMAIN
+        ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+        : "https://glowuptennis.app";
+      const link = `${baseUrl}/join?ref=${playerId}`;
+      res.json({ link, playerId });
+    } catch (error) {
+      console.error("Error generating invite link:", error);
+      res.status(500).json({ error: "Failed to generate invite link" });
     }
   });
 

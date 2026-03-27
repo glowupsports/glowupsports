@@ -12,6 +12,7 @@ import {
   Image,
   Platform,
   Alert,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1923,6 +1924,37 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
         ) : null}
       </Animated.View>
 
+      {!data.academyId ? (
+        <Animated.View entering={FadeInDown.delay(900).duration(600)} style={styles.inviteNudgeCard}>
+          <Ionicons name="people" size={24} color={GlowColors.primary} />
+          <Text style={styles.inviteNudgeTitle}>Nodig je eerste tennismaatje uit</Text>
+          <Text style={styles.inviteNudgeSubtitle}>Speel en groei samen met vrienden</Text>
+          <Pressable
+            style={styles.inviteNudgeBtn}
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              try {
+                let inviteLink = "https://glowuptennis.app";
+                try {
+                  const res = await apiRequest("GET", "/api/player/me/invite-link");
+                  if (res.ok) {
+                    const json = await res.json();
+                    if (json.link) inviteLink = json.link;
+                  }
+                } catch {}
+                await Share.share({
+                  message: `Speel tennis met mij op Glow Up Tennis! Download de app en start je reis: ${inviteLink}`,
+                  title: "Nodig tennismaatjes uit",
+                });
+              } catch {}
+            }}
+          >
+            <Ionicons name="share-social" size={16} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.inviteNudgeBtnText}>Nodig uit</Text>
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
       <Animated.View entering={FadeInUp.delay(1000).duration(600)}>
         <Pressable
           style={styles.completionButton}
@@ -3220,5 +3252,42 @@ const styles = StyleSheet.create({
   },
   videoNextContainer: {
     marginTop: Spacing.xl,
+  },
+  inviteNudgeCard: {
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: `${GlowColors.primary}30`,
+    marginBottom: Spacing.lg,
+    width: "100%",
+  },
+  inviteNudgeTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  inviteNudgeSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  inviteNudgeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.xs,
+  },
+  inviteNudgeBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });

@@ -3304,6 +3304,89 @@ router.post("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRe
   }
 });
 
+// Friend Spotlight: GET /api/player/spotlight/friends
+router.get("/api/player/spotlight/friends", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user!.playerId;
+    if (!playerId) {
+      return res.json({ topFriend: null });
+    }
+
+    // Get accepted connections
+    const acceptedConnections = await db
+      .select()
+      .from(playerConnections)
+      .where(
+        and(
+          eq(playerConnections.status, "accepted"),
+          or(
+            eq(playerConnections.player1Id, playerId),
+            eq(playerConnections.player2Id, playerId)
+          )
+        )
+      );
+
+    if (acceptedConnections.length === 0) {
+      return res.json({ topFriend: null });
+    }
+
+    const friendIds = acceptedConnections.map((c) =>
+      c.player1Id === playerId ? c.player2Id : c.player1Id
+    );
+
+    // Get XP earned this week for each friend
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const friendStats = await Promise.all(
+      friendIds.map(async (fid) => {
+        const [xpResult] = await db
+          .select({ total: sql<number>`coalesce(sum(${playerXpEvents.xpAmount}), 0)` })
+          .from(playerXpEvents)
+          .where(
+            and(
+              eq(playerXpEvents.playerId, fid),
+              gte(playerXpEvents.createdAt, weekStart)
+            )
+          );
+
+        const weeklyXp = Number(xpResult?.total || 0);
+
+        const friendPlayer = await db
+          .select({
+            id: players.id,
+            displayName: players.displayName,
+            profilePhotoUrl: players.profilePhotoUrl,
+            ballLevel: players.ballLevel,
+            level: players.level,
+          })
+          .from(players)
+          .where(eq(players.id, fid))
+          .limit(1);
+
+        if (!friendPlayer[0]) return null;
+        return {
+          playerId: fid,
+          playerName: friendPlayer[0].displayName || "Player",
+          profilePhotoUrl: friendPlayer[0].profilePhotoUrl || null,
+          ballLevel: friendPlayer[0].ballLevel || null,
+          weeklyXp,
+        };
+      })
+    );
+
+    const validStats = friendStats.filter(Boolean) as NonNullable<typeof friendStats[0]>[];
+    validStats.sort((a, b) => b.weeklyXp - a.weeklyXp);
+    const topFriend = validStats[0] || null;
+
+    res.json({ topFriend });
+  } catch (error) {
+    console.error("Error fetching friend spotlight:", error);
+    res.status(500).json({ error: "Failed to fetch friend spotlight" });
+  }
+});
+
 // Unblock a user: DELETE /api/player/me/block/:playerId
 // Resolves playerId -> userId to match block entries
 router.delete("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {

@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Share,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -384,6 +385,21 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
     } catch (e) { logger.log("Reject error", e); }
   };
 
+  const handleInviteFriends = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const res = await apiFetch("/api/player/me/invite-link");
+      const data = res.ok ? await res.json() : null;
+      const link = data?.link || "https://glowuptennis.app";
+      await Share.share({
+        message: `Speel tennis met mij op Glow Up Tennis! Download de app en voeg me toe als vriend: ${link}`,
+        title: "Nodig tennismaatjes uit",
+      });
+    } catch (e) {
+      logger.log("Invite error", e);
+    }
+  };
+
   const renderFriendCard = (friend: Friend) => (
     <Animated.View key={friend.id} entering={FadeInDown.delay(100).springify()}>
       <Pressable
@@ -631,7 +647,21 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
                 <Ionicons name="people" size={48} color={Colors.dark.primary} />
               </View>
               <ThemedText style={friendStyles.emptyTitle}>{t('player.community.noFriends')}</ThemedText>
-              <ThemedText style={friendStyles.emptySubtitle}>Find and connect with other players at your academy</ThemedText>
+              <ThemedText style={friendStyles.emptySubtitle}>Nodig je tennismaatjes uit en verbind met andere spelers</ThemedText>
+              <Pressable
+                style={friendStyles.inviteBtn}
+                onPress={handleInviteFriends}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.primaryGlow || "#9AE66E"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={friendStyles.inviteBtnGradient}
+                >
+                  <Ionicons name="share-social" size={18} color={Colors.dark.backgroundRoot} />
+                  <ThemedText style={friendStyles.inviteBtnText}>Nodig tennismaatjes uit</ThemedText>
+                </LinearGradient>
+              </Pressable>
               <Pressable
                 style={friendStyles.findPlayersBtn}
                 onPress={() => navigation.navigate("PlayStack", { screen: "OpenMatches" })}
@@ -683,17 +713,21 @@ export function GroupsSection() {
 
   const createGroupMutation = useMutation({
     mutationFn: async (data: { name: string; description: string; type: string }) => {
-      return apiRequest("/api/player/groups", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/player/groups", data);
     },
-    onSuccess: () => {
+    onSuccess: async (_result: unknown) => {
       queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
       setShowCreateModal(false);
+      const groupName = newGroupName.trim();
       setNewGroupName("");
       setNewGroupDescription("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      try {
+        await Share.share({
+          message: `Ik heb een tennisgroep aangemaakt: "${groupName}". Word lid en train samen met mij op Glow Up Tennis!`,
+          title: groupName,
+        });
+      } catch {}
     },
   });
 
@@ -706,50 +740,7 @@ export function GroupsSection() {
     });
   };
 
-  const DEMO_GROUPS: Group[] = [
-    {
-      id: "group-1",
-      name: "Yellow Ball Champions",
-      description: "For advanced yellow ball players looking to compete",
-      type: "skill_level",
-      memberCount: 24,
-      isJoined: true,
-    },
-    {
-      id: "group-2",
-      name: "Weekend Warriors",
-      description: "Casual weekend tennis meetups and social events",
-      type: "social",
-      memberCount: 45,
-      isJoined: true,
-    },
-    {
-      id: "group-3",
-      name: "Dubai Tennis League",
-      description: "Official tournament group for league matches",
-      type: "tournament",
-      memberCount: 32,
-      isJoined: false,
-    },
-    {
-      id: "group-4",
-      name: "Junior Development",
-      description: "U16 players training together",
-      type: "training",
-      memberCount: 18,
-      isJoined: false,
-    },
-    {
-      id: "group-5",
-      name: "Ladies Tennis Club",
-      description: "Women's tennis community for all skill levels",
-      type: "social",
-      memberCount: 28,
-      isJoined: true,
-    },
-  ];
-
-  const allGroups = groupsData?.length ? groupsData : DEMO_GROUPS;
+  const allGroups = groupsData || [];
 
   const groups = useMemo(() => {
     if (groupFilter === "all") return allGroups;
@@ -769,9 +760,38 @@ export function GroupsSection() {
     }
   };
 
+  const handleGroupPress = (group: Group) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const isJoined = group.isJoined !== false;
+    if (isJoined) {
+      navigation.navigate("GroupDetail", { groupId: group.id, groupName: group.name });
+    } else {
+      Alert.alert(
+        group.name,
+        `Join "${group.name}"? ${group.memberCount} members`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Join",
+            onPress: async () => {
+              try {
+                await apiRequest("POST", `/api/player/groups/${group.id}/join`);
+                queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                navigation.navigate("GroupDetail", { groupId: group.id, groupName: group.name });
+              } catch {
+                Alert.alert("Error", "Could not join group. Please try again.");
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   const renderGroupCard = (group: Group) => (
     <Animated.View key={group.id} entering={FadeInDown.delay(100).springify()}>
-      <Pressable style={groupStyles.groupCard}>
+      <Pressable style={groupStyles.groupCard} onPress={() => handleGroupPress(group)}>
         <View style={groupStyles.groupIconContainer}>
           <LinearGradient
             colors={[Colors.dark.primary + "30", Colors.dark.backgroundSecondary]}
@@ -791,9 +811,12 @@ export function GroupsSection() {
           ) : null}
         </View>
 
-        <Pressable style={[groupStyles.joinBtn, group.isJoined && groupStyles.joinedBtn]}>
-          <ThemedText style={[groupStyles.joinBtnText, group.isJoined && groupStyles.joinedBtnText]}>
-            {group.isJoined ? "Joined" : "Join"}
+        <Pressable
+          style={[groupStyles.joinBtn, group.isJoined !== false && groupStyles.joinedBtn]}
+          onPress={(e) => { e.stopPropagation(); handleGroupPress(group); }}
+        >
+          <ThemedText style={[groupStyles.joinBtnText, group.isJoined !== false && groupStyles.joinedBtnText]}>
+            {group.isJoined !== false ? "Joined" : "Join"}
           </ThemedText>
         </Pressable>
       </Pressable>
@@ -848,26 +871,34 @@ export function GroupsSection() {
           ListEmptyComponent={
             <View style={groupStyles.emptyState}>
               <View style={groupStyles.emptyIcon}>
-                <Ionicons name="grid" size={48} color={Colors.dark.primary} />
+                <Ionicons name="people-circle" size={56} color={Colors.dark.primary} />
               </View>
-              <ThemedText style={groupStyles.emptyTitle}>No {groupFilter === "all" ? "" : groupFilter + " "}groups yet</ThemedText>
+              <ThemedText style={groupStyles.emptyTitle}>
+                {groupFilter === "all" ? "Maak je eerste groep" : `No ${groupFilter} groups yet`}
+              </ThemedText>
               <ThemedText style={groupStyles.emptySubtitle}>
                 {groupFilter === "training"
                   ? "Join training groups created by your coach"
-                  : groupFilter === "social"
-                  ? "Create or join social groups with fellow players"
-                  : "Join groups to connect with players of similar skill levels"}
+                  : "Maak een squad aan en nodig je tennismaatjes uit"}
               </ThemedText>
               {groupFilter !== "training" ? (
                 <Pressable
-                  style={groupStyles.createGroupBtn}
+                  style={groupStyles.squadBtn}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setNewGroupType("friends");
                     setShowCreateModal(true);
                   }}
                 >
-                  <Ionicons name="add" size={18} color={Colors.dark.primary} />
-                  <ThemedText style={groupStyles.createGroupBtnText}>{t('player.community.createGroup')}</ThemedText>
+                  <LinearGradient
+                    colors={[Colors.dark.primary, Colors.dark.primaryGlow || "#9AE66E"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={groupStyles.squadBtnGradient}
+                  >
+                    <Ionicons name="people" size={20} color={Colors.dark.backgroundRoot} />
+                    <ThemedText style={groupStyles.squadBtnText}>Maak je Squad</ThemedText>
+                  </LinearGradient>
                 </Pressable>
               ) : null}
             </View>
@@ -1400,20 +1431,41 @@ const friendStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  inviteBtn: {
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    width: "100%",
+  },
+  inviteBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
+  },
+  inviteBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
   findPlayersBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: "transparent",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm + 2,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   findPlayersBtnText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.textSecondary,
   },
   activityCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -1687,6 +1739,24 @@ const groupStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.primary,
+  },
+  squadBtn: {
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  squadBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+  },
+  squadBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
   createGroupFab: {
     position: "absolute",

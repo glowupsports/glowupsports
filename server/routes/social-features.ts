@@ -952,9 +952,9 @@ const socialPostUpload = multer({
         ));
       
       const allGroups = [
-        ...userGroups.map(g => ({ ...g.group, role: g.membership.role })),
+        ...userGroups.map(g => ({ ...g.group, role: g.membership.role, isJoined: true })),
         ...academyGroups.filter(ag => !userGroups.some(ug => ug.group.id === ag.id))
-          .map(ag => ({ ...ag, role: "member" as const })),
+          .map(ag => ({ ...ag, role: null, isJoined: false })),
       ];
       
       res.json(allGroups);

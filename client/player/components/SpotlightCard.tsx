@@ -49,10 +49,21 @@ interface MonthlyData {
   leaderboard: any[];
 }
 
+interface FriendSpotlightData {
+  topFriend: {
+    playerId: string;
+    playerName: string;
+    profilePhotoUrl: string | null;
+    ballLevel: string | null;
+    weeklyXp: number;
+  } | null;
+}
+
 interface SpotlightCardProps {
   onNominate: () => void;
   onViewDetails: () => void;
   onShareWinner?: (winner: WeeklyWinner) => void;
+  mode?: "academy" | "friends";
 }
 
 function PlayerAvatar({ photoUrl, size = 56, borderColor = "#FFD700" }: { photoUrl?: string | null; size?: number; borderColor?: string }) {
@@ -105,23 +116,76 @@ const countdownStyles = StyleSheet.create({
   },
 });
 
-export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: SpotlightCardProps) {
+export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void }) {
+  const { user } = useAuth();
+
+  const { data: friendSpotlight } = useQuery<FriendSpotlightData>({
+    queryKey: ["/api/player/spotlight/friends"],
+    enabled: !!user?.playerId,
+  });
+
+  const topFriend = friendSpotlight?.topFriend;
+
+  return (
+    <Animated.View entering={FadeInDown.delay(250).duration(600)} style={[styles.outerContainer]}>
+      <View style={[styles.accentLine, { backgroundColor: GlowColors.primary }]} />
+      <View style={[styles.gradient, { backgroundColor: "#0F141B" }]}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <View style={[styles.trophyContainer, { backgroundColor: "rgba(200, 255, 61, 0.12)" }]}>
+              <Ionicons name="people" size={14} color={GlowColors.primary} />
+            </View>
+            <View>
+              <Text style={[styles.headerTitle, { color: GlowColors.primary }]}>VRIEND SPOTLIGHT</Text>
+              <Text style={styles.headerSubtitle}>Meest actief deze week</Text>
+            </View>
+          </View>
+        </View>
+
+        {topFriend ? (
+          <View style={friendSpotStyles.friendRow}>
+            <PlayerAvatar photoUrl={topFriend.profilePhotoUrl} size={52} borderColor={GlowColors.primary} />
+            <View style={friendSpotStyles.friendInfo}>
+              <Text style={friendSpotStyles.friendLabel}>TOP VRIEND DEZE WEEK</Text>
+              <Text style={friendSpotStyles.friendName} numberOfLines={1}>{topFriend.playerName}</Text>
+              <View style={friendSpotStyles.xpBadge}>
+                <Ionicons name="flash" size={12} color={GlowColors.primary} />
+                <Text style={friendSpotStyles.xpText}>{topFriend.weeklyXp} XP deze week</Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={friendSpotStyles.emptyState}>
+            <Ionicons name="people-outline" size={32} color={TextColors.muted} />
+            <Text style={friendSpotStyles.emptyText}>Voeg vrienden toe om hun voortgang te zien</Text>
+            <Pressable style={friendSpotStyles.addBtn} onPress={onAddFriends}>
+              <Text style={friendSpotStyles.addBtnText}>Vrienden toevoegen</Text>
+              <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
+}
+
+export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode = "academy" }: SpotlightCardProps) {
   const { user } = useAuth();
   const glowStyle = {};
 
   const { data: currentWeek } = useQuery<CurrentWeekData>({
     queryKey: ["/api/player/spotlight/current-week"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && mode === "academy",
   });
 
   const { data: weeklyWinner } = useQuery<{ winner: WeeklyWinner | null }>({
     queryKey: ["/api/player/spotlight/weekly-winner"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && mode === "academy",
   });
 
   const { data: monthlyData } = useQuery<MonthlyData>({
     queryKey: ["/api/player/spotlight/monthly"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && mode === "academy",
   });
 
   const hasVoted = !!currentWeek?.myNomination;
@@ -489,5 +553,70 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 215, 0, 0.2)",
+  },
+});
+
+const friendSpotStyles = StyleSheet.create({
+  friendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: "rgba(200, 255, 61, 0.06)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.15)",
+  },
+  friendInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  friendLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: GlowColors.primary,
+    letterSpacing: 1.5,
+  },
+  friendName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  xpText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: GlowColors.primary,
+  },
+  emptyState: {
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: TextColors.muted,
+    textAlign: "center",
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: "rgba(200, 255, 61, 0.1)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.2)",
+    marginTop: Spacing.xs,
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
 });

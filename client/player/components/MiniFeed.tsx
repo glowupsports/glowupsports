@@ -173,16 +173,16 @@ function LatestPostCard({ post, onPress, queryClient }: { post: Post; onPress: (
           </Text>
         )}
 
-        {hasMedia && firstMediaUrl && (
+        {(post.mediaUrls?.length ?? 0) > 0 && firstMediaUrl ? (
           <View style={styles.latestPostMediaPreview}>
             <Image source={{ uri: firstMediaUrl }} style={styles.mediaThumb} contentFit="cover" />
-            {post.mediaUrls.length > 1 && (
+            {(post.mediaUrls?.length ?? 0) > 1 ? (
               <View style={styles.mediaCountBadge}>
-                <Text style={styles.mediaCountText}>+{post.mediaUrls.length - 1}</Text>
+                <Text style={styles.mediaCountText}>+{(post.mediaUrls?.length ?? 1) - 1}</Text>
               </View>
-            )}
+            ) : null}
           </View>
-        )}
+        ) : null}
 
         <View style={styles.latestPostStats}>
           <View style={styles.statItem}>
