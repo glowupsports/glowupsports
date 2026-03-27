@@ -6502,3 +6502,61 @@ export const equipmentRentals = pgTable("equipment_rentals", {
 export const insertEquipmentRentalSchema = createInsertSchema(equipmentRentals).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertEquipmentRental = z.infer<typeof insertEquipmentRentalSchema>;
 export type EquipmentRental = typeof equipmentRentals.$inferSelect;
+
+// ==================== PLAY PARTNER FINDER ====================
+
+export const playRequests = pgTable("play_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").references(() => players.id).notNull(),
+  sport: text("sport").notNull().default("tennis"), // tennis | padel | squash | pickleball | badminton
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  location: text("location").notNull(),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  spotsTotal: integer("spots_total").notNull().default(1),
+  spotsFilled: integer("spots_filled").notNull().default(0),
+  levelMin: integer("level_min"),
+  levelMax: integer("level_max"),
+  notes: text("notes"),
+  status: text("status").notNull().default("open"), // open | full | cancelled | expired
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("play_requests_creator_idx").on(table.creatorId),
+  index("play_requests_status_idx").on(table.status),
+  index("play_requests_sport_idx").on(table.sport),
+  index("play_requests_scheduled_idx").on(table.scheduledAt),
+]);
+
+export const insertPlayRequestSchema = createInsertSchema(playRequests).omit({ id: true, createdAt: true, spotsFilled: true });
+export const playRequestInputSchema = z.object({
+  sport: z.enum(["tennis", "padel", "squash", "pickleball", "badminton"]).default("tennis"),
+  scheduledAt: z.string().min(1, "Date/time is required"),
+  expiresAt: z.string().optional(),
+  location: z.string().min(1, "Location is required"),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  spotsTotal: z.number().int().min(1).max(10).default(1),
+  levelMin: z.number().int().min(1).max(10).optional(),
+  levelMax: z.number().int().min(1).max(10).optional(),
+  notes: z.string().max(500).optional(),
+});
+export type InsertPlayRequest = z.infer<typeof insertPlayRequestSchema>;
+export type PlayRequest = typeof playRequests.$inferSelect;
+export type PlayRequestInput = z.infer<typeof playRequestInputSchema>;
+
+export const playRequestParticipants = pgTable("play_request_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").references(() => playRequests.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  status: text("status").notNull().default("joined"), // joined | left
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => [
+  index("prp_request_idx").on(table.requestId),
+  index("prp_player_idx").on(table.playerId),
+  uniqueIndex("prp_request_player_uniq").on(table.requestId, table.playerId),
+]);
+
+export const insertPlayRequestParticipantSchema = createInsertSchema(playRequestParticipants).omit({ id: true, joinedAt: true });
+export type InsertPlayRequestParticipant = z.infer<typeof insertPlayRequestParticipantSchema>;
+export type PlayRequestParticipant = typeof playRequestParticipants.$inferSelect;

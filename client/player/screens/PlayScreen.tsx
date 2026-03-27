@@ -785,7 +785,31 @@ export default function PlayScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.bookingToolsRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingToolsScroll} contentContainerStyle={styles.bookingToolsRow}>
+              <Pressable
+                style={styles.bookingToolButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("FindGame" as never);
+                }}
+              >
+                <View style={styles.bookingToolIcon}>
+                  <Ionicons name="people-circle-outline" size={18} color={"#00E5FF"} />
+                </View>
+                <Text style={[styles.bookingToolText, { color: "#00E5FF" }]}>Find a Game</Text>
+              </Pressable>
+              <Pressable
+                style={styles.bookingToolButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("MyGames" as never);
+                }}
+              >
+                <View style={styles.bookingToolIcon}>
+                  <Ionicons name="calendar-number-outline" size={18} color={Colors.dark.gold} />
+                </View>
+                <Text style={styles.bookingToolText}>My Games</Text>
+              </Pressable>
               <Pressable 
                 style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
                 onPress={() => {
@@ -818,7 +842,7 @@ export default function PlayScreen() {
                 </View>
                 <Text style={styles.bookingToolText}>{t("player.play.preferences")}</Text>
               </Pressable>
-            </View>
+            </ScrollView>
           </>
         ) : null}
 
@@ -2092,12 +2116,16 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
+  bookingToolsScroll: {
+    flexGrow: 0,
+    marginBottom: Spacing.md,
+  },
   bookingToolsRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
+    justifyContent: "flex-start",
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
   },
   bookingToolButton: {
     flexDirection: "row",

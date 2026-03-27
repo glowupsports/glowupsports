@@ -296,6 +296,46 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] Tennis sport_profiles backfill skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS play_requests (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        creator_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        sport TEXT NOT NULL DEFAULT 'tennis',
+        scheduled_at TIMESTAMP NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        location TEXT NOT NULL,
+        lat DOUBLE PRECISION,
+        lng DOUBLE PRECISION,
+        spots_total INTEGER NOT NULL DEFAULT 1,
+        spots_filled INTEGER NOT NULL DEFAULT 0,
+        level_min INTEGER,
+        level_max INTEGER,
+        notes TEXT,
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS play_requests_creator_idx ON play_requests(creator_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS play_requests_status_idx ON play_requests(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS play_requests_sport_idx ON play_requests(sport)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS play_requests_scheduled_idx ON play_requests(scheduled_at)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS play_request_participants (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        request_id VARCHAR NOT NULL REFERENCES play_requests(id) ON DELETE CASCADE,
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'joined',
+        joined_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(request_id, player_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS prp_request_idx ON play_request_participants(request_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS prp_player_idx ON play_request_participants(player_id)`);
+    console.log('[Database] play_requests migration successful');
+  } catch (e: any) {
+    console.log('[Database] play_requests migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

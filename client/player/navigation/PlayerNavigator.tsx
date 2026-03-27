@@ -77,6 +77,9 @@ import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import CorporateBenefitsScreen from "@/player/screens/CorporateBenefitsScreen";
 import CompanyContactDashboardScreen from "@/player/screens/CompanyContactDashboardScreen";
+import FindGameScreen from "@/player/screens/FindGameScreen";
+import CreateGameRequestScreen from "@/player/screens/CreateGameRequestScreen";
+import MyGamesScreen from "@/player/screens/MyGamesScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
@@ -205,6 +208,9 @@ export type PlayerStackParamList = {
   VideoFeedbackPlayer: { feedbackId?: string } | undefined;
   CorporateBenefits: undefined;
   CompanyContactDashboard: undefined;
+  FindGame: undefined;
+  CreateGameRequest: undefined;
+  MyGames: undefined;
   MatchLive: {
     challengeId: string;
     opponentName: string;
@@ -1048,6 +1054,39 @@ function PlayerStackNavigator() {
         component={CompanyContactDashboardScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="FindGame"
+        component={FindGameScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Find a Game",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen
+        name="CreateGameRequest"
+        component={CreateGameRequestScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Post a Game",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen
+        name="MyGames"
+        component={MyGamesScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "My Games",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
     </Stack.Navigator>
