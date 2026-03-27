@@ -114,7 +114,14 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
           providerName = prov?.displayName ?? null;
           providerPhoto = prov?.profilePhotoUrl ?? null;
         }
-        return { ...conv, coachName, playerName, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
+        let resolvedTitle = conv.title;
+        if (conv.type === "group" && conv.title) {
+          const [group] = await db.select({ name: communityGroups.name }).from(communityGroups).where(eq(communityGroups.id, conv.title)).limit(1);
+          if (group?.name) {
+            resolvedTitle = group.name;
+          }
+        }
+        return { ...conv, title: resolvedTitle, coachName, playerName, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
       })
     );
 
@@ -282,6 +289,7 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
         return res.status(403).json({ error: "Not a member of this group" });
       }
       // Get or create a group conversation
+      const [group] = await db.select().from(communityGroups).where(eq(communityGroups.id, groupId));
       const existing = await db.select().from(conversations)
         .where(and(eq(conversations.type, "group"), eq(conversations.title, groupId)));
       if (existing.length > 0) {
@@ -294,9 +302,8 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
             participantType: "player", canPost: true, academyId,
           });
         }
-        return res.json(conv);
+        return res.json({ ...conv, title: group?.name ?? conv.title });
       }
-      const [group] = await db.select().from(communityGroups).where(eq(communityGroups.id, groupId));
       const conv = await storage.createConversation({
         type: "group", title: groupId, playerId: null, coachId: null, academyId,
       });
@@ -313,7 +320,7 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
           }).catch(() => {});
         }
       }
-      return res.status(201).json(conv);
+      return res.status(201).json({ ...conv, title: group?.name ?? conv.title });
     }
 
     if (type === "player_player") {
