@@ -809,7 +809,16 @@ router.post("/seed-defaults", async (req: Request, res: Response) => {
     }
 
     // Seed feature unlocks
-    const defaultFeatureUnlocks = [
+    interface DefaultFeatureUnlock {
+      featureKey: string;
+      requiredLevel: number;
+      featureName: string;
+      featureIcon?: string;
+      featureDescription?: string;
+      onboardingTitle?: string;
+      onboardingDescription?: string;
+    }
+    const defaultFeatureUnlocks: DefaultFeatureUnlock[] = [
       // Level 1 - Core features (always available)
       { featureKey: "home_dashboard", requiredLevel: 1, featureName: "Home Dashboard", featureIcon: "home" },
       { featureKey: "profile", requiredLevel: 1, featureName: "Profile", featureIcon: "person" },
@@ -858,10 +867,25 @@ router.post("/seed-defaults", async (req: Request, res: Response) => {
       // Level 15 - Advanced
       { featureKey: "academy_browser", requiredLevel: 15, featureName: "Academy Browser", featureIcon: "business", onboardingTitle: "Academy Browser Unlocked!", onboardingDescription: "Explore other academies" },
       { featureKey: "coach_directory", requiredLevel: 15, featureName: "Coach Directory", featureIcon: "people-sharp" },
+      // Level 1 - Progress & Feedback features (always available)
+      { featureKey: "skill_evidence", requiredLevel: 1, featureName: "Skill Evidence", featureIcon: "ribbon", featureDescription: "View evidence of your skill progress" },
+      { featureKey: "xp_history", requiredLevel: 1, featureName: "XP History", featureIcon: "time", featureDescription: "View your XP earning history" },
+      { featureKey: "level_up_history", requiredLevel: 1, featureName: "Level-Up History", featureIcon: "trending-up", featureDescription: "View your level progression history" },
+      { featureKey: "trial_gates", requiredLevel: 1, featureName: "Trial Gates", featureIcon: "flag", featureDescription: "View your trial gate achievements" },
     ];
 
     for (const feature of defaultFeatureUnlocks) {
-      await db.insert(playerFeatureUnlocks).values(feature).onConflictDoNothing();
+      await db.insert(playerFeatureUnlocks).values(feature).onConflictDoUpdate({
+        target: playerFeatureUnlocks.featureKey,
+        set: {
+          requiredLevel: feature.requiredLevel,
+          featureName: feature.featureName,
+          featureDescription: feature.featureDescription ?? null,
+          featureIcon: feature.featureIcon ?? null,
+          onboardingTitle: feature.onboardingTitle ?? null,
+          onboardingDescription: feature.onboardingDescription ?? null,
+        },
+      });
     }
 
     res.json({ success: true, message: "Default data seeded successfully" });

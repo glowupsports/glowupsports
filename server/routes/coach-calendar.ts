@@ -45,6 +45,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     badges as badgesTable, playerBadges as playerBadgesTable,
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
+    deepAssessmentPillarSummaries,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -951,24 +952,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const assessments = await db
           .select({
             id: deepAssessmentPillarSummaries.id,
-            pillarId: deepAssessmentPillarSummaries.pillarId,
-            pillarName: skillDomains.label,
-            skillName: deepAssessmentPillarSummaries.pillarId,
-            rating: deepAssessmentPillarSummaries.currentScore,
-            comment: deepAssessmentPillarSummaries.notes,
-            coachId: deepAssessmentPillarSummaries.assessedBy,
-            coachName: coaches.name,
+            pillar: deepAssessmentPillarSummaries.pillar,
+            pillarName: deepAssessmentPillarSummaries.pillar,
+            averageScore: deepAssessmentPillarSummaries.averageScore,
+            assessedSkills: deepAssessmentPillarSummaries.assessedSkills,
+            totalSkills: deepAssessmentPillarSummaries.totalSkills,
+            lastAssessedAt: deepAssessmentPillarSummaries.lastAssessedAt,
             createdAt: deepAssessmentPillarSummaries.updatedAt,
           })
           .from(deepAssessmentPillarSummaries)
-          .leftJoin(
-            skillDomains,
-            eq(skillDomains.pillarKey, deepAssessmentPillarSummaries.pillarId),
-          )
-          .leftJoin(
-            users,
-            eq(users.id, deepAssessmentPillarSummaries.assessedBy),
-          )
           .where(eq(deepAssessmentPillarSummaries.playerId, playerId))
           .orderBy(desc(deepAssessmentPillarSummaries.updatedAt))
           .limit(100);

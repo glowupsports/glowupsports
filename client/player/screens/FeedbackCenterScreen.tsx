@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, type DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -8,118 +8,81 @@ import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, Tex
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
-interface SkillAssessment {
+interface PillarSummary {
   id: string;
-  pillarId: string;
+  pillar: string;
   pillarName: string;
-  skillName: string;
-  rating: number;
-  coachName: string;
-  coachId: string;
-  comment: string | null;
-  createdAt: string;
-}
-
-interface PillarGroup {
-  pillarId: string;
-  pillarName: string;
-  color: string;
-  icon: string;
-  assessments: SkillAssessment[];
+  averageScore: string | null;
+  assessedSkills: number | null;
+  totalSkills: number | null;
+  lastAssessedAt: string | null;
+  createdAt: string | null;
 }
 
 const PILLAR_CONFIG: Record<string, { color: string; icon: string }> = {
-  forehand: { color: "#FF6B6B", icon: "tennisball" },
-  backhand: { color: "#4ECDC4", icon: "tennisball-outline" },
-  serve: { color: "#FFE66D", icon: "flash" },
-  volley: { color: "#95E1D3", icon: "hand-right" },
-  footwork: { color: "#F38181", icon: "footsteps" },
-  tactics: { color: "#AA96DA", icon: "bulb" },
-  movement: { color: "#F38181", icon: "footsteps" },
-  technical: { color: "#4DA3FF", icon: "build" },
-  mental: { color: "#E040FB", icon: "flash" },
-  physical: { color: "#00E676", icon: "fitness" },
+  TECHNIQUE: { color: "#4DA3FF", icon: "build" },
+  TACTICAL: { color: "#AA96DA", icon: "bulb" },
+  PHYSICAL: { color: "#00E676", icon: "fitness" },
+  MENTAL: { color: "#E040FB", icon: "flash" },
+  SOCIAL: { color: "#4ECDC4", icon: "people" },
+  MATCH: { color: "#FFE66D", icon: "trophy" },
 };
 
-function getPillarConfig(pillarId: string) {
-  const key = pillarId.toLowerCase();
-  return PILLAR_CONFIG[key] || { color: GlowColors.primary, icon: "star" };
+function getPillarConfig(pillar: string) {
+  return PILLAR_CONFIG[pillar.toUpperCase()] || { color: GlowColors.primary, icon: "star" };
 }
 
-function getRatingLabel(rating: number): string {
-  switch (rating) {
-    case 0:
-      return "Developing";
-    case 1:
-      return "Competent";
-    case 2:
-      return "Proficient";
-    default:
-      return "Not Rated";
-  }
+function formatScore(score: string | null): string {
+  if (score === null || score === undefined) return "—";
+  const num = parseFloat(score);
+  if (isNaN(num)) return "—";
+  return num.toFixed(1);
 }
 
-function getRatingColor(rating: number): string {
-  switch (rating) {
-    case 0:
-      return Colors.dark.orange;
-    case 1:
-      return Colors.dark.xpCyan;
-    case 2:
-      return GlowColors.primary;
-    default:
-      return TextColors.muted;
-  }
+function getScoreColor(score: string | null): string {
+  if (score === null) return TextColors.muted;
+  const num = parseFloat(score);
+  if (isNaN(num)) return TextColors.muted;
+  if (num >= 2.5) return GlowColors.primary;
+  if (num >= 1.5) return Colors.dark.xpCyan;
+  return Colors.dark.orange;
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "Not yet assessed";
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function AssessmentCard({ assessment }: { assessment: SkillAssessment }) {
-  const ratingColor = getRatingColor(assessment.rating);
+function PillarCard({ summary }: { summary: PillarSummary }) {
+  const config = getPillarConfig(summary.pillar);
+  const scoreColor = getScoreColor(summary.averageScore);
+  const assessed = summary.assessedSkills ?? 0;
+  const total = summary.totalSkills ?? 0;
+  const progressPct = total > 0 ? Math.min((assessed / total) * 100, 100) : 0;
+  const pillarLabel = summary.pillar.charAt(0) + summary.pillar.slice(1).toLowerCase();
 
   return (
-    <View style={styles.assessmentCard}>
-      <View style={styles.assessmentHeader}>
-        <View style={styles.assessmentInfo}>
-          <Text style={styles.skillName}>{assessment.skillName}</Text>
-          <Text style={styles.assessmentMeta}>
-            {assessment.coachName} • {formatDate(assessment.createdAt)}
-          </Text>
-        </View>
-        <View style={[styles.ratingBadge, { backgroundColor: ratingColor + "20" }]}>
-          <Text style={[styles.ratingText, { color: ratingColor }]}>
-            {getRatingLabel(assessment.rating)}
-          </Text>
-        </View>
-      </View>
-      {assessment.comment ? (
-        <Text style={styles.comment}>{assessment.comment}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-function PillarSection({ group }: { group: PillarGroup }) {
-  const config = getPillarConfig(group.pillarId);
-
-  return (
-    <View style={styles.pillarSection}>
+    <View style={styles.pillarCard}>
       <View style={styles.pillarHeader}>
         <View style={[styles.pillarIcon, { backgroundColor: config.color + "20" }]}>
           <Ionicons name={config.icon as any} size={20} color={config.color} />
         </View>
         <View style={styles.pillarInfo}>
-          <Text style={styles.pillarName}>{group.pillarName}</Text>
-          <Text style={styles.assessmentCount}>{group.assessments.length} assessment{group.assessments.length !== 1 ? "s" : ""}</Text>
+          <Text style={styles.pillarName}>{pillarLabel}</Text>
+          <Text style={styles.lastAssessed}>Last assessed: {formatDate(summary.lastAssessedAt)}</Text>
+        </View>
+        <View style={[styles.scoreBadge, { backgroundColor: scoreColor + "20" }]}>
+          <Text style={[styles.scoreValue, { color: scoreColor }]}>{formatScore(summary.averageScore)}</Text>
+          <Text style={[styles.scoreLabel, { color: scoreColor }]}>avg</Text>
         </View>
       </View>
-      <View style={styles.assessmentsList}>
-        {group.assessments.map((assessment) => (
-          <AssessmentCard key={assessment.id} assessment={assessment} />
-        ))}
+      <View style={styles.progressRow}>
+        <Text style={styles.progressLabel}>{assessed} of {total} skills assessed</Text>
+        <Text style={styles.progressPct}>{Math.round(progressPct)}%</Text>
+      </View>
+      <View style={styles.progressBarBg}>
+        <View style={[styles.progressBarFill, { width: `${progressPct}%` as DimensionValue, backgroundColor: config.color }]} />
       </View>
     </View>
   );
@@ -129,32 +92,14 @@ export default function FeedbackCenterScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  const { data: assessments, isLoading, error } = useQuery<SkillAssessment[]>({
+  const { data: summaries, isLoading, error } = useQuery<PillarSummary[]>({
     queryKey: ["/api/player/me/skill-assessments"],
   });
 
-  const groupedByPillar: PillarGroup[] = React.useMemo(() => {
-    if (!assessments || assessments.length === 0) return [];
-
-    const groups: Record<string, PillarGroup> = {};
-
-    assessments.forEach((assessment) => {
-      const pillarId = assessment.pillarId || "other";
-      if (!groups[pillarId]) {
-        const config = getPillarConfig(pillarId);
-        groups[pillarId] = {
-          pillarId,
-          pillarName: assessment.pillarName || pillarId.charAt(0).toUpperCase() + pillarId.slice(1),
-          color: config.color,
-          icon: config.icon,
-          assessments: [],
-        };
-      }
-      groups[pillarId].assessments.push(assessment);
-    });
-
-    return Object.values(groups).sort((a, b) => a.pillarName.localeCompare(b.pillarName));
-  }, [assessments]);
+  const sortedSummaries = React.useMemo(() => {
+    if (!summaries || summaries.length === 0) return [];
+    return [...summaries].sort((a, b) => a.pillar.localeCompare(b.pillar));
+  }, [summaries]);
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -172,7 +117,7 @@ export default function FeedbackCenterScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
@@ -187,7 +132,7 @@ export default function FeedbackCenterScreen() {
             <Ionicons name="alert-circle" size={32} color={Colors.dark.error} />
             <Text style={styles.errorText}>Failed to load assessments</Text>
           </Card>
-        ) : groupedByPillar.length === 0 ? (
+        ) : sortedSummaries.length === 0 ? (
           <EmptyStateCard
             icon="school"
             title="No Assessments Yet"
@@ -198,8 +143,8 @@ export default function FeedbackCenterScreen() {
           />
         ) : (
           <View style={styles.pillarsList}>
-            {groupedByPillar.map((group) => (
-              <PillarSection key={group.pillarId} group={group} />
+            {sortedSummaries.map((summary) => (
+              <PillarCard key={summary.id} summary={summary} />
             ))}
           </View>
         )}
@@ -269,10 +214,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   pillarsList: {
-    gap: Spacing.xl,
+    gap: Spacing.md,
   },
-  pillarSection: {
-    backgroundColor: Backgrounds.card,
+  pillarCard: {
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -298,51 +243,48 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: TextColors.primary,
   },
-  assessmentCount: {
+  lastAssessed: {
     ...Typography.caption,
     color: TextColors.muted,
     marginTop: 2,
   },
-  assessmentsList: {
-    gap: Spacing.md,
-  },
-  assessmentCard: {
-    backgroundColor: Backgrounds.elevated,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-  },
-  assessmentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  assessmentInfo: {
-    flex: 1,
-    marginRight: Spacing.md,
-  },
-  skillName: {
-    ...Typography.body,
-    fontWeight: "600",
-    color: TextColors.primary,
-  },
-  assessmentMeta: {
-    ...Typography.caption,
-    color: TextColors.muted,
-    marginTop: 2,
-  },
-  ratingBadge: {
+  scoreBadge: {
+    alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
+    minWidth: 52,
   },
-  ratingText: {
+  scoreValue: {
+    ...Typography.h3,
+    fontWeight: "700",
+  },
+  scoreLabel: {
     ...Typography.caption,
+    fontSize: 10,
+  },
+  progressRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  progressLabel: {
+    ...Typography.caption,
+    color: TextColors.muted,
+  },
+  progressPct: {
+    ...Typography.caption,
+    color: TextColors.secondary,
     fontWeight: "600",
   },
-  comment: {
-    ...Typography.small,
-    color: TextColors.secondary,
-    marginTop: Spacing.sm,
-    lineHeight: 20,
+  progressBarBg: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: 6,
+    borderRadius: 3,
   },
 });

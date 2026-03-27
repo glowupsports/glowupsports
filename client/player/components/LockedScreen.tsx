@@ -18,12 +18,13 @@ export function LockedScreen({ featureKey, children }: LockedScreenProps) {
   const navigation = useNavigation();
 
   const isUnlocked = isFeatureUnlocked(featureKey);
+  const featureInfo = getFeatureInfo(featureKey);
 
-  if (isUnlocked) {
+  // If the feature key is not in the DB config at all, treat it as unlocked
+  // to prevent regressions when new keys are added to the frontend before seeding
+  if (isUnlocked || !featureInfo) {
     return <>{children}</>;
   }
-
-  const featureInfo = getFeatureInfo(featureKey);
   const requiredLevel = featureInfo?.requiredLevel || 1;
   const featureName = featureInfo?.featureName || featureKey.replace(/_/g, " ");
   const featureIcon = featureInfo?.featureIcon || "lock-closed";
