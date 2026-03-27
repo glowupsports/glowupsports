@@ -35,6 +35,7 @@ import WellnessLogScreen from "@/coach/screens/WellnessLogScreen";
 import VideoFeedbackScreen from "@/coach/screens/VideoFeedbackScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
+import TournamentManagementScreen from "@/coach/screens/TournamentManagementScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
@@ -92,6 +93,7 @@ export type CoachStackParamList = {
   VideoFeedback: { playerId?: string } | undefined;
   PlayerMatchHistory: { playerId: string; playerName?: string };
   LiveMatchViewer: { matchId: string; playerName?: string };
+  TournamentManagement: { tournamentId?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -343,6 +345,13 @@ function CoachStackNavigator() {
         options={{
           headerShown: false,
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="TournamentManagement" 
+        component={TournamentManagementScreen}
+        options={{
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

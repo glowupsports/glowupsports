@@ -6233,16 +6233,22 @@ export const tournaments = pgTable("tournaments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
   name: text("name").notNull(),
+  sport: text("sport").notNull().default("tennis"), // tennis | padel | pickleball
   type: text("type").notNull(),
-  format: text("format").notNull(),
+  format: text("format").notNull(), // knockout | round_robin | group_knockout
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
+  registrationDeadline: timestamp("registration_deadline"),
   location: text("location").notNull(),
   address: text("address"),
   description: text("description"),
   entryFee: numeric("entry_fee"),
   spotsTotal: integer("spots_total").notNull().default(32),
-  status: text("status").notNull().default("upcoming"),
+  categories: jsonb("categories").$type<string[]>().default([]), // e.g. ["beginner", "intermediate", "u18"]
+  xpReward: integer("xp_reward").default(100), // XP awarded to tournament winner
+  status: text("status").notNull().default("upcoming"), // upcoming | registration_open | registration_closed | in_progress | completed | cancelled
+  drawPublished: boolean("draw_published").default(false),
+  winnerId: varchar("winner_id").references(() => players.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -6259,6 +6265,7 @@ export const tournamentParticipants = pgTable("tournament_participants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tournamentId: varchar("tournament_id").references(() => tournaments.id).notNull(),
   playerId: varchar("player_id").references(() => players.id).notNull(),
+  category: text("category"), // e.g. "beginner", "intermediate", "u18"
   seed: integer("seed"),
   status: text("status").notNull().default("registered"),
   registeredAt: timestamp("registered_at").defaultNow(),

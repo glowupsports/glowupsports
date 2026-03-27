@@ -1,15 +1,41 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
-import { eq, and, or, desc, asc, sql, inArray, gte, lte, ne } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, inArray, gte, lte, ne, isNotNull } from "drizzle-orm";
 import {
   tournaments, tournamentParticipants, tournamentMatches,
   ladders, ladderPlayers, ladderChallenges,
-  players
+  players, xpTransactions,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   type JWTPayload,
 } from "../auth";
+import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
+
+// Helper: send tournament notification to all participants
+async function notifyTournamentParticipants(
+  tournamentId: string,
+  excludePlayerId: string | null,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const participants = await db.select({ playerId: tournamentParticipants.playerId })
+      .from(tournamentParticipants)
+      .where(eq(tournamentParticipants.tournamentId, tournamentId));
+
+    for (const p of participants) {
+      if (excludePlayerId && p.playerId === excludePlayerId) continue;
+      const tokens = await getPlayerPushTokens(p.playerId);
+      if (tokens.length > 0) {
+        await sendPushNotification(tokens, title, body, data);
+      }
+    }
+  } catch (err) {
+    console.error("[TournamentNotify] Failed to notify participants:", err);
+  }
+}
 
 const router = Router();
 
@@ -65,7 +91,12 @@ router.get("/api/player/tournaments", authMiddleware, async (req: AuthRequest, r
       isRegistered: registeredMap.get(t.id) || false,
     }));
 
-    res.json(result);
+    // Group by status for the player UI
+    const upcoming = result.filter(t => ["upcoming", "registration_open"].includes(t.status));
+    const myTournaments = result.filter(t => t.isRegistered);
+    const completed = result.filter(t => t.status === "completed");
+
+    res.json({ upcoming, myTournaments, completed });
   } catch (error) {
     console.error("Error fetching tournaments:", error);
     res.status(500).json({ error: "Failed to fetch tournaments" });
@@ -128,6 +159,7 @@ router.post("/api/player/tournaments/:id/register", authMiddleware, async (req: 
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId;
+    const academyId = req.user!.academyId;
 
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
@@ -138,8 +170,18 @@ router.post("/api/player/tournaments/:id/register", authMiddleware, async (req: 
       return res.status(404).json({ error: "Tournament not found" });
     }
 
-    if (tournament.status !== "upcoming") {
+    // Players can only register for tournaments within their own academy
+    if (academyId && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (!["upcoming", "registration_open"].includes(tournament.status)) {
       return res.status(400).json({ error: "Registration is closed for this tournament" });
+    }
+
+    // Check registration deadline
+    if (tournament.registrationDeadline && new Date() > new Date(tournament.registrationDeadline)) {
+      return res.status(400).json({ error: "Registration deadline has passed" });
     }
 
     const [existing] = await db.select().from(tournamentParticipants)
@@ -161,9 +203,12 @@ router.post("/api/player/tournaments/:id/register", authMiddleware, async (req: 
       return res.status(400).json({ error: "Tournament is full" });
     }
 
+    const { category } = req.body;
+
     const [participant] = await db.insert(tournamentParticipants).values({
       tournamentId: id,
       playerId,
+      category: category || null,
     }).returning();
 
     res.status(201).json(participant);
@@ -177,6 +222,7 @@ router.post("/api/player/tournaments/:id/withdraw", authMiddleware, async (req: 
   try {
     const { id } = req.params;
     const playerId = req.user!.playerId;
+    const academyId = req.user!.academyId;
 
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
@@ -187,7 +233,12 @@ router.post("/api/player/tournaments/:id/withdraw", authMiddleware, async (req: 
       return res.status(404).json({ error: "Tournament not found" });
     }
 
-    if (tournament.status !== "upcoming") {
+    // Players can only interact with tournaments within their own academy
+    if (academyId && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (!["upcoming", "registration_open"].includes(tournament.status)) {
       return res.status(400).json({ error: "Cannot withdraw from a tournament that has started" });
     }
 
@@ -730,6 +781,94 @@ router.post("/api/player/ladders/challenges/:id/result", authMiddleware, async (
 
 // ==================== ADMIN TOURNAMENT ENDPOINTS ====================
 
+router.get("/api/tournaments", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const academyId = req.user!.academyId;
+    const role = req.user!.role;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (!academyId) {
+      return res.status(400).json({ error: "Academy context required" });
+    }
+
+    const allTournaments = await db.select().from(tournaments)
+      .where(eq(tournaments.academyId, academyId))
+      .orderBy(desc(tournaments.startDate));
+
+    const tournamentIds = allTournaments.map(t => t.id);
+    let counts: { tournamentId: string; count: number }[] = [];
+    if (tournamentIds.length > 0) {
+      counts = await db.select({
+        tournamentId: tournamentParticipants.tournamentId,
+        count: sql<number>`count(*)::int`,
+      }).from(tournamentParticipants)
+        .where(inArray(tournamentParticipants.tournamentId, tournamentIds))
+        .groupBy(tournamentParticipants.tournamentId);
+    }
+
+    const countMap = new Map(counts.map(c => [c.tournamentId, c.count]));
+
+    res.json(allTournaments.map(t => ({
+      ...t,
+      spotsTaken: countMap.get(t.id) || 0,
+    })));
+  } catch (error) {
+    console.error("Error fetching admin tournaments:", error);
+    res.status(500).json({ error: "Failed to fetch tournaments" });
+  }
+});
+
+router.get("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const role = req.user!.role;
+    const academyId = req.user!.academyId;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    // Enforce academy scoping (platform_owner can access all)
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const participantsList = await db.select({
+      participant: tournamentParticipants,
+      player: {
+        id: players.id,
+        name: players.name,
+        photoUrl: players.photoUrl,
+      },
+    }).from(tournamentParticipants)
+      .innerJoin(players, eq(tournamentParticipants.playerId, players.id))
+      .where(eq(tournamentParticipants.tournamentId, id))
+      .orderBy(asc(tournamentParticipants.seed));
+
+    const matches = await db.select().from(tournamentMatches)
+      .where(eq(tournamentMatches.tournamentId, id))
+      .orderBy(asc(tournamentMatches.round), asc(tournamentMatches.matchOrder));
+
+    res.json({
+      ...tournament,
+      spotsTaken: participantsList.length,
+      participants: participantsList,
+      matches,
+    });
+  } catch (error) {
+    console.error("Error fetching tournament:", error);
+    res.status(500).json({ error: "Failed to fetch tournament" });
+  }
+});
+
 router.post("/api/tournaments", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
@@ -744,7 +883,7 @@ router.post("/api/tournaments", authMiddleware, async (req: AuthRequest, res: Re
       return res.status(400).json({ error: "Academy context required" });
     }
 
-    const { name, type, format, startDate, endDate, location, address, description, entryFee, spotsTotal } = req.body;
+    const { name, sport, type, format, startDate, endDate, registrationDeadline, location, address, description, entryFee, spotsTotal, categories, xpReward } = req.body;
 
     if (!name || !type || !format || !startDate || !endDate || !location) {
       return res.status(400).json({ error: "Missing required fields: name, type, format, startDate, endDate, location" });
@@ -753,15 +892,20 @@ router.post("/api/tournaments", authMiddleware, async (req: AuthRequest, res: Re
     const [tournament] = await db.insert(tournaments).values({
       academyId,
       name,
+      sport: sport || "tennis",
       type,
       format,
       startDate,
       endDate,
+      registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
       location,
       address: address || null,
       description: description || null,
       entryFee: entryFee || null,
       spotsTotal: spotsTotal || 32,
+      categories: categories || [],
+      xpReward: xpReward || 100,
+      status: "upcoming",
       createdBy: userId,
     }).returning();
 
@@ -776,6 +920,7 @@ router.put("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res:
   try {
     const { id } = req.params;
     const role = req.user!.role;
+    const academyId = req.user!.academyId;
 
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
       return res.status(403).json({ error: "Only coaches and academy owners can update tournaments" });
@@ -786,25 +931,45 @@ router.put("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res:
       return res.status(404).json({ error: "Tournament not found" });
     }
 
-    const { name, type, format, startDate, endDate, location, address, description, entryFee, spotsTotal, status } = req.body;
+    // Enforce academy scoping (platform_owner can update all)
+    if (role !== "platform_owner" && existing.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const { name, sport, type, format, startDate, endDate, registrationDeadline, location, address, description, entryFee, spotsTotal, categories, xpReward, status } = req.body;
 
     const [updated] = await db.update(tournaments)
       .set({
         ...(name !== undefined && { name }),
+        ...(sport !== undefined && { sport }),
         ...(type !== undefined && { type }),
         ...(format !== undefined && { format }),
         ...(startDate !== undefined && { startDate }),
         ...(endDate !== undefined && { endDate }),
+        ...(registrationDeadline !== undefined && { registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null }),
         ...(location !== undefined && { location }),
         ...(address !== undefined && { address }),
         ...(description !== undefined && { description }),
         ...(entryFee !== undefined && { entryFee }),
         ...(spotsTotal !== undefined && { spotsTotal }),
+        ...(categories !== undefined && { categories }),
+        ...(xpReward !== undefined && { xpReward }),
         ...(status !== undefined && { status }),
         updatedAt: new Date(),
       })
       .where(eq(tournaments.id, id))
       .returning();
+
+    // Notify participants when registration opens
+    if (status === "registration_open" && existing.status !== "registration_open") {
+      notifyTournamentParticipants(
+        id,
+        null,
+        "Registration Open",
+        `Registration is now open for ${existing.name}`,
+        { tournamentId: id, type: "tournament_registration_open" }
+      ).catch(() => {});
+    }
 
     res.json(updated);
   } catch (error) {
@@ -813,13 +978,350 @@ router.put("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res:
   }
 });
 
+type MatchDef = { round: string; matchOrder: number; player1Id: string | null; player2Id: string | null };
+
+const KO_ROUND_LABELS: Record<number, string> = {
+  2: "F",
+  4: "SF",
+  8: "QF",
+  16: "R16",
+  32: "R32",
+  64: "R64",
+};
+
+// Helper: Generate single-elimination bracket.
+// Strategy: pad to next power of 2 with byes, then generate first-round matches.
+// Bye matches (where one player is null) are auto-completed immediately — the real player
+// advances directly to the next round. This ensures tournaments are always completable.
+function generateSingleEliminationMatches(playerIds: string[], _tournamentId: string): MatchDef[] {
+  // Shuffle so seeded players spread across the bracket
+  const shuffled = [...playerIds];
+
+  // Pad to nearest power of 2 with byes (null)
+  let size = 1;
+  while (size < shuffled.length) size *= 2;
+  const padded: (string | null)[] = [...shuffled];
+  while (padded.length < size) padded.push(null);
+
+  const allMatches: MatchDef[] = [];
+
+  // Recursive function: builds bracket round by round.
+  // matchOrder is per-round (resets each round) so advancement lookups work:
+  //   nextMatchOrder = floor(myOrderInRound / 2), find(round=nextRound, matchOrder=nextMatchOrder)
+  function buildBracket(players: (string | null)[], roundSize: number): (string | null)[] {
+    if (roundSize === 1) return players; // single player: tournament done
+
+    const roundLabel = KO_ROUND_LABELS[roundSize] || `R${roundSize}`;
+    const nextSlots: (string | null)[] = [];
+    let perRoundOrder = 0; // reset for each round
+
+    for (let i = 0; i < players.length; i += 2) {
+      const p1 = players[i];
+      const p2 = players[i + 1];
+
+      if (p1 !== null && p2 === null) {
+        // p1 has a bye: auto-advance, no match inserted
+        nextSlots.push(p1);
+      } else if (p1 === null && p2 !== null) {
+        // p2 has a bye: auto-advance, no match inserted
+        nextSlots.push(p2);
+      } else {
+        // Both real or both null: create match; winner TBD
+        allMatches.push({
+          round: roundLabel,
+          matchOrder: perRoundOrder++,
+          player1Id: p1,
+          player2Id: p2,
+        });
+        nextSlots.push(null);
+      }
+    }
+
+    return buildBracket(nextSlots, roundSize / 2);
+  }
+
+  buildBracket(padded, size);
+
+  return allMatches;
+}
+
+// Helper: Generate round-robin matches
+function generateRoundRobinMatches(playerIds: string[], _tournamentId: string): MatchDef[] {
+  const matches: MatchDef[] = [];
+  let matchOrder = 0;
+  for (let i = 0; i < playerIds.length; i++) {
+    for (let j = i + 1; j < playerIds.length; j++) {
+      matches.push({
+        round: "Round Robin",
+        matchOrder: matchOrder++,
+        player1Id: playerIds[i],
+        player2Id: playerIds[j],
+      });
+    }
+  }
+  return matches;
+}
+
+// Helper: Generate group + knockout matches (groups of 4; top 2 per group advance to KO)
+// The group stage matches are generated with real players.
+// KO slots are initially null — they are populated when all group matches
+// in a group are complete (see the result endpoint group promotion logic).
+function generateGroupKnockoutMatches(playerIds: string[]): MatchDef[] {
+  const matches: MatchDef[] = [];
+  const groupSize = 4;
+  const groups: string[][] = [];
+  for (let i = 0; i < playerIds.length; i += groupSize) {
+    groups.push(playerIds.slice(i, i + groupSize));
+  }
+
+  // Group stage: per-group matchOrder (starts at 0 for each group label)
+  groups.forEach((group, gi) => {
+    const groupLabel = `Group ${String.fromCharCode(65 + gi)}`; // Group A, B, C…
+    let groupMatchOrder = 0;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        matches.push({
+          round: groupLabel,
+          matchOrder: groupMatchOrder++,
+          player1Id: group[i],
+          player2Id: group[j],
+        });
+      }
+    }
+  });
+
+  // Knockout stage: 2 qualifiers per group → total KO participants
+  // matchOrder is per-round (starts at 0 for each KO round) so advancement lookups work.
+  const koParticipants = groups.length * 2;
+  let koSize = 1;
+  while (koSize < koParticipants) koSize *= 2;
+
+  const koRoundLabels: Record<number, string> = { 2: "KO Final", 4: "KO SF", 8: "KO QF" };
+  let currentKoSize = koSize;
+  while (currentKoSize > 1) {
+    const label = koRoundLabels[currentKoSize] || `KO R${currentKoSize}`;
+    let koMatchOrder = 0; // per-round order
+    for (let i = 0; i < currentKoSize; i += 2) {
+      matches.push({ round: label, matchOrder: koMatchOrder++, player1Id: null, player2Id: null });
+    }
+    currentKoSize = currentKoSize / 2;
+  }
+
+  return matches;
+}
+
+router.post("/api/tournaments/:id/generate-draw", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const role = req.user!.role;
+    const academyId = req.user!.academyId;
+    const { publish } = req.body;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Delete existing draft matches before regenerating
+    await db.delete(tournamentMatches).where(eq(tournamentMatches.tournamentId, id));
+
+    // Get participants (ordered by seed if set)
+    const participants = await db.select({
+      playerId: tournamentParticipants.playerId,
+      seed: tournamentParticipants.seed,
+    }).from(tournamentParticipants)
+      .where(eq(tournamentParticipants.tournamentId, id))
+      .orderBy(asc(tournamentParticipants.seed));
+
+    if (participants.length < 2) {
+      return res.status(400).json({ error: "Need at least 2 participants to generate draw" });
+    }
+
+    const playerIds = participants.map(p => p.playerId);
+
+    let matchDefs: { round: string; matchOrder: number; player1Id: string | null; player2Id: string | null }[] = [];
+
+    if (tournament.format === "knockout") {
+      matchDefs = generateSingleEliminationMatches(playerIds, id);
+    } else if (tournament.format === "round_robin") {
+      matchDefs = generateRoundRobinMatches(playerIds, id);
+    } else if (tournament.format === "group_knockout") {
+      matchDefs = generateGroupKnockoutMatches(playerIds);
+    } else {
+      matchDefs = generateSingleEliminationMatches(playerIds, id);
+    }
+
+    // Insert matches
+    const insertedMatches = await db.insert(tournamentMatches).values(
+      matchDefs.map(m => ({
+        tournamentId: id,
+        round: m.round,
+        matchOrder: m.matchOrder,
+        player1Id: m.player1Id || null,
+        player2Id: m.player2Id || null,
+        status: "scheduled" as const,
+      }))
+    ).returning();
+
+    // Update tournament status
+    await db.update(tournaments)
+      .set({
+        status: "registration_closed",
+        drawPublished: publish === true,
+        updatedAt: new Date(),
+      })
+      .where(eq(tournaments.id, id));
+
+    res.json({ success: true, matchCount: insertedMatches.length, matches: insertedMatches });
+  } catch (error) {
+    console.error("Error generating draw:", error);
+    res.status(500).json({ error: "Failed to generate draw" });
+  }
+});
+
+// Admin: adjust draw before publishing — swap two players in the bracket
+router.patch("/api/tournaments/:id/draw/adjust", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const role = req.user!.role;
+    const academyId = req.user!.academyId;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Can only adjust before draw is published
+    if (tournament.drawPublished) {
+      return res.status(400).json({ error: "Cannot adjust draw after it has been published" });
+    }
+
+    // Support two operations:
+    // 1. { matchId, player1Id?, player2Id? } — set specific slots in a match
+    // 2. { swapMatchId1, swapSlot1, swapMatchId2, swapSlot2 } — swap two players across/within matches
+    const { matchId, player1Id, player2Id, swapMatchId1, swapSlot1, swapMatchId2, swapSlot2 } = req.body;
+
+    if (swapMatchId1 && swapMatchId2) {
+      // Swap operation: exchange players between two slots
+      const [m1] = await db.select().from(tournamentMatches)
+        .where(and(eq(tournamentMatches.id, swapMatchId1), eq(tournamentMatches.tournamentId, id)));
+      const [m2] = await db.select().from(tournamentMatches)
+        .where(and(eq(tournamentMatches.id, swapMatchId2), eq(tournamentMatches.tournamentId, id)));
+
+      if (!m1 || !m2) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+
+      const val1 = swapSlot1 === "player2" ? m1.player2Id : m1.player1Id;
+      const val2 = swapSlot2 === "player2" ? m2.player2Id : m2.player1Id;
+
+      await db.update(tournamentMatches)
+        .set(swapSlot1 === "player2" ? { player2Id: val2 } : { player1Id: val2 })
+        .where(eq(tournamentMatches.id, swapMatchId1));
+      await db.update(tournamentMatches)
+        .set(swapSlot2 === "player2" ? { player2Id: val1 } : { player1Id: val1 })
+        .where(eq(tournamentMatches.id, swapMatchId2));
+
+      return res.json({ success: true, message: "Players swapped" });
+    } else if (matchId) {
+      // Direct slot assignment
+      const [match] = await db.select().from(tournamentMatches)
+        .where(and(eq(tournamentMatches.id, matchId), eq(tournamentMatches.tournamentId, id)));
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      const update: Record<string, string | null> = {};
+      if (player1Id !== undefined) update.player1Id = player1Id || null;
+      if (player2Id !== undefined) update.player2Id = player2Id || null;
+      await db.update(tournamentMatches).set(update).where(eq(tournamentMatches.id, matchId));
+      return res.json({ success: true, message: "Match updated" });
+    } else {
+      return res.status(400).json({ error: "Provide matchId or swap parameters" });
+    }
+  } catch (error) {
+    console.error("Error adjusting draw:", error);
+    res.status(500).json({ error: "Failed to adjust draw" });
+  }
+});
+
+router.post("/api/tournaments/:id/publish-draw", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const role = req.user!.role;
+    const academyId = req.user!.academyId;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [updated] = await db.update(tournaments)
+      .set({ drawPublished: true, status: "in_progress", updatedAt: new Date() })
+      .where(eq(tournaments.id, id))
+      .returning();
+
+    if (!updated) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    // Notify all participants that the draw has been published
+    notifyTournamentParticipants(
+      id,
+      null,
+      "Draw Published",
+      `The bracket for ${tournament.name} is now live. Check your matches!`,
+      { tournamentId: id, type: "tournament_draw_published" }
+    ).catch(() => {});
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error publishing draw:", error);
+    res.status(500).json({ error: "Failed to publish draw" });
+  }
+});
+
 router.post("/api/tournaments/:id/matches/:matchId/result", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { id, matchId } = req.params;
     const role = req.user!.role;
+    const academyId = req.user!.academyId;
 
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
       return res.status(403).json({ error: "Only coaches and academy owners can record match results" });
+    }
+
+    // Fetch tournament for academy scoping
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     const [match] = await db.select().from(tournamentMatches)
@@ -827,6 +1329,11 @@ router.post("/api/tournaments/:id/matches/:matchId/result", authMiddleware, asyn
 
     if (!match) {
       return res.status(404).json({ error: "Match not found" });
+    }
+
+    // Prevent double-recording
+    if (match.status === "completed") {
+      return res.status(400).json({ error: "Match result already recorded" });
     }
 
     const { winnerId, score } = req.body;
@@ -858,6 +1365,221 @@ router.post("/api/tournaments/:id/matches/:matchId/result", authMiddleware, asyn
           eq(tournamentParticipants.tournamentId, id),
           eq(tournamentParticipants.playerId, loserId)
         ));
+    }
+
+    // Notify both players of the result
+    const playerIds = [winnerId, loserId].filter(Boolean) as string[];
+    for (const pid of playerIds) {
+      const tokens = await getPlayerPushTokens(pid);
+      if (tokens.length > 0) {
+        const isWinner = pid === winnerId;
+        await sendPushNotification(
+          tokens,
+          isWinner ? "Match Won" : "Match Result",
+          isWinner
+            ? `You advanced in ${tournament.name}! Score: ${score}`
+            : `Match result recorded for ${tournament.name}. Score: ${score}`,
+          { tournamentId: id, matchId, type: "tournament_result_confirmed" }
+        );
+      }
+    }
+
+    // For knockout format: advance winner to next round using round-order map
+    if (tournament.format === "knockout") {
+      const allMatches = await db.select().from(tournamentMatches)
+        .where(eq(tournamentMatches.tournamentId, id))
+        .orderBy(asc(tournamentMatches.matchOrder));
+
+      const roundOrder = ["R64", "R32", "R16", "QF", "SF", "F"];
+      const currentRoundIdx = roundOrder.indexOf(match.round);
+      if (currentRoundIdx !== -1 && currentRoundIdx < roundOrder.length - 1) {
+        const nextRound = roundOrder[currentRoundIdx + 1];
+        const sameRoundMatches = allMatches
+          .filter(m => m.round === match.round)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+        const myOrderInRound = sameRoundMatches.findIndex(m => m.id === matchId);
+        const nextMatchOrder = Math.floor(myOrderInRound / 2);
+        const nextMatch = allMatches.find(m => m.round === nextRound && m.matchOrder === nextMatchOrder);
+
+        if (nextMatch) {
+          const slot = myOrderInRound % 2 === 0 ? { player1Id: winnerId } : { player2Id: winnerId };
+          await db.update(tournamentMatches).set(slot).where(eq(tournamentMatches.id, nextMatch.id));
+        }
+      }
+    }
+
+    // For group_knockout: when all matches in a group are done, promote top 2 into KO slots
+    if (tournament.format === "group_knockout" && match.round.startsWith("Group ")) {
+      const allTournamentMatches = await db.select().from(tournamentMatches)
+        .where(eq(tournamentMatches.tournamentId, id));
+
+      const groupLabel = match.round; // e.g. "Group A"
+      const groupMatches = allTournamentMatches.filter(m => m.round === groupLabel);
+      const allGroupDone = groupMatches.every(m => m.status === "completed" || m.id === matchId);
+
+      if (allGroupDone) {
+        // Determine top 2 by win count within this group
+        const winCounts = new Map<string, number>();
+        for (const gm of groupMatches) {
+          const gmWinnerId = gm.id === matchId ? winnerId : gm.winnerId;
+          if (gmWinnerId) {
+            winCounts.set(gmWinnerId, (winCounts.get(gmWinnerId) || 0) + 1);
+          }
+        }
+        // Sort players by wins descending, then take top 2
+        const allGroupPlayers = Array.from(
+          new Set(groupMatches.flatMap(m => [m.player1Id, m.player2Id].filter(Boolean) as string[]))
+        );
+        allGroupPlayers.sort((a, b) => (winCounts.get(b) || 0) - (winCounts.get(a) || 0));
+        const qualifiers = allGroupPlayers.slice(0, 2);
+
+        // Find which group index this is (A=0, B=1, …)
+        const groupIndex = groupLabel.charCodeAt(6) - 65; // "Group A"[6] = 'A'
+
+        // Find the first KO round (the one with the most matches)
+        const koRoundMatches = allTournamentMatches
+          .filter(m => m.round === "KO QF" || m.round === "KO SF" || m.round === "KO Final" || m.round.startsWith("KO R"))
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+
+        const roundCounts = new Map<string, number>();
+        for (const m of koRoundMatches) roundCounts.set(m.round, (roundCounts.get(m.round) || 0) + 1);
+        let firstKoRound = koRoundMatches[0]?.round ?? "";
+        let maxCount = 0;
+        for (const [rnd, cnt] of roundCounts.entries()) {
+          if (cnt > maxCount) { maxCount = cnt; firstKoRound = rnd; }
+        }
+
+        const firstKoMatches = koRoundMatches
+          .filter(m => m.round === firstKoRound)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+
+        const numGroups = firstKoMatches.length; // 1 KO match per group in first KO round
+
+        // Cross-seeding: 1st qualifier goes to KO match `groupIndex` as player1.
+        // 2nd qualifier goes to the complementary KO match as player2 (cross-seeding).
+        // For N groups: group gi's 2nd place plays at match (gi + N/2) % N as player2.
+        // This ensures 1st of group A meets 2nd of group B (and vice versa).
+        const crossIndex = numGroups > 1 ? (groupIndex + Math.floor(numGroups / 2)) % numGroups : 0;
+
+        if (qualifiers.length >= 1 && firstKoMatches.length > groupIndex) {
+          await db.update(tournamentMatches)
+            .set({ player1Id: qualifiers[0] })
+            .where(eq(tournamentMatches.id, firstKoMatches[groupIndex].id));
+        }
+        if (qualifiers.length >= 2 && firstKoMatches.length > crossIndex) {
+          await db.update(tournamentMatches)
+            .set({ player2Id: qualifiers[1] })
+            .where(eq(tournamentMatches.id, firstKoMatches[crossIndex].id));
+        }
+      }
+    }
+
+    // For group_knockout KO rounds: advance winner like a regular knockout
+    if (tournament.format === "group_knockout" && !match.round.startsWith("Group ")) {
+      const allMatches = await db.select().from(tournamentMatches)
+        .where(eq(tournamentMatches.tournamentId, id))
+        .orderBy(asc(tournamentMatches.matchOrder));
+
+      // Build ordered list of KO rounds dynamically (by descending match count = rounds from QF→Final)
+      const koMatchesAll = allMatches.filter(m => m.round.startsWith("KO "));
+      const koRoundCounts = new Map<string, number>();
+      for (const m of koMatchesAll) koRoundCounts.set(m.round, (koRoundCounts.get(m.round) || 0) + 1);
+      // Sort rounds by match count descending (most matches = earliest round)
+      const koRoundOrder = Array.from(koRoundCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([round]) => round);
+
+      const currentKoRoundIdx = koRoundOrder.indexOf(match.round);
+      if (currentKoRoundIdx !== -1 && currentKoRoundIdx < koRoundOrder.length - 1) {
+        const nextKoRound = koRoundOrder[currentKoRoundIdx + 1];
+        const sameRoundMatches = allMatches
+          .filter(m => m.round === match.round)
+          .sort((a, b) => a.matchOrder - b.matchOrder);
+        const myOrderInRound = sameRoundMatches.findIndex(m => m.id === matchId);
+        const nextMatchOrder = Math.floor(myOrderInRound / 2);
+        const nextMatch = allMatches.find(m => m.round === nextKoRound && m.matchOrder === nextMatchOrder);
+
+        if (nextMatch) {
+          const slot = myOrderInRound % 2 === 0 ? { player1Id: winnerId } : { player2Id: winnerId };
+          await db.update(tournamentMatches).set(slot).where(eq(tournamentMatches.id, nextMatch.id));
+        }
+      }
+    }
+
+    // Check if tournament is complete.
+    // - knockout: determined by "F" (Final) round completion
+    // - round_robin: determined when all player-assigned matches are done; winner by most wins
+    // - group_knockout: determined by the knockout final "KO Final" round completion
+    let tournamentComplete = false;
+    let finalWinnerId = winnerId;
+
+    if (tournament.format === "knockout") {
+      tournamentComplete = match.round === "F";
+    } else if (tournament.format === "group_knockout") {
+      // Tournament complete only when the knockout final is done
+      tournamentComplete = match.round === "KO Final";
+    } else {
+      // round_robin: complete when no remaining assigned matches
+      const remainingMatches = await db.select({ id: tournamentMatches.id })
+        .from(tournamentMatches)
+        .where(and(
+          eq(tournamentMatches.tournamentId, id),
+          ne(tournamentMatches.status, "completed"),
+          isNotNull(tournamentMatches.player1Id),
+          isNotNull(tournamentMatches.player2Id),
+        ));
+      tournamentComplete = remainingMatches.length === 0;
+
+      // For round-robin, determine winner by win count across all completed matches
+      if (tournamentComplete) {
+        const allCompleted = await db.select({
+          winnerId: tournamentMatches.winnerId,
+        }).from(tournamentMatches)
+          .where(and(
+            eq(tournamentMatches.tournamentId, id),
+            eq(tournamentMatches.status, "completed"),
+          ));
+
+        const winCounts = new Map<string, number>();
+        for (const m of allCompleted) {
+          if (m.winnerId) {
+            winCounts.set(m.winnerId, (winCounts.get(m.winnerId) || 0) + 1);
+          }
+        }
+        let maxWins = 0;
+        for (const [pid, wins] of winCounts.entries()) {
+          if (wins > maxWins) {
+            maxWins = wins;
+            finalWinnerId = pid;
+          }
+        }
+      }
+    }
+
+    // Only award completion/XP if the tournament is not already marked as completed
+    // (tournament.status !== "completed" and tournament.winnerId is null acts as idempotency guard)
+    if (tournamentComplete && tournament.status !== "completed" && !tournament.winnerId) {
+      const [completedTournament] = await db.update(tournaments)
+        .set({ status: "completed", winnerId: finalWinnerId, updatedAt: new Date() })
+        .where(and(eq(tournaments.id, id), ne(tournaments.status, "completed")))
+        .returning();
+
+      // Only award XP if the update actually changed a row (guarantees single award)
+      if (completedTournament && tournament.xpReward && tournament.xpReward > 0) {
+        try {
+          await db.insert(xpTransactions).values({
+            playerId: finalWinnerId,
+            xpAmount: tournament.xpReward,
+            description: `Tournament winner: ${tournament.name}`,
+            source: "tournament_win",
+          });
+          await db.update(players)
+            .set({ totalXp: sql`total_xp + ${tournament.xpReward}` })
+            .where(eq(players.id, finalWinnerId));
+        } catch (xpErr) {
+          console.error("Error awarding tournament XP:", xpErr);
+        }
+      }
     }
 
     res.json(updated);

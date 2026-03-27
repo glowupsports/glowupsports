@@ -48,7 +48,8 @@ interface Tournament {
   spotsTotal: number;
   spotsTaken: number;
   isRegistered: boolean;
-  status: "upcoming" | "in_progress" | "completed";
+  status: "upcoming" | "registration_open" | "in_progress" | "completed";
+  categories: string[];
 }
 
 interface TournamentData {
@@ -99,7 +100,7 @@ function formatDateRange(start: string, end: string): string {
   return `${startDate.toLocaleDateString("en-US", options)} - ${endDate.toLocaleDateString("en-US", options)}`;
 }
 
-function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { tournament: Tournament; onPress: () => void; onRegister: (id: string) => void; isRegistering: boolean }) {
+function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { tournament: Tournament; onPress: () => void; onRegister: (t: Tournament) => void; isRegistering: boolean }) {
   const { t } = useTranslation();
   const typeColor = getTypeColor(tournament.type);
   const spotsRemaining = tournament.spotsTotal - tournament.spotsTaken;
@@ -181,7 +182,7 @@ function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { to
             onPress={(e) => {
               e.stopPropagation();
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onRegister(tournament.id);
+              onRegister(tournament);
             }}
           >
             {isRegistering ? (
@@ -288,8 +289,9 @@ export default function TournamentsScreen() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: (tournamentId: string) => apiRequest("POST", `/api/player/tournaments/${tournamentId}/register`),
-    onMutate: (tournamentId) => {
+    mutationFn: ({ tournamentId, category }: { tournamentId: string; category?: string }) =>
+      apiRequest("POST", `/api/player/tournaments/${tournamentId}/register`, category ? { category } : {}),
+    onMutate: ({ tournamentId }) => {
       setRegisteringId(tournamentId);
     },
     onSuccess: () => {
@@ -341,8 +343,22 @@ export default function TournamentsScreen() {
     navigation.navigate("LadderDetail", { ladderId: id });
   };
 
-  const handleRegister = (tournamentId: string) => {
-    registerMutation.mutate(tournamentId);
+  const handleRegister = (tournament: Tournament) => {
+    if (tournament.categories && tournament.categories.length > 0) {
+      Alert.alert(
+        "Select Category",
+        "Choose your registration category:",
+        [
+          ...tournament.categories.map(cat => ({
+            text: cat,
+            onPress: () => registerMutation.mutate({ tournamentId: tournament.id, category: cat }),
+          })),
+          { text: "Cancel", style: "cancel" as const },
+        ]
+      );
+    } else {
+      registerMutation.mutate({ tournamentId: tournament.id });
+    }
   };
 
   const handleJoinLadder = (ladderId: string) => {

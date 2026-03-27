@@ -38,6 +38,8 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, FunctionColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useTranslation } from "react-i18next";
@@ -173,7 +175,7 @@ function GradientButton({ onPress, title, label, icon }: { onPress: () => void; 
 export default function SettingsScreen() {
   const { coach, academy, calendarData } = useCoach();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const { t, i18n } = useTranslation();
   const { logout } = useAuth();
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
@@ -1181,6 +1183,21 @@ export default function SettingsScreen() {
               <View>
                 <Text style={styles.settingLabel}>{t('coach.settings.invitations')}</Text>
                 <Text style={styles.settingDescription}>Manage invitations to/from academies</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+          </Pressable>
+          <Pressable 
+            style={styles.linkRow}
+            onPress={() => navigation.navigate("TournamentManagement")}
+          >
+            <View style={styles.settingInfo}>
+              <View style={[styles.settingIconWrapper, { backgroundColor: "#FFB02020" }]}>
+                <Ionicons name="trophy-outline" size={20} color="#FFB020" />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Tournaments</Text>
+                <Text style={styles.settingDescription}>Create and manage academy tournaments</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
