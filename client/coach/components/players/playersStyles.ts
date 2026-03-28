@@ -447,7 +447,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   gamingLevelBadge: {
     flexDirection: "row",
