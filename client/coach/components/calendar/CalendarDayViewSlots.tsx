@@ -305,15 +305,8 @@ export function CalendarDayViewSlots({
                           hasConflict={dragConflict === session.id}
                           onHoverIn={Platform.OS === "web" ? () => setHoveredSession(session) : undefined}
                           onHoverOut={Platform.OS === "web" ? () => setHoveredSession(null) : undefined}
-                          onWebPress={Platform.OS === "web" ? (clientX: number, clientY: number) => {
-                            setPressedSession(prev => {
-                              if (prev?.id === session.id) {
-                                setPressedSessionPos(null);
-                                return null;
-                              }
-                              setPressedSessionPos({ x: clientX, y: clientY });
-                              return session;
-                            });
+                          onWebPress={Platform.OS === "web" ? (_clientX: number, _clientY: number) => {
+                            handleSessionTap(session);
                           } : undefined}
                         />
                         {isAllHolidayCancelled ? (
