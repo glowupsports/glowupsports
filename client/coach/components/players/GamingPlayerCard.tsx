@@ -259,32 +259,6 @@ export function GamingPlayerCard({
                   <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
                 </View>
               ) : null}
-              {needsBaseline && (
-                <Pressable 
-                  style={styles.baselineNeededBadge}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onStartBaseline?.();
-                  }}
-                >
-                  <Ionicons name="flag" size={10} color={Colors.dark.orange} />
-                  <Text style={styles.baselineNeededText}>Baseline</Text>
-                </Pressable>
-              )}
-              {isPendingSignup ? (
-                <Pressable
-                  style={styles.awaitingSignupBadge}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setShowInvitePopover(true);
-                  }}
-                >
-                  <Ionicons name="time-outline" size={9} color={Colors.dark.orange} />
-                  <Text style={styles.awaitingSignupText}>Awaiting signup</Text>
-                </Pressable>
-              ) : null}
               {statusBadge ? (
                 <View style={[styles.gamingStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color }]}>
                   <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
@@ -352,6 +326,32 @@ export function GamingPlayerCard({
                   </View>
                 );
               })()}
+              {needsBaseline && (
+                <Pressable
+                  style={styles.baselineNeededBadge}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onStartBaseline?.();
+                  }}
+                >
+                  <Ionicons name="flag" size={10} color={Colors.dark.orange} />
+                  <Text style={styles.baselineNeededText}>Baseline</Text>
+                </Pressable>
+              )}
+              {isPendingSignup ? (
+                <Pressable
+                  style={styles.awaitingSignupBadge}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowInvitePopover(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={9} color={Colors.dark.orange} />
+                  <Text style={styles.awaitingSignupText}>Awaiting signup</Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
 
