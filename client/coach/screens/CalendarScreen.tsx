@@ -396,12 +396,17 @@ export default function CalendarScreen() {
     const originalStart = parseUTCTimestamp(session.startTime);
     const originalEnd = parseUTCTimestamp(session.endTime);
     
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+    const rawMinuteDelta = Math.round(hoursChanged * 60);
+    const snappedMinuteDelta = Math.round(rawMinuteDelta / 30) * 30;
+
     const newStart = new Date(originalStart);
-    newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
-    
-    const newEnd = new Date(originalEnd);
-    newEnd.setMinutes(newEnd.getMinutes() + Math.round(hoursChanged * 60));
-    
+    newStart.setMinutes(newStart.getMinutes() + snappedMinuteDelta);
+    newStart.setSeconds(0);
+    newStart.setMilliseconds(0);
+
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
     const newCourtIndex = Math.max(0, Math.min(courts.length - 1, currentCourtIndex + courtsChanged));
     const newCourtId = courts[newCourtIndex]?.id;
     const newCourtName = courts[newCourtIndex]?.name;
@@ -436,13 +441,16 @@ export default function CalendarScreen() {
     const originalStart = parseUTCTimestamp(session.startTime);
     const originalEnd = parseUTCTimestamp(session.endTime);
     
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+    const snappedMinuteDelta = Math.round(minutesChanged / 30) * 30;
+
     const newStart = new Date(originalStart.getTime());
     newStart.setDate(originalStart.getDate() + daysChanged);
-    newStart.setMinutes(originalStart.getMinutes() + minutesChanged);
-    
-    const newEnd = new Date(originalEnd.getTime());
-    newEnd.setDate(originalEnd.getDate() + daysChanged);
-    newEnd.setMinutes(originalEnd.getMinutes() + minutesChanged);
+    newStart.setMinutes(originalStart.getMinutes() + snappedMinuteDelta);
+    newStart.setSeconds(0);
+    newStart.setMilliseconds(0);
+
+    const newEnd = new Date(newStart.getTime() + durationMs);
     
     if (newStart.getHours() < START_HOUR || newEnd.getHours() > END_HOUR + 1) {
       Alert.alert("Invalid Time", "Session cannot be moved outside operating hours.");
@@ -635,12 +643,17 @@ export default function CalendarScreen() {
     const originalStart = parseUTCTimestamp(session.startTime);
     const originalEnd = parseUTCTimestamp(session.endTime);
     
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+    const rawMinuteDelta = Math.round(hoursChanged * 60);
+    const snappedMinuteDelta = Math.round(rawMinuteDelta / 30) * 30;
+
     const newStart = new Date(originalStart);
-    newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
-    
-    const newEnd = new Date(originalEnd);
-    newEnd.setMinutes(newEnd.getMinutes() + Math.round(hoursChanged * 60));
-    
+    newStart.setMinutes(newStart.getMinutes() + snappedMinuteDelta);
+    newStart.setSeconds(0);
+    newStart.setMilliseconds(0);
+
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
     const newCourtIndex = Math.max(0, Math.min(courts.length - 1, currentCourtIndex + courtsChanged));
     const newCourtId = courts[newCourtIndex]?.id;
     
