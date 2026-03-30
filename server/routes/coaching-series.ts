@@ -2622,6 +2622,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           );
         }
 
+        apiCache.invalidate(`series:${coachId}`);
+
         res.json({
           success: true,
           sessionTypeChanged,
@@ -2704,6 +2706,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             `[LeavePlayer] Session type changed: ${currentSessionType} -> ${newSessionType} (now ${activePlayerCount} players)`,
           );
         }
+
+        apiCache.invalidate(`series:${coachId}`);
 
         res.json({
           ...updated,
