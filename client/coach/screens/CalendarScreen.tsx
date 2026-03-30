@@ -397,11 +397,10 @@ export default function CalendarScreen() {
     const originalEnd = parseUTCTimestamp(session.endTime);
     
     const durationMs = originalEnd.getTime() - originalStart.getTime();
-    const rawMinuteDelta = Math.round(hoursChanged * 60);
-    const snappedMinuteDelta = Math.round(rawMinuteDelta / 30) * 30;
 
     const newStart = new Date(originalStart);
-    newStart.setMinutes(newStart.getMinutes() + snappedMinuteDelta);
+    newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
+    newStart.setMinutes(Math.round(newStart.getMinutes() / 30) * 30);
     newStart.setSeconds(0);
     newStart.setMilliseconds(0);
 
@@ -442,11 +441,11 @@ export default function CalendarScreen() {
     const originalEnd = parseUTCTimestamp(session.endTime);
     
     const durationMs = originalEnd.getTime() - originalStart.getTime();
-    const snappedMinuteDelta = Math.round(minutesChanged / 30) * 30;
 
     const newStart = new Date(originalStart.getTime());
     newStart.setDate(originalStart.getDate() + daysChanged);
-    newStart.setMinutes(originalStart.getMinutes() + snappedMinuteDelta);
+    newStart.setMinutes(originalStart.getMinutes() + minutesChanged);
+    newStart.setMinutes(Math.round(newStart.getMinutes() / 30) * 30);
     newStart.setSeconds(0);
     newStart.setMilliseconds(0);
 
@@ -644,11 +643,10 @@ export default function CalendarScreen() {
     const originalEnd = parseUTCTimestamp(session.endTime);
     
     const durationMs = originalEnd.getTime() - originalStart.getTime();
-    const rawMinuteDelta = Math.round(hoursChanged * 60);
-    const snappedMinuteDelta = Math.round(rawMinuteDelta / 30) * 30;
 
     const newStart = new Date(originalStart);
-    newStart.setMinutes(newStart.getMinutes() + snappedMinuteDelta);
+    newStart.setMinutes(newStart.getMinutes() + Math.round(hoursChanged * 60));
+    newStart.setMinutes(Math.round(newStart.getMinutes() / 30) * 30);
     newStart.setSeconds(0);
     newStart.setMilliseconds(0);
 
