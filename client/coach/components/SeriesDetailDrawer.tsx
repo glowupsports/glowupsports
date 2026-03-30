@@ -9,7 +9,6 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
-  Platform,
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1189,6 +1188,7 @@ export default function SeriesDetailDrawer({
       onClose();
     } catch (error) {
       console.error("Error completing series:", error);
+      Alert.alert("Error", "Failed to complete class series. Please try again.");
     } finally {
       setCompletingSeries(false);
     }
@@ -1219,6 +1219,7 @@ export default function SeriesDetailDrawer({
       onClose();
     } catch (error) {
       console.error("Error deleting series:", error);
+      Alert.alert("Error", "Failed to delete class series. Please try again.");
     } finally {
       setDeletingSeries(false);
     }
@@ -1837,10 +1838,10 @@ const confirmStyles = StyleSheet.create({
     fontWeight: "700",
   },
   deleteBtn: {
-    backgroundColor: "#7F1D1D",
+    backgroundColor: Colors.dark.error,
   },
   deleteText: {
-    color: "#FCA5A5",
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
   },
