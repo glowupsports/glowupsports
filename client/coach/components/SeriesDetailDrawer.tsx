@@ -463,6 +463,27 @@ export default function SeriesDetailDrawer({
     mutationFn: async (playerId: string) => {
       return apiRequest("POST", `/api/coach/series/${seriesId}/players/${playerId}/unpause`, {});
     },
+    onMutate: async (playerId: string) => {
+      await queryClient.cancelQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      const previous = queryClient.getQueryData([`/api/coach/series/${seriesId}`]);
+      queryClient.setQueryData([`/api/coach/series/${seriesId}`], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          players: (old.players || []).map((p: any) =>
+            p.id === playerId || p.playerId === playerId
+              ? { ...p, status: "active", pauseFrom: null, pauseUntil: null, pauseReason: null }
+              : p
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (_err: any, _playerId: string, context: any) => {
+      if (context?.previous) {
+        queryClient.setQueryData([`/api/coach/series/${seriesId}`], context.previous);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
