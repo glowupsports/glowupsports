@@ -31,7 +31,7 @@ interface PlayerPreview {
 
 interface Series {
   id: string;
-  name: string;
+  title: string;
   status: string;
   startTime: string;
   dayOfWeek: number;
@@ -118,7 +118,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
       await queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       setMoveTarget(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Moved", `${moveTarget.playerName} moved to ${toSeries.name}`);
+      Alert.alert("Moved", `${moveTarget.playerName} moved to ${toSeries.title}`);
     } catch (error) {
       console.error("Error moving player:", error);
       Alert.alert("Error", "Failed to move player. Please try again.");
@@ -156,7 +156,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
         <View style={styles.cardInner}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {series.name}
+              {series.title}
             </Text>
             <View style={[styles.capacityBadge, { backgroundColor: isFull ? Colors.dark.error + "30" : Colors.dark.successNeon + "20" }]}>
               <Text style={[styles.capacityText, { color: isFull ? Colors.dark.error : Colors.dark.successNeon }]}>
@@ -204,7 +204,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
               setCompleteTarget(series);
             }}
           >
-            <Ionicons name="checkmark-done-outline" size={14} color={Colors.dark.error} />
+            <Ionicons name="trash-outline" size={14} color={Colors.dark.error} />
             <Text style={styles.completeBtnText}>Complete Class</Text>
           </Pressable>
         </View>
@@ -322,7 +322,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
                       >
                         <View style={styles.targetInfo}>
                           <Text style={[styles.targetName, isFull && styles.targetNameFull]} numberOfLines={1}>
-                            {s.name}
+                            {s.title}
                           </Text>
                           <Text style={styles.targetTime}>
                             {dayLabel} {localTime}
@@ -363,7 +363,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
           <View style={styles.confirmCard}>
             <Text style={styles.confirmTitle}>Complete Class</Text>
             <Text style={styles.confirmBody}>
-              {`"${completeTarget?.name}" will be archived and no new sessions will be scheduled. You can still view history.`}
+              {`"${completeTarget?.title}" will be archived and no new sessions will be scheduled. You can still view history.`}
             </Text>
             <View style={styles.confirmButtons}>
               <Pressable
