@@ -26,6 +26,7 @@ import { styles } from "./coaching/coachingStyles";
 import type { TabType, ProgressTrend, EffortLevel } from "./coaching/types";
 import { SeriesTab } from "./coaching/SeriesTab";
 import { WeekPlannerTab } from "./coaching/WeekPlannerTab";
+import { RosterPlannerTab } from "./coaching/RosterPlannerTab";
 import { TodayFeedbackTab } from "./coaching/TodayFeedbackTab";
 import { ProgressTab } from "./coaching/ProgressTab";
 import { PlansTab } from "./coaching/PlansTab";
@@ -125,6 +126,7 @@ export default function CoachingScreen() {
           {([
             { id: "series", label: "Classes", icon: "layers", color: Colors.dark.xpCyan },
             { id: "weekPlanner", label: "Week View", icon: "calendar-outline", color: Colors.dark.primary },
+            { id: "roster", label: "Roster", icon: "people-outline", color: "#FF8C00" },
             { id: "plans", label: "Plans", icon: "bulb", color: Colors.dark.gold },
           ] as const).map((tab) => {
             const isActive = activeTab === tab.id;
@@ -237,6 +239,8 @@ export default function CoachingScreen() {
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "weekPlanner" ? (
         <WeekPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "roster" ? (
+        <RosterPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "today" ? (
         <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "progress" ? (
