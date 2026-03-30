@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
   import { db } from "../db";
-  import { storage } from "../storage";
+  import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "../storage";
   import {
     eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
     isNull, isNotNull, or, count, ilike, lte,
