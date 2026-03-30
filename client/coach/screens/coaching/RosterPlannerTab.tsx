@@ -222,7 +222,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
       >
         {(["all", "has_space", "full"] as FilterMode[]).map((f) => {
           const labels: Record<FilterMode, string> = {
-            all: "All Classes",
+            all: "All",
             has_space: "Has Space",
             full: "Full",
           };
@@ -265,7 +265,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
           <Ionicons name="layers-outline" size={48} color={Colors.dark.textMuted} />
           <Text style={styles.emptyTitle}>No active classes</Text>
           <Text style={styles.emptySubtitle}>
-            {filter !== "all" ? "Try switching to 'All Classes'" : "Create a class to get started"}
+            {filter !== "all" ? "Try switching to 'All'" : "Create a class to get started"}
           </Text>
         </View>
       ) : (
@@ -328,16 +328,23 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
                             {dayLabel} {localTime}
                           </Text>
                         </View>
-                        <View style={[
-                          styles.targetCapacity,
-                          { backgroundColor: isFull ? Colors.dark.error + "20" : Colors.dark.successNeon + "20" }
-                        ]}>
-                          <Text style={[
-                            styles.targetCapacityText,
-                            { color: isFull ? Colors.dark.error : Colors.dark.successNeon }
+                        <View style={styles.targetCapacityGroup}>
+                          <View style={[
+                            styles.targetCapacity,
+                            { backgroundColor: isFull ? Colors.dark.error + "20" : Colors.dark.successNeon + "20" }
                           ]}>
-                            {isFull ? "Full" : `${s.playerCount}/${s.maxPlayers}`}
-                          </Text>
+                            <Text style={[
+                              styles.targetCapacityText,
+                              { color: isFull ? Colors.dark.error : Colors.dark.successNeon }
+                            ]}>
+                              {`${s.playerCount}/${s.maxPlayers}`}
+                            </Text>
+                          </View>
+                          {isFull ? (
+                            <View style={styles.fullTag}>
+                              <Text style={styles.fullTagText}>Full</Text>
+                            </View>
+                          ) : null}
                         </View>
                       </Pressable>
                     );
@@ -614,14 +621,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  targetCapacityGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: Spacing.sm,
+  },
   targetCapacity: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
-    marginLeft: Spacing.sm,
   },
   targetCapacityText: {
     fontSize: 12,
+    fontWeight: "700",
+  },
+  fullTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.error,
+  },
+  fullTagText: {
+    color: "#FFFFFF",
+    fontSize: 11,
     fontWeight: "700",
   },
   cancelBtn: {
