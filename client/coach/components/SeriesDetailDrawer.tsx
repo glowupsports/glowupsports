@@ -115,9 +115,9 @@ export default function SeriesDetailDrawer({
   const [showPauseFromPicker, setShowPauseFromPicker] = useState(false);
   const [showPauseUntilPicker, setShowPauseUntilPicker] = useState(false);
   
-  // Complete / Delete confirm modal state
-  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Complete / Delete series confirm modal state
+  const [showSeriesCompleteConfirm, setShowSeriesCompleteConfirm] = useState(false);
+  const [showSeriesDeleteConfirm, setShowSeriesDeleteConfirm] = useState(false);
 
   // Remove modal state
   const [showRemoveModal, setShowRemoveModal] = useState(false);
@@ -552,11 +552,7 @@ export default function SeriesDetailDrawer({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {
-      if (Platform.OS === "web") {
-        window.alert("Failed to create package. Please try again.");
-      } else {
-        Alert.alert("Error", "Failed to create package. Please try again.");
-      }
+      Alert.alert("Error", "Failed to create package. Please try again.");
     },
   });
 
@@ -1112,22 +1108,14 @@ export default function SeriesDetailDrawer({
       const result = await response.json();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(`Added ${result.sessionsCreated} new sessions!`);
-      } else {
-        Alert.alert("Success", `Added ${result.sessionsCreated} new sessions!`);
-      }
+      Alert.alert("Success", `Added ${result.sessionsCreated} new sessions!`);
       
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
     } catch (error: any) {
       console.error("Error extending series:", error);
       const msg = error?.message || "Failed to extend series";
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(msg);
-      } else {
-        Alert.alert("Error", msg);
-      }
+      Alert.alert("Error", msg);
     } finally {
       setExtendingSeries(false);
     }
@@ -1168,19 +1156,11 @@ export default function SeriesDetailDrawer({
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert("Extra lesson added successfully!");
-      } else {
-        Alert.alert("Success", "Extra lesson added to the class!");
-      }
+      Alert.alert("Success", "Extra lesson added to the class!");
     } catch (error: any) {
       console.error("Error adding extra lesson:", error);
       const msg = error?.message || "Failed to add extra lesson";
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(msg);
-      } else {
-        Alert.alert("Error", msg);
-      }
+      Alert.alert("Error", msg);
     } finally {
       setAddingExtraLesson(false);
     }
@@ -1188,12 +1168,12 @@ export default function SeriesDetailDrawer({
   
   const handleCompleteSeries = () => {
     if (!seriesId) return;
-    setShowCompleteConfirm(true);
+    setShowSeriesCompleteConfirm(true);
   };
 
   const doCompleteSeries = async () => {
     if (!seriesId) return;
-    setShowCompleteConfirm(false);
+    setShowSeriesCompleteConfirm(false);
     setCompletingSeries(true);
     try {
       await apiRequest("POST", `/api/coach/series/${seriesId}/end`);
@@ -1219,12 +1199,12 @@ export default function SeriesDetailDrawer({
   
   const handleDeleteSeries = () => {
     if (!seriesId) return;
-    setShowDeleteConfirm(true);
+    setShowSeriesDeleteConfirm(true);
   };
 
   const doDeleteSeries = async () => {
     if (!seriesId) return;
-    setShowDeleteConfirm(false);
+    setShowSeriesDeleteConfirm(false);
     setDeletingSeries(true);
     try {
       await apiRequest("DELETE", `/api/coach/series/${seriesId}`);
@@ -1713,10 +1693,10 @@ export default function SeriesDetailDrawer({
 
       {/* Complete Class confirm modal */}
       <Modal
-        visible={showCompleteConfirm}
+        visible={showSeriesCompleteConfirm}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowCompleteConfirm(false)}
+        onRequestClose={() => setShowSeriesCompleteConfirm(false)}
       >
         <View style={confirmStyles.overlay}>
           <View style={confirmStyles.card}>
@@ -1727,7 +1707,7 @@ export default function SeriesDetailDrawer({
             <View style={confirmStyles.buttonRow}>
               <Pressable
                 style={[confirmStyles.btn, confirmStyles.cancelBtn]}
-                onPress={() => setShowCompleteConfirm(false)}
+                onPress={() => setShowSeriesCompleteConfirm(false)}
               >
                 <Text style={confirmStyles.cancelText}>Cancel</Text>
               </Pressable>
@@ -1744,10 +1724,10 @@ export default function SeriesDetailDrawer({
 
       {/* Delete Class confirm modal */}
       <Modal
-        visible={showDeleteConfirm}
+        visible={showSeriesDeleteConfirm}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowDeleteConfirm(false)}
+        onRequestClose={() => setShowSeriesDeleteConfirm(false)}
       >
         <View style={confirmStyles.overlay}>
           <View style={confirmStyles.card}>
@@ -1758,7 +1738,7 @@ export default function SeriesDetailDrawer({
             <View style={confirmStyles.buttonRow}>
               <Pressable
                 style={[confirmStyles.btn, confirmStyles.cancelBtn]}
-                onPress={() => setShowDeleteConfirm(false)}
+                onPress={() => setShowSeriesDeleteConfirm(false)}
               >
                 <Text style={confirmStyles.cancelText}>Cancel</Text>
               </Pressable>
