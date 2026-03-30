@@ -115,6 +115,10 @@ export default function SeriesDetailDrawer({
   const [showPauseFromPicker, setShowPauseFromPicker] = useState(false);
   const [showPauseUntilPicker, setShowPauseUntilPicker] = useState(false);
   
+  // Complete / Delete confirm modal state
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   // Remove modal state
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removePlayerId, setRemovePlayerId] = useState<string | null>(null);
@@ -1182,46 +1186,29 @@ export default function SeriesDetailDrawer({
     }
   };
   
-  const handleCompleteSeries = async () => {
+  const handleCompleteSeries = () => {
     if (!seriesId) return;
-    
-    // Confirmation dialog
-    const confirmComplete = Platform.OS === "web" && typeof window !== "undefined"
-      ? window.confirm("Complete this class series? The class will be archived and no new sessions will be scheduled. You can still view the history.")
-      : await new Promise<boolean>((resolve) => {
-          const Alert = require("react-native").Alert;
-          Alert.alert(
-            "Complete Class Series",
-            "The class will be archived and no new sessions will be scheduled. You can still view the history in the Ended filter.",
-            [
-              { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
-              { text: "Complete", onPress: () => resolve(true) },
-            ]
-          );
-        });
-    
-    if (!confirmComplete) return;
-    
+    setShowCompleteConfirm(true);
+  };
+
+  const doCompleteSeries = async () => {
+    if (!seriesId) return;
+    setShowCompleteConfirm(false);
     setCompletingSeries(true);
     try {
       await apiRequest("POST", `/api/coach/series/${seriesId}/end`);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === "string" && key.startsWith("/api/coach/calendar");
-        }
+        },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch (error) {
       console.error("Error completing series:", error);
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert("Failed to complete class series. Please try again.");
-      } else {
-        Alert.alert("Error", "Failed to complete class series. Please try again.");
-      }
     } finally {
       setCompletingSeries(false);
     }
@@ -1230,40 +1217,28 @@ export default function SeriesDetailDrawer({
   // Delete entire series
   const [deletingSeries, setDeletingSeries] = useState(false);
   
-  const handleDeleteSeries = async () => {
+  const handleDeleteSeries = () => {
     if (!seriesId) return;
-    
-    // Confirmation dialog (web-compatible)
-    const confirmDelete = Platform.OS === "web" && typeof window !== "undefined"
-      ? window.confirm("Delete this entire class series? This will cancel all upcoming sessions and remove all players. This action cannot be undone.")
-      : await new Promise<boolean>((resolve) => {
-          const Alert = require("react-native").Alert;
-          Alert.alert(
-            "Delete Class Series",
-            "This will cancel all upcoming sessions and remove all players. This action cannot be undone.",
-            [
-              { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
-              { text: "Delete", onPress: () => resolve(true), style: "destructive" },
-            ]
-          );
-        });
-    
-    if (!confirmDelete) return;
-    
+    setShowDeleteConfirm(true);
+  };
+
+  const doDeleteSeries = async () => {
+    if (!seriesId) return;
+    setShowDeleteConfirm(false);
     setDeletingSeries(true);
     try {
       await apiRequest("DELETE", `/api/coach/series/${seriesId}`);
       await queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      await queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
+      await queryClient.invalidateQueries({
+        predicate: (q) =>
+          typeof q.queryKey[0] === "string" &&
+          (q.queryKey[0] as string).includes("/api/coach/calendar"),
+        refetchType: "all",
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch (error) {
       console.error("Error deleting series:", error);
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert("Failed to delete class series. Please try again.");
-      } else {
-        Alert.alert("Error", "Failed to delete class series. Please try again.");
-      }
     } finally {
       setDeletingSeries(false);
     }
@@ -1735,6 +1710,68 @@ export default function SeriesDetailDrawer({
         calcDurationMins={calcDurationMins}
         confirmAddExtraLesson={confirmAddExtraLesson}
       />
+
+      {/* Complete Class confirm modal */}
+      <Modal
+        visible={showCompleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCompleteConfirm(false)}
+      >
+        <View style={confirmStyles.overlay}>
+          <View style={confirmStyles.card}>
+            <Text style={confirmStyles.title}>Complete Class Series</Text>
+            <Text style={confirmStyles.body}>
+              The class will be archived and no new sessions will be scheduled. You can still view the history.
+            </Text>
+            <View style={confirmStyles.buttonRow}>
+              <Pressable
+                style={[confirmStyles.btn, confirmStyles.cancelBtn]}
+                onPress={() => setShowCompleteConfirm(false)}
+              >
+                <Text style={confirmStyles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[confirmStyles.btn, confirmStyles.confirmBtn]}
+                onPress={doCompleteSeries}
+              >
+                <Text style={confirmStyles.confirmText}>Complete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Class confirm modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={confirmStyles.overlay}>
+          <View style={confirmStyles.card}>
+            <Text style={confirmStyles.title}>Delete Entire Class</Text>
+            <Text style={confirmStyles.body}>
+              This will cancel all upcoming sessions and remove all players. This action cannot be undone.
+            </Text>
+            <View style={confirmStyles.buttonRow}>
+              <Pressable
+                style={[confirmStyles.btn, confirmStyles.cancelBtn]}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={confirmStyles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[confirmStyles.btn, confirmStyles.deleteBtn]}
+                onPress={doDeleteSeries}
+              >
+                <Text style={confirmStyles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
 
     {/* Feedback Drawer - appears after saving attendance */}
@@ -1764,3 +1801,67 @@ export default function SeriesDetailDrawer({
   );
 }
 
+const confirmStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    backgroundColor: "#1A2332",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  body: {
+    color: "rgba(255,255,255,0.65)",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  cancelBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  cancelText: {
+    color: "rgba(255,255,255,0.65)",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  confirmBtn: {
+    backgroundColor: Colors.dark.successNeon,
+  },
+  confirmText: {
+    color: "#000000",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  deleteBtn: {
+    backgroundColor: "#7F1D1D",
+  },
+  deleteText: {
+    color: "#FCA5A5",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});
