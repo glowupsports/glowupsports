@@ -2350,7 +2350,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               }
             }
 
-            // Add player to future session instances
+            // Add player to future session instances.
+            // IMPORTANT: addPlayerToSession creates a session_players row with NULL
+            // attendance_status. ensureCreditProcessed treats NULL attendance as
+            // "not_attended" and will NOT charge credits — credits are only charged
+            // when attendance is explicitly marked (present/late/absent) during the
+            // normal session completion flow. No session-type recalculation is
+            // triggered here (that path is only reached for brand-new series players
+            // below, not for reactivated-from-left players).
             const allSeriesSessions = await db
               .select()
               .from(sessions)
@@ -2517,7 +2524,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           // Update series and all future sessions to new type
           await updateSeriesSessionType(id, newSessionType);
 
-          // Notify about credit type change (informational)
+          // recalculateSeriesCredits only runs on a genuine session-type change
+          // (guarded by the check above). It creates zero-amount informational
+          // transactions — it does NOT deduct credits from any player's balance.
+          // This block is unreachable for reactivated-from-left players (they
+          // return early before this point).
           await recalculateSeriesCredits(
             id,
             currentSessionType,
@@ -2750,13 +2761,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         try {
+          // Only remove session_player records for FUTURE (scheduled, not yet completed) sessions
+          // during the pause window. Never remove completed sessions — those have credit
+          // transactions already processed, and deleting them creates orphaned debt.
           const affectedSessions = await db
             .select({ id: sessions.id })
             .from(sessions)
             .where(
               and(
                 eq(sessions.seriesId, id),
-                inArray(sessions.status, ["scheduled", "completed"]),
+                eq(sessions.status, "scheduled"),
                 gte(sql`${sessions.startTime}::date`, sql`${pauseFrom}::date`),
                 lte(sql`${sessions.startTime}::date`, sql`${pauseUntil}::date`),
               )
@@ -2771,7 +2785,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   inArray(sessionPlayers.sessionId, sessionIds),
                 )
               );
-            console.log(`[Pause] Removed session_player records for player ${playerId} from ${affectedSessions.length} sessions during pause ${pauseFrom} to ${pauseUntil}`);
+            console.log(`[Pause] Removed session_player records for player ${playerId} from ${affectedSessions.length} future sessions during pause ${pauseFrom} to ${pauseUntil}`);
           }
         } catch (cleanupErr) {
           console.error("[Pause] Error removing future session_players:", cleanupErr);
@@ -2812,6 +2826,41 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res
             .status(404)
             .json({ error: "Player not found in this class" });
+        }
+
+        // Re-add player to all future sessions they were removed from during the pause.
+        // No credit processing is triggered here — credits are only charged when a session
+        // is attended/completed, which happens separately.
+        try {
+          const allSeriesSessions = await db
+            .select()
+            .from(sessions)
+            .where(eq(sessions.seriesId, id));
+          const now = new Date();
+          const futureSessions = allSeriesSessions.filter(
+            (s) => new Date(s.startTime) > now,
+          );
+          let insertedCount = 0;
+          for (const futureSession of futureSessions) {
+            try {
+              const existingPlayers = await storage.getSessionPlayers(futureSession.id);
+              if (!existingPlayers.some((p) => p.id === playerId)) {
+                await storage.addPlayerToSession({
+                  sessionId: futureSession.id,
+                  playerId,
+                });
+                insertedCount++;
+              }
+            } catch (sessionErr) {
+              console.error(
+                `[Unpause] Failed to re-add player ${playerId} to session ${futureSession.id}:`,
+                sessionErr,
+              );
+            }
+          }
+          console.log(`[Unpause] Re-added player ${playerId} to ${insertedCount}/${futureSessions.length} future sessions in series ${id}`);
+        } catch (refillErr) {
+          console.error("[Unpause] Error re-adding player to future sessions:", refillErr);
         }
 
         apiCache.invalidate(`series:${coachId}`);
