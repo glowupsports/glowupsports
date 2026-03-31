@@ -939,6 +939,7 @@ function setupErrorHandler(app: express.Application) {
           WHERE pi.player_id = p.id
             AND pi.status = 'claimed'
             AND p.academy_id IS NULL
+            AND pi.academy_id IS NOT NULL
         `);
         const healed = healResult.rowCount ?? 0;
         if (healed > 0) {
