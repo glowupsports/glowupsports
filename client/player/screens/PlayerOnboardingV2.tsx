@@ -50,6 +50,44 @@ import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize, childTshirtSizes, adultTshirtSizes } from "@shared/schema";
 import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
+import * as Localization from "expo-localization";
+
+const ISO_TO_COUNTRY: Record<string, string> = {
+  AE: "United Arab Emirates",
+  ID: "Indonesia",
+  NL: "Netherlands",
+  GB: "United Kingdom",
+  US: "United States",
+  SA: "Saudi Arabia",
+  QA: "Qatar",
+  BH: "Bahrain",
+  KW: "Kuwait",
+  OM: "Oman",
+  EG: "Egypt",
+  AU: "Australia",
+  SG: "Singapore",
+  MY: "Malaysia",
+  DE: "Germany",
+  FR: "France",
+  ES: "Spain",
+  IT: "Italy",
+  BE: "Belgium",
+  CH: "Switzerland",
+  SE: "Sweden",
+  NO: "Norway",
+  DK: "Denmark",
+  PL: "Poland",
+  IN: "India",
+  PK: "Pakistan",
+  ZA: "South Africa",
+  KE: "Kenya",
+  NG: "Nigeria",
+  BR: "Brazil",
+  AR: "Argentina",
+  MX: "Mexico",
+  CA: "Canada",
+  NZ: "New Zealand",
+};
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -141,6 +179,13 @@ interface Academy {
   slug: string;
   coachCount: number;
   playerCount: number;
+  city?: string | null;
+  country?: string | null;
+}
+
+interface AcademyCountry {
+  country: string;
+  cities: string[];
 }
 
 interface StepProps {
@@ -1553,14 +1598,54 @@ function AvailabilityStep({ data, setData, onNext }: StepProps) {
 }
 
 function AcademySelectionStep({ data, setData, onNext }: StepProps) {
-  const [joinCode, setJoinCode] = useState("");
-  const [joinCodeError, setJoinCodeError] = useState<string | null>(null);
+  const detectedRegion = Localization.getLocales?.()[0]?.regionCode ?? null;
+  const detectedCountry = detectedRegion ? (ISO_TO_COUNTRY[detectedRegion] ?? null) : null;
 
-  const { data: academiesData, isLoading } = useQuery<{ academies: Academy[] }>({
-    queryKey: ["/api/academies/browse"],
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(detectedCountry);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [showCountryModal, setShowCountryModal] = useState(false);
+  const [showingAll, setShowingAll] = useState(false);
+
+  const isCountryFiltered = !!selectedCountry && !showingAll;
+
+  const { data: filteredAcademiesData, isLoading: isLoadingFiltered } = useQuery<{ academies: Academy[] }>({
+    queryKey: ["/api/academies/browse", selectedCountry, selectedCity, showingAll],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (isCountryFiltered && selectedCountry) params.set("country", selectedCountry);
+      if (isCountryFiltered && selectedCity) params.set("city", selectedCity);
+      const path = `/api/academies/browse${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await apiFetch(path);
+      if (!res.ok) throw new Error(`${res.status}: Failed to load academies`);
+      return res.json() as Promise<{ academies: Academy[] }>;
+    },
   });
 
-  const academies = academiesData?.academies || [];
+  const { data: allAcademiesData, isLoading: isLoadingAll } = useQuery<{ academies: Academy[] }>({
+    queryKey: ["/api/academies/browse"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/academies/browse");
+      if (!res.ok) throw new Error(`${res.status}: Failed to load academies`);
+      return res.json() as Promise<{ academies: Academy[] }>;
+    },
+    enabled: isCountryFiltered,
+  });
+
+  const { data: countriesData } = useQuery<{ countries: AcademyCountry[] }>({
+    queryKey: ["/api/academies/browse/countries"],
+  });
+
+  const filteredAcademies = filteredAcademiesData?.academies || [];
+  const allAcademies = allAcademiesData?.academies || [];
+  const countries = countriesData?.countries || [];
+
+  const citiesInCountry: string[] = selectedCountry && countriesData
+    ? (countriesData.countries.find(c => c.country === selectedCountry)?.cities ?? [])
+    : [];
+
+  const hasNoLocalAcademies = isCountryFiltered && !isLoadingFiltered && filteredAcademies.length === 0;
+  const isLoading = isLoadingFiltered || (hasNoLocalAcademies && isLoadingAll);
+  const displayedAcademies = hasNoLocalAcademies ? allAcademies : filteredAcademies.slice(0, 5);
 
   const handleSelectAcademy = (academy: { id: string; name: string }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1575,11 +1660,76 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
         <Text style={styles.stepSubtitle}>Join an academy or continue independently.</Text>
       </Animated.View>
 
+      {selectedCountry && !showingAll ? (
+        <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.locationHeader}>
+          <View style={styles.locationRow}>
+            <Ionicons name="location" size={16} color={GlowColors.primary} />
+            <Text style={styles.locationLabel}>Academies in {selectedCountry}</Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowCountryModal(true);
+            }}
+          >
+            <Text style={styles.changeCountryLink}>Not in {selectedCountry}?</Text>
+          </Pressable>
+        </Animated.View>
+      ) : (
+        <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.locationHeader}>
+          <View style={styles.locationRow}>
+            <Ionicons name="globe-outline" size={16} color={Colors.dark.textMuted} />
+            <Text style={[styles.locationLabel, { color: Colors.dark.textMuted }]}>All academies</Text>
+          </View>
+          {countries.length > 0 ? (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowCountryModal(true);
+              }}
+            >
+              <Text style={styles.changeCountryLink}>Filter by country</Text>
+            </Pressable>
+          ) : null}
+        </Animated.View>
+      )}
+
+      {citiesInCountry.length > 1 ? (
+        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cityChipsRow} contentContainerStyle={{ gap: Spacing.sm }}>
+            <Pressable
+              style={[styles.cityChip, !selectedCity ? styles.cityChipActive : null]}
+              onPress={() => { setSelectedCity(null); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            >
+              <Text style={[styles.cityChipText, !selectedCity ? styles.cityChipTextActive : null]}>All cities</Text>
+            </Pressable>
+            {citiesInCountry.map(city => (
+              <Pressable
+                key={city}
+                style={[styles.cityChip, selectedCity === city ? styles.cityChipActive : null]}
+                onPress={() => { setSelectedCity(city); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              >
+                <Text style={[styles.cityChipText, selectedCity === city ? styles.cityChipTextActive : null]}>{city}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </Animated.View>
+      ) : null}
+
+      {hasNoLocalAcademies ? (
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.noLocalNote}>
+          <Ionicons name="information-circle-outline" size={16} color={Colors.dark.textMuted} />
+          <Text style={styles.noLocalNoteText}>
+            No academies found in {selectedCountry} yet. Showing all available academies.
+          </Text>
+        </Animated.View>
+      ) : null}
+
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.optionsContainer}>
         {isLoading ? (
           <Text style={styles.loadingText}>Loading academies...</Text>
-        ) : academies.length > 0 ? (
-          academies.slice(0, 5).map((academy) => (
+        ) : displayedAcademies.length > 0 ? (
+          displayedAcademies.map((academy) => (
             <Pressable
               key={academy.id}
               style={[styles.academyCard, data.academyId === academy.id ? styles.academyCardActive : null]}
@@ -1598,6 +1748,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
                 </Text>
                 <Text style={styles.academyStats}>
                   {academy.coachCount} coaches · {academy.playerCount} players
+                  {academy.city ? ` · ${academy.city}` : ""}
                 </Text>
               </View>
               {data.academyId === academy.id ? (
@@ -1624,6 +1775,61 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
       >
         <Text style={styles.skipLinkText}>I'm still looking / Continue without academy</Text>
       </Pressable>
+
+      <Modal
+        visible={showCountryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCountryModal(false)}
+      >
+        <View style={styles.countryModalContainer}>
+          <View style={styles.countryModalHeader}>
+            <Text style={styles.countryModalTitle}>Select Country</Text>
+            <Pressable onPress={() => setShowCountryModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+            {countries.length > 0 ? countries.map(({ country }) => (
+              <Pressable
+                key={country}
+                style={[styles.countryOption, selectedCountry === country ? styles.countryOptionActive : null]}
+                onPress={() => {
+                  setSelectedCountry(country);
+                  setSelectedCity(null);
+                  setShowingAll(false);
+                  setShowCountryModal(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+              >
+                <Text style={[styles.countryOptionText, selectedCountry === country ? styles.countryOptionTextActive : null]}>
+                  {country}
+                </Text>
+                {selectedCountry === country ? (
+                  <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                ) : null}
+              </Pressable>
+            )) : null}
+            <Pressable
+              style={[styles.countryOption, !selectedCountry || showingAll ? styles.countryOptionActive : null]}
+              onPress={() => {
+                setSelectedCountry(null);
+                setSelectedCity(null);
+                setShowingAll(true);
+                setShowCountryModal(false);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+            >
+              <Text style={[styles.countryOptionText, (!selectedCountry || showingAll) ? styles.countryOptionTextActive : null]}>
+                Show all countries
+              </Text>
+              {(!selectedCountry || showingAll) ? (
+                <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+              ) : null}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -2944,6 +3150,105 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     paddingVertical: Spacing.xl,
+  },
+  locationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  locationLabel: {
+    ...Typography.small,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  changeCountryLink: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textDecorationLine: "underline",
+  },
+  cityChipsRow: {
+    marginBottom: Spacing.md,
+    flexGrow: 0,
+  },
+  cityChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  cityChipActive: {
+    backgroundColor: `${GlowColors.primary}20`,
+    borderColor: GlowColors.primary,
+  },
+  cityChipText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  cityChipTextActive: {
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  noLocalNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    padding: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  noLocalNoteText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    flex: 1,
+    lineHeight: 18,
+  },
+  countryModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingTop: Spacing.lg,
+  },
+  countryModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  countryModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  countryOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  countryOptionActive: {
+    backgroundColor: `${GlowColors.primary}10`,
+  },
+  countryOptionText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  countryOptionTextActive: {
+    color: GlowColors.primary,
+    fontWeight: "600",
   },
   quizQuestion: {
     ...Typography.h2,

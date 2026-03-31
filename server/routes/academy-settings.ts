@@ -71,6 +71,31 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     // ==================== PHASE 3: ACADEMY SETTINGS ====================
 
   router.get(
+    "/api/academy/info",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const academy = await storage.getAcademy(academyId);
+        if (!academy) {
+          return res.status(404).json({ error: "Academy not found" });
+        }
+        res.json({
+          id: academy.id,
+          name: academy.name,
+          country: academy.country || null,
+          city: academy.city || null,
+          address: academy.address || null,
+        });
+      } catch (error) {
+        console.error("Error fetching academy info:", error);
+        res.status(500).json({ error: "Failed to fetch academy info" });
+      }
+    },
+  );
+
+  router.get(
     "/api/academy/settings",
     authMiddleware,
     requireAcademy,

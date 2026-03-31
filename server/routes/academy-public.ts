@@ -525,6 +525,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Get countries (and cities per country) that have at least one academy — used for location filter UI
+  router.get("/api/academies/browse/countries", async (req: Request, res: Response) => {
+    try {
+      const academies = await storage.getAllAcademies();
+      const countryMap = new Map<string, Set<string>>();
+      for (const a of academies) {
+        if (!a.country) continue;
+        if (!countryMap.has(a.country)) countryMap.set(a.country, new Set());
+        if (a.city) countryMap.get(a.country)!.add(a.city);
+      }
+      const countries = Array.from(countryMap.entries()).map(([country, cities]) => ({
+        country,
+        cities: Array.from(cities).sort(),
+      })).sort((a, b) => a.country.localeCompare(b.country));
+      res.json({ countries });
+    } catch (error) {
+      console.error("Browse countries error:", error);
+      res.status(500).json({ error: "Failed to browse countries" });
+    }
+  });
+
   // Browse available academies (for players to find and join)
   router.get("/api/academies/browse", async (req: Request, res: Response) => {
     try {
@@ -771,6 +792,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         const {
+          name,
           website,
           phone,
           email,
@@ -780,9 +802,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           programs,
           priceRange,
           profileVisibility,
+          country,
+          city,
+          address,
         } = req.body;
 
         const updated = await storage.updateAcademy(academyId, {
+          ...(name !== undefined && { name }),
           website,
           phone,
           email,
@@ -792,6 +818,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           programs,
           priceRange,
           profileVisibility,
+          ...(country !== undefined && { country }),
+          ...(city !== undefined && { city }),
+          ...(address !== undefined && { address }),
         });
 
         res.json({ academy: updated });

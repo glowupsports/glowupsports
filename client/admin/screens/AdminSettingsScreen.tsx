@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,44 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useAuth } from "@/coach/context/AuthContext";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { IANA_TIMEZONES } from "@/constants/timezones";
+
+const COMMON_COUNTRIES = [
+  "United Arab Emirates",
+  "Indonesia",
+  "Netherlands",
+  "United Kingdom",
+  "United States",
+  "Saudi Arabia",
+  "Qatar",
+  "Bahrain",
+  "Kuwait",
+  "Oman",
+  "Egypt",
+  "Australia",
+  "Singapore",
+  "Malaysia",
+  "Germany",
+  "France",
+  "Spain",
+  "Italy",
+  "Belgium",
+  "Switzerland",
+  "Sweden",
+  "Norway",
+  "Denmark",
+  "Poland",
+  "India",
+  "Pakistan",
+  "South Africa",
+  "Kenya",
+  "Nigeria",
+  "Brazil",
+  "Argentina",
+  "Mexico",
+  "Canada",
+  "New Zealand",
+];
+
 interface Court {
   id: string;
   name: string;
@@ -43,15 +81,19 @@ export default function AdminSettingsScreen() {
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [profileData, setProfileData] = useState({
-    name: "Glow Up Tennis Academy",
-    email: "admin@glowuptennis.com",
+    name: "",
+    email: "",
     address: "",
     timezone: "Asia/Dubai",
+    country: "",
+    city: "",
   });
   const [timezoneDetecting, setTimezoneDetecting] = useState(false);
   const [timezoneAutoDetected, setTimezoneAutoDetected] = useState(false);
   const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
+  const [saveProfileLoading, setSaveProfileLoading] = useState(false);
   const [inviteData, setInviteData] = useState({
     email: "",
     role: "player" as "coach" | "player",
@@ -68,6 +110,21 @@ export default function AdminSettingsScreen() {
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
   });
+  const { data: academyInfo } = useQuery<{ id: string; name: string; country: string | null; city: string | null; address: string | null }>({
+    queryKey: ["/api/academy/info"],
+  });
+
+  useEffect(() => {
+    if (academyInfo) {
+      setProfileData(prev => ({
+        ...prev,
+        name: academyInfo.name || prev.name,
+        country: academyInfo.country || "",
+        city: academyInfo.city || "",
+        address: academyInfo.address || "",
+      }));
+    }
+  }, [academyInfo]);
 
   const prepareCourtData = (data: typeof courtFormData) => {
     const { pricePerHour, ...rest } = data;
@@ -175,13 +232,32 @@ export default function AdminSettingsScreen() {
     }
   };
 
-  const handleSaveProfile = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setShowProfileModal(false);
-    if (Platform.OS === "web") {
-      window.alert("Profile updated successfully!");
-    } else {
-      Alert.alert("Success", "Profile updated successfully!");
+  const handleSaveProfile = async () => {
+    setSaveProfileLoading(true);
+    try {
+      await apiRequest("PUT", "/api/academy/profile", {
+        name: profileData.name,
+        country: profileData.country || undefined,
+        city: profileData.city || undefined,
+        address: profileData.address || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/info"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowProfileModal(false);
+      if (Platform.OS === "web") {
+        window.alert("Profile updated successfully!");
+      } else {
+        Alert.alert("Success", "Profile updated successfully!");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update profile";
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("Error", message);
+      }
+    } finally {
+      setSaveProfileLoading(false);
     }
   };
 
@@ -353,8 +429,13 @@ export default function AdminSettingsScreen() {
                   <Ionicons name="business" size={32} color={GlowColors.primary} />
                 </View>
                 <View style={styles.profileInfo}>
-                  <Text style={styles.profileName}>{profileData.name}</Text>
+                  <Text style={styles.profileName}>{profileData.name || academyInfo?.name || "Academy"}</Text>
                   <Text style={styles.profileEmail}>{profileData.email}</Text>
+                  {(profileData.country || profileData.city) ? (
+                    <Text style={[styles.profileEmail, { marginTop: 2 }]}>
+                      {[profileData.city, profileData.country].filter(Boolean).join(", ")}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
               <Pressable 
@@ -718,8 +799,12 @@ export default function AdminSettingsScreen() {
               <Text style={styles.cancelButton}>Cancel</Text>
             </Pressable>
             <Text style={styles.modalTitle}>Edit Profile</Text>
-            <Pressable onPress={handleSaveProfile}>
-              <Text style={styles.saveButton}>Save</Text>
+            <Pressable onPress={handleSaveProfile} disabled={saveProfileLoading}>
+              {saveProfileLoading ? (
+                <ActivityIndicator size="small" color={GlowColors.primary} />
+              ) : (
+                <Text style={styles.saveButton}>Save</Text>
+              )}
             </Pressable>
           </View>
 
@@ -761,6 +846,49 @@ export default function AdminSettingsScreen() {
                   detectTimezoneForProfile(lat, lng);
                 }}
                 placeholder="Search academy address..."
+              />
+            </View>
+
+            <View style={[styles.formGroup, { zIndex: 8 }]}>
+              <Text style={styles.label}>Country</Text>
+              <Pressable
+                style={[styles.input, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+                onPress={() => { setShowCountryDropdown(v => !v); setShowTimezoneDropdown(false); }}
+              >
+                <Text style={{ color: profileData.country ? Colors.dark.text : Colors.dark.textMuted, fontSize: 14 }}>
+                  {profileData.country || "Select country..."}
+                </Text>
+                <Ionicons name={showCountryDropdown ? "chevron-up" : "chevron-down"} size={14} color={Colors.dark.textMuted} />
+              </Pressable>
+              {showCountryDropdown ? (
+                <View style={{ backgroundColor: Colors.dark.backgroundTertiary, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", maxHeight: 220, overflow: "hidden", marginTop: 4 }}>
+                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                    {COMMON_COUNTRIES.map(c => (
+                      <Pressable
+                        key={c}
+                        style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)", backgroundColor: profileData.country === c ? `${GlowColors.primary}20` : "transparent" }}
+                        onPress={() => {
+                          setProfileData(prev => ({ ...prev, country: c }));
+                          setShowCountryDropdown(false);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }}
+                      >
+                        <Text style={{ color: profileData.country === c ? GlowColors.primary : Colors.dark.text, fontSize: 13 }}>{c}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                value={profileData.city}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, city: text }))}
+                placeholder="e.g. Dubai, Amsterdam"
+                placeholderTextColor={Colors.dark.textMuted}
               />
             </View>
 
