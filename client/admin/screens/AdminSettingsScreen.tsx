@@ -79,6 +79,7 @@ export default function AdminSettingsScreen() {
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
+  const [courtVenueSearch, setCourtVenueSearch] = useState<{ address: string } | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
@@ -140,6 +141,7 @@ export default function AdminSettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
       setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+      setCourtVenueSearch(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
@@ -160,6 +162,7 @@ export default function AdminSettingsScreen() {
       setShowCourtModal(false);
       setEditingCourt(null);
       setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+      setCourtVenueSearch(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
@@ -190,6 +193,7 @@ export default function AdminSettingsScreen() {
       isIndoor: court.isIndoor || false,
       pricePerHour: court.pricePerHour ? String(court.pricePerHour) : "",
     });
+    setCourtVenueSearch(null);
     setShowCourtModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -206,6 +210,7 @@ export default function AdminSettingsScreen() {
     setShowCourtModal(false);
     setEditingCourt(null);
     setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+    setCourtVenueSearch(null);
   };
 
   const handleShowRolesPermissions = () => {
@@ -461,6 +466,7 @@ export default function AdminSettingsScreen() {
               onPress={() => {
                 setEditingCourt(null);
                 setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+                setCourtVenueSearch(null);
                 setShowCourtModal(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
@@ -479,6 +485,7 @@ export default function AdminSettingsScreen() {
                 onPress={() => {
                   setEditingCourt(null);
                   setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+                  setCourtVenueSearch(null);
                   setShowCourtModal(true);
                 }}
               >
@@ -686,6 +693,26 @@ export default function AdminSettingsScreen() {
                 placeholder="e.g., Court 1, Center Court"
                 placeholderTextColor={Colors.dark.textMuted}
               />
+            </View>
+
+            <View style={[styles.formGroup, { zIndex: 10 }]}>
+              <Text style={styles.label}>Find Location by Venue</Text>
+              <AddressAutocomplete
+                placeholder="Search venue to find nearby location..."
+                mode="venue"
+                onSelect={(result) => {
+                  setCourtVenueSearch({ address: result.address });
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              />
+              {courtVenueSearch ? (
+                <View style={styles.addressSearchResult}>
+                  <Ionicons name="location" size={12} color={Colors.dark.primary} />
+                  <Text style={styles.addressSearchResultText} numberOfLines={1}>
+                    {courtVenueSearch.address}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.formGroup}>
@@ -1315,6 +1342,18 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: Spacing.lg,
+  },
+  addressSearchResult: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+  },
+  addressSearchResultText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.primary,
   },
   label: {
     ...Typography.small,
