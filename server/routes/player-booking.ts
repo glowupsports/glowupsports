@@ -13,7 +13,7 @@ import {
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
 } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -1009,17 +1009,27 @@ Return only the JSON array, nothing else.`;
       const academyId = currentPlayer?.academyId;
       console.log(`[NearbyPlayers] Player ${playerId} academyId: ${academyId}`);
 
-      // Get players from the same academy (or public players)
-      const players = await db.query.players.findMany({
-        where: (p, { and, eq, ne }) => and(
-          eq(p.academyId, academyId || ""),
-          ne(p.id, playerId)
-        ),
-        
-      });
+      // Subquery: player IDs that belong to an active (verified) user account
+      const activePlayerIdSubquery = db
+        .select({ id: users.playerId })
+        .from(users)
+        .where(and(
+          eq(users.status, "active"),
+          isNotNull(users.playerId)
+        ));
+
+      // Get players from the same academy who have an active user account, in one query
+      const activePlayers = await db
+        .select()
+        .from(players)
+        .where(and(
+          eq(players.academyId, academyId || ""),
+          ne(players.id, playerId),
+          inArray(players.id, activePlayerIdSubquery)
+        ));
 
       // Build enriched players with mutual session counts and openToPlay status
-      const enrichedPlayers = await Promise.all(players.map(async (player) => {
+      const enrichedPlayers = await Promise.all(activePlayers.map(async (player) => {
         let mutualCount = 0;
         
         // Only query mutual sessions if both player IDs are valid

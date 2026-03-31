@@ -22,6 +22,8 @@ interface NearbyPlayer {
   playerLevel?: number;
   ballLevel?: string;
   distanceKm?: number;
+  driveTimeMinutes?: number;
+  driveTimeText?: string;
 }
 
 interface SessionParticipant {

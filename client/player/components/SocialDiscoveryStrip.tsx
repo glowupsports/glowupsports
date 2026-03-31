@@ -72,23 +72,33 @@ export function SocialDiscoveryStrip() {
 
                 {topPlayers.length > 0 ? (
                   <View style={styles.avatarsRow}>
-                    {topPlayers.map((player, index) => (
-                      <Animated.View
-                        key={player.id}
-                        entering={FadeIn.delay(100 + index * 50)}
-                        style={{ marginLeft: index > 0 ? -12 : 0, zIndex: 10 - index }}
-                      >
-                        <GlowAvatar
-                          source={getAvatarSource(player)}
-                          name={player.name}
-                          size="sm"
-                          ballLevel={player.level}
-                          showGlow={index === 0}
-                          glowIntensity="low"
-                          status={player.status}
-                        />
-                      </Animated.View>
-                    ))}
+                    {topPlayers.map((player, index) => {
+                      const distLabel = player.driveTimeText
+                        ? player.driveTimeText
+                        : player.distanceKm != null
+                        ? `${player.distanceKm} km`
+                        : null;
+                      return (
+                        <Animated.View
+                          key={player.id}
+                          entering={FadeIn.delay(100 + index * 50)}
+                          style={[styles.avatarWrapper, { marginLeft: index > 0 ? -12 : 0, zIndex: 10 - index }]}
+                        >
+                          <GlowAvatar
+                            source={getAvatarSource(player)}
+                            name={player.name}
+                            size="sm"
+                            ballLevel={player.level}
+                            showGlow={index === 0}
+                            glowIntensity="low"
+                            status={player.status}
+                          />
+                          {distLabel ? (
+                            <Text style={styles.distanceLabel}>{distLabel}</Text>
+                          ) : null}
+                        </Animated.View>
+                      );
+                    })}
                     {availablePlayers.length > 4 && (
                       <View style={styles.moreCount}>
                         <Text style={styles.moreCountText}>+{availablePlayers.length - 4}</Text>
@@ -256,8 +266,18 @@ const styles = StyleSheet.create({
   },
   avatarsRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginVertical: Spacing.sm,
+  },
+  avatarWrapper: {
+    alignItems: "center",
+  },
+  distanceLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: ProTennisColors.neonCyan,
+    marginTop: 2,
+    textAlign: "center",
   },
   moreCount: {
     width: 32,
