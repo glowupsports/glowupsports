@@ -69,6 +69,9 @@ interface Court {
   surface?: string;
   isIndoor?: boolean;
   pricePerHour?: number | null;
+  venueAddress?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
 }
 
 export default function AdminSettingsScreen() {
@@ -201,8 +204,11 @@ export default function AdminSettingsScreen() {
       surface: court.surface || "hard",
       isIndoor: court.isIndoor || false,
       pricePerHour: court.pricePerHour ? String(court.pricePerHour) : "",
+      venueAddress: court.venueAddress || "",
+      venueLat: court.venueLat ?? null,
+      venueLng: court.venueLng ?? null,
     });
-    setCourtVenueSearch(null);
+    setCourtVenueSearch(court.venueAddress ? { address: court.venueAddress } : null);
     setShowCourtModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
