@@ -927,6 +927,29 @@ function setupErrorHandler(app: express.Application) {
         console.error("[ProviderChatRepair] Startup repair failed:", err);
       }
 
+      // Repair: heal players who registered via invite but whose academy_id is NULL
+      // (caused by a bug where academyId was passed as a 3rd arg to updatePlayer and silently ignored)
+      try {
+        const { db: dbInstance } = await import("./db");
+        const { sql: sqlTag } = await import("drizzle-orm");
+        const healResult = await dbInstance.execute(sqlTag`
+          UPDATE players p
+          SET academy_id = pi.academy_id
+          FROM player_invites pi
+          WHERE pi.player_id = p.id
+            AND pi.status = 'claimed'
+            AND p.academy_id IS NULL
+        `);
+        const healed = healResult.rowCount ?? 0;
+        if (healed > 0) {
+          log(`[InviteAcademyRepair] Healed ${healed} player(s) with NULL academy_id from claimed invite records`);
+        } else {
+          log("[InviteAcademyRepair] No orphaned players found — skipping");
+        }
+      } catch (err) {
+        console.error("[InviteAcademyRepair] Failed:", err);
+      }
+
       // Migrate legacy player invite codes (16-char hex → 6-char short format)
       try {
         const { db: dbInstance } = await import("./db");
