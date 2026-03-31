@@ -655,4 +655,100 @@ router.get("/availability", async (req: Request, res: Response) => {
   }
 });
 
+// Suggest neutral court for a challenge (server-side GPS + Distance Matrix, never exposed to client)
+router.get("/neutral-court", async (req: Request, res: Response) => {
+  try {
+    const challengerId = req.query.playerId as string;
+    const opponentId = req.query.opponentId as string;
+    const academyId = req.query.academyId as string | undefined;
+
+    if (!challengerId || !opponentId) {
+      return res.status(400).json({ error: "playerId and opponentId are required" });
+    }
+
+    const [challenger] = await db
+      .select({ lastLatitude: players.lastLatitude, lastLongitude: players.lastLongitude, academyId: players.academyId, privacyLevel: players.privacyLevel })
+      .from(players)
+      .where(eq(players.id, challengerId))
+      .limit(1);
+
+    const [opponent] = await db
+      .select({ lastLatitude: players.lastLatitude, lastLongitude: players.lastLongitude, academyId: players.academyId, privacyLevel: players.privacyLevel })
+      .from(players)
+      .where(eq(players.id, opponentId))
+      .limit(1);
+
+    if (!challenger || !opponent) {
+      return res.json({ suggestedCourtId: null, courts: [] });
+    }
+
+    // Both players must have GPS coords for a meaningful neutral suggestion
+    const myLat = challenger.lastLatitude;
+    const myLng = challenger.lastLongitude;
+    const oppLat = opponent.lastLatitude;
+    const oppLng = opponent.lastLongitude;
+
+    if (myLat == null || myLng == null || oppLat == null || oppLng == null) {
+      return res.json({ suggestedCourtId: null, courts: [] });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.json({ suggestedCourtId: null, courts: [] });
+    }
+
+    // Load courts for the academy (or shared courts)
+    const effectiveAcademyId = academyId || challenger.academyId;
+    const courtList = effectiveAcademyId
+      ? await db.select().from(courts).where(eq(courts.academyId, effectiveAcademyId))
+      : [];
+
+    const geocodedCourts = courtList.filter((c: any) => c.latitude != null && c.longitude != null);
+    if (geocodedCourts.length === 0) {
+      return res.json({ suggestedCourtId: null, courts: [] });
+    }
+
+    const destinationStr = geocodedCourts.map((c: any) => `${c.latitude},${c.longitude}`).join("|");
+
+    const fetchMatrix = async (originLat: number, originLng: number) => {
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLng}&destinations=${encodeURIComponent(destinationStr)}&mode=driving&departure_time=now&key=${apiKey}`;
+      const r = await fetch(url);
+      if (!r.ok) return [];
+      const data = await r.json() as any;
+      return (data.rows?.[0]?.elements || []) as any[];
+    };
+
+    const [myElements, oppElements] = await Promise.all([
+      fetchMatrix(myLat, myLng),
+      fetchMatrix(oppLat, oppLng),
+    ]);
+
+    const courtResults = geocodedCourts.map((c: any, i: number) => {
+      const myEl = myElements[i];
+      const oppEl = oppElements[i];
+      const myDur = myEl?.duration_in_traffic || myEl?.duration;
+      const oppDur = oppEl?.duration_in_traffic || oppEl?.duration;
+      const fromMe = myDur?.value != null ? Math.round(myDur.value / 60) : null;
+      const fromOpponent = oppDur?.value != null ? Math.round(oppDur.value / 60) : null;
+      return { courtId: c.id, fromMe, fromOpponent };
+    });
+
+    let suggestedCourtId: string | null = null;
+    let bestScore = Infinity;
+    for (const r of courtResults) {
+      if (r.fromMe == null || r.fromOpponent == null) continue;
+      const score = r.fromMe + r.fromOpponent;
+      if (score < bestScore) {
+        bestScore = score;
+        suggestedCourtId = r.courtId;
+      }
+    }
+
+    res.json({ suggestedCourtId, courts: courtResults });
+  } catch (error) {
+    console.error("Neutral court error:", error);
+    res.status(500).json({ error: "Failed to compute neutral court" });
+  }
+});
+
 export default router;

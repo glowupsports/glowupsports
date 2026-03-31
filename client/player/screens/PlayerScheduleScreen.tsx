@@ -11,7 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate } from "react-native-reanimated";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon, type Sport } from "@/player/context/SportContext";
@@ -214,9 +214,55 @@ export default function PlayerScheduleScreen() {
     queryKey: ["/api/player/me/vacation"],
   });
 
-  const { data: profileData } = useQuery<{ player: { attendanceStreak?: number } }>({
+  const { data: profileData } = useQuery<{ player: { attendanceStreak?: number; lastLatitude?: number | null; lastLongitude?: number | null } }>({
     queryKey: ["/api/player/me"],
   });
+
+  const playerLat = profileData?.player?.lastLatitude ?? null;
+  const playerLng = profileData?.player?.lastLongitude ?? null;
+
+  const [travelTimeMap, setTravelTimeMap] = useState<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    if (playerLat == null || playerLng == null) return;
+    const upcoming = (rawSessions || []).filter(s => {
+      if (!s.session?.startTime) return false;
+      return new Date(s.session.startTime) > new Date();
+    });
+    const locDests: Array<{ id: string; lat: number; lng: number }> = [];
+    const seen = new Set<string>();
+    for (const s of upcoming) {
+      const lat = s.session?.locationLat;
+      const lng = s.session?.locationLng;
+      if (lat != null && lng != null) {
+        const key = `${lat},${lng}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          locDests.push({ id: key, lat, lng });
+        }
+      }
+    }
+    if (locDests.length === 0) return;
+    const controller = new AbortController();
+    const fetchTravelTimes = async () => {
+      try {
+        const destsJson = encodeURIComponent(JSON.stringify(locDests));
+        const url = new URL(`/api/maps/distance-matrix?originLat=${playerLat}&originLng=${playerLng}&destinations=${destsJson}`, getApiUrl()).toString();
+        const res = await fetch(url, { credentials: "include", headers: getAuthHeaders(), signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        const newMap = new Map<string, number>();
+        for (const r of data.results || []) {
+          if (r.durationMinutes != null) {
+            newMap.set(r.id, r.durationMinutes);
+          }
+        }
+        setTravelTimeMap(newMap);
+      } catch { }
+    };
+    fetchTravelTimes();
+    return () => controller.abort();
+  }, [playerLat, playerLng, rawSessions]);
 
   const createVacationMutation = useMutation({
     mutationFn: async (data: { startDate: string; endDate: string }) => {
@@ -867,6 +913,12 @@ export default function PlayerScheduleScreen() {
                             <Text style={[styles.sessionMetaText, { color: item.locationLat ? ProTennisColors.neonGreen : ProTennisColors.neonCyan }]}>
                               {item.locationAddress || item.locationName}
                             </Text>
+                            {item.locationLat != null && item.locationLng != null && travelTimeMap.get(`${item.locationLat},${item.locationLng}`) != null ? (
+                              <View style={styles.travelTimePill}>
+                                <Feather name="clock" size={9} color={ProTennisColors.neonCyan} />
+                                <Text style={styles.travelTimePillText}>~{travelTimeMap.get(`${item.locationLat},${item.locationLng}`)} min</Text>
+                              </View>
+                            ) : null}
                           </Pressable>
                         ) : null}
                         {item.status === "upcoming" && (item.locationLat || item.locationAddress || item.locationName) ? (
@@ -1635,6 +1687,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     color: ProTennisColors.midnightBlue,
+  },
+  travelTimePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: ProTennisColors.neonCyan + "20",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    marginLeft: 4,
+  },
+  travelTimePillText: {
+    fontSize: 10,
+    color: ProTennisColors.neonCyan,
+    fontWeight: "600",
   },
   sessionStatus: {
     width: 36,

@@ -985,7 +985,8 @@ Return only the JSON array, nothing else.`;
   router.get("/api/play/nearby-players", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
-      const { filter } = req.query;
+      const { filter, travelTime } = req.query;
+      const useTravelTime = travelTime === "true";
       
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
@@ -1058,6 +1059,8 @@ Return only the JSON array, nothing else.`;
           skillLevel: player.skillLevel || undefined,
           openToPlay: isOpenToPlay,
           hasHomeAddress: !!(player.homeAddress && player.homeLat != null && player.homeLng != null),
+          lastLatitude: player.lastLatitude ?? null,
+          lastLongitude: player.lastLongitude ?? null,
         };
       }));
 
@@ -1089,7 +1092,57 @@ Return only the JSON array, nothing else.`;
         filteredPlayers.sort((a, b) => b.mutualSessions - a.mutualSessions);
       }
 
-      res.json(filteredPlayers);
+      // Enrich with drive times if requested and player has GPS coordinates
+      const myLat = currentPlayer?.lastLatitude;
+      const myLng = currentPlayer?.lastLongitude;
+      if (useTravelTime && myLat != null && myLng != null) {
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+        if (apiKey) {
+          // Find players with location data (batch them for efficiency)
+          const playersWithLocation = filteredPlayers.filter(p => p.lastLatitude != null && p.lastLongitude != null);
+          if (playersWithLocation.length > 0) {
+            try {
+              const destinationStr = playersWithLocation.map(p => `${p.lastLatitude},${p.lastLongitude}`).join("|");
+              const origin = `${myLat},${myLng}`;
+              const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destinationStr)}&mode=driving&departure_time=now&key=${apiKey}`;
+              const dmRes = await fetch(url);
+              if (dmRes.ok) {
+                const dmData = await dmRes.json() as any;
+                const elements = dmData.rows?.[0]?.elements || [];
+                const travelMap = new Map<string, { durationMinutes: number; durationText: string }>();
+                playersWithLocation.forEach((p, i) => {
+                  const el = elements[i];
+                  const dur = el?.duration_in_traffic || el?.duration;
+                  if (dur?.value) {
+                    travelMap.set(p.id, {
+                      durationMinutes: Math.round(dur.value / 60),
+                      durationText: dur.text,
+                    });
+                  }
+                });
+                // Attach drive times and sort by drive time
+                filteredPlayers = filteredPlayers.map(p => {
+                  const travel = travelMap.get(p.id);
+                  return travel
+                    ? { ...p, driveTimeMinutes: travel.durationMinutes, driveTimeText: travel.durationText }
+                    : p;
+                });
+                filteredPlayers.sort((a, b) => {
+                  const aMin = (a as any).driveTimeMinutes ?? Infinity;
+                  const bMin = (b as any).driveTimeMinutes ?? Infinity;
+                  return aMin - bMin;
+                });
+              }
+            } catch (err) {
+              console.error("[NearbyPlayers] Distance matrix error:", err);
+            }
+          }
+        }
+      }
+
+      // Strip internal location fields from response
+      const responseData = filteredPlayers.map(({ lastLatitude, lastLongitude, ...rest }) => rest);
+      res.json(responseData);
     } catch (error) {
       console.error("Nearby players error:", error);
       res.status(500).json({ error: "Failed to fetch nearby players" });

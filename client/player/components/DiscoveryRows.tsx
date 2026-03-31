@@ -19,12 +19,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
-import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
+import { getStaticAssetsUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
@@ -258,6 +258,7 @@ export function GroupLessonsRow() {
   const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
+  const [travelTimeMap, setTravelTimeMap] = useState<Map<string, number>>(new Map());
 
   // Get player's ball level from state
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
@@ -268,6 +269,47 @@ export function GroupLessonsRow() {
     if (!sessionLevel) return false;
     return sessionLevel === playerBallLevel;
   });
+
+  const { data: playerProfileData } = useQuery<{ player: { lastLatitude?: number | null; lastLongitude?: number | null } }>({
+    queryKey: ["/api/player/me"],
+  });
+  const playerLat = playerProfileData?.player?.lastLatitude ?? null;
+  const playerLng = playerProfileData?.player?.lastLongitude ?? null;
+
+  useEffect(() => {
+    if (playerLat == null || playerLng == null || groupLessons.length === 0) return;
+    const dests: Array<{ id: string; lat: number; lng: number }> = [];
+    const seen = new Set<string>();
+    for (const s of groupLessons) {
+      const lat = (s as any).locationLat;
+      const lng = (s as any).locationLng;
+      if (lat != null && lng != null) {
+        const key = `${lat},${lng}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          dests.push({ id: key, lat, lng });
+        }
+      }
+    }
+    if (dests.length === 0) return;
+    const controller = new AbortController();
+    const fetchTimes = async () => {
+      try {
+        const destsJson = encodeURIComponent(JSON.stringify(dests));
+        const url = new URL(`/api/maps/distance-matrix?originLat=${playerLat}&originLng=${playerLng}&destinations=${destsJson}`, getApiUrl()).toString();
+        const res = await fetch(url, { credentials: "include", headers: getAuthHeaders(), signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        const newMap = new Map<string, number>();
+        for (const r of data.results || []) {
+          if (r.durationMinutes != null) newMap.set(r.id, r.durationMinutes);
+        }
+        setTravelTimeMap(newMap);
+      } catch { }
+    };
+    fetchTimes();
+    return () => controller.abort();
+  }, [playerLat, playerLng, groupLessons.map((s: any) => s.id).join(",")]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -392,7 +434,20 @@ export function GroupLessonsRow() {
                     </Text>
                     <View style={styles.playCardLocationRow}>
                       <Ionicons name="location" size={12} color={Colors.dark.primary} />
-                      <Text style={styles.playCardLocationText}>{(session as any).location || (session as any).locationName || t("common.tba")}</Text>
+                      <Text style={styles.playCardLocationText} numberOfLines={1}>{(session as any).location || (session as any).locationName || t("common.tba")}</Text>
+                      {(() => {
+                        const lat = (session as any).locationLat;
+                        const lng = (session as any).locationLng;
+                        if (lat == null || lng == null) return null;
+                        const mins = travelTimeMap.get(`${lat},${lng}`);
+                        if (mins == null) return null;
+                        return (
+                          <View style={styles.travelTimePill}>
+                            <Ionicons name="car-outline" size={9} color="#00CED1" />
+                            <Text style={styles.travelTimePillText}>~{mins} min</Text>
+                          </View>
+                        );
+                      })()}
                     </View>
                     <View style={styles.playCardMetaRow}>
                       <Ionicons name="time-outline" size={12} color={Colors.dark.textMuted} />
@@ -1913,6 +1968,22 @@ const styles = StyleSheet.create({
   playCardLocationText: {
     fontSize: 14,
     color: Colors.dark.primary,
+    fontWeight: "600",
+    flex: 1,
+  },
+  travelTimePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(0, 206, 209, 0.15)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  travelTimePillText: {
+    fontSize: 10,
+    color: "#00CED1",
     fontWeight: "600",
   },
   playCardMetaRow: {

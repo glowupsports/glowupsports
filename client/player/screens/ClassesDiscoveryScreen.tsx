@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 const BG = "#090E17";
 const CARD_BG = "#12151C";
@@ -32,6 +32,7 @@ const ACCENT = "#C8FF3D";
 
 type SportFilter = "all" | "tennis" | "padel" | "pickleball";
 type TypeFilter = "all" | "group" | "private" | "open_match";
+type TravelTimeFilter = "any" | "20" | "30" | "45";
 
 interface Participant {
   id: string;
@@ -326,6 +327,8 @@ export default function ClassesDiscoveryScreen() {
   const [aroundMeActive, setAroundMeActive] = useState(false);
   const [showSportSheet, setShowSportSheet] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [travelTimeFilter, setTravelTimeFilter] = useState<TravelTimeFilter>("any");
+  const [sessionTravelMinutes, setSessionTravelMinutes] = useState<Map<string, number>>(new Map());
 
   const queryParams = new URLSearchParams();
   if (sportFilter !== "all") queryParams.set("sport", sportFilter);
@@ -340,6 +343,47 @@ export default function ClassesDiscoveryScreen() {
   }>({
     queryKey: [socialQueryKey],
   });
+
+  const { data: playerProfile } = useQuery<{ player: { lastLatitude?: number | null; lastLongitude?: number | null } }>({
+    queryKey: ["/api/player/me"],
+  });
+  const playerLat = playerProfile?.player?.lastLatitude ?? null;
+  const playerLng = playerProfile?.player?.lastLongitude ?? null;
+
+  const allSessions: ClassSession[] = data?.openSessions || [];
+
+  useEffect(() => {
+    if (playerLat == null || playerLng == null || allSessions.length === 0) return;
+    const locDests: Array<{ id: string; lat: number; lng: number }> = [];
+    const seen = new Set<string>();
+    for (const s of allSessions) {
+      if (s.locationLat != null && s.locationLng != null) {
+        const key = `${s.locationLat},${s.locationLng}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          locDests.push({ id: key, lat: s.locationLat, lng: s.locationLng });
+        }
+      }
+    }
+    if (locDests.length === 0) return;
+    const controller = new AbortController();
+    const fetchTimes = async () => {
+      try {
+        const destsJson = encodeURIComponent(JSON.stringify(locDests));
+        const url = new URL(`/api/maps/distance-matrix?originLat=${playerLat}&originLng=${playerLng}&destinations=${destsJson}`, getApiUrl()).toString();
+        const res = await fetch(url, { credentials: "include", headers: getAuthHeaders(), signal: controller.signal });
+        if (!res.ok) return;
+        const resp = await res.json();
+        const newMap = new Map<string, number>();
+        for (const r of resp.results || []) {
+          if (r.durationMinutes != null) newMap.set(r.id, r.durationMinutes);
+        }
+        setSessionTravelMinutes(newMap);
+      } catch { }
+    };
+    fetchTimes();
+    return () => controller.abort();
+  }, [playerLat, playerLng, allSessions.map((s: ClassSession) => s.id).join(",")]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -390,8 +434,6 @@ export default function ClassesDiscoveryScreen() {
     [joinSessionMutation, joinMatchRequestMutation],
   );
 
-  const allSessions: ClassSession[] = data?.openSessions || [];
-
   const filteredSessions = useMemo(() => {
     let sessions = allSessions;
     if (typeFilter !== "all") {
@@ -400,15 +442,30 @@ export default function ClassesDiscoveryScreen() {
     if (activeTab === "my") {
       sessions = sessions.filter((s) => s.isEnrolled);
     }
+    if (travelTimeFilter !== "any" && sessionTravelMinutes.size > 0) {
+      const maxMin = parseInt(travelTimeFilter);
+      sessions = sessions.filter((s) => {
+        if (s.locationLat == null || s.locationLng == null) return true;
+        const key = `${s.locationLat},${s.locationLng}`;
+        const mins = sessionTravelMinutes.get(key);
+        if (mins == null) return true;
+        return mins <= maxMin;
+      });
+    }
     if (aroundMeActive) {
       sessions = [...sessions].sort((a, b) => {
-        const da = a.distanceKm ?? Infinity;
-        const db2 = b.distanceKm ?? Infinity;
-        return da - db2;
+        const getMin = (s: ClassSession) => {
+          if (s.locationLat != null && s.locationLng != null) {
+            const m = sessionTravelMinutes.get(`${s.locationLat},${s.locationLng}`);
+            if (m != null) return m;
+          }
+          return s.distanceKm ?? Infinity;
+        };
+        return getMin(a) - getMin(b);
       });
     }
     return sessions;
-  }, [allSessions, typeFilter, activeTab, aroundMeActive]);
+  }, [allSessions, typeFilter, activeTab, aroundMeActive, travelTimeFilter, sessionTravelMinutes]);
 
   const dateGroups = useMemo(() => groupSessionsByDate(filteredSessions), [filteredSessions]);
 
@@ -562,6 +619,38 @@ export default function ClassesDiscoveryScreen() {
               Around me
             </Text>
           </Pressable>
+
+          {(["any", "20", "30", "45"] as TravelTimeFilter[]).map((t) => {
+            const isAny = t === "any";
+            const isActive = travelTimeFilter === t;
+            return (
+              <Pressable
+                key={t}
+                style={[styles.filterChip, isActive && !isAny && styles.filterChipActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setTravelTimeFilter(t);
+                }}
+              >
+                {!isAny && (
+                  <Ionicons
+                    name="car-outline"
+                    size={13}
+                    color={isActive ? ACCENT : TEXT_SECONDARY}
+                  />
+                )}
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isActive && !isAny && styles.filterChipTextActive,
+                    isActive && isAny && styles.filterChipTextSelected,
+                  ]}
+                >
+                  {isAny ? "Any drive" : `<${t} min`}
+                </Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
 

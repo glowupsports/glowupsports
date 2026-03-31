@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -78,6 +78,37 @@ export default function ChallengePlayerScreen() {
     enabled: true,
   });
   const courts = Array.isArray(courtsData?.courts) ? courtsData.courts : Array.isArray(courtsData) ? courtsData : [];
+
+  const { data: neutralCourtData } = useQuery<{
+    suggestedCourtId: string | null;
+    courts: Array<{ courtId: string; fromMe: number | null; fromOpponent: number | null }>;
+  }>({
+    queryKey: ["/api/matches/challenge/neutral-court", playerId, opponentId, academyId],
+    queryFn: async () => {
+      if (!playerId || !opponentId) return { suggestedCourtId: null, courts: [] };
+      const params = new URLSearchParams({ playerId, opponentId });
+      if (academyId) params.set("academyId", academyId);
+      const res = await fetch(
+        new URL(`/api/matches/challenge/neutral-court?${params}`, getApiUrl()).toString(),
+        { credentials: "include", headers: getAuthHeaders() }
+      );
+      if (!res.ok) return { suggestedCourtId: null, courts: [] };
+      return res.json();
+    },
+    enabled: !!playerId && !!opponentId,
+  });
+
+  const suggestedCourtId = neutralCourtData?.suggestedCourtId ?? null;
+  const courtTravelMinutes = useMemo(() => {
+    const map = new Map<string, { fromMe: number; fromOpponent: number }>();
+    for (const c of neutralCourtData?.courts || []) {
+      map.set(c.courtId, {
+        fromMe: c.fromMe ?? Infinity,
+        fromOpponent: c.fromOpponent ?? Infinity,
+      });
+    }
+    return map;
+  }, [neutralCourtData]);
 
   const dateStr = useMemo(() => {
     const y = selectedDate.getFullYear();
@@ -306,11 +337,49 @@ export default function ChallengePlayerScreen() {
     </Animated.View>
   );
 
-  const renderStep1 = () => (
+  const renderStep1 = () => {
+    const hasTravelData = courtTravelMinutes.size > 0;
+    const suggestedCourt = suggestedCourtId ? courts.find((c: any) => c.id === suggestedCourtId) : null;
+
+    return (
     <Animated.View entering={FadeInRight.duration(300)} key="step1">
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Select a Court</Text>
         <Text style={styles.sectionSubtitle}>Choose where you want to play</Text>
+
+        {suggestedCourt && hasTravelData ? (
+          <Pressable
+            style={styles.suggestedVenueBanner}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSelectedCourt({ id: suggestedCourt.id, name: suggestedCourt.name });
+              setShowCustomCourt(false);
+              setCustomCourtName("");
+              setSelectedTime("");
+            }}
+          >
+            <View style={styles.suggestedVenueLeft}>
+              <Ionicons name="navigate-circle" size={22} color={Colors.dark.primary} />
+              <View>
+                <Text style={styles.suggestedVenueLabel}>Neutral Court Suggestion</Text>
+                <Text style={styles.suggestedVenueName} numberOfLines={1}>{suggestedCourt.name}</Text>
+                {(() => {
+                  const times = courtTravelMinutes.get(suggestedCourtId!);
+                  if (!times) return null;
+                  const parts: string[] = [];
+                  if (times.fromMe !== Infinity) parts.push(`You: ~${Math.round(times.fromMe)} min`);
+                  if (times.fromOpponent !== Infinity) parts.push(`Them: ~${Math.round(times.fromOpponent)} min`);
+                  return parts.length > 0 ? (
+                    <Text style={styles.suggestedVenueSubtitle}>{parts.join("  |  ")}</Text>
+                  ) : null;
+                })()}
+              </View>
+            </View>
+            <View style={styles.suggestedVenuePill}>
+              <Text style={styles.suggestedVenuePillText}>Use</Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         {courtsLoading ? (
           <ActivityIndicator color={Colors.dark.primary} style={{ marginVertical: Spacing.xl }} />
@@ -318,10 +387,11 @@ export default function ChallengePlayerScreen() {
           <View style={styles.courtList}>
             {courts.map((court: any) => {
               const isSelected = selectedCourt?.id === court.id && !showCustomCourt;
+              const travelInfo = hasTravelData ? courtTravelMinutes.get(court.id) : null;
               return (
                 <Pressable
                   key={court.id}
-                  style={[styles.courtCard, isSelected && styles.courtCardSelected]}
+                  style={[styles.courtCard, isSelected && styles.courtCardSelected, court.id === suggestedCourtId && !isSelected && styles.courtCardSuggested]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setSelectedCourt({ id: court.id, name: court.name });
@@ -338,10 +408,27 @@ export default function ChallengePlayerScreen() {
                     />
                   </View>
                   <View style={styles.courtInfo}>
-                    <Text style={[styles.courtName, isSelected && styles.courtNameSelected]} numberOfLines={1}>
-                      {court.name}
-                    </Text>
-                    {court.surface ? (
+                    <View style={styles.courtNameRow}>
+                      <Text style={[styles.courtName, isSelected && styles.courtNameSelected]} numberOfLines={1}>
+                        {court.name}
+                      </Text>
+                      {court.id === suggestedCourtId ? (
+                        <View style={styles.neutralBadge}>
+                          <Ionicons name="star" size={9} color={Colors.dark.primary} />
+                          <Text style={styles.neutralBadgeText}>Neutral</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    {travelInfo ? (
+                      <View style={styles.courtTravelRow}>
+                        {travelInfo.fromMe !== Infinity ? (
+                          <Text style={styles.courtTravelText}>You: ~{Math.round(travelInfo.fromMe)} min</Text>
+                        ) : null}
+                        {travelInfo.fromOpponent !== Infinity ? (
+                          <Text style={styles.courtTravelText}>Them: ~{Math.round(travelInfo.fromOpponent)} min</Text>
+                        ) : null}
+                      </View>
+                    ) : court.surface ? (
                       <Text style={styles.courtSurface}>{court.surface}</Text>
                     ) : null}
                   </View>
@@ -391,7 +478,8 @@ export default function ChallengePlayerScreen() {
         ) : null}
       </View>
     </Animated.View>
-  );
+    );
+  };
 
   const renderTimeSlotGroup = (label: string, groupSlots: any[], icon: string) => {
     if (groupSlots.length === 0) return null;
@@ -982,6 +1070,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary,
     backgroundColor: "rgba(200, 255, 61, 0.06)",
   },
+  courtCardSuggested: {
+    borderColor: "rgba(200, 255, 61, 0.35)",
+    backgroundColor: "rgba(200, 255, 61, 0.03)",
+  },
   courtIcon: {
     width: 40,
     height: 40,
@@ -1008,6 +1100,81 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors.dark.textSubtle,
     marginTop: 2,
+  },
+  courtNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  neutralBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  neutralBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  courtTravelRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 3,
+    flexWrap: "wrap",
+  },
+  courtTravelText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textSubtle,
+  },
+  suggestedVenueBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.3)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  suggestedVenueLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  suggestedVenueLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  suggestedVenueName: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  suggestedVenueSubtitle: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textSubtle,
+    marginTop: 2,
+  },
+  suggestedVenuePill: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  suggestedVenuePillText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 
   dateScroll: {

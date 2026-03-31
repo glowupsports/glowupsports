@@ -1252,6 +1252,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
 
+  // Google Maps Travel Time proxy (Directions API) - server-side key only
+  app.get("/api/maps/travel-time", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { originLat, originLng, destLat, destLng } = req.query;
+      if (!originLat || !originLng || !destLat || !destLng) {
+        return res.status(400).json({ error: "originLat, originLng, destLat, destLng are required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const origin = `${originLat},${originLng}`;
+      const destination = `${destLat},${destLng}`;
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&mode=driving&departure_time=now&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream maps error" });
+      }
+      const data = await response.json() as any;
+      if (data.status !== "OK" || !data.routes?.length) {
+        return res.json({ durationText: null, durationSeconds: null });
+      }
+      const leg = data.routes[0]?.legs?.[0];
+      const durationInTraffic = leg?.duration_in_traffic || leg?.duration;
+      res.json({
+        durationText: durationInTraffic?.text || null,
+        durationSeconds: durationInTraffic?.value || null,
+        durationMinutes: durationInTraffic?.value ? Math.round(durationInTraffic.value / 60) : null,
+      });
+    } catch (error) {
+      console.error("Travel time error:", error);
+      res.status(500).json({ error: "Failed to fetch travel time" });
+    }
+  });
+
+  // Google Maps Distance Matrix proxy - server-side key only
+  app.get("/api/maps/distance-matrix", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { originLat, originLng, destinations } = req.query;
+      if (!originLat || !originLng || !destinations) {
+        return res.status(400).json({ error: "originLat, originLng, destinations are required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const origin = `${originLat},${originLng}`;
+      let destArray: Array<{ lat: number; lng: number; id?: string }> = [];
+      try {
+        destArray = JSON.parse(destinations as string);
+      } catch {
+        return res.status(400).json({ error: "destinations must be a JSON array of {lat, lng, id?}" });
+      }
+      if (!Array.isArray(destArray) || destArray.length === 0) {
+        return res.json({ results: [] });
+      }
+      const destinationStr = destArray.map(d => `${d.lat},${d.lng}`).join("|");
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destinationStr)}&mode=driving&departure_time=now&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream maps error" });
+      }
+      const data = await response.json() as any;
+      const elements = data.rows?.[0]?.elements || [];
+      const results = destArray.map((dest, i) => {
+        const el = elements[i];
+        const duration = el?.duration_in_traffic || el?.duration;
+        return {
+          id: dest.id || i,
+          lat: dest.lat,
+          lng: dest.lng,
+          durationText: duration?.text || null,
+          durationSeconds: duration?.value || null,
+          durationMinutes: duration?.value ? Math.round(duration.value / 60) : null,
+          status: el?.status || "UNKNOWN",
+        };
+      });
+      res.json({ results });
+    } catch (error) {
+      console.error("Distance matrix error:", error);
+      res.status(500).json({ error: "Failed to fetch distance matrix" });
+    }
+  });
+
   // Google Maps Places Autocomplete proxy (server-side key, never exposed to client)
   app.get("/api/maps/places-autocomplete", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     const role = req.user?.role;

@@ -76,6 +76,8 @@ interface NearbyPlayer {
   winRate?: number;
   matchesPlayed?: number;
   hasHomeAddress?: boolean;
+  driveTimeMinutes?: number;
+  driveTimeText?: string;
 }
 
 type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
@@ -239,8 +241,8 @@ export default function PlayScreen() {
   });
 
   const nearbyPlayersQueryKey = discoverFilter !== "all" 
-    ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}` 
-    : `/api/play/nearby-players?sport=${activeSport}`;
+    ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}&travelTime=true` 
+    : `/api/play/nearby-players?sport=${activeSport}&travelTime=true`;
   const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<NearbyPlayer[]>({
     queryKey: [nearbyPlayersQueryKey],
   });
@@ -837,7 +839,12 @@ export default function PlayScreen() {
               <Ionicons name="star" size={10} color={Colors.dark.gold} />
               <Text style={styles.compactXpLevelText}>Lvl {player.level}</Text>
             </View>
-            {player.vibe ? (
+            {player.driveTimeMinutes != null ? (
+              <View style={styles.compactDriveTimeBadge}>
+                <Ionicons name="car-outline" size={10} color={Colors.dark.textSubtle} />
+                <Text style={styles.compactDriveTimeText}>~{player.driveTimeMinutes} min</Text>
+              </View>
+            ) : player.vibe ? (
               <Text style={styles.compactVibeText} numberOfLines={1}>{player.vibe}</Text>
             ) : null}
             {player.hasHomeAddress ? (
@@ -2341,6 +2348,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.dark.xpCyan + "40",
+  },
+  compactDriveTimeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  compactDriveTimeText: {
+    fontSize: 10,
+    color: Colors.dark.textSubtle,
   },
   compactActions: {
     flexDirection: "row",
