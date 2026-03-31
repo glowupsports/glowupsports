@@ -302,8 +302,8 @@ export default function PlayersScreen() {
           return bDate - aDate;
         }
         case "oldestLesson": {
-          const aDate = a.lastLessonDate ? new Date(a.lastLessonDate).getTime() : Infinity;
-          const bDate = b.lastLessonDate ? new Date(b.lastLessonDate).getTime() : Infinity;
+          const aDate = a.lastLessonDate ? new Date(a.lastLessonDate).getTime() : 0;
+          const bDate = b.lastLessonDate ? new Date(b.lastLessonDate).getTime() : 0;
           return aDate - bDate;
         }
         case "newest":
@@ -465,11 +465,10 @@ export default function PlayersScreen() {
             name={
               sortBy === "nameDesc" || sortBy === "creditsDesc" || sortBy === "nonDebt" || sortBy === "oldestLesson" || sortBy === "oldest" || sortBy === "appActive"
                 ? "arrow-down"
-                : sortBy === "name" ? "chevron-down"
                 : "arrow-up"
             }
             size={12}
-            color={sortBy === "name" ? Colors.dark.tabIconDefault : Colors.dark.xpCyan}
+            color={Colors.dark.xpCyan}
           />
         </Pressable>
       </View>
