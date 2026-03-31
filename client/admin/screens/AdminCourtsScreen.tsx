@@ -72,7 +72,7 @@ export default function AdminCourtsScreen() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [sportFilter, setSportFilter] = useState<SportOrMulti | "all">("all");
-  const [courtAddressSearch, setCourtAddressSearch] = useState<{ address: string; lat: number; lng: number } | null>(null);
+  const [courtAddressSearch, setCourtAddressSearch] = useState<{ address: string; lat: number; lng: number; placeId?: string; matchedLocationId?: string } | null>(null);
 
   const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371;
@@ -82,15 +82,17 @@ export default function AdminCourtsScreen() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const handleAddressSelect = (result: { address: string; lat: number; lng: number }) => {
-    setCourtAddressSearch(result);
+  const handleAddressSelect = (result: { address: string; lat: number; lng: number; placeId?: string; mainText?: string }) => {
+    let matchedLocationId: string | undefined;
     const locationsWithCoords = activeLocations.filter(l => l.lat && l.lng);
     if (locationsWithCoords.length > 0) {
       const nearest = locationsWithCoords
         .map(l => ({ ...l, dist: haversineKm(result.lat, result.lng, l.lat!, l.lng!) }))
         .sort((a, b) => a.dist - b.dist)[0];
       if (nearest && nearest.dist < 10) {
+        matchedLocationId = nearest.id;
         setFormData(prev => ({ ...prev, locationId: nearest.id }));
+        setCourtAddressSearch({ ...result, matchedLocationId: nearest.id });
         return;
       }
     }
@@ -101,8 +103,10 @@ export default function AdminCourtsScreen() {
       l.name.toLowerCase().includes(firstPart) || firstPart.includes(l.name.toLowerCase())
     );
     if (closest) {
+      matchedLocationId = closest.id;
       setFormData(prev => ({ ...prev, locationId: closest.id }));
     }
+    setCourtAddressSearch({ ...result, matchedLocationId });
   };
 
   const [formData, setFormData] = useState({
@@ -230,29 +234,44 @@ export default function AdminCourtsScreen() {
     }});
   };
 
+  const patchLocationGooglePlaceId = async (locationId: string, googlePlaceId: string) => {
+    try {
+      await apiRequest("PUT", `/api/admin/locations/${locationId}`, { googlePlaceId });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/locations"] });
+    } catch {
+      // Non-fatal: googlePlaceId link failure should not block court save
+    }
+  };
+
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/admin/courts", data),
-    onSuccess: () => {
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/admin/courts", data),
+    onSuccess: async () => {
+      if (courtAddressSearch?.placeId && courtAddressSearch?.matchedLocationId) {
+        await patchLocationGooglePlaceId(courtAddressSearch.matchedLocationId, courtAddressSearch.placeId);
+      }
       invalidateCourts();
       setShowAddModal(false);
       resetForm();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to create court");
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       apiRequest("PUT", `/api/admin/courts/${id}`, data),
-    onSuccess: () => {
+    onSuccess: async () => {
+      if (courtAddressSearch?.placeId && courtAddressSearch?.matchedLocationId) {
+        await patchLocationGooglePlaceId(courtAddressSearch.matchedLocationId, courtAddressSearch.placeId);
+      }
       invalidateCourts();
       setShowEditModal(false);
       setSelectedCourt(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to update court");
     },
   });
@@ -501,9 +520,10 @@ export default function AdminCourtsScreen() {
               </View>
 
               <View style={[styles.formGroup, { zIndex: 10 }]}>
-                <Text style={styles.label}>Find Location by Address</Text>
+                <Text style={styles.label}>Find Location by Venue</Text>
                 <AddressAutocomplete
-                  placeholder="Search address to find nearby location..."
+                  placeholder="Search venue to find nearby location..."
+                  mode="venue"
                   onSelect={handleAddressSelect}
                 />
                 {courtAddressSearch ? (
@@ -688,9 +708,10 @@ export default function AdminCourtsScreen() {
               </View>
 
               <View style={[styles.formGroup, { zIndex: 10 }]}>
-                <Text style={styles.label}>Find Location by Address</Text>
+                <Text style={styles.label}>Find Location by Venue</Text>
                 <AddressAutocomplete
-                  placeholder="Search address to find nearby location..."
+                  placeholder="Search venue to find nearby location..."
+                  mode="venue"
                   onSelect={handleAddressSelect}
                 />
                 {courtAddressSearch ? (

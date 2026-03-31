@@ -31,6 +31,7 @@ interface Location {
   isActive: boolean;
   timezone?: string;
   createdAt: string;
+  googlePlaceId?: string | null;
   courtCount?: number;
   sessionCount?: number;
 }
@@ -53,6 +54,7 @@ export default function AdminLocationsScreen() {
     lng: "",
     isActive: true,
     timezone: "Asia/Dubai",
+    googlePlaceId: "",
   });
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
@@ -114,6 +116,7 @@ export default function AdminLocationsScreen() {
       lng: "",
       isActive: true,
       timezone: "Asia/Dubai",
+      googlePlaceId: "",
     });
     setManualCoords(false);
     setTimezoneAutoDetected(false);
@@ -161,6 +164,7 @@ export default function AdminLocationsScreen() {
       lng: lngNum,
       isActive: formData.isActive,
       timezone: formData.timezone || "Asia/Dubai",
+      googlePlaceId: formData.googlePlaceId || null,
     });
   };
 
@@ -188,6 +192,7 @@ export default function AdminLocationsScreen() {
         lng: lngNum,
         isActive: formData.isActive,
         timezone: formData.timezone || "Asia/Dubai",
+        googlePlaceId: formData.googlePlaceId || null,
       },
     });
   };
@@ -223,6 +228,7 @@ export default function AdminLocationsScreen() {
       lng: location.lng != null ? String(location.lng) : "",
       isActive: location.isActive,
       timezone: location.timezone || "Asia/Dubai",
+      googlePlaceId: location.googlePlaceId || "",
     });
     setManualCoords(false);
     setTimezoneAutoDetected(false);
@@ -290,16 +296,19 @@ export default function AdminLocationsScreen() {
   const renderAddressSection = () => (
     <>
       <View style={[styles.formGroup, { zIndex: 10 }]}>
-        <Text style={styles.label}>Address Search</Text>
+        <Text style={styles.label}>Venue Search</Text>
         <AddressAutocomplete
-          placeholder="Type an address to search..."
+          placeholder="Search for a venue (e.g. Dubai Tennis Academy)..."
           initialValue={formData.address}
-          onSelect={({ address, lat, lng }) => {
+          mode="venue"
+          onSelect={({ address, lat, lng, placeId, mainText }) => {
             setFormData(prev => ({
               ...prev,
               address,
               lat: String(lat),
               lng: String(lng),
+              googlePlaceId: placeId || prev.googlePlaceId,
+              name: prev.name.trim() === "" && mainText ? mainText : prev.name,
             }));
             setManualCoords(false);
             detectTimezone(lat, lng);

@@ -10,7 +10,7 @@ import {
   updateSeriesSessionType,
   recalculateSeriesCredits,
 } from "./storage";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { awardXP } from "./services/xp-service";
 import {
   playerHolidays,
@@ -1344,6 +1344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     try {
       const input = req.query.input as string;
+      const mode = req.query.mode as string | undefined;
       if (!input || input.trim().length < 2) {
         return res.json({ predictions: [] });
       }
@@ -1351,7 +1352,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!apiKey) {
         return res.status(503).json({ error: "Maps service not configured" });
       }
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en`;
+      let url: string;
+      if (mode === "venue") {
+        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&keyword=sports%7Ctennis%7Cpadel%7Cgym%7Cstadium&language=en`;
+      } else {
+        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en`;
+      }
       const response = await fetch(url);
       if (!response.ok) {
         return res.status(502).json({ error: "Upstream maps error" });
@@ -1367,6 +1373,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Places autocomplete error:", error);
       res.status(500).json({ error: "Failed to fetch suggestions" });
+    }
+  });
+
+  // Nearby courts endpoint — returns academy courts + external Google Places courts within 5km
+  app.get("/api/play/nearby-courts", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { lat, lng } = req.query;
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "lat and lng are required" });
+      }
+      const userLat = parseFloat(lat as string);
+      const userLng = parseFloat(lng as string);
+      if (isNaN(userLat) || isNaN(userLng)) {
+        return res.status(400).json({ error: "Invalid lat/lng" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      const academyId = req.user?.academyId;
+      if (!academyId && req.user?.role !== "platform_owner") {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+
+      type NearbyCourt = {
+        id: string;
+        name: string;
+        address: string | null;
+        distance: number;
+        sport: string;
+        surface: string;
+        isInternal: boolean;
+        bookingEnabled: boolean;
+        lat: number;
+        lng: number;
+        googlePlaceId: string | null;
+      };
+
+      type CourtRow = {
+        id: string;
+        name: string;
+        surface: string | null;
+        sport: string | null;
+        booking_enabled: boolean | null;
+        is_active: boolean | null;
+        lat: string;
+        lng: string;
+        address: string | null;
+        location_name: string | null;
+      };
+
+      type PlaceResult = {
+        place_id: string;
+        name: string;
+        vicinity?: string;
+        geometry: { location: { lat: number; lng: number } };
+        types?: string[];
+      };
+
+      const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      };
+
+      // Query this academy's courts that have coordinates
+      const courtQueryParams: (string | boolean)[] = [true];
+      let courtWhere = `l.lat IS NOT NULL AND l.lng IS NOT NULL AND c.is_active = $1 AND l.is_active = $1`;
+      if (academyId) {
+        courtQueryParams.push(academyId);
+        courtWhere += ` AND c.academy_id = $2`;
+      }
+      const courtRows = await pool.query<CourtRow>(
+        `SELECT c.id, c.name, c.surface, c.sport, c.booking_enabled, c.is_active,
+                l.lat, l.lng, l.address, l.name as location_name
+         FROM courts c
+         LEFT JOIN locations l ON c.location_id = l.id
+         WHERE ${courtWhere}`,
+        courtQueryParams
+      );
+
+      const internalCourts: NearbyCourt[] = courtRows.rows
+        .map((row) => {
+          const dist = haversineKm(userLat, userLng, parseFloat(row.lat), parseFloat(row.lng));
+          return {
+            id: row.id,
+            name: row.name,
+            address: row.address || row.location_name || null,
+            distance: Math.round(dist * 10) / 10,
+            sport: row.sport || "tennis",
+            surface: row.surface || "hard",
+            isInternal: true as const,
+            bookingEnabled: row.booking_enabled !== false,
+            lat: parseFloat(row.lat),
+            lng: parseFloat(row.lng),
+            googlePlaceId: null,
+          };
+        })
+        .filter((c) => c.distance <= 5)
+        .sort((a, b) => a.distance - b.distance);
+
+      // Fetch external courts from Google Places Nearby Search.
+      // Query with two different type values to cover tennis courts, stadiums, and sports complexes.
+      let externalCourts: NearbyCourt[] = [];
+      if (apiKey) {
+        try {
+          const placeTypes = ["tennis_court", "stadium", "sports_complex"];
+          const seenPlaceIds = new Set<string>();
+          const rawPlaces: PlaceResult[] = [];
+
+          await Promise.all(placeTypes.map(async (type) => {
+            const nearbyUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${userLat},${userLng}&radius=5000&type=${type}&key=${apiKey}`;
+            const nearbyResponse = await fetch(nearbyUrl);
+            if (!nearbyResponse.ok) return;
+            const nearbyData = await nearbyResponse.json() as { results: PlaceResult[] };
+            for (const place of nearbyData.results || []) {
+              if (!seenPlaceIds.has(place.place_id)) {
+                seenPlaceIds.add(place.place_id);
+                rawPlaces.push(place);
+              }
+            }
+          }));
+
+          // Remove external places that are very close to an internal court (within 200 m)
+          // to avoid showing the same venue twice.
+          externalCourts = rawPlaces
+            .filter((place) => {
+              const dist = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
+              if (dist > 5) return false;
+              // Deduplicate against internal courts by proximity (< 200 m threshold)
+              const tooClose = internalCourts.some((ic) =>
+                haversineKm(ic.lat, ic.lng, place.geometry.location.lat, place.geometry.location.lng) < 0.2
+              );
+              return !tooClose;
+            })
+            .map((place) => {
+              const dist = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
+              return {
+                id: `gp_${place.place_id}`,
+                name: place.name,
+                address: place.vicinity || null,
+                distance: Math.round(dist * 10) / 10,
+                sport: "tennis",
+                surface: "unknown",
+                isInternal: false as const,
+                bookingEnabled: false,
+                lat: place.geometry.location.lat,
+                lng: place.geometry.location.lng,
+                googlePlaceId: place.place_id,
+              };
+            })
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 10);
+        } catch (err) {
+          console.error("Google Places nearby error:", err);
+        }
+      }
+
+      // Academy courts first (sorted by distance), then external courts (sorted by distance).
+      const result: NearbyCourt[] = [...internalCourts, ...externalCourts];
+      res.json(result);
+    } catch (error) {
+      console.error("Nearby courts error:", error);
+      res.status(500).json({ error: "Failed to fetch nearby courts" });
     }
   });
 

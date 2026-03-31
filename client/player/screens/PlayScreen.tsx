@@ -86,6 +86,20 @@ interface NearbyPlayer {
 
 type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
 
+interface NearbyCourt {
+  id: string;
+  name: string;
+  address: string | null;
+  distance: number;
+  sport: string;
+  surface: string;
+  isInternal: boolean;
+  bookingEnabled: boolean;
+  lat: number;
+  lng: number;
+  googlePlaceId: string | null;
+}
+
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
 
 const BALL_LEVELS = ["my_level", "all", "blue", "red", "orange", "green", "yellow", "glow"] as const;
@@ -869,6 +883,192 @@ export default function PlayScreen() {
     },
   });
 
+  const [nearbyCourtsLocation, setNearbyCourtsLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const nearbyCourtsEnabled = locationPermission?.granted === true && nearbyCourtsLocation !== null;
+  const nearbyCourtsQueryKey = nearbyCourtsEnabled
+    ? `/api/play/nearby-courts?lat=${nearbyCourtsLocation!.lat}&lng=${nearbyCourtsLocation!.lng}`
+    : null;
+  const { data: nearbyCourts, isLoading: nearbyCourtsLoading } = useQuery<NearbyCourt[]>({
+    queryKey: nearbyCourtsQueryKey ? [nearbyCourtsQueryKey] : ["__disabled_nearby_courts__"],
+    enabled: nearbyCourtsEnabled,
+  });
+
+  useEffect(() => {
+    if (!locationPermission?.granted) return;
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then(loc => {
+        setNearbyCourtsLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      })
+      .catch(() => {});
+  }, [locationPermission?.granted]);
+
+  const openDirections = (court: NearbyCourt) => {
+    const label = encodeURIComponent(court.name);
+    const url = Platform.OS === "ios"
+      ? `maps:?q=${label}&ll=${court.lat},${court.lng}`
+      : `geo:${court.lat},${court.lng}?q=${label}`;
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`https://maps.google.com/?q=${court.lat},${court.lng}`)
+    );
+  };
+
+  const renderCourtsNearYou = () => {
+    if (!locationPermission) return null;
+    if (!locationPermission.granted) {
+      if (locationPermission.status === "denied" && !locationPermission.canAskAgain) {
+        return (
+          <View style={styles.courtsNearYouSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="location" size={20} color={Colors.dark.primary} />
+                <Text style={styles.sectionTitle}>Courts Near You</Text>
+              </View>
+            </View>
+            <View style={styles.locationPermissionBanner}>
+              <Ionicons name="location-outline" size={18} color={Colors.dark.primary} />
+              <Text style={styles.locationPermissionText}>
+                Enable location in Settings to discover nearby courts
+              </Text>
+              {Platform.OS !== "web" ? (
+                <Pressable onPress={async () => {
+                  try { await Linking.openSettings(); } catch {}
+                }}>
+                  <Text style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>Settings</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        );
+      }
+      return (
+        <View style={styles.courtsNearYouSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="location" size={20} color={Colors.dark.primary} />
+              <Text style={styles.sectionTitle}>Courts Near You</Text>
+            </View>
+          </View>
+          <Pressable
+            style={styles.locationPermissionBanner}
+            onPress={() => requestLocationPermission()}
+          >
+            <Ionicons name="location-outline" size={18} color={Colors.dark.primary} />
+            <Text style={styles.locationPermissionText}>
+              Enable location to discover nearby courts
+            </Text>
+            <Text style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>Enable</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (nearbyCourtsLoading) {
+      return (
+        <View style={styles.courtsNearYouSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="location" size={20} color={Colors.dark.primary} />
+              <Text style={styles.sectionTitle}>Courts Near You</Text>
+            </View>
+          </View>
+          <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginVertical: Spacing.md }} />
+        </View>
+      );
+    }
+    if (!nearbyCourts || nearbyCourts.length === 0) {
+      return (
+        <View style={styles.courtsNearYouSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="location" size={20} color={Colors.dark.primary} />
+              <Text style={styles.sectionTitle}>Courts Near You</Text>
+            </View>
+          </View>
+          <View style={styles.locationPermissionBanner}>
+            <Ionicons name="tennisball-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={[styles.locationPermissionText, { color: Colors.dark.textMuted }]}>
+              No courts found within 5 km
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.courtsNearYouSection}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="location" size={20} color={Colors.dark.primary} />
+            <Text style={styles.sectionTitle}>Courts Near You</Text>
+          </View>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.nearbyCourtsScroll}
+        >
+          {nearbyCourts.map((court) => (
+            <View key={court.id} style={styles.nearbyCourtCard}>
+              <View style={styles.nearbyCourtHeader}>
+                <View style={styles.nearbyCourtBadgeRow}>
+                  <View style={[styles.nearbyCourtSportBadge, { backgroundColor: court.isInternal ? Colors.dark.primary + "25" : Colors.dark.backgroundTertiary }]}>
+                    <Ionicons
+                      name={court.sport === "padel" ? "grid-outline" : "tennisball-outline"}
+                      size={12}
+                      color={court.isInternal ? Colors.dark.primary : Colors.dark.textMuted}
+                    />
+                    <Text style={[styles.nearbyCourtSportText, { color: court.isInternal ? Colors.dark.primary : Colors.dark.textMuted }]}>
+                      {court.sport.charAt(0).toUpperCase() + court.sport.slice(1)}
+                    </Text>
+                  </View>
+                  {court.isInternal ? (
+                    <View style={styles.nearbyCourtInternalBadge}>
+                      <Text style={styles.nearbyCourtInternalText}>Academy</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.nearbyCourtDistanceBadge}>
+                  <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
+                  <Text style={styles.nearbyCourtDistanceText}>{court.distance} km</Text>
+                </View>
+              </View>
+              <Text style={styles.nearbyCourtName} numberOfLines={2}>{court.name}</Text>
+              {court.address ? (
+                <Text style={styles.nearbyCourtAddress} numberOfLines={1}>{court.address}</Text>
+              ) : null}
+              {court.surface && court.surface !== "unknown" ? (
+                <View style={styles.nearbyCourtSurfaceChip}>
+                  <Text style={styles.nearbyCourtSurfaceText}>{court.surface.charAt(0).toUpperCase() + court.surface.slice(1)}</Text>
+                </View>
+              ) : null}
+              <View style={styles.nearbyCourtActions}>
+                {court.isInternal && court.bookingEnabled ? (
+                  <Pressable
+                    style={styles.nearbyCourtBookBtn}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate("BookCourt" as never);
+                    }}
+                  >
+                    <Text style={styles.nearbyCourtBookBtnText}>Book</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={styles.nearbyCourtDirectionsBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    openDirections(court);
+                  }}
+                >
+                  <Ionicons name="navigate-outline" size={14} color={Colors.dark.primary} />
+                  <Text style={styles.nearbyCourtDirectionsBtnText}>Directions</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderPlayerCard = (player: NearbyPlayer) => {
     const ballColor = getBallLevelColor(player.ballLevel || "");
     const baseBallLabel = getBallLevelLabel(player.ballLevel || "");
@@ -1320,6 +1520,7 @@ export default function PlayScreen() {
                 </Text>
               </View>
             )}
+            {renderCourtsNearYou()}
           </>
         ) : (
           <>
@@ -2852,6 +3053,130 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: Colors.dark.text,
+  },
+
+  // Courts Near You
+  courtsNearYouSection: {
+    marginTop: Spacing.xl,
+  },
+  nearbyCourtsScroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  nearbyCourtCard: {
+    width: 180,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.xs,
+  },
+  nearbyCourtHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 2,
+  },
+  nearbyCourtBadgeRow: {
+    flexDirection: "row",
+    gap: 4,
+    flexWrap: "wrap",
+    flex: 1,
+  },
+  nearbyCourtSportBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  nearbyCourtSportText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  nearbyCourtInternalBadge: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.gold + "25",
+  },
+  nearbyCourtInternalText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  nearbyCourtDistanceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.xpCyan + "15",
+  },
+  nearbyCourtDistanceText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  nearbyCourtName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    lineHeight: 17,
+  },
+  nearbyCourtAddress: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  nearbyCourtSurfaceChip: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    marginTop: 2,
+  },
+  nearbyCourtSurfaceText: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+  },
+  nearbyCourtActions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  nearbyCourtBookBtn: {
+    flex: 1,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+  },
+  nearbyCourtBookBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  nearbyCourtDirectionsBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  nearbyCourtDirectionsBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
 
   // Session Info Modal

@@ -24,18 +24,22 @@ interface AddressResult {
   address: string;
   lat: number;
   lng: number;
+  placeId?: string;
+  mainText?: string;
 }
 
 interface AddressAutocompleteProps {
   onSelect: (result: AddressResult) => void;
   placeholder?: string;
   initialValue?: string;
+  mode?: "address" | "venue";
 }
 
 export function AddressAutocomplete({
   onSelect,
   placeholder = "Search for an address...",
   initialValue = "",
+  mode = "address",
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(initialValue);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -60,7 +64,8 @@ export function AddressAutocomplete({
     }
     setLoading(true);
     try {
-      const response = await apiFetch(`/api/maps/places-autocomplete?input=${encodeURIComponent(text)}`);
+      const modeParam = mode === "venue" ? "&mode=venue" : "";
+      const response = await apiFetch(`/api/maps/places-autocomplete?input=${encodeURIComponent(text)}${modeParam}`);
       if (response.ok) {
         const data = await response.json();
         setPredictions(data.predictions || []);
@@ -71,7 +76,7 @@ export function AddressAutocomplete({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   const handleChange = (text: string) => {
     setQuery(text);
@@ -94,6 +99,8 @@ export function AddressAutocomplete({
           address: data.formattedAddress || prediction.description,
           lat: data.lat,
           lng: data.lng,
+          placeId: prediction.placeId,
+          mainText: prediction.mainText,
         });
       } else {
         setGeocodeError("Could not resolve coordinates for this address.");

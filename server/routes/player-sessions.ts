@@ -5807,7 +5807,7 @@ import fs from "fs";
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const { name, timezone, address, lat, lng, isActive } = req.body;
+        const { name, timezone, address, lat, lng, isActive, googlePlaceId } = req.body;
         if (!name) {
           return res.status(400).json({ error: "Location name is required" });
         }
@@ -5836,6 +5836,7 @@ import fs from "fs";
           lat: parsedLat,
           lng: parsedLng,
           isActive: isActive !== false,
+          googlePlaceId: googlePlaceId || null,
         });
 
         await storage.createAuditLog({
@@ -5874,7 +5875,7 @@ import fs from "fs";
           return res.status(404).json({ error: "Location not found" });
         }
 
-        const { name, timezone, address, lat, lng, isActive } = req.body;
+        const { name, timezone, address, lat, lng, isActive, googlePlaceId } = req.body;
 
         const parseCoordUpdate = (v: any, min: number, max: number): number | null => {
           if (v === null || v === undefined || v === "") return null;
@@ -5901,6 +5902,7 @@ import fs from "fs";
             lat: parsedLatUpdate !== undefined ? parsedLatUpdate : existingLocation.lat,
             lng: parsedLngUpdate !== undefined ? parsedLngUpdate : existingLocation.lng,
             isActive: isActive !== undefined ? isActive : existingLocation.isActive,
+            googlePlaceId: googlePlaceId !== undefined ? (googlePlaceId || null) : existingLocation.googlePlaceId,
           },
           academyId || undefined,
         );
