@@ -1406,6 +1406,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== GOOGLE MAPS ENRICHMENT ENDPOINTS ==========
+
+  // Rate limiter for public map image proxy endpoints (no auth required, protect against quota drain)
+  const mapsProxyLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60, // 60 map image requests per minute per IP
+    message: { error: "Too many map requests, please slow down" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // In-memory cache for Place Details (24h TTL) — stores photo_reference, not the raw key URL
+  const placeDetailsCache = new Map<string, { data: { rating?: number; reviewCount?: number; photoRef?: string }; expiresAt: number }>();
+
+  // Place Details: fetch Google rating + cover photo reference for a venue
+  // photoRef is an opaque reference — the actual image is served via /api/maps/place-photo (proxied, no key exposed to client)
+  app.get("/api/maps/place-details", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const placeId = req.query.placeId as string;
+      if (!placeId) {
+        return res.status(400).json({ error: "placeId is required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const cached = placeDetailsCache.get(placeId);
+      if (cached && cached.expiresAt > Date.now()) {
+        return res.json(cached.data);
+      }
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=name,rating,user_ratings_total,photos&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream places error" });
+      }
+      const data = await response.json() as {
+        result?: {
+          rating?: number;
+          user_ratings_total?: number;
+          photos?: Array<{ photo_reference: string }>;
+        };
+      };
+      const result = data.result || {};
+      const photoRef = result.photos && result.photos.length > 0 ? result.photos[0].photo_reference : undefined;
+      const payload = {
+        rating: result.rating,
+        reviewCount: result.user_ratings_total,
+        photoRef,
+      };
+      placeDetailsCache.set(placeId, { data: payload, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+      res.json(payload);
+    } catch (error) {
+      console.error("Place details error:", error);
+      res.status(500).json({ error: "Failed to fetch place details" });
+    }
+  });
+
+  // Place Photo proxy: publicly accessible image proxy (no auth headers needed by <Image> components)
+  // Security: validates ref param, capped maxwidth, rate-limited by IP
+  app.get("/api/maps/place-photo", mapsProxyLimiter, async (req: any, res: Response) => {
+    try {
+      const ref = req.query.ref as string;
+      const maxwidthRaw = parseInt((req.query.maxwidth as string) || "800", 10);
+      const maxwidth = Math.min(Math.max(maxwidthRaw || 400, 100), 1600); // clamp 100–1600
+      if (!ref) {
+        return res.status(400).json({ error: "ref is required" });
+      }
+      // Validate photo_reference: block obvious injection chars (spaces, quotes, angle brackets, etc.)
+      // Google photo references are base64-like but can contain +, /, = chars
+      if (/[\s<>"'&;\\]/.test(ref) || ref.length > 2000) {
+        return res.status(400).json({ error: "Invalid photo reference" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}&photoreference=${encodeURIComponent(ref)}&key=${apiKey}`;
+      const response = await fetch(photoUrl);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream photo error" });
+      }
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error) {
+      console.error("Place photo proxy error:", error);
+      res.status(500).json({ error: "Failed to fetch place photo" });
+    }
+  });
+
+  // Static Map image proxy: returns a map image with a pin at the given lat/lng, rate-limited
+  app.get("/api/maps/static-map", mapsProxyLimiter, async (req: any, res: Response) => {
+    try {
+      const lat = req.query.lat as string;
+      const lng = req.query.lng as string;
+      const size = (req.query.size as string) || "320x200";
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "lat and lng are required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=${encodeURIComponent(size)}&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
+      const response = await fetch(mapUrl);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream static map error" });
+      }
+      const contentType = response.headers.get("content-type") || "image/png";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error) {
+      console.error("Static map error:", error);
+      res.status(500).json({ error: "Failed to fetch static map" });
+    }
+  });
+
   // Google Time Zone API proxy (server-side key, IANA timezone detection)
   app.get("/api/maps/timezone", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     const role = req.user?.role;
@@ -1439,6 +1560,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Timezone lookup error:", error);
       res.status(500).json({ error: "Failed to detect timezone" });
+    }
+  });
+
+  // Reverse geocode: convert lat/lng to city + country (callable by players)
+  app.get("/api/maps/reverse-geocode", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const lat = req.query.lat as string;
+      const lng = req.query.lng as string;
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "lat and lng are required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=locality|country&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream geocode error" });
+      }
+      const data = await response.json() as {
+        results: Array<{
+          address_components: Array<{ long_name: string; types: string[] }>;
+          formatted_address: string;
+        }>;
+      };
+      if (!data.results || data.results.length === 0) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+      let city: string | undefined;
+      let country: string | undefined;
+      for (const result of data.results) {
+        for (const component of result.address_components) {
+          if (!city && (component.types.includes("locality") || component.types.includes("administrative_area_level_1"))) {
+            city = component.long_name;
+          }
+          if (!country && component.types.includes("country")) {
+            country = component.long_name;
+          }
+        }
+        if (city && country) break;
+      }
+      res.json({ city, country, formattedAddress: data.results[0].formatted_address });
+    } catch (error) {
+      console.error("Reverse geocode error:", error);
+      res.status(500).json({ error: "Failed to reverse geocode" });
     }
   });
 

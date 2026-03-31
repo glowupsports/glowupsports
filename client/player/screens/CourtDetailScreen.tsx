@@ -61,6 +61,9 @@ interface CourtDetails {
     id: string;
     name: string;
     address?: string;
+    lat?: number | null;
+    lng?: number | null;
+    googlePlaceId?: string | null;
   };
   bookingEnabled?: boolean;
   canBook: boolean;
@@ -70,6 +73,12 @@ interface CourtDetails {
     endTime: string;
     status: string;
   }>;
+}
+
+interface PlaceDetails {
+  rating?: number;
+  reviewCount?: number;
+  photoRef?: string;
 }
 
 const SURFACE_CONFIG = {
@@ -213,6 +222,18 @@ export default function CourtDetailScreen() {
   const { data: court, isLoading, isError } = useQuery<CourtDetails>({
     queryKey: [detailUrl],
   });
+
+  const googlePlaceId = court?.location?.googlePlaceId;
+  const { data: placeDetails } = useQuery<PlaceDetails>({
+    queryKey: [`/api/maps/place-details?placeId=${googlePlaceId}`],
+    enabled: !!googlePlaceId,
+  });
+
+  const locationLat = court?.location?.lat;
+  const locationLng = court?.location?.lng;
+  const staticMapUrl = (locationLat != null && locationLng != null)
+    ? `${apiUrl}/api/maps/static-map?lat=${locationLat}&lng=${locationLng}&size=600x200`
+    : null;
 
   // Fetch friends/academy players for partner selection
   interface SearchPlayer { id: string; displayName: string; photoUrl?: string; ballLevel?: string; xpLevel?: number; }
@@ -384,6 +405,9 @@ export default function CourtDetailScreen() {
   const surfaceConfig = SURFACE_CONFIG[court?.surface as keyof typeof SURFACE_CONFIG] || SURFACE_CONFIG.hard;
   const price = formatPrice();
   const hasPhoto = court?.photoUrl && court.photoUrl.length > 0;
+  const heroPhotoUrl = placeDetails?.photoRef
+    ? `${apiUrl}/api/maps/place-photo?ref=${encodeURIComponent(placeDetails.photoRef)}&maxwidth=800`
+    : hasPhoto ? `${apiUrl}${court!.photoUrl}` : null;
 
   if (isLoading) {
     return (
@@ -420,9 +444,9 @@ export default function CourtDetailScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.heroSection, { paddingTop: insets.top }]}>
-        {hasPhoto ? (
+        {heroPhotoUrl ? (
           <Image
-            source={{ uri: `${apiUrl}${court.photoUrl}` }}
+            source={{ uri: heroPhotoUrl }}
             style={styles.heroImage}
             contentFit="cover"
           />
@@ -484,6 +508,14 @@ export default function CourtDetailScreen() {
                 <Ionicons name="navigate-outline" size={12} color="#00D4FF" style={{ marginLeft: 4 }} />
               ) : null}
             </Pressable>
+          )}
+          {placeDetails?.rating != null && (
+            <View style={styles.metaRow}>
+              <Ionicons name="star" size={13} color="#FFD700" />
+              <Text style={[styles.metaText, { color: "#FFD700" }]}>
+                {placeDetails.rating.toFixed(1)}{placeDetails.reviewCount ? ` · ${placeDetails.reviewCount.toLocaleString()} reviews` : ""}
+              </Text>
+            </View>
           )}
         </View>
       </View>
@@ -565,6 +597,36 @@ export default function CourtDetailScreen() {
             </View>
           </View>
         </View>
+
+        {staticMapUrl && (
+          <Pressable
+            style={styles.staticMapCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const lat = locationLat;
+              const lng = locationLng;
+              const label = encodeURIComponent(court?.location?.name || court?.name || "Court");
+              const url = Platform.OS === "ios"
+                ? `maps:?q=${label}&ll=${lat},${lng}`
+                : `geo:${lat},${lng}?q=${label}`;
+              Linking.openURL(url).catch(() =>
+                Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`)
+              );
+            }}
+          >
+            <Image
+              source={{ uri: staticMapUrl }}
+              style={styles.staticMapImage}
+              contentFit="cover"
+            />
+            <View style={styles.staticMapOverlay}>
+              <View style={styles.staticMapBadge}>
+                <Ionicons name="navigate" size={14} color="#FFFFFF" />
+                <Text style={styles.staticMapBadgeText}>Open in Maps</Text>
+              </View>
+            </View>
+          </Pressable>
+        )}
 
         <Pressable 
           style={styles.findPartnerCard}
@@ -1696,5 +1758,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#FFFFFF",
     fontWeight: "500",
+  },
+
+  staticMapCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    height: 200,
+  },
+  staticMapImage: {
+    width: "100%",
+    height: "100%",
+  },
+  staticMapOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: Spacing.md,
+    alignItems: "flex-end",
+  },
+  staticMapBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,212,255,0.9)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    gap: 4,
+  },
+  staticMapBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0B0D10",
   },
 });

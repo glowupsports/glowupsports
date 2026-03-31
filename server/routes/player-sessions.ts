@@ -1656,6 +1656,8 @@ import fs from "fs";
             homeAddress: player.homeAddress || null,
             homeLat: player.homeLat ?? null,
             homeLng: player.homeLng ?? null,
+            city: (player as any).city || null,
+            country: (player as any).country || null,
           },
           coach: coach
             ? {
@@ -1713,6 +1715,8 @@ import fs from "fs";
           bio,
           displayName,
           privacyLevel,
+          city,
+          country,
         } = req.body;
 
         // Use parameterized updates for each field individually for safety
@@ -1783,6 +1787,16 @@ import fs from "fs";
           const homeLng = req.body.homeLng ?? null;
           await db.execute(
             sql`UPDATE players SET home_address = ${homeAddress}, home_lat = ${homeLat}, home_lng = ${homeLng} WHERE id = ${playerId}`,
+          );
+        }
+        if (city !== undefined) {
+          await db.execute(
+            sql`UPDATE players SET city = ${city} WHERE id = ${playerId}`,
+          );
+        }
+        if (country !== undefined) {
+          await db.execute(
+            sql`UPDATE players SET country = ${country} WHERE id = ${playerId}`,
           );
         }
 

@@ -512,6 +512,7 @@ export const locations = pgTable("locations", {
   address: text("address"),
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
+  googlePlaceId: text("google_place_id"),
   isActive: boolean("is_active").default(true),
   timezone: text("timezone").default("Asia/Dubai"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1032,6 +1033,8 @@ export const players = pgTable("players", {
   lastLatitude: doublePrecision("last_latitude"),
   lastLongitude: doublePrecision("last_longitude"),
   locationUpdatedAt: timestamp("location_updated_at"),
+  city: text("city"),
+  country: text("country"),
   
   // Home address (validated via Google Places Autocomplete)
   homeAddress: text("home_address"),

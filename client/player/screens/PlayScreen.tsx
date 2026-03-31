@@ -1,7 +1,7 @@
 import logger from "@/lib/logger";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -10,9 +10,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
@@ -37,6 +38,9 @@ interface PlaySession {
   startTime: string;
   endTime: string;
   locationName: string;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationGooglePlaceId?: string | null;
   courtName?: string;
   courtImageUrl?: string;
   coachName?: string;
@@ -176,9 +180,64 @@ export default function PlayScreen() {
   }, [hasSeenScreen, startWalkthrough]);
 
 
-  const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
+  const { data: profileData } = useQuery<{ player: { ballLevel?: string; city?: string; country?: string } }>({
     queryKey: ["/api/player/me/profile"],
   });
+
+  const apiUrl = getApiUrl();
+
+  // Reverse geocode location when permission is granted
+  const reverseGeocodeMutation = useMutation({
+    mutationFn: async ({ lat, lng, missingCity, missingCountry }: { lat: number; lng: number; missingCity: boolean; missingCountry: boolean }) => {
+      const response = await apiRequest("GET", `/api/maps/reverse-geocode?lat=${lat}&lng=${lng}`);
+      const geocoded = await response.json() as { city?: string; country?: string };
+      // Only return the fields that were missing
+      return {
+        city: missingCity ? geocoded.city : undefined,
+        country: missingCountry ? geocoded.country : undefined,
+      };
+    },
+    onSuccess: async (data) => {
+      const patch: Record<string, string> = {};
+      if (data.city) patch.city = data.city;
+      if (data.country) patch.country = data.country;
+      if (Object.keys(patch).length === 0) return;
+      try {
+        await apiRequest("PATCH", "/api/player/me/profile", patch);
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      } catch (e) {
+        // Silent failure - background enrichment only
+      }
+    },
+  });
+
+  const [locationPermission, requestLocationPermission] = Location.useForegroundPermissions();
+
+  // Stable ref to prevent repeated geocode calls on re-renders (time interval causes frequent re-renders)
+  const geocodedRef = useRef(false);
+  const profileDataRef = useRef(profileData);
+  useEffect(() => { profileDataRef.current = profileData; }, [profileData]);
+
+  // One-shot reverse geocode when location permission is first granted
+  useEffect(() => {
+    if (!locationPermission?.granted) return;
+    if (geocodedRef.current) return; // already ran
+    // Wait for profile data before checking what fields to fill
+    const profile = profileDataRef.current;
+    if (profile === undefined) return;
+    const missingCity = !profile?.player?.city;
+    const missingCountry = !profile?.player?.country;
+    if (!missingCity && !missingCountry) {
+      geocodedRef.current = true; // nothing to fill — mark done
+      return;
+    }
+    geocodedRef.current = true; // mark before async to prevent double-fire
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then(loc => {
+        reverseGeocodeMutation.mutate({ lat: loc.coords.latitude, lng: loc.coords.longitude, missingCity, missingCountry });
+      })
+      .catch(() => { /* silent */ });
+  }, [locationPermission?.granted, profileData]); // profileData dep so it retries once profile loads
 
   const { data: invitesData } = useQuery<Array<{ booking_invite_guests: { status: string } }>>({
     queryKey: ["/api/player/booking-invites"],
@@ -189,6 +248,17 @@ export default function PlayScreen() {
     queryKey: ["/api/corporate/my-account"],
   });
   const hasCorporateCredits = !!(corporateData?.corporateAccount && corporateData?.member?.inviteStatus === "accepted" && (corporateData.corporateAccount.creditBalance ?? 0) > 0);
+
+  // Fetch place details (rating + photo ref) when a session with a Google Place ID is selected
+  const selectedPlaceId = selectedSession?.locationGooglePlaceId ?? null;
+  const { data: sessionPlaceDetails } = useQuery<{ rating?: number; reviewCount?: number; photoRef?: string }>({
+    queryKey: ["/api/maps/place-details", selectedPlaceId],
+    enabled: !!selectedPlaceId,
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/maps/place-details?placeId=${encodeURIComponent(selectedPlaceId!)}`);
+      return response.json();
+    },
+  });
 
   const playerBallLevel = profileData?.player?.ballLevel?.toLowerCase() || "glow";
 
@@ -1361,7 +1431,24 @@ export default function PlayScreen() {
               })}
             </ScrollView>
             
-            {playersLoading ? (
+            {locationPermission && !locationPermission.granted && (
+              <Pressable
+                style={styles.locationPermissionBanner}
+                onPress={async () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const result = await requestLocationPermission();
+                  if (result.granted) {
+                    // Reset geocoded flag so the useEffect can run after permission is granted
+                    geocodedRef.current = false;
+                  }
+                }}
+              >
+                <Ionicons name="location" size={16} color={Colors.dark.primary} />
+                <Text style={styles.locationPermissionText}>Enable location to find players near you</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.primary} />
+              </Pressable>
+            )}
+          {playersLoading ? (
               <ActivityIndicator size="small" color={Colors.dark.primary} />
             ) : filteredPlayers.length > 0 ? (
               <View style={styles.playersGrid}>
@@ -1383,6 +1470,95 @@ export default function PlayScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Session Info Modal with static map */}
+      <Modal
+        visible={!!selectedSession}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedSession(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setSelectedSession(null)}>
+          <View style={styles.sessionInfoModal}>
+            {selectedSession ? (
+              <>
+                <View style={styles.sessionInfoHeader}>
+                  <Text style={styles.sessionInfoTitle}>{getCleanSessionTitle(selectedSession)}</Text>
+                  <Pressable onPress={() => setSelectedSession(null)} hitSlop={8}>
+                    <Ionicons name="close" size={22} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
+                {/* Venue photo from Google Place (proxy, no key exposure) */}
+                {sessionPlaceDetails?.photoRef ? (
+                  <ExpoImage
+                    source={{ uri: `${apiUrl}/api/maps/place-photo?ref=${encodeURIComponent(sessionPlaceDetails.photoRef)}&maxwidth=800` }}
+                    style={styles.sessionInfoVenuePhoto}
+                    contentFit="cover"
+                  />
+                ) : null}
+                <View style={styles.sessionInfoLocationRow}>
+                  <Text style={styles.sessionInfoLocation}>
+                    <Ionicons name="location" size={13} color={Colors.dark.primary} />
+                    {" "}{selectedSession.locationName}
+                    {selectedSession.courtName ? ` · ${selectedSession.courtName}` : ""}
+                  </Text>
+                  {sessionPlaceDetails?.rating ? (
+                    <View style={styles.sessionInfoRatingBadge}>
+                      <Ionicons name="star" size={11} color="#FFD700" />
+                      <Text style={styles.sessionInfoRatingText}>
+                        {sessionPlaceDetails.rating.toFixed(1)}
+                        {sessionPlaceDetails.reviewCount ? ` (${sessionPlaceDetails.reviewCount > 999 ? "1k+" : sessionPlaceDetails.reviewCount})` : ""}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.sessionInfoTime}>
+                  <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
+                  {" "}{formatTime(selectedSession.startTime)}
+                </Text>
+                {selectedSession.coachName ? (
+                  <Text style={styles.sessionInfoCoach}>
+                    <Ionicons name="person" size={13} color={Colors.dark.xpCyan} />
+                    {" "}Coach {selectedSession.coachName}
+                  </Text>
+                ) : null}
+                {(selectedSession.locationLat != null && selectedSession.locationLng != null) ? (
+                  <Pressable
+                    style={styles.sessionInfoMapWrapper}
+                    onPress={() => {
+                      const lat = selectedSession.locationLat;
+                      const lng = selectedSession.locationLng;
+                      const label = encodeURIComponent(selectedSession.locationName);
+                      const url = Platform.OS === "ios"
+                        ? `maps:?q=${label}&ll=${lat},${lng}`
+                        : `geo:${lat},${lng}?q=${label}`;
+                      Linking.openURL(url as string).catch(() =>
+                        Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`)
+                      );
+                    }}
+                  >
+                    <ExpoImage
+                      source={{ uri: `${apiUrl}/api/maps/static-map?lat=${selectedSession.locationLat}&lng=${selectedSession.locationLng}&size=600x140` }}
+                      style={styles.sessionInfoMap}
+                      contentFit="cover"
+                    />
+                    <View style={styles.sessionInfoMapBadge}>
+                      <Ionicons name="navigate" size={12} color="#FFFFFF" />
+                      <Text style={styles.sessionInfoMapBadgeText}>Open in Maps</Text>
+                    </View>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={styles.sessionInfoClose}
+                  onPress={() => setSelectedSession(null)}
+                >
+                  <Text style={styles.sessionInfoCloseText}>Close</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={!!friendRequestPlayer}
@@ -2656,5 +2832,125 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
     borderColor: Colors.dark.backgroundSecondary,
+  },
+
+  // Location permission banner
+  locationPermissionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  locationPermissionText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.text,
+  },
+
+  // Session Info Modal
+  sessionInfoModal: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginTop: "auto",
+    gap: Spacing.sm,
+  },
+  sessionInfoHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  sessionInfoTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  sessionInfoVenuePhoto: {
+    width: "100%",
+    height: 120,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xs,
+  },
+  sessionInfoLocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  sessionInfoLocation: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  sessionInfoRatingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255,215,0,0.12)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  sessionInfoRatingText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FFD700",
+  },
+  sessionInfoTime: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+  },
+  sessionInfoCoach: {
+    fontSize: 13,
+    color: Colors.dark.xpCyan,
+  },
+  sessionInfoMapWrapper: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    height: 140,
+    marginTop: Spacing.sm,
+    position: "relative",
+  },
+  sessionInfoMap: {
+    width: "100%",
+    height: "100%",
+  },
+  sessionInfoMapBadge: {
+    position: "absolute",
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,212,255,0.9)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    gap: 4,
+  },
+  sessionInfoMapBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#0B0D10",
+  },
+  sessionInfoClose: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  sessionInfoCloseText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
 });

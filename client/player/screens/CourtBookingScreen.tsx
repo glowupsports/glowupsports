@@ -21,7 +21,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
-import { getApiUrl } from "@/lib/query-client";
+import { getApiUrl, apiRequest } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 
@@ -51,6 +51,9 @@ interface Court {
     id: string;
     name: string;
     address?: string;
+    googlePlaceId?: string | null;
+    lat?: number | null;
+    lng?: number | null;
   };
   canBook?: boolean;
   bookingEnabled?: boolean;
@@ -92,6 +95,17 @@ function PulsingDot({ color }: { color: string }) {
 function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Court; onPress: () => void; onSlotPress: (slot: string) => void; surfaceConfig: typeof SURFACE_CONFIG[keyof typeof SURFACE_CONFIG] }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const apiUrl = getApiUrl();
+
+  const googlePlaceId = court.location?.googlePlaceId ?? null;
+  const { data: placeDetails } = useQuery<{ rating?: number; reviewCount?: number; photoRef?: string }>({
+    queryKey: ["/api/maps/place-details", googlePlaceId],
+    enabled: !!googlePlaceId,
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/maps/place-details?placeId=${encodeURIComponent(googlePlaceId!)}`);
+      return response.json();
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24h
+  });
   
   const handlePressIn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -184,6 +198,12 @@ function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Cour
                       <Text style={styles.metaText} numberOfLines={1}>{court.location.name}</Text>
                     </View>
                   )}
+                  {placeDetails?.rating ? (
+                    <View style={styles.placeRatingBadge}>
+                      <Ionicons name="star" size={10} color="#FFD700" />
+                      <Text style={styles.placeRatingText}>{placeDetails.rating.toFixed(1)}</Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 <View style={styles.courtBottomRow}>
@@ -847,6 +867,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#7C8290",
     flex: 1,
+  },
+  placeRatingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255,215,0,0.12)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  placeRatingText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FFD700",
   },
   courtBottomRow: {
     flexDirection: "row",

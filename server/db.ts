@@ -401,6 +401,19 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] tournaments extended fields migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS google_place_id TEXT`);
+    console.log('[Database] locations google_place_id migration successful');
+  } catch (e: any) {
+    console.log('[Database] locations google_place_id migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS city TEXT`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS country TEXT`);
+    console.log('[Database] players city/country migration successful');
+  } catch (e: any) {
+    console.log('[Database] players city/country migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

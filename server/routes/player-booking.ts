@@ -902,9 +902,15 @@ Return only the JSON array, nothing else.`;
           locationId = courtLocationId;
         }
         
+        let locationLat: number | null = null;
+        let locationLng: number | null = null;
+        let locationGooglePlaceId: string | null = null;
         if (locationId) {
           const location = await storage.getLocation(locationId);
           locationName = location?.name || "Location TBD";
+          locationLat = location?.lat ?? null;
+          locationLng = location?.lng ?? null;
+          locationGooglePlaceId = location?.googlePlaceId ?? null;
         }
 
         // Check waitlist
@@ -946,6 +952,9 @@ Return only the JSON array, nothing else.`;
           startTime: session.startTime.toISOString(),
           endTime: session.endTime.toISOString(),
           locationName,
+          locationLat,
+          locationLng,
+          locationGooglePlaceId,
           courtName,
           coachName,
           coachId: session.coachId,
