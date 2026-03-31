@@ -461,7 +461,16 @@ export default function PlayersScreen() {
             size={16} 
             color={Colors.dark.xpCyan} 
           />
-          <Ionicons name="chevron-down" size={14} color={Colors.dark.tabIconDefault} />
+          <Ionicons
+            name={
+              sortBy === "nameDesc" || sortBy === "creditsDesc" || sortBy === "nonDebt" || sortBy === "oldestLesson" || sortBy === "oldest" || sortBy === "appActive"
+                ? "arrow-down"
+                : sortBy === "name" ? "chevron-down"
+                : "arrow-up"
+            }
+            size={12}
+            color={sortBy === "name" ? Colors.dark.tabIconDefault : Colors.dark.xpCyan}
+          />
         </Pressable>
       </View>
       
