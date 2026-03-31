@@ -768,7 +768,7 @@ export default function AdminPlayersScreen() {
                 { key: "name_desc", label: "Z-A", icon: "arrow-down" },
                 { key: "level_high", label: "Level", icon: "trending-up" },
                 { key: "newest", label: "Newest", icon: "time-outline" },
-                { key: "not_activated", label: "Awaiting Signup", icon: "person-add-outline" },
+                { key: "not_activated", label: "Activated", icon: "person-add-outline" },
               ].map((sort) => (
                 <Pressable
                   key={sort.key}
