@@ -491,7 +491,12 @@ export default function AdminPlayersScreen() {
               <Ionicons name="time-outline" size={9} color={Colors.dark.orange} />
               <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.dark.orange, letterSpacing: 0.3 }}>Awaiting signup</Text>
             </Pressable>
-          ) : null}
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#22c55e18", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#22c55e" }} />
+              <Text style={{ fontSize: 9, fontWeight: "700", color: "#22c55e", letterSpacing: 0.3 }}>App active</Text>
+            </View>
+          )}
         </View>
       </Pressable>
     );
