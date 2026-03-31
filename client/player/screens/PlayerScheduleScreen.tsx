@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform } from "react-native";
+import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -857,30 +858,25 @@ export default function PlayerScheduleScreen() {
                           <Feather name={item.type === "court" ? "map-pin" : item.type === "match" ? "users" : "user"} size={12} color={ProTennisColors.textSecondary} />
                           <Text style={styles.sessionMetaText}>{item.subtitle}</Text>
                         </View>
-                        {(item.locationName || item.locationAddress) ? (
-                          item.locationAddress ? (
-                            <Pressable
-                              style={styles.sessionMeta}
-                              onPress={() => {
-                                const q = encodeURIComponent(item.locationAddress!);
-                                const url = Platform.OS === "ios"
-                                  ? `maps:?q=${q}`
-                                  : `geo:0,0?q=${q}`;
-                                Linking.canOpenURL(url).then(supported => {
-                                  if (supported) Linking.openURL(url);
-                                  else Linking.openURL(`https://maps.google.com/?q=${q}`);
-                                });
-                              }}
-                            >
-                              <Feather name="navigation" size={12} color={ProTennisColors.neonCyan} />
-                              <Text style={[styles.sessionMetaText, { color: ProTennisColors.neonCyan }]}>{item.locationAddress}</Text>
-                            </Pressable>
-                          ) : (
-                            <View style={styles.sessionMeta}>
-                              <Feather name="map-pin" size={12} color={ProTennisColors.textSecondary} />
-                              <Text style={styles.sessionMetaText}>{item.locationName}</Text>
-                            </View>
-                          )
+                        {(item.locationName || item.locationAddress || item.locationLat) ? (
+                          <Pressable
+                            style={styles.sessionMeta}
+                            onPress={() => openDirections({ lat: item.locationLat, lng: item.locationLng, label: item.locationName, address: item.locationAddress })}
+                          >
+                            <Feather name="navigation" size={12} color={item.locationLat ? ProTennisColors.neonGreen : ProTennisColors.neonCyan} />
+                            <Text style={[styles.sessionMetaText, { color: item.locationLat ? ProTennisColors.neonGreen : ProTennisColors.neonCyan }]}>
+                              {item.locationAddress || item.locationName}
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                        {item.status === "upcoming" && (item.locationLat || item.locationAddress || item.locationName) ? (
+                          <Pressable
+                            style={styles.getDirectionsButton}
+                            onPress={() => openDirections({ lat: item.locationLat, lng: item.locationLng, label: item.locationName, address: item.locationAddress })}
+                          >
+                            <Feather name="map-pin" size={11} color={ProTennisColors.midnightBlue} />
+                            <Text style={styles.getDirectionsText}>Get Directions</Text>
+                          </Pressable>
                         ) : null}
                       </View>
                       {item.status === "completed" ? (
@@ -1623,6 +1619,22 @@ const styles = StyleSheet.create({
   sessionMetaText: {
     fontSize: 12,
     color: ProTennisColors.textSecondary,
+  },
+  getDirectionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: ProTennisColors.neonGreen,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  getDirectionsText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: ProTennisColors.midnightBlue,
   },
   sessionStatus: {
     width: 36,

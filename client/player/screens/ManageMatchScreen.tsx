@@ -10,6 +10,7 @@ import {
   Modal,
   FlatList,
 } from "react-native";
+import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -232,10 +233,22 @@ export default function ManageMatchScreen() {
               <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
               <Text style={styles.detailText}>{formatTime(match.scheduledTime)}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.detailText}>{match.courtName || match.locationName || "TBD"}</Text>
-            </View>
+            {(match.courtName || match.locationName) ? (
+              <Pressable
+                style={styles.detailRow}
+                onPress={() => openDirections({ label: match.locationName || match.courtName })}
+              >
+                <Ionicons name="navigate" size={18} color={Colors.dark.xpCyan} />
+                <Text style={[styles.detailText, styles.directionsText]}>
+                  {match.courtName || match.locationName}
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.detailRow}>
+                <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+                <Text style={styles.detailText}>TBD</Text>
+              </View>
+            )}
             <View style={styles.detailRow}>
               <View style={[styles.levelDot, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") }]} />
               <Text style={styles.detailText}>
@@ -499,6 +512,10 @@ const styles = StyleSheet.create({
   detailText: {
     color: Colors.dark.text,
     fontSize: FontSizes.md,
+  },
+  directionsText: {
+    color: Colors.dark.xpCyan,
+    textDecorationLine: "underline",
   },
   levelDot: {
     width: 12,

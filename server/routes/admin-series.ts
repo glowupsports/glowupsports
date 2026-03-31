@@ -3880,6 +3880,8 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             participants,
             isEnrolled,
             locationName,
+            locationLat: locationLat ?? null,
+            locationLng: locationLng ?? null,
             price: sessionPrice,
             sport: sessionSport,
             distanceKm: sessionDistanceKm,

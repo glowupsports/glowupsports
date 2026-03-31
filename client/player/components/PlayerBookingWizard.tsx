@@ -13,6 +13,7 @@ import {
   ScrollView,
   FlatList,
 } from "react-native";
+import { openDirections } from "@/lib/maps";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -75,6 +76,8 @@ interface Location {
   id: string;
   name: string;
   address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface AvailableSlot {
@@ -1206,6 +1209,23 @@ export default function PlayerBookingWizard({
                     {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
                   </Text>
                 </View>
+                {(() => {
+                  const locName = "locationName" in sessionInfo ? sessionInfo.locationName : null;
+                  const locId = "locationId" in sessionInfo ? (sessionInfo as AvailableSlot).locationId : null;
+                  const loc = locId
+                    ? locations.find(l => l.id === locId)
+                    : locations.find(l => l.name === locName);
+                  if (!locName && !loc?.address) return null;
+                  return (
+                    <Pressable
+                      style={styles.confirmDirectionsRow}
+                      onPress={() => openDirections({ lat: loc?.lat, lng: loc?.lng, label: locName, address: loc?.address })}
+                    >
+                      <Ionicons name="navigate" size={14} color={Colors.dark.primary} />
+                      <Text style={styles.confirmDirectionsText}>Get Directions</Text>
+                    </Pressable>
+                  );
+                })()}
 
                 {/* Coach */}
                 <View style={styles.confirmRow}>
@@ -2105,6 +2125,18 @@ const styles = StyleSheet.create({
   confirmText: {
     fontSize: 16,
     color: Colors.dark.text,
+  },
+  confirmDirectionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingLeft: 26,
+    marginTop: 2,
+  },
+  confirmDirectionsText: {
+    fontSize: 13,
+    color: Colors.dark.primary,
+    textDecorationLine: "underline",
   },
   rewardPreview: {
     flexDirection: "row",

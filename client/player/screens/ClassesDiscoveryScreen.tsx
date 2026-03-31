@@ -10,8 +10,8 @@ import {
   Alert,
   Modal,
   ScrollView,
-  Platform,
 } from "react-native";
+import { openDirections } from "@/lib/maps";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -51,6 +51,9 @@ interface ClassSession {
   coachId?: string;
   ballLevel?: string;
   locationName?: string;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
   participants?: Participant[];
   isEnrolled?: boolean;
   price?: number;
@@ -265,11 +268,16 @@ function SessionCard({
           {session.locationName && (
             <>
               <Text style={styles.sessionMetaDot}>·</Text>
-              <Ionicons name="location-outline" size={13} color={TEXT_MUTED} />
-              <Text style={styles.sessionMetaText} numberOfLines={1}>
-                {session.distanceKm !== undefined ? `${session.distanceKm}km · ` : ""}
-                {session.locationName}
-              </Text>
+              <Pressable
+                style={styles.locationLink}
+                onPress={() => openDirections({ lat: session.locationLat, lng: session.locationLng, label: session.locationName, address: session.locationAddress })}
+              >
+                <Ionicons name="navigate-outline" size={12} color={ACCENT} />
+                <Text style={styles.locationLinkText} numberOfLines={1}>
+                  {session.distanceKm !== undefined ? `${session.distanceKm}km · ` : ""}
+                  {session.locationName}
+                </Text>
+              </Pressable>
             </>
           )}
         </View>
@@ -752,6 +760,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: TEXT_MUTED,
     marginHorizontal: 2,
+  },
+  locationLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    flexShrink: 1,
+  },
+  locationLinkText: {
+    fontSize: 12,
+    color: ACCENT,
+    flexShrink: 1,
   },
   sessionBottom: {
     flexDirection: "row",

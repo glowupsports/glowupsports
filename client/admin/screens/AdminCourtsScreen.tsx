@@ -25,6 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
 import { SPORTS, type SportOrMulti } from "@shared/sportConfig";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 interface Court {
   id: string;
@@ -45,6 +46,9 @@ interface Location {
   id: string;
   name: string;
   isActive: boolean;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 const COURT_COLORS = [
@@ -68,6 +72,38 @@ export default function AdminCourtsScreen() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [sportFilter, setSportFilter] = useState<SportOrMulti | "all">("all");
+  const [courtAddressSearch, setCourtAddressSearch] = useState<{ address: string; lat: number; lng: number } | null>(null);
+
+  const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const handleAddressSelect = (result: { address: string; lat: number; lng: number }) => {
+    setCourtAddressSearch(result);
+    const locationsWithCoords = activeLocations.filter(l => l.lat && l.lng);
+    if (locationsWithCoords.length > 0) {
+      const nearest = locationsWithCoords
+        .map(l => ({ ...l, dist: haversineKm(result.lat, result.lng, l.lat!, l.lng!) }))
+        .sort((a, b) => a.dist - b.dist)[0];
+      if (nearest && nearest.dist < 10) {
+        setFormData(prev => ({ ...prev, locationId: nearest.id }));
+        return;
+      }
+    }
+    const firstPart = result.address.split(",")[0].toLowerCase();
+    const closest = activeLocations.find(l =>
+      l.address && l.address.toLowerCase().includes(firstPart)
+    ) || activeLocations.find(l =>
+      l.name.toLowerCase().includes(firstPart) || firstPart.includes(l.name.toLowerCase())
+    );
+    if (closest) {
+      setFormData(prev => ({ ...prev, locationId: closest.id }));
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -245,6 +281,7 @@ export default function AdminCourtsScreen() {
       pricePerHour: "",
       sport: "tennis",
     });
+    setCourtAddressSearch(null);
   };
 
   const handleCreate = () => {
@@ -313,6 +350,7 @@ export default function AdminCourtsScreen() {
       pricePerHour: court.pricePerHour || "",
       sport: court.sport || "tennis",
     });
+    setCourtAddressSearch(null);
     setShowEditModal(true);
   };
 
@@ -460,6 +498,22 @@ export default function AdminCourtsScreen() {
                   placeholder="e.g. Court 1, Center Court"
                   placeholderTextColor={Colors.dark.textMuted}
                 />
+              </View>
+
+              <View style={[styles.formGroup, { zIndex: 10 }]}>
+                <Text style={styles.label}>Find Location by Address</Text>
+                <AddressAutocomplete
+                  placeholder="Search address to find nearby location..."
+                  onSelect={handleAddressSelect}
+                />
+                {courtAddressSearch ? (
+                  <View style={styles.addressSearchResult}>
+                    <Ionicons name="location" size={12} color={Colors.dark.primary} />
+                    <Text style={styles.addressSearchResultText} numberOfLines={1}>
+                      {courtAddressSearch.address}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               {activeLocations.length > 0 && (
@@ -631,6 +685,22 @@ export default function AdminCourtsScreen() {
                   placeholder="Court name"
                   placeholderTextColor={Colors.dark.textMuted}
                 />
+              </View>
+
+              <View style={[styles.formGroup, { zIndex: 10 }]}>
+                <Text style={styles.label}>Find Location by Address</Text>
+                <AddressAutocomplete
+                  placeholder="Search address to find nearby location..."
+                  onSelect={handleAddressSelect}
+                />
+                {courtAddressSearch ? (
+                  <View style={styles.addressSearchResult}>
+                    <Ionicons name="location" size={12} color={Colors.dark.primary} />
+                    <Text style={styles.addressSearchResultText} numberOfLines={1}>
+                      {courtAddressSearch.address}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               {activeLocations.length > 0 && (
@@ -1167,5 +1237,20 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.error,
+  },
+  addressSearchResult: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: `${Colors.dark.primary}12`,
+    borderRadius: BorderRadius.sm,
+  },
+  addressSearchResultText: {
+    flex: 1,
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
   },
 });

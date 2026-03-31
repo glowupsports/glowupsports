@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, CardStyles, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 interface Location {
   id: string;
@@ -38,6 +39,7 @@ export default function AdminLocationsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [manualCoords, setManualCoords] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -106,6 +108,7 @@ export default function AdminLocationsScreen() {
       lng: "",
       isActive: true,
     });
+    setManualCoords(false);
   };
 
   const handleCreate = () => {
@@ -190,11 +193,100 @@ export default function AdminLocationsScreen() {
       lng: location.lng != null ? String(location.lng) : "",
       isActive: location.isActive,
     });
+    setManualCoords(false);
     setShowEditModal(true);
   };
 
   const activeLocations = locations.filter(l => l.isActive);
   const inactiveLocations = locations.filter(l => !l.isActive);
+
+  const renderAddressSection = () => (
+    <>
+      <View style={[styles.formGroup, { zIndex: 10 }]}>
+        <Text style={styles.label}>Address Search</Text>
+        <AddressAutocomplete
+          placeholder="Type an address to search..."
+          initialValue={formData.address}
+          onSelect={({ address, lat, lng }) => {
+            setFormData(prev => ({
+              ...prev,
+              address,
+              lat: String(lat),
+              lng: String(lng),
+            }));
+            setManualCoords(false);
+          }}
+        />
+      </View>
+
+      {formData.address ? (
+        <View style={styles.coordPreview}>
+          <Ionicons name="location" size={14} color={Colors.dark.primary} />
+          <Text style={styles.coordPreviewText} numberOfLines={2}>{formData.address}</Text>
+          {formData.lat && formData.lng ? (
+            <Text style={styles.coordPreviewCoords}>
+              {parseFloat(formData.lat).toFixed(5)}, {parseFloat(formData.lng).toFixed(5)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      <Pressable
+        style={styles.manualToggle}
+        onPress={() => setManualCoords(v => !v)}
+      >
+        <Ionicons
+          name={manualCoords ? "chevron-up" : "chevron-down"}
+          size={14}
+          color={Colors.dark.textMuted}
+        />
+        <Text style={styles.manualToggleText}>
+          {manualCoords ? "Hide manual coordinates" : "Enter coordinates manually"}
+        </Text>
+      </Pressable>
+
+      {manualCoords ? (
+        <>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Address</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={formData.address}
+              onChangeText={(text) => setFormData({ ...formData, address: text })}
+              placeholder="Full address (optional)"
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={2}
+            />
+          </View>
+          <View style={styles.coordRow}>
+            <View style={[styles.formGroup, styles.coordField]}>
+              <Text style={styles.label}>Latitude</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.lat}
+                onChangeText={(text) => setFormData({ ...formData, lat: text })}
+                placeholder="e.g. 25.2048"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={[styles.formGroup, styles.coordField]}>
+              <Text style={styles.label}>Longitude</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.lng}
+                onChangeText={(text) => setFormData({ ...formData, lng: text })}
+                placeholder="e.g. 55.2708"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+        </>
+      ) : null}
+    </>
+  );
 
   return (
     <View style={styles.container}>
@@ -261,6 +353,12 @@ export default function AdminLocationsScreen() {
                             {location.sessionCount} session{location.sessionCount !== 1 ? "s" : ""}
                           </Text>
                         ) : null}
+                        {location.lat && location.lng ? (
+                          <View style={styles.coordBadge}>
+                            <Ionicons name="navigate" size={10} color={Colors.dark.primary} />
+                            <Text style={styles.coordBadgeText}>GPS</Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -290,11 +388,6 @@ export default function AdminLocationsScreen() {
                         <Text style={[styles.courtCount, styles.inactiveText]}>
                           {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
                         </Text>
-                        {(location.sessionCount || 0) > 0 ? (
-                          <Text style={[styles.sessionCount, styles.inactiveText]}>
-                            {location.sessionCount} session{location.sessionCount !== 1 ? "s" : ""}
-                          </Text>
-                        ) : null}
                       </View>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -333,43 +426,7 @@ export default function AdminLocationsScreen() {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Address</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.address}
-                  onChangeText={(text) => setFormData({ ...formData, address: text })}
-                  placeholder="Full address (optional)"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              <View style={styles.coordRow}>
-                <View style={[styles.formGroup, styles.coordField]}>
-                  <Text style={styles.label}>Latitude</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lat}
-                    onChangeText={(text) => setFormData({ ...formData, lat: text })}
-                    placeholder="e.g. 25.2048"
-                    placeholderTextColor={Colors.dark.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.coordField]}>
-                  <Text style={styles.label}>Longitude</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lng}
-                    onChangeText={(text) => setFormData({ ...formData, lng: text })}
-                    placeholder="e.g. 55.2708"
-                    placeholderTextColor={Colors.dark.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
+              {renderAddressSection()}
 
               <Pressable
                 style={styles.toggleRow}
@@ -424,43 +481,7 @@ export default function AdminLocationsScreen() {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Address</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.address}
-                  onChangeText={(text) => setFormData({ ...formData, address: text })}
-                  placeholder="Full address (optional)"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              <View style={styles.coordRow}>
-                <View style={[styles.formGroup, styles.coordField]}>
-                  <Text style={styles.label}>Latitude</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lat}
-                    onChangeText={(text) => setFormData({ ...formData, lat: text })}
-                    placeholder="e.g. 25.2048"
-                    placeholderTextColor={Colors.dark.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.coordField]}>
-                  <Text style={styles.label}>Longitude</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lng}
-                    onChangeText={(text) => setFormData({ ...formData, lng: text })}
-                    placeholder="e.g. 55.2708"
-                    placeholderTextColor={Colors.dark.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
+              {renderAddressSection()}
 
               <Pressable
                 style={styles.toggleRow}
@@ -620,6 +641,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
     marginTop: 4,
+    flexWrap: "wrap",
   },
   courtCount: {
     fontSize: Typography.caption.fontSize,
@@ -628,6 +650,20 @@ const styles = StyleSheet.create({
   sessionCount: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
+  },
+  coordBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: `${Colors.dark.primary}20`,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  coordBadgeText: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   inactiveText: {
     color: Colors.dark.textMuted,
@@ -642,7 +678,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
-    maxHeight: "80%",
+    maxHeight: "90%",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -676,8 +712,47 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 60,
     textAlignVertical: "top",
+  },
+  coordPreview: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+    backgroundColor: `${Colors.dark.primary}12`,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+  },
+  coordPreviewText: {
+    flex: 1,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.text,
+  },
+  coordPreviewCoords: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  manualToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  manualToggleText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    textDecorationLine: "underline",
+  },
+  coordRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  coordField: {
+    flex: 1,
   },
   toggleRow: {
     flexDirection: "row",
@@ -743,12 +818,5 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.error,
-  },
-  coordRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  coordField: {
-    flex: 1,
   },
 });

@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
 } from "react-native";
+import { openDirections } from "@/lib/maps";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -336,12 +337,15 @@ function PremiumMatchCard({
 
         <View style={styles.matchDetails}>
           {match.locationName || match.courtName ? (
-            <View style={styles.detailItem}>
-              <Ionicons name="location" size={14} color={Colors.dark.primary} />
-              <Text style={styles.detailText} numberOfLines={1}>
+            <Pressable
+              style={styles.detailItem}
+              onPress={() => openDirections({ label: match.locationName || match.courtName })}
+            >
+              <Ionicons name="navigate" size={14} color={Colors.dark.primary} />
+              <Text style={[styles.detailText, { color: Colors.dark.primary, textDecorationLine: "underline" }]} numberOfLines={1}>
                 {match.courtName || match.locationName}
               </Text>
-            </View>
+            </Pressable>
           ) : null}
 
           <View style={[styles.ballLevelBadge, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") + "30" }]}>

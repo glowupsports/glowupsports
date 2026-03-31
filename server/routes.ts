@@ -1252,6 +1252,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
 
+  // Google Maps Places Autocomplete proxy (server-side key, never exposed to client)
+  app.get("/api/maps/places-autocomplete", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    const role = req.user?.role;
+    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+      const input = req.query.input as string;
+      if (!input || input.trim().length < 2) {
+        return res.json({ predictions: [] });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream maps error" });
+      }
+      const data = await response.json() as { predictions: Array<{ place_id: string; description: string; structured_formatting: { main_text: string; secondary_text: string } }> };
+      const predictions = (data.predictions || []).map((p) => ({
+        placeId: p.place_id,
+        description: p.description,
+        mainText: p.structured_formatting?.main_text || p.description,
+        secondaryText: p.structured_formatting?.secondary_text || "",
+      }));
+      res.json({ predictions });
+    } catch (error) {
+      console.error("Places autocomplete error:", error);
+      res.status(500).json({ error: "Failed to fetch suggestions" });
+    }
+  });
+
+  // Google Maps Geocode by place ID proxy (server-side key, never exposed to client)
+  app.get("/api/maps/geocode", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    const role = req.user?.role;
+    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+      const placeId = req.query.placeId as string;
+      if (!placeId) {
+        return res.status(400).json({ error: "placeId is required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?place_id=${encodeURIComponent(placeId)}&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream geocode error" });
+      }
+      const data = await response.json() as { results: Array<{ geometry: { location: { lat: number; lng: number } }; formatted_address: string }> };
+      if (!data.results || data.results.length === 0) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+      const result = data.results[0];
+      res.json({
+        lat: result.geometry.location.lat,
+        lng: result.geometry.location.lng,
+        formattedAddress: result.formatted_address,
+      });
+    } catch (error) {
+      console.error("Geocode error:", error);
+      res.status(500).json({ error: "Failed to geocode location" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Set up WebSocket server for real-time chat
