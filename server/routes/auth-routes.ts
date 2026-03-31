@@ -1130,7 +1130,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           playerId: playerId,
         });
 
-        // Update player with user info
+        // Update player with user info — include academyId so the player is
+        // visible in the academy immediately after registration
         await storage.updatePlayer(
           playerId,
           {
@@ -1138,8 +1139,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             firstName,
             lastName,
             phone: phone || undefined,
+            academyId: playerInvite.academyId,
           },
-          playerInvite.academyId,
         );
 
         // Mark invite as claimed
