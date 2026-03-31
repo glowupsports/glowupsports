@@ -1,8 +1,17 @@
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const path = require("path");
 const { getSentryExpoConfig } = require("@sentry/react-native/metro");
+const { getDefaultConfig } = require("expo/metro-config");
 
-const config = getSentryExpoConfig(__dirname);
+// During static/production builds (--no-dev), skip Sentry's source map
+// serializer. It processes all 2400+ modules single-threaded and adds
+// several minutes of overhead. Expo Go static deployments never upload
+// source maps to Sentry anyway, so the work is wasted.
+// Dev builds (no --no-dev flag) keep the full Sentry config as normal.
+const isStaticBuild = process.argv.includes("--no-dev");
+const config = isStaticBuild
+  ? getDefaultConfig(__dirname)
+  : getSentryExpoConfig(__dirname);
 
 config.server = {
   ...config.server,
