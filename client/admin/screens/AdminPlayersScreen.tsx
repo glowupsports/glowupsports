@@ -36,8 +36,8 @@ import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordP
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
 import { AdminDeletePlayerModal } from "@/admin/components/players/AdminDeletePlayerModal";
 
-type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low";
-type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean };
+type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest" | "not_activated";
+type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string };
 type PlayerPackage = {
   id: string;
   creditType: string;
@@ -381,6 +381,13 @@ export default function AdminPlayersScreen() {
           return (b.level || 0) - (a.level || 0);
         case "level_low":
           return (a.level || 0) - (b.level || 0);
+        case "newest":
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        case "not_activated":
+          const aActivated = a.onboardingCompleted ? 1 : 0;
+          const bActivated = b.onboardingCompleted ? 1 : 0;
+          if (aActivated !== bActivated) return aActivated - bActivated;
+          return (a.name || "").localeCompare(b.name || "");
         default:
           return 0;
       }
@@ -755,6 +762,8 @@ export default function AdminPlayersScreen() {
                 { key: "name_asc", label: "A-Z", icon: "arrow-up" },
                 { key: "name_desc", label: "Z-A", icon: "arrow-down" },
                 { key: "level_high", label: "Level", icon: "trending-up" },
+                { key: "newest", label: "Newest", icon: "time-outline" },
+                { key: "not_activated", label: "Awaiting Signup", icon: "person-add-outline" },
               ].map((sort) => (
                 <Pressable
                   key={sort.key}

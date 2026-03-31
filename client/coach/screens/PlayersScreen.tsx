@@ -161,7 +161,7 @@ export default function PlayersScreen() {
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons" | "holiday">("all");
-  const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson">("name");
+  const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson" | "newest" | "notActivated">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -297,6 +297,13 @@ export default function PlayersScreen() {
           const aDate = a.lastLessonDate ? new Date(a.lastLessonDate).getTime() : 0;
           const bDate = b.lastLessonDate ? new Date(b.lastLessonDate).getTime() : 0;
           return bDate - aDate;
+        case "newest":
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        case "notActivated":
+          const aAct = a.onboardingCompleted ? 1 : 0;
+          const bAct = b.onboardingCompleted ? 1 : 0;
+          if (aAct !== bAct) return aAct - bAct;
+          return a.name.localeCompare(b.name);
         case "name":
         default:
           return a.name.localeCompare(b.name);
@@ -422,7 +429,13 @@ export default function PlayersScreen() {
           onPress={() => setShowSortDropdown(true)}
         >
           <Ionicons 
-            name={sortBy === "name" ? "text" : sortBy === "credits" || sortBy === "negative" ? "ticket-outline" : "time-outline"} 
+            name={
+              sortBy === "name" ? "text" :
+              sortBy === "credits" || sortBy === "negative" ? "ticket-outline" :
+              sortBy === "newest" ? "time-outline" :
+              sortBy === "notActivated" ? "person-add-outline" :
+              "time-outline"
+            } 
             size={16} 
             color={Colors.dark.xpCyan} 
           />
@@ -467,6 +480,22 @@ export default function PlayersScreen() {
               <Ionicons name="time-outline" size={18} color={sortBy === "lastLesson" ? Colors.dark.primary : Colors.dark.tabIconDefault} />
               <Text style={[styles.sortOptionText, sortBy === "lastLesson" && styles.sortOptionTextActive]}>Recent Lesson</Text>
               {sortBy === "lastLesson" ? <Ionicons name="checkmark" size={18} color={Colors.dark.primary} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+            <Pressable 
+              style={[styles.sortOption, sortBy === "newest" && styles.sortOptionActive]}
+              onPress={() => { setSortBy("newest"); setShowSortDropdown(false); }}
+            >
+              <Ionicons name="calendar-outline" size={18} color={sortBy === "newest" ? Colors.dark.xpCyan : Colors.dark.tabIconDefault} />
+              <Text style={[styles.sortOptionText, sortBy === "newest" && styles.sortOptionTextActive]}>Newest First</Text>
+              {sortBy === "newest" ? <Ionicons name="checkmark" size={18} color={Colors.dark.xpCyan} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+            <Pressable 
+              style={[styles.sortOption, sortBy === "notActivated" && styles.sortOptionActive]}
+              onPress={() => { setSortBy("notActivated"); setShowSortDropdown(false); }}
+            >
+              <Ionicons name="person-add-outline" size={18} color={sortBy === "notActivated" ? Colors.dark.orange : Colors.dark.tabIconDefault} />
+              <Text style={[styles.sortOptionText, sortBy === "notActivated" && styles.sortOptionTextActive]}>Awaiting Signup First</Text>
+              {sortBy === "notActivated" ? <Ionicons name="checkmark" size={18} color={Colors.dark.orange} style={{ marginLeft: "auto" }} /> : null}
             </Pressable>
           </View>
         </Pressable>
