@@ -146,6 +146,7 @@ function ProminentInviteCard({
   isSendingEmail?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const handleCopy = async () => {
     await Clipboard.setStringAsync(inviteCode);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -163,11 +164,17 @@ function ProminentInviteCard({
     } catch {}
   };
   const handleShareInviteLink = async () => {
-    if (Platform.OS === "web") return;
     try {
       const apiUrl = getApiUrl();
       const baseUrl = apiUrl.replace(/\/api$/, "").replace(/:5000$/, "");
       const inviteLink = `${baseUrl}/invite/${inviteCode}`;
+      if (Platform.OS === "web") {
+        await Clipboard.setStringAsync(inviteLink);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 3000);
+        return;
+      }
       const { Share } = await import("react-native");
       await Share.share({
         message: `Hi ${playerName}! Tap this link to set up your Glow Up Sports account:\n${inviteLink}`,
@@ -194,12 +201,12 @@ function ProminentInviteCard({
           <Text style={styles.prominentCopyButtonText}>{copied ? "Copied!" : "Copy Code"}</Text>
         </LinearGradient>
       </Pressable>
-      {Platform.OS !== "web" ? (
-        <Pressable style={styles.prominentShareButton} onPress={handleShareInviteLink}>
-          <Ionicons name="link-outline" size={16} color={Colors.dark.primary} />
-          <Text style={styles.prominentShareButtonText}>Send Invite Link</Text>
-        </Pressable>
-      ) : null}
+      <Pressable style={styles.prominentShareButton} onPress={handleShareInviteLink}>
+        <Ionicons name={linkCopied ? "checkmark-circle-outline" : "link-outline"} size={16} color={linkCopied ? Colors.dark.successNeon : Colors.dark.primary} />
+        <Text style={[styles.prominentShareButtonText, linkCopied ? { color: Colors.dark.successNeon } : null]}>
+          {linkCopied ? "Link Copied!" : "Send Invite Link"}
+        </Text>
+      </Pressable>
       {Platform.OS !== "web" ? (
         <Pressable style={[styles.prominentShareButton, { marginTop: 4 }]} onPress={handleShare}>
           <Ionicons name="share-outline" size={16} color={Colors.dark.tabIconDefault} />
