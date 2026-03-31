@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator, RefreshControl, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,8 +22,132 @@ import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 const PLATFORM_PURPLE = "#9B59B6";
+
+const FEATURE_LABEL_MAP: Record<string, string> = {
+  "tab:home": "Home Tab",
+  "tab:social": "Social Tab",
+  "tab:play": "Play Tab",
+  "tab:schedule": "Schedule Tab",
+  "tab:quests": "Quests Tab",
+  "tab:stats": "Stats Tab",
+  "tab:me": "Profile Tab",
+  "action:book_lesson": "Book Lesson",
+  "action:match": "Match",
+  "action:messages": "Messages",
+  "action:shop": "Shop",
+  "action:marketplace": "Marketplace",
+  "action:equipment": "Equipment",
+  "action:quests": "Quests Action",
+  "action:classes": "Classes",
+  "action:open_session": "Open Session",
+  "action:chat_coach": "Chat Coach",
+  "action:record_video": "Record Video",
+  "screen:create_match": "Create Match",
+  "screen:quick_book": "Quick Book",
+  "screen:shop": "Shop Screen",
+  "screen:lesson_booking": "Lesson Booking",
+};
+
+interface FeatureUsageItem {
+  feature: string;
+  total: number;
+  intensity: number;
+}
+
+interface FeatureUsageData {
+  features: FeatureUsageItem[];
+  days: number;
+  generatedAt: string;
+}
+
+function FeatureUsageCard() {
+  const [days, setDays] = useState(7);
+  const { data, isLoading } = useQuery<FeatureUsageData>({
+    queryKey: [`/api/platform/analytics/feature-usage`, days],
+    queryFn: async ({ queryKey }) => {
+      const url = new URL(`/api/platform/analytics/feature-usage?days=${queryKey[1]}`, getApiUrl());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders(), credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch feature usage");
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const periodOptions = [
+    { label: "Today", value: 1 },
+    { label: "7d", value: 7 },
+    { label: "30d", value: 30 },
+  ];
+
+  const features = data?.features || [];
+
+  return (
+    <View style={styles.section}>
+      <View style={fuStyles.header}>
+        <View style={fuStyles.titleRow}>
+          <Ionicons name="analytics" size={16} color={PLATFORM_PURPLE} />
+          <Text style={styles.sectionTitle}>Feature Usage</Text>
+        </View>
+        <View style={fuStyles.periodRow}>
+          {periodOptions.map((opt) => (
+            <Pressable
+              key={opt.value}
+              style={[fuStyles.periodBtn, days === opt.value && fuStyles.periodBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setDays(opt.value);
+              }}
+            >
+              <Text style={[fuStyles.periodBtnText, days === opt.value && fuStyles.periodBtnTextActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={fuStyles.card}>
+        {isLoading ? (
+          <View style={fuStyles.loadingContainer}>
+            <ActivityIndicator size="small" color={PLATFORM_PURPLE} />
+            <Text style={fuStyles.emptyText}>Loading usage data...</Text>
+          </View>
+        ) : features.length === 0 ? (
+          <View style={fuStyles.loadingContainer}>
+            <Ionicons name="bar-chart-outline" size={28} color={Colors.dark.textMuted} />
+            <Text style={fuStyles.emptyText}>No events recorded yet</Text>
+            <Text style={fuStyles.emptySubText}>Events appear as players use the app</Text>
+          </View>
+        ) : (
+          features.map((item, index) => {
+            const label = FEATURE_LABEL_MAP[item.feature] || item.feature;
+            const isTab = item.feature.startsWith("tab:");
+            const barColor = isTab ? PLATFORM_PURPLE : Colors.dark.xpCyan;
+            return (
+              <View key={item.feature} style={[fuStyles.row, index < features.length - 1 && fuStyles.rowBorder]}>
+                <View style={fuStyles.rowLeft}>
+                  <View style={[fuStyles.rankBadge, { backgroundColor: `${barColor}18` }]}>
+                    <Text style={[fuStyles.rankText, { color: barColor }]}>{index + 1}</Text>
+                  </View>
+                  <Text style={fuStyles.featureLabel} numberOfLines={1}>{label}</Text>
+                </View>
+                <View style={fuStyles.rowRight}>
+                  <View style={fuStyles.barTrack}>
+                    <View style={[fuStyles.barFill, { width: `${Math.max(item.intensity * 100, 4)}%` as DimensionValue, backgroundColor: barColor }]} />
+                  </View>
+                  <Text style={fuStyles.countText}>{item.total}</Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
+    </View>
+  );
+}
 
 interface PlatformDashboardData {
   platform: {
@@ -365,6 +489,8 @@ export default function CommandCenterScreen() {
 
         <SmartInsightsPanel insights={insights} />
 
+        <FeatureUsageCard />
+
         <BetaFeedbackPanel />
 
         <View style={styles.section}>
@@ -609,5 +735,124 @@ const styles = StyleSheet.create({
   alertDescription: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+});
+
+const fuStyles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  periodRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  periodBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  periodBtnActive: {
+    backgroundColor: `${PLATFORM_PURPLE}20`,
+    borderColor: PLATFORM_PURPLE,
+  },
+  periodBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  periodBtnTextActive: {
+    color: PLATFORM_PURPLE,
+  },
+  card: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    overflow: "hidden",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  emptyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  emptySubText: {
+    ...Typography.small,
+    color: Colors.dark.textSubtle,
+    textAlign: "center",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    gap: Spacing.sm,
+  },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  rankBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  featureLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontSize: 13,
+    flex: 1,
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    width: 120,
+  },
+  barTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  countText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    width: 30,
+    textAlign: "right",
+    fontWeight: "600",
   },
 });

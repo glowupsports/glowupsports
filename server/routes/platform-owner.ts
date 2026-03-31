@@ -1,7 +1,7 @@
 import { adminRepairLimiter } from "../rateLimiter";
 import crypto from "crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
-  import { db } from "../db";
+  import { db, pool } from "../db";
   import { storage } from "../storage";
   import {
     eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
@@ -2870,6 +2870,88 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       } catch (error) {
         console.error("Update roles error:", error);
         res.status(500).json({ error: "Failed to update roles" });
+      }
+    },
+  );
+
+  // ==================== FEATURE ANALYTICS ENDPOINTS ====================
+
+  // POST /api/analytics/event — fire-and-forget feature event logging
+  router.post(
+    "/api/analytics/event",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const userId = req.user?.userId;
+        if (!userId) {
+          res.status(401).end();
+          return;
+        }
+
+        const { feature, platform: clientPlatform } = req.body;
+        if (!feature || typeof feature !== "string") {
+          res.status(400).end();
+          return;
+        }
+
+        const academyId = req.user?.academyId || null;
+        const platform = ["ios", "android", "web"].includes(clientPlatform) ? clientPlatform : "web";
+
+        // Fire-and-forget: insert without waiting for a full response
+        pool.query(
+          `INSERT INTO feature_events (user_id, academy_id, feature, platform) VALUES ($1, $2, $3, $4)`,
+          [userId, academyId, feature.substring(0, 100), platform],
+        ).catch(() => {});
+
+        res.status(204).end();
+      } catch {
+        res.status(204).end();
+      }
+    },
+  );
+
+  // GET /api/platform/analytics/feature-usage — aggregated counts for platform owner
+  router.get(
+    "/api/platform/analytics/feature-usage",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const days = Math.min(parseInt((req.query.days as string) || "7", 10) || 7, 90);
+        const academyId = req.query.academyId as string | undefined;
+
+        const params: any[] = [days];
+        let academyFilter = "";
+        if (academyId) {
+          params.push(academyId);
+          academyFilter = `AND academy_id = $${params.length}`;
+        }
+
+        const result = await pool.query(
+          `SELECT feature,
+                  COUNT(*)::int AS total
+           FROM feature_events
+           WHERE created_at >= NOW() - ($1 || ' days')::interval
+           ${academyFilter}
+           GROUP BY feature
+           ORDER BY total DESC
+           LIMIT 50`,
+          params,
+        );
+
+        const rows = result.rows as { feature: string; total: number }[];
+        const maxCount = rows.length > 0 ? rows[0].total : 1;
+
+        const features = rows.map((r) => ({
+          feature: r.feature,
+          total: r.total,
+          intensity: maxCount > 0 ? r.total / maxCount : 0,
+        }));
+
+        res.json({ features, days, generatedAt: new Date().toISOString() });
+      } catch (error) {
+        console.error("Feature usage analytics error:", error);
+        res.status(500).json({ error: "Failed to fetch feature usage" });
       }
     },
   );

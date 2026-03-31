@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { useNavigation, useNavigationState } from "@react-navigation/native";
+import React, { useState, useCallback, useMemo, useRef } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -108,6 +108,7 @@ import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { SportContextProvider } from "@/player/context/SportContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export { usePlayerDrawer };
@@ -539,10 +540,22 @@ function ProgressStackNavigator() {
 
 const HIDE_CHAT_TABS = ["PlayStack", "Community"];
 
+const TAB_FEATURE_KEYS: Record<string, string> = {
+  Home: "tab:home",
+  Community: "tab:social",
+  PlayStack: "tab:play",
+  Schedule: "tab:schedule",
+  Quests: "tab:quests",
+  Progress: "tab:stats",
+  Profile: "tab:me",
+};
+
 function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }) {
   const { t } = useTranslation();
   const [currentTabKey, setCurrentTabKey] = useState("Home");
   const navigation = useNavigation<any>();
+  const track = useTrackFeature();
+  const isMountedRef = useRef(false);
 
   const playerTabs: TabConfig[] = useMemo(() => [
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
@@ -568,7 +581,12 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   
   const handlePageChange = useCallback((index: number, key: string) => {
     setCurrentTabKey(key);
-  }, []);
+    const featureKey = TAB_FEATURE_KEYS[key];
+    if (featureKey && isMountedRef.current) {
+      track(featureKey);
+    }
+    isMountedRef.current = true;
+  }, [track]);
   
   const renderOverlay = useCallback((tabKey: string) => {
     const shouldHide = HIDE_CHAT_TABS.includes(tabKey);
@@ -1271,6 +1289,7 @@ export default function PlayerNavigator() {
 function PlayerQuickActionsFAB() {
   const navigation = useNavigation<any>();
   const { isChatExpanded } = useChatState();
+  const track = useTrackFeature();
 
   if (isChatExpanded) return null;
 
@@ -1280,49 +1299,49 @@ function PlayerQuickActionsFAB() {
       label: "Book Lesson",
       icon: "calendar-outline",
       color: Colors.dark.primary,
-      onPress: () => navigation.navigate("LessonBooking"),
+      onPress: () => { track("action:book_lesson"); navigation.navigate("LessonBooking"); },
     },
     {
       id: "match-prepare",
       label: "Match",
       icon: "tennisball-outline",
       color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } }),
+      onPress: () => { track("action:match"); navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } }); },
     },
     {
       id: "messages",
       label: "Messages",
       icon: "chatbubbles-outline",
       color: Colors.dark.ballGlow,
-      onPress: () => navigation.navigate("PlayerMessages"),
+      onPress: () => { track("action:messages"); navigation.navigate("PlayerMessages"); },
     },
     {
       id: "shop",
       label: "Shop",
       icon: "cart-outline",
       color: Colors.dark.gold,
-      onPress: () => navigation.navigate("Shop"),
+      onPress: () => { track("action:shop"); navigation.navigate("Shop"); },
     },
     {
       id: "marketplace",
       label: "Marketplace",
       icon: "storefront-outline",
       color: Colors.dark.orange,
-      onPress: () => navigation.navigate("Marketplace"),
+      onPress: () => { track("action:marketplace"); navigation.navigate("Marketplace"); },
     },
     {
       id: "equipment",
       label: "Equipment",
       icon: "bag-outline",
       color: Colors.dark.primary,
-      onPress: () => navigation.navigate("Equipment"),
+      onPress: () => { track("action:equipment"); navigation.navigate("Equipment"); },
     },
     {
       id: "quests",
       label: "Quests",
       icon: "flag-outline",
       color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } }),
+      onPress: () => { track("action:quests"); navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } }); },
     },
   ];
 

@@ -414,6 +414,25 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] players city/country migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feature_events (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        academy_id VARCHAR REFERENCES academies(id) ON DELETE SET NULL,
+        feature TEXT NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'web',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS fe_user_idx ON feature_events(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS fe_academy_idx ON feature_events(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS fe_feature_idx ON feature_events(feature)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS fe_created_idx ON feature_events(created_at)`);
+    console.log('[Database] feature_events migration successful');
+  } catch (e: any) {
+    console.log('[Database] feature_events migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

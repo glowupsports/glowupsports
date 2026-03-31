@@ -1,5 +1,5 @@
 import logger from "@/lib/logger";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type CreateMatchRouteParams = {
@@ -71,6 +72,9 @@ export default function CreateMatchScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
+  const track = useTrackFeature();
+
+  useFocusEffect(useCallback(() => { track("screen:create_match"); }, [track]));
   const { activeSport } = useSport();
   
   // Get pre-selected opponent from route params (when coming from Challenge button)

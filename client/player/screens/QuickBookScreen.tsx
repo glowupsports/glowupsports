@@ -8,7 +8,8 @@ import {
   Alert,
   Modal,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -64,6 +65,9 @@ export default function QuickBookScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const track = useTrackFeature();
+
+  useFocusEffect(useCallback(() => { track("screen:quick_book"); }, [track]));
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const today = new Date();

@@ -15,6 +15,7 @@ import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -76,6 +77,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
   const navigation = useNavigation<any>();
   const progress = useSharedValue(0);
   const fabScale = useSharedValue(1);
+  const track = useTrackFeature();
 
   const actions: QuickAction[] = [
     {
@@ -84,6 +86,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       icon: "people-outline",
       color: "#C8FF3D",
       onPress: () => {
+        track("action:classes");
         navigation.navigate("ClassesDiscovery");
       },
     },
@@ -93,6 +96,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       icon: "tennisball-outline",
       color: ProTennisColors.electricGreen,
       onPress: () => {
+        track("action:open_session");
         navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } });
       },
     },
@@ -102,6 +106,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       icon: "chatbubble-outline",
       color: "rgba(255, 255, 255, 0.6)",
       onPress: () => {
+        track("action:chat_coach");
         navigation.navigate("PlayerMessages");
       },
     },
@@ -111,6 +116,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       icon: "videocam-outline",
       color: ProTennisColors.electricGreen,
       onPress: () => {
+        track("action:record_video");
         navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "SkillEvidence" } });
       },
     },

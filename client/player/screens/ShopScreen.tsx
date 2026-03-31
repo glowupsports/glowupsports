@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp, FadeInRight } from "react-native-reanimated";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
@@ -322,6 +323,9 @@ export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { itemCount, addItem } = useCart();
+  const track = useTrackFeature();
+
+  useFocusEffect(useCallback(() => { track("screen:shop"); }, [track]));
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
