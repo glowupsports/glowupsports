@@ -75,6 +75,7 @@ interface NearbyPlayer {
   glowRating?: number;
   winRate?: number;
   matchesPlayed?: number;
+  hasHomeAddress?: boolean;
 }
 
 type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
@@ -838,6 +839,11 @@ export default function PlayScreen() {
             </View>
             {player.vibe ? (
               <Text style={styles.compactVibeText} numberOfLines={1}>{player.vibe}</Text>
+            ) : null}
+            {player.hasHomeAddress ? (
+              <View style={styles.homeAddressBadge}>
+                <Ionicons name="home" size={10} color={Colors.dark.xpCyan} />
+              </View>
             ) : null}
           </View>
         </View>
@@ -2325,6 +2331,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
     flex: 1,
+  },
+  homeAddressBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.dark.xpCyan + "25",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
   },
   compactActions: {
     flexDirection: "row",

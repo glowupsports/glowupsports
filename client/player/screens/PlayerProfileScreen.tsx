@@ -22,6 +22,7 @@ import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig } from "@shared/sportConfig";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 interface ProfileData {
   player: {
@@ -45,6 +46,9 @@ interface ProfileData {
     profilePhotoUrl: string | null;
     playStyle: string | null;
     sportProfiles: Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: number | null }> | null;
+    homeAddress?: string | null;
+    homeLat?: number | null;
+    homeLng?: number | null;
   };
   coach: {
     id: string;
@@ -283,6 +287,19 @@ export default function PlayerProfileScreen() {
     },
     onError: () => {
       Alert.alert("Error", "Could not update sport profile. Please try again.");
+    },
+  });
+
+  const updateHomeAddress = useMutation({
+    mutationFn: async ({ address, lat, lng }: { address: string; lat: number; lng: number }) => {
+      return apiRequest("PATCH", "/api/player/me/profile", { homeAddress: address, homeLat: lat, homeLng: lng });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not save home address. Please try again.");
     },
   });
 
@@ -651,6 +668,58 @@ export default function PlayerProfileScreen() {
                   thumbColor={player.openToPlay ? GlowColors.primary : Colors.dark.textMuted}
                   disabled={toggleOpenToPlay.isPending}
                 />
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Home Address Section */}
+          <View style={[styles.openToPlayCard, { zIndex: 10 }]}>
+            <LinearGradient
+              colors={player.homeAddress 
+                ? [Colors.dark.xpCyan + "25", Colors.dark.xpCyan + "10"]
+                : ["rgba(50, 50, 50, 0.6)", "rgba(40, 40, 40, 0.4)"]
+              }
+              style={styles.openToPlayGradient}
+            >
+              <View style={{ paddingBottom: player.homeAddress ? Spacing.sm : 0 }}>
+                <View style={styles.openToPlayContent}>
+                  <View style={styles.openToPlayLeft}>
+                    <View style={[styles.openToPlayIcon, player.homeAddress ? styles.openToPlayIconActive : {}]}>
+                      <Ionicons 
+                        name="home" 
+                        size={20} 
+                        color={player.homeAddress ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                      />
+                    </View>
+                    <View>
+                      <Text style={[styles.openToPlayTitle, player.homeAddress ? { color: Colors.dark.xpCyan } : {}]}>
+                        Home Address
+                      </Text>
+                      <Text style={styles.openToPlaySubtitle}>
+                        {player.homeAddress ? "Used for distance & travel time" : "Set for travel time features"}
+                      </Text>
+                    </View>
+                  </View>
+                  {updateHomeAddress.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  ) : null}
+                </View>
+                {player.homeAddress ? (
+                  <View style={{ paddingHorizontal: Spacing.md, marginTop: -Spacing.xs }}>
+                    <Text style={{ fontSize: Typography.small.fontSize, color: Colors.dark.textMuted }} numberOfLines={2}>
+                      {player.homeAddress}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, zIndex: 100 }}>
+                  <AddressAutocomplete
+                    placeholder={player.homeAddress ? "Update home address..." : "Search for your home address..."}
+                    initialValue=""
+                    onSelect={({ address, lat, lng }) => {
+                      updateHomeAddress.mutate({ address, lat, lng });
+                    }}
+                  />
+                </View>
               </View>
             </LinearGradient>
           </View>

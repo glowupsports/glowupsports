@@ -1255,7 +1255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google Maps Places Autocomplete proxy (server-side key, never exposed to client)
   app.get("/api/maps/places-autocomplete", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     const role = req.user?.role;
-    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant") {
+    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant" && role !== "player") {
       return res.status(403).json({ error: "Forbidden" });
     }
     try {
@@ -1289,7 +1289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google Maps Geocode by place ID proxy (server-side key, never exposed to client)
   app.get("/api/maps/geocode", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     const role = req.user?.role;
-    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant") {
+    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant" && role !== "player") {
       return res.status(403).json({ error: "Forbidden" });
     }
     try {
@@ -1319,6 +1319,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Geocode error:", error);
       res.status(500).json({ error: "Failed to geocode location" });
+    }
+  });
+
+  // Google Time Zone API proxy (server-side key, IANA timezone detection)
+  app.get("/api/maps/timezone", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    const role = req.user?.role;
+    if (role !== "academy_owner" && role !== "platform_owner" && role !== "coach" && role !== "assistant") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+      const lat = req.query.lat as string;
+      const lng = req.query.lng as string;
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "lat and lng are required" });
+      }
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "Maps service not configured" });
+      }
+      const timestamp = Math.floor(Date.now() / 1000);
+      const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&timestamp=${timestamp}&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Upstream timezone error" });
+      }
+      const data = await response.json() as { status: string; timeZoneId?: string; timeZoneName?: string };
+      if (data.status !== "OK" || !data.timeZoneId) {
+        return res.status(404).json({ error: "Timezone not found for this location" });
+      }
+      res.json({
+        timezone: data.timeZoneId,
+        timezoneName: data.timeZoneName || data.timeZoneId,
+      });
+    } catch (error) {
+      console.error("Timezone lookup error:", error);
+      res.status(500).json({ error: "Failed to detect timezone" });
     }
   });
 

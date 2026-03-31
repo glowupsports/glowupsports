@@ -16,9 +16,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, CardStyles, Typography, GlowColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { IANA_TIMEZONES } from "@/constants/timezones";
 
 interface Location {
   id: string;
@@ -28,6 +29,7 @@ interface Location {
   lat: number | null;
   lng: number | null;
   isActive: boolean;
+  timezone?: string;
   createdAt: string;
   courtCount?: number;
   sessionCount?: number;
@@ -40,6 +42,9 @@ export default function AdminLocationsScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [manualCoords, setManualCoords] = useState(false);
+  const [timezoneDetecting, setTimezoneDetecting] = useState(false);
+  const [timezoneAutoDetected, setTimezoneAutoDetected] = useState(false);
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -47,6 +52,7 @@ export default function AdminLocationsScreen() {
     lat: "",
     lng: "",
     isActive: true,
+    timezone: "Asia/Dubai",
   });
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
@@ -107,8 +113,30 @@ export default function AdminLocationsScreen() {
       lat: "",
       lng: "",
       isActive: true,
+      timezone: "Asia/Dubai",
     });
     setManualCoords(false);
+    setTimezoneAutoDetected(false);
+    setTimezoneDetecting(false);
+  };
+
+  const detectTimezone = async (lat: number, lng: number) => {
+    setTimezoneDetecting(true);
+    setTimezoneAutoDetected(false);
+    try {
+      const response = await apiFetch(`/api/maps/timezone?lat=${lat}&lng=${lng}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.timezone) {
+          setFormData(prev => ({ ...prev, timezone: data.timezone }));
+          setTimezoneAutoDetected(true);
+        }
+      }
+    } catch {
+      // Silent fail - admin can still pick manually
+    } finally {
+      setTimezoneDetecting(false);
+    }
   };
 
   const handleCreate = () => {
@@ -132,6 +160,7 @@ export default function AdminLocationsScreen() {
       lat: latNum,
       lng: lngNum,
       isActive: formData.isActive,
+      timezone: formData.timezone || "Asia/Dubai",
     });
   };
 
@@ -158,6 +187,7 @@ export default function AdminLocationsScreen() {
         lat: latNum,
         lng: lngNum,
         isActive: formData.isActive,
+        timezone: formData.timezone || "Asia/Dubai",
       },
     });
   };
@@ -192,13 +222,70 @@ export default function AdminLocationsScreen() {
       lat: location.lat != null ? String(location.lat) : "",
       lng: location.lng != null ? String(location.lng) : "",
       isActive: location.isActive,
+      timezone: location.timezone || "Asia/Dubai",
     });
     setManualCoords(false);
+    setTimezoneAutoDetected(false);
+    setTimezoneDetecting(false);
     setShowEditModal(true);
   };
 
   const activeLocations = locations.filter(l => l.isActive);
   const inactiveLocations = locations.filter(l => !l.isActive);
+
+  const renderTimezoneSection = () => {
+    const currentLabel = IANA_TIMEZONES.find(t => t.value === formData.timezone)?.label || formData.timezone;
+    return (
+      <View style={[styles.formGroup, { zIndex: 5 }]}>
+        <View style={styles.timezoneHeader}>
+          <Text style={styles.label}>Timezone</Text>
+          {timezoneDetecting ? (
+            <View style={styles.detectingBadge}>
+              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginRight: 4 }} />
+              <Text style={styles.detectingText}>Detecting...</Text>
+            </View>
+          ) : timezoneAutoDetected ? (
+            <View style={styles.autoDetectedBadge}>
+              <Ionicons name="checkmark-circle" size={12} color="#22C55E" />
+              <Text style={styles.autoDetectedText}>Auto-detected</Text>
+            </View>
+          ) : null}
+        </View>
+        <Pressable
+          style={styles.timezoneSelector}
+          onPress={() => setShowTimezoneDropdown(v => !v)}
+        >
+          <Ionicons name="time-outline" size={16} color={Colors.dark.primary} style={{ marginRight: Spacing.xs }} />
+          <Text style={styles.timezoneSelectorText} numberOfLines={1}>{currentLabel}</Text>
+          <Ionicons name={showTimezoneDropdown ? "chevron-up" : "chevron-down"} size={14} color={Colors.dark.textMuted} />
+        </Pressable>
+        {showTimezoneDropdown ? (
+          <View style={styles.timezoneDropdown}>
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+              {IANA_TIMEZONES.map(tz => (
+                <Pressable
+                  key={tz.value}
+                  style={[styles.timezoneOption, formData.timezone === tz.value && styles.timezoneOptionActive]}
+                  onPress={() => {
+                    setFormData(prev => ({ ...prev, timezone: tz.value }));
+                    setTimezoneAutoDetected(false);
+                    setShowTimezoneDropdown(false);
+                  }}
+                >
+                  <Text style={[styles.timezoneOptionText, formData.timezone === tz.value && styles.timezoneOptionTextActive]}>
+                    {tz.label}
+                  </Text>
+                  {formData.timezone === tz.value ? (
+                    <Ionicons name="checkmark" size={14} color={Colors.dark.primary} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
 
   const renderAddressSection = () => (
     <>
@@ -215,6 +302,7 @@ export default function AdminLocationsScreen() {
               lng: String(lng),
             }));
             setManualCoords(false);
+            detectTimezone(lat, lng);
           }}
         />
       </View>
@@ -427,6 +515,7 @@ export default function AdminLocationsScreen() {
               </View>
 
               {renderAddressSection()}
+              {renderTimezoneSection()}
 
               <Pressable
                 style={styles.toggleRow}
@@ -482,6 +571,7 @@ export default function AdminLocationsScreen() {
               </View>
 
               {renderAddressSection()}
+              {renderTimezoneSection()}
 
               <Pressable
                 style={styles.toggleRow}
@@ -818,5 +908,76 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.error,
+  },
+  timezoneHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  detectingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  detectingText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  autoDetectedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#22C55E20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  autoDetectedText: {
+    fontSize: Typography.caption.fontSize,
+    color: "#22C55E",
+    fontWeight: "600",
+  },
+  timezoneSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  timezoneSelectorText: {
+    flex: 1,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+  },
+  timezoneDropdown: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginTop: 2,
+    maxHeight: 220,
+    overflow: "hidden",
+  },
+  timezoneOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.dark.border,
+  },
+  timezoneOptionActive: {
+    backgroundColor: `${Colors.dark.primary}15`,
+  },
+  timezoneOptionText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.text,
+  },
+  timezoneOptionTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
 });

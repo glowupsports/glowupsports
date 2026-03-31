@@ -22,6 +22,7 @@ interface PlayerResult {
   glowScore: number;
   ballLevel: string | null;
   openToPlay: boolean;
+  hasHomeAddress?: boolean;
 }
 
 interface SearchResults {
@@ -90,6 +91,9 @@ function PlayerCard({ player, index }: { player: PlayerResult; index: number }) 
         </View>
         
         <View style={styles.playerScore}>
+          {player.hasHomeAddress ? (
+            <Ionicons name="home" size={14} color={Colors.dark.xpCyan} style={{ marginRight: 4 }} />
+          ) : null}
           <Ionicons name="flame" size={16} color={Colors.dark.gold} />
           <ThemedText style={styles.scoreText}>{player.glowScore}</ThemedText>
         </View>

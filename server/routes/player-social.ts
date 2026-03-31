@@ -1359,6 +1359,9 @@ router.get("/api/player/search", authMiddleware, async (req: AuthRequest, res: R
         ballLevel: players.ballLevel,
         academyId: players.academyId,
         openToPlay: players.openToPlay,
+        homeAddress: players.homeAddress,
+        homeLat: players.homeLat,
+        homeLng: players.homeLng,
       })
       .from(players)
       .where(and(...conditions))
@@ -1370,11 +1373,12 @@ router.get("/api/player/search", authMiddleware, async (req: AuthRequest, res: R
         results: results.map(p => ({
           id: p.id,
           name: p.name,
-          photoUrl: p.photoUrl,
+          photoUrl: p.profilePhotoUrl,
           level: p.level || 1,
           glowScore: p.glowScore || 0,
           ballLevel: p.ballLevel,
           openToPlay: p.openToPlay || false,
+          hasHomeAddress: !!(p.homeAddress && p.homeLat != null && p.homeLng != null),
         })),
       });
     } catch (error) {
@@ -1453,11 +1457,12 @@ router.get("/api/player/discover", authMiddleware, requireFeatureUnlock("player_
         players: results.map(p => ({
           id: p.id,
           name: p.name,
-          photoUrl: p.photoUrl,
+          photoUrl: p.profilePhotoUrl,
           level: p.level || 1,
           glowScore: p.glowScore || 0,
           ballLevel: p.ballLevel,
           openToPlay: p.openToPlay || false,
+          hasHomeAddress: !!(p.homeAddress && p.homeLat != null && p.homeLng != null),
         })),
       });
     } catch (error) {
@@ -1493,6 +1498,9 @@ router.get("/api/player/open-to-play", authMiddleware, requireFeatureUnlock("pla
         glowScore: players.glowScore,
         ballLevel: players.ballLevel,
         academyId: players.academyId,
+        homeAddress: players.homeAddress,
+        homeLat: players.homeLat,
+        homeLng: players.homeLng,
       })
       .from(players)
       .where(and(...playerConditions))
@@ -1529,10 +1537,12 @@ router.get("/api/player/open-to-play", authMiddleware, requireFeatureUnlock("pla
         players: openPlayers.map(p => ({
           id: p.id,
           name: p.name,
-          photoUrl: p.photoUrl,
+          photoUrl: p.profilePhotoUrl,
           level: p.level || 1,
           glowScore: p.glowScore || 0,
           ballLevel: p.ballLevel,
+          openToPlay: true,
+          hasHomeAddress: !!(p.homeAddress && p.homeLat != null && p.homeLng != null),
         })),
         listings,
       });

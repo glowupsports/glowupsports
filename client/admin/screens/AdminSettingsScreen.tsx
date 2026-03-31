@@ -19,9 +19,11 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors, RoleColors, FunctionColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { IANA_TIMEZONES } from "@/constants/timezones";
 interface Court {
   id: string;
   name: string;
@@ -44,7 +46,12 @@ export default function AdminSettingsScreen() {
   const [profileData, setProfileData] = useState({
     name: "Glow Up Tennis Academy",
     email: "admin@glowuptennis.com",
+    address: "",
+    timezone: "Asia/Dubai",
   });
+  const [timezoneDetecting, setTimezoneDetecting] = useState(false);
+  const [timezoneAutoDetected, setTimezoneAutoDetected] = useState(false);
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
   const [inviteData, setInviteData] = useState({
     email: "",
     role: "player" as "coach" | "player",
@@ -147,6 +154,25 @@ export default function AdminSettingsScreen() {
   const handleShowRolesPermissions = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("AdminRolesPermissions");
+  };
+
+  const detectTimezoneForProfile = async (lat: number, lng: number) => {
+    setTimezoneDetecting(true);
+    setTimezoneAutoDetected(false);
+    try {
+      const response = await apiFetch(`/api/maps/timezone?lat=${lat}&lng=${lng}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.timezone) {
+          setProfileData(prev => ({ ...prev, timezone: data.timezone }));
+          setTimezoneAutoDetected(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    } catch {
+    } finally {
+      setTimezoneDetecting(false);
+    }
   };
 
   const handleSaveProfile = () => {
@@ -723,6 +749,62 @@ export default function AdminSettingsScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+            </View>
+
+            <View style={[styles.formGroup, { zIndex: 10 }]}>
+              <Text style={styles.label}>Academy Address</Text>
+              <AddressAutocomplete
+                initialValue={profileData.address}
+                onSelect={({ address, lat, lng }) => {
+                  setProfileData(prev => ({ ...prev, address }));
+                  setTimezoneAutoDetected(false);
+                  detectTimezoneForProfile(lat, lng);
+                }}
+                placeholder="Search academy address..."
+              />
+            </View>
+
+            <View style={[styles.formGroup, { zIndex: 5 }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.xs }}>
+                <Text style={styles.label}>Timezone</Text>
+                {timezoneDetecting ? (
+                  <ActivityIndicator size="small" color={GlowColors.primary} style={{ marginLeft: Spacing.sm }} />
+                ) : timezoneAutoDetected ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", marginLeft: Spacing.sm }}>
+                    <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
+                    <Text style={{ fontSize: 11, color: "#22c55e", marginLeft: 3 }}>Auto-detected</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Pressable
+                style={[styles.input, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+                onPress={() => setShowTimezoneDropdown(v => !v)}
+              >
+                <Text style={{ color: Colors.dark.text, fontSize: 14 }} numberOfLines={1}>
+                  {IANA_TIMEZONES.find(t => t.value === profileData.timezone)?.label || profileData.timezone}
+                </Text>
+                <Ionicons name={showTimezoneDropdown ? "chevron-up" : "chevron-down"} size={14} color={Colors.dark.textMuted} />
+              </Pressable>
+              {showTimezoneDropdown ? (
+                <View style={{ backgroundColor: Colors.dark.backgroundTertiary, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", maxHeight: 220, overflow: "hidden", marginTop: 4 }}>
+                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                    {IANA_TIMEZONES.map(tz => (
+                      <Pressable
+                        key={tz.value}
+                        style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)", backgroundColor: profileData.timezone === tz.value ? `${GlowColors.primary}20` : "transparent" }}
+                        onPress={() => {
+                          setProfileData(prev => ({ ...prev, timezone: tz.value }));
+                          setTimezoneAutoDetected(false);
+                          setShowTimezoneDropdown(false);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }}
+                      >
+                        <Text style={{ color: profileData.timezone === tz.value ? GlowColors.primary : Colors.dark.text, fontSize: 13 }}>{tz.label}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
             </View>
           </KeyboardAwareScrollViewCompat>
         </View>

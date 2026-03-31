@@ -1033,6 +1033,11 @@ export const players = pgTable("players", {
   lastLongitude: doublePrecision("last_longitude"),
   locationUpdatedAt: timestamp("location_updated_at"),
   
+  // Home address (validated via Google Places Autocomplete)
+  homeAddress: text("home_address"),
+  homeLat: doublePrecision("home_lat"),
+  homeLng: doublePrecision("home_lng"),
+  
   // Multi-sport profiles: per-sport attributes
   // e.g., { tennis: { ballLevel: "green", skillLevel: 2 }, padel: { category: "c4" }, pickleball: { rating: "intermediate" } }
   sportProfiles: jsonb("sport_profiles").$type<Record<string, {

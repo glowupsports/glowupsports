@@ -1653,6 +1653,9 @@ import fs from "fs";
             profilePhotoUrl: (player as any).profilePhotoUrl || null,
             playStyle: (player as any).playStyle || null,
             sportProfiles: (player as any).sportProfiles || null,
+            homeAddress: player.homeAddress || null,
+            homeLat: player.homeLat ?? null,
+            homeLng: player.homeLng ?? null,
           },
           coach: coach
             ? {
@@ -1772,6 +1775,14 @@ import fs from "fs";
           const sportProfilesJson = JSON.stringify(req.body.sportProfiles);
           await db.execute(
             sql`UPDATE players SET sport_profiles = ${sportProfilesJson}::jsonb WHERE id = ${playerId}`,
+          );
+        }
+        if (req.body.homeAddress !== undefined || req.body.homeLat !== undefined || req.body.homeLng !== undefined) {
+          const homeAddress = req.body.homeAddress ?? null;
+          const homeLat = req.body.homeLat ?? null;
+          const homeLng = req.body.homeLng ?? null;
+          await db.execute(
+            sql`UPDATE players SET home_address = ${homeAddress}, home_lat = ${homeLat}, home_lng = ${homeLng} WHERE id = ${playerId}`,
           );
         }
 

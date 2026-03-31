@@ -1057,6 +1057,7 @@ Return only the JSON array, nothing else.`;
           ballLevel: player.ballLevel || undefined,
           skillLevel: player.skillLevel || undefined,
           openToPlay: isOpenToPlay,
+          hasHomeAddress: !!(player.homeAddress && player.homeLat != null && player.homeLng != null),
         };
       }));
 
