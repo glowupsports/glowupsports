@@ -3662,8 +3662,24 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number; profilePhotoUrl?: string; playerLevel?: number; ballLevel?: string; skillLevel?: number; distanceKm?: number}> = [];
       if (player.academyId) {
         const academyPlayers = await storage.getPlayersByAcademy(player.academyId);
+
+        // Bulk-fetch which players have activated their account (lastLoginAt IS NOT NULL)
+        const allPlayerIds = academyPlayers.map(p => p.id);
+        const activatedUsers = allPlayerIds.length > 0
+          ? await db
+              .select({ playerId: users.playerId })
+              .from(users)
+              .where(and(
+                inArray(users.playerId, allPlayerIds),
+                isNotNull(users.lastLoginAt)
+              ))
+          : [];
+        const activatedPlayerIds = new Set(activatedUsers.map(u => u.playerId).filter(Boolean) as string[]);
+
         const sameLevelPlayers = academyPlayers.filter(p => {
           if (p.id === playerId) return false;
+          // Only show players who have actually signed in and are using the app
+          if (!activatedPlayerIds.has(p.id)) return false;
           const pBallLevel = (p.ballLevel || "").toLowerCase();
           if (pBallLevel !== currentPlayerBallLevel) return false;
           const privacyLevel = (p as any).privacyLevel || "platform";
