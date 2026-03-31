@@ -105,6 +105,9 @@ export default function AdminSettingsScreen() {
     surface: "hard",
     isIndoor: false,
     pricePerHour: "",
+    venueAddress: "",
+    venueLat: null as number | null,
+    venueLng: null as number | null,
   });
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testInviteLoading, setTestInviteLoading] = useState(false);
@@ -128,9 +131,15 @@ export default function AdminSettingsScreen() {
   }, [academyInfo]);
 
   const prepareCourtData = (data: typeof courtFormData) => {
-    const { pricePerHour, ...rest } = data;
+    const { pricePerHour, venueAddress, venueLat, venueLng, ...rest } = data;
     const parsed = pricePerHour ? parseFloat(pricePerHour) : null;
-    return { ...rest, pricePerHour: parsed && !isNaN(parsed) ? parsed : null };
+    return {
+      ...rest,
+      pricePerHour: parsed && !isNaN(parsed) ? parsed : null,
+      ...(venueAddress ? { venueAddress } : {}),
+      ...(venueLat !== null ? { venueLat } : {}),
+      ...(venueLng !== null ? { venueLng } : {}),
+    };
   };
 
   const addCourtMutation = useMutation({
@@ -140,7 +149,7 @@ export default function AdminSettingsScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
-      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
       setCourtVenueSearch(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -161,7 +170,7 @@ export default function AdminSettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
       setEditingCourt(null);
-      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
       setCourtVenueSearch(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -209,7 +218,7 @@ export default function AdminSettingsScreen() {
   const handleCloseCourtModal = () => {
     setShowCourtModal(false);
     setEditingCourt(null);
-    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
     setCourtVenueSearch(null);
   };
 
@@ -465,7 +474,7 @@ export default function AdminSettingsScreen() {
               style={styles.addSmallButton}
               onPress={() => {
                 setEditingCourt(null);
-                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
                 setCourtVenueSearch(null);
                 setShowCourtModal(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -484,7 +493,7 @@ export default function AdminSettingsScreen() {
                 style={styles.addFirstButton}
                 onPress={() => {
                   setEditingCourt(null);
-                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
+                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
                   setCourtVenueSearch(null);
                   setShowCourtModal(true);
                 }}
@@ -701,6 +710,12 @@ export default function AdminSettingsScreen() {
                 placeholder="Search venue to find nearby location..."
                 mode="venue"
                 onSelect={(result) => {
+                  setCourtFormData((prev) => ({
+                    ...prev,
+                    venueAddress: result.address,
+                    venueLat: result.lat,
+                    venueLng: result.lng,
+                  }));
                   setCourtVenueSearch({ address: result.address });
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
