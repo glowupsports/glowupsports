@@ -161,7 +161,7 @@ export default function PlayersScreen() {
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons" | "holiday">("all");
-  const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson" | "newest" | "notActivated">("name");
+  const [sortBy, setSortBy] = useState<"name" | "nameDesc" | "credits" | "creditsDesc" | "negative" | "nonDebt" | "lastLesson" | "oldestLesson" | "newest" | "oldest" | "notActivated" | "appActive">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -284,26 +284,46 @@ export default function PlayersScreen() {
       
       switch (sortBy) {
         case "credits":
-          // Low to high - urgent players first
           return aCredits - bCredits;
+        case "creditsDesc":
+          return bCredits - aCredits;
         case "negative":
-          // Negative credits first, then by amount ascending
           if (aCredits < 0 && bCredits >= 0) return -1;
           if (bCredits < 0 && aCredits >= 0) return 1;
           if (aCredits < 0 && bCredits < 0) return aCredits - bCredits;
           return aCredits - bCredits;
-        case "lastLesson":
-          // Most recent first
+        case "nonDebt":
+          if (aCredits >= 0 && bCredits < 0) return -1;
+          if (bCredits >= 0 && aCredits < 0) return 1;
+          return bCredits - aCredits;
+        case "lastLesson": {
           const aDate = a.lastLessonDate ? new Date(a.lastLessonDate).getTime() : 0;
           const bDate = b.lastLessonDate ? new Date(b.lastLessonDate).getTime() : 0;
           return bDate - aDate;
+        }
+        case "oldestLesson": {
+          const aDate = a.lastLessonDate ? new Date(a.lastLessonDate).getTime() : Infinity;
+          const bDate = b.lastLessonDate ? new Date(b.lastLessonDate).getTime() : Infinity;
+          return aDate - bDate;
+        }
         case "newest":
           return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-        case "notActivated":
+        case "oldest":
+          return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        case "notActivated": {
           const aAct = a.onboardingCompleted ? 1 : 0;
           const bAct = b.onboardingCompleted ? 1 : 0;
           if (aAct !== bAct) return aAct - bAct;
           return a.name.localeCompare(b.name);
+        }
+        case "appActive": {
+          const aAct = a.onboardingCompleted ? 0 : 1;
+          const bAct = b.onboardingCompleted ? 0 : 1;
+          if (aAct !== bAct) return aAct - bAct;
+          return a.name.localeCompare(b.name);
+        }
+        case "nameDesc":
+          return b.name.localeCompare(a.name);
         case "name":
         default:
           return a.name.localeCompare(b.name);
@@ -430,11 +450,13 @@ export default function PlayersScreen() {
         >
           <Ionicons 
             name={
-              sortBy === "name" ? "text" :
-              sortBy === "credits" || sortBy === "negative" ? "ticket-outline" :
-              sortBy === "newest" ? "time-outline" :
-              sortBy === "notActivated" ? "person-add-outline" :
-              "time-outline"
+              sortBy === "name" || sortBy === "nameDesc" ? "text" :
+              sortBy === "credits" || sortBy === "creditsDesc" ? "ticket-outline" :
+              sortBy === "negative" || sortBy === "nonDebt" ? "alert-circle" :
+              sortBy === "lastLesson" || sortBy === "oldestLesson" ? "time-outline" :
+              sortBy === "newest" || sortBy === "oldest" ? "calendar-outline" :
+              sortBy === "notActivated" || sortBy === "appActive" ? "person-add-outline" :
+              "text"
             } 
             size={16} 
             color={Colors.dark.xpCyan} 
@@ -449,54 +471,168 @@ export default function PlayersScreen() {
         <Pressable style={styles.sortModalOverlay} onPress={() => setShowSortDropdown(false)}>
           <View style={styles.sortModalContent}>
             <Text style={styles.sortModalTitle}>Sort Players</Text>
-            <Pressable 
-              style={[styles.sortOption, sortBy === "name" && styles.sortOptionActive]}
-              onPress={() => { setSortBy("name"); setShowSortDropdown(false); }}
-            >
-              <Ionicons name="text" size={18} color={sortBy === "name" ? Colors.dark.xpCyan : Colors.dark.tabIconDefault} />
-              <Text style={[styles.sortOptionText, sortBy === "name" && styles.sortOptionTextActive]}>Name A-Z</Text>
-              {sortBy === "name" ? <Ionicons name="checkmark" size={18} color={Colors.dark.xpCyan} style={{ marginLeft: "auto" }} /> : null}
-            </Pressable>
-            <Pressable 
-              style={[styles.sortOption, sortBy === "credits" && styles.sortOptionActive]}
-              onPress={() => { setSortBy("credits"); setShowSortDropdown(false); }}
-            >
-              <Ionicons name="ticket-outline" size={18} color={sortBy === "credits" ? Colors.dark.warning : Colors.dark.tabIconDefault} />
-              <Text style={[styles.sortOptionText, sortBy === "credits" && styles.sortOptionTextActive]}>Credits Low → High</Text>
-              {sortBy === "credits" ? <Ionicons name="checkmark" size={18} color={Colors.dark.warning} style={{ marginLeft: "auto" }} /> : null}
-            </Pressable>
-            <Pressable 
-              style={[styles.sortOption, sortBy === "negative" && styles.sortOptionActive]}
-              onPress={() => { setSortBy("negative"); setShowSortDropdown(false); }}
-            >
-              <Ionicons name="alert-circle" size={18} color={sortBy === "negative" ? Colors.dark.error : Colors.dark.tabIconDefault} />
-              <Text style={[styles.sortOptionText, sortBy === "negative" && styles.sortOptionTextActive]}>Debt First</Text>
-              {sortBy === "negative" ? <Ionicons name="checkmark" size={18} color={Colors.dark.error} style={{ marginLeft: "auto" }} /> : null}
-            </Pressable>
-            <Pressable 
-              style={[styles.sortOption, sortBy === "lastLesson" && styles.sortOptionActive]}
-              onPress={() => { setSortBy("lastLesson"); setShowSortDropdown(false); }}
-            >
-              <Ionicons name="time-outline" size={18} color={sortBy === "lastLesson" ? Colors.dark.primary : Colors.dark.tabIconDefault} />
-              <Text style={[styles.sortOptionText, sortBy === "lastLesson" && styles.sortOptionTextActive]}>Recent Lesson</Text>
-              {sortBy === "lastLesson" ? <Ionicons name="checkmark" size={18} color={Colors.dark.primary} style={{ marginLeft: "auto" }} /> : null}
-            </Pressable>
-            <Pressable 
-              style={[styles.sortOption, sortBy === "newest" && styles.sortOptionActive]}
-              onPress={() => { setSortBy("newest"); setShowSortDropdown(false); }}
-            >
-              <Ionicons name="calendar-outline" size={18} color={sortBy === "newest" ? Colors.dark.xpCyan : Colors.dark.tabIconDefault} />
-              <Text style={[styles.sortOptionText, sortBy === "newest" && styles.sortOptionTextActive]}>Newest First</Text>
-              {sortBy === "newest" ? <Ionicons name="checkmark" size={18} color={Colors.dark.xpCyan} style={{ marginLeft: "auto" }} /> : null}
-            </Pressable>
-            <Pressable 
-              style={[styles.sortOption, sortBy === "notActivated" && styles.sortOptionActive]}
-              onPress={() => { setSortBy("notActivated"); setShowSortDropdown(false); }}
-            >
-              <Ionicons name="person-add-outline" size={18} color={sortBy === "notActivated" ? Colors.dark.orange : Colors.dark.tabIconDefault} />
-              <Text style={[styles.sortOptionText, sortBy === "notActivated" && styles.sortOptionTextActive]}>Awaiting Signup First</Text>
-              {sortBy === "notActivated" ? <Ionicons name="checkmark" size={18} color={Colors.dark.orange} style={{ marginLeft: "auto" }} /> : null}
-            </Pressable>
+
+            {/* Name */}
+            {(() => {
+              const isActive = sortBy === "name" || sortBy === "nameDesc";
+              const isReversed = sortBy === "nameDesc";
+              const color = Colors.dark.xpCyan;
+              return (
+                <Pressable
+                  style={[styles.sortOption, isActive && styles.sortOptionActive]}
+                  onPress={() => {
+                    setSortBy(isActive ? (isReversed ? "name" : "nameDesc") : "name");
+                    setShowSortDropdown(false);
+                  }}
+                >
+                  <Ionicons name="text" size={18} color={isActive ? color : Colors.dark.tabIconDefault} />
+                  <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
+                    {isReversed ? "Name Z-A" : "Name A-Z"}
+                  </Text>
+                  {isActive ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      <Ionicons name={isReversed ? "arrow-down" : "arrow-up"} size={14} color={color} />
+                      <Ionicons name="checkmark" size={18} color={color} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })()}
+
+            {/* Credits */}
+            {(() => {
+              const isActive = sortBy === "credits" || sortBy === "creditsDesc";
+              const isReversed = sortBy === "creditsDesc";
+              const color = Colors.dark.warning;
+              return (
+                <Pressable
+                  style={[styles.sortOption, isActive && styles.sortOptionActive]}
+                  onPress={() => {
+                    setSortBy(isActive ? (isReversed ? "credits" : "creditsDesc") : "credits");
+                    setShowSortDropdown(false);
+                  }}
+                >
+                  <Ionicons name="ticket-outline" size={18} color={isActive ? color : Colors.dark.tabIconDefault} />
+                  <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
+                    {isReversed ? "Credits High → Low" : "Credits Low → High"}
+                  </Text>
+                  {isActive ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      <Ionicons name={isReversed ? "arrow-down" : "arrow-up"} size={14} color={color} />
+                      <Ionicons name="checkmark" size={18} color={color} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })()}
+
+            {/* Debt */}
+            {(() => {
+              const isActive = sortBy === "negative" || sortBy === "nonDebt";
+              const isReversed = sortBy === "nonDebt";
+              const color = Colors.dark.error;
+              return (
+                <Pressable
+                  style={[styles.sortOption, isActive && styles.sortOptionActive]}
+                  onPress={() => {
+                    setSortBy(isActive ? (isReversed ? "negative" : "nonDebt") : "negative");
+                    setShowSortDropdown(false);
+                  }}
+                >
+                  <Ionicons name="alert-circle" size={18} color={isActive ? color : Colors.dark.tabIconDefault} />
+                  <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
+                    {isReversed ? "Non-Debt First" : "Debt First"}
+                  </Text>
+                  {isActive ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      <Ionicons name={isReversed ? "arrow-down" : "arrow-up"} size={14} color={color} />
+                      <Ionicons name="checkmark" size={18} color={color} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })()}
+
+            {/* Last Lesson */}
+            {(() => {
+              const isActive = sortBy === "lastLesson" || sortBy === "oldestLesson";
+              const isReversed = sortBy === "oldestLesson";
+              const color = Colors.dark.primary;
+              return (
+                <Pressable
+                  style={[styles.sortOption, isActive && styles.sortOptionActive]}
+                  onPress={() => {
+                    setSortBy(isActive ? (isReversed ? "lastLesson" : "oldestLesson") : "lastLesson");
+                    setShowSortDropdown(false);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={18} color={isActive ? color : Colors.dark.tabIconDefault} />
+                  <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
+                    {isReversed ? "Oldest Lesson" : "Recent Lesson"}
+                  </Text>
+                  {isActive ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      <Ionicons name={isReversed ? "arrow-up" : "arrow-down"} size={14} color={color} />
+                      <Ionicons name="checkmark" size={18} color={color} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })()}
+
+            {/* Join Date */}
+            {(() => {
+              const isActive = sortBy === "newest" || sortBy === "oldest";
+              const isReversed = sortBy === "oldest";
+              const color = Colors.dark.xpCyan;
+              return (
+                <Pressable
+                  style={[styles.sortOption, isActive && styles.sortOptionActive]}
+                  onPress={() => {
+                    setSortBy(isActive ? (isReversed ? "newest" : "oldest") : "newest");
+                    setShowSortDropdown(false);
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={18} color={isActive ? color : Colors.dark.tabIconDefault} />
+                  <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
+                    {isReversed ? "Oldest First" : "Newest First"}
+                  </Text>
+                  {isActive ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      <Ionicons name={isReversed ? "arrow-up" : "arrow-down"} size={14} color={color} />
+                      <Ionicons name="checkmark" size={18} color={color} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })()}
+
+            {/* Activation */}
+            {(() => {
+              const isActive = sortBy === "notActivated" || sortBy === "appActive";
+              const isReversed = sortBy === "appActive";
+              const color = Colors.dark.orange;
+              return (
+                <Pressable
+                  style={[styles.sortOption, isActive && styles.sortOptionActive]}
+                  onPress={() => {
+                    setSortBy(isActive ? (isReversed ? "notActivated" : "appActive") : "notActivated");
+                    setShowSortDropdown(false);
+                  }}
+                >
+                  <Ionicons name="person-add-outline" size={18} color={isActive ? color : Colors.dark.tabIconDefault} />
+                  <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
+                    {isReversed ? "App Active First" : "Awaiting Signup First"}
+                  </Text>
+                  {isActive ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      <Ionicons name={isReversed ? "arrow-down" : "arrow-up"} size={14} color={color} />
+                      <Ionicons name="checkmark" size={18} color={color} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })()}
           </View>
         </Pressable>
       </Modal>
