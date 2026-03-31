@@ -13,6 +13,7 @@ import ProviderNavigator from "@/provider/navigation/ProviderNavigator";
 import ProviderJoinScreen from "@/provider/screens/ProviderJoinScreen";
 import LoginScreen from "@/coach/screens/LoginScreen";
 import BootScreen from "@/screens/BootScreen";
+import { ClaimInviteScreen } from "@/screens/ClaimInviteScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -29,15 +30,32 @@ export type RootStackParamList = {
   Provider: undefined;
   Login: undefined;
   ProviderJoin: { token: string };
+  ClaimInvite: { token: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const PENDING_GROUP_KEY = "pending_group_deep_link";
+const PENDING_INVITE_TOKEN_KEY = "pending_invite_token";
 
 function extractGroupIdFromUrl(url: string): string | null {
   const match = url.match(/\/group\/([a-zA-Z0-9\-_]+)/);
   return match ? match[1] : null;
+}
+
+function extractInviteTokenFromUrl(url: string): string | null {
+  try {
+    if (!url.includes("invite")) return null;
+    const tokenMatch = url.match(/[?&]token=([a-zA-Z0-9\-_]+)/);
+    if (tokenMatch) return tokenMatch[1];
+    const parsed = Linking.parse(url);
+    if (parsed.queryParams?.token) {
+      return String(parsed.queryParams.token);
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function BootScreenWrapper({ onBootComplete }: { onBootComplete: () => void }) {
@@ -122,10 +140,38 @@ function usePendingGroupDeepLink(
         if (groupId) {
           await AsyncStorage.setItem(PENDING_GROUP_KEY, groupId);
         }
+        const inviteToken = extractInviteTokenFromUrl(url);
+        if (inviteToken) {
+          await AsyncStorage.setItem(PENDING_INVITE_TOKEN_KEY, inviteToken);
+        }
       } catch {}
     }
     capturePendingLink();
+    const sub = Linking.addEventListener("url", ({ url }) => {
+      const inviteToken = extractInviteTokenFromUrl(url);
+      if (inviteToken) {
+        AsyncStorage.setItem(PENDING_INVITE_TOKEN_KEY, inviteToken).catch(() => {});
+        if (navigationRef?.isReady()) {
+          navigationRef.dispatch(
+            CommonActions.navigate("ClaimInvite", { token: inviteToken })
+          );
+        }
+      }
+    });
+    return () => sub.remove();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated || !navigationRef?.isReady()) return;
+    async function handlePendingInvite() {
+      try {
+        const token = await AsyncStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+        if (!token) return;
+        navigationRef!.dispatch(CommonActions.navigate("ClaimInvite", { token }));
+      } catch {}
+    }
+    handlePendingInvite();
+  }, [isAuthenticated, navigationRef]);
 
   useEffect(() => {
     const isPlayerMode = !mode || mode === "player";
@@ -247,6 +293,22 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
         component={ProviderJoinScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="ClaimInvite"
+        options={{ headerShown: false, presentation: "modal" }}
+      >
+        {({ route, navigation }) => (
+          <ClaimInviteScreen
+            inviteToken={(route.params as { token: string }).token}
+            onBack={async () => {
+              try {
+                await AsyncStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
+              } catch {}
+              navigation.goBack();
+            }}
+          />
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

@@ -409,8 +409,13 @@ export async function sendPlayerInviteEmail(params: {
   academyName: string;
   inviteCode: string;
   coachName?: string;
+  inviteLinkBaseUrl?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, playerName, academyName, inviteCode, coachName } = params;
+  const { to, playerName, academyName, inviteCode, coachName, inviteLinkBaseUrl } = params;
+
+  const inviteLink = inviteLinkBaseUrl
+    ? `${inviteLinkBaseUrl.replace(/\/$/, "")}/invite/${inviteCode}`
+    : null;
 
   const html = `
     <!DOCTYPE html>
@@ -425,6 +430,7 @@ export async function sendPlayerInviteEmail(params: {
         .subtitle { color: #a0a0a0; margin-top: 0; margin-bottom: 24px; font-size: 15px; line-height: 1.5; }
         p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
         .highlight { color: #C8FF3D; font-weight: 600; }
+        .open-btn { display: block; background: #C8FF3D; color: #000 !important; text-decoration: none; font-weight: 800; font-size: 17px; text-align: center; padding: 16px 24px; border-radius: 14px; margin: 24px 0; letter-spacing: -0.2px; }
         .code-box { background: #0f141b; border: 2px solid #C8FF3D; border-radius: 14px; padding: 28px 24px; margin: 24px 0; text-align: center; }
         .code-label { color: #666; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
         .code-value { color: #C8FF3D; font-size: 40px; font-weight: 900; letter-spacing: 8px; font-family: 'Courier New', monospace; }
@@ -449,11 +455,15 @@ export async function sendPlayerInviteEmail(params: {
         <p class="subtitle">
           Hi <span class="highlight">${escapeHtml(playerName)}</span>, ${escapeHtml(coachName ? `Coach ${coachName} has` : `${academyName} has`)} added you to
           <strong style="color:#fff;">${escapeHtml(academyName)}</strong> on Glow Up Sports.
-          Use the code below to set up your account.
         </p>
 
+        ${inviteLink ? `
+        <a href="${escapeHtml(inviteLink)}" class="open-btn">Open App &amp; Claim Invite</a>
+        <p style="text-align:center; font-size:13px; color:#556; margin-top:-12px;">Tap the button above from your phone to open the app directly.</p>
+        ` : ""}
+
         <div class="code-box">
-          <div class="code-label">Your invite code</div>
+          <div class="code-label">Manual fallback — your invite code</div>
           <div class="code-value">${escapeHtml(inviteCode)}</div>
         </div>
 
@@ -461,21 +471,22 @@ export async function sendPlayerInviteEmail(params: {
           <div class="step">
             <span class="step-num">1</span>
             <span class="step-text">
-              <strong>Download the app</strong> — Choose your platform:<br>
-              iOS (TestFlight): <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a><br>
-              iOS / Android (Expo Go): search <strong>"Expo Go"</strong> in the App Store or Play Store, then scan your coach's QR code or use the invite code inside the app.
+              <strong>Download the app</strong> — Search <strong>"Expo Go"</strong> in the App Store or use the iOS TestFlight link:<br>
+              <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a>
             </span>
           </div>
           <div class="step">
             <span class="step-num">2</span>
             <span class="step-text">
-              <strong>Open the app</strong> and tap <strong>"I have an invite code"</strong> on the welcome screen.
+              ${inviteLink
+                ? `<strong>Tap the green button above</strong> — the app opens directly to your invite, or <strong>tap "I have an invite code"</strong> on the welcome screen and enter the code below.`
+                : `<strong>Open the app</strong> and tap <strong>"I have an invite code"</strong> on the welcome screen.`}
             </span>
           </div>
           <div class="step">
             <span class="step-num">3</span>
             <span class="step-text">
-              <strong>Enter your code</strong> above and follow the setup steps to complete your profile.
+              <strong>Create your account</strong> — choose a username and password to complete your profile.
             </span>
           </div>
         </div>
@@ -501,7 +512,7 @@ export async function sendPlayerInviteEmail(params: {
     to,
     subject: `Your invite to ${academyName} on Glow Up Sports — Code: ${inviteCode}`,
     html,
-    text: `Hi ${playerName}, you have been invited to join ${academyName} on Glow Up Sports.\n\nYour invite code: ${inviteCode}\n\nDownload the app from TestFlight: https://testflight.apple.com/join/glowupsports\nThen tap "I have an invite code" and enter your code to get started.`,
+    text: `Hi ${playerName}, you have been invited to join ${academyName} on Glow Up Sports.\n\nYour invite code: ${inviteCode}${inviteLink ? `\n\nTap this link to open the app directly: ${inviteLink}` : ""}\n\nDownload the app from TestFlight: https://testflight.apple.com/join/glowupsports\nThen tap "I have an invite code" and enter your code to get started.`,
   });
 }
 

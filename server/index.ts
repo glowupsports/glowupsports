@@ -212,6 +212,15 @@ function setupRequestLogging(app: express.Application) {
   });
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function getAppName(): string {
   try {
     const appJsonPath = path.resolve(process.cwd(), "app.json");
@@ -303,7 +312,7 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets') || req.path.startsWith('/public')) {
       return next();
     }
-    if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/')) {
+    if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/') || req.path.startsWith('/invite/')) {
       return next();
     }
     if (templateRoutes.includes(req.path)) {
@@ -439,6 +448,139 @@ function configureExpoAndLanding(app: express.Application) {
         },
       },
     ]);
+  });
+
+  app.get("/invite/:code", async (req: Request, res: Response) => {
+    const rawCode = req.params.code || "";
+    const safeCode = rawCode.replace(/[^a-zA-Z0-9\-_]/g, "");
+    if (!safeCode) {
+      return res.status(400).send("Invalid invite code");
+    }
+    const appStoreUrl = "https://apps.apple.com/app/glow-up-sports/id6744871692";
+    const appSchemeUrl = `glowupsports://invite?token=${safeCode}`;
+    const ua = req.headers["user-agent"] || "";
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    const isAndroid = /android/i.test(ua);
+
+    let playerName = "You";
+    let academyName = "Glow Up Sports";
+    try {
+      const { storage: st } = await import("./storage");
+      const invite = await st.getPlayerInvite(safeCode);
+      if (invite && invite.status === "pending") {
+        const player = await st.getPlayer(invite.playerId);
+        if (player) playerName = player.name;
+        const academy = await st.getAcademy(invite.academyId);
+        if (academy) academyName = academy.name;
+      }
+    } catch {}
+
+    const forwardedProto = req.header("x-forwarded-proto");
+    const protocol = forwardedProto || req.protocol || "https";
+    const forwardedHost = req.header("x-forwarded-host");
+    const host = forwardedHost || req.get("host") || "";
+    const baseUrl = `${protocol}://${host}`;
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Invite — Glow Up Sports</title>
+  <meta property="og:title" content="Your Glow Up Sports invite is ready" />
+  <meta property="og:description" content="Hi ${escapeHtml(playerName)}! Tap to set up your account at ${escapeHtml(academyName)} on Glow Up Sports." />
+  <meta property="og:image" content="${baseUrl}/assets/images/icon.png" />
+  <meta property="og:type" content="website" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0C1118;
+      color: #F0F4F8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #161D28;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo-mark {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: #C8FF3D; display: flex; align-items: center;
+      justify-content: center; margin: 0 auto 20px;
+    }
+    .logo-mark svg { width: 36px; height: 36px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .subtitle { font-size: 15px; color: #8A95A3; margin-bottom: 28px; line-height: 1.6; }
+    .name-highlight { color: #C8FF3D; font-weight: 700; }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px 20px; border-radius: 12px; font-size: 15px;
+      font-weight: 700; text-decoration: none; margin-bottom: 12px; transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-open { background: #C8FF3D; color: #000; }
+    .btn-store { background: #111820; color: #F0F4F8; border: 1px solid rgba(255,255,255,0.1); }
+    .divider { color: #445566; font-size: 13px; margin: 4px 0 16px; }
+    .code-fallback { margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 20px; }
+    .code-label { font-size: 11px; color: #556677; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    .code-value { font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #C8FF3D; font-family: 'Courier New', monospace; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M6 12a8 8 0 0 0 12 0"/>
+        <path d="M12 2a8 8 0 0 0 0 20"/>
+      </svg>
+    </div>
+    <h1>Welcome, <span class="name-highlight">${escapeHtml(playerName)}</span>!</h1>
+    <p class="subtitle">Your spot at <strong style="color:#fff">${escapeHtml(academyName)}</strong> is ready. Tap below to create your account.</p>
+    ${isIOS || isAndroid ? `
+    <a class="btn btn-open" href="${appSchemeUrl}" id="openApp">Claim Your Invite</a>
+    <div class="divider">Don't have the app yet?</div>
+    <a class="btn btn-store" href="${appStoreUrl}">Download on the App Store</a>
+    ` : `
+    <a class="btn btn-store" href="${appStoreUrl}">Download on the App Store</a>
+    `}
+    <div class="code-fallback">
+      <div class="code-label">Or enter this code manually in the app</div>
+      <div class="code-value">${escapeHtml(safeCode)}</div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var appUrl = ${JSON.stringify(appSchemeUrl)};
+      var started = Date.now();
+      var isIOS = ${isIOS};
+      var isAndroid = ${isAndroid};
+      var storeUrl = ${JSON.stringify(appStoreUrl)};
+      if (!isIOS && !isAndroid) return;
+      window.location.href = appUrl;
+      var timer = setTimeout(function() {
+        if (Date.now() - started < 2500) {
+          window.location.href = storeUrl;
+        }
+      }, 1500);
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) clearTimeout(timer);
+      });
+    })();
+  </script>
+</body>
+</html>`;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(html);
   });
 
   app.get("/group/:groupId", (req: Request, res: Response) => {

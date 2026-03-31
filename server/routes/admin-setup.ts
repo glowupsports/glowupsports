@@ -674,12 +674,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           const coach = player.coachId
             ? await storage.getCoach(player.coachId)
             : null;
+          const proto = req.header("x-forwarded-proto") || req.protocol || "https";
+          const host = req.header("x-forwarded-host") || req.get("host") || "";
+          const inviteLinkBaseUrl = `${proto}://${host}`;
           sendPlayerInviteEmail({
             to: player.email,
             playerName: player.name,
             academyName: academy?.name || "your academy",
             inviteCode,
             coachName: coach?.name,
+            inviteLinkBaseUrl,
           }).catch((err) =>
             console.error("Failed to send player invite email:", err),
           );
@@ -790,12 +794,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           ? await storage.getCoach(player.coachId)
           : null;
 
+        const proto = req.header("x-forwarded-proto") || req.protocol || "https";
+        const host = req.header("x-forwarded-host") || req.get("host") || "";
+        const inviteLinkBaseUrl = `${proto}://${host}`;
         const result = await sendPlayerInviteEmail({
           to: player.email,
           playerName: player.name,
           academyName: academy?.name || "your academy",
           inviteCode: invite.inviteCode,
           coachName: coach?.name,
+          inviteLinkBaseUrl,
         });
 
         if (!result.success) {
@@ -860,6 +868,34 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       }
     },
   );
+
+  // Public preview endpoint — returns player name + academy name for a pending invite token
+  router.get("/api/player-invites/:code/preview", async (req: Request, res: Response) => {
+    try {
+      const rawCode = req.params.code || "";
+      const safeCode = rawCode.replace(/[^a-zA-Z0-9\-_]/g, "");
+      if (!safeCode) {
+        return res.status(400).json({ error: "Invalid invite code" });
+      }
+
+      const invite = await storage.getPlayerInvite(safeCode);
+      if (!invite || invite.status !== "pending") {
+        return res.status(404).json({ error: "Invite not found or already claimed" });
+      }
+
+      const player = await storage.getPlayer(invite.playerId);
+      const academy = await storage.getAcademy(invite.academyId);
+
+      return res.json({
+        playerName: player?.name || "Player",
+        academyName: academy?.name || "Academy",
+        playerId: invite.playerId,
+      });
+    } catch (error) {
+      console.error("[player-invites/preview] Error:", error);
+      return res.status(500).json({ error: "Failed to fetch invite preview" });
+    }
+  });
 
   // Claim player invite (public endpoint for parents/players to link their account)
   router.post("/api/player-invite/claim", async (req: Request, res: Response) => {

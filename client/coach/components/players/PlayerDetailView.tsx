@@ -162,6 +162,20 @@ function ProminentInviteCard({
       });
     } catch {}
   };
+  const handleShareInviteLink = async () => {
+    if (Platform.OS === "web") return;
+    try {
+      const apiUrl = getApiUrl();
+      const baseUrl = apiUrl.replace(/\/api$/, "").replace(/:5000$/, "");
+      const inviteLink = `${baseUrl}/invite/${inviteCode}`;
+      const { Share } = await import("react-native");
+      await Share.share({
+        message: `Hi ${playerName}! Tap this link to set up your Glow Up Sports account:\n${inviteLink}`,
+        title: "Glow Up Sports Invite",
+        url: inviteLink,
+      });
+    } catch {}
+  };
   return (
     <View style={styles.prominentInviteCard}>
       <Text style={styles.prominentInviteCardTitle}>Invite Code — Awaiting Signup</Text>
@@ -181,14 +195,20 @@ function ProminentInviteCard({
         </LinearGradient>
       </Pressable>
       {Platform.OS !== "web" ? (
-        <Pressable style={styles.prominentShareButton} onPress={handleShare}>
-          <Ionicons name="share-outline" size={16} color={Colors.dark.primary} />
-          <Text style={styles.prominentShareButtonText}>Share via...</Text>
+        <Pressable style={styles.prominentShareButton} onPress={handleShareInviteLink}>
+          <Ionicons name="link-outline" size={16} color={Colors.dark.primary} />
+          <Text style={styles.prominentShareButtonText}>Send Invite Link</Text>
+        </Pressable>
+      ) : null}
+      {Platform.OS !== "web" ? (
+        <Pressable style={[styles.prominentShareButton, { marginTop: 4 }]} onPress={handleShare}>
+          <Ionicons name="share-outline" size={16} color={Colors.dark.tabIconDefault} />
+          <Text style={[styles.prominentShareButtonText, { color: Colors.dark.tabIconDefault }]}>Share code via...</Text>
         </Pressable>
       ) : null}
       {onSendEmail ? (
         <Pressable
-          style={[styles.prominentShareButton, { marginTop: 8, borderColor: Colors.dark.tabIconDefault + "40", backgroundColor: Colors.dark.backgroundTertiary }]}
+          style={[styles.prominentShareButton, { marginTop: 4, borderColor: Colors.dark.tabIconDefault + "40", backgroundColor: Colors.dark.backgroundTertiary }]}
           onPress={onSendEmail}
           disabled={isSendingEmail}
         >
