@@ -457,10 +457,13 @@ function configureExpoAndLanding(app: express.Application) {
       return res.status(400).send("Invalid invite code");
     }
     const appStoreUrl = "https://apps.apple.com/app/glow-up-sports/id6744871692";
-    const appSchemeUrl = `glowupsports://invite?token=${safeCode}`;
+    const playStoreUrl = "https://play.google.com/store/apps/details?id=com.glowupsports.app";
+    const iosSchemeUrl = `glowupsports://invite?token=${safeCode}`;
+    const androidIntentUrl = `intent://invite?token=${safeCode}#Intent;scheme=glowupsports;package=com.glowupsports.app;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`;
     const ua = req.headers["user-agent"] || "";
     const isIOS = /iphone|ipad|ipod/i.test(ua);
     const isAndroid = /android/i.test(ua);
+    const appSchemeUrl = isAndroid ? androidIntentUrl : iosSchemeUrl;
 
     let playerName = "You";
     let academyName = "Glow Up Sports";
@@ -546,8 +549,12 @@ function configureExpoAndLanding(app: express.Application) {
     </div>
     <h1>Welcome, <span class="name-highlight">${escapeHtml(playerName)}</span>!</h1>
     <p class="subtitle">Your spot at <strong style="color:#fff">${escapeHtml(academyName)}</strong> is ready. Tap below to create your account.</p>
-    ${isIOS || isAndroid ? `
-    <a class="btn btn-open" href="${appSchemeUrl}" id="openApp">Claim Your Invite</a>
+    ${isAndroid ? `
+    <a class="btn btn-open" href="${appSchemeUrl}">Claim Your Invite</a>
+    <div class="divider">Don't have the app yet?</div>
+    <a class="btn btn-store" href="${playStoreUrl}">Download on Google Play</a>
+    ` : isIOS ? `
+    <a class="btn btn-open" href="${appSchemeUrl}">Claim Your Invite</a>
     <div class="divider">Don't have the app yet?</div>
     <a class="btn btn-store" href="${appStoreUrl}">Download on the App Store</a>
     ` : `
@@ -558,25 +565,6 @@ function configureExpoAndLanding(app: express.Application) {
       <div class="code-value">${escapeHtml(safeCode)}</div>
     </div>
   </div>
-  <script>
-    (function() {
-      var appUrl = ${JSON.stringify(appSchemeUrl)};
-      var started = Date.now();
-      var isIOS = ${isIOS};
-      var isAndroid = ${isAndroid};
-      var storeUrl = ${JSON.stringify(appStoreUrl)};
-      if (!isIOS && !isAndroid) return;
-      window.location.href = appUrl;
-      var timer = setTimeout(function() {
-        if (Date.now() - started < 2500) {
-          window.location.href = storeUrl;
-        }
-      }, 1500);
-      document.addEventListener('visibilitychange', function() {
-        if (document.hidden) clearTimeout(timer);
-      });
-    })();
-  </script>
 </body>
 </html>`;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
