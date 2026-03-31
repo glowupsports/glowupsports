@@ -767,7 +767,10 @@ export default function LoginScreen() {
         // Check if OTP is required
         if (result.error?.includes("verification required") || result.requiresOTP) {
           setIsNewEmail(true);
-          Alert.alert("Verification Required", "Please verify your email to complete registration");
+          const message = result.error && !result.error.toLowerCase().includes("verification required")
+            ? result.error
+            : "Please verify your email to complete registration";
+          Alert.alert("Verification Required", message);
         } else {
           Alert.alert("Registration Failed", result.error || "Please try again");
         }

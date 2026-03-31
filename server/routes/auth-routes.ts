@@ -52,7 +52,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "@shared/schema";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
-  import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP } from "../emailService";
+  import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified } from "../emailService";
   import crypto from "crypto";
   const router = Router();
   function generateShortInviteCode(): string {
@@ -380,6 +380,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const result = verifyOTPCode(email, code);
 
         if (result.valid) {
+          markEmailVerified(email);
           res.json({ success: true, verified: true });
         } else {
           res.status(400).json({ error: result.error, verified: false });
@@ -457,20 +458,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         );
         if (!existingEmailUser) {
           // New email - require OTP verification
-          const { otpCode } = req.body;
-          if (!otpCode) {
-            return res.status(400).json({
-              error: "Email verification required for new accounts",
-              requiresOTP: true,
-            });
-          }
+          // First check if the email was already verified via the /auth/otp/verify endpoint
+          if (isEmailVerified(email)) {
+            // Already verified in this session — skip re-checking the OTP
+          } else {
+            const { otpCode } = req.body;
+            if (!otpCode) {
+              return res.status(400).json({
+                error: "Email verification required for new accounts",
+                requiresOTP: true,
+              });
+            }
 
-          const otpResult = verifyOTPCode(email, otpCode);
-          if (!otpResult.valid) {
-            return res.status(400).json({
-              error: otpResult.error || "Invalid verification code",
-              requiresOTP: true,
-            });
+            const otpResult = verifyOTPCode(email, otpCode);
+            if (!otpResult.valid) {
+              return res.status(400).json({
+                error: otpResult.error || "Invalid verification code",
+                requiresOTP: true,
+              });
+            }
           }
         }
 
@@ -540,6 +546,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         };
         const token = generateToken(playerRegJwtPayload);
         const refreshToken = generateRefreshToken(playerRegJwtPayload);
+
+        // Clear the verified-email flag now that registration is complete
+        clearEmailVerified(email);
 
         res.status(201).json({
           token,

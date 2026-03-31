@@ -672,6 +672,28 @@ interface OTPStore {
 // In-memory OTP store (in production, use Redis or database)
 const otpStore = new Map<string, OTPStore>();
 
+// In-memory store for emails that have been OTP-verified but not yet registered
+const verifiedEmails = new Map<string, Date>(); // email -> expiry
+
+export function markEmailVerified(email: string): void {
+  const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  verifiedEmails.set(email.toLowerCase(), expiry);
+}
+
+export function isEmailVerified(email: string): boolean {
+  const expiry = verifiedEmails.get(email.toLowerCase());
+  if (!expiry) return false;
+  if (expiry < new Date()) {
+    verifiedEmails.delete(email.toLowerCase());
+    return false;
+  }
+  return true;
+}
+
+export function clearEmailVerified(email: string): void {
+  verifiedEmails.delete(email.toLowerCase());
+}
+
 // Clean up expired OTPs every 5 minutes
 setInterval(() => {
   const now = new Date();
