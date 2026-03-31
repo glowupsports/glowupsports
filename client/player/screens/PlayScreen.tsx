@@ -98,6 +98,7 @@ interface NearbyCourt {
   lat: number;
   lng: number;
   googlePlaceId: string | null;
+  academyName: string | null;
 }
 
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
@@ -1022,6 +1023,10 @@ export default function PlayScreen() {
                   {court.isInternal ? (
                     <View style={styles.nearbyCourtInternalBadge}>
                       <Text style={styles.nearbyCourtInternalText}>Academy</Text>
+                    </View>
+                  ) : court.academyName ? (
+                    <View style={styles.nearbyCourtExternalBadge}>
+                      <Text style={styles.nearbyCourtExternalText} numberOfLines={1}>{court.academyName}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -3107,6 +3112,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: Colors.dark.gold,
+  },
+  nearbyCourtExternalBadge: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    maxWidth: 90,
+  },
+  nearbyCourtExternalText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
   },
   nearbyCourtDistanceBadge: {
     flexDirection: "row",
