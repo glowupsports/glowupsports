@@ -31,6 +31,11 @@ config.server = {
 
 config.resolver = {
   ...config.resolver,
+  blockList: [
+    new RegExp(`${path.resolve(__dirname, ".local")}.*`),
+    new RegExp(`${path.resolve(__dirname, ".git")}.*`),
+    new RegExp(`${path.resolve(__dirname, "scripts")}.*`),
+  ],
   resolveRequest: (context, moduleName, platform) => {
     if (platform === "web" && moduleName === "react-native-pager-view") {
       return {
