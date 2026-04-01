@@ -739,13 +739,13 @@ export default function AdminSettingsScreen() {
                   setLocationStatus(null);
                   setLocationResolving(true);
                   try {
-                    const resolved = await apiRequest("POST", "/api/courts/resolve-location", {
+                    const resolved = await (await apiRequest("POST", "/api/courts/resolve-location", {
                       lat: result.lat,
                       lng: result.lng,
                       name: result.mainText || result.address,
                       address: result.address,
                       placeId: result.placeId,
-                    }) as { locationId: string; locationName: string; isNew: boolean };
+                    })).json() as { locationId: string; locationName: string; isNew: boolean };
                     setCourtFormData((prev) => ({ ...prev, locationId: resolved.locationId }));
                     setLocationStatus({ locationName: resolved.locationName, isNew: resolved.isNew });
                   } catch {
