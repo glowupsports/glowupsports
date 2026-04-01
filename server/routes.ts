@@ -1450,7 +1450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : "";
         url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&language=en${locationBias}`;
       } else {
-        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en${countryFilter}`;
+        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&language=en${countryFilter}`;
       }
       const response = await fetch(url);
       if (!response.ok) {
