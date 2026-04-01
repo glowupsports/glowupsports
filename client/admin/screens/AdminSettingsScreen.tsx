@@ -72,6 +72,8 @@ interface Court {
   venueAddress?: string | null;
   venueLat?: number | null;
   venueLng?: number | null;
+  locationId?: string | null;
+  locationName?: string | null;
 }
 
 export default function AdminSettingsScreen() {
@@ -162,11 +164,7 @@ export default function AdminSettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
@@ -184,11 +182,7 @@ export default function AdminSettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
@@ -213,10 +207,14 @@ export default function AdminSettingsScreen() {
       venueAddress: court.venueAddress || "",
       venueLat: court.venueLat ?? null,
       venueLng: court.venueLng ?? null,
-      locationId: null,
+      locationId: court.locationId ?? null,
     });
     setCourtVenueSearch(court.venueAddress ? { address: court.venueAddress } : null);
-    setLocationStatus(null);
+    setLocationStatus(
+      court.locationName
+        ? { locationName: court.locationName, isNew: false }
+        : null
+    );
     setShowCourtModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
