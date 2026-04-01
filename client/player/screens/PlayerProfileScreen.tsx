@@ -23,6 +23,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MapLocationPickerModal } from "@/components/MapLocationPickerModal";
 
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
@@ -427,6 +428,7 @@ export default function PlayerProfileScreen() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
@@ -919,7 +921,7 @@ export default function PlayerProfileScreen() {
           </View>
 
           {/* Home Address Section */}
-          <View style={[styles.openToPlayCard, { zIndex: 10 }]}>
+          <View style={styles.openToPlayCard}>
             <LinearGradient
               colors={player.homeAddress 
                 ? [Colors.dark.xpCyan + "25", Colors.dark.xpCyan + "10"]
@@ -957,7 +959,7 @@ export default function PlayerProfileScreen() {
                     </Text>
                   </View>
                 ) : null}
-                <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, zIndex: 100 }}>
+                <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
                   <AddressAutocomplete
                     placeholder={player.homeAddress ? "Update home address..." : "Search for your home address..."}
                     initialValue=""
@@ -965,10 +967,29 @@ export default function PlayerProfileScreen() {
                       updateHomeAddress.mutate({ address, lat, lng });
                     }}
                   />
+                  {/* Pick on map button */}
+                  <Pressable
+                    style={styles.pickOnMapBtn}
+                    onPress={() => setShowMapPicker(true)}
+                  >
+                    <Ionicons name="map-outline" size={14} color={Colors.dark.xpCyan} />
+                    <Text style={styles.pickOnMapText}>Pick on map</Text>
+                  </Pressable>
                 </View>
               </View>
             </LinearGradient>
           </View>
+
+          {/* Map location picker modal */}
+          <MapLocationPickerModal
+            visible={showMapPicker}
+            onClose={() => setShowMapPicker(false)}
+            onConfirm={({ address, lat, lng }) => {
+              updateHomeAddress.mutate({ address, lat, lng });
+            }}
+            initialLat={player.homeLat}
+            initialLng={player.homeLng}
+          />
 
           {/* Player Identity */}
           <View style={styles.identityRow}>
@@ -2120,6 +2141,18 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
+  },
+  pickOnMapBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingTop: Spacing.xs,
+  },
+  pickOnMapText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
   },
   openToPlayGradient: {
     padding: Spacing.md,

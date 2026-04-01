@@ -1812,11 +1812,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reverse geocode: convert lat/lng to city + country (callable by players)
+  // Reverse geocode: convert lat/lng to address (callable by players)
+  // Pass ?detailed=true to get a full street-level formatted address (used by map picker)
   app.get("/api/maps/reverse-geocode", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const lat = req.query.lat as string;
       const lng = req.query.lng as string;
+      const detailed = req.query.detailed === "true";
       if (!lat || !lng) {
         return res.status(400).json({ error: "lat and lng are required" });
       }
@@ -1824,7 +1826,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!apiKey) {
         return res.status(503).json({ error: "Maps service not configured" });
       }
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=locality|country&key=${apiKey}`;
+      // For detailed mode (map picker), omit result_type to get street-level data
+      const resultTypeParam = detailed ? "" : "&result_type=locality|country";
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}${resultTypeParam}&key=${apiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
         return res.status(502).json({ error: "Upstream geocode error" });

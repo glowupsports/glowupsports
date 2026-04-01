@@ -6,8 +6,10 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Modal,
   ScrollView,
   Platform,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -36,6 +38,13 @@ interface AddressAutocompleteProps {
   country?: string;
 }
 
+interface DropdownPosition {
+  x: number;
+  y: number;
+  width: number;
+  inputBottom: number;
+}
+
 export function AddressAutocomplete({
   onSelect,
   placeholder = "Search for an address...",
@@ -49,6 +58,8 @@ export function AddressAutocomplete({
   const [resolving, setResolving] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<DropdownPosition | null>(null);
+  const containerRef = useRef<View>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -57,6 +68,14 @@ export function AddressAutocomplete({
     setPredictions([]);
     setShowDropdown(false);
   }, [initialValue]);
+
+  const measureContainer = useCallback(() => {
+    if (containerRef.current) {
+      containerRef.current.measureInWindow((x, y, width, height) => {
+        setDropdownPos({ x, y, width, inputBottom: y + height });
+      });
+    }
+  }, []);
 
   const fetchPredictions = useCallback(async (text: string) => {
     if (text.trim().length < 2) {
@@ -68,18 +87,26 @@ export function AddressAutocomplete({
     try {
       const modeParam = mode === "venue" ? "&mode=venue" : "";
       const countryParam = country ? `&country=${encodeURIComponent(country)}` : "";
-      const response = await apiFetch(`/api/maps/places-autocomplete?input=${encodeURIComponent(text)}${modeParam}${countryParam}`);
+      const response = await apiFetch(
+        `/api/maps/places-autocomplete?input=${encodeURIComponent(text)}${modeParam}${countryParam}`
+      );
       if (response.ok) {
         const data = await response.json();
-        setPredictions(data.predictions || []);
-        setShowDropdown((data.predictions || []).length > 0);
+        const preds = data.predictions || [];
+        setPredictions(preds);
+        if (preds.length > 0) {
+          measureContainer();
+          setShowDropdown(true);
+        } else {
+          setShowDropdown(false);
+        }
       }
     } catch {
       setPredictions([]);
     } finally {
       setLoading(false);
     }
-  }, [mode, country]);
+  }, [mode, country, measureContainer]);
 
   const handleChange = (text: string) => {
     setQuery(text);
@@ -95,7 +122,9 @@ export function AddressAutocomplete({
     setResolving(true);
     setGeocodeError(null);
     try {
-      const response = await apiFetch(`/api/maps/geocode?placeId=${encodeURIComponent(prediction.placeId)}`);
+      const response = await apiFetch(
+        `/api/maps/geocode?placeId=${encodeURIComponent(prediction.placeId)}`
+      );
       if (response.ok) {
         const data = await response.json();
         onSelect({
@@ -122,8 +151,15 @@ export function AddressAutocomplete({
     setGeocodeError(null);
   };
 
+  const screenHeight = Dimensions.get("window").height;
+  const dropdownMaxHeight = 220;
+  // Decide whether to show dropdown above or below the input
+  const showAbove = dropdownPos
+    ? dropdownPos.inputBottom + dropdownMaxHeight > screenHeight - 80
+    : false;
+
   return (
-    <View style={styles.container}>
+    <View ref={containerRef} style={styles.container} collapsable={false}>
       <View style={styles.inputRow}>
         <Ionicons name="search" size={16} color={Colors.dark.textMuted} style={styles.searchIcon} />
         <TextInput
@@ -153,30 +189,65 @@ export function AddressAutocomplete({
         </View>
       ) : null}
 
-      {showDropdown ? (
-        <View style={styles.dropdown}>
-          <ScrollView
-            keyboardShouldPersistTaps="always"
-            nestedScrollEnabled
-            style={styles.dropdownScroll}
+      {showDropdown && dropdownPos ? (
+        <Modal
+          transparent
+          visible={showDropdown}
+          animationType="none"
+          onRequestClose={() => setShowDropdown(false)}
+          statusBarTranslucent
+        >
+          {/* Dismiss layer */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowDropdown(false)} />
+
+          <View
+            style={[
+              styles.dropdown,
+              {
+                position: "absolute",
+                left: dropdownPos.x,
+                width: dropdownPos.width,
+                ...(showAbove
+                  ? { bottom: screenHeight - dropdownPos.y + 4 }
+                  : { top: dropdownPos.inputBottom + 4 }),
+              },
+            ]}
           >
-            {predictions.map((pred, index) => (
-              <Pressable
-                key={pred.placeId}
-                style={[styles.predictionRow, index < predictions.length - 1 && styles.predictionRowBorder]}
-                onPress={() => handleSelect(pred)}
-              >
-                <Ionicons name="location-outline" size={14} color={Colors.dark.primary} style={styles.predIcon} />
-                <View style={styles.predText}>
-                  <Text style={styles.predMain} numberOfLines={1}>{pred.mainText}</Text>
-                  {pred.secondaryText ? (
-                    <Text style={styles.predSub} numberOfLines={1}>{pred.secondaryText}</Text>
-                  ) : null}
-                </View>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+            <ScrollView
+              keyboardShouldPersistTaps="always"
+              nestedScrollEnabled
+              style={{ maxHeight: dropdownMaxHeight }}
+            >
+              {predictions.map((pred, index) => (
+                <Pressable
+                  key={pred.placeId}
+                  style={[
+                    styles.predictionRow,
+                    index < predictions.length - 1 && styles.predictionRowBorder,
+                  ]}
+                  onPress={() => handleSelect(pred)}
+                >
+                  <Ionicons
+                    name="location-outline"
+                    size={14}
+                    color={Colors.dark.primary}
+                    style={styles.predIcon}
+                  />
+                  <View style={styles.predText}>
+                    <Text style={styles.predMain} numberOfLines={1}>
+                      {pred.mainText}
+                    </Text>
+                    {pred.secondaryText ? (
+                      <Text style={styles.predSub} numberOfLines={1}>
+                        {pred.secondaryText}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Modal>
       ) : null}
     </View>
   );
@@ -185,7 +256,7 @@ export function AddressAutocomplete({
 const styles = StyleSheet.create({
   container: {
     position: "relative",
-    zIndex: 100,
+    zIndex: 1,
   },
   inputRow: {
     flexDirection: "row",
@@ -210,32 +281,25 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   dropdown: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    marginTop: 2,
-    maxHeight: 220,
     overflow: "hidden",
-    zIndex: 200,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 8,
+        elevation: 10,
+      },
+      web: {
+        boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
       },
     }),
-  },
-  dropdownScroll: {
-    maxHeight: 220,
   },
   predictionRow: {
     flexDirection: "row",
