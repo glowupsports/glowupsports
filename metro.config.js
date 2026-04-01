@@ -54,6 +54,15 @@ config.resolver = {
         type: "sourceFile",
       };
     }
+    if (platform === "web" && moduleName === "react-native-maps") {
+      return {
+        filePath: path.resolve(
+          __dirname,
+          "client/shims/react-native-maps.web.tsx",
+        ),
+        type: "sourceFile",
+      };
+    }
     return context.resolveRequest(context, moduleName, platform);
   },
 };

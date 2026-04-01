@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { WebView } from "react-native-webview";
+import MapView, { Marker, MapPressEvent, MarkerDragStartEndEvent, Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import * as Location from "expo-location";
 
-// ── Shared types ──────────────────────────────────────────────────────────────
+// ── Shared types (mirrored in .tsx for web) ───────────────────────────────────
 export interface MapLocationResult {
   address: string;
   lat: number;
@@ -32,54 +32,9 @@ export interface MapLocationPickerModalProps {
 
 const DEFAULT_LAT = 25.2048;
 const DEFAULT_LNG = 55.2708;
+const DEFAULT_DELTA = 0.005;
 
-// ── Leaflet HTML (web / fallback) ─────────────────────────────────────────────
-function buildLeafletHtml(lat: number, lng: number): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; background: #1a1a2e; }
-    .leaflet-control-attribution { font-size: 10px; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    var map = L.map('map', { zoomControl: true }).setView([${lat}, ${lng}], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-      maxZoom: 19
-    }).addTo(map);
-    var pinHtml = '<div style="width:22px;height:22px;background:#C8FF3D;border-radius:50%;border:3px solid #000;box-shadow:0 2px 8px rgba(0,0,0,0.5);margin:-11px 0 0 -11px"></div>';
-    var icon = L.divIcon({ html: pinHtml, className: '', iconSize: [22, 22], iconAnchor: [11, 11] });
-    var marker = L.marker([${lat}, ${lng}], { icon: icon, draggable: true }).addTo(map);
-    function postCoords(latlng) {
-      var msg = JSON.stringify({ lat: latlng.lat, lng: latlng.lng });
-      if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(msg); }
-      else { window.parent.postMessage(msg, '*'); }
-    }
-    marker.on('dragend', function(e) { postCoords(e.target.getLatLng()); });
-    map.on('click', function(e) { marker.setLatLng(e.latlng); postCoords(e.latlng); });
-    function onMsg(e) {
-      try {
-        var d = JSON.parse(e.data || e.detail);
-        if (d && d.jump) { marker.setLatLng([d.lat, d.lng]); map.setView([d.lat, d.lng], 15); }
-      } catch(err) {}
-    }
-    document.addEventListener('message', onMsg);
-    window.addEventListener('message', onMsg);
-  </script>
-</body>
-</html>`;
-}
-
-// ── Web implementation (uses WebView + Leaflet) ───────────────────────────────
-// On native, Metro picks MapLocationPickerModal.native.tsx instead.
+// ── Native implementation (iOS & Android) ─────────────────────────────────────
 export function MapLocationPickerModal({
   visible,
   onClose,
@@ -87,25 +42,33 @@ export function MapLocationPickerModal({
   initialLat,
   initialLng,
 }: MapLocationPickerModalProps) {
-  const [currentLat, setCurrentLat] = useState(initialLat ?? DEFAULT_LAT);
-  const [currentLng, setCurrentLng] = useState(initialLng ?? DEFAULT_LNG);
+  const [markerLat, setMarkerLat] = useState(initialLat ?? DEFAULT_LAT);
+  const [markerLng, setMarkerLng] = useState(initialLng ?? DEFAULT_LNG);
+  const [region, setRegion] = useState<Region>({
+    latitude: initialLat ?? DEFAULT_LAT,
+    longitude: initialLng ?? DEFAULT_LNG,
+    latitudeDelta: DEFAULT_DELTA,
+    longitudeDelta: DEFAULT_DELTA,
+  });
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [leafletHtml, setLeafletHtml] = useState<string>("");
-  const [webViewKey, setWebViewKey] = useState(0);
   const reverseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const webViewRef = useRef<WebView>(null);
+  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     if (visible) {
       const lat = initialLat ?? DEFAULT_LAT;
       const lng = initialLng ?? DEFAULT_LNG;
-      setCurrentLat(lat);
-      setCurrentLng(lng);
+      setMarkerLat(lat);
+      setMarkerLng(lng);
+      setRegion({
+        latitude: lat,
+        longitude: lng,
+        latitudeDelta: DEFAULT_DELTA,
+        longitudeDelta: DEFAULT_DELTA,
+      });
       setAddress(null);
-      setLeafletHtml(buildLeafletHtml(lat, lng));
-      setWebViewKey((k) => k + 1);
       setTimeout(() => reverseGeocode(lat, lng), 300);
     }
   }, [visible, initialLat, initialLng]);
@@ -129,22 +92,41 @@ export function MapLocationPickerModal({
     }
   }, []);
 
-  const handleWebViewMessage = useCallback(
-    (event: { nativeEvent: { data: string } }) => {
-      try {
-        const { lat, lng } = JSON.parse(event.nativeEvent.data) as {
-          lat: number;
-          lng: number;
-        };
-        setCurrentLat(lat);
-        setCurrentLng(lng);
-        if (reverseTimer.current) clearTimeout(reverseTimer.current);
-        reverseTimer.current = setTimeout(() => reverseGeocode(lat, lng), 400);
-      } catch {
-        // malformed message — ignore
-      }
+  const scheduleReverseGeocode = useCallback(
+    (lat: number, lng: number) => {
+      if (reverseTimer.current) clearTimeout(reverseTimer.current);
+      reverseTimer.current = setTimeout(() => reverseGeocode(lat, lng), 400);
     },
     [reverseGeocode]
+  );
+
+  const handleMarkerDragEnd = useCallback(
+    (e: MarkerDragStartEndEvent) => {
+      const { latitude, longitude } = e.nativeEvent.coordinate;
+      setMarkerLat(latitude);
+      setMarkerLng(longitude);
+      scheduleReverseGeocode(latitude, longitude);
+    },
+    [scheduleReverseGeocode]
+  );
+
+  const handleMapPress = useCallback(
+    (e: MapPressEvent) => {
+      const { latitude, longitude } = e.nativeEvent.coordinate;
+      setMarkerLat(latitude);
+      setMarkerLng(longitude);
+      mapRef.current?.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: DEFAULT_DELTA,
+          longitudeDelta: DEFAULT_DELTA,
+        },
+        200
+      );
+      scheduleReverseGeocode(latitude, longitude);
+    },
+    [scheduleReverseGeocode]
   );
 
   const handleUseGPS = useCallback(async () => {
@@ -162,24 +144,28 @@ export function MapLocationPickerModal({
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = loc.coords;
-      setCurrentLat(latitude);
-      setCurrentLng(longitude);
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(
-          JSON.stringify({ jump: true, lat: latitude, lng: longitude })
-        );
-      }
-      reverseGeocode(latitude, longitude);
+      setMarkerLat(latitude);
+      setMarkerLng(longitude);
+      mapRef.current?.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: DEFAULT_DELTA,
+          longitudeDelta: DEFAULT_DELTA,
+        },
+        400
+      );
+      scheduleReverseGeocode(latitude, longitude);
     } catch {
       Alert.alert("Location Error", "Could not get your current location.");
     } finally {
       setLocating(false);
     }
-  }, [reverseGeocode]);
+  }, [scheduleReverseGeocode]);
 
   const handleConfirm = () => {
     if (!address) return;
-    onConfirm({ address, lat: currentLat, lng: currentLng });
+    onConfirm({ address, lat: markerLat, lng: markerLng });
     onClose();
   };
 
@@ -210,26 +196,26 @@ export function MapLocationPickerModal({
         </View>
 
         <View style={styles.mapWrapper}>
-          {leafletHtml ? (
-            <WebView
-              key={webViewKey}
-              ref={webViewRef}
-              source={{ html: leafletHtml }}
-              style={StyleSheet.absoluteFill}
-              onMessage={handleWebViewMessage}
-              javaScriptEnabled
-              scrollEnabled={false}
+          <MapView
+            ref={mapRef}
+            style={StyleSheet.absoluteFill}
+            initialRegion={region}
+            onPress={handleMapPress}
+            showsUserLocation={false}
+            showsMyLocationButton={false}
+          >
+            <Marker
+              coordinate={{ latitude: markerLat, longitude: markerLng }}
+              draggable
+              onDragEnd={handleMarkerDragEnd}
+              pinColor="#C8FF3D"
             />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.mapPlaceholder]}>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
-            </View>
-          )}
+          </MapView>
         </View>
 
         <View style={styles.bottomSheet}>
           <Text style={styles.dragHint}>
-            Tap the map or drag the pin to pick a location
+            Tap or drag the pin to set your location
           </Text>
 
           {resolving ? (
@@ -256,7 +242,7 @@ export function MapLocationPickerModal({
               <Text
                 style={[styles.addressText, { color: Colors.dark.textMuted }]}
               >
-                Tap anywhere on the map to pin a location
+                Tap anywhere on the map to pin your location
               </Text>
             </View>
           )}
@@ -302,7 +288,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xl + Spacing.md,
+    paddingTop:
+      Platform.OS === "android"
+        ? Spacing.xl + Spacing.lg
+        : Spacing.xl + Spacing.md,
     paddingBottom: Spacing.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -326,10 +315,6 @@ const styles = StyleSheet.create({
   mapWrapper: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
-  },
-  mapPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   bottomSheet: {
     backgroundColor: Colors.dark.backgroundSecondary,
