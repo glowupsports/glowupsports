@@ -2,6 +2,7 @@ import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
+import MapView, { Marker, Callout, PROVIDER_DEFAULT } from "react-native-maps";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -960,6 +961,8 @@ export default function PlayScreen() {
     },
   });
 
+  const [courtsViewMode, setCourtsViewMode] = useState<"list" | "map">("list");
+  const courtsMapRef = useRef<MapView>(null);
   const [nearbyCourtsLocation, setNearbyCourtsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const nearbyCourtsEnabled = locationPermission?.granted === true && nearbyCourtsLocation !== null;
   const nearbyCourtsQueryKey = nearbyCourtsEnabled
@@ -1059,6 +1062,20 @@ export default function PlayScreen() {
         </View>
       );
     }
+    const courtsWithCoords = nearbyCourts.filter(c => c.lat != null && c.lng != null);
+
+    const fitMapToMarkers = () => {
+      if (!courtsMapRef.current || courtsWithCoords.length === 0) return;
+      const coords = courtsWithCoords.map(c => ({ latitude: c.lat!, longitude: c.lng! }));
+      if (nearbyCourtsLocation) {
+        coords.push({ latitude: nearbyCourtsLocation.lat, longitude: nearbyCourtsLocation.lng });
+      }
+      courtsMapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 48, right: 48, bottom: 48, left: 48 },
+        animated: true,
+      });
+    };
+
     return (
       <View style={styles.courtsNearYouSection}>
         <View style={styles.sectionHeader}>
@@ -1066,85 +1083,168 @@ export default function PlayScreen() {
             <Ionicons name="location" size={20} color={Colors.dark.primary} />
             <Text style={styles.sectionTitle}>Courts Near You</Text>
           </View>
+          <View style={styles.courtsViewToggle}>
+            <Pressable
+              style={[styles.courtsViewToggleBtn, courtsViewMode === "list" && styles.courtsViewToggleBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setCourtsViewMode("list");
+              }}
+            >
+              <Ionicons name="list" size={16} color={courtsViewMode === "list" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+            </Pressable>
+            <Pressable
+              style={[styles.courtsViewToggleBtn, courtsViewMode === "map" && styles.courtsViewToggleBtnActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setCourtsViewMode("map");
+              }}
+            >
+              <Ionicons name="map" size={16} color={courtsViewMode === "map" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+            </Pressable>
+          </View>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.nearbyCourtsScroll}
-        >
-          {nearbyCourts.map((court) => (
-            <View key={court.id} style={styles.nearbyCourtCard}>
-              <View style={styles.nearbyCourtHeader}>
-                <View style={styles.nearbyCourtBadgeRow}>
-                  <View style={[styles.nearbyCourtSportBadge, { backgroundColor: court.isInternal ? Colors.dark.primary + "25" : Colors.dark.backgroundTertiary }]}>
-                    <Ionicons
-                      name={court.sport === "padel" ? "grid-outline" : "tennisball-outline"}
-                      size={12}
-                      color={court.isInternal ? Colors.dark.primary : Colors.dark.textMuted}
-                    />
-                    <Text style={[styles.nearbyCourtSportText, { color: court.isInternal ? Colors.dark.primary : Colors.dark.textMuted }]}>
-                      {court.sport.charAt(0).toUpperCase() + court.sport.slice(1)}
-                    </Text>
+        {courtsViewMode === "list" ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.nearbyCourtsScroll}
+          >
+            {nearbyCourts.map((court) => (
+              <View key={court.id} style={styles.nearbyCourtCard}>
+                <View style={styles.nearbyCourtHeader}>
+                  <View style={styles.nearbyCourtBadgeRow}>
+                    <View style={[styles.nearbyCourtSportBadge, { backgroundColor: court.isInternal ? Colors.dark.primary + "25" : Colors.dark.backgroundTertiary }]}>
+                      <Ionicons
+                        name={court.sport === "padel" ? "grid-outline" : "tennisball-outline"}
+                        size={12}
+                        color={court.isInternal ? Colors.dark.primary : Colors.dark.textMuted}
+                      />
+                      <Text style={[styles.nearbyCourtSportText, { color: court.isInternal ? Colors.dark.primary : Colors.dark.textMuted }]}>
+                        {court.sport.charAt(0).toUpperCase() + court.sport.slice(1)}
+                      </Text>
+                    </View>
+                    {court.isInternal ? (
+                      <View style={styles.nearbyCourtInternalBadge}>
+                        <Text style={styles.nearbyCourtInternalText}>Academy</Text>
+                      </View>
+                    ) : court.academyName ? (
+                      <View style={styles.nearbyCourtExternalBadge}>
+                        <Text style={styles.nearbyCourtExternalText} numberOfLines={1}>{court.academyName}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                  {court.isInternal ? (
-                    <View style={styles.nearbyCourtInternalBadge}>
-                      <Text style={styles.nearbyCourtInternalText}>Academy</Text>
+                  {court.distance != null ? (
+                    <View style={styles.nearbyCourtDistanceBadge}>
+                      <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
+                      <Text style={styles.nearbyCourtDistanceText}>{court.distance} km</Text>
                     </View>
-                  ) : court.academyName ? (
-                    <View style={styles.nearbyCourtExternalBadge}>
-                      <Text style={styles.nearbyCourtExternalText} numberOfLines={1}>{court.academyName}</Text>
+                  ) : (
+                    <View style={[styles.nearbyCourtDistanceBadge, { backgroundColor: Colors.dark.backgroundTertiary }]}>
+                      <Ionicons name="location-outline" size={10} color={Colors.dark.textMuted} />
+                      <Text style={[styles.nearbyCourtDistanceText, { color: Colors.dark.textMuted }]}>No location set</Text>
                     </View>
+                  )}
+                </View>
+                <Text style={styles.nearbyCourtName} numberOfLines={2}>{court.name}</Text>
+                {court.address ? (
+                  <Text style={styles.nearbyCourtAddress} numberOfLines={1}>{court.address}</Text>
+                ) : null}
+                {court.surface && court.surface !== "unknown" ? (
+                  <View style={styles.nearbyCourtSurfaceChip}>
+                    <Text style={styles.nearbyCourtSurfaceText}>{court.surface.charAt(0).toUpperCase() + court.surface.slice(1)}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.nearbyCourtActions}>
+                  {court.isInternal && court.bookingEnabled ? (
+                    <Pressable
+                      style={styles.nearbyCourtBookBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate("BookCourt" as never);
+                      }}
+                    >
+                      <Text style={styles.nearbyCourtBookBtnText}>Book</Text>
+                    </Pressable>
+                  ) : null}
+                  {court.lat != null && court.lng != null ? (
+                    <Pressable
+                      style={styles.nearbyCourtDirectionsBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        openMapsDirections({ lat: court.lat, lng: court.lng, label: court.name });
+                      }}
+                    >
+                      <Ionicons name="navigate-outline" size={14} color={Colors.dark.primary} />
+                      <Text style={styles.nearbyCourtDirectionsBtnText}>Directions</Text>
+                    </Pressable>
                   ) : null}
                 </View>
-                {court.distance != null ? (
-                  <View style={styles.nearbyCourtDistanceBadge}>
-                    <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
-                    <Text style={styles.nearbyCourtDistanceText}>{court.distance} km</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.nearbyCourtDistanceBadge, { backgroundColor: Colors.dark.backgroundTertiary }]}>
-                    <Ionicons name="location-outline" size={10} color={Colors.dark.textMuted} />
-                    <Text style={[styles.nearbyCourtDistanceText, { color: Colors.dark.textMuted }]}>No location set</Text>
-                  </View>
-                )}
               </View>
-              <Text style={styles.nearbyCourtName} numberOfLines={2}>{court.name}</Text>
-              {court.address ? (
-                <Text style={styles.nearbyCourtAddress} numberOfLines={1}>{court.address}</Text>
-              ) : null}
-              {court.surface && court.surface !== "unknown" ? (
-                <View style={styles.nearbyCourtSurfaceChip}>
-                  <Text style={styles.nearbyCourtSurfaceText}>{court.surface.charAt(0).toUpperCase() + court.surface.slice(1)}</Text>
-                </View>
-              ) : null}
-              <View style={styles.nearbyCourtActions}>
-                {court.isInternal && court.bookingEnabled ? (
-                  <Pressable
-                    style={styles.nearbyCourtBookBtn}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      navigation.navigate("BookCourt" as never);
-                    }}
-                  >
-                    <Text style={styles.nearbyCourtBookBtnText}>Book</Text>
-                  </Pressable>
-                ) : null}
-                {court.lat != null && court.lng != null ? (
-                  <Pressable
-                    style={styles.nearbyCourtDirectionsBtn}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      openMapsDirections({ lat: court.lat, lng: court.lng, label: court.name });
-                    }}
-                  >
-                    <Ionicons name="navigate-outline" size={14} color={Colors.dark.primary} />
-                    <Text style={styles.nearbyCourtDirectionsBtnText}>Directions</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        ) : Platform.OS === "web" ? (
+          <View style={styles.courtsMapWebFallback}>
+            <Ionicons name="map-outline" size={32} color={Colors.dark.textMuted} />
+            <Text style={styles.courtsMapWebFallbackText}>Open the app in Expo Go to view the interactive courts map</Text>
+          </View>
+        ) : (
+          <View style={styles.courtsMapContainer}>
+            <MapView
+              ref={courtsMapRef}
+              style={styles.courtsMap}
+              provider={PROVIDER_DEFAULT}
+              showsUserLocation={true}
+              showsMyLocationButton={false}
+              onMapReady={fitMapToMarkers}
+              initialRegion={
+                nearbyCourtsLocation
+                  ? {
+                      latitude: nearbyCourtsLocation.lat,
+                      longitude: nearbyCourtsLocation.lng,
+                      latitudeDelta: 0.05,
+                      longitudeDelta: 0.05,
+                    }
+                  : undefined
+              }
+            >
+              {courtsWithCoords.map((court) => (
+                <Marker
+                  key={court.id}
+                  coordinate={{ latitude: court.lat!, longitude: court.lng! }}
+                  pinColor={court.isInternal ? Colors.dark.primary : Colors.dark.textMuted}
+                >
+                  <Callout tooltip={false}>
+                    <View style={styles.courtsMapCallout}>
+                      <Text style={styles.courtsMapCalloutName} numberOfLines={2}>{court.name}</Text>
+                      <View style={styles.courtsMapCalloutMeta}>
+                        {court.surface && court.surface !== "unknown" ? (
+                          <Text style={styles.courtsMapCalloutSurface}>
+                            {court.surface.charAt(0).toUpperCase() + court.surface.slice(1)}
+                          </Text>
+                        ) : null}
+                        {court.distance != null ? (
+                          <Text style={styles.courtsMapCalloutDistance}>{court.distance} km away</Text>
+                        ) : null}
+                      </View>
+                      {court.isInternal && court.bookingEnabled ? (
+                        <Pressable
+                          style={styles.courtsMapCalloutBookBtn}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate("BookCourt" as never);
+                          }}
+                        >
+                          <Text style={styles.courtsMapCalloutBookBtnText}>Book</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </Callout>
+                </Marker>
+              ))}
+            </MapView>
+          </View>
+        )}
       </View>
     );
   };
@@ -3284,6 +3384,100 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: Colors.dark.primary,
+  },
+
+  // Courts view toggle
+  courtsViewToggle: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: 2,
+    gap: 2,
+  },
+  courtsViewToggleBtn: {
+    padding: 6,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtsViewToggleBtnActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+
+  // Courts map
+  courtsMapContainer: {
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    height: 260,
+    marginTop: Spacing.sm,
+  },
+  courtsMap: {
+    width: "100%",
+    height: "100%",
+  },
+  courtsMapWebFallback: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    height: 260,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+  },
+  courtsMapWebFallbackText: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  courtsMapCallout: {
+    width: 180,
+    padding: Spacing.sm,
+    gap: 4,
+  },
+  courtsMapCalloutName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    lineHeight: 17,
+  },
+  courtsMapCalloutMeta: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+  },
+  courtsMapCalloutSurface: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  courtsMapCalloutDistance: {
+    fontSize: 11,
+    color: Colors.dark.xpCyan,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.xpCyan + "15",
+  },
+  courtsMapCalloutBookBtn: {
+    marginTop: 4,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.sm,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  courtsMapCalloutBookBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 
   // Session Info Modal
