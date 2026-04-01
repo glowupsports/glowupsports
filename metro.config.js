@@ -29,12 +29,20 @@ config.server = {
   },
 };
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const existingBlockList = Array.isArray(config.resolver?.blockList)
+  ? config.resolver.blockList
+  : config.resolver?.blockList
+    ? [config.resolver.blockList]
+    : [];
+
 config.resolver = {
   ...config.resolver,
   blockList: [
-    new RegExp(`${path.resolve(__dirname, ".local")}.*`),
-    new RegExp(`${path.resolve(__dirname, ".git")}.*`),
-    new RegExp(`${path.resolve(__dirname, "scripts")}.*`),
+    ...existingBlockList,
+    new RegExp(`${escapeRegex(path.resolve(__dirname, ".local"))}.*`),
+    new RegExp(`${escapeRegex(path.resolve(__dirname, ".git"))}.*`),
+    new RegExp(`${escapeRegex(path.resolve(__dirname, "scripts"))}.*`),
   ],
   resolveRequest: (context, moduleName, platform) => {
     if (platform === "web" && moduleName === "react-native-pager-view") {
