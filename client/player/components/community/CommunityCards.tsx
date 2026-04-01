@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   Alert,
-  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -154,9 +153,7 @@ export function MomentCard({
   const mediaUrl = rawMediaUrl
     ? rawMediaUrl.startsWith("http")
       ? rawMediaUrl
-      : Platform.OS === "web"
-        ? (rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`)
-        : `${getApiUrl()}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
+      : `${getApiUrl()}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
     : "";
 
   return (
@@ -204,7 +201,7 @@ export function MomentCard({
           <View style={styles.momentHeader}>
             <View style={styles.avatarGlow}>
               {post.author.photoUrl ? (
-                <Image source={{ uri: post.author.photoUrl.startsWith("http") ? post.author.photoUrl : Platform.OS === "web" ? (post.author.photoUrl.startsWith("/") ? post.author.photoUrl : `/${post.author.photoUrl}`) : `${getApiUrl()}${post.author.photoUrl.startsWith("/") ? post.author.photoUrl : `/${post.author.photoUrl}`}` }} style={styles.momentAvatar} />
+                <Image source={{ uri: post.author.photoUrl.startsWith("http") ? post.author.photoUrl : `${getApiUrl()}${post.author.photoUrl.startsWith("/") ? post.author.photoUrl : `/${post.author.photoUrl}`}` }} style={styles.momentAvatar} />
               ) : (
                 <View style={[styles.momentAvatar, styles.avatarPlaceholder]}>
                   <ThemedText style={styles.avatarInitial}>
