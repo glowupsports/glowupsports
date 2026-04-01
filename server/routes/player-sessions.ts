@@ -7163,4 +7163,126 @@ import fs from "fs";
     },
   );
 
+// ==================== ICS CALENDAR FEED ====================
+
+router.get(
+  "/api/player/me/calendar-token",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      const secret = process.env.SESSION_SECRET || "fallback-secret";
+      const token = crypto.createHmac("sha256", secret).update(playerId).digest("hex").slice(0, 32);
+      res.json({ token });
+    } catch (error) {
+      console.error("[ICS] Token generation error:", error);
+      res.status(500).json({ error: "Failed to generate token" });
+    }
+  },
+);
+
+function generateIcsToken(playerId: string): string {
+  const secret = process.env.SESSION_SECRET || "fallback-secret";
+  return crypto.createHmac("sha256", secret).update(playerId).digest("hex").slice(0, 32);
+}
+
+function formatIcsDate(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+}
+
+function escapeIcs(str: string): string {
+  return (str || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+router.get(
+  "/api/player/calendar/:playerId/sessions.ics",
+  async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const { token } = req.query;
+
+      if (!token || token !== generateIcsToken(playerId)) {
+        return res.status(401).send("Unauthorized");
+      }
+
+      const now = new Date();
+      const rows = await db
+        .select({
+          sessionId: sessions.id,
+          title: sessions.title,
+          startTime: sessions.startTime,
+          endTime: sessions.endTime,
+          sessionType: sessions.sessionType,
+          courtName: sessions.courtName,
+          coachId: sessions.coachId,
+        })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+        .where(
+          and(
+            eq(sessionPlayers.playerId, playerId),
+            gt(sessions.startTime, now),
+            ne(sessions.status, "cancelled"),
+          ),
+        )
+        .orderBy(asc(sessions.startTime));
+
+      const coachIds = [...new Set(rows.map((r) => r.coachId).filter(Boolean))] as string[];
+      const coachMap = new Map<string, string>();
+      if (coachIds.length > 0) {
+        const coachRows = await db
+          .select({ id: coaches.id, name: coaches.name })
+          .from(coaches)
+          .where(inArray(coaches.id, coachIds));
+        for (const c of coachRows) {
+          if (c.name) coachMap.set(c.id, c.name);
+        }
+      }
+
+      const lines: string[] = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//GlowUp//Player Sessions//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:My Sessions",
+        "X-WR-TIMEZONE:UTC",
+      ];
+
+      for (const row of rows) {
+        const start = new Date(row.startTime);
+        const end = row.endTime ? new Date(row.endTime) : new Date(start.getTime() + 60 * 60 * 1000);
+        const coachName = row.coachId ? coachMap.get(row.coachId) : null;
+        const description = coachName ? `Coach: ${coachName}` : "";
+        const location = row.courtName || "";
+        const title = row.title || row.sessionType || "Session";
+
+        lines.push("BEGIN:VEVENT");
+        lines.push(`UID:session-${row.sessionId}@glowup`);
+        lines.push(`DTSTART:${formatIcsDate(start)}`);
+        lines.push(`DTEND:${formatIcsDate(end)}`);
+        lines.push(`SUMMARY:${escapeIcs(title)}`);
+        if (description) lines.push(`DESCRIPTION:${escapeIcs(description)}`);
+        if (location) lines.push(`LOCATION:${escapeIcs(location)}`);
+        lines.push(`DTSTAMP:${formatIcsDate(new Date())}`);
+        lines.push("END:VEVENT");
+      }
+
+      lines.push("END:VCALENDAR");
+
+      res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="sessions.ics"`);
+      res.send(lines.join("\r\n"));
+    } catch (error) {
+      console.error("[ICS] Error generating calendar feed:", error);
+      res.status(500).send("Failed to generate calendar");
+    }
+  },
+);
+
+export { generateIcsToken };
 export default router;

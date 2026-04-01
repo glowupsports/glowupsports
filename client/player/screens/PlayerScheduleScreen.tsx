@@ -16,6 +16,10 @@ import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon, type Sport } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
+import { usePlayer } from "@/player/context/PlayerContext";
+import * as Calendar from "expo-calendar";
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 
 const ProTennisColors = {
   midnightBlue: "#0B0D10",
@@ -172,6 +176,7 @@ export default function PlayerScheduleScreen() {
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
+  const { playerId } = usePlayer();
   const [showSportPickerModal, setShowSportPickerModal] = useState(false);
   const [sportPickerDestination, setSportPickerDestination] = useState<"LessonBooking" | "CourtBooking" | "OpenMatches">("OpenMatches");
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -184,6 +189,8 @@ export default function PlayerScheduleScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
 
   // Walkthrough effect - only run once on mount using ref to prevent re-triggers
   const walkthroughTriggered = React.useRef(false);
@@ -690,6 +697,89 @@ export default function PlayerScheduleScreen() {
     }
   };
 
+  const { data: icsTokenData } = useQuery<{ token: string }>({
+    queryKey: ["/api/player/me/calendar-token"],
+    enabled: !!playerId,
+  });
+
+  const getIcsUrl = (): string | null => {
+    if (!playerId || !icsTokenData?.token) return null;
+    const base = getApiUrl();
+    return new URL(`/api/player/calendar/${playerId}/sessions.ics?token=${icsTokenData.token}`, base).toString();
+  };
+
+  const handleOpenCalendarSubscribe = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowCalendarModal(true);
+  };
+
+  const handleSubscribeGoogleCalendar = async () => {
+    const url = getIcsUrl();
+    if (!url) { Alert.alert("Not ready", "Your calendar link is loading."); return; }
+    const gcalUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
+    await Linking.openURL(gcalUrl);
+  };
+
+  const handleSubscribeAppleCalendar = async () => {
+    const url = getIcsUrl();
+    if (!url) { Alert.alert("Not ready", "Your calendar link is loading."); return; }
+    const webcalUrl = url.replace(/^https?:\/\//, "webcal://");
+    await Linking.openURL(webcalUrl);
+  };
+
+  const handleCopyCalendarLink = async () => {
+    const url = getIcsUrl();
+    if (!url) { Alert.alert("Not ready", "Your calendar link is loading."); return; }
+    await Clipboard.setStringAsync(url);
+    setCalendarLinkCopied(true);
+    setTimeout(() => setCalendarLinkCopied(false), 2500);
+  };
+
+  const handleAddSessionToCalendar = async (item: ScheduledItem) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Please allow calendar access to add sessions.");
+        return;
+      }
+
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      let calendarId: string | null = null;
+      if (Platform.OS === "ios") {
+        const defaultCal = calendars.find((c) => c.allowsModifications && c.source?.name === "Default") || calendars.find((c) => c.allowsModifications);
+        calendarId = defaultCal?.id || null;
+      } else {
+        const primary = calendars.find((c) => c.isPrimary && c.allowsModifications) || calendars.find((c) => c.allowsModifications);
+        calendarId = primary?.id || null;
+      }
+
+      if (!calendarId) {
+        Alert.alert("No Calendar", "Could not find a writable calendar on your device.");
+        return;
+      }
+
+      const startDate = new Date(`${item.date}T${item.startTime}`);
+      const endDate = new Date(`${item.date}T${item.endTime}`);
+      const description = item.coachName ? `Coach: ${item.coachName}` : "";
+
+      await Calendar.createEventAsync(calendarId, {
+        title: item.title,
+        startDate,
+        endDate,
+        location: item.locationAddress || item.locationName || item.courtName || undefined,
+        notes: description,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Added to Calendar", `"${item.title}" has been added to your calendar.`);
+    } catch (error) {
+      console.error("[Calendar] Add event error:", error);
+      Alert.alert("Error", "Could not add the session to your calendar.");
+    }
+  };
+
   if (sessionsLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -716,7 +806,12 @@ export default function PlayerScheduleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <Text style={styles.screenTitle}>My Schedule</Text>
+          <View style={styles.screenTitleRow}>
+            <Text style={styles.screenTitle}>My Schedule</Text>
+            <Pressable style={styles.calendarHeaderBtn} onPress={handleOpenCalendarSubscribe}>
+              <Feather name="calendar" size={20} color={ProTennisColors.neonCyan} />
+            </Pressable>
+          </View>
           {isMultiSport ? <SportSwitcherChips style={{ marginTop: Spacing.sm, marginBottom: Spacing.xs }} /> : null}
         </Animated.View>
 
@@ -992,6 +1087,12 @@ export default function PlayerScheduleScreen() {
                       {new Date(item.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {item.startTime}
                     </Text>
                   </View>
+                  <Pressable
+                    style={styles.addToCalBtn}
+                    onPress={() => handleAddSessionToCalendar(item)}
+                  >
+                    <Feather name="calendar" size={16} color={ProTennisColors.neonCyan} />
+                  </Pressable>
                   <View style={[styles.upcomingBadge, { backgroundColor: getTypeColor(item.type) + "20" }]}>
                     <Text style={[styles.upcomingBadgeText, { color: getTypeColor(item.type) }]}>
                       {item.type.charAt(0).toUpperCase() + item.type.slice(1).replace('_', '-')}
@@ -1287,6 +1388,67 @@ export default function PlayerScheduleScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showCalendarModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCalendarModal(false)}
+      >
+        <Pressable style={styles.calendarModalOverlay} onPress={() => setShowCalendarModal(false)}>
+          <Pressable style={[styles.calendarModalSheet, { paddingBottom: insets.bottom + Spacing.lg }]} onPress={() => {}}>
+            <View style={styles.calendarModalHandle} />
+            <View style={styles.calendarModalHeader}>
+              <Feather name="calendar" size={22} color={ProTennisColors.neonCyan} />
+              <Text style={styles.calendarModalTitle}>Sync My Sessions</Text>
+            </View>
+            <Text style={styles.calendarModalSubtitle}>
+              Subscribe to get all your upcoming sessions automatically in your calendar.
+            </Text>
+
+            <Pressable style={styles.calendarOptionBtn} onPress={handleSubscribeGoogleCalendar}>
+              <View style={[styles.calendarOptionIcon, { backgroundColor: "#4285F420" }]}>
+                <Feather name="globe" size={20} color="#4285F4" />
+              </View>
+              <View style={styles.calendarOptionInfo}>
+                <Text style={styles.calendarOptionTitle}>Subscribe in Google Calendar</Text>
+                <Text style={styles.calendarOptionDesc}>Opens Google Calendar to add your session feed</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={ProTennisColors.textMuted} />
+            </Pressable>
+
+            <Pressable style={styles.calendarOptionBtn} onPress={handleSubscribeAppleCalendar}>
+              <View style={[styles.calendarOptionIcon, { backgroundColor: ProTennisColors.neonGreen + "20" }]}>
+                <Feather name="smartphone" size={20} color={ProTennisColors.neonGreen} />
+              </View>
+              <View style={styles.calendarOptionInfo}>
+                <Text style={styles.calendarOptionTitle}>Subscribe in Apple Calendar</Text>
+                <Text style={styles.calendarOptionDesc}>Opens Apple Calendar to subscribe on iOS</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={ProTennisColors.textMuted} />
+            </Pressable>
+
+            <Pressable style={styles.calendarOptionBtn} onPress={handleCopyCalendarLink}>
+              <View style={[styles.calendarOptionIcon, { backgroundColor: ProTennisColors.neonPurple + "20" }]}>
+                <Feather name={calendarLinkCopied ? "check" : "link"} size={20} color={calendarLinkCopied ? ProTennisColors.neonGreen : ProTennisColors.neonPurple} />
+              </View>
+              <View style={styles.calendarOptionInfo}>
+                <Text style={styles.calendarOptionTitle}>{calendarLinkCopied ? "Copied!" : "Copy Calendar Link"}</Text>
+                <Text style={styles.calendarOptionDesc}>Paste into any calendar app that supports ICS</Text>
+              </View>
+              {calendarLinkCopied ? (
+                <Feather name="check" size={18} color={ProTennisColors.neonGreen} />
+              ) : (
+                <Feather name="copy" size={18} color={ProTennisColors.textMuted} />
+              )}
+            </Pressable>
+
+            <Pressable style={styles.calendarModalClose} onPress={() => setShowCalendarModal(false)}>
+              <Text style={styles.calendarModalCloseText}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1314,12 +1476,113 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  screenTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingRight: Spacing.lg,
+  },
   screenTitle: {
     fontSize: 28,
     fontWeight: "800",
     color: ProTennisColors.white,
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
+  },
+  calendarHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ProTennisColors.neonCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  addToCalBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ProTennisColors.neonCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.xs,
+  },
+  calendarModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  calendarModalSheet: {
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  calendarModalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: ProTennisColors.border,
+    alignSelf: "center",
+    marginBottom: Spacing.md,
+  },
+  calendarModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  calendarModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: ProTennisColors.white,
+  },
+  calendarModalSubtitle: {
+    fontSize: 13,
+    color: ProTennisColors.textSecondary,
+    marginBottom: Spacing.lg,
+  },
+  calendarOptionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ProTennisColors.surfaceElevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: ProTennisColors.border,
+  },
+  calendarOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarOptionInfo: {
+    flex: 1,
+  },
+  calendarOptionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  calendarOptionDesc: {
+    fontSize: 12,
+    color: ProTennisColors.textMuted,
+    marginTop: 2,
+  },
+  calendarModalClose: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  calendarModalCloseText: {
+    fontSize: 15,
+    color: ProTennisColors.textSecondary,
+    fontWeight: "600",
   },
   quickActionsRow: {
     flexDirection: "row",
