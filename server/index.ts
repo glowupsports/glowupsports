@@ -951,6 +951,28 @@ function setupErrorHandler(app: express.Application) {
         console.error("[InviteAcademyRepair] Failed:", err);
       }
 
+      // One-time fix: re-link "Maple" court to the Google-verified location that has coordinates
+      // (Task #223 — court pointed to old location "Maple tennis court" with null lat/lng;
+      //  correct location "Maple 1 Tennis Court" (id: 1e178e26-...) exists with lat/lng set)
+      try {
+        const { db: dbInstance } = await import("./db");
+        const { sql: sqlTag } = await import("drizzle-orm");
+        const mapleResult = await dbInstance.execute(sqlTag`
+          UPDATE courts
+          SET location_id = '1e178e26-2996-40e6-a186-36c58cd76efe'
+          WHERE id = 'f0154208-e9c3-448d-a7cf-1a2f77e577d5'
+            AND location_id != '1e178e26-2996-40e6-a186-36c58cd76efe'
+        `);
+        const fixed = mapleResult.rowCount ?? 0;
+        if (fixed > 0) {
+          log("[MapleCourtFix] Re-linked Maple court to correct location with coordinates");
+        } else {
+          log("[MapleCourtFix] Maple court already linked correctly — no action needed");
+        }
+      } catch (err) {
+        console.error("[MapleCourtFix] Failed:", err);
+      }
+
       // Migrate legacy player invite codes (16-char hex → 6-char short format)
       try {
         const { db: dbInstance } = await import("./db");

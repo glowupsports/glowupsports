@@ -1106,7 +1106,7 @@ export default function PlayScreen() {
                 ) : (
                   <View style={[styles.nearbyCourtDistanceBadge, { backgroundColor: Colors.dark.backgroundTertiary }]}>
                     <Ionicons name="location-outline" size={10} color={Colors.dark.textMuted} />
-                    <Text style={[styles.nearbyCourtDistanceText, { color: Colors.dark.textMuted }]}>No location</Text>
+                    <Text style={[styles.nearbyCourtDistanceText, { color: Colors.dark.textMuted }]}>No location set</Text>
                   </View>
                 )}
               </View>
