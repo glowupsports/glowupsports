@@ -1564,8 +1564,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const ownCourts: NearbyCourt[] = ownCourtRows.rows.map((row) => {
-        const hasCoords = row.lat != null && row.lng != null && row.lat !== "" && row.lng !== "";
-        const dist = hasCoords ? Math.round(haversineKm(userLat, userLng, parseFloat(row.lat!), parseFloat(row.lng!)) * 10) / 10 : null;
+        const parsedLat = row.lat != null && row.lat !== "" ? parseFloat(row.lat) : NaN;
+        const parsedLng = row.lng != null && row.lng !== "" ? parseFloat(row.lng) : NaN;
+        const hasCoords = Number.isFinite(parsedLat) && Number.isFinite(parsedLng);
+        const dist = hasCoords ? Math.round(haversineKm(userLat, userLng, parsedLat, parsedLng) * 10) / 10 : null;
         return {
           id: row.id,
           name: row.name,
@@ -1575,8 +1577,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           surface: row.surface || "hard",
           isInternal: true,
           bookingEnabled: row.booking_enabled !== false,
-          lat: hasCoords ? parseFloat(row.lat!) : null,
-          lng: hasCoords ? parseFloat(row.lng!) : null,
+          lat: hasCoords ? parsedLat : null,
+          lng: hasCoords ? parsedLng : null,
           googlePlaceId: null,
           academyName: null,
         };
