@@ -738,6 +738,13 @@ function configureExpoAndLanding(app: express.Application) {
   // Profile photos in the profile-photos subdirectory are served publicly (needed for public academy/coach profiles)
   app.use("/uploads/profile-photos", express.static(path.resolve(process.cwd(), "uploads/profile-photos")));
 
+  // Social post media is public (community feed images)
+  app.use("/uploads/social-posts", express.static(path.resolve(process.cwd(), "uploads/social-posts")));
+  // Marketplace listing photos are public
+  app.use("/uploads/marketplace-listings", express.static(path.resolve(process.cwd(), "uploads/marketplace-listings")));
+  // Group event photos are public
+  app.use("/uploads/group-events", express.static(path.resolve(process.cwd(), "uploads/group-events")));
+
   // All other uploads require a valid JWT token for ALL HTTP methods (GET, HEAD, etc.)
   const uploadsAuthGuard = (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
