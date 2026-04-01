@@ -1446,7 +1446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (mode === "venue") {
         const coords = isoCode ? COUNTRY_COORDS[isoCode] : undefined;
         const locationBias = coords
-          ? `&location=${coords.lat},${coords.lng}&radius=${coords.radius}&strictbounds=true`
+          ? `&location=${coords.lat},${coords.lng}&radius=${coords.radius}`
           : "";
         url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&language=en${locationBias}`;
       } else {
