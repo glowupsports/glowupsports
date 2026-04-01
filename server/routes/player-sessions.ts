@@ -1642,13 +1642,21 @@ import fs from "fs";
             ballLevel: player.ballLevel || "red",
             streak: player.streak || 0,
             createdAt: player.createdAt,
+            phone: player.phone || null,
+            dateOfBirth: player.dateOfBirth || null,
             dominantHand: (player as any).dominantHand || null,
+            backhandType: (player as any).backhandType || null,
+            tshirtSize: (player as any).tshirtSize || null,
+            height: (player as any).height || null,
+            bio: (player as any).bio || null,
+            medicalNotes: (player as any).medicalNotes || null,
+            parentEmail: (player as any).parentEmail || null,
+            isAdult: (player as any).isAdult ?? false,
             preferredPlayType: (player as any).preferredPlayType || null,
             openToPlay: (player as any).openToPlay || false,
             typicalPlayTimes: (player as any).typicalPlayTimes || null,
             preferredCities: (player as any).preferredCities || null,
             matchPreference: (player as any).matchPreference || null,
-            bio: (player as any).bio || null,
             displayName: (player as any).displayName || null,
             profilePhotoUrl: (player as any).profilePhotoUrl || null,
             playStyle: (player as any).playStyle || null,
@@ -1823,8 +1831,13 @@ import fs from "fs";
           name: true,
           phone: true,
           dateOfBirth: true,
-          parentName: true,
-          parentPhone: true,
+          ballLevel: true,
+          dominantHand: true,
+          backhandType: true,
+          tshirtSize: true,
+          height: true,
+          bio: true,
+          medicalNotes: true,
         });
         const parseResult = allowedFields.safeParse(req.body);
         if (!parseResult.success) {
@@ -1847,6 +1860,13 @@ import fs from "fs";
           updateData.age = null;
         }
         const updated = await storage.updatePlayer(playerId, updateData);
+        // Handle parentEmail separately (not in updatePlayerSchema)
+        if (req.body.parentEmail !== undefined) {
+          const parentEmailVal = req.body.parentEmail || null;
+          await db.execute(
+            sql`UPDATE players SET parent_email = ${parentEmailVal} WHERE id = ${playerId}`,
+          );
+        }
         res.json(updated);
       } catch (error) {
         console.error("Error updating player info:", error);

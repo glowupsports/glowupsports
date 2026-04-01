@@ -1065,6 +1065,7 @@ export const updatePlayerSchema = z.object({
   membershipType: z.string().optional().nullable(),
   medicalNotes: z.string().optional().nullable(),
   coachId: z.string().optional().nullable(),
+  dominantHand: z.enum(["left", "right"]).optional().nullable(),
   backhandType: z.enum(["single", "double"]).optional().nullable(),
   tshirtSize: z.enum(tshirtSizes).optional().nullable(),
   height: z.number().int().min(50).max(250).optional().nullable(),
