@@ -280,6 +280,7 @@ export default function PlayerSettingsScreen() {
       icon: "person",
       label: "Edit Profile",
       type: "link",
+      onPress: () => (navigation as any).navigate("EditProfile"),
     },
     {
       id: "corporate-benefits",

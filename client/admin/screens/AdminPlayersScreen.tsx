@@ -141,6 +141,7 @@ export default function AdminPlayersScreen() {
     ballLevel: "green",
     parentName: "",
     parentPhone: "",
+    dateOfBirth: "",
   });
 
   const { data: players = [], isLoading, error, refetch } = useQuery<Player[]>({
@@ -224,6 +225,25 @@ export default function AdminPlayersScreen() {
     },
   });
 
+  const updatePlayerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+      return apiRequest("PATCH", `/api/players/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      setShowAddModal(false);
+      resetForm();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(`Error: ${err.message}`);
+      } else {
+        Alert.alert("Error", err.message);
+      }
+    },
+  });
+
   const deletePlayerMutation = useMutation({
     mutationFn: async (playerId: string) => {
       return apiRequest("DELETE", `/api/admin/players/${playerId}`);
@@ -244,7 +264,7 @@ export default function AdminPlayersScreen() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "", ballLevel: "green", parentName: "", parentPhone: "" });
+    setFormData({ name: "", email: "", phone: "", ballLevel: "green", parentName: "", parentPhone: "", dateOfBirth: "" });
     setEditingPlayer(null);
   };
 
@@ -293,7 +313,11 @@ export default function AdminPlayersScreen() {
       }
       return;
     }
-    addPlayerMutation.mutate(formData);
+    if (editingPlayer) {
+      updatePlayerMutation.mutate({ id: editingPlayer.id, data: formData });
+    } else {
+      addPlayerMutation.mutate(formData);
+    }
   };
 
   const handleDelete = () => {
@@ -548,6 +572,7 @@ export default function AdminPlayersScreen() {
               ballLevel: player.ballLevel || "green",
               parentName: player.parentName || "",
               parentPhone: player.parentPhone || "",
+              dateOfBirth: player.dateOfBirth || "",
             });
             closeDetailModal();
             setShowAddModal(true);
@@ -876,7 +901,7 @@ export default function AdminPlayersScreen() {
         formData={formData}
         setFormData={setFormData}
         onSubmit={handleSubmit}
-        isSubmitting={addPlayerMutation.isPending}
+        isSubmitting={addPlayerMutation.isPending || updatePlayerMutation.isPending}
       />
 
       <AdminDeletePlayerModal

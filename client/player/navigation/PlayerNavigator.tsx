@@ -89,6 +89,7 @@ import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
+import PlayerEditProfileScreen from "@/player/screens/PlayerEditProfileScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
 import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
 import VideoFeedbackPlayerScreen from "@/player/screens/VideoFeedbackPlayerScreen";
@@ -172,6 +173,7 @@ export type PlayerStackParamList = {
   SkillDetail: { domain: string };
   Journey: undefined;
   Settings: undefined;
+  EditProfile: undefined;
   AcademyBrowser: undefined;
   AcademyProfile: { academyId: string };
   CoachDirectory: undefined;
@@ -704,6 +706,14 @@ function PlayerStackNavigator() {
         component={PlayerSettingsScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={PlayerEditProfileScreen}
+        options={{
+          headerTitle: "Edit Profile",
+          presentation: "modal",
         }}
       />
       <Stack.Screen 

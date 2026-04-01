@@ -1,8 +1,9 @@
-import React from "react";
-import { View, Text, Pressable, Modal, TextInput } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, Modal, TextInput, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { styles } from "./adminPlayersStyles";
@@ -29,6 +30,7 @@ type FormData = {
   ballLevel: string;
   parentName: string;
   parentPhone: string;
+  dateOfBirth: string;
 };
 
 interface AdminAddPlayerModalProps {
@@ -51,6 +53,27 @@ export function AdminAddPlayerModal({
   isSubmitting,
 }: AdminAddPlayerModalProps) {
   const insets = useSafeAreaInsets();
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const selectedDate = formData.dateOfBirth ? new Date(formData.dateOfBirth) : new Date();
+
+  const handleDateChange = (_event: unknown, date?: Date) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      const iso = date.toISOString().split("T")[0];
+      setFormData((prev) => ({ ...prev, dateOfBirth: iso }));
+    }
+  };
+
+  const formattedDob = formData.dateOfBirth
+    ? new Date(formData.dateOfBirth + "T00:00:00").toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "Select date";
 
   return (
     <Modal
@@ -112,6 +135,35 @@ export function AdminAddPlayerModal({
               placeholderTextColor={Colors.dark.textMuted}
               keyboardType="phone-pad"
             />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <Pressable
+              style={[styles.input, { justifyContent: "center" }]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={{ color: formData.dateOfBirth ? Colors.dark.text : Colors.dark.textMuted }}>
+                {formattedDob}
+              </Text>
+            </Pressable>
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                maximumDate={new Date()}
+                onChange={handleDateChange}
+              />
+            )}
+            {showDatePicker && Platform.OS === "ios" && (
+              <Pressable
+                onPress={() => setShowDatePicker(false)}
+                style={{ alignItems: "flex-end", paddingVertical: 4 }}
+              >
+                <Text style={{ color: Colors.dark.orange }}>Done</Text>
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.formGroup}>

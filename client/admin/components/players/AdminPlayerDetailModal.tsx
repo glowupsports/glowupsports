@@ -140,6 +140,7 @@ export function AdminPlayerDetailModal({
                   ballLevel: stats.player.ballLevel || "green",
                   parentName: stats.player.parentName || "",
                   parentPhone: stats.player.parentPhone || "",
+                  dateOfBirth: stats.player.dateOfBirth || "",
                 });
                 closeDetailModal();
                 setShowAddModal(true);

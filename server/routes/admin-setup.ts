@@ -1114,7 +1114,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           });
         }
 
-        const updated = await storage.updatePlayer(id, parseResult.data);
+        const updateData = { ...parseResult.data };
+        // Recalculate age from dateOfBirth so subsequent session logic uses the correct age group
+        if (updateData.dateOfBirth) {
+          const birth = new Date(updateData.dateOfBirth);
+          const now = new Date();
+          let calculatedAge = now.getFullYear() - birth.getFullYear();
+          const m = now.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) calculatedAge--;
+          updateData.age = calculatedAge >= 0 ? calculatedAge : null;
+        } else if (updateData.dateOfBirth === null) {
+          // DOB explicitly cleared — clear derived age too to avoid stale values
+          updateData.age = null;
+        }
+
+        const updated = await storage.updatePlayer(id, updateData);
         res.json(updated);
       } catch (error) {
         console.error("Error updating player:", error);

@@ -1808,6 +1808,53 @@ import fs from "fs";
     },
   );
 
+  // Update player personal info (self-service)
+  router.patch(
+    "/api/player/me/info",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      if (!req.user!.playerId) {
+        return res.status(400).json({ error: "No player profile found" });
+      }
+      try {
+        const playerId = req.user!.playerId!;
+        const allowedFields = updatePlayerSchema.pick({
+          name: true,
+          phone: true,
+          dateOfBirth: true,
+          parentName: true,
+          parentPhone: true,
+        });
+        const parseResult = allowedFields.safeParse(req.body);
+        if (!parseResult.success) {
+          return res.status(400).json({
+            error: "Validation failed",
+            details: fromZodError(parseResult.error).message,
+          });
+        }
+        const updateData: typeof parseResult.data & { age?: number | null } = { ...parseResult.data };
+        // Recalculate age from dateOfBirth so subsequent session logic uses the correct age group
+        if (updateData.dateOfBirth) {
+          const birth = new Date(updateData.dateOfBirth);
+          const now = new Date();
+          let calculatedAge = now.getFullYear() - birth.getFullYear();
+          const m = now.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) calculatedAge--;
+          updateData.age = calculatedAge >= 0 ? calculatedAge : null;
+        } else if (updateData.dateOfBirth === null) {
+          // DOB explicitly cleared — clear derived age too to avoid stale values
+          updateData.age = null;
+        }
+        const updated = await storage.updatePlayer(playerId, updateData);
+        res.json(updated);
+      } catch (error) {
+        console.error("Error updating player info:", error);
+        res.status(500).json({ error: "Failed to update profile" });
+      }
+    },
+  );
+
   // Upload player profile photo
   router.post(
     "/api/player/me/photo",
