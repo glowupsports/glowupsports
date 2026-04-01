@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Image as RNImage,
 } from "react-native";
+import * as Location from "expo-location";
 import { Image } from "expo-image";
 import Animated, {
   useSharedValue,
@@ -101,6 +102,76 @@ interface WeeklyCalendarData {
   courts: any[];
   dateRange: { start: string; end: string };
 }
+
+function TravelAlertBanner({ locationName, shouldLeaveInMinutes }: { locationName: string; shouldLeaveInMinutes: number }) {
+  const pulseOpacity = useSharedValue(1);
+  useEffect(() => {
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.5, { duration: 800 }),
+        withTiming(1, { duration: 800 }),
+      ),
+      -1,
+      false
+    );
+  }, []);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulseOpacity.value }));
+
+  const isLate = shouldLeaveInMinutes < 0;
+  const isUrgent = !isLate && shouldLeaveInMinutes <= 10;
+  const isWarning = !isLate && !isUrgent && shouldLeaveInMinutes <= 30;
+
+  let bannerColor = "#2ECC40";
+  if (isLate) bannerColor = "#E74C3C";
+  else if (isUrgent) bannerColor = "#E74C3C";
+  else if (isWarning) bannerColor = "#F39C12";
+
+  const label = isLate
+    ? `You're late — leave for ${locationName} NOW`
+    : `Next: ${locationName} — Leave in ${shouldLeaveInMinutes} min`;
+
+  return (
+    <Animated.View style={[travelBannerStyles.wrapper, { borderColor: bannerColor + "80" }, pulseStyle]}>
+      <LinearGradient
+        colors={[bannerColor + "22", bannerColor + "10"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={travelBannerStyles.gradient}
+      >
+        <View style={travelBannerStyles.iconRow}>
+          <Ionicons name="navigate" size={16} color={bannerColor} />
+          <Text style={[travelBannerStyles.label, { color: bannerColor }]} numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+const travelBannerStyles = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  gradient: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+  iconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
+  },
+});
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
@@ -443,6 +514,95 @@ export default function DashboardScreen() {
     queryKey: ["/api/coach/booking-requests?status=pending"],
     enabled: !!coach?.id,
     staleTime: 30000,
+  });
+
+  // === GPS LOCATION TRACKING ===
+  const locationWatcherRef = useRef<Location.LocationSubscription | null>(null);
+  const lastSentLocationRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
+
+  const sendLocationToServer = useCallback(async (lat: number, lng: number) => {
+    try {
+      await apiRequest("PATCH", "/api/coach/me/location", { lat, lng });
+      lastSentLocationRef.current = { lat, lng, ts: Date.now() };
+    } catch (err) {
+      // silently ignore location update errors
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function setupLocationTracking() {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted" || cancelled) return;
+
+      const initial = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      if (!cancelled) {
+        sendLocationToServer(initial.coords.latitude, initial.coords.longitude);
+      }
+
+      const sub = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: 50,
+          timeInterval: 2 * 60 * 1000,
+        },
+        (loc) => {
+          if (cancelled) return;
+          const { latitude, longitude } = loc.coords;
+          const last = lastSentLocationRef.current;
+          const now = Date.now();
+          if (!last || now - last.ts >= 2 * 60 * 1000) {
+            sendLocationToServer(latitude, longitude);
+          } else {
+            const dLat = latitude - last.lat;
+            const dLng = longitude - last.lng;
+            const approxKm = Math.sqrt(dLat * dLat + dLng * dLng) * 111;
+            if (approxKm > 0.05) {
+              sendLocationToServer(latitude, longitude);
+            }
+          }
+        }
+      );
+
+      if (!cancelled) {
+        locationWatcherRef.current = sub;
+      } else {
+        sub.remove();
+      }
+    }
+
+    if (coach?.id) {
+      setupLocationTracking().catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+      if (locationWatcherRef.current) {
+        locationWatcherRef.current.remove();
+        locationWatcherRef.current = null;
+      }
+    };
+  }, [coach?.id, sendLocationToServer]);
+
+  // === ETA QUERY FOR TRAVEL BANNER ===
+  const { data: nextSessionEta } = useQuery<{
+    sessionId?: string;
+    locationName?: string;
+    sessionStart?: string;
+    minutesToSession?: number;
+    minutes?: number;
+    sameLocation?: boolean;
+    shouldLeaveInMinutes?: number;
+    eta?: null;
+    reason?: string;
+  } | null>({
+    queryKey: ["/api/coach/me/next-session-eta"],
+    enabled: !!coach?.id,
+    refetchInterval: 60 * 1000,
+    staleTime: 55 * 1000,
   });
 
   const pendingFeedbackCount = useMemo(() => {
@@ -1016,6 +1176,14 @@ export default function DashboardScreen() {
             })}
           </View>
         )}
+
+        {/* === TRAVEL ALERT BANNER === */}
+        {nextSessionEta && !nextSessionEta.sameLocation && nextSessionEta.locationName && typeof nextSessionEta.shouldLeaveInMinutes === "number" && nextSessionEta.shouldLeaveInMinutes <= 45 ? (
+          <TravelAlertBanner
+            locationName={nextSessionEta.locationName}
+            shouldLeaveInMinutes={nextSessionEta.shouldLeaveInMinutes}
+          />
+        ) : null}
 
         {/* === COURT COMMAND - Tennis Control Centre === */}
         

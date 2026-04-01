@@ -1,6 +1,6 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes } from "@shared/schema";
 import { storage, ensureCreditProcessed } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
@@ -721,6 +721,203 @@ export async function processScheduledReminders(): Promise<void> {
 }
 
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
+
+// In-memory set to avoid spamming departure notifications within the same scheduler run
+const departureNotifiedSessions = new Set<string>();
+
+interface DepartureDistanceMatrixElement {
+  status: string;
+  duration_in_traffic?: { value: number; text: string };
+  duration?: { value: number; text: string };
+}
+
+interface DepartureDistanceMatrixRow {
+  elements?: DepartureDistanceMatrixElement[];
+}
+
+interface DepartureDistanceMatrixResponse {
+  status: string;
+  rows?: DepartureDistanceMatrixRow[];
+}
+
+async function fetchDepartureEtaMinutes(
+  originLat: number,
+  originLng: number,
+  destLat: number,
+  destLng: number,
+  apiKey: string
+): Promise<number | null> {
+  const origin = `${originLat},${originLng}`;
+  const destination = `${destLat},${destLng}`;
+  const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&mode=driving&departure_time=now&key=${apiKey}`;
+  try {
+    const mapsRes = await fetch(url);
+    if (!mapsRes.ok) return null;
+    const mapsData = await mapsRes.json() as DepartureDistanceMatrixResponse;
+    if (mapsData.status !== "OK") return null;
+    const element = mapsData.rows?.[0]?.elements?.[0];
+    if (!element || element.status !== "OK") return null;
+    const dur = element.duration_in_traffic ?? element.duration;
+    if (!dur?.value) return null;
+    return Math.round(dur.value / 60);
+  } catch {
+    return null;
+  }
+}
+
+function departureSameLocation(
+  coachLat: number, coachLng: number,
+  destLat: number, destLng: number
+): boolean {
+  const dLat = ((destLat - coachLat) * Math.PI) / 180;
+  const dLng = ((destLng - coachLng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((coachLat * Math.PI) / 180) *
+    Math.cos((destLat * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
+  const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return distKm < 0.3;
+}
+
+async function processDepartureAlerts(): Promise<void> {
+  try {
+    const now = new Date();
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const locationFreshnessMs = 30 * 60 * 1000;
+    const locationCutoff = new Date(now.getTime() - locationFreshnessMs);
+
+    const coachRows = await pool.query<{
+      coach_id: string;
+      last_lat: number;
+      last_lng: number;
+      last_location_at: Date;
+      home_location_id: string | null;
+    }>(
+      `SELECT c.id AS coach_id, c.last_lat, c.last_lng, c.last_location_at, c.home_location_id
+       FROM coaches c
+       WHERE c.last_lat IS NOT NULL AND c.last_lng IS NOT NULL
+         AND c.last_location_at IS NOT NULL
+         AND c.last_location_at >= $1`,
+      [locationCutoff]
+    );
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY ?? null;
+
+    for (const coach of coachRows.rows) {
+      try {
+        const sessionRows = await pool.query<{
+          session_id: string;
+          start_time: Date;
+          location_id: string;
+          loc_name: string;
+          loc_lat: number;
+          loc_lng: number;
+        }>(
+          `SELECT s.id AS session_id, s.start_time, s.location_id,
+                  l.name AS loc_name, l.lat AS loc_lat, l.lng AS loc_lng
+           FROM sessions s
+           JOIN locations l ON l.id = s.location_id
+           WHERE s.coach_id = $1
+             AND s.start_time >= $2
+             AND s.start_time <= $3
+             AND s.location_id IS NOT NULL
+             AND l.lat IS NOT NULL AND l.lng IS NOT NULL
+             AND s.status IN ('scheduled', 'upcoming')
+           ORDER BY s.start_time ASC
+           LIMIT 1`,
+          [coach.coach_id, now, todayEnd]
+        );
+
+        if (sessionRows.rows.length === 0) continue;
+
+        const session = sessionRows.rows[0];
+        if (departureNotifiedSessions.has(session.session_id)) continue;
+
+        const coachLat = coach.last_lat;
+        const coachLng = coach.last_lng;
+        const destLat = session.loc_lat;
+        const destLng = session.loc_lng;
+
+        if (departureSameLocation(coachLat, coachLng, destLat, destLng)) {
+          departureNotifiedSessions.add(session.session_id);
+          continue;
+        }
+
+        let travelTime: number | null = null;
+        if (apiKey !== null) {
+          travelTime = await fetchDepartureEtaMinutes(coachLat, coachLng, destLat, destLng, apiKey);
+        }
+
+        if (travelTime === null) {
+          const fromLocId = coach.home_location_id;
+          let travelRow: { travel_time_minutes: number } | null = null;
+
+          if (fromLocId !== null) {
+            const travelRes = await pool.query<{ travel_time_minutes: number }>(
+              `SELECT travel_time_minutes FROM location_travel_times
+               WHERE coach_id = $1 AND from_location_id = $2 AND to_location_id = $3
+               LIMIT 1`,
+              [coach.coach_id, fromLocId, session.location_id]
+            );
+            travelRow = travelRes.rows[0] ?? null;
+          }
+
+          if (travelRow === null) {
+            const anyRes = await pool.query<{ travel_time_minutes: number }>(
+              `SELECT travel_time_minutes FROM location_travel_times
+               WHERE coach_id = $1 AND to_location_id = $2
+               LIMIT 1`,
+              [coach.coach_id, session.location_id]
+            );
+            travelRow = anyRes.rows[0] ?? null;
+          }
+
+          travelTime = travelRow?.travel_time_minutes ?? 30;
+        }
+
+        const sessionStart = new Date(session.start_time);
+        const minutesToSession = (sessionStart.getTime() - now.getTime()) / (1000 * 60);
+
+        // Alert when it is time to leave (coach has <= travelTime minutes until session start)
+        // The +15 buffer is a query lookahead only; actual push fires at the leave-now threshold
+        if (minutesToSession > travelTime || minutesToSession <= 0) continue;
+
+        const sessionTimeStr = sessionStart.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        const minutesToSessionRounded = Math.round(minutesToSession);
+        const body = `Leave now for ${session.loc_name} — session at ${sessionTimeStr} (${minutesToSessionRounded} min away)`;
+
+        const tokens = await getCoachPushTokens(coach.coach_id);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            "Time to Leave",
+            body,
+            { type: "departure_alert", sessionId: session.session_id, screen: "Dashboard" }
+          );
+          console.log(`[DepartureAlert] Sent to coach ${coach.coach_id} for session ${session.session_id} at ${session.loc_name}`);
+        }
+
+        departureNotifiedSessions.add(session.session_id);
+      } catch (coachErr) {
+        console.error(`[DepartureAlert] Error processing coach ${coach.coach_id}:`, coachErr);
+      }
+    }
+
+    if (departureNotifiedSessions.size > 500) {
+      const arr = Array.from(departureNotifiedSessions);
+      arr.splice(0, arr.length - 500).forEach(id => departureNotifiedSessions.delete(id));
+    }
+  } catch (err) {
+    console.error("[DepartureAlert] processDepartureAlerts error:", err);
+  }
+}
 
 const AUTO_ATTENDANCE_GRACE_PERIOD = 0; // No grace period - mark attendance immediately after session ends
 const AUTO_ATTENDANCE_XP_REWARD = 25; // XP for marking attendance during class
@@ -1643,6 +1840,7 @@ export function startReminderScheduler(): void {
       await processAutoCompleteSession();
       await processAutoAttendance();
       await processExpiredWaitlistSpots();
+      await processDepartureAlerts();
     } catch (e) { console.error("[Scheduler] Interval error:", e); }
   }, 5 * 60 * 1000);
 }

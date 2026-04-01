@@ -446,6 +446,11 @@ export const coaches = pgTable("coaches", {
   isFreelance: boolean("is_freelance").default(false), // Coach can run their own personal academy
   personalAcademyId: varchar("personal_academy_id"), // ID of auto-created personal academy for freelancers
   selfServiceRate: numeric("self_service_rate"), // Rate for self-managed sessions (personal academy)
+
+  // Live GPS tracking
+  lastLat: doublePrecision("last_lat"),
+  lastLng: doublePrecision("last_lng"),
+  lastLocationAt: timestamp("last_location_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
 });
