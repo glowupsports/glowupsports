@@ -130,6 +130,7 @@ export default function AdminClassesScreen() {
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [wizardCoachId, setWizardCoachId] = useState<string | null>(null);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
+  const [showDetailDrawer, setShowDetailDrawer] = useState(false);
 
   const { data: seriesData = [], isLoading } = useQuery<CoachingSeries[]>({
     queryKey: ['/api/admin/series'],
@@ -190,6 +191,17 @@ export default function AdminClassesScreen() {
   const handleCloseWizard = () => {
     setShowCreateWizard(false);
     setWizardCoachId(null);
+  };
+
+  const handleSeriesPress = (series: CoachingSeries) => {
+    setSelectedSeriesId(series.id);
+    setShowDetailDrawer(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleCloseDrawer = () => {
+    setShowDetailDrawer(false);
+    setTimeout(() => setSelectedSeriesId(null), 350);
   };
 
   const stats = useMemo(() => {
