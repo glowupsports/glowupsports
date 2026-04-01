@@ -1365,7 +1365,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Brazil": "br", "Argentina": "ar", "Mexico": "mx",
         "Canada": "ca", "New Zealand": "nz",
       };
-      const isoCode = countryParam ? COUNTRY_ISO[countryParam] : undefined;
+      const TIMEZONE_ISO: Record<string, string> = {
+        "Asia/Dubai": "ae", "Asia/Muscat": "om",
+        "Asia/Jakarta": "id", "Asia/Makassar": "id", "Asia/Jayapura": "id",
+        "Asia/Riyadh": "sa", "Asia/Qatar": "qa", "Asia/Bahrain": "bh", "Asia/Kuwait": "kw",
+        "Asia/Karachi": "pk", "Asia/Kolkata": "in",
+        "Asia/Singapore": "sg", "Asia/Kuala_Lumpur": "my",
+        "Australia/Sydney": "au", "Australia/Melbourne": "au", "Australia/Perth": "au",
+        "Europe/Amsterdam": "nl", "Europe/London": "gb", "Europe/Berlin": "de",
+        "Europe/Paris": "fr", "Europe/Madrid": "es", "Europe/Rome": "it",
+        "Europe/Brussels": "be", "Europe/Zurich": "ch", "Europe/Stockholm": "se",
+        "Europe/Oslo": "no", "Europe/Copenhagen": "dk", "Europe/Warsaw": "pl",
+        "Africa/Cairo": "eg", "Africa/Johannesburg": "za", "Africa/Nairobi": "ke", "Africa/Lagos": "ng",
+        "America/Sao_Paulo": "br", "America/Argentina/Buenos_Aires": "ar", "America/Mexico_City": "mx",
+        "America/Toronto": "ca", "America/Vancouver": "ca",
+        "Pacific/Auckland": "nz",
+        "America/New_York": "us", "America/Los_Angeles": "us", "America/Chicago": "us",
+      };
+      let isoCode = countryParam ? COUNTRY_ISO[countryParam] : undefined;
+      if (!isoCode) {
+        const academyId = req.user?.academyId;
+        if (academyId) {
+          const [academy] = await db
+            .select({ country: academies.country, timezone: academies.timezone })
+            .from(academies)
+            .where(eq(academies.id, academyId))
+            .limit(1);
+          if (academy?.country) {
+            isoCode = COUNTRY_ISO[academy.country];
+          }
+          if (!isoCode && academy?.timezone) {
+            isoCode = TIMEZONE_ISO[academy.timezone];
+          }
+        }
+      }
       const countryFilter = isoCode ? `&components=country:${isoCode}` : "";
       let url: string;
       if (mode === "venue") {
