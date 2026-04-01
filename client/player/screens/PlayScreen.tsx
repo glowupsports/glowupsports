@@ -2,6 +2,14 @@ import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+  withTiming,
+} from "react-native-reanimated";
 import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -184,6 +192,65 @@ export default function PlayScreen() {
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
   const [friendRequestPlayer, setFriendRequestPlayer] = useState<NearbyPlayer | null>(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const lastScrollY = useSharedValue(0);
+  const headerTranslation = useSharedValue(0);
+  const headerHeightSV = useSharedValue(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const currentY = event.contentOffset.y;
+      const delta = currentY - lastScrollY.value;
+      lastScrollY.value = currentY;
+      scrollY.value = currentY;
+
+      if (currentY <= 0) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+        return;
+      }
+
+      const newTranslation = headerTranslation.value - delta;
+      headerTranslation.value = Math.max(
+        -headerHeightSV.value,
+        Math.min(0, newTranslation)
+      );
+    },
+    onBeginDrag: () => {
+      lastScrollY.value = scrollY.value;
+    },
+    onEndDrag: (event) => {
+      const currentY = event.contentOffset.y;
+      if (currentY <= 0) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else if (headerTranslation.value > -headerHeightSV.value / 2) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else {
+        headerTranslation.value = withTiming(-headerHeightSV.value, { duration: 200 });
+      }
+    },
+    onMomentumEnd: (event) => {
+      const currentY = event.contentOffset.y;
+      if (currentY <= 0) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else if (headerTranslation.value > -headerHeightSV.value / 2) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else {
+        headerTranslation.value = withTiming(-headerHeightSV.value, { duration: 200 });
+      }
+    },
+  });
+
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerTranslation.value }],
+    opacity: interpolate(
+      headerTranslation.value,
+      [-headerHeightSV.value, 0],
+      [0, 1],
+      Extrapolation.CLAMP
+    ),
+  }));
 
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
@@ -1159,24 +1226,32 @@ export default function PlayScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.headerLine} />
-          <Text style={styles.headerTitle}>{t("player.play.title")}</Text>
-          <View style={styles.headerLine} />
-        </View>
-        {isFamily ? (
-          <View style={styles.familySwitchRow}>
-            <FamilyQuickSwitch />
-            {activePlayerId && familyData ? (
-              <Text style={styles.familyViewingText}>
-                Viewing for {familyData.members.find(m => m.id === activePlayerId)?.name || ""}
-              </Text>
-            ) : null}
+    <View style={styles.container}>
+      <Animated.View
+        style={[styles.animatedHeader, { top: insets.top }, animatedHeaderStyle]}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setHeaderHeight(h);
+          headerHeightSV.value = h;
+        }}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.headerLine} />
+            <Text style={styles.headerTitle}>{t("player.play.title")}</Text>
+            <View style={styles.headerLine} />
           </View>
-        ) : null}
-      </View>
+          {isFamily ? (
+            <View style={styles.familySwitchRow}>
+              <FamilyQuickSwitch />
+              {activePlayerId && familyData ? (
+                <Text style={styles.familyViewingText}>
+                  Viewing for {familyData.members.find(m => m.id === activePlayerId)?.name || ""}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
 
         {activeTab === "Group Lessons" ? (
           <>
@@ -1375,7 +1450,9 @@ export default function PlayScreen() {
             </ScrollView>
           </>
         ) : null}
+      </Animated.View>
 
+      <View style={[styles.mainContent, { paddingTop: headerHeight + insets.top }]}>
         <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
           <Pressable
@@ -1388,10 +1465,12 @@ export default function PlayScreen() {
         ))}
         </View>
 
-      <ScrollView 
+      <Animated.ScrollView
         style={styles.content}
         contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 200 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
         {activeTab === "Group Lessons" ? (
           <>
@@ -1675,7 +1754,8 @@ export default function PlayScreen() {
             )}
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
+      </View>
 
       {/* Session Info Modal with static map */}
       <Modal
@@ -1858,6 +1938,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  animatedHeader: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  mainContent: {
+    flex: 1,
   },
   header: {
     flexDirection: "row",
