@@ -21,8 +21,10 @@ import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
-import { SPORTS, getSportConfig } from "@shared/sportConfig";
+import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+
+type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
 interface ProfileData {
   player: {
@@ -45,7 +47,7 @@ interface ProfileData {
     displayName: string | null;
     profilePhotoUrl: string | null;
     playStyle: string | null;
-    sportProfiles: Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: number | null }> | null;
+    sportProfiles: SportProfileRecord | null;
     homeAddress?: string | null;
     homeLat?: number | null;
     homeLng?: number | null;
@@ -169,6 +171,253 @@ const ALL_ARCHETYPES: PlayStyleKey[] = ["baseline_warrior", "net_ninja", "serve_
 
 type ProfileTab = "moments" | "friends" | "groups";
 
+type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
+
+interface SportProfilesSectionProps {
+  sportProfiles: SportProfileRecord | null;
+  onUpdateSports: (updatedProfiles: SportProfileRecord) => void;
+  isSaving: boolean;
+}
+
+function SportProfilesSection({ sportProfiles, onUpdateSports, isSaving }: SportProfilesSectionProps) {
+  const activeSports = sportProfiles ? Object.keys(sportProfiles) : [];
+  const hasNoSports = activeSports.length === 0;
+
+  const handleToggleSport = (sport: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const currentProfiles = sportProfiles || {};
+    if (activeSports.includes(sport)) {
+      const updated = { ...currentProfiles };
+      delete updated[sport];
+      onUpdateSports(updated);
+    } else {
+      const updated = { ...currentProfiles, [sport]: currentProfiles[sport] || {} };
+      onUpdateSports(updated);
+    }
+  };
+
+  if (hasNoSports) {
+    return (
+      <View style={sportSectionStyles.emptyCard}>
+        <Ionicons name="tennisball-outline" size={32} color={Colors.dark.primary} />
+        <Text style={sportSectionStyles.emptyTitle}>Which sports do you play?</Text>
+        <Text style={sportSectionStyles.emptySubtitle}>Select the sports you participate in</Text>
+        <View style={sportSectionStyles.sportToggleRow}>
+          {SPORTS.map((sport) => {
+            const cfg = getSportConfig(sport);
+            return (
+              <Pressable
+                key={sport}
+                style={[sportSectionStyles.sportToggleCard]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onUpdateSports({ [sport]: {} });
+                }}
+                disabled={isSaving}
+              >
+                <Ionicons name={cfg.icon as any} size={28} color={cfg.color} />
+                <Text style={[sportSectionStyles.sportToggleName, { color: cfg.color }]}>{cfg.displayName}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={sportSectionStyles.card}>
+      <Text style={sportSectionStyles.sectionTitle}>Sport Profiles</Text>
+
+      <View style={sportSectionStyles.sportChipsRow}>
+        {SPORTS.map((sport) => {
+          const cfg = getSportConfig(sport);
+          const isActive = activeSports.includes(sport);
+          return (
+            <Pressable
+              key={sport}
+              style={[
+                sportSectionStyles.sportChip,
+                isActive && { borderColor: cfg.color, backgroundColor: cfg.color + "20" },
+              ]}
+              onPress={() => handleToggleSport(sport)}
+              disabled={isSaving}
+            >
+              <Ionicons name={cfg.icon as any} size={14} color={isActive ? cfg.color : Colors.dark.textMuted} />
+              <Text style={[sportSectionStyles.sportChipText, isActive && { color: cfg.color }]}>
+                {cfg.displayName}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {activeSports.map((sport) => {
+        const cfg = getSportConfig(sport);
+        const profile = sportProfiles?.[sport] || {};
+        const rawLevel = profile[cfg.profileField as keyof typeof profile] as string | null | undefined;
+        const hasLevel = !!rawLevel;
+        const levelLabel = hasLevel ? (getSportConfig(sport).skillLevels.find(l => l.key === rawLevel)?.label ?? rawLevel) : null;
+        const levelColor = hasLevel ? getSportSkillLevelColor(sport, rawLevel) : null;
+
+        return (
+          <View key={sport} style={sportSectionStyles.sportRow}>
+            <View style={sportSectionStyles.sportRowLeft}>
+              <View style={[sportSectionStyles.sportIconCircle, { backgroundColor: cfg.color + "20" }]}>
+                <Ionicons name={cfg.icon as any} size={18} color={cfg.color} />
+              </View>
+              <Text style={sportSectionStyles.sportRowName}>{cfg.displayName}</Text>
+            </View>
+            <View style={sportSectionStyles.sportRowRight}>
+              {hasLevel ? (
+                <View style={[sportSectionStyles.levelBadge, { backgroundColor: (levelColor || cfg.color) + "25", borderColor: levelColor || cfg.color }]}>
+                  <Text style={[sportSectionStyles.levelBadgeText, { color: levelColor || cfg.color }]}>
+                    {levelLabel}
+                  </Text>
+                </View>
+              ) : (
+                <View style={sportSectionStyles.awaitingBadge}>
+                  <Ionicons name="hourglass-outline" size={12} color={Colors.dark.textMuted} />
+                  <Text style={sportSectionStyles.awaitingText}>Awaiting coach assessment</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const sportSectionStyles = StyleSheet.create({
+  emptyCard: {
+    marginHorizontal: Spacing.xl,
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  emptyTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: Spacing.xs,
+  },
+  emptySubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  sportToggleRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  sportToggleCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.card,
+    gap: Spacing.xs,
+  },
+  sportToggleName: {
+    ...Typography.caption,
+    fontWeight: "700",
+  },
+  card: {
+    marginHorizontal: Spacing.xl,
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  sectionTitle: {
+    ...Typography.subheading,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  sportChipsRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+  },
+  sportChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.card,
+  },
+  sportChipText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  sportRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  sportRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sportIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sportRowName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sportRowRight: {
+    alignItems: "flex-end",
+  },
+  levelBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  levelBadgeText: {
+    ...Typography.caption,
+    fontWeight: "700",
+  },
+  awaitingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.card,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  awaitingText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+  },
+});
+
 export default function PlayerProfileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -276,9 +525,8 @@ export default function PlayerProfileScreen() {
     },
   });
 
-  const updateSportProfile = useMutation({
-    mutationFn: async ({ sport, level, profileField, currentProfiles }: { sport: string; level: string | null; profileField: string; currentProfiles: Record<string, any> }) => {
-      const updatedProfiles = { ...currentProfiles, [sport]: { ...currentProfiles[sport], [profileField]: level } };
+  const updateSportProfiles = useMutation({
+    mutationFn: async (updatedProfiles: SportProfileRecord) => {
       return apiRequest("PATCH", "/api/player/me/profile", { sportProfiles: updatedProfiles });
     },
     onSuccess: () => {
@@ -1088,45 +1336,11 @@ export default function PlayerProfileScreen() {
         ) : null}
 
         {/* Sport Profiles Section */}
-        <View style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>Sport Profiles</Text>
-          <Text style={[styles.emptyTabSubtext, { marginBottom: Spacing.md }]}>Your skill level for each sport</Text>
-          {SPORTS.map((sport) => {
-            const sportCfg = getSportConfig(sport);
-            const profile = player.sportProfiles?.[sport] || {};
-            const currentLevel = (profile[sportCfg.profileField] as string | null | undefined) || null;
-            return (
-              <View key={sport} style={[styles.settingsItem, { flexDirection: "column", alignItems: "flex-start", gap: Spacing.sm }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                  <SportBadge sport={sport} size="sm" />
-                </View>
-                <Text style={[styles.emptyTabSubtext, { marginBottom: 4 }]}>{sportCfg.skillLevelLabel}</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.xs }}>
-                  {sportCfg.skillLevels.map((level) => {
-                    const isSelected = currentLevel === level.key;
-                    return (
-                      <Pressable
-                        key={level.key}
-                        style={[
-                          styles.sportLevelChip,
-                          isSelected && styles.sportLevelChipActive,
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          updateSportProfile.mutate({ sport, level: isSelected ? null : level.key, profileField: sportCfg.profileField, currentProfiles: player.sportProfiles || {} });
-                        }}
-                      >
-                        <Text style={[styles.sportLevelChipText, isSelected && styles.sportLevelChipTextActive]}>
-                          {level.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+        <SportProfilesSection
+          sportProfiles={player.sportProfiles}
+          onUpdateSports={(updatedProfiles) => updateSportProfiles.mutate(updatedProfiles)}
+          isSaving={updateSportProfiles.isPending}
+        />
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>{t("player.profile.settings")}</Text>
