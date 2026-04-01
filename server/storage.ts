@@ -1466,6 +1466,15 @@ export const storage = {
         db.delete(domainAssessments).where(eq(domainAssessments.coachId, coachId)),
       ]);
 
+      // Coaching series batch: Delete series_players first (FK dependency), then coaching_series
+      await db.delete(seriesPlayers).where(
+        inArray(
+          seriesPlayers.seriesId,
+          db.select({ id: coachingSeries.id }).from(coachingSeries).where(eq(coachingSeries.coachId, coachId))
+        )
+      );
+      await db.delete(coachingSeries).where(eq(coachingSeries.coachId, coachId));
+
       // Second batch: Chat related (sequential to avoid FK race conditions)
       // First, get all message IDs sent by this coach
       const coachMessageIds = await db.select({ id: messages.id })

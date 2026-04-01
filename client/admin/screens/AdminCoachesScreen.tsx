@@ -219,7 +219,6 @@ export default function AdminCoachesScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
-      closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Coach permanently deleted");
     },
@@ -230,14 +229,27 @@ export default function AdminCoachesScreen() {
 
   const handleDeleteCoach = () => {
     if (!selectedCoachId || !selectedCoach) return;
-    Alert.alert(
-      "Permanently Remove Coach",
-      `This will permanently remove ${selectedCoach.name} from this academy. They will lose access to all academy data. This action cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Remove Forever", style: "destructive", onPress: () => deleteCoachMutation.mutate(selectedCoachId) },
-      ]
-    );
+    const coachIdToDelete = selectedCoachId;
+    const coachToDelete = selectedCoach;
+    closeDetailModal();
+    setTimeout(() => {
+      Alert.alert(
+        "Permanently Remove Coach",
+        `This will permanently remove ${coachToDelete.name} from this academy. They will lose access to all academy data. This action cannot be undone.`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => openDetailModal(coachIdToDelete),
+          },
+          {
+            text: "Remove Forever",
+            style: "destructive",
+            onPress: () => deleteCoachMutation.mutate(coachIdToDelete),
+          },
+        ]
+      );
+    }, 300);
   };
 
   const handleMarkPaid = (month: number, year: number) => {
