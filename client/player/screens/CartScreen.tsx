@@ -72,12 +72,13 @@ export default function CartScreen() {
         serviceDetails: item.serviceDetails,
       }));
 
-      const response = await apiRequest("POST", "/api/player/shop/orders", {
+      const res = await apiRequest("POST", "/api/player/shop/orders", {
         items: orderItems,
         contactName: contactName.trim() || undefined,
         contactPhone: contactPhone.trim() || undefined,
         notes: notes.trim() || undefined,
-      }) as unknown as { order: { orderNumber: string } };
+      });
+      const response = await res.json() as { order: { orderNumber: string } };
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       clearCart();

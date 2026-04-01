@@ -741,6 +741,33 @@ export default function ShopScreen() {
                     </Animated.View>
                   ) : null}
 
+                  <Animated.View entering={FadeInUp.delay(520).duration(400)}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Community</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate("Marketplace");
+                      }}
+                      style={styles.marketplaceCard}
+                    >
+                      <LinearGradient
+                        colors={["#0D1F0D", "#111811"]}
+                        style={styles.marketplaceGradient}
+                      >
+                        <View style={styles.marketplaceIconWrap}>
+                          <Ionicons name="storefront-outline" size={28} color="#2ECC71" />
+                        </View>
+                        <View style={styles.marketplaceInfo}>
+                          <Text style={styles.marketplaceTitle}>Community Marketplace</Text>
+                          <Text style={styles.marketplaceSub}>Buy & sell used gear from players</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#2ECC71" />
+                      </LinearGradient>
+                    </Pressable>
+                  </Animated.View>
+
                   {newArrivals.length === 0 && onSale.length === 0 && allServices.length === 0 && categories.length === 0 ? (
                     <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.emptyState}>
                       <Text style={styles.headLogo}>HEAD</Text>
@@ -1200,5 +1227,42 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
+  },
+
+  marketplaceCard: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#2ECC7130",
+  },
+  marketplaceGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 18,
+    gap: 14,
+  },
+  marketplaceIconWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#2ECC7115",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  marketplaceInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  marketplaceTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
+  },
+  marketplaceSub: {
+    fontSize: 12,
+    color: "#666",
+    lineHeight: 16,
   },
 });
