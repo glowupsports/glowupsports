@@ -171,8 +171,6 @@ const ALL_ARCHETYPES: PlayStyleKey[] = ["baseline_warrior", "net_ninja", "serve_
 
 type ProfileTab = "moments" | "friends" | "groups";
 
-type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
-
 interface SportProfilesSectionProps {
   sportProfiles: SportProfileRecord | null;
   onUpdateSports: (updatedProfiles: SportProfileRecord) => void;
