@@ -36,7 +36,7 @@ router.get("/requests", async (req: Request, res: Response) => {
       SELECT 
         pr.*,
         p.name AS creator_name,
-        p.photo_url AS creator_photo,
+        p.profile_photo_url AS creator_photo,
         p.ball_level AS creator_ball_level,
         p.level AS creator_level,
         COALESCE(
@@ -45,7 +45,7 @@ router.get("/requests", async (req: Request, res: Response) => {
               'id', pp.id,
               'playerId', pp.player_id,
               'name', pp2.name,
-              'photoUrl', pp2.photo_url,
+              'photoUrl', pp2.profile_photo_url,
               'ballLevel', pp2.ball_level,
               'joinedAt', pp.joined_at
             )
@@ -75,7 +75,7 @@ router.get("/requests", async (req: Request, res: Response) => {
         AND ($3::int IS NULL OR pr.level_max IS NULL OR pr.level_max >= $3::int)
         AND ($4::int IS NULL OR pr.level_min IS NULL OR pr.level_min <= $4::int)
         AND ($5::text IS NULL OR DATE(pr.scheduled_at) = $5::date)
-      GROUP BY pr.id, p.name, p.photo_url, p.ball_level, p.level
+      GROUP BY pr.id, p.name, p.profile_photo_url, p.ball_level, p.level
       ORDER BY pr.scheduled_at ASC
     `, [
       playerId || null,
@@ -347,7 +347,7 @@ router.get("/my-games", async (req: Request, res: Response) => {
       SELECT 
         pr.*,
         p.name AS creator_name,
-        p.photo_url AS creator_photo,
+        p.profile_photo_url AS creator_photo,
         p.ball_level AS creator_ball_level,
         COALESCE(
           json_agg(
@@ -355,7 +355,7 @@ router.get("/my-games", async (req: Request, res: Response) => {
               'id', pp.id,
               'playerId', pp.player_id,
               'name', pp2.name,
-              'photoUrl', pp2.photo_url,
+              'photoUrl', pp2.profile_photo_url,
               'ballLevel', pp2.ball_level,
               'joinedAt', pp.joined_at
             )
@@ -379,7 +379,7 @@ router.get("/my-games", async (req: Request, res: Response) => {
         )
       )
         AND pr.status NOT IN ('cancelled')
-      GROUP BY pr.id, p.name, p.photo_url, p.ball_level
+      GROUP BY pr.id, p.name, p.profile_photo_url, p.ball_level
       ORDER BY pr.scheduled_at DESC
     `, [playerId]);
 
