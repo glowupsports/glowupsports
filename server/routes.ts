@@ -1345,6 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const input = req.query.input as string;
       const mode = req.query.mode as string | undefined;
+      const countryParam = req.query.country as string | undefined;
       if (!input || input.trim().length < 2) {
         return res.json({ predictions: [] });
       }
@@ -1352,11 +1353,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!apiKey) {
         return res.status(503).json({ error: "Maps service not configured" });
       }
+      const COUNTRY_ISO: Record<string, string> = {
+        "United Arab Emirates": "ae", "Indonesia": "id", "Netherlands": "nl",
+        "United Kingdom": "gb", "United States": "us", "Saudi Arabia": "sa",
+        "Qatar": "qa", "Bahrain": "bh", "Kuwait": "kw", "Oman": "om",
+        "Egypt": "eg", "Australia": "au", "Singapore": "sg", "Malaysia": "my",
+        "Germany": "de", "France": "fr", "Spain": "es", "Italy": "it",
+        "Belgium": "be", "Switzerland": "ch", "Sweden": "se", "Norway": "no",
+        "Denmark": "dk", "Poland": "pl", "India": "in", "Pakistan": "pk",
+        "South Africa": "za", "Kenya": "ke", "Nigeria": "ng",
+      };
+      const isoCode = countryParam ? COUNTRY_ISO[countryParam] : undefined;
+      const countryFilter = isoCode ? `&components=country:${isoCode}` : "";
       let url: string;
       if (mode === "venue") {
-        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&keyword=sports%7Ctennis%7Cpadel%7Cgym%7Cstadium&language=en`;
+        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&keyword=sports%7Ctennis%7Cpadel%7Cgym%7Cstadium&language=en${countryFilter}`;
       } else {
-        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en`;
+        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en${countryFilter}`;
       }
       const response = await fetch(url);
       if (!response.ok) {

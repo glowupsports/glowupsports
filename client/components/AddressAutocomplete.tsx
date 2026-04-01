@@ -33,6 +33,7 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   initialValue?: string;
   mode?: "address" | "venue";
+  country?: string;
 }
 
 export function AddressAutocomplete({
@@ -40,6 +41,7 @@ export function AddressAutocomplete({
   placeholder = "Search for an address...",
   initialValue = "",
   mode = "address",
+  country,
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(initialValue);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -65,7 +67,8 @@ export function AddressAutocomplete({
     setLoading(true);
     try {
       const modeParam = mode === "venue" ? "&mode=venue" : "";
-      const response = await apiFetch(`/api/maps/places-autocomplete?input=${encodeURIComponent(text)}${modeParam}`);
+      const countryParam = country ? `&country=${encodeURIComponent(country)}` : "";
+      const response = await apiFetch(`/api/maps/places-autocomplete?input=${encodeURIComponent(text)}${modeParam}${countryParam}`);
       if (response.ok) {
         const data = await response.json();
         setPredictions(data.predictions || []);
@@ -76,7 +79,7 @@ export function AddressAutocomplete({
     } finally {
       setLoading(false);
     }
-  }, [mode]);
+  }, [mode, country]);
 
   const handleChange = (text: string) => {
     setQuery(text);

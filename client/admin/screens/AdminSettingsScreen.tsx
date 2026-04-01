@@ -726,6 +726,7 @@ export default function AdminSettingsScreen() {
               <AddressAutocomplete
                 placeholder="Search venue to find nearby location..."
                 mode="venue"
+                country={profileData.country || undefined}
                 onSelect={async (result) => {
                   setCourtFormData((prev) => ({
                     ...prev,
