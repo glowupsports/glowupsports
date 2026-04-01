@@ -154,11 +154,7 @@ export default function PeopleScreen() {
     },
     onError: (err: Error) => {
       setDeletingId(null);
-      if (Platform.OS === "web") {
-        window.alert(`Failed to remove coach: ${err.message}`);
-      } else {
-        Alert.alert("Error", `Failed to remove coach: ${err.message}`);
-      }
+      Alert.alert("Error", `Failed to remove coach: ${err.message}`);
     },
   });
 
@@ -173,11 +169,7 @@ export default function PeopleScreen() {
     },
     onError: (err: Error) => {
       setDeletingId(null);
-      if (Platform.OS === "web") {
-        window.alert(`Failed to remove player: ${err.message}`);
-      } else {
-        Alert.alert("Error", `Failed to remove player: ${err.message}`);
-      }
+      Alert.alert("Error", `Failed to remove player: ${err.message}`);
     },
   });
 
@@ -226,11 +218,7 @@ export default function PeopleScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Failed to delete coach: ${err.message}`);
-      } else {
-        Alert.alert("Error", `Failed to delete coach: ${err.message}`);
-      }
+      Alert.alert("Error", `Failed to delete coach: ${err.message}`);
     },
   });
 
@@ -293,11 +281,7 @@ export default function PeopleScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Failed to generate invite link:", error);
-      if (Platform.OS === "web") {
-        window.alert("Failed to generate invite link");
-      } else {
-        Alert.alert("Error", "Failed to generate invite link");
-      }
+      Alert.alert("Error", "Failed to generate invite link");
     } finally {
       setIsGeneratingLink(false);
     }
@@ -377,61 +361,44 @@ export default function PeopleScreen() {
       return;
     }
 
-    // Player deletion remains the same
+    // Player deletion
     const confirmDelete = () => {
       setDeletingId(id);
       deletePlayerMutation.mutate(id);
     };
 
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Permanently delete ${name}? This will remove ALL their data including progress, sessions, payments, and cannot be undone.`);
-      if (confirmed) confirmDelete();
-    } else {
-      Alert.alert(
-        "Permanently Delete Player",
-        `This will permanently delete ${name} and ALL their data including progress, sessions, payments. This action cannot be undone.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete Forever", style: "destructive", onPress: confirmDelete },
-        ]
-      );
-    }
+    Alert.alert(
+      "Permanently Delete Player",
+      `This will permanently delete ${name} and ALL their data including progress, sessions, payments. This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete Forever", style: "destructive", onPress: confirmDelete },
+      ]
+    );
   };
 
   const handlePromoteToAdmin = (coach: PersonData) => {
     const doPromote = () => promoteToAdminMutation.mutate(coach.id);
-    
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Promote ${coach.name} to admin? They will have management access.`);
-      if (confirmed) doPromote();
-    } else {
-      Alert.alert(
-        "Promote to Admin",
-        `Promote ${coach.name} to admin? They will have management access.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Promote", onPress: doPromote },
-        ]
-      );
-    }
+    Alert.alert(
+      "Promote to Admin",
+      `Promote ${coach.name} to admin? They will have management access.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Promote", onPress: doPromote },
+      ]
+    );
   };
 
   const handleDemoteFromAdmin = (admin: AdminData) => {
     const doDemote = () => demoteFromAdminMutation.mutate(admin.id);
-    
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Demote ${admin.name} from admin? They will lose management access.`);
-      if (confirmed) doDemote();
-    } else {
-      Alert.alert(
-        "Demote Admin",
-        `Demote ${admin.name} from admin? They will lose management access.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Demote", style: "destructive", onPress: doDemote },
-        ]
-      );
-    }
+    Alert.alert(
+      "Demote Admin",
+      `Demote ${admin.name} from admin? They will lose management access.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Demote", style: "destructive", onPress: doDemote },
+      ]
+    );
   };
 
   if (isLoading) {
@@ -714,11 +681,13 @@ export default function PeopleScreen() {
                     onPress={() => {
                       setShowDetailModal(false);
                       setGeneratedInviteLink(null);
-                      handleDelete(
-                        selectedPerson.id,
-                        activeTab === "coaches" ? "coach" : "player",
-                        selectedPerson.name
-                      );
+                      setTimeout(() => {
+                        handleDelete(
+                          selectedPerson.id,
+                          activeTab === "coaches" ? "coach" : "player",
+                          selectedPerson.name
+                        );
+                      }, 350);
                     }}
                   >
                     <Ionicons name="person-remove-outline" size={20} color={Colors.dark.error} />
