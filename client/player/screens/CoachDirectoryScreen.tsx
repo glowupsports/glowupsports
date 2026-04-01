@@ -222,6 +222,9 @@ export default function CoachDirectoryScreen() {
       >
         <View style={[styles.header, { paddingTop: headerHeight + Spacing.md }]}>
           <View style={styles.titleRow}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={8}>
+              <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+            </Pressable>
             <Text style={styles.title}>Find Coaches</Text>
             <View style={styles.coachCount}>
               <Ionicons name="people" size={14} color={GlowColors.primary} />
@@ -325,6 +328,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  backButton: {
+    marginRight: Spacing.sm,
+    padding: 4,
   },
   title: {
     fontSize: 28,
