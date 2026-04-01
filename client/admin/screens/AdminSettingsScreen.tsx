@@ -111,7 +111,10 @@ export default function AdminSettingsScreen() {
     venueAddress: "",
     venueLat: null as number | null,
     venueLng: null as number | null,
+    locationId: null as string | null,
   });
+  const [locationStatus, setLocationStatus] = useState<{ locationName: string; isNew: boolean; error?: boolean } | null>(null);
+  const [locationResolving, setLocationResolving] = useState(false);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testInviteLoading, setTestInviteLoading] = useState(false);
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
@@ -134,7 +137,7 @@ export default function AdminSettingsScreen() {
   }, [academyInfo]);
 
   const prepareCourtData = (data: typeof courtFormData) => {
-    const { pricePerHour, venueAddress, venueLat, venueLng, ...rest } = data;
+    const { pricePerHour, venueAddress, venueLat, venueLng, locationId, ...rest } = data;
     const parsed = pricePerHour ? parseFloat(pricePerHour) : null;
     return {
       ...rest,
@@ -142,6 +145,7 @@ export default function AdminSettingsScreen() {
       ...(venueAddress ? { venueAddress } : {}),
       ...(venueLat !== null ? { venueLat } : {}),
       ...(venueLng !== null ? { venueLng } : {}),
+      ...(locationId ? { locationId } : {}),
     };
   };
 
@@ -152,8 +156,9 @@ export default function AdminSettingsScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
-      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null, locationId: null });
       setCourtVenueSearch(null);
+      setLocationStatus(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
@@ -173,8 +178,9 @@ export default function AdminSettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
       setEditingCourt(null);
-      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null, locationId: null });
       setCourtVenueSearch(null);
+      setLocationStatus(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
@@ -207,8 +213,10 @@ export default function AdminSettingsScreen() {
       venueAddress: court.venueAddress || "",
       venueLat: court.venueLat ?? null,
       venueLng: court.venueLng ?? null,
+      locationId: null,
     });
     setCourtVenueSearch(court.venueAddress ? { address: court.venueAddress } : null);
+    setLocationStatus(null);
     setShowCourtModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -224,8 +232,9 @@ export default function AdminSettingsScreen() {
   const handleCloseCourtModal = () => {
     setShowCourtModal(false);
     setEditingCourt(null);
-    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
+    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null, locationId: null });
     setCourtVenueSearch(null);
+    setLocationStatus(null);
   };
 
   const handleShowRolesPermissions = () => {
@@ -480,8 +489,9 @@ export default function AdminSettingsScreen() {
               style={styles.addSmallButton}
               onPress={() => {
                 setEditingCourt(null);
-                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
+                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null, locationId: null });
                 setCourtVenueSearch(null);
+                setLocationStatus(null);
                 setShowCourtModal(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
@@ -499,8 +509,9 @@ export default function AdminSettingsScreen() {
                 style={styles.addFirstButton}
                 onPress={() => {
                   setEditingCourt(null);
-                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null });
+                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "", venueAddress: "", venueLat: null, venueLng: null, locationId: null });
                   setCourtVenueSearch(null);
+                  setLocationStatus(null);
                   setShowCourtModal(true);
                 }}
               >
@@ -715,18 +726,58 @@ export default function AdminSettingsScreen() {
               <AddressAutocomplete
                 placeholder="Search venue to find nearby location..."
                 mode="venue"
-                onSelect={(result) => {
+                onSelect={async (result) => {
                   setCourtFormData((prev) => ({
                     ...prev,
                     venueAddress: result.address,
                     venueLat: result.lat,
                     venueLng: result.lng,
+                    locationId: null,
                   }));
                   setCourtVenueSearch({ address: result.address });
+                  setLocationStatus(null);
+                  setLocationResolving(true);
+                  try {
+                    const resolved = await apiRequest("POST", "/api/courts/resolve-location", {
+                      lat: result.lat,
+                      lng: result.lng,
+                      name: result.mainText || result.address,
+                      address: result.address,
+                      placeId: result.placeId,
+                    }) as { locationId: string; locationName: string; isNew: boolean };
+                    setCourtFormData((prev) => ({ ...prev, locationId: resolved.locationId }));
+                    setLocationStatus({ locationName: resolved.locationName, isNew: resolved.isNew });
+                  } catch {
+                    setLocationStatus({ locationName: "", isNew: false, error: true });
+                  } finally {
+                    setLocationResolving(false);
+                  }
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               />
-              {courtVenueSearch ? (
+              {locationResolving ? (
+                <View style={styles.locationStatusRow}>
+                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <Text style={styles.locationStatusText}>Linking location...</Text>
+                </View>
+              ) : locationStatus ? (
+                <View style={styles.locationStatusRow}>
+                  <Ionicons
+                    name={locationStatus.error ? "alert-circle" : locationStatus.isNew ? "add-circle" : "checkmark-circle"}
+                    size={14}
+                    color={locationStatus.error ? FunctionColors.warning : locationStatus.isNew ? GlowColors.primary : FunctionColors.success}
+                  />
+                  <Text style={[styles.locationStatusText, {
+                    color: locationStatus.error ? FunctionColors.warning : locationStatus.isNew ? GlowColors.primary : FunctionColors.success,
+                  }]}>
+                    {locationStatus.error
+                      ? "Could not link location — court will save without one"
+                      : locationStatus.isNew
+                      ? `New location: ${locationStatus.locationName}`
+                      : `Linked to ${locationStatus.locationName}`}
+                  </Text>
+                </View>
+              ) : courtVenueSearch ? (
                 <View style={styles.addressSearchResult}>
                   <Ionicons name="location" size={12} color={Colors.dark.primary} />
                   <Text style={styles.addressSearchResultText} numberOfLines={1}>
@@ -1375,6 +1426,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: Colors.dark.primary,
+  },
+  locationStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+  },
+  locationStatusText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.text,
   },
   label: {
     ...Typography.small,

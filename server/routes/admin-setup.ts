@@ -467,6 +467,79 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Resolve or auto-create a location from venue coordinates (for court linking)
+  router.post(
+    "/api/courts/resolve-location",
+    authMiddleware,
+    requireRole("academy_owner", "platform_owner", "admin", "coach"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "Academy ID required" });
+        }
+
+        const { lat, lng, name, address, placeId } = req.body;
+        if (typeof lat !== "number" || typeof lng !== "number") {
+          return res.status(400).json({ error: "lat and lng are required numbers" });
+        }
+
+        // Haversine distance in metres between two lat/lng points
+        const haversineMetres = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+          const R = 6371000;
+          const toRad = (d: number) => (d * Math.PI) / 180;
+          const dLat = toRad(lat2 - lat1);
+          const dLng = toRad(lng2 - lng1);
+          const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        // Find the closest existing location for this academy within 200m
+        const allLocations = await storage.getAllLocations(academyId);
+        let nearby: typeof allLocations[number] | undefined;
+        let nearbyDist = Infinity;
+        for (const loc of allLocations) {
+          if (loc.lat == null || loc.lng == null) continue;
+          const dist = haversineMetres(lat, lng, loc.lat, loc.lng);
+          if (dist <= 200 && dist < nearbyDist) {
+            nearby = loc;
+            nearbyDist = dist;
+          }
+        }
+
+        if (nearby) {
+          return res.json({
+            locationId: nearby.id,
+            locationName: nearby.name,
+            isNew: false,
+          });
+        }
+
+        // No existing location within 200m — create one
+        const newLocation = await storage.createLocation({
+          academyId,
+          name: name || address || "Unnamed Venue",
+          address: address || undefined,
+          lat,
+          lng,
+          googlePlaceId: placeId || undefined,
+          isActive: true,
+        });
+
+        return res.json({
+          locationId: newLocation.id,
+          locationName: newLocation.name,
+          isNew: true,
+        });
+      } catch (error) {
+        console.error("Error resolving location:", error);
+        res.status(500).json({ error: "Failed to resolve location" });
+      }
+    },
+  );
+
   // Reorder courts (update positions)
   router.post(
     "/api/courts/reorder",
