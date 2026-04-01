@@ -1491,18 +1491,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: string;
         name: string;
         address: string | null;
-        distance: number;
+        distance: number | null;
         sport: string;
         surface: string;
         isInternal: boolean;
         bookingEnabled: boolean;
-        lat: number;
-        lng: number;
+        lat: number | null;
+        lng: number | null;
         googlePlaceId: string | null;
         academyName: string | null;
       };
 
-      type CourtRow = {
+      type OwnCourtRow = {
+        id: string;
+        name: string;
+        surface: string | null;
+        sport: string | null;
+        booking_enabled: boolean | null;
+        is_active: boolean | null;
+        lat: string | null;
+        lng: string | null;
+        address: string | null;
+        location_name: string | null;
+      };
+
+      type ExternalCourtRow = {
         id: string;
         name: string;
         surface: string | null;
@@ -1525,8 +1538,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       };
 
-      // Query ALL active courts across ALL active academies that have valid coordinates
-      const courtRows = await pool.query<CourtRow>(
+      // Query 1: Own-academy courts — always shown, coordinates optional
+      const ownCourtRows = await pool.query<OwnCourtRow>(
+        `SELECT c.id, c.name, c.surface, c.sport, c.booking_enabled, c.is_active,
+                l.lat, l.lng, l.address, l.name as location_name
+         FROM courts c
+         LEFT JOIN locations l ON c.location_id = l.id
+         WHERE c.academy_id = $1
+           AND c.is_active = true`,
+        [academyId]
+      );
+
+      // Query 2: External courts — must have coordinates, exclude own academy
+      const externalCourtRows = await pool.query<ExternalCourtRow>(
         `SELECT c.id, c.name, c.surface, c.sport, c.booking_enabled, c.is_active,
                 l.lat, l.lng, l.address, l.name as location_name,
                 a.id as academy_id, a.name as academy_name
@@ -1535,32 +1559,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
          INNER JOIN academies a ON c.academy_id = a.id
          WHERE l.lat IS NOT NULL AND l.lng IS NOT NULL
            AND c.is_active = true
-           AND l.is_active = true
-           AND a.is_active = true`,
-        []
+           AND c.academy_id != $1`,
+        [academyId]
       );
 
-      const allCourts: NearbyCourt[] = courtRows.rows
+      const ownCourts: NearbyCourt[] = ownCourtRows.rows.map((row) => {
+        const hasCoords = row.lat != null && row.lng != null && row.lat !== "" && row.lng !== "";
+        const dist = hasCoords ? Math.round(haversineKm(userLat, userLng, parseFloat(row.lat!), parseFloat(row.lng!)) * 10) / 10 : null;
+        return {
+          id: row.id,
+          name: row.name,
+          address: row.address || row.location_name || null,
+          distance: dist,
+          sport: row.sport || "tennis",
+          surface: row.surface || "hard",
+          isInternal: true,
+          bookingEnabled: row.booking_enabled !== false,
+          lat: hasCoords ? parseFloat(row.lat!) : null,
+          lng: hasCoords ? parseFloat(row.lng!) : null,
+          googlePlaceId: null,
+          academyName: null,
+        };
+      });
+
+      const externalCourts: NearbyCourt[] = externalCourtRows.rows
         .map((row) => {
-          const dist = haversineKm(userLat, userLng, parseFloat(row.lat), parseFloat(row.lng));
-          const isOwn = row.academy_id === academyId;
+          const dist = Math.round(haversineKm(userLat, userLng, parseFloat(row.lat), parseFloat(row.lng)) * 10) / 10;
           return {
             id: row.id,
             name: row.name,
             address: row.address || row.location_name || null,
-            distance: Math.round(dist * 10) / 10,
+            distance: dist,
             sport: row.sport || "tennis",
             surface: row.surface || "hard",
-            isInternal: isOwn,
-            bookingEnabled: isOwn && row.booking_enabled !== false,
+            isInternal: false,
+            bookingEnabled: false,
             lat: parseFloat(row.lat),
             lng: parseFloat(row.lng),
             googlePlaceId: null,
-            academyName: isOwn ? null : (row.academy_name || null),
+            academyName: row.academy_name || null,
           };
         })
-        .filter((c) => c.distance <= 5)
-        .sort((a, b) => a.distance - b.distance);
+        .filter((c) => c.distance !== null && c.distance <= 5);
+
+      const ownIds = new Set(ownCourts.map((c) => c.id));
+      const deduplicatedExternal = externalCourts.filter((c) => !ownIds.has(c.id));
+
+      const allCourts: NearbyCourt[] = [
+        ...ownCourts,
+        ...deduplicatedExternal.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999)),
+      ];
 
       res.json(allCourts);
     } catch (error) {

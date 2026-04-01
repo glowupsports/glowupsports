@@ -98,13 +98,13 @@ interface NearbyCourt {
   id: string;
   name: string;
   address: string | null;
-  distance: number;
+  distance: number | null;
   sport: string;
   surface: string;
   isInternal: boolean;
   bookingEnabled: boolean;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   googlePlaceId: string | null;
   academyName: string | null;
 }
@@ -971,6 +971,7 @@ export default function PlayScreen() {
   }, [locationPermission?.granted]);
 
   const openDirections = (court: NearbyCourt) => {
+    if (court.lat == null || court.lng == null) return;
     const label = encodeURIComponent(court.name);
     const url = Platform.OS === "ios"
       ? `maps:?q=${label}&ll=${court.lat},${court.lng}`
@@ -1097,10 +1098,17 @@ export default function PlayScreen() {
                     </View>
                   ) : null}
                 </View>
-                <View style={styles.nearbyCourtDistanceBadge}>
-                  <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
-                  <Text style={styles.nearbyCourtDistanceText}>{court.distance} km</Text>
-                </View>
+                {court.distance != null ? (
+                  <View style={styles.nearbyCourtDistanceBadge}>
+                    <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
+                    <Text style={styles.nearbyCourtDistanceText}>{court.distance} km</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.nearbyCourtDistanceBadge, { backgroundColor: Colors.dark.backgroundTertiary }]}>
+                    <Ionicons name="location-outline" size={10} color={Colors.dark.textMuted} />
+                    <Text style={[styles.nearbyCourtDistanceText, { color: Colors.dark.textMuted }]}>No location</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.nearbyCourtName} numberOfLines={2}>{court.name}</Text>
               {court.address ? (
@@ -1123,16 +1131,18 @@ export default function PlayScreen() {
                     <Text style={styles.nearbyCourtBookBtnText}>Book</Text>
                   </Pressable>
                 ) : null}
-                <Pressable
-                  style={styles.nearbyCourtDirectionsBtn}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    openDirections(court);
-                  }}
-                >
-                  <Ionicons name="navigate-outline" size={14} color={Colors.dark.primary} />
-                  <Text style={styles.nearbyCourtDirectionsBtnText}>Directions</Text>
-                </Pressable>
+                {court.lat != null && court.lng != null ? (
+                  <Pressable
+                    style={styles.nearbyCourtDirectionsBtn}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      openDirections(court);
+                    }}
+                  >
+                    <Ionicons name="navigate-outline" size={14} color={Colors.dark.primary} />
+                    <Text style={styles.nearbyCourtDirectionsBtnText}>Directions</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           ))}
