@@ -20,7 +20,6 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import * as Location from "expo-location";
 
-// ── Shared types (mirrored in .tsx for web) ───────────────────────────────────
 export interface MapLocationResult {
   address: string;
   lat: number;
@@ -48,7 +47,6 @@ function makeRegion(lat: number, lng: number): Region {
   };
 }
 
-// ── Native implementation (iOS & Android) ─────────────────────────────────────
 export function MapLocationPickerModal({
   visible,
   onClose,

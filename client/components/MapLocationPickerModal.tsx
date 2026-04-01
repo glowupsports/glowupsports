@@ -14,7 +14,6 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import * as Location from "expo-location";
 
-// ── Shared types ──────────────────────────────────────────────────────────────
 export interface MapLocationResult {
   address: string;
   lat: number;
@@ -32,7 +31,6 @@ export interface MapLocationPickerModalProps {
 const DEFAULT_LAT = 25.2048;
 const DEFAULT_LNG = 55.2708;
 
-// ── Leaflet HTML (OpenStreetMap, no API key needed) ───────────────────────────
 function buildLeafletHtml(lat: number, lng: number): string {
   return `<!DOCTYPE html>
 <html>
@@ -74,9 +72,6 @@ function buildLeafletHtml(lat: number, lng: number): string {
 </html>`;
 }
 
-// ── DOMMapView: renders a native <iframe> directly in the DOM ─────────────────
-// On React Native Web, View renders as <div>, so we can imperatively inject
-// an iframe and avoid the non-functional react-native-webview on web.
 interface DOMMapViewProps {
   html: string;
   mapKey: number;
@@ -119,8 +114,6 @@ function DOMMapView({ html, mapKey, onCoordinates, iframeRef }: DOMMapViewProps)
   return <View ref={containerRef} style={StyleSheet.absoluteFill} />;
 }
 
-// ── Web implementation of MapLocationPickerModal ──────────────────────────────
-// Metro picks this .tsx file for web; .native.tsx is used on iOS/Android.
 export function MapLocationPickerModal({
   visible,
   onClose,
