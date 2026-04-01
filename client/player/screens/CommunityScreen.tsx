@@ -202,20 +202,14 @@ export default function CommunityScreen() {
   };
 
   const handleDelete = (postId: string) => {
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("Are you sure you want to delete this post?")) {
-        deletePostMutation.mutate(postId);
-      }
-    } else {
-      Alert.alert(
-        "Delete Post",
-        "Are you sure you want to delete this post?",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: () => deletePostMutation.mutate(postId) }
-        ]
-      );
-    }
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deletePostMutation.mutate(postId) }
+      ]
+    );
   };
 
   const handleCreateMoment = () => {

@@ -65,9 +65,12 @@ function LatestPostCard({ post, onPress, queryClient }: { post: Post; onPress: (
   const avatarUrl = post.player?.photoUrl 
     ? (post.player.photoUrl.startsWith("http") ? post.player.photoUrl : `${getStaticAssetsUrl()}${post.player.photoUrl}`)
     : null;
-  const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
-  const firstMediaUrl = hasMedia 
-    ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getStaticAssetsUrl()}${post.mediaUrls[0]}`) 
+  const hasMedia = post.mediaUrls && post.mediaUrls.length > 0 && !!post.mediaUrls[0];
+  const rawFirstMediaUrl = hasMedia ? post.mediaUrls[0] : "";
+  const firstMediaUrl = rawFirstMediaUrl
+    ? rawFirstMediaUrl.startsWith("http")
+      ? rawFirstMediaUrl
+      : `${getStaticAssetsUrl()}${rawFirstMediaUrl.startsWith("/") ? rawFirstMediaUrl : `/${rawFirstMediaUrl}`}`
     : null;
 
   const handleMoreOptions = () => {

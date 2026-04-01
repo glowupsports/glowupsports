@@ -64,7 +64,7 @@ export function MomentCard({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showCheerPicker, setShowCheerPicker] = useState(false);
-  const isOwnPost = currentUserId && post.authorId === currentUserId;
+  const isOwnPost = currentUserId && String(post.authorId) === String(currentUserId);
 
   const handleMoreOptions = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -147,9 +147,14 @@ export function MomentCard({
   }, [post.contextType, t]);
 
   const contextStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
-  const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
+  const hasMedia = post.mediaUrls && post.mediaUrls.length > 0 && !!post.mediaUrls[0];
   const isVideo = hasMedia && post.mediaTypes && post.mediaTypes[0] === "video";
-  const mediaUrl = hasMedia ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getStaticAssetsUrl()}${post.mediaUrls[0]}`) : "";
+  const rawMediaUrl = hasMedia ? post.mediaUrls[0] : "";
+  const mediaUrl = rawMediaUrl
+    ? rawMediaUrl.startsWith("http")
+      ? rawMediaUrl
+      : `${getStaticAssetsUrl()}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
+    : "";
 
   return (
     <Animated.View entering={FadeInDown.delay(100).springify()}>
