@@ -166,7 +166,7 @@ router.get("/player/shop", authMiddleware, requirePlayerProfile, requireFeatureU
     }
     const academyId = player[0].academyId;
 
-    const [categories, featuredProducts, featuredServices] = await Promise.all([
+    const [categories, featuredProducts, featuredServices, newArrivals, onSale] = await Promise.all([
       db.select().from(shopCategories)
         .where(and(
           eq(shopCategories.academyId, academyId),
@@ -191,12 +191,31 @@ router.get("/player/shop", authMiddleware, requirePlayerProfile, requireFeatureU
         ))
         .orderBy(asc(shopServices.order))
         .limit(4),
+
+      db.select().from(shopProducts)
+        .where(and(
+          eq(shopProducts.academyId, academyId),
+          eq(shopProducts.isActive, true)
+        ))
+        .orderBy(desc(shopProducts.createdAt))
+        .limit(8),
+
+      db.select().from(shopProducts)
+        .where(and(
+          eq(shopProducts.academyId, academyId),
+          eq(shopProducts.isActive, true),
+          isNotNull(shopProducts.compareAtPrice)
+        ))
+        .orderBy(asc(shopProducts.order))
+        .limit(10),
     ]);
 
     res.json({
       categories,
       featuredProducts,
       featuredServices,
+      newArrivals,
+      onSale,
     });
   } catch (error) {
     console.error("[Shop] Error fetching shop home:", error);
@@ -207,7 +226,7 @@ router.get("/player/shop", authMiddleware, requirePlayerProfile, requireFeatureU
 // Get products by category
 router.get("/player/shop/products", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
-    const { categoryId } = req.query;
+    const { categoryId, collection } = req.query;
     const playerId = req.user?.playerId;
     if (!playerId) {
       return res.status(403).json({ error: "Player profile required" });
@@ -219,13 +238,18 @@ router.get("/player/shop/products", authMiddleware, requirePlayerProfile, requir
     }
     const academyId = player[0].academyId;
 
-    const whereConditions = [
+    const whereConditions: any[] = [
       eq(shopProducts.academyId, academyId),
       eq(shopProducts.isActive, true),
     ];
     
     if (categoryId && typeof categoryId === "string") {
       whereConditions.push(eq(shopProducts.categoryId, categoryId));
+    }
+
+    if (collection && typeof collection === "string") {
+      const sanitized = collection.replace(/[%_\\]/g, "\\$&");
+      whereConditions.push(sql`LOWER(${shopProducts.name}) LIKE ${"%" + sanitized.toLowerCase() + "%"} ESCAPE '\\'`);
     }
 
     const products = await db.select().from(shopProducts)

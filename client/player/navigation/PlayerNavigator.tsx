@@ -203,7 +203,7 @@ export type PlayerStackParamList = {
   ServiceDetail: { serviceId: string };
   PlayerOrderDetail: { orderId: string };
   Cart: undefined;
-  ShopCategory: { categoryId: string; categoryName: string };
+  ShopCategory: { categoryId?: string; categoryName: string; collection?: string };
   Marketplace: undefined;
   MarketplaceListing: { listingId: string };
   Equipment: undefined;
