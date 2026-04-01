@@ -6,6 +6,14 @@ Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+### CRITICAL: App Store Version Rule
+**EVERY new App Store build MUST have a new version number in `app.json`!**
+- Bug fixes / small changes → bump patch: 1.3.2 → 1.3.3
+- New features → bump minor: 1.3.x → 1.4.0
+- Major release → bump major: 1.x.x → 2.0.0
+- ALWAYS update both `"version"` AND `"runtimeVersion"` in app.json
+- Current version after last submit (build #15): **1.3.3** (ready for next build)
+
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**
 
