@@ -253,6 +253,14 @@ export default function PlayScreen() {
     ),
   }));
 
+  const insetsTop = insets.top;
+  const animatedMainContentStyle = useAnimatedStyle(() => ({
+    paddingTop: insetsTop + Math.max(
+      headerHeightSV.value + headerTranslation.value,
+      0
+    ),
+  }));
+
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
       const timer = setTimeout(() => {
@@ -1452,7 +1460,7 @@ export default function PlayScreen() {
         ) : null}
       </Animated.View>
 
-      <View style={[styles.mainContent, { paddingTop: headerHeight + insets.top }]}>
+      <Animated.View style={[styles.mainContent, animatedMainContentStyle]}>
         <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
           <Pressable
@@ -1755,7 +1763,7 @@ export default function PlayScreen() {
           </>
         )}
       </Animated.ScrollView>
-      </View>
+      </Animated.View>
 
       {/* Session Info Modal with static map */}
       <Modal
