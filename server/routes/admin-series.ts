@@ -47,7 +47,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Get all coaching series for the academy (with optional coach filter)
   router.get("/api/admin/series", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
@@ -199,7 +199,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       let { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -302,7 +302,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Create a new coaching series (admin can create for any coach)
   router.post("/api/admin/series", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -552,7 +552,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.patch("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -582,7 +582,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
     try {
       const { id } = req.params;
       const userRole = req.user?.role;
-      const academyId = req.user?.academyId || req.header("X-Academy-Id");
+      const academyId = req.user?.currentAcademyId || req.header("X-Academy-Id");
 
       // Handle virtual series (orphan/transferred sessions grouped under virtual-{seriesKey})
       if (id.startsWith("virtual-")) {
@@ -679,7 +679,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/series/:id/players", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -746,7 +746,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.delete("/api/admin/series/:id/players/:playerId", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -774,7 +774,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/series/:id/players/:playerId/pause", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -809,7 +809,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/series/:id/players/:playerId/unpause", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -842,7 +842,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/series/:id/feedback", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -895,7 +895,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/series/:id/progress", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -938,7 +938,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/series/:id/timeline", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -978,7 +978,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/sessions/:id/attendance", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -1009,7 +1009,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/sessions/:id/attendance", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
@@ -1088,7 +1088,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Admin create session (for any coach in the academy)
   router.post("/api/admin/sessions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
@@ -1301,7 +1301,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Admin bulk create sessions (flexible schedule)
   router.post("/api/admin/sessions/bulk", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
@@ -1525,7 +1525,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Admin Dashboard Enhanced - World-class dashboard with all premium features
   router.get("/api/admin/dashboard/enhanced", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
@@ -1766,7 +1766,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Admin Dashboard - Comprehensive stats and alerts for academy admins
   router.get("/api/admin/dashboard", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
@@ -1919,7 +1919,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/coaches/:coachId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { coachId } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       
       const coach = await storage.getCoach(coachId);
       if (!coach || (academyId && coach.academyId !== academyId)) {
@@ -2025,7 +2025,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const parsedPayout = payoutPaySchema.safeParse(req.body);
       if (!parsedPayout.success) return res.status(400).json({ error: fromZodError(parsedPayout.error).message });
       const { paymentMethod, paymentReference, notes } = parsedPayout.data;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       const adminId = req.user?.coachId || req.user?.id;
 
       const coach = await storage.getCoach(coachId);
@@ -2073,7 +2073,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
     try {
       const { coachId, month, year } = req.params;
       const { reason, notes } = req.body;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
 
       const coach = await storage.getCoach(coachId);
       if (!coach || (academyId && coach.academyId !== academyId)) {
@@ -2113,7 +2113,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   // Admin - Get revenue report by month
   router.get("/api/admin/revenue", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy ID required" });
       }
@@ -2186,7 +2186,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
-      const academyId = req.user?.academyId;
+      const academyId = req.user?.currentAcademyId;
       const userRole = req.user?.role;
       
       const player = await storage.getPlayer(playerId);

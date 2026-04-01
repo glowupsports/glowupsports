@@ -122,7 +122,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const role = req.user?.role;
-        const academyId = req.user?.academyId;
+        const academyId = req.user?.currentAcademyId;
 
         if (!academyId && role !== "platform_owner") {
           return res.status(403).json({ error: "Academy membership required" });
@@ -132,13 +132,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         if (academyId) {
           allSessions = await storage.getSessionsByAcademy(academyId);
         } else {
-          // Platform owner viewing default academy
-          const defaultAcademy = await storage.getAcademyBySlug("default");
-          if (defaultAcademy) {
-            allSessions = await storage.getSessionsByAcademy(defaultAcademy.id);
-          } else {
-            allSessions = [];
-          }
+          allSessions = [];
         }
 
         const sessionsWithPlayers = await Promise.all(
@@ -166,20 +160,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const role = req.user?.role;
-        const academyId = req.user?.academyId;
-        const scopeToAcademy = req.query.scope === "academy";
-
-        if (scopeToAcademy && !academyId) {
-          return res.json([]);
-        }
+        const academyId = req.user?.currentAcademyId;
 
         if (role !== "platform_owner" && !academyId) {
           return res.status(403).json({ error: "Academy membership required" });
         }
 
-        const allCoaches = await storage.getAllCoaches(
-          (role === "platform_owner" && !scopeToAcademy) ? undefined : academyId,
-        );
+        if (!academyId) {
+          return res.json([]);
+        }
+
+        const allCoaches = await storage.getAllCoaches(academyId);
         res.json(allCoaches);
       } catch (error) {
         console.error("Error fetching coaches:", error);
@@ -588,7 +579,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const role = req.user?.role;
-        const academyId = req.user?.academyId;
+        const academyId = req.user?.currentAcademyId;
 
         if (role !== "platform_owner" && !academyId) {
           return res.status(403).json({ error: "Academy membership required" });
@@ -1044,7 +1035,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     authMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
+        const academyId = req.user?.currentAcademyId;
         const playerId = req.user?.playerId;
 
         // If player doesn't have an academy yet, return empty array gracefully
