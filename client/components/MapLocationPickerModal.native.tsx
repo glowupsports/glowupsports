@@ -9,7 +9,12 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import MapView, { Marker, MapPressEvent, MarkerDragStartEndEvent, Region } from "react-native-maps";
+import MapView, {
+  Marker,
+  MapPressEvent,
+  MarkerDragStartEndEvent,
+  Region,
+} from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
@@ -34,6 +39,15 @@ const DEFAULT_LAT = 25.2048;
 const DEFAULT_LNG = 55.2708;
 const DEFAULT_DELTA = 0.005;
 
+function makeRegion(lat: number, lng: number): Region {
+  return {
+    latitude: lat,
+    longitude: lng,
+    latitudeDelta: DEFAULT_DELTA,
+    longitudeDelta: DEFAULT_DELTA,
+  };
+}
+
 // ── Native implementation (iOS & Android) ─────────────────────────────────────
 export function MapLocationPickerModal({
   visible,
@@ -44,72 +58,39 @@ export function MapLocationPickerModal({
 }: MapLocationPickerModalProps) {
   const [markerLat, setMarkerLat] = useState(initialLat ?? DEFAULT_LAT);
   const [markerLng, setMarkerLng] = useState(initialLng ?? DEFAULT_LNG);
-  const [region, setRegion] = useState<Region>({
-    latitude: initialLat ?? DEFAULT_LAT,
-    longitude: initialLng ?? DEFAULT_LNG,
-    latitudeDelta: DEFAULT_DELTA,
-    longitudeDelta: DEFAULT_DELTA,
-  });
+  const [initialRegion] = useState<Region>(() =>
+    makeRegion(initialLat ?? DEFAULT_LAT, initialLng ?? DEFAULT_LNG)
+  );
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [locating, setLocating] = useState(false);
   const reverseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<MapView>(null);
+  // Pending region to animate to once the map signals it is ready
+  const pendingRegionRef = useRef<Region | null>(null);
+  const mapReadyRef = useRef(false);
 
-  useEffect(() => {
-    if (!visible) return;
-
-    // If a saved location exists, center on it immediately
-    if (initialLat != null && initialLng != null) {
-      setMarkerLat(initialLat);
-      setMarkerLng(initialLng);
-      setRegion({
-        latitude: initialLat,
-        longitude: initialLng,
-        latitudeDelta: DEFAULT_DELTA,
-        longitudeDelta: DEFAULT_DELTA,
-      });
-      setAddress(null);
-      setTimeout(() => reverseGeocode(initialLat, initialLng), 300);
-      return;
-    }
-
-    // No saved location — try GPS first
-    setAddress(null);
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          const { latitude, longitude } = loc.coords;
-          setMarkerLat(latitude);
-          setMarkerLng(longitude);
-          setRegion({
-            latitude,
-            longitude,
-            latitudeDelta: DEFAULT_DELTA,
-            longitudeDelta: DEFAULT_DELTA,
-          });
-          reverseGeocode(latitude, longitude);
-          return;
-        }
-      } catch {
-        // GPS unavailable — fall through to default
+  const animateTo = useCallback((lat: number, lng: number, delay = 0) => {
+    const r = makeRegion(lat, lng);
+    if (mapReadyRef.current) {
+      if (delay) {
+        setTimeout(() => mapRef.current?.animateToRegion(r, 400), delay);
+      } else {
+        mapRef.current?.animateToRegion(r, 400);
       }
-      // Final fallback: default Dubai coordinates
-      setMarkerLat(DEFAULT_LAT);
-      setMarkerLng(DEFAULT_LNG);
-      setRegion({
-        latitude: DEFAULT_LAT,
-        longitude: DEFAULT_LNG,
-        latitudeDelta: DEFAULT_DELTA,
-        longitudeDelta: DEFAULT_DELTA,
-      });
-      reverseGeocode(DEFAULT_LAT, DEFAULT_LNG);
-    })();
-  }, [visible, initialLat, initialLng]);
+    } else {
+      // Map not ready yet — store so onMapReady can apply it
+      pendingRegionRef.current = r;
+    }
+  }, []);
+
+  const handleMapReady = useCallback(() => {
+    mapReadyRef.current = true;
+    if (pendingRegionRef.current) {
+      mapRef.current?.animateToRegion(pendingRegionRef.current, 400);
+      pendingRegionRef.current = null;
+    }
+  }, []);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     setResolving(true);
@@ -138,6 +119,48 @@ export function MapLocationPickerModal({
     [reverseGeocode]
   );
 
+  useEffect(() => {
+    if (!visible) {
+      // Reset map-ready flag so reopening initialises correctly
+      mapReadyRef.current = false;
+      pendingRegionRef.current = null;
+      return;
+    }
+
+    setAddress(null);
+
+    // Saved coordinates → center on them
+    if (initialLat != null && initialLng != null) {
+      setMarkerLat(initialLat);
+      setMarkerLng(initialLng);
+      animateTo(initialLat, initialLng);
+      setTimeout(() => reverseGeocode(initialLat, initialLng), 300);
+      return;
+    }
+
+    // No saved coords → try GPS, fall back to Dubai
+    (async () => {
+      let lat = DEFAULT_LAT;
+      let lng = DEFAULT_LNG;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
+      } catch {
+        // GPS unavailable — keep Dubai defaults
+      }
+      setMarkerLat(lat);
+      setMarkerLng(lng);
+      animateTo(lat, lng);
+      reverseGeocode(lat, lng);
+    })();
+  }, [visible, initialLat, initialLng]);
+
   const handleMarkerDragEnd = useCallback(
     (e: MarkerDragStartEndEvent) => {
       const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -153,15 +176,7 @@ export function MapLocationPickerModal({
       const { latitude, longitude } = e.nativeEvent.coordinate;
       setMarkerLat(latitude);
       setMarkerLng(longitude);
-      mapRef.current?.animateToRegion(
-        {
-          latitude,
-          longitude,
-          latitudeDelta: DEFAULT_DELTA,
-          longitudeDelta: DEFAULT_DELTA,
-        },
-        200
-      );
+      mapRef.current?.animateToRegion(makeRegion(latitude, longitude), 200);
       scheduleReverseGeocode(latitude, longitude);
     },
     [scheduleReverseGeocode]
@@ -184,15 +199,7 @@ export function MapLocationPickerModal({
       const { latitude, longitude } = loc.coords;
       setMarkerLat(latitude);
       setMarkerLng(longitude);
-      mapRef.current?.animateToRegion(
-        {
-          latitude,
-          longitude,
-          latitudeDelta: DEFAULT_DELTA,
-          longitudeDelta: DEFAULT_DELTA,
-        },
-        400
-      );
+      mapRef.current?.animateToRegion(makeRegion(latitude, longitude), 400);
       scheduleReverseGeocode(latitude, longitude);
     } catch {
       Alert.alert("Location Error", "Could not get your current location.");
@@ -237,7 +244,8 @@ export function MapLocationPickerModal({
           <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFill}
-            initialRegion={region}
+            initialRegion={initialRegion}
+            onMapReady={handleMapReady}
             onPress={handleMapPress}
             showsUserLocation={false}
             showsMyLocationButton={false}
