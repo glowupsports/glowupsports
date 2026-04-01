@@ -14,7 +14,17 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
+import { apiFetch } from "@/lib/query-client";
+
+const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
+type SportKey = "tennis" | "padel" | "pickleball";
+const SPORT_LABELS: Record<SportKey, string> = {
+  tennis: "TENNIS",
+  padel: "PADEL",
+  pickleball: "PICKLEBALL",
+};
 
 interface NewsArticle {
   id: string;
@@ -40,9 +50,23 @@ export function NewsTicker({
   const translateX = useSharedValue(0);
   const glowPulse = useSharedValue(0);
   const [measuredWidth, setMeasuredWidth] = useState(0);
+  const [sport, setSport] = useState<SportKey>("tennis");
+
+  useEffect(() => {
+    AsyncStorage.getItem(NEWS_SPORT_PREF_KEY).then((val) => {
+      if (val && ["tennis", "padel", "pickleball"].includes(val)) {
+        setSport(val as SportKey);
+      }
+    }).catch(() => {});
+  }, []);
 
   const { data: newsData, isLoading } = useQuery<{ articles: NewsArticle[] }>({
-    queryKey: ["/api/player/news"],
+    queryKey: ["/api/player/news", sport],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/player/news?sport=${sport}`);
+      if (!res.ok) return { articles: [] };
+      return res.json();
+    },
     refetchInterval: 15 * 60 * 1000,
   });
 
@@ -186,7 +210,7 @@ export function NewsTicker({
       <View style={styles.labelContainer}>
         <Animated.View style={[styles.liveDot, liveDotStyle]} />
         <View style={styles.liveDotRing} />
-        <Text style={styles.labelText}>{t("news.tennis")}</Text>
+        <Text style={styles.labelText}>{SPORT_LABELS[sport]}</Text>
       </View>
 
       <View style={styles.tickerContainer}>

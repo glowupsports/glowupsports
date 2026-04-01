@@ -4104,17 +4104,59 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
     }
   });
 
-  // Tennis news RSS aggregator - cached for 15 minutes
-  let newsCache: { articles: any[]; fetchedAt: number } | null = null;
+  // News RSS aggregator - cached per sport for 15 minutes
+  const newsCaches: Record<string, { articles: any[]; fetchedAt: number } | null> = {
+    tennis: null,
+    padel: null,
+    pickleball: null,
+  };
   const NEWS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-  
+
+  const SPORT_FEEDS: Record<string, Array<{ url: string; source: string }>> = {
+    tennis: [
+      { url: "https://www.atptour.com/en/media/rss-feed/xml-feed", source: "ATP Tour" },
+      { url: "https://feeds.bbci.co.uk/sport/tennis/rss.xml", source: "BBC Sport" },
+      { url: "https://www.espn.com/espn/rss/tennis/news", source: "ESPN" },
+      { url: "https://www.theguardian.com/sport/tennis/rss", source: "Guardian" },
+      { url: "https://www.skysports.com/rss/12040", source: "Sky Sports" },
+    ],
+    padel: [
+      { url: "https://www.worldpadeltour.com/en/rss/", source: "World Padel Tour" },
+      { url: "https://www.padel-magazine.com/feed/", source: "Padel Magazine" },
+      { url: "https://www.padeladdict.com/en/feed/", source: "Padel Addict" },
+    ],
+    pickleball: [
+      { url: "https://thepickler.com/blogs/pickleball-blog.atom", source: "The Pickler" },
+      { url: "https://www.ppatour.com/feed/", source: "PPA Tour" },
+      { url: "https://pickleballcentral.com/blogs/news.atom", source: "PickleballCentral" },
+    ],
+  };
+
+  const SPORT_FALLBACKS: Array<{ id: string; title: string; link: string; source: string; publishedAt: string }> = [
+    { id: "tf1", title: "Australian Open 2026: Draw Announced", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
+    { id: "tf2", title: "Sinner Leads ATP Rankings After Strong Start", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
+    { id: "tf3", title: "Swiatek Eyes Fourth Grand Slam Title", link: "#", source: "WTA", publishedAt: new Date().toISOString() },
+    { id: "tf4", title: "Alcaraz Working on New Serve Technique", link: "#", source: "ESPN", publishedAt: new Date().toISOString() },
+    { id: "tf5", title: "Djokovic Confirms Melbourne Participation", link: "#", source: "BBC Sport", publishedAt: new Date().toISOString() },
+    { id: "tf6", title: "Young Stars Rising in ATP Next Gen Finals", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
+    { id: "tf7", title: "WTA Finals: Key Matchups to Watch", link: "#", source: "WTA", publishedAt: new Date().toISOString() },
+    { id: "tf8", title: "Tennis Technology: New Hawkeye Updates", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
+    { id: "tf9", title: "Roland Garros Clay Court Renovations Complete", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
+    { id: "tf10", title: "Doubles Specialists Dominate Miami Open", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
+  ];
+
   router.get("/api/player/news", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const sport = (typeof req.query.sport === "string" && ["tennis", "padel", "pickleball"].includes(req.query.sport))
+        ? req.query.sport
+        : "tennis";
+
       const now = Date.now();
-      
+      const cache = newsCaches[sport];
+
       // Return cached data if still fresh
-      if (newsCache && (now - newsCache.fetchedAt) < NEWS_CACHE_TTL) {
-        return res.json({ articles: newsCache.articles, cached: true });
+      if (cache && (now - cache.fetchedAt) < NEWS_CACHE_TTL) {
+        return res.json({ articles: cache.articles, cached: true });
       }
       
       // Fetch fresh news from RSS feeds
@@ -4133,14 +4175,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         },
       });
       
-      // Reliable RSS feeds only - removed broken ones (WTA 404, Tennis.com 404, Tennis World USA 403, Eurosport parsing issues)
-      const feeds = [
-        { url: "https://www.atptour.com/en/media/rss-feed/xml-feed", source: "ATP Tour" },
-        { url: "https://feeds.bbci.co.uk/sport/tennis/rss.xml", source: "BBC Sport" },
-        { url: "https://www.espn.com/espn/rss/tennis/news", source: "ESPN" },
-        { url: "https://www.theguardian.com/sport/tennis/rss", source: "Guardian" },
-        { url: "https://www.skysports.com/rss/12040", source: "Sky Sports" },
-      ];
+      const feeds = SPORT_FEEDS[sport] || SPORT_FEEDS.tennis;
       
       const articles: Array<{
         id: string;
@@ -4151,7 +4186,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         thumbnail?: string;
       }> = [];
       
-      // 48 hours ago cutoff (tennis news updates less frequently)
+      // 48 hours ago cutoff
       const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
       
       // Try to fetch from each feed, gracefully handle failures
@@ -4224,45 +4259,23 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       articles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
       const limitedArticles = articles.slice(0, 50);
       
-      // If no RSS feeds worked or too few articles, add fallback headlines
-      if (limitedArticles.length < 10) {
-        const fallbackArticles = [
-          { id: "f1", title: "Australian Open 2026: Draw Announced", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f2", title: "Sinner Leads ATP Rankings After Strong Start", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f3", title: "Swiatek Eyes Fourth Grand Slam Title", link: "#", source: "WTA", publishedAt: new Date().toISOString() },
-          { id: "f4", title: "Alcaraz Working on New Serve Technique", link: "#", source: "ESPN", publishedAt: new Date().toISOString() },
-          { id: "f5", title: "Djokovic Confirms Melbourne Participation", link: "#", source: "BBC Sport", publishedAt: new Date().toISOString() },
-          { id: "f6", title: "Young Stars Rising in ATP Next Gen Finals", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f7", title: "WTA Finals: Key Matchups to Watch", link: "#", source: "WTA", publishedAt: new Date().toISOString() },
-          { id: "f8", title: "Tennis Technology: New Hawkeye Updates", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
-          { id: "f9", title: "Roland Garros Clay Court Renovations Complete", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
-          { id: "f10", title: "Doubles Specialists Dominate Miami Open", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f11", title: "Injury Update: Top 10 Players Return to Training", link: "#", source: "ESPN", publishedAt: new Date().toISOString() },
-          { id: "f12", title: "Wimbledon Grass Courts Preparation Begins", link: "#", source: "BBC Sport", publishedAt: new Date().toISOString() },
-          { id: "f13", title: "ATP Cup Teams Announced for 2026 Season", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f14", title: "Rising Talent: Junior Champions Turn Pro", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
-          { id: "f15", title: "Indian Wells Masters Draw Preview", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f16", title: "New Racket Technology Changing the Game", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
-          { id: "f17", title: "Davis Cup Final Host City Revealed", link: "#", source: "ATP Tour", publishedAt: new Date().toISOString() },
-          { id: "f18", title: "Top Seeds Advance in Brisbane International", link: "#", source: "WTA", publishedAt: new Date().toISOString() },
-          { id: "f19", title: "Coaching Changes Shake Up Tour Season", link: "#", source: "ESPN", publishedAt: new Date().toISOString() },
-          { id: "f20", title: "US Open Prize Money Increase Announced", link: "#", source: "Tennis", publishedAt: new Date().toISOString() },
-        ];
-        // Add fallbacks that aren't already in the list
-        const existingIds = new Set(limitedArticles.map(a => a.id));
-        for (const fb of fallbackArticles) {
+      // For tennis only: if no RSS feeds worked or too few articles, add fallback headlines
+      // For padel/pickleball: return empty array if feeds are unavailable (per sport design)
+      if (sport === "tennis" && limitedArticles.length < 10) {
+        const existingIds = new Set(limitedArticles.map((a) => a.id));
+        for (const fb of SPORT_FALLBACKS) {
           if (!existingIds.has(fb.id) && limitedArticles.length < 25) {
             limitedArticles.push(fb);
           }
         }
       }
       
-      // Cache the results (50 articles for continuous scrolling)
-      newsCache = { articles: limitedArticles, fetchedAt: now };
+      // Cache the results per sport
+      newsCaches[sport] = { articles: limitedArticles, fetchedAt: now };
       
       res.json({ articles: limitedArticles, cached: false });
     } catch (error) {
-      console.error("Error fetching tennis news:", error);
+      console.error("Error fetching news:", error);
       res.status(500).json({ error: "Failed to fetch news", articles: [] });
     }
   });

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import * as WebBrowser from "expo-web-browser";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
   FadeIn,
@@ -30,8 +31,19 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { apiFetch } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
+
+type SportKey = "tennis" | "padel" | "pickleball";
+
+const SPORT_CHIPS: { key: SportKey; label: string }[] = [
+  { key: "tennis", label: "Tennis" },
+  { key: "padel", label: "Padel" },
+  { key: "pickleball", label: "Pickleball" },
+];
 
 interface NewsArticle {
   id: string;
@@ -52,6 +64,11 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string; icon: string }> 
   "BBC Sport": { bg: "#BB1919", text: Colors.dark.text, icon: "globe" },
   "Tennis.com": { bg: "#00B894", text: Colors.dark.text, icon: "tennisball" },
   "WTA": { bg: "#E91E63", text: Colors.dark.text, icon: "tennisball" },
+  "World Padel Tour": { bg: "#00B4D8", text: Colors.dark.text, icon: "newspaper" },
+  "Padel Magazine": { bg: "#FF6B35", text: Colors.dark.text, icon: "newspaper" },
+  "PPA Tour": { bg: "#7B2FBE", text: Colors.dark.text, icon: "newspaper" },
+  "The Pickler": { bg: "#2ECC71", text: Colors.dark.text, icon: "newspaper" },
+  "PickleballCentral": { bg: "#FFD700", text: "#000000", icon: "newspaper" },
   default: { bg: ProTennisColors.neonGreen, text: Colors.dark.buttonText, icon: "newspaper" },
 };
 
@@ -244,7 +261,8 @@ function FeaturedCard({ article }: { article: NewsArticle }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ sport }: { sport: SportKey }) {
+  const sportLabel = SPORT_CHIPS.find((c) => c.key === sport)?.label ?? "Sport";
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
@@ -252,17 +270,48 @@ function EmptyState() {
       </View>
       <Text style={styles.emptyTitle}>No News Available</Text>
       <Text style={styles.emptySubtitle}>
-        Pull down to refresh and check for the latest tennis news
+        Pull down to refresh and check for the latest {sportLabel} news
       </Text>
     </View>
   );
 }
 
-function LoadingState() {
+function LoadingState({ sport }: { sport: SportKey }) {
+  const sportLabel = SPORT_CHIPS.find((c) => c.key === sport)?.label ?? "sport";
   return (
     <View style={styles.loadingState}>
       <ActivityIndicator size="large" color={ProTennisColors.neonGreen} />
-      <Text style={styles.loadingText}>Loading tennis news...</Text>
+      <Text style={styles.loadingText}>Loading {sportLabel} news...</Text>
+    </View>
+  );
+}
+
+function SportFilterChips({
+  selected,
+  onSelect,
+}: {
+  selected: SportKey;
+  onSelect: (sport: SportKey) => void;
+}) {
+  return (
+    <View style={styles.chipsRow}>
+      {SPORT_CHIPS.map((chip) => {
+        const isActive = chip.key === selected;
+        return (
+          <Pressable
+            key={chip.key}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onSelect(chip.key);
+            }}
+            style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
+          >
+            <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>
+              {chip.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -272,23 +321,74 @@ export default function NewsScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSport, setSelectedSport] = useState<SportKey>("tennis");
+  const [prefLoaded, setPrefLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(NEWS_SPORT_PREF_KEY);
+        if (saved && ["tennis", "padel", "pickleball"].includes(saved)) {
+          setSelectedSport(saved as SportKey);
+        } else {
+          try {
+            const profileRes = await apiFetch("/api/player/me/profile");
+            if (profileRes.ok) {
+              const profile = await profileRes.json();
+              type SportProfileEntry = { sport?: string; sportType?: string };
+              const sports: string[] = (profile?.sportProfiles as SportProfileEntry[] | undefined)?.map(
+                (sp) => (sp.sport || sp.sportType || "").toLowerCase()
+              ) ?? [];
+              if (sports.includes("tennis")) {
+                setSelectedSport("tennis");
+              } else if (sports.includes("padel")) {
+                setSelectedSport("padel");
+              } else if (sports.includes("pickleball")) {
+                setSelectedSport("pickleball");
+              }
+            }
+          } catch {
+          }
+        }
+      } catch {
+      } finally {
+        setPrefLoaded(true);
+      }
+    })();
+  }, []);
+
+  const handleSelectSport = useCallback(async (sport: SportKey) => {
+    setSelectedSport(sport);
+    try {
+      await AsyncStorage.setItem(NEWS_SPORT_PREF_KEY, sport);
+    } catch {
+    }
+  }, []);
 
   const { data, isLoading, error, refetch } = useQuery<NewsResponse>({
-    queryKey: ["/api/player/news"],
+    queryKey: ["/api/player/news", selectedSport],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/player/news?sport=${selectedSport}`);
+      if (!res.ok) throw new Error("Failed to fetch news");
+      return res.json();
+    },
     staleTime: 5 * 60 * 1000,
+    enabled: prefLoaded,
   });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await queryClient.invalidateQueries({ queryKey: ["/api/player/news"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/player/news", selectedSport] });
     await refetch();
     setRefreshing(false);
-  }, [queryClient, refetch]);
+  }, [queryClient, refetch, selectedSport]);
 
   const articles = data?.articles || [];
   const featuredArticle = articles[0];
   const remainingArticles = articles.slice(1);
+
+  const sportLabel = SPORT_CHIPS.find((c) => c.key === selectedSport)?.label ?? "Sport";
 
   const renderHeader = () => (
     <View style={styles.headerSection}>
@@ -302,27 +402,36 @@ export default function NewsScreen() {
           </LinearGradient>
         </View>
         <View>
-          <Text style={styles.headerTitle}>Tennis News</Text>
+          <Text style={styles.headerTitle}>{sportLabel} News</Text>
           <Text style={styles.headerSubtitle}>Stay updated with the latest</Text>
         </View>
       </Animated.View>
 
-      {featuredArticle && <FeaturedCard article={featuredArticle} />}
+      <SportFilterChips selected={selectedSport} onSelect={handleSelectSport} />
 
-      {remainingArticles.length > 0 && (
+      {featuredArticle ? <FeaturedCard article={featuredArticle} /> : null}
+
+      {remainingArticles.length > 0 ? (
         <Animated.View entering={FadeInUp.delay(200)} style={styles.sectionHeader}>
           <View style={styles.sectionDivider} />
           <Text style={styles.sectionTitle}>Latest Stories</Text>
           <View style={styles.sectionDivider} />
         </Animated.View>
-      )}
+      ) : null}
     </View>
   );
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <View style={styles.container}>
-        <LoadingState />
+        <LinearGradient
+          colors={[ProTennisColors.midnightBlue, "#0A0A0A"]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.chipsRowStandalone, { paddingTop: insets.top + Spacing.md }]}>
+          <SportFilterChips selected={selectedSport} onSelect={handleSelectSport} />
+        </View>
+        <LoadingState sport={selectedSport} />
       </View>
     );
   }
@@ -339,7 +448,7 @@ export default function NewsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => <NewsCard article={item} index={index} />}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={articles.length === 0 ? <EmptyState /> : null}
+        ListEmptyComponent={articles.length === 0 ? <EmptyState sport={selectedSport} /> : null}
         contentContainerStyle={[
           styles.listContent,
           { paddingTop: Spacing.md, paddingBottom: insets.bottom + 100 },
@@ -396,6 +505,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  chipsRowStandalone: {
+    paddingHorizontal: Spacing.md,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  chipActive: {
+    backgroundColor: ProTennisColors.neonGreen,
+  },
+  chipInactive: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  chipTextActive: {
+    color: Colors.dark.buttonText,
+  },
+  chipTextInactive: {
+    color: Colors.dark.textMuted,
   },
   sectionHeader: {
     flexDirection: "row",
