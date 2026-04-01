@@ -59,6 +59,7 @@ export default function AcademyDetailScreen() {
   const [pendingInvite, setPendingInvite] = useState<{ token: string; role: string; url: string } | null>(null);
   const [modalCopied, setModalCopied] = useState(false);
   
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -112,11 +113,7 @@ export default function AcademyDetailScreen() {
     onError: (error: Error) => {
       console.error("Delete academy error:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      if (Platform.OS === "web") {
-        window.alert(`Failed to delete academy: ${error.message}`);
-      } else {
-        Alert.alert("Error", `Failed to delete academy: ${error.message}`);
-      }
+      Alert.alert("Error", `Failed to delete academy: ${error.message}`);
     },
   });
 
@@ -341,23 +338,8 @@ export default function AcademyDetailScreen() {
   };
 
   const handleDelete = () => {
-    const confirmDelete = () => {
-      deleteMutation.mutate();
-    };
-
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Are you sure you want to delete "${academyName}"? This action cannot be undone. All associated coaches and players will be removed.`);
-      if (confirmed) confirmDelete();
-    } else {
-      Alert.alert(
-        "Delete Academy",
-        `Are you sure you want to delete "${academyName}"? This action cannot be undone. All associated coaches and players will be removed.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: confirmDelete },
-        ]
-      );
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowDeleteConfirm(true);
   };
 
   const handleSave = () => {
@@ -903,6 +885,48 @@ export default function AcademyDetailScreen() {
           </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
+
+      <Modal
+        visible={showDeleteConfirm}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowDeleteConfirm(false)} />
+          <View style={[styles.inviteModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={[styles.inviteIconContainer, { backgroundColor: `${Colors.dark.error}20` }]}>
+              <Ionicons name="trash-outline" size={32} color={Colors.dark.error} />
+            </View>
+            <Text style={[styles.inviteModalTitle, { color: Colors.dark.error }]}>Delete Academy</Text>
+            <Text style={[styles.inviteModalSubtitle, { textAlign: "center" }]}>
+              {`Are you sure you want to delete "${academyName}"? This action cannot be undone. All associated coaches and players will be removed.`}
+            </Text>
+            <View style={styles.modalButtonRow}>
+              <Pressable
+                style={styles.cancelButton}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.destructiveButton}
+                onPress={() => {
+                  deleteMutation.mutate();
+                  setShowDeleteConfirm(false);
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                ) : (
+                  <Text style={styles.destructiveButtonText}>Delete</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1400,6 +1424,11 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginTop: Spacing.md,
   },
+  modalButtonRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
   cancelButton: {
     flex: 1,
     paddingVertical: Spacing.md,
@@ -1411,6 +1440,18 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     fontWeight: "500",
+  },
+  destructiveButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.error,
+    alignItems: "center",
+  },
+  destructiveButtonText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   confirmButton: {
     flex: 1,
