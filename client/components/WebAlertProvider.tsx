@@ -98,56 +98,66 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
   const cancelBtn = state.buttons.find(b => b.style === "cancel");
   const primaryBtns = state.buttons.filter(b => b.style !== "cancel");
 
+  const handleDismissOnBackdrop = useCallback(() => {
+    if (cancelBtn) handleButton(cancelBtn);
+    else if (state.buttons.length === 1) handleButton(state.buttons[0]);
+  }, [cancelBtn, handleButton, state.buttons]);
+
   return (
     <WebAlertContext.Provider value={{ show }}>
       {children}
-      {Platform.OS === "web" && state.visible && (
-        <View style={styles.overlay} pointerEvents="box-none">
-          <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
-            <Pressable style={styles.backdrop} onPress={() => {
-              if (cancelBtn) handleButton(cancelBtn);
-              else if (state.buttons.length === 1) handleButton(state.buttons[0]);
-            }} />
-          </Animated.View>
-          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-            {state.title ? (
-              <Text style={styles.title}>{state.title}</Text>
-            ) : null}
-            {state.message ? (
-              <Text style={[styles.message, !state.title && styles.messageOnly]}>
-                {state.message}
-              </Text>
-            ) : null}
-            <View style={styles.buttons}>
-              {cancelBtn && (
-                <Pressable
-                  style={({ pressed }) => [styles.btn, styles.btnCancel, pressed && styles.btnPressed]}
-                  onPress={() => handleButton(cancelBtn)}
-                >
-                  <Text style={[styles.btnText, styles.btnTextCancel]}>{cancelBtn.text}</Text>
-                </Pressable>
-              )}
-              {primaryBtns.map((btn, i) => (
-                <Pressable
-                  key={i}
-                  style={({ pressed }) => [
-                    styles.btn,
-                    btn.style === "destructive" ? styles.btnDestructive : styles.btnPrimary,
-                    pressed && styles.btnPressed,
-                  ]}
-                  onPress={() => handleButton(btn)}
-                >
-                  <Text style={[
-                    styles.btnText,
-                    btn.style === "destructive" ? styles.btnTextDestructive : styles.btnTextPrimary,
-                  ]}>
-                    {btn.text}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        </View>
+      {Platform.OS === "web" && (
+        <Modal
+          visible={state.visible}
+          transparent
+          animationType="none"
+          statusBarTranslucent
+          onRequestClose={handleDismissOnBackdrop}
+        >
+          <View style={styles.overlay}>
+            <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
+              <Pressable style={styles.backdrop} onPress={handleDismissOnBackdrop} />
+            </Animated.View>
+            <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+              {state.title ? (
+                <Text style={styles.title}>{state.title}</Text>
+              ) : null}
+              {state.message ? (
+                <Text style={[styles.message, !state.title && styles.messageOnly]}>
+                  {state.message}
+                </Text>
+              ) : null}
+              <View style={styles.buttons}>
+                {cancelBtn && (
+                  <Pressable
+                    style={({ pressed }) => [styles.btn, styles.btnCancel, pressed && styles.btnPressed]}
+                    onPress={() => handleButton(cancelBtn)}
+                  >
+                    <Text style={[styles.btnText, styles.btnTextCancel]}>{cancelBtn.text}</Text>
+                  </Pressable>
+                )}
+                {primaryBtns.map((btn, i) => (
+                  <Pressable
+                    key={i}
+                    style={({ pressed }) => [
+                      styles.btn,
+                      btn.style === "destructive" ? styles.btnDestructive : styles.btnPrimary,
+                      pressed && styles.btnPressed,
+                    ]}
+                    onPress={() => handleButton(btn)}
+                  >
+                    <Text style={[
+                      styles.btnText,
+                      btn.style === "destructive" ? styles.btnTextDestructive : styles.btnTextPrimary,
+                    ]}>
+                      {btn.text}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
       )}
     </WebAlertContext.Provider>
   );
@@ -161,12 +171,7 @@ export function useWebAlert() {
 
 const styles = StyleSheet.create({
   overlay: {
-    position: "absolute" as any,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 99999,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },

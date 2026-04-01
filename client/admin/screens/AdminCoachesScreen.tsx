@@ -147,11 +147,7 @@ export default function AdminCoachesScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
@@ -195,18 +191,10 @@ export default function AdminCoachesScreen() {
       setPendingPayment(null);
       setPaymentFormData({ paymentMethod: "bank_transfer", paymentReference: "" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (Platform.OS === "web") {
-        window.alert("Payment marked as paid!");
-      } else {
-        Alert.alert("Success", "Payment marked as paid!");
-      }
+      Alert.alert("Success", "Payment marked as paid!");
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
@@ -221,11 +209,7 @@ export default function AdminCoachesScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
@@ -237,41 +221,23 @@ export default function AdminCoachesScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
       closeDetailModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (Platform.OS === "web") {
-        window.alert("Coach permanently deleted");
-      } else {
-        Alert.alert("Success", "Coach permanently deleted");
-      }
+      Alert.alert("Success", "Coach permanently deleted");
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
   const handleDeleteCoach = () => {
     if (!selectedCoachId || !selectedCoach) return;
-    
-    const confirmDelete = () => {
-      deleteCoachMutation.mutate(selectedCoachId);
-    };
-
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Permanently remove ${selectedCoach.name} from academy? This will remove their access and cannot be undone.`);
-      if (confirmed) confirmDelete();
-    } else {
-      Alert.alert(
-        "Permanently Remove Coach",
-        `This will permanently remove ${selectedCoach.name} from this academy. They will lose access to all academy data. This action cannot be undone.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Remove Forever", style: "destructive", onPress: confirmDelete },
-        ]
-      );
-    }
+    Alert.alert(
+      "Permanently Remove Coach",
+      `This will permanently remove ${selectedCoach.name} from this academy. They will lose access to all academy data. This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove Forever", style: "destructive", onPress: () => deleteCoachMutation.mutate(selectedCoachId) },
+      ]
+    );
   };
 
   const handleMarkPaid = (month: number, year: number) => {
@@ -309,56 +275,36 @@ export default function AdminCoachesScreen() {
     if (!selectedCoachId) return;
     const coachId = selectedCoachId;
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    if (Platform.OS === "web") {
-      const reason = window.prompt(`Reason for declining ${monthNames[month - 1]} ${year} payment:`);
-      if (reason) {
-        declineMutation.mutate({ coachId, month, year, reason });
-      }
-    } else {
-      Alert.alert(
-        "Decline Payment",
-        `Are you sure you want to decline ${monthNames[month - 1]} ${year} payment?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Decline", style: "destructive", onPress: () => {
-            declineMutation.mutate({ coachId, month, year, reason: "Declined by admin" });
-          }},
-        ]
-      );
-    }
+    Alert.alert(
+      "Decline Payment",
+      `Are you sure you want to decline ${monthNames[month - 1]} ${year} payment?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Decline", style: "destructive", onPress: () => {
+          declineMutation.mutate({ coachId, month, year, reason: "Declined by admin" });
+        }},
+      ]
+    );
   };
 
   const handleSendHoursOverview = () => {
     const coach = coachStats?.coach;
     if (!coach?.email) {
-      if (Platform.OS === "web") {
-        window.alert("Coach has no email address set");
-      } else {
-        Alert.alert("Error", "Coach has no email address set");
-      }
+      Alert.alert("Error", "Coach has no email address set");
       return;
     }
-    
-    if (Platform.OS === "web") {
-      window.alert(`Hours overview would be sent to ${coach.email}`);
-    } else {
-      Alert.alert("Send Overview", `Hours overview will be sent to ${coach.email}`, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Send", onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert("Sent", "Hours overview sent successfully!");
-        }},
-      ]);
-    }
+    Alert.alert("Send Overview", `Hours overview will be sent to ${coach.email}`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Send", onPress: () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Sent", "Hours overview sent successfully!");
+      }},
+    ]);
   };
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
-      if (Platform.OS === "web") {
-        window.alert("Please enter coach name");
-      } else {
-        Alert.alert("Error", "Please enter coach name");
-      }
+      Alert.alert("Error", "Please enter coach name");
       return;
     }
     addCoachMutation.mutate(formData);
