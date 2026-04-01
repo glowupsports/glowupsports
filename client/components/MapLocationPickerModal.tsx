@@ -162,6 +162,12 @@ export function MapLocationPickerModal({
   );
 
   useEffect(() => {
+    return () => {
+      if (reverseTimer.current) clearTimeout(reverseTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!visible) return;
     setAddress(null);
 

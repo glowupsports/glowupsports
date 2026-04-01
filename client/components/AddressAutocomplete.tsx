@@ -69,6 +69,12 @@ export function AddressAutocomplete({
     setShowDropdown(false);
   }, [initialValue]);
 
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
   const measureContainer = useCallback(() => {
     if (containerRef.current) {
       containerRef.current.measureInWindow((x, y, width, height) => {

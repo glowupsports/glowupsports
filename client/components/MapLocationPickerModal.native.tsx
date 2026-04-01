@@ -118,8 +118,13 @@ export function MapLocationPickerModal({
   );
 
   useEffect(() => {
+    return () => {
+      if (reverseTimer.current) clearTimeout(reverseTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!visible) {
-      // Reset map-ready flag so reopening initialises correctly
       mapReadyRef.current = false;
       pendingRegionRef.current = null;
       return;
