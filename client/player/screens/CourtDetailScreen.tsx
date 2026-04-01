@@ -11,8 +11,6 @@ import {
   Dimensions,
   TextInput,
   Modal,
-  Linking,
-  Platform,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -24,6 +22,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { openDirections } from "@/lib/maps";
 import type { ScheduleStackParamList, PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
@@ -495,11 +494,7 @@ export default function CourtDetailScreen() {
               style={styles.metaRow}
               onPress={() => {
                 const addr = court.location!.address || court.location!.name;
-                const encoded = encodeURIComponent(addr);
-                const url = Platform.OS === "ios"
-                  ? `maps:?q=${encoded}`
-                  : `geo:0,0?q=${encoded}`;
-                Linking.openURL(url).catch(() => Linking.openURL(`https://maps.google.com/?q=${encoded}`));
+                openDirections({ address: addr, label: addr });
               }}
             >
               <Ionicons name="location-outline" size={14} color="#B8BCC6" />
@@ -603,15 +598,7 @@ export default function CourtDetailScreen() {
             style={styles.staticMapCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              const lat = locationLat;
-              const lng = locationLng;
-              const label = encodeURIComponent(court?.location?.name || court?.name || "Court");
-              const url = Platform.OS === "ios"
-                ? `maps:?q=${label}&ll=${lat},${lng}`
-                : `geo:${lat},${lng}?q=${label}`;
-              Linking.openURL(url).catch(() =>
-                Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`)
-              );
+              openDirections({ lat: locationLat, lng: locationLng, label: court?.location?.name || court?.name || "Court" });
             }}
           >
             <Image

@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Linking, Platform } from "react-native";
+import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet } from "react-native";
+import { openDirections } from "@/lib/maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing } from "@/constants/theme";
@@ -134,11 +135,7 @@ export function SeriesOverviewTab({
           <Pressable
             style={[styles.infoRow, { marginTop: -4 }]}
             onPress={() => {
-              const addr = encodeURIComponent(series.locationAddress!);
-              const url = Platform.OS === "ios"
-                ? `maps:?q=${addr}`
-                : `geo:0,0?q=${addr}`;
-              Linking.openURL(url).catch(() => Linking.openURL(`https://maps.google.com/?q=${addr}`));
+              openDirections({ address: series.locationAddress! });
             }}
           >
             <Ionicons name="navigate-outline" size={16} color={Colors.dark.primary} />

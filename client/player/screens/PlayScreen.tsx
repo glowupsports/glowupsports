@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
@@ -970,17 +971,6 @@ export default function PlayScreen() {
       .catch(() => {});
   }, [locationPermission?.granted]);
 
-  const openDirections = (court: NearbyCourt) => {
-    if (court.lat == null || court.lng == null) return;
-    const label = encodeURIComponent(court.name);
-    const url = Platform.OS === "ios"
-      ? `maps:?q=${label}&ll=${court.lat},${court.lng}`
-      : `geo:${court.lat},${court.lng}?q=${label}`;
-    Linking.openURL(url).catch(() =>
-      Linking.openURL(`https://maps.google.com/?q=${court.lat},${court.lng}`)
-    );
-  };
-
   const renderCourtsNearYou = () => {
     if (!locationPermission) return null;
     if (!locationPermission.granted) {
@@ -1136,7 +1126,7 @@ export default function PlayScreen() {
                     style={styles.nearbyCourtDirectionsBtn}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      openDirections(court);
+                      openMapsDirections({ lat: court.lat, lng: court.lng, label: court.name });
                     }}
                   >
                     <Ionicons name="navigate-outline" size={14} color={Colors.dark.primary} />
@@ -1822,15 +1812,7 @@ export default function PlayScreen() {
                   <Pressable
                     style={styles.sessionInfoMapWrapper}
                     onPress={() => {
-                      const lat = selectedSession.locationLat;
-                      const lng = selectedSession.locationLng;
-                      const label = encodeURIComponent(selectedSession.locationName);
-                      const url = Platform.OS === "ios"
-                        ? `maps:?q=${label}&ll=${lat},${lng}`
-                        : `geo:${lat},${lng}?q=${label}`;
-                      Linking.openURL(url as string).catch(() =>
-                        Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`)
-                      );
+                      openMapsDirections({ lat: selectedSession.locationLat, lng: selectedSession.locationLng, label: selectedSession.locationName });
                     }}
                   >
                     <ExpoImage
