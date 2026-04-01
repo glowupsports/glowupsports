@@ -1399,10 +1399,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
+      const COUNTRY_COORDS: Record<string, { lat: number; lng: number; radius: number }> = {
+        ae: { lat: 25.0, lng: 55.0, radius: 500000 },
+        id: { lat: -2.5, lng: 118.0, radius: 2500000 },
+        sa: { lat: 24.0, lng: 45.0, radius: 1200000 },
+        qa: { lat: 25.3, lng: 51.2, radius: 150000 },
+        bh: { lat: 26.0, lng: 50.5, radius: 60000 },
+        kw: { lat: 29.4, lng: 47.8, radius: 200000 },
+        om: { lat: 21.0, lng: 57.0, radius: 600000 },
+        eg: { lat: 26.0, lng: 30.0, radius: 1000000 },
+        au: { lat: -25.3, lng: 133.8, radius: 3000000 },
+        sg: { lat: 1.35, lng: 103.82, radius: 50000 },
+        my: { lat: 4.2, lng: 108.0, radius: 800000 },
+        nl: { lat: 52.1, lng: 5.3, radius: 250000 },
+        gb: { lat: 55.4, lng: -3.4, radius: 700000 },
+        us: { lat: 37.1, lng: -95.7, radius: 3500000 },
+        ca: { lat: 56.1, lng: -106.3, radius: 3500000 },
+        de: { lat: 51.2, lng: 10.5, radius: 600000 },
+        fr: { lat: 46.2, lng: 2.2, radius: 600000 },
+        es: { lat: 40.4, lng: -3.7, radius: 600000 },
+        it: { lat: 41.9, lng: 12.5, radius: 600000 },
+        be: { lat: 50.5, lng: 4.5, radius: 200000 },
+        ch: { lat: 46.8, lng: 8.2, radius: 250000 },
+        se: { lat: 62.0, lng: 17.0, radius: 1000000 },
+        no: { lat: 62.0, lng: 10.0, radius: 1100000 },
+        dk: { lat: 56.3, lng: 9.5, radius: 300000 },
+        pl: { lat: 52.0, lng: 19.1, radius: 600000 },
+        in: { lat: 20.6, lng: 79.0, radius: 2000000 },
+        pk: { lat: 30.3, lng: 69.3, radius: 900000 },
+        za: { lat: -29.0, lng: 25.0, radius: 1000000 },
+        ke: { lat: 0.0, lng: 37.9, radius: 600000 },
+        ng: { lat: 9.1, lng: 8.7, radius: 800000 },
+        br: { lat: -14.2, lng: -51.9, radius: 3000000 },
+        ar: { lat: -38.4, lng: -63.6, radius: 2000000 },
+        mx: { lat: 23.6, lng: -102.6, radius: 1500000 },
+        nz: { lat: -40.9, lng: 174.9, radius: 900000 },
+        jp: { lat: 36.2, lng: 138.3, radius: 1500000 },
+        kr: { lat: 37.0, lng: 127.5, radius: 500000 },
+        cn: { lat: 35.0, lng: 105.0, radius: 3000000 },
+        th: { lat: 15.0, lng: 101.0, radius: 700000 },
+        ph: { lat: 12.9, lng: 122.0, radius: 1000000 },
+        tr: { lat: 39.0, lng: 35.0, radius: 900000 },
+      };
       const countryFilter = isoCode ? `&components=country:${isoCode}` : "";
       let url: string;
       if (mode === "venue") {
-        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&keyword=sports%7Ctennis%7Cpadel%7Cgym%7Cstadium&language=en${countryFilter}`;
+        const coords = isoCode ? COUNTRY_COORDS[isoCode] : undefined;
+        const locationBias = coords
+          ? `&location=${coords.lat},${coords.lng}&radius=${coords.radius}&strictbounds=true`
+          : "";
+        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=establishment&language=en${locationBias}`;
       } else {
         url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&types=geocode&language=en${countryFilter}`;
       }
