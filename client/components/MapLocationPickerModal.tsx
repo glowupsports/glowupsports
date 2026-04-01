@@ -9,7 +9,6 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
@@ -33,7 +32,7 @@ export interface MapLocationPickerModalProps {
 const DEFAULT_LAT = 25.2048;
 const DEFAULT_LNG = 55.2708;
 
-// ── Leaflet HTML (web / fallback) ─────────────────────────────────────────────
+// ── Leaflet HTML (OpenStreetMap, no API key needed) ───────────────────────────
 function buildLeafletHtml(lat: number, lng: number): string {
   return `<!DOCTYPE html>
 <html>
@@ -60,26 +59,68 @@ function buildLeafletHtml(lat: number, lng: number): string {
     var marker = L.marker([${lat}, ${lng}], { icon: icon, draggable: true }).addTo(map);
     function postCoords(latlng) {
       var msg = JSON.stringify({ lat: latlng.lat, lng: latlng.lng });
-      if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(msg); }
-      else { window.parent.postMessage(msg, '*'); }
+      window.parent.postMessage(msg, '*');
     }
     marker.on('dragend', function(e) { postCoords(e.target.getLatLng()); });
     map.on('click', function(e) { marker.setLatLng(e.latlng); postCoords(e.latlng); });
-    function onMsg(e) {
+    window.addEventListener('message', function(e) {
       try {
-        var d = JSON.parse(e.data || e.detail);
+        var d = JSON.parse(e.data);
         if (d && d.jump) { marker.setLatLng([d.lat, d.lng]); map.setView([d.lat, d.lng], 15); }
       } catch(err) {}
-    }
-    document.addEventListener('message', onMsg);
-    window.addEventListener('message', onMsg);
+    });
   </script>
 </body>
 </html>`;
 }
 
-// ── Web implementation (uses WebView + Leaflet) ───────────────────────────────
-// On native, Metro picks MapLocationPickerModal.native.tsx instead.
+// ── DOMMapView: renders a native <iframe> directly in the DOM ─────────────────
+// On React Native Web, View renders as <div>, so we can imperatively inject
+// an iframe and avoid the non-functional react-native-webview on web.
+interface DOMMapViewProps {
+  html: string;
+  mapKey: number;
+  onCoordinates: (lat: number, lng: number) => void;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+}
+
+function DOMMapView({ html, mapKey, onCoordinates, iframeRef }: DOMMapViewProps) {
+  const containerRef = useRef<View>(null);
+
+  useEffect(() => {
+    const container = containerRef.current as unknown as HTMLElement | null;
+    if (!container) return;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "width:100%;height:100%;border:none;display:block;";
+    iframe.srcdoc = html;
+    container.appendChild(iframe);
+    (iframeRef as React.MutableRefObject<HTMLIFrameElement>).current = iframe;
+
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(String(e.data)) as { lat?: number; lng?: number };
+        if (typeof data.lat === "number" && typeof data.lng === "number") {
+          onCoordinates(data.lat, data.lng);
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (container.contains(iframe)) container.removeChild(iframe);
+      (iframeRef as React.MutableRefObject<HTMLIFrameElement | null>).current = null;
+    };
+  }, [mapKey]);
+
+  return <View ref={containerRef} style={StyleSheet.absoluteFill} />;
+}
+
+// ── Web implementation of MapLocationPickerModal ──────────────────────────────
+// Metro picks this .tsx file for web; .native.tsx is used on iOS/Android.
 export function MapLocationPickerModal({
   visible,
   onClose,
@@ -87,54 +128,15 @@ export function MapLocationPickerModal({
   initialLat,
   initialLng,
 }: MapLocationPickerModalProps) {
-  const [currentLat, setCurrentLat] = useState(initialLat ?? DEFAULT_LAT);
-  const [currentLng, setCurrentLng] = useState(initialLng ?? DEFAULT_LNG);
+  const [currentLat, setCurrentLat] = useState(DEFAULT_LAT);
+  const [currentLng, setCurrentLng] = useState(DEFAULT_LNG);
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [leafletHtml, setLeafletHtml] = useState<string>("");
-  const [webViewKey, setWebViewKey] = useState(0);
+  const [mapKey, setMapKey] = useState(0);
   const reverseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const webViewRef = useRef<WebView>(null);
-
-  useEffect(() => {
-    if (!visible) return;
-
-    // If a saved location exists, center on it immediately
-    if (initialLat != null && initialLng != null) {
-      setCurrentLat(initialLat);
-      setCurrentLng(initialLng);
-      setAddress(null);
-      setLeafletHtml(buildLeafletHtml(initialLat, initialLng));
-      setWebViewKey((k) => k + 1);
-      setTimeout(() => reverseGeocode(initialLat, initialLng), 300);
-      return;
-    }
-
-    // No saved location — try GPS first
-    setAddress(null);
-    (async () => {
-      let lat = DEFAULT_LAT;
-      let lng = DEFAULT_LNG;
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          lat = loc.coords.latitude;
-          lng = loc.coords.longitude;
-        }
-      } catch {
-        // GPS unavailable — use Dubai defaults
-      }
-      setCurrentLat(lat);
-      setCurrentLng(lng);
-      setLeafletHtml(buildLeafletHtml(lat, lng));
-      setWebViewKey((k) => k + 1);
-      reverseGeocode(lat, lng);
-    })();
-  }, [visible, initialLat, initialLng]);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     setResolving(true);
@@ -155,20 +157,53 @@ export function MapLocationPickerModal({
     }
   }, []);
 
-  const handleWebViewMessage = useCallback(
-    (event: { nativeEvent: { data: string } }) => {
+  const initMap = useCallback(
+    (lat: number, lng: number) => {
+      setCurrentLat(lat);
+      setCurrentLng(lng);
+      setLeafletHtml(buildLeafletHtml(lat, lng));
+      setMapKey((k) => k + 1);
+      reverseGeocode(lat, lng);
+    },
+    [reverseGeocode]
+  );
+
+  useEffect(() => {
+    if (!visible) return;
+    setAddress(null);
+
+    // Saved coordinates → center immediately
+    if (initialLat != null && initialLng != null) {
+      initMap(initialLat, initialLng);
+      return;
+    }
+
+    // No saved coords → try GPS, fall back to Dubai
+    (async () => {
+      let lat = DEFAULT_LAT;
+      let lng = DEFAULT_LNG;
       try {
-        const { lat, lng } = JSON.parse(event.nativeEvent.data) as {
-          lat: number;
-          lng: number;
-        };
-        setCurrentLat(lat);
-        setCurrentLng(lng);
-        if (reverseTimer.current) clearTimeout(reverseTimer.current);
-        reverseTimer.current = setTimeout(() => reverseGeocode(lat, lng), 400);
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
       } catch {
-        // malformed message — ignore
+        // GPS unavailable — use Dubai defaults
       }
+      initMap(lat, lng);
+    })();
+  }, [visible, initialLat, initialLng]);
+
+  const handleCoordinates = useCallback(
+    (lat: number, lng: number) => {
+      setCurrentLat(lat);
+      setCurrentLng(lng);
+      if (reverseTimer.current) clearTimeout(reverseTimer.current);
+      reverseTimer.current = setTimeout(() => reverseGeocode(lat, lng), 400);
     },
     [reverseGeocode]
   );
@@ -190,11 +225,10 @@ export function MapLocationPickerModal({
       const { latitude, longitude } = loc.coords;
       setCurrentLat(latitude);
       setCurrentLng(longitude);
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(
-          JSON.stringify({ jump: true, lat: latitude, lng: longitude })
-        );
-      }
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ jump: true, lat: latitude, lng: longitude }),
+        "*"
+      );
       reverseGeocode(latitude, longitude);
     } catch {
       Alert.alert("Location Error", "Could not get your current location.");
@@ -237,14 +271,11 @@ export function MapLocationPickerModal({
 
         <View style={styles.mapWrapper}>
           {leafletHtml ? (
-            <WebView
-              key={webViewKey}
-              ref={webViewRef}
-              source={{ html: leafletHtml }}
-              style={StyleSheet.absoluteFill}
-              onMessage={handleWebViewMessage}
-              javaScriptEnabled
-              scrollEnabled={false}
+            <DOMMapView
+              html={leafletHtml}
+              mapKey={mapKey}
+              onCoordinates={handleCoordinates}
+              iframeRef={iframeRef}
             />
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.mapPlaceholder]}>
