@@ -98,16 +98,42 @@ export function MapLocationPickerModal({
   const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
-    if (visible) {
-      const lat = initialLat ?? DEFAULT_LAT;
-      const lng = initialLng ?? DEFAULT_LNG;
+    if (!visible) return;
+
+    // If a saved location exists, center on it immediately
+    if (initialLat != null && initialLng != null) {
+      setCurrentLat(initialLat);
+      setCurrentLng(initialLng);
+      setAddress(null);
+      setLeafletHtml(buildLeafletHtml(initialLat, initialLng));
+      setWebViewKey((k) => k + 1);
+      setTimeout(() => reverseGeocode(initialLat, initialLng), 300);
+      return;
+    }
+
+    // No saved location — try GPS first
+    setAddress(null);
+    (async () => {
+      let lat = DEFAULT_LAT;
+      let lng = DEFAULT_LNG;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
+      } catch {
+        // GPS unavailable — use Dubai defaults
+      }
       setCurrentLat(lat);
       setCurrentLng(lng);
-      setAddress(null);
       setLeafletHtml(buildLeafletHtml(lat, lng));
       setWebViewKey((k) => k + 1);
-      setTimeout(() => reverseGeocode(lat, lng), 300);
-    }
+      reverseGeocode(lat, lng);
+    })();
   }, [visible, initialLat, initialLng]);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {

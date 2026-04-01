@@ -57,20 +57,58 @@ export function MapLocationPickerModal({
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    if (visible) {
-      const lat = initialLat ?? DEFAULT_LAT;
-      const lng = initialLng ?? DEFAULT_LNG;
-      setMarkerLat(lat);
-      setMarkerLng(lng);
+    if (!visible) return;
+
+    // If a saved location exists, center on it immediately
+    if (initialLat != null && initialLng != null) {
+      setMarkerLat(initialLat);
+      setMarkerLng(initialLng);
       setRegion({
-        latitude: lat,
-        longitude: lng,
+        latitude: initialLat,
+        longitude: initialLng,
         latitudeDelta: DEFAULT_DELTA,
         longitudeDelta: DEFAULT_DELTA,
       });
       setAddress(null);
-      setTimeout(() => reverseGeocode(lat, lng), 300);
+      setTimeout(() => reverseGeocode(initialLat, initialLng), 300);
+      return;
     }
+
+    // No saved location — try GPS first
+    setAddress(null);
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const { latitude, longitude } = loc.coords;
+          setMarkerLat(latitude);
+          setMarkerLng(longitude);
+          setRegion({
+            latitude,
+            longitude,
+            latitudeDelta: DEFAULT_DELTA,
+            longitudeDelta: DEFAULT_DELTA,
+          });
+          reverseGeocode(latitude, longitude);
+          return;
+        }
+      } catch {
+        // GPS unavailable — fall through to default
+      }
+      // Final fallback: default Dubai coordinates
+      setMarkerLat(DEFAULT_LAT);
+      setMarkerLng(DEFAULT_LNG);
+      setRegion({
+        latitude: DEFAULT_LAT,
+        longitude: DEFAULT_LNG,
+        latitudeDelta: DEFAULT_DELTA,
+        longitudeDelta: DEFAULT_DELTA,
+      });
+      reverseGeocode(DEFAULT_LAT, DEFAULT_LNG);
+    })();
   }, [visible, initialLat, initialLng]);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
