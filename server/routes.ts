@@ -1362,6 +1362,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Belgium": "be", "Switzerland": "ch", "Sweden": "se", "Norway": "no",
         "Denmark": "dk", "Poland": "pl", "India": "in", "Pakistan": "pk",
         "South Africa": "za", "Kenya": "ke", "Nigeria": "ng",
+        "Brazil": "br", "Argentina": "ar", "Mexico": "mx",
+        "Canada": "ca", "New Zealand": "nz",
       };
       const isoCode = countryParam ? COUNTRY_ISO[countryParam] : undefined;
       const countryFilter = isoCode ? `&components=country:${isoCode}` : "";
