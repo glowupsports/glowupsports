@@ -4161,6 +4161,9 @@ export const shopProducts = pgTable("shop_products", {
     options: { value: string; price?: number; sku?: string; stock?: number }[];
   }[]>(),
   
+  // Brand
+  brand: varchar("brand", { length: 100 }),
+  
   // Display
   isFeatured: boolean("is_featured").default(false),
   isActive: boolean("is_active").default(true),
