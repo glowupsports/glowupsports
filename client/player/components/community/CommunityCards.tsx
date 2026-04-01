@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -149,7 +149,7 @@ export function MomentCard({
   const contextStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
   const isVideo = hasMedia && post.mediaTypes && post.mediaTypes[0] === "video";
-  const mediaUrl = hasMedia ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getApiUrl()}${post.mediaUrls[0]}`) : "";
+  const mediaUrl = hasMedia ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getStaticAssetsUrl()}${post.mediaUrls[0]}`) : "";
 
   return (
     <Animated.View entering={FadeInDown.delay(100).springify()}>
@@ -196,7 +196,7 @@ export function MomentCard({
           <View style={styles.momentHeader}>
             <View style={styles.avatarGlow}>
               {post.author.photoUrl ? (
-                <Image source={{ uri: post.author.photoUrl.startsWith("http") ? post.author.photoUrl : `${getApiUrl()}${post.author.photoUrl}` }} style={styles.momentAvatar} />
+                <Image source={{ uri: post.author.photoUrl.startsWith("http") ? post.author.photoUrl : `${getStaticAssetsUrl()}${post.author.photoUrl}` }} style={styles.momentAvatar} />
               ) : (
                 <View style={[styles.momentAvatar, styles.avatarPlaceholder]}>
                   <ThemedText style={styles.avatarInitial}>
