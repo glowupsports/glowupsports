@@ -609,12 +609,31 @@ export function PlayerDetailView({
     enabled: showRatePlayerSessions,
   });
 
+  interface StrokeFeedbackRow {
+    id: string;
+    sessionId: string;
+    createdAt: string;
+  }
+  const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
+    queryKey: [`/api/glow/players/${player.id}/stroke-feedback`],
+    enabled: showRatePlayerSessions,
+  });
+
   const recentCompletedSessions = React.useMemo(() => {
     if (!attendanceHistoryData?.history) return [];
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const ratedSessionIds = new Set((strokeFeedbackData ?? []).map(f => f.sessionId));
     return attendanceHistoryData.history
-      .filter(h => h.sessionStatus === "completed")
+      .filter(h => {
+        if (h.sessionStatus !== "completed") return false;
+        const sessionDate = h.date ? new Date(h.date) : null;
+        if (sessionDate && sessionDate < thirtyDaysAgo) return false;
+        if (ratedSessionIds.has(h.sessionId)) return false;
+        return true;
+      })
       .slice(0, 10);
-  }, [attendanceHistoryData]);
+  }, [attendanceHistoryData, strokeFeedbackData]);
 
   // Calculate level readiness (returns null for max level or invalid level)
   const levelReadiness = getLevelReadiness(localPlayer.ballLevel, xpData?.totalXp || 0);

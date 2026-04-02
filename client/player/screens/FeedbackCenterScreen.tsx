@@ -83,7 +83,7 @@ function PillarCard({ summary }: { summary: PillarSummary }) {
     <View style={styles.pillarCard}>
       <View style={styles.pillarHeader}>
         <View style={[styles.pillarIcon, { backgroundColor: config.color + "20" }]}>
-          <Ionicons name={config.icon as any} size={20} color={config.color} />
+          <Ionicons name={config.icon as keyof typeof Ionicons.glyphMap} size={20} color={config.color} />
         </View>
         <View style={styles.pillarInfo}>
           <Text style={styles.pillarName}>{pillarLabel}</Text>
@@ -126,7 +126,7 @@ function SessionPillarCard({ entry }: { entry: PillarProgressEntry }) {
     <View style={styles.sessionPillarCard}>
       <View style={styles.pillarHeader}>
         <View style={[styles.pillarIcon, { backgroundColor: config.color + "20" }]}>
-          <Ionicons name={config.icon as any} size={20} color={config.color} />
+          <Ionicons name={config.icon as keyof typeof Ionicons.glyphMap} size={20} color={config.color} />
         </View>
         <View style={styles.pillarInfo}>
           <Text style={styles.pillarName}>{pillarLabel}</Text>

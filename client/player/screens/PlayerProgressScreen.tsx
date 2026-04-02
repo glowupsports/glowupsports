@@ -2035,39 +2035,31 @@ export default function PlayerProgressScreen() {
           </View>
           <PillarProgressRings 
             pillars={(() => {
-              const hasPillarData = pillarProgressData && pillarProgressData.pillars && pillarProgressData.pillars.some(p => p.score > 0);
-              if (hasPillarData) {
-                return Object.fromEntries(
-                  pillarProgressData!.pillars.map(p => [
-                    p.name,
-                    {
-                      pillar: p.name,
-                      currentScore: Math.round(p.score * 50),
-                      trend: (p.trend === "improving" ? "improving" : p.trend === "declining" ? "declining" : "stable") as "improving" | "stable" | "declining",
-                    }
-                  ])
-                );
-              }
-              if (domains.length > 0) {
-                return Object.fromEntries(
-                  domains.map(d => [
-                    d.name.toUpperCase(),
-                    {
-                      pillar: d.name.toUpperCase(),
-                      currentScore: d.value,
-                      trend: (d.trend === "rising" ? "improving" : d.trend === "falling" ? "declining" : "stable") as "improving" | "stable" | "declining",
-                    }
-                  ])
-                );
-              }
-              return {
-                TECHNIQUE: { pillar: "TECHNIQUE", currentScore: 0, trend: "stable" as const },
-                TACTICAL: { pillar: "TACTICAL", currentScore: 0, trend: "stable" as const },
-                PHYSICAL: { pillar: "PHYSICAL", currentScore: 0, trend: "stable" as const },
-                MENTAL: { pillar: "MENTAL", currentScore: 0, trend: "stable" as const },
-                SOCIAL: { pillar: "SOCIAL", currentScore: 0, trend: "stable" as const },
-                MATCH: { pillar: "MATCH", currentScore: 0, trend: "stable" as const },
-              };
+              const ALL_PILLARS = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
+              const domainMap = new Map(domains.map(d => [d.name.toUpperCase(), d]));
+              const pillarMap = new Map((pillarProgressData?.pillars ?? []).map(p => [p.name, p]));
+              return Object.fromEntries(
+                ALL_PILLARS.map(key => {
+                  const pillarEntry = pillarMap.get(key);
+                  const hasRealFeedback = pillarEntry && pillarEntry.lastUpdated !== null;
+                  if (hasRealFeedback) {
+                    return [key, {
+                      pillar: key,
+                      currentScore: Math.round(pillarEntry!.score * 50),
+                      trend: (pillarEntry!.trend === "improving" ? "improving" : pillarEntry!.trend === "declining" ? "declining" : "stable") as "improving" | "stable" | "declining",
+                    }];
+                  }
+                  const domain = domainMap.get(key);
+                  if (domain) {
+                    return [key, {
+                      pillar: key,
+                      currentScore: domain.value,
+                      trend: (domain.trend === "rising" ? "improving" : domain.trend === "falling" ? "declining" : "stable") as "improving" | "stable" | "declining",
+                    }];
+                  }
+                  return [key, { pillar: key, currentScore: 0, trend: "stable" as const }];
+                })
+              );
             })()}
             stage={getStageFromLevel(data.ballLevel || "red1")}
             role="player"
