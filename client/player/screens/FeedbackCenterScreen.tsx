@@ -1,13 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, type DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import type { CompositeNavigationProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
-import { Card } from "@/components/Card";
-import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { CoachReviewModal } from "@/player/components/CoachReviewModal";
+import type { PlayerStackParamList, ProgressStackParamList } from "@/player/navigation/PlayerNavigator";
+
+type FeedbackCenterNavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<ProgressStackParamList, "FeedbackCenter">,
+  NativeStackNavigationProp<PlayerStackParamList>
+>;
 
 interface PillarSummary {
   id: string;
@@ -36,6 +43,44 @@ interface PillarProgressSummary {
   recentFeedbackCount: number;
 }
 
+interface SessionFeedback {
+  id: string;
+  sessionId: string;
+  sessionDate: string;
+  sessionType: string;
+  coachName: string;
+  coachId: string;
+  feedbackType: string;
+  message: string;
+  xpAwarded: number;
+  visibility: string;
+  pillarId: string | null;
+  createdAt: string;
+}
+
+interface VideoFeedback {
+  id: string;
+  coachId: string;
+  playerId: string;
+  title: string;
+  videoUrl: string;
+  thumbnailUrl: string | null;
+  annotations: { timestamp: number; text: string }[];
+  createdAt: string;
+}
+
+interface PlayerProfile {
+  player: {
+    id: string;
+    name: string;
+    coachId: string | null;
+  } | null;
+  coach: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 const PILLAR_CONFIG: Record<string, { color: string; icon: string }> = {
   TECHNIQUE: { color: "#10B981", icon: "build" },
   TACTICAL: { color: "#F59E0B", icon: "bulb" },
@@ -43,6 +88,13 @@ const PILLAR_CONFIG: Record<string, { color: string; icon: string }> = {
   MENTAL: { color: "#8B5CF6", icon: "flash" },
   SOCIAL: { color: "#EC4899", icon: "people" },
   MATCH: { color: "#3B82F6", icon: "trophy" },
+};
+
+const SESSION_TYPE_CONFIG: Record<string, { label: string }> = {
+  private: { label: "Private" },
+  semi_private: { label: "Semi-Private" },
+  group: { label: "Group" },
+  camp: { label: "Camp" },
 };
 
 function getPillarConfig(pillar: string) {
@@ -69,6 +121,16 @@ function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Not yet assessed";
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function getSessionTypeLabel(sessionType: string): string {
+  const key = sessionType?.toLowerCase()?.replace("-", "_") || "private";
+  return SESSION_TYPE_CONFIG[key]?.label || sessionType;
 }
 
 function PillarCard({ summary }: { summary: PillarSummary }) {
@@ -146,11 +208,27 @@ function SessionPillarCard({ entry }: { entry: PillarProgressEntry }) {
   );
 }
 
-export default function FeedbackCenterScreen() {
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
+function CoachNoteCard({ feedback }: { feedback: SessionFeedback }) {
+  return (
+    <View style={styles.noteCard}>
+      <View style={styles.noteHeader}>
+        <Text style={styles.noteDateText}>{formatShortDate(feedback.sessionDate || feedback.createdAt)}</Text>
+        <View style={[styles.noteTypeBadge]}>
+          <Text style={styles.noteTypeText}>{getSessionTypeLabel(feedback.sessionType)}</Text>
+        </View>
+      </View>
+      <Text style={styles.noteMessage} numberOfLines={3}>{feedback.message}</Text>
+      <Text style={styles.noteCoach}>{feedback.coachName}</Text>
+    </View>
+  );
+}
 
-  const { data: summaries, isLoading: loadingAssessments, error } = useQuery<PillarSummary[]>({
+export default function FeedbackCenterScreen() {
+  const navigation = useNavigation<FeedbackCenterNavProp>();
+  const insets = useSafeAreaInsets();
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
+  const { data: summaries, isLoading: loadingAssessments } = useQuery<PillarSummary[]>({
     queryKey: ["/api/player/me/skill-assessments"],
   });
 
@@ -164,7 +242,19 @@ export default function FeedbackCenterScreen() {
     },
   });
 
-  const isLoading = loadingAssessments || loadingPillars;
+  const { data: sessionFeedbacks, isLoading: loadingNotes } = useQuery<SessionFeedback[]>({
+    queryKey: ["/api/player/me/session-feedback"],
+  });
+
+  const { data: videoFeedbacks, isLoading: loadingVideos } = useQuery<VideoFeedback[]>({
+    queryKey: ["/api/player/me/video-feedback"],
+  });
+
+  const { data: playerProfile, isLoading: loadingProfile } = useQuery<PlayerProfile>({
+    queryKey: ["/api/player/me/profile"],
+  });
+
+  const isLoading = loadingAssessments || loadingPillars || loadingNotes || loadingVideos || loadingProfile;
 
   const sortedSummaries = React.useMemo(() => {
     if (!summaries || summaries.length === 0) return [];
@@ -175,6 +265,16 @@ export default function FeedbackCenterScreen() {
     if (!pillarProgress?.pillars) return [];
     return pillarProgress.pillars.filter(p => p.score > 0 || p.lastUpdated !== null);
   }, [pillarProgress]);
+
+  const recentNotes = React.useMemo(() => {
+    if (!sessionFeedbacks || sessionFeedbacks.length === 0) return [];
+    return [...sessionFeedbacks]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3);
+  }, [sessionFeedbacks]);
+
+  const videoCount = videoFeedbacks?.length ?? 0;
+  const assignedCoach = playerProfile?.coach ?? null;
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -258,6 +358,78 @@ export default function FeedbackCenterScreen() {
               </View>
             )}
 
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.orange + "20" }]}>
+                  <Ionicons name="document-text" size={16} color={Colors.dark.orange} />
+                </View>
+                <View style={styles.sectionHeaderText}>
+                  <Text style={styles.sectionTitle}>Coach Notes</Text>
+                  <Text style={styles.sectionSubtitle}>Written feedback from training sessions</Text>
+                </View>
+              </View>
+              {recentNotes.length > 0 ? (
+                <>
+                  <View style={styles.notesList}>
+                    {recentNotes.map((note) => (
+                      <CoachNoteCard key={note.id} feedback={note} />
+                    ))}
+                  </View>
+                  <Pressable
+                    style={styles.seeAllButton}
+                    onPress={() => navigation.navigate("CoachFeedbackHistory")}
+                  >
+                    <Text style={styles.seeAllText}>See all notes</Text>
+                    <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+                  </Pressable>
+                </>
+              ) : (
+                <View style={styles.emptySection}>
+                  <Ionicons name="document-outline" size={28} color={TextColors.disabled} />
+                  <Text style={styles.emptyText}>No coach notes yet. Your coach will leave written feedback after sessions.</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: FunctionColors.planning + "20" }]}>
+                  <Ionicons name="videocam" size={16} color={FunctionColors.planning} />
+                </View>
+                <View style={styles.sectionHeaderText}>
+                  <Text style={styles.sectionTitle}>Video Feedback</Text>
+                  <Text style={styles.sectionSubtitle}>Technique clips from your coach</Text>
+                </View>
+                {videoCount > 0 ? (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{videoCount}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {videoCount > 0 ? (
+                <Pressable
+                  style={styles.videoCard}
+                  onPress={() => navigation.navigate("VideoFeedbackPlayer")}
+                >
+                  <View style={styles.videoCardIcon}>
+                    <Ionicons name="play-circle" size={32} color={FunctionColors.planning} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.videoCardTitle}>
+                      {videoCount} video clip{videoCount !== 1 ? "s" : ""} available
+                    </Text>
+                    <Text style={styles.videoCardSubtitle}>Tap to watch your coach's technique feedback</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={TextColors.muted} />
+                </Pressable>
+              ) : (
+                <View style={styles.emptySection}>
+                  <Ionicons name="videocam-outline" size={28} color={TextColors.disabled} />
+                  <Text style={styles.emptyText}>No video feedback yet. Your coach will share technique clips here.</Text>
+                </View>
+              )}
+            </View>
+
             {sortedSummaries.length > 0 ? (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
@@ -293,19 +465,36 @@ export default function FeedbackCenterScreen() {
               </View>
             )}
 
-            {activePillars.length === 0 && sortedSummaries.length === 0 ? (
-              <EmptyStateCard
-                icon="school"
-                title="No Feedback Yet"
-                description="Your coach will rate your progress after training sessions. Check back after your next lesson!"
-                ctaText="Go Back"
-                onPress={() => navigation.goBack()}
-                variant="info"
-              />
+            {assignedCoach ? (
+              <View style={styles.section}>
+                <View style={styles.rateCoachCard}>
+                  <View style={styles.rateCoachAvatar}>
+                    <Text style={styles.rateCoachAvatarText}>{assignedCoach.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rateCoachTitle}>Rate My Coach</Text>
+                    <Text style={styles.rateCoachSubtitle}>{assignedCoach.name}</Text>
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [styles.rateCoachButton, { opacity: pressed ? 0.8 : 1 }]}
+                    onPress={() => setShowReviewModal(true)}
+                  >
+                    <Ionicons name="star" size={14} color={Colors.dark.backgroundRoot} />
+                    <Text style={styles.rateCoachButtonText}>Write a review</Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : null}
           </>
         )}
       </ScrollView>
+
+      <CoachReviewModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        coach={assignedCoach}
+        onSuccess={() => setShowReviewModal(false)}
+      />
     </View>
   );
 }
@@ -401,6 +590,20 @@ const styles = StyleSheet.create({
   trialBadgeText: {
     ...Typography.caption,
     color: GlowColors.primary,
+    fontWeight: "700",
+  },
+  countBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: FunctionColors.planning + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xs,
+  },
+  countBadgeText: {
+    ...Typography.caption,
+    color: FunctionColors.planning,
     fontWeight: "700",
   },
   readinessBanner: {
@@ -523,6 +726,136 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: 6,
     borderRadius: 3,
+  },
+  notesList: {
+    gap: Spacing.sm,
+  },
+  noteCard: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    gap: Spacing.xs,
+  },
+  noteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  noteDateText: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    fontWeight: "600",
+  },
+  noteTypeBadge: {
+    backgroundColor: Colors.dark.orange + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  noteTypeText: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
+  noteMessage: {
+    ...Typography.body,
+    color: TextColors.primary,
+    lineHeight: 20,
+  },
+  noteCoach: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    marginTop: 2,
+  },
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    paddingVertical: Spacing.xs,
+  },
+  seeAllText: {
+    ...Typography.small,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  videoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: FunctionColors.planning + "25",
+  },
+  videoCardIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.md,
+    backgroundColor: FunctionColors.planning + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoCardTitle: {
+    ...Typography.body,
+    color: TextColors.primary,
+    fontWeight: "600",
+  },
+  videoCardSubtitle: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    marginTop: 2,
+  },
+  rateCoachCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "25",
+  },
+  rateCoachAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rateCoachAvatarText: {
+    ...Typography.h3,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  rateCoachTitle: {
+    ...Typography.body,
+    color: TextColors.primary,
+    fontWeight: "700",
+  },
+  rateCoachSubtitle: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    marginTop: 1,
+  },
+  rateCoachButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  rateCoachButtonText: {
+    ...Typography.caption,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   errorCard: {
     alignItems: "center",
