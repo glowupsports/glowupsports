@@ -1103,6 +1103,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         );
         const pastRecords = combinedRecords.filter((record) => {
           if (!record.sessionStartTime) return false;
+          const status = record.attendanceStatus;
+          if (status === "holiday" || status === "vacation") return false;
           return new Date(record.sessionStartTime) < now;
         });
 
