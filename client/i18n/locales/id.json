@@ -128,7 +128,7 @@
     "roleCoach": "Pelatih",
     "roleAdmin": "Pemilik Akademi",
     "rolePlatformOwner": "Pemilik Platform",
-    "enterPin": "Masukkan PIN",
+    "enterPin": "Masukkan Kode",
     "pinProtected": "Akun ini dilindungi PIN",
     "pinPlaceholder": "Masukkan PIN 4 digit",
     "wrongPin": "PIN salah",

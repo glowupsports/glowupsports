@@ -128,7 +128,7 @@
     "roleCoach": "Coach",
     "roleAdmin": "Academy Owner",
     "rolePlatformOwner": "Platform Owner",
-    "enterPin": "Enter PIN",
+    "enterPin": "Enter Code",
     "pinProtected": "This account is PIN protected",
     "pinPlaceholder": "Enter 4-digit PIN",
     "wrongPin": "Incorrect PIN",

@@ -128,7 +128,7 @@
     "roleCoach": "مدرب",
     "roleAdmin": "مالك أكاديمية",
     "rolePlatformOwner": "مالك المنصة",
-    "enterPin": "أدخل الرمز السري",
+    "enterPin": "أدخل الكود",
     "pinProtected": "هذا الحساب محمي برمز سري",
     "pinPlaceholder": "أدخل الرمز المكون من 4 أرقام",
     "wrongPin": "الرمز السري غير صحيح",
