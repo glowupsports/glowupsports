@@ -582,13 +582,13 @@ export default function DashboardScreen() {
       }
     }
 
-    if (coach?.id) {
+    if (coach?.id && Platform.OS !== "web") {
       setupLocationTracking().catch(() => {});
     }
 
     return () => {
       cancelled = true;
-      if (locationWatcherRef.current) {
+      if (Platform.OS !== "web" && locationWatcherRef.current) {
         locationWatcherRef.current.remove();
         locationWatcherRef.current = null;
       }
