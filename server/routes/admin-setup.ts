@@ -785,6 +785,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Player not found" });
         }
 
+        // If the player has already completed onboarding they have signed up — no invite needed
+        if (player.onboardingCompleted) {
+          return res.json({ status: "claimed" });
+        }
+
         // Check for existing invite
         let invite = await storage.getPlayerInviteByPlayerId(id);
 
