@@ -313,7 +313,7 @@ export default function PlayScreen() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [locationPermission?.status]);
+  }, [locationPermission?.status, requestLocationPermission]);
 
   // Stable ref to prevent repeated geocode calls on re-renders (time interval causes frequent re-renders)
   const geocodedRef = useRef(false);
@@ -996,6 +996,7 @@ export default function PlayScreen() {
     if (!locationPermission) return null;
     if (!locationPermission.granted) {
       if (locationPermission.status === "denied" && !locationPermission.canAskAgain) {
+        if (Platform.OS === "ios") return null;
         return (
           <View style={styles.courtsNearYouSection}>
             <View style={styles.sectionHeader}>
@@ -1009,13 +1010,6 @@ export default function PlayScreen() {
               <Text style={styles.locationPermissionText}>
                 Enable location in Settings to discover nearby courts
               </Text>
-              {Platform.OS !== "web" ? (
-                <Pressable onPress={async () => {
-                  try { await Linking.openSettings(); } catch {}
-                }}>
-                  <Text style={{ fontSize: 12, color: Colors.dark.primary, fontWeight: "600" }}>Settings</Text>
-                </Pressable>
-              ) : null}
             </View>
           </View>
         );
