@@ -350,7 +350,7 @@ export function SharePreviewModal({ visible, achievement, onClose }: SharePrevie
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [9, 16],
       quality: 0.8,
@@ -912,9 +912,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [16, 9],
+      mediaTypes: ['images', 'videos'],
       quality: 0.5,
       videoMaxDuration: 30,
     });
@@ -934,7 +932,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.5,
@@ -953,7 +951,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       videoMaxDuration: 30,
       quality: 0.5,
     });
