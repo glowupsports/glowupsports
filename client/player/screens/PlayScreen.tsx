@@ -1590,7 +1590,7 @@ export default function PlayScreen() {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        {locationPermission !== null && !locationPermission.granted && locationPermission.status === "denied" && !locationPermission.canAskAgain && Platform.OS !== "web" ? (
+        {locationPermission !== null && !locationPermission.granted && locationPermission.status === "denied" && !locationPermission.canAskAgain && Platform.OS === "ios" ? (
           <Pressable
             style={styles.topLocationBanner}
             onPress={async () => {

@@ -521,6 +521,7 @@ export default function DashboardScreen() {
   const locationWatcherRef = useRef<Location.LocationSubscription | null>(null);
   const lastSentLocationRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
   const [locationDeniedPermanently, setLocationDeniedPermanently] = useState(false);
+  const [locationBannerDismissed, setLocationBannerDismissed] = useState(false);
 
   const sendLocationToServer = useCallback(async (lat: number, lng: number) => {
     try {
@@ -1185,19 +1186,27 @@ export default function DashboardScreen() {
         )}
 
         {/* === LOCATION DENIED BANNER === */}
-        {locationDeniedPermanently && Platform.OS !== "web" ? (
-          <Pressable
-            style={styles.locationDeniedBanner}
-            onPress={async () => {
-              try { await Linking.openSettings(); } catch {}
-            }}
-          >
+        {locationDeniedPermanently && !locationBannerDismissed && Platform.OS === "ios" ? (
+          <View style={styles.locationDeniedBanner}>
             <Ionicons name="location-outline" size={18} color="#FFD700" />
-            <Text style={styles.locationDeniedText}>
-              Enable location in Settings to get departure alerts between courts
-            </Text>
-            <Text style={styles.locationDeniedAction}>Open Settings</Text>
-          </Pressable>
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={async () => {
+                try { await Linking.openSettings(); } catch {}
+              }}
+            >
+              <Text style={styles.locationDeniedText}>
+                Enable location in Settings to get departure alerts between courts
+              </Text>
+              <Text style={styles.locationDeniedAction}>Open Settings</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setLocationBannerDismissed(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={16} color="#FFD700" />
+            </Pressable>
+          </View>
         ) : null}
 
         {/* === TRAVEL ALERT BANNER === */}
