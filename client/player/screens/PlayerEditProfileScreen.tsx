@@ -10,14 +10,16 @@ import {
   Switch,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { HeaderButton } from "@react-navigation/elements";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { apiRequest } from "@/lib/query-client";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MapLocationPickerModal, type MapLocationResult } from "@/components/MapLocationPickerModal";
 
 type ProfileData = {
   player: {
@@ -37,6 +39,8 @@ type ProfileData = {
     parentName?: string | null;
     parentPhone?: string | null;
     homeAddress?: string | null;
+    homeLat?: number | null;
+    homeLng?: number | null;
     isAdult?: boolean;
     displayName?: string | null;
     nickname?: string | null;
@@ -60,7 +64,7 @@ const BALL_LEVELS = [
   { value: "orange", label: "Orange", color: "#FF851B" },
   { value: "green", label: "Green", color: "#C8FF3D" },
   { value: "yellow", label: "Yellow", color: "#FFD700" },
-  { value: "glow", label: "Glow", color: "#E040FB" },
+  { value: "glow", label: "Glow", color: "#00E5FF" },
 ];
 
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -124,6 +128,7 @@ function PillChips({
       {options.map((opt) => {
         const isSelected = selected === opt.value;
         const accentColor = getColor ? getColor(opt.value) : Colors.dark.primary;
+        const isLightAccent = accentColor === "#00E5FF" || accentColor === "#C8FF3D" || accentColor === "#FFD700";
         return (
           <Pressable
             key={opt.value}
@@ -136,7 +141,7 @@ function PillChips({
             <Text
               style={[
                 styles.pillText,
-                isSelected && { color: accentColor === Colors.dark.primary ? "#000" : "#fff" },
+                isSelected && { color: isLightAccent ? "#000" : (accentColor === Colors.dark.primary ? "#000" : "#fff") },
               ]}
             >
               {opt.label}
@@ -203,6 +208,9 @@ export default function PlayerEditProfileScreen() {
   const [height, setHeight] = useState("");
   const [tshirtSize, setTshirtSize] = useState<string | null>(null);
   const [homeAddress, setHomeAddress] = useState("");
+  const [homeLat, setHomeLat] = useState<number | null>(null);
+  const [homeLng, setHomeLng] = useState<number | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   // Game Profile
   const [ballLevel, setBallLevel] = useState<string | null>(null);
@@ -247,6 +255,8 @@ export default function PlayerEditProfileScreen() {
       setHeight(player.height != null ? String(player.height) : "");
       setTshirtSize(player.tshirtSize || null);
       setHomeAddress(player.homeAddress || "");
+      setHomeLat(player.homeLat ?? null);
+      setHomeLng(player.homeLng ?? null);
       setBallLevel(player.ballLevel || null);
       setDominantHand(player.dominantHand || null);
       setBackhandType(player.backhandType || null);
@@ -290,6 +300,8 @@ export default function PlayerEditProfileScreen() {
         bio: bio.trim() || undefined,
         medicalNotes: medicalNotes.trim() || undefined,
         homeAddress: homeAddress.trim() || undefined,
+        homeLat: homeLat ?? undefined,
+        homeLng: homeLng ?? undefined,
         nickname: nickname.trim() || undefined,
         displayName: nickname.trim() || undefined,
         tennisIdol: tennisIdol.trim() || undefined,
@@ -338,31 +350,6 @@ export default function PlayerEditProfileScreen() {
     );
   };
 
-  useEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <HeaderButton onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelBtn}>Cancel</Text>
-        </HeaderButton>
-      ),
-      headerRight: () => (
-        <HeaderButton onPress={handleSave} disabled={updateMutation.isPending}>
-          <Text style={[styles.saveBtn, updateMutation.isPending && styles.disabledBtn]}>
-            {updateMutation.isPending ? "Saving..." : "Save"}
-          </Text>
-        </HeaderButton>
-      ),
-    });
-  }, [
-    name, phone, dateOfBirth, height, tshirtSize, homeAddress,
-    ballLevel, dominantHand, backhandType,
-    bio, nickname, tennisIdol, playStyle, favoriteShot,
-    shortTermGoal, longTermDream, weeklyCommitment,
-    openToPlay, typicalPlayTimes, matchPreference, preferredPlayType, preferredCities,
-    medicalNotes, parentEmail, parentName, parentPhone,
-    updateMutation.isPending,
-  ]);
-
   const selectedDate = dateOfBirth ? new Date(dateOfBirth) : new Date();
 
   const handleDateChange = (_event: unknown, date?: Date) => {
@@ -385,373 +372,63 @@ export default function PlayerEditProfileScreen() {
   const isMinor = player ? player.isAdult === false : false;
 
   return (
-    <KeyboardAwareScrollViewCompat
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl },
-      ]}
-    >
-      {/* Personal Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Info</Text>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Your name"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Email</Text>
-          <View style={[styles.input, styles.readOnly]}>
-            <Text style={styles.readOnlyText}>{player?.email || ""}</Text>
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="+971 50 123 4567"
-            placeholderTextColor={Colors.dark.textMuted}
-            keyboardType="phone-pad"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Date of Birth</Text>
-          <Pressable
-            style={[styles.input, styles.dateInput]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={{ color: dateOfBirth ? Colors.dark.text : Colors.dark.textMuted }}>
-              {formattedDob}
-            </Text>
-          </Pressable>
-          {showDatePicker && (
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              maximumDate={new Date()}
-              onChange={handleDateChange}
-            />
-          )}
-          {showDatePicker && Platform.OS === "ios" && (
-            <Pressable
-              onPress={() => setShowDatePicker(false)}
-              style={styles.doneBtn}
-            >
-              <Text style={styles.doneBtnText}>Done</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Height (cm)</Text>
-          <TextInput
-            style={styles.input}
-            value={height}
-            onChangeText={setHeight}
-            placeholder="175"
-            placeholderTextColor={Colors.dark.textMuted}
-            keyboardType="number-pad"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>T-Shirt Size</Text>
-          <PillChips
-            options={TSHIRT_SIZES.map((s) => ({ value: s, label: s }))}
-            selected={tshirtSize}
-            onSelect={setTshirtSize}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Home Address</Text>
-          <TextInput
-            style={styles.input}
-            value={homeAddress}
-            onChangeText={setHomeAddress}
-            placeholder="Your home address"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-          />
-        </View>
+    <View style={[styles.outerContainer, { paddingTop: insets.top }]}>
+      {/* Inline Header */}
+      <View style={styles.inlineHeader}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.inlineHeaderBtn}>
+          <Text style={styles.inlineHeaderCancel}>Cancel</Text>
+        </Pressable>
+        <Text style={styles.inlineHeaderTitle}>Edit Profile</Text>
+        <Pressable
+          onPress={handleSave}
+          disabled={updateMutation.isPending}
+          style={[styles.inlineHeaderBtn, updateMutation.isPending && styles.disabledBtn]}
+        >
+          <Text style={styles.inlineHeaderSave}>
+            {updateMutation.isPending ? "Saving..." : "Save"}
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Game Profile */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Game Profile</Text>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Ball Level</Text>
-          <PillChips
-            options={BALL_LEVELS}
-            selected={ballLevel}
-            onSelect={setBallLevel}
-            getColor={(val) => BALL_LEVELS.find((b) => b.value === val)?.color ?? Colors.dark.primary}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Dominant Hand</Text>
-          <PillChips
-            options={[
-              { value: "right", label: "Right" },
-              { value: "left", label: "Left" },
-            ]}
-            selected={dominantHand}
-            onSelect={setDominantHand}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Backhand</Text>
-          <PillChips
-            options={[
-              { value: "single", label: "Single" },
-              { value: "double", label: "Double" },
-            ]}
-            selected={backhandType}
-            onSelect={setBackhandType}
-          />
-        </View>
-      </View>
-
-      {/* About You */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About You</Text>
-
-        <View style={styles.formGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Bio</Text>
-            <Text style={styles.charCount}>{bio.length}/500</Text>
+      <KeyboardAwareScrollViewCompat
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl },
+        ]}
+      >
+        {/* Personal Info */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="person-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.sectionTitle}>Personal Info</Text>
           </View>
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            value={bio}
-            onChangeText={(t) => setBio(t.slice(0, 500))}
-            placeholder="Tell others about yourself..."
-            placeholderTextColor={Colors.dark.textMuted}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Nickname</Text>
-            <Text style={styles.charCount}>{nickname.length}/50</Text>
-          </View>
-          <TextInput
-            style={styles.input}
-            value={nickname}
-            onChangeText={(t) => setNickname(t.slice(0, 50))}
-            placeholder="Your fun nickname in the app"
-            placeholderTextColor={Colors.dark.textMuted}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Tennis Idol</Text>
-          <TextInput
-            style={styles.input}
-            value={tennisIdol}
-            onChangeText={(t) => setTennisIdol(t.slice(0, 100))}
-            placeholder="Federer, Nadal, Alcaraz..."
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Play Style</Text>
-          <PillChips
-            options={PLAY_STYLES}
-            selected={playStyle}
-            onSelect={setPlayStyle}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Favorite Shot</Text>
-          <PillChips
-            options={FAVORITE_SHOTS}
-            selected={favoriteShot}
-            onSelect={setFavoriteShot}
-          />
-        </View>
-      </View>
-
-      {/* Goals & Motivation */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Goals & Motivation</Text>
-
-        <View style={styles.formGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>3-Month Goal</Text>
-            <Text style={styles.charCount}>{shortTermGoal.length}/500</Text>
-          </View>
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            value={shortTermGoal}
-            onChangeText={(t) => setShortTermGoal(t.slice(0, 500))}
-            placeholder="What do you want to achieve in the next 3 months?"
-            placeholderTextColor={Colors.dark.textMuted}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Long-Term Dream</Text>
-            <Text style={styles.charCount}>{longTermDream.length}/500</Text>
-          </View>
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            value={longTermDream}
-            onChangeText={(t) => setLongTermDream(t.slice(0, 500))}
-            placeholder="Your biggest tennis dream..."
-            placeholderTextColor={Colors.dark.textMuted}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Weekly Sessions</Text>
-          <PillChips
-            options={WEEKLY_COMMITMENTS}
-            selected={weeklyCommitment}
-            onSelect={setWeeklyCommitment}
-          />
-        </View>
-      </View>
-
-      {/* Play Preferences */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Play Preferences</Text>
-
-        <View style={[styles.formGroup, styles.toggleRow]}>
-          <View style={styles.toggleTextGroup}>
-            <Text style={styles.label}>Open to Play</Text>
-            <Text style={styles.toggleHint}>Others can find you for matches</Text>
-          </View>
-          <Switch
-            value={openToPlay}
-            onValueChange={setOpenToPlay}
-            trackColor={{ false: Colors.dark.border, true: Colors.dark.primary }}
-            thumbColor="#fff"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Preferred Play Type</Text>
-          <PillChips
-            options={PLAY_TYPES}
-            selected={preferredPlayType}
-            onSelect={setPreferredPlayType}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Match Preference</Text>
-          <PillChips
-            options={MATCH_PREFERENCES}
-            selected={matchPreference}
-            onSelect={setMatchPreference}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Typical Play Times</Text>
-          <MultiPillChips
-            options={PLAY_TIMES}
-            selected={typicalPlayTimes}
-            onToggle={togglePlayTime}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Preferred Cities</Text>
-          <TextInput
-            style={styles.input}
-            value={preferredCities}
-            onChangeText={setPreferredCities}
-            placeholder="Dubai, Abu Dhabi, Sharjah..."
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="words"
-          />
-          <Text style={styles.fieldHint}>Separate multiple cities with commas</Text>
-        </View>
-      </View>
-
-      {/* Medical */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Medical (Optional)</Text>
-
-        {!showMedical && !medicalNotes ? (
-          <Pressable
-            style={styles.addMedicalBtn}
-            onPress={() => setShowMedical(true)}
-          >
-            <Text style={styles.addMedicalText}>Add medical notes</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Medical Notes</Text>
-            <TextInput
-              style={[styles.input, styles.multilineInput]}
-              value={medicalNotes}
-              onChangeText={setMedicalNotes}
-              placeholder="Any relevant medical information..."
-              placeholderTextColor={Colors.dark.textMuted}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-        )}
-      </View>
-
-      {/* Parent / Guardian (minors only) */}
-      {isMinor ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Parent / Guardian</Text>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Parent Name</Text>
+            <Text style={styles.label}>Name</Text>
             <TextInput
               style={styles.input}
-              value={parentName}
-              onChangeText={setParentName}
-              placeholder="Parent or guardian name"
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
               placeholderTextColor={Colors.dark.textMuted}
               autoCapitalize="words"
             />
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Parent Phone</Text>
+            <Text style={styles.label}>Email</Text>
+            <View style={[styles.input, styles.readOnly]}>
+              <Text style={styles.readOnlyText}>{player?.email || ""}</Text>
+            </View>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Phone</Text>
             <TextInput
               style={styles.input}
-              value={parentPhone}
-              onChangeText={setParentPhone}
+              value={phone}
+              onChangeText={setPhone}
               placeholder="+971 50 123 4567"
               placeholderTextColor={Colors.dark.textMuted}
               keyboardType="phone-pad"
@@ -759,40 +436,450 @@ export default function PlayerEditProfileScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Parent Email</Text>
+            <Text style={styles.label}>Date of Birth</Text>
+            <Pressable
+              style={[styles.input, styles.dateInput]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={{ color: dateOfBirth ? Colors.dark.text : Colors.dark.textMuted }}>
+                {formattedDob}
+              </Text>
+            </Pressable>
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                maximumDate={new Date()}
+                onChange={handleDateChange}
+              />
+            )}
+            {showDatePicker && Platform.OS === "ios" && (
+              <Pressable
+                onPress={() => setShowDatePicker(false)}
+                style={styles.doneBtn}
+              >
+                <Text style={styles.doneBtnText}>Done</Text>
+              </Pressable>
+            )}
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Height (cm)</Text>
             <TextInput
               style={styles.input}
-              value={parentEmail}
-              onChangeText={setParentEmail}
-              placeholder="parent@example.com"
+              value={height}
+              onChangeText={setHeight}
+              placeholder="175"
               placeholderTextColor={Colors.dark.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              keyboardType="number-pad"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>T-Shirt Size</Text>
+            <PillChips
+              options={TSHIRT_SIZES.map((s) => ({ value: s, label: s }))}
+              selected={tshirtSize}
+              onSelect={setTshirtSize}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Home Address</Text>
+            <AddressAutocomplete
+              initialValue={homeAddress}
+              placeholder="Search for your home address..."
+              onSelect={(result) => {
+                setHomeAddress(result.address);
+                setHomeLat(result.lat);
+                setHomeLng(result.lng);
+              }}
+            />
+            <Pressable
+              style={styles.mapPickerBtn}
+              onPress={() => setShowMapPicker(true)}
+            >
+              <Ionicons name="map-outline" size={14} color={Colors.dark.primary} />
+              <Text style={styles.mapPickerText}>Pick on map</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Game Profile */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="tennisball-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.sectionTitle}>Game Profile</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Ball Level</Text>
+            <PillChips
+              options={BALL_LEVELS}
+              selected={ballLevel}
+              onSelect={setBallLevel}
+              getColor={(val) => BALL_LEVELS.find((b) => b.value === val)?.color ?? Colors.dark.primary}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Dominant Hand</Text>
+            <PillChips
+              options={[
+                { value: "right", label: "Right" },
+                { value: "left", label: "Left" },
+              ]}
+              selected={dominantHand}
+              onSelect={setDominantHand}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Backhand</Text>
+            <PillChips
+              options={[
+                { value: "single", label: "Single" },
+                { value: "double", label: "Double" },
+              ]}
+              selected={backhandType}
+              onSelect={setBackhandType}
             />
           </View>
         </View>
-      ) : null}
-    </KeyboardAwareScrollViewCompat>
+
+        {/* About You */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="happy-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.sectionTitle}>About You</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Bio</Text>
+              <Text style={styles.charCount}>{bio.length}/500</Text>
+            </View>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={bio}
+              onChangeText={(t) => setBio(t.slice(0, 500))}
+              placeholder="Tell others about yourself..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Nickname</Text>
+              <Text style={styles.charCount}>{nickname.length}/50</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={nickname}
+              onChangeText={(t) => setNickname(t.slice(0, 50))}
+              placeholder="Your fun nickname in the app"
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Tennis Idol</Text>
+            <TextInput
+              style={styles.input}
+              value={tennisIdol}
+              onChangeText={(t) => setTennisIdol(t.slice(0, 100))}
+              placeholder="Federer, Nadal, Alcaraz..."
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Play Style</Text>
+            <PillChips
+              options={PLAY_STYLES}
+              selected={playStyle}
+              onSelect={setPlayStyle}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Favorite Shot</Text>
+            <PillChips
+              options={FAVORITE_SHOTS}
+              selected={favoriteShot}
+              onSelect={setFavoriteShot}
+            />
+          </View>
+        </View>
+
+        {/* Goals & Motivation */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="rocket-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.sectionTitle}>Goals & Motivation</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>3-Month Goal</Text>
+              <Text style={styles.charCount}>{shortTermGoal.length}/500</Text>
+            </View>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={shortTermGoal}
+              onChangeText={(t) => setShortTermGoal(t.slice(0, 500))}
+              placeholder="What do you want to achieve in the next 3 months?"
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Long-Term Dream</Text>
+              <Text style={styles.charCount}>{longTermDream.length}/500</Text>
+            </View>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={longTermDream}
+              onChangeText={(t) => setLongTermDream(t.slice(0, 500))}
+              placeholder="Your biggest tennis dream..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Weekly Sessions</Text>
+            <PillChips
+              options={WEEKLY_COMMITMENTS}
+              selected={weeklyCommitment}
+              onSelect={setWeeklyCommitment}
+            />
+          </View>
+        </View>
+
+        {/* Play Preferences */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="people-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.sectionTitle}>Play Preferences</Text>
+          </View>
+
+          <View style={[styles.formGroup, styles.toggleRow]}>
+            <View style={styles.toggleTextGroup}>
+              <Text style={styles.label}>Open to Play</Text>
+              <Text style={styles.toggleHint}>Others can find you for matches</Text>
+            </View>
+            <Switch
+              value={openToPlay}
+              onValueChange={setOpenToPlay}
+              trackColor={{ false: Colors.dark.border, true: Colors.dark.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Preferred Play Type</Text>
+            <PillChips
+              options={PLAY_TYPES}
+              selected={preferredPlayType}
+              onSelect={setPreferredPlayType}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Match Preference</Text>
+            <PillChips
+              options={MATCH_PREFERENCES}
+              selected={matchPreference}
+              onSelect={setMatchPreference}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Typical Play Times</Text>
+            <MultiPillChips
+              options={PLAY_TIMES}
+              selected={typicalPlayTimes}
+              onToggle={togglePlayTime}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Preferred Cities</Text>
+            <TextInput
+              style={styles.input}
+              value={preferredCities}
+              onChangeText={setPreferredCities}
+              placeholder="Dubai, Abu Dhabi, Sharjah..."
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+            <Text style={styles.fieldHint}>Separate multiple cities with commas</Text>
+          </View>
+        </View>
+
+        {/* Medical */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="medkit-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.sectionTitle}>Medical (Optional)</Text>
+          </View>
+
+          {!showMedical && !medicalNotes ? (
+            <Pressable
+              style={styles.addMedicalBtn}
+              onPress={() => setShowMedical(true)}
+            >
+              <Text style={styles.addMedicalText}>Add medical notes</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Medical Notes</Text>
+              <TextInput
+                style={[styles.input, styles.multilineInput]}
+                value={medicalNotes}
+                onChangeText={setMedicalNotes}
+                placeholder="Any relevant medical information..."
+                placeholderTextColor={Colors.dark.textMuted}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+          )}
+        </View>
+
+        {/* Parent / Guardian (minors only) */}
+        {isMinor ? (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="shield-outline" size={12} color={Colors.dark.textMuted} />
+              <Text style={styles.sectionTitle}>Parent / Guardian</Text>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Parent Name</Text>
+              <TextInput
+                style={styles.input}
+                value={parentName}
+                onChangeText={setParentName}
+                placeholder="Parent or guardian name"
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Parent Phone</Text>
+              <TextInput
+                style={styles.input}
+                value={parentPhone}
+                onChangeText={setParentPhone}
+                placeholder="+971 50 123 4567"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Parent Email</Text>
+              <TextInput
+                style={styles.input}
+                value={parentEmail}
+                onChangeText={setParentEmail}
+                placeholder="parent@example.com"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+        ) : null}
+      </KeyboardAwareScrollViewCompat>
+
+      <MapLocationPickerModal
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirm={(result: MapLocationResult) => {
+          setHomeAddress(result.address);
+          setHomeLat(result.lat);
+          setHomeLng(result.lng);
+          setShowMapPicker(false);
+        }}
+        initialLat={homeLat}
+        initialLng={homeLng}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+    backgroundColor: Backgrounds.root,
+  },
+  inlineHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+    backgroundColor: Backgrounds.card,
+  },
+  inlineHeaderBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.xs,
+  },
+  inlineHeaderTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  inlineHeaderCancel: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+  },
+  inlineHeaderSave: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Backgrounds.root,
   },
   content: {
     paddingHorizontal: Spacing.lg,
   },
-  section: {
-    marginBottom: Spacing.xl,
+  sectionCard: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.lg,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
   },
   sectionTitle: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
     textTransform: "uppercase",
     letterSpacing: 1,
-    marginBottom: Spacing.sm,
   },
   formGroup: {
     marginBottom: Spacing.md,
@@ -855,12 +942,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full ?? 999,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   pillText: {
     ...Typography.caption,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.text,
     fontWeight: "600",
   },
   addMedicalBtn: {
@@ -896,14 +983,16 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
-  cancelBtn: {
-    color: Colors.dark.textSecondary,
-    ...Typography.body,
+  mapPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.xs,
+    paddingVertical: Spacing.xs,
   },
-  saveBtn: {
+  mapPickerText: {
+    ...Typography.caption,
     color: Colors.dark.primary,
-    fontSize: 16,
-    fontWeight: "600" as const,
   },
   disabledBtn: {
     opacity: 0.5,
