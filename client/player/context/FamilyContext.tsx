@@ -24,6 +24,7 @@ interface FamilyData {
   parentEmail: string;
   members: FamilyMember[];
   outstandingTotal: number;
+  isCallerParent?: boolean;
 }
 
 interface FamilyContextType {
@@ -31,6 +32,7 @@ interface FamilyContextType {
   isLoading: boolean;
   familyData: FamilyData | null;
   activePlayerId: string | null;
+  isParent: boolean;
   setActivePlayer: (playerId: string) => void;
   refreshFamily: () => Promise<void>;
   setFamilyData: (data: FamilyData | null) => void;
@@ -52,7 +54,10 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
   const queryClient = useQueryClient();
   const mountedRef = useRef(true);
 
-  const isFamily = familyData !== null && familyData.members.length > 1;
+  const isParent = familyData?.isCallerParent === true;
+  // isFamily is true when there are multiple members OR when the caller is a parent
+  // who can manage a family (even before any children are linked)
+  const isFamily = familyData !== null && (familyData.members.length > 1 || isParent);
 
   const setActivePlayer = useCallback((newPlayerId: string) => {
     setActivePlayerId(newPlayerId);
@@ -176,6 +181,7 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
         isLoading,
         familyData,
         activePlayerId,
+        isParent,
         setActivePlayer,
         refreshFamily: async () => { await refreshFamily(); },
         setFamilyData,

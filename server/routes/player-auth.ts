@@ -48,7 +48,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
+    submitReviewSchema, familyInviteCodes,
   } from "@shared/schema";
   import { hashPassword, generateToken } from "../auth";
   const router = Router();
@@ -224,15 +224,62 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.json({ isFamily: false });
         }
 
-        // Find all players with the same email address (same family)
-        const familyMembers = await db
+        // Find all players in the same family:
+        // 1) Players sharing the same email address (original behaviour)
+        // 2) Players whose parentEmail matches this player's email (linked via Add Child flow)
+        const byEmail = await db
           .select()
           .from(players)
           .where(eq(players.email, player.email));
 
-        if (familyMembers.length <= 1) {
+        const byParentEmail = await db
+          .select()
+          .from(players)
+          .where(eq(players.parentEmail, player.email));
+
+        // Merge and deduplicate
+        const seen = new Set<string>();
+        const familyMembers: typeof players.$inferSelect[] = [];
+        for (const m of [...byEmail, ...byParentEmail]) {
+          if (!seen.has(m.id)) {
+            seen.add(m.id);
+            familyMembers.push(m);
+          }
+        }
+
+        // Also include players whose parentEmail is the email of any member we already have
+        // (i.e. this player is a child, and siblings share the same parent)
+        if (player.parentEmail) {
+          const siblings = await db
+            .select()
+            .from(players)
+            .where(eq(players.parentEmail, player.parentEmail));
+          for (const m of siblings) {
+            if (!seen.has(m.id)) {
+              seen.add(m.id);
+              familyMembers.push(m);
+            }
+          }
+          // Also get the parent player (whose email === this player's parentEmail)
+          const parentPlayers = await db
+            .select()
+            .from(players)
+            .where(eq(players.email, player.parentEmail));
+          for (const m of parentPlayers) {
+            if (!seen.has(m.id)) {
+              seen.add(m.id);
+              familyMembers.push(m);
+            }
+          }
+        }
+
+        // For an unlinked child (no parentEmail, no linked members), return no family
+        // For a parent account (no parentEmail), always return family data so they can add children
+        if (familyMembers.length <= 1 && player.parentEmail) {
           return res.json({ isFamily: false });
         }
+        // If caller is a parent with no children yet, still expose family (single-member)
+        // so the Family Lobby Add Child flow is accessible
 
         // Get outstanding balances for each player
         const memberData = await Promise.all(
@@ -282,12 +329,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           0,
         );
 
+        // Determine the canonical parent email for this family
+        // If caller is a child (has parentEmail set), use that; otherwise use their own email
+        const familyParentEmail = player.parentEmail || player.email;
+
         res.json({
           isFamily: true,
           family: {
-            email: player.email,
+            email: familyParentEmail,
+            parentEmail: familyParentEmail,
             members: memberData,
             outstandingTotal,
+            isCallerParent: !player.parentEmail,
           },
         });
       } catch (error) {
@@ -316,11 +369,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(403).json({ error: "Account not found" });
         }
 
+        // Only parent accounts (not children themselves) can set parental controls
+        if (parentPlayer.parentEmail) {
+          return res.status(403).json({ error: "Only parent accounts can manage parental controls." });
+        }
+
         const targetPlayer = await storage.getPlayer(playerId);
-        if (!targetPlayer || targetPlayer.email !== parentPlayer.email) {
+        // Target must be a child of the caller:
+        // - new-style: linked via parentEmail pointing to caller's email
+        // - legacy-style: shares caller's email but is a different player (different id)
+        // Must not be the caller modifying themselves.
+        const isLinkedChild =
+          targetPlayer &&
+          targetPlayer.id !== parentPlayer.id &&
+          (targetPlayer.parentEmail === parentPlayer.email ||
+            targetPlayer.email === parentPlayer.email);
+        if (!isLinkedChild) {
           return res
             .status(403)
-            .json({ error: "You can only manage family members" });
+            .json({ error: "You can only manage parental controls for your linked children" });
         }
 
         const updates: Record<string, any> = {};
@@ -393,6 +460,273 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       } catch (error) {
         console.error("Error processing bulk payment:", error);
         res.status(500).json({ error: "Failed to process payment" });
+      }
+    },
+  );
+
+  // ==================== FAMILY ADD CHILD ENDPOINTS ====================
+
+  // Helper to generate a random invite code
+  function generateInviteCode(): string {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
+    let code = "";
+    for (let i = 0; i < 7; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+
+  // Add child by email
+  router.post(
+    "/api/family/add-child",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const tokenUser = req.user!;
+        const { email } = req.body;
+
+        if (!email || typeof email !== "string") {
+          return res.status(400).json({ error: "Email is required" });
+        }
+
+        const freshUser = await storage.getUserById(tokenUser.userId);
+        if (!freshUser || !freshUser.playerId) {
+          return res.status(403).json({ error: "Player profile required" });
+        }
+
+        const parentPlayer = await storage.getPlayer(freshUser.playerId);
+        if (!parentPlayer || !parentPlayer.email) {
+          return res.status(403).json({ error: "Account not found" });
+        }
+
+        // Only players who are not themselves a child can add children
+        // (i.e., their parentEmail must be null — they are a parent account)
+        if (parentPlayer.parentEmail) {
+          return res.status(403).json({ error: "Only parent accounts can add children. Join a family via Settings instead." });
+        }
+
+        // Find child player by email (exact, case-insensitive — no wildcard operators)
+        const normalizedEmail = email.trim().toLowerCase();
+        const childPlayers = await db
+          .select()
+          .from(players)
+          .where(sql`lower(${players.email}) = ${normalizedEmail}`);
+
+        if (childPlayers.length === 0) {
+          return res.status(404).json({ error: "No player found with that email" });
+        }
+
+        const childPlayer = childPlayers[0];
+
+        // Cannot link yourself
+        if (childPlayer.id === parentPlayer.id) {
+          return res.status(400).json({ error: "You cannot add yourself as a child" });
+        }
+
+        // Check if already in this family
+        if (
+          childPlayer.email === parentPlayer.email ||
+          childPlayer.parentEmail === parentPlayer.email
+        ) {
+          return res.status(409).json({ error: "This player is already in your family" });
+        }
+
+        // Prevent reassigning a child who already belongs to a different family
+        if (childPlayer.parentEmail && childPlayer.parentEmail !== parentPlayer.email) {
+          return res.status(409).json({ error: "This player is already linked to another family" });
+        }
+
+        // Check same academy
+        if (childPlayer.academyId && parentPlayer.academyId && childPlayer.academyId !== parentPlayer.academyId) {
+          return res.status(400).json({ error: "This player belongs to a different academy" });
+        }
+
+        // Link the child
+        await db
+          .update(players)
+          .set({ parentEmail: parentPlayer.email })
+          .where(eq(players.id, childPlayer.id));
+
+        res.json({
+          success: true,
+          child: {
+            id: childPlayer.id,
+            name: childPlayer.name,
+            email: childPlayer.email,
+          },
+        });
+      } catch (error) {
+        console.error("Error adding child:", error);
+        res.status(500).json({ error: "Failed to add child" });
+      }
+    },
+  );
+
+  // Generate / refresh family invite code
+  router.post(
+    "/api/family/invite-code",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const tokenUser = req.user!;
+
+        const freshUser = await storage.getUserById(tokenUser.userId);
+        if (!freshUser || !freshUser.playerId) {
+          return res.status(403).json({ error: "Player profile required" });
+        }
+
+        const parentPlayer = await storage.getPlayer(freshUser.playerId);
+        if (!parentPlayer) {
+          return res.status(403).json({ error: "Account not found" });
+        }
+
+        // Only parent accounts (not children themselves) can generate invite codes
+        if (parentPlayer.parentEmail) {
+          return res.status(403).json({ error: "Only parent accounts can generate invite codes." });
+        }
+
+        // Invalidate any existing unused codes for this parent
+        await db
+          .update(familyInviteCodes)
+          .set({ usedAt: new Date() })
+          .where(
+            and(
+              eq(familyInviteCodes.parentPlayerId, parentPlayer.id),
+              isNull(familyInviteCodes.usedAt),
+            ),
+          );
+
+        // Generate a unique code
+        let code = generateInviteCode();
+        let attempts = 0;
+        while (attempts < 10) {
+          const existing = await db
+            .select()
+            .from(familyInviteCodes)
+            .where(eq(familyInviteCodes.code, code))
+            .limit(1);
+          if (existing.length === 0) break;
+          code = generateInviteCode();
+          attempts++;
+        }
+
+        const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+        await db.insert(familyInviteCodes).values({
+          code,
+          parentPlayerId: parentPlayer.id,
+          expiresAt,
+        });
+
+        res.json({ code, expiresAt: expiresAt.toISOString() });
+      } catch (error) {
+        console.error("Error generating invite code:", error);
+        res.status(500).json({ error: "Failed to generate invite code" });
+      }
+    },
+  );
+
+  // Join family with invite code (child calls this)
+  router.post(
+    "/api/family/join",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const tokenUser = req.user!;
+        const { code } = req.body;
+
+        if (!code || typeof code !== "string") {
+          return res.status(400).json({ error: "Invite code is required" });
+        }
+
+        const freshUser = await storage.getUserById(tokenUser.userId);
+        if (!freshUser || !freshUser.playerId) {
+          return res.status(403).json({ error: "Player profile required" });
+        }
+
+        const childPlayer = await storage.getPlayer(freshUser.playerId);
+        if (!childPlayer) {
+          return res.status(403).json({ error: "Account not found" });
+        }
+
+        // Find the invite code
+        const inviteCodes = await db
+          .select()
+          .from(familyInviteCodes)
+          .where(eq(familyInviteCodes.code, code.toUpperCase().trim()))
+          .limit(1);
+
+        if (inviteCodes.length === 0) {
+          return res.status(404).json({ error: "Invalid invite code" });
+        }
+
+        const inviteCode = inviteCodes[0];
+
+        // Check not already used
+        if (inviteCode.usedAt) {
+          return res.status(400).json({ error: "This invite code has already been used" });
+        }
+
+        // Check not expired
+        if (new Date() > new Date(inviteCode.expiresAt)) {
+          return res.status(400).json({ error: "This invite code has expired" });
+        }
+
+        // Get parent player
+        const parentPlayer = await storage.getPlayer(inviteCode.parentPlayerId);
+        if (!parentPlayer || !parentPlayer.email) {
+          return res.status(404).json({ error: "Parent account not found" });
+        }
+
+        // Check if child is already in this family
+        if (
+          childPlayer.email === parentPlayer.email ||
+          childPlayer.parentEmail === parentPlayer.email
+        ) {
+          return res.status(409).json({ error: "You are already in this family" });
+        }
+
+        // Cannot join your own family code
+        if (childPlayer.id === parentPlayer.id) {
+          return res.status(400).json({ error: "You cannot join your own family code" });
+        }
+
+        // Prevent reassigning a child who already belongs to a different family
+        if (childPlayer.parentEmail && childPlayer.parentEmail !== parentPlayer.email) {
+          return res.status(409).json({ error: "You are already linked to a different family" });
+        }
+
+        // Enforce same academy boundary
+        if (childPlayer.academyId && parentPlayer.academyId && childPlayer.academyId !== parentPlayer.academyId) {
+          return res.status(400).json({ error: "You cannot join a family from a different academy" });
+        }
+
+        // Atomically claim the invite code (WHERE used_at IS NULL prevents double-use in races)
+        const claimResult = await db
+          .update(familyInviteCodes)
+          .set({ usedAt: new Date(), usedByPlayerId: childPlayer.id })
+          .where(and(eq(familyInviteCodes.id, inviteCode.id), isNull(familyInviteCodes.usedAt)))
+          .returning({ id: familyInviteCodes.id });
+
+        if (claimResult.length === 0) {
+          // Another request beat us to it — code was already consumed
+          return res.status(409).json({ error: "This invite code has already been used" });
+        }
+
+        // Link child to parent
+        await db
+          .update(players)
+          .set({ parentEmail: parentPlayer.email })
+          .where(eq(players.id, childPlayer.id));
+
+        res.json({
+          success: true,
+          parentName: parentPlayer.name,
+          parentEmail: parentPlayer.email,
+        });
+      } catch (error) {
+        console.error("Error joining family:", error);
+        res.status(500).json({ error: "Failed to join family" });
       }
     },
   );

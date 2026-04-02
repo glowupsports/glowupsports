@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,9 +10,11 @@ import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
 import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportContext";
+import { useFamily } from "@/player/context/FamilyContext";
 
 interface SettingItem {
   id: string;
@@ -28,6 +30,8 @@ export default function PlayerSettingsScreen() {
   const navigation = useNavigation();
   const { logout } = useAuth();
   const { isRegistered } = usePushNotifications();
+  const queryClient = useQueryClient();
+  const { refreshFamily } = useFamily();
   const { t, i18n } = useTranslation();
 
   const [notifications, setNotifications] = useState(true);
@@ -39,6 +43,9 @@ export default function PlayerSettingsScreen() {
   const [appleLinked, setAppleLinked] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [sportSaving, setSportSaving] = useState(false);
+  const [showJoinFamily, setShowJoinFamily] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinLoading, setJoinLoading] = useState(false);
 
   const { activeSports, updateActiveSports } = useSport();
 
@@ -145,6 +152,35 @@ export default function PlayerSettingsScreen() {
       Alert.alert("Error", "Failed to unlink Apple ID");
     } finally {
       setAppleLoading(false);
+    }
+  };
+
+  const handleJoinFamily = async () => {
+    const trimmed = joinCode.trim().toUpperCase();
+    if (!trimmed) return;
+    setJoinLoading(true);
+    try {
+      const response = await apiRequest("POST", "/api/family/join", { code: trimmed });
+      const data = await response.json();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowJoinFamily(false);
+      setJoinCode("");
+      queryClient.invalidateQueries({ queryKey: ["/api/family/status"] });
+      refreshFamily();
+      Alert.alert("Joined Family!", `You are now linked to ${data.parentName || "your parent"}'s family account.`);
+    } catch (error: any) {
+      const raw: string = error?.message || "";
+      const colonIdx = raw.indexOf(":");
+      let msg = "Could not join family. Please try again.";
+      if (colonIdx !== -1) {
+        try {
+          const parsed = JSON.parse(raw.substring(colonIdx + 1).trim());
+          if (parsed?.error) msg = parsed.error;
+        } catch { }
+      }
+      Alert.alert("Could not join", msg);
+    } finally {
+      setJoinLoading(false);
     }
   };
 
@@ -495,6 +531,28 @@ export default function PlayerSettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Family</Text>
+          <View style={styles.sectionCard}>
+            <Pressable
+              style={styles.settingItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setJoinCode("");
+                setShowJoinFamily(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Join a family account"
+            >
+              <View style={styles.settingIcon}>
+                <Ionicons name="people" size={20} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.settingLabel}>Join a Family</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>
           <View style={styles.sectionCard}>
             {legalSettings.map(renderSettingItem)}
@@ -594,6 +652,49 @@ export default function PlayerSettingsScreen() {
           )}
         </Pressable>
       </ScrollView>
+
+      <Modal visible={showJoinFamily} transparent animationType="slide" onRequestClose={() => setShowJoinFamily(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="people" size={24} color={Colors.dark.primary} />
+                <Text style={styles.modalTitle}>Join a Family</Text>
+              </View>
+              <Pressable onPress={() => setShowJoinFamily(false)} accessibilityRole="button" accessibilityLabel="Close join family modal">
+                <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              Enter the invite code shared by your parent to join their family account.
+            </Text>
+            <TextInput
+              style={styles.codeInput}
+              placeholder="Enter invite code"
+              placeholderTextColor={Colors.dark.textMuted}
+              value={joinCode}
+              onChangeText={(text) => setJoinCode(text.toUpperCase())}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={10}
+              accessibilityLabel="Family invite code"
+            />
+            <Pressable
+              style={[styles.joinButton, (!joinCode.trim() || joinLoading) ? styles.joinButtonDisabled : null]}
+              onPress={handleJoinFamily}
+              disabled={!joinCode.trim() || joinLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Join family"
+            >
+              {joinLoading ? (
+                <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+              ) : (
+                <Text style={styles.joinButtonText}>Join Family</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -752,5 +853,65 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.error,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.md,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    lineHeight: 20,
+  },
+  codeInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    textAlign: "center",
+    letterSpacing: 4,
+  },
+  joinButton: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  joinButtonDisabled: {
+    opacity: 0.4,
+  },
+  joinButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });

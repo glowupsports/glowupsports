@@ -10,7 +10,10 @@ import {
   Switch,
   Modal,
   Platform,
+  TextInput,
+  Share,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +24,21 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInUp, FadeInRight, ZoomIn } from "react-native-reanimated";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+
+function parseApiError(error: any, fallback: string): string {
+  const raw: string = error?.message || "";
+  const colonIdx = raw.indexOf(":");
+  if (colonIdx !== -1) {
+    try {
+      const jsonPart = raw.substring(colonIdx + 1).trim();
+      const parsed = JSON.parse(jsonPart);
+      if (parsed?.error) return parsed.error;
+    } catch {
+    }
+  }
+  return raw || fallback;
+}
 
 function getBallColor(ball: string | null): string {
   switch (ball?.toLowerCase()) {
@@ -222,15 +239,18 @@ export default function FamilyLobbyScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { familyData, setActivePlayer, isLoading, refreshFamily } = useFamily();
+  const { familyData, setActivePlayer, isLoading, refreshFamily, isParent } = useFamily();
   const [showControls, setShowControls] = useState(false);
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [addChildTab, setAddChildTab] = useState<"email" | "code">("email");
+  const [childEmail, setChildEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteExpiry, setInviteExpiry] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const controlsMutation = useMutation({
     mutationFn: async ({ playerId, field, value }: { playerId: string; field: string; value: boolean }) => {
-      return apiRequest(`${getApiUrl()}/api/family/parental-controls/${playerId}`, {
-        method: "PUT",
-        body: JSON.stringify({ [field]: value }),
-      });
+      return apiRequest("PUT", `/api/family/parental-controls/${playerId}`, { [field]: value });
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -247,11 +267,8 @@ export default function FamilyLobbyScreen() {
 
   const payAllMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`${getApiUrl()}/api/billing/pay-bulk`, {
-        method: "POST",
-        body: JSON.stringify({
-          playerIds: familyData?.members.map(m => m.id) || [],
-        }),
+      return apiRequest("POST", "/api/billing/pay-bulk", {
+        playerIds: familyData?.members.map(m => m.id) || [],
       });
     },
     onSuccess: () => {
@@ -263,6 +280,74 @@ export default function FamilyLobbyScreen() {
       Alert.alert("Payment Failed", error.message || "Could not process payment. Please try again.");
     },
   });
+
+  const addChildMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiRequest("POST", "/api/family/add-child", { email });
+      return res.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setChildEmail("");
+      setShowAddChild(false);
+      refreshFamily();
+    },
+    onError: (error: any) => {
+      const msg = parseApiError(error, "Please try again.");
+      Alert.alert("Could not add child", msg);
+    },
+  });
+
+  const inviteCodeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/family/invite-code");
+      return res.json() as Promise<{ code: string; expiresAt: string }>;
+    },
+    onSuccess: (data) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setInviteCode(data.code);
+      setInviteExpiry(data.expiresAt);
+    },
+    onError: (error: any) => {
+      const msg = parseApiError(error, "Could not generate invite code.");
+      Alert.alert("Error", msg);
+    },
+  });
+
+  const handleOpenAddChildModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setChildEmail("");
+    setInviteCode(null);
+    setInviteExpiry(null);
+    setCodeCopied(false);
+    setAddChildTab("email");
+    setShowAddChild(true);
+  };
+
+  const handleTabChange = (tab: "email" | "code") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAddChildTab(tab);
+    if (tab === "code" && !inviteCode) {
+      inviteCodeMutation.mutate();
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setCodeCopied(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
+  const handleShareCode = async () => {
+    if (!inviteCode) return;
+    try {
+      await Share.share({
+        message: `Join my family on the app! Use code: ${inviteCode} (valid for 48 hours)`,
+      });
+    } catch (_) {}
+  };
 
   const handleSelectChild = (member: FamilyMember) => {
     setActivePlayer(member.id);
@@ -381,19 +466,21 @@ export default function FamilyLobbyScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          style={styles.parentalControlsButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowControls(true);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Open parental controls"
-        >
-          <Ionicons name="shield-checkmark" size={20} color="#00BCD4" />
-          <Text style={styles.parentalControlsText}>Parental Controls</Text>
-          <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-        </Pressable>
+        {isParent ? (
+          <Pressable
+            style={styles.parentalControlsButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowControls(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open parental controls"
+          >
+            <Ionicons name="shield-checkmark" size={20} color="#00BCD4" />
+            <Text style={styles.parentalControlsText}>Parental Controls</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.cardsGrid}>
           {familyData.members.map((member, index) => (
@@ -404,6 +491,24 @@ export default function FamilyLobbyScreen() {
               index={index}
             />
           ))}
+          {isParent ? (
+            <Animated.View entering={FadeInRight.delay(familyData.members.length * 100).duration(400)}>
+              <Pressable
+                style={styles.addChildCard}
+                onPress={handleOpenAddChildModal}
+                accessibilityRole="button"
+                accessibilityLabel="Add a child to your family"
+              >
+                <View style={styles.addChildInner}>
+                  <View style={styles.addChildIconCircle}>
+                    <Ionicons name="person-add" size={28} color={Colors.dark.primary} />
+                  </View>
+                  <Text style={styles.addChildText}>Add Child</Text>
+                  <Text style={styles.addChildSubtext}>Link a player</Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -440,6 +545,116 @@ export default function FamilyLobbyScreen() {
                 />
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showAddChild} transparent animationType="slide" onRequestClose={() => setShowAddChild(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="person-add" size={24} color={Colors.dark.primary} />
+                <Text style={styles.modalTitle}>Add Child</Text>
+              </View>
+              <Pressable onPress={() => setShowAddChild(false)} accessibilityRole="button" accessibilityLabel="Close add child modal">
+                <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+
+            <View style={styles.tabRow}>
+              <Pressable
+                style={[styles.tab, addChildTab === "email" ? styles.tabActive : null]}
+                onPress={() => handleTabChange("email")}
+                accessibilityRole="button"
+              >
+                <Ionicons name="mail-outline" size={16} color={addChildTab === "email" ? Colors.dark.primary : Colors.dark.textMuted} />
+                <Text style={[styles.tabText, addChildTab === "email" ? styles.tabTextActive : null]}>By Email</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.tab, addChildTab === "code" ? styles.tabActive : null]}
+                onPress={() => handleTabChange("code")}
+                accessibilityRole="button"
+              >
+                <Ionicons name="share-social-outline" size={16} color={addChildTab === "code" ? Colors.dark.primary : Colors.dark.textMuted} />
+                <Text style={[styles.tabText, addChildTab === "code" ? styles.tabTextActive : null]}>By Invite Code</Text>
+              </Pressable>
+            </View>
+
+            {addChildTab === "email" ? (
+              <View style={styles.tabContent}>
+                <Text style={styles.modalSubtitle}>
+                  Enter the email address the player registered with
+                </Text>
+                <TextInput
+                  style={styles.emailInput}
+                  placeholder="child@example.com"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  value={childEmail}
+                  onChangeText={setChildEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel="Child email address"
+                />
+                <Pressable
+                  style={[styles.addButton, (!childEmail.trim() || addChildMutation.isPending) ? styles.addButtonDisabled : null]}
+                  onPress={() => {
+                    if (childEmail.trim()) {
+                      addChildMutation.mutate(childEmail.trim());
+                    }
+                  }}
+                  disabled={!childEmail.trim() || addChildMutation.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add child by email"
+                >
+                  {addChildMutation.isPending ? (
+                    <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                  ) : (
+                    <Text style={styles.addButtonText}>Add to Family</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.tabContent}>
+                <Text style={styles.modalSubtitle}>
+                  Share this code with your child. They can enter it in Settings to join your family.
+                </Text>
+                {inviteCodeMutation.isPending ? (
+                  <ActivityIndicator color={Colors.dark.primary} size="large" style={{ marginVertical: Spacing.xl }} />
+                ) : inviteCode ? (
+                  <>
+                    <View style={styles.codeBox}>
+                      <Text style={styles.codeText}>{inviteCode}</Text>
+                    </View>
+                    {inviteExpiry ? (
+                      <Text style={styles.codeExpiry}>
+                        Expires {new Date(inviteExpiry).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                    ) : null}
+                    <View style={styles.codeActions}>
+                      <Pressable style={styles.codeActionBtn} onPress={handleCopyCode} accessibilityRole="button" accessibilityLabel="Copy invite code">
+                        <Ionicons name={codeCopied ? "checkmark-circle" : "copy-outline"} size={20} color={codeCopied ? "#00E676" : Colors.dark.primary} />
+                        <Text style={[styles.codeActionText, codeCopied ? { color: "#00E676" } : null]}>{codeCopied ? "Copied!" : "Copy Code"}</Text>
+                      </Pressable>
+                      <Pressable style={styles.codeActionBtn} onPress={handleShareCode} accessibilityRole="button" accessibilityLabel="Share invite code">
+                        <Ionicons name="share-outline" size={20} color={Colors.dark.primary} />
+                        <Text style={styles.codeActionText}>Share</Text>
+                      </Pressable>
+                    </View>
+                    <Pressable
+                      style={styles.refreshCodeBtn}
+                      onPress={() => inviteCodeMutation.mutate()}
+                      accessibilityRole="button"
+                      accessibilityLabel="Generate new invite code"
+                    >
+                      <Ionicons name="refresh-outline" size={16} color={Colors.dark.textMuted} />
+                      <Text style={styles.refreshCodeText}>Generate New Code</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -791,5 +1006,153 @@ const styles = StyleSheet.create({
   controlLabel: {
     fontSize: FontSizes.sm,
     color: Colors.dark.textSecondary,
+  },
+  addChildCard: {
+    width: 160,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "40",
+    borderStyle: "dashed",
+    backgroundColor: Colors.dark.primary + "08",
+  },
+  addChildInner: {
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+    minHeight: 200,
+    justifyContent: "center",
+  },
+  addChildIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "40",
+  },
+  addChildText: {
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    textAlign: "center",
+  },
+  addChildSubtext: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  tabRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.medium,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.small,
+  },
+  tabActive: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  tabText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  tabTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  tabContent: {
+    gap: Spacing.md,
+  },
+  emailInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.medium,
+    padding: Spacing.md,
+    fontSize: FontSizes.md,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  addButton: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.medium,
+    padding: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addButtonDisabled: {
+    opacity: 0.4,
+  },
+  addButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  codeBox: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  codeText: {
+    fontSize: FontSizes["3xl"],
+    fontWeight: "800",
+    color: Colors.dark.primary,
+    letterSpacing: 6,
+  },
+  codeExpiry: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  codeActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    justifyContent: "center",
+  },
+  codeActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  codeActionText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  refreshCodeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+  },
+  refreshCodeText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
   },
 });

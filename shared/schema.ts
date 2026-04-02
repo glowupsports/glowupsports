@@ -6763,3 +6763,21 @@ export const liveMatches = pgTable("live_matches", {
 export const insertLiveMatchSchema = createInsertSchema(liveMatches).omit({ id: true, createdAt: true, completedAt: true });
 export type InsertLiveMatch = z.infer<typeof insertLiveMatchSchema>;
 export type LiveMatch = typeof liveMatches.$inferSelect;
+
+// ==================== FAMILY INVITE CODES ====================
+
+export const familyInviteCodes = pgTable("family_invite_codes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // 6-8 char human-readable code
+  parentPlayerId: varchar("parent_player_id").references(() => players.id).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  usedByPlayerId: varchar("used_by_player_id").references(() => players.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFamilyInviteCodeSchema = createInsertSchema(familyInviteCodes).omit({ id: true, createdAt: true, usedAt: true, usedByPlayerId: true });
+export type InsertFamilyInviteCode = z.infer<typeof insertFamilyInviteCodeSchema>;
+export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;
