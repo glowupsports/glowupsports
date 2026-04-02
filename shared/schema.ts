@@ -1115,7 +1115,10 @@ export type Player = typeof players.$inferSelect;
 
 // Schema for player self-edit via PATCH /api/player/me/info.
 // Contains only the fields a player is allowed to change themselves.
-// Must remain a plain ZodObject (no .transform()) so .safeParse() works at runtime.
+// IMPORTANT: Must remain a plain ZodObject (no .transform() at the end).
+// updatePlayerSchema ends with .transform() → becomes ZodEffects → .pick() throws at runtime.
+// This dedicated schema avoids that issue and also prevents mass-assignment of
+// sensitive fields (coachId, skillLevel, membershipType, privacyLevel, quizScore, etc.).
 export const playerSelfUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   phone: z.string().optional().nullable(),
