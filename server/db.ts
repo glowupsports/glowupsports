@@ -433,6 +433,14 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] feature_events migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS last_lat DOUBLE PRECISION`);
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS last_lng DOUBLE PRECISION`);
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS last_location_at TIMESTAMP`);
+    console.log('[Database] coaches GPS columns migration successful');
+  } catch (e: any) {
+    console.log('[Database] coaches GPS columns migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
