@@ -403,7 +403,7 @@ export default function PlayerProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { setMode } = useAppMode();
-  const { logout } = useAuth();
+  const { logout, isGuest } = useAuth();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isBirthday } = usePlayer();
   const [showPinModal, setShowPinModal] = useState(false);
@@ -414,8 +414,9 @@ export default function PlayerProfileScreen() {
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery<ProfileData>({
+  const { data, isLoading, error, refetch } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
+    enabled: !isGuest,
   });
 
   const { data: groupsData } = useQuery<{ myGroups: GroupData[]; discover: GroupData[] }>({
@@ -653,6 +654,45 @@ export default function PlayerProfileScreen() {
     );
   };
 
+  if (isGuest) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, paddingHorizontal: Spacing.xl }]}>
+        <View style={styles.guestAvatarRing}>
+          <Ionicons name="person" size={52} color={Colors.dark.primary} />
+        </View>
+        <Text style={styles.guestTitle}>Browsing as Guest</Text>
+        <Text style={styles.guestSubtitle}>Create a free account to unlock the full experience</Text>
+        <View style={styles.guestFeatureList}>
+          {[
+            { icon: "trending-up", text: "Track your XP, levels & skill progress" },
+            { icon: "calendar", text: "Book sessions & manage your schedule" },
+            { icon: "people", text: "Join groups, make friends & play matches" },
+            { icon: "trophy", text: "Earn badges, complete quests & climb the ladder" },
+          ].map((f) => (
+            <View key={f.text} style={styles.guestFeatureRow}>
+              <Ionicons name={f.icon as any} size={18} color={Colors.dark.primary} />
+              <Text style={styles.guestFeatureText}>{f.text}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          style={({ pressed }) => [styles.guestCta, { opacity: pressed ? 0.85 : 1 }]}
+          onPress={logout}
+        >
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.primaryGlow || "#9AE66E"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.guestCtaGradient}
+          >
+            <Ionicons name="person-add-outline" size={20} color="#000" />
+            <Text style={styles.guestCtaText}>Create Account / Sign In</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -662,12 +702,43 @@ export default function PlayerProfileScreen() {
     );
   }
 
-  if (error || !data || !data.player) {
+  if (error) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, paddingHorizontal: Spacing.xl }]}>
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
         <Text style={styles.errorText}>Unable to load profile</Text>
-        <Text style={styles.errorSubtext}>Please try again later</Text>
+        <Text style={styles.errorSubtext}>Please check your connection and try again</Text>
+        <Pressable
+          style={({ pressed }) => [styles.retryButton, { opacity: pressed ? 0.8 : 1 }]}
+          onPress={() => refetch()}
+        >
+          <Ionicons name="refresh" size={18} color="#000" />
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.signOutButton, { opacity: pressed ? 0.7 : 1 }]}
+          onPress={logout}
+        >
+          <Ionicons name="log-out-outline" size={16} color={Colors.dark.error} />
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!data || !data.player) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top, paddingHorizontal: Spacing.xl }]}>
+        <Ionicons name="person-circle-outline" size={64} color={Colors.dark.textMuted} />
+        <Text style={styles.errorText}>Profile not set up</Text>
+        <Text style={styles.errorSubtext}>Your account exists but has no player profile yet. Contact support or sign in again.</Text>
+        <Pressable
+          style={({ pressed }) => [styles.signOutButton, { opacity: pressed ? 0.7 : 1 }]}
+          onPress={logout}
+        >
+          <Ionicons name="log-out-outline" size={16} color={Colors.dark.error} />
+          <Text style={styles.signOutButtonText}>Sign Out & Try Again</Text>
+        </Pressable>
       </View>
     );
   }
@@ -1430,6 +1501,89 @@ const styles = StyleSheet.create({
   errorSubtext: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.md,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#000",
+  },
+  signOutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  signOutButtonText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+  },
+  guestAvatarRing: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  guestTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  guestSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  guestFeatureList: {
+    width: "100%",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  guestFeatureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  guestFeatureText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  guestCta: {
+    width: "100%",
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  guestCtaGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+  },
+  guestCtaText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#000",
   },
   scrollView: {
     flex: 1,
