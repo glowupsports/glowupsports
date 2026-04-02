@@ -47,9 +47,10 @@ interface Props {
   playerId: string;
   playerName: string;
   tz: string;
+  hideHeader?: boolean;
 }
 
-export function PlayerAttendanceSection({ playerId, playerName, tz }: Props) {
+export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader = false }: Props) {
   const queryClient = useQueryClient();
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
@@ -265,59 +266,69 @@ export function PlayerAttendanceSection({ playerId, playerName, tz }: Props) {
     </View>
   );
 
+  const actionButtons = (
+    <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+      <Pressable
+        style={[styles.reportButton, isExportingAttendanceReport && { opacity: 0.5 }]}
+        onPress={handleExportAttendanceReport}
+        disabled={isExportingAttendanceReport}
+      >
+        {isExportingAttendanceReport ? (
+          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+        ) : (
+          <>
+            <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
+            <Text style={styles.reportButtonText}>PDF</Text>
+          </>
+        )}
+      </Pressable>
+      <Pressable
+        style={[styles.reportButton, isSharingAttendanceLink && { opacity: 0.5 }]}
+        onPress={handleShareAttendanceLink}
+        disabled={isSharingAttendanceLink}
+      >
+        {isSharingAttendanceLink ? (
+          <ActivityIndicator size="small" color="#A78BFA" />
+        ) : (
+          <>
+            <Ionicons name="link-outline" size={14} color="#A78BFA" />
+            <Text style={[styles.reportButtonText, { color: "#A78BFA" }]}>Share Link</Text>
+          </>
+        )}
+      </Pressable>
+      <Pressable
+        style={[styles.reportButton, isSendingMonthlyReport && { opacity: 0.5 }]}
+        onPress={handleSendMonthlyReport}
+        disabled={isSendingMonthlyReport}
+      >
+        {isSendingMonthlyReport ? (
+          <ActivityIndicator size="small" color={Colors.dark.primary} />
+        ) : (
+          <>
+            <Ionicons name="mail-outline" size={14} color={Colors.dark.primary} />
+            <Text style={styles.reportButtonText}>Email</Text>
+          </>
+        )}
+      </Pressable>
+    </View>
+  );
+
   return (
     <>
-      <View style={styles.infoSection}>
-        <View style={styles.attendanceHistoryHeader}>
-          <View style={styles.attendanceHistoryTitleRow}>
-            <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-            <Text style={styles.sectionLabel}>ATTENDANCE HISTORY</Text>
+      <View style={[styles.infoSection, hideHeader && { marginHorizontal: 0, marginBottom: 0 }]}>
+        {!hideHeader ? (
+          <View style={styles.attendanceHistoryHeader}>
+            <View style={styles.attendanceHistoryTitleRow}>
+              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.sectionLabel}>ATTENDANCE HISTORY</Text>
+            </View>
+            {actionButtons}
           </View>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable
-              style={[styles.reportButton, isExportingAttendanceReport && { opacity: 0.5 }]}
-              onPress={handleExportAttendanceReport}
-              disabled={isExportingAttendanceReport}
-            >
-              {isExportingAttendanceReport ? (
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-              ) : (
-                <>
-                  <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
-                  <Text style={styles.reportButtonText}>PDF</Text>
-                </>
-              )}
-            </Pressable>
-            <Pressable
-              style={[styles.reportButton, isSharingAttendanceLink && { opacity: 0.5 }]}
-              onPress={handleShareAttendanceLink}
-              disabled={isSharingAttendanceLink}
-            >
-              {isSharingAttendanceLink ? (
-                <ActivityIndicator size="small" color="#A78BFA" />
-              ) : (
-                <>
-                  <Ionicons name="link-outline" size={14} color="#A78BFA" />
-                  <Text style={[styles.reportButtonText, { color: "#A78BFA" }]}>Share Link</Text>
-                </>
-              )}
-            </Pressable>
-            <Pressable
-              style={[styles.reportButton, isSendingMonthlyReport && { opacity: 0.5 }]}
-              onPress={handleSendMonthlyReport}
-              disabled={isSendingMonthlyReport}
-            >
-              {isSendingMonthlyReport ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
-              ) : (
-                <>
-                  <Ionicons name="mail-outline" size={14} color={Colors.dark.primary} />
-                  <Text style={styles.reportButtonText}>Email</Text>
-                </>
-              )}
-            </Pressable>
+        ) : (
+          <View style={[styles.attendanceHistoryHeader, { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }]}>
+            {actionButtons}
           </View>
-        </View>
+        )}
 
         {attendanceHistory.length === 0 ? (
           <View style={styles.emptyAttendanceCard}>

@@ -46,6 +46,7 @@ import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
 import { PlayerAttendanceSection } from "./PlayerAttendanceSection";
 import { PlayerStrokeFeedbackSection } from "./PlayerStrokeFeedbackSection";
 import { PlayerNotesSection } from "./PlayerNotesSection";
+import { CollapsibleSection } from "./CollapsibleSection";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
@@ -862,76 +863,83 @@ export function PlayerDetailView({
           </View>
         ) : null}
 
-        <PackagesCard playerId={player.id} playerName={localPlayer.name} />
+        <CollapsibleSection title="Packages" icon="ticket-outline" iconColor={Colors.dark.gold}>
+          <PackagesCard playerId={player.id} playerName={localPlayer.name} />
+        </CollapsibleSection>
 
-        <PlayerPaymentsSection playerStats={playerStats} playerId={player.id} playerName={localPlayer.name} />
-
-
+        <CollapsibleSection title="Payments" icon="card-outline" iconColor={Colors.dark.primary}>
+          <PlayerPaymentsSection playerStats={playerStats} playerId={player.id} playerName={localPlayer.name} />
+        </CollapsibleSection>
 
         {isInvitePending && inviteData?.inviteCode ? (
-          <ProminentInviteCard inviteCode={inviteData.inviteCode} playerName={localPlayer.name} onSendEmail={() => sendInviteEmailMutation.mutate()} isSendingEmail={sendInviteEmailMutation.isPending} />
+          <CollapsibleSection title="Invite Code" icon="mail-outline" iconColor={Colors.dark.xpCyan}>
+            <ProminentInviteCard inviteCode={inviteData.inviteCode} playerName={localPlayer.name} onSendEmail={() => sendInviteEmailMutation.mutate()} isSendingEmail={sendInviteEmailMutation.isPending} />
+          </CollapsibleSection>
         ) : null}
 
-        <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Basic Info</Text>
-          <View style={styles.infoCard}>
-            {localPlayer.email ? (
-              <View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
-                  <Text style={styles.infoText}>{localPlayer.email}</Text>
-                </View>
-              </View>
-            ) : null}
-            {localPlayer.phone ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="call-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>{localPlayer.phone}</Text>
-              </View>
-            ) : null}
-            {player.skillLevel ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="trophy-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>Skill Level: {player.skillLevel}</Text>
-              </View>
-            ) : null}
-            {player.age ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="calendar-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>Age: {player.age} years</Text>
-              </View>
-            ) : null}
-            {player.height ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="resize-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>Height: {player.height} cm</Text>
-              </View>
-            ) : null}
-            {player.tshirtSize ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="shirt-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>T-Shirt: {player.tshirtSize}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        {player.medicalNotes ? (
+        <CollapsibleSection title="Basic Info" icon="person-outline" iconColor={Colors.dark.tabIconDefault}>
           <View style={styles.infoSection}>
-            <Text style={styles.sectionLabel}>Medical Notes</Text>
-            <View style={[styles.infoCard, styles.warningCard]}>
-              <Ionicons name="medical-outline" size={20} color={Colors.dark.error} />
-              <Text style={styles.medicalText}>{player.medicalNotes}</Text>
+            <View style={styles.infoCard}>
+              {localPlayer.email ? (
+                <View>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
+                    <Text style={styles.infoText}>{localPlayer.email}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {localPlayer.phone ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="call-outline" size={20} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.infoText}>{localPlayer.phone}</Text>
+                </View>
+              ) : null}
+              {player.skillLevel ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="trophy-outline" size={20} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.infoText}>Skill Level: {player.skillLevel}</Text>
+                </View>
+              ) : null}
+              {player.age ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="calendar-outline" size={20} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.infoText}>Age: {player.age} years</Text>
+                </View>
+              ) : null}
+              {player.height ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="resize-outline" size={20} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.infoText}>Height: {player.height} cm</Text>
+                </View>
+              ) : null}
+              {player.tshirtSize ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="shirt-outline" size={20} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.infoText}>T-Shirt: {player.tshirtSize}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
-        ) : null}
 
-        <PlayerAttendanceSection playerId={player.id} playerName={localPlayer.name} tz={tz} />
+          {player.medicalNotes ? (
+            <View style={styles.infoSection}>
+              <View style={[styles.infoCard, styles.warningCard]}>
+                <Ionicons name="medical-outline" size={20} color={Colors.dark.error} />
+                <Text style={styles.medicalText}>{player.medicalNotes}</Text>
+              </View>
+            </View>
+          ) : null}
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Attendance History" icon="calendar-outline" iconColor={Colors.dark.xpCyan}>
+          <PlayerAttendanceSection playerId={player.id} playerName={localPlayer.name} tz={tz} hideHeader />
+        </CollapsibleSection>
 
         <PlayerStrokeFeedbackSection playerId={player.id} />
 
-
-        <PlayerNotesSection playerId={player.id} coachId={coach?.id} />
+        <CollapsibleSection title="Coach Notes" icon="document-text-outline" iconColor={Colors.dark.primary}>
+          <PlayerNotesSection playerId={player.id} coachId={coach?.id} hideHeader />
+        </CollapsibleSection>
 
       </ScrollView>
 

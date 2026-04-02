@@ -30,9 +30,10 @@ interface PlayerNote {
 interface Props {
   playerId: string;
   coachId: string | undefined;
+  hideHeader?: boolean;
 }
 
-export function PlayerNotesSection({ playerId, coachId }: Props) {
+export function PlayerNotesSection({ playerId, coachId, hideHeader = false }: Props) {
   const queryClient = useQueryClient();
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState("");
@@ -120,11 +121,13 @@ export function PlayerNotesSection({ playerId, coachId }: Props) {
         </View>
       ) : null}
 
-      <View style={styles.infoSection}>
-        <View style={styles.notesSectionHeader}>
-          <Text style={styles.sectionLabel}>Coach Notes</Text>
-          <Text style={styles.notesCount}>{notes.length} notes</Text>
-        </View>
+      <View style={[styles.infoSection, hideHeader && { marginHorizontal: 0, marginBottom: 0 }]}>
+        {!hideHeader ? (
+          <View style={styles.notesSectionHeader}>
+            <Text style={styles.sectionLabel}>Coach Notes</Text>
+            <Text style={styles.notesCount}>{notes.length} notes</Text>
+          </View>
+        ) : null}
 
         {showAddNote ? (
           <View style={styles.addNoteForm}>
