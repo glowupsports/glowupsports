@@ -1536,7 +1536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
          WHERE c.is_active = true
            AND (
              (l.lat IS NOT NULL AND l.lng IS NOT NULL)
-             OR ($1::uuid IS NOT NULL AND c.academy_id = $1::uuid)
+             OR ($1::text IS NOT NULL AND c.academy_id = $1::text)
            )`,
         [academyId]
       );

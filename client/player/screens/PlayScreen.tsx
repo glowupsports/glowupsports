@@ -957,7 +957,7 @@ export default function PlayScreen() {
 
   const sendFriendRequestMutation = useMutation({
     mutationFn: async (playerId: string) => {
-      const response = await apiRequest("POST", `/api/social/friend-request`, { targetPlayerId: playerId });
+      const response = await apiRequest("POST", `/api/player/connections/request`, { targetPlayerId: playerId });
       return await response.json();
     },
     onSuccess: () => {
