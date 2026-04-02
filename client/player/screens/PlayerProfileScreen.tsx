@@ -655,22 +655,25 @@ export default function PlayerProfileScreen() {
   };
 
   if (isGuest) {
+    type GuestIconName = React.ComponentProps<typeof Ionicons>["name"];
+    const guestFeatures: Array<{ icon: GuestIconName; text: string }> = [
+      { icon: "trending-up", text: "Track your XP, levels & skill progress" },
+      { icon: "calendar", text: "Book sessions & manage your schedule" },
+      { icon: "people", text: "Join groups, make friends & play matches" },
+      { icon: "trophy", text: "Earn badges, complete quests & climb the ladder" },
+    ];
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top, paddingHorizontal: Spacing.xl }]}>
         <View style={styles.guestAvatarRing}>
           <Ionicons name="person" size={52} color={Colors.dark.primary} />
         </View>
+        <Text style={styles.guestBrand}>Glow Up Sports</Text>
         <Text style={styles.guestTitle}>Browsing as Guest</Text>
         <Text style={styles.guestSubtitle}>Create a free account to unlock the full experience</Text>
         <View style={styles.guestFeatureList}>
-          {[
-            { icon: "trending-up", text: "Track your XP, levels & skill progress" },
-            { icon: "calendar", text: "Book sessions & manage your schedule" },
-            { icon: "people", text: "Join groups, make friends & play matches" },
-            { icon: "trophy", text: "Earn badges, complete quests & climb the ladder" },
-          ].map((f) => (
+          {guestFeatures.map((f) => (
             <View key={f.text} style={styles.guestFeatureRow}>
-              <Ionicons name={f.icon as any} size={18} color={Colors.dark.primary} />
+              <Ionicons name={f.icon} size={18} color={Colors.dark.primary} />
               <Text style={styles.guestFeatureText}>{f.text}</Text>
             </View>
           ))}
@@ -1540,6 +1543,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,
+  },
+  guestBrand: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    textAlign: "center",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: Spacing.xs,
   },
   guestTitle: {
     ...Typography.h2,
