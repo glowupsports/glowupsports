@@ -25,19 +25,12 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { fireQuestEvent } from "../services/quest-events";
 import { chatRateLimiter, postRateLimiter } from "../rateLimiter";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import { uploadToSupabase } from "../utils/supabaseStorage";
 
 const router = Router();
 
 interface AuthRequest extends Request {
   user?: JWTPayload;
-}
-
-const SOCIAL_POSTS_DIR = path.join(process.cwd(), "uploads", "social-posts");
-if (!fs.existsSync(SOCIAL_POSTS_DIR)) {
-  fs.mkdirSync(SOCIAL_POSTS_DIR, { recursive: true });
 }
 
 const socialPostUpload = multer({
