@@ -1635,6 +1635,31 @@ export default function PlayerProgressScreen() {
     },
   });
 
+  interface PillarProgressEntry {
+    name: string;
+    score: number;
+    trend: string;
+    skillsTotal: number;
+    skillsMeetsOrAbove: number;
+    lastUpdated: string | null;
+  }
+  interface PillarProgressSummary {
+    pillars: PillarProgressEntry[];
+    overallReadiness: number;
+    trialGateReady: boolean;
+    recentFeedbackCount: number;
+  }
+  const { data: pillarProgressData } = useQuery<PillarProgressSummary>({
+    queryKey: ["/api/player/me/pillar-progress"],
+    enabled: !isGuest,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/pillar-progress", getApiUrl());
+      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+  });
+
   useEffect(() => {
     if (!hasSeenScreen("Progress")) {
       const timer = setTimeout(() => {
@@ -2009,25 +2034,41 @@ export default function PlayerProgressScreen() {
             )}
           </View>
           <PillarProgressRings 
-            pillars={Object.fromEntries(
-              domains.length > 0 
-                ? domains.map(d => [
-                    d.name.toUpperCase(), 
-                    { 
-                      pillar: d.name.toUpperCase(), 
-                      currentScore: d.value, 
-                      trend: d.trend === "rising" ? "improving" : d.trend === "falling" ? "declining" : "stable" 
+            pillars={(() => {
+              const hasPillarData = pillarProgressData && pillarProgressData.pillars && pillarProgressData.pillars.some(p => p.score > 0);
+              if (hasPillarData) {
+                return Object.fromEntries(
+                  pillarProgressData!.pillars.map(p => [
+                    p.name,
+                    {
+                      pillar: p.name,
+                      currentScore: Math.round(p.score * 50),
+                      trend: (p.trend === "improving" ? "improving" : p.trend === "declining" ? "declining" : "stable") as "improving" | "stable" | "declining",
                     }
                   ])
-                : [
-                    ["TECHNIQUE", { pillar: "TECHNIQUE", currentScore: 0, trend: "stable" }],
-                    ["TACTICAL", { pillar: "TACTICAL", currentScore: 0, trend: "stable" }],
-                    ["PHYSICAL", { pillar: "PHYSICAL", currentScore: 0, trend: "stable" }],
-                    ["MENTAL", { pillar: "MENTAL", currentScore: 0, trend: "stable" }],
-                    ["SOCIAL", { pillar: "SOCIAL", currentScore: 0, trend: "stable" }],
-                    ["MATCH", { pillar: "MATCH", currentScore: 0, trend: "stable" }],
-                  ]
-            ) as Record<string, { pillar: string; currentScore: number; trend: "improving" | "stable" | "declining" }>}
+                );
+              }
+              if (domains.length > 0) {
+                return Object.fromEntries(
+                  domains.map(d => [
+                    d.name.toUpperCase(),
+                    {
+                      pillar: d.name.toUpperCase(),
+                      currentScore: d.value,
+                      trend: (d.trend === "rising" ? "improving" : d.trend === "falling" ? "declining" : "stable") as "improving" | "stable" | "declining",
+                    }
+                  ])
+                );
+              }
+              return {
+                TECHNIQUE: { pillar: "TECHNIQUE", currentScore: 0, trend: "stable" as const },
+                TACTICAL: { pillar: "TACTICAL", currentScore: 0, trend: "stable" as const },
+                PHYSICAL: { pillar: "PHYSICAL", currentScore: 0, trend: "stable" as const },
+                MENTAL: { pillar: "MENTAL", currentScore: 0, trend: "stable" as const },
+                SOCIAL: { pillar: "SOCIAL", currentScore: 0, trend: "stable" as const },
+                MATCH: { pillar: "MATCH", currentScore: 0, trend: "stable" as const },
+              };
+            })()}
             stage={getStageFromLevel(data.ballLevel || "red1")}
             role="player"
             onPillarPress={(pillar) => handleDomainPress(pillar)}

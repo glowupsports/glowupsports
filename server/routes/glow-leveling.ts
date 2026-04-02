@@ -19,6 +19,7 @@ import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, re
 import { awardXP } from "../services/xp-service";
 import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
 import { checkForScoringAnomaly } from "../services/coach-calibration-engine";
+import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 
 const router = Router();
 
@@ -714,6 +715,22 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
       overall,
       pillarRatings,
     });
+
+    // Notify player that coach has rated their session
+    try {
+      const playerTokens = await getPlayerPushTokens(playerId);
+      if (playerTokens.length > 0) {
+        const overallLabel = overall === "improved" ? "great progress" : overall === "declined" ? "areas to work on" : "steady progress";
+        await sendPushNotification(
+          playerTokens,
+          "Coach Feedback Received",
+          `Your coach has rated your session — ${overallLabel}. Check your progress!`,
+          { type: "session_feedback", sessionId, playerId }
+        );
+      }
+    } catch (pushErr) {
+      console.error("[Push] Failed to send session feedback notification:", pushErr);
+    }
     
     // Process individual skill scores if provided
     if (skillRatings && Object.keys(skillRatings).length > 0) {

@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 interface PillarSummary {
   id: string;
@@ -19,13 +20,29 @@ interface PillarSummary {
   createdAt: string | null;
 }
 
+interface PillarProgressEntry {
+  name: string;
+  score: number;
+  trend: string;
+  skillsTotal: number;
+  skillsMeetsOrAbove: number;
+  lastUpdated: string | null;
+}
+
+interface PillarProgressSummary {
+  pillars: PillarProgressEntry[];
+  overallReadiness: number;
+  trialGateReady: boolean;
+  recentFeedbackCount: number;
+}
+
 const PILLAR_CONFIG: Record<string, { color: string; icon: string }> = {
-  TECHNIQUE: { color: "#4DA3FF", icon: "build" },
-  TACTICAL: { color: "#AA96DA", icon: "bulb" },
-  PHYSICAL: { color: "#00E676", icon: "fitness" },
-  MENTAL: { color: "#E040FB", icon: "flash" },
-  SOCIAL: { color: "#4ECDC4", icon: "people" },
-  MATCH: { color: "#FFE66D", icon: "trophy" },
+  TECHNIQUE: { color: "#10B981", icon: "build" },
+  TACTICAL: { color: "#F59E0B", icon: "bulb" },
+  PHYSICAL: { color: "#EF4444", icon: "fitness" },
+  MENTAL: { color: "#8B5CF6", icon: "flash" },
+  SOCIAL: { color: "#EC4899", icon: "people" },
+  MATCH: { color: "#3B82F6", icon: "trophy" },
 };
 
 function getPillarConfig(pillar: string) {
@@ -88,18 +105,76 @@ function PillarCard({ summary }: { summary: PillarSummary }) {
   );
 }
 
+function getTrendIcon(trend: string): keyof typeof Ionicons.glyphMap {
+  if (trend === "improving") return "trending-up";
+  if (trend === "declining") return "trending-down";
+  return "remove";
+}
+
+function getTrendColor(trend: string): string {
+  if (trend === "improving") return GlowColors.primary;
+  if (trend === "declining") return Colors.dark.error;
+  return TextColors.disabled;
+}
+
+function SessionPillarCard({ entry }: { entry: PillarProgressEntry }) {
+  const config = getPillarConfig(entry.name);
+  const pct = Math.round(entry.score * 50);
+  const pillarLabel = entry.name.charAt(0) + entry.name.slice(1).toLowerCase();
+
+  return (
+    <View style={styles.sessionPillarCard}>
+      <View style={styles.pillarHeader}>
+        <View style={[styles.pillarIcon, { backgroundColor: config.color + "20" }]}>
+          <Ionicons name={config.icon as any} size={20} color={config.color} />
+        </View>
+        <View style={styles.pillarInfo}>
+          <Text style={styles.pillarName}>{pillarLabel}</Text>
+          <Text style={styles.lastAssessed}>Updated: {formatDate(entry.lastUpdated)}</Text>
+        </View>
+        <View style={styles.trendRow}>
+          <Ionicons name={getTrendIcon(entry.trend)} size={16} color={getTrendColor(entry.trend)} />
+          <View style={[styles.scoreBadge, { backgroundColor: config.color + "20", marginLeft: 8 }]}>
+            <Text style={[styles.scoreValue, { color: config.color }]}>{pct}%</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.progressBarBg}>
+        <View style={[styles.progressBarFill, { width: `${pct}%` as DimensionValue, backgroundColor: config.color }]} />
+      </View>
+    </View>
+  );
+}
+
 export default function FeedbackCenterScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  const { data: summaries, isLoading, error } = useQuery<PillarSummary[]>({
+  const { data: summaries, isLoading: loadingAssessments, error } = useQuery<PillarSummary[]>({
     queryKey: ["/api/player/me/skill-assessments"],
   });
+
+  const { data: pillarProgress, isLoading: loadingPillars } = useQuery<PillarProgressSummary>({
+    queryKey: ["/api/player/me/pillar-progress"],
+    queryFn: async () => {
+      const url = new URL("/api/player/me/pillar-progress", getApiUrl());
+      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+  });
+
+  const isLoading = loadingAssessments || loadingPillars;
 
   const sortedSummaries = React.useMemo(() => {
     if (!summaries || summaries.length === 0) return [];
     return [...summaries].sort((a, b) => a.pillar.localeCompare(b.pillar));
   }, [summaries]);
+
+  const activePillars = React.useMemo(() => {
+    if (!pillarProgress?.pillars) return [];
+    return pillarProgress.pillars.filter(p => p.score > 0 || p.lastUpdated !== null);
+  }, [pillarProgress]);
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -113,7 +188,7 @@ export default function FeedbackCenterScreen() {
         </Pressable>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Feedback Center</Text>
-          <Text style={styles.headerSubtitle}>Skill assessments from your coaches</Text>
+          <Text style={styles.headerSubtitle}>Your coach ratings and skill progress</Text>
         </View>
       </View>
 
@@ -125,28 +200,110 @@ export default function FeedbackCenterScreen() {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={GlowColors.primary} />
-            <Text style={styles.loadingText}>Loading assessments...</Text>
+            <Text style={styles.loadingText}>Loading feedback...</Text>
           </View>
-        ) : error ? (
-          <Card elevation={1} style={styles.errorCard}>
-            <Ionicons name="alert-circle" size={32} color={Colors.dark.error} />
-            <Text style={styles.errorText}>Failed to load assessments</Text>
-          </Card>
-        ) : sortedSummaries.length === 0 ? (
-          <EmptyStateCard
-            icon="school"
-            title="No Assessments Yet"
-            description="Your coaches will record skill assessments during training sessions. Check back after your next lesson!"
-            ctaText="View Progress"
-            onPress={() => navigation.goBack()}
-            variant="info"
-          />
         ) : (
-          <View style={styles.pillarsList}>
-            {sortedSummaries.map((summary) => (
-              <PillarCard key={summary.id} summary={summary} />
-            ))}
-          </View>
+          <>
+            {activePillars.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: GlowColors.primary + "20" }]}>
+                    <Ionicons name="stats-chart" size={16} color={GlowColors.primary} />
+                  </View>
+                  <View style={styles.sectionHeaderText}>
+                    <Text style={styles.sectionTitle}>Session Ratings</Text>
+                    <Text style={styles.sectionSubtitle}>Coach pillar scores from training sessions</Text>
+                  </View>
+                  {pillarProgress?.trialGateReady ? (
+                    <View style={styles.trialBadge}>
+                      <Ionicons name="trophy" size={12} color={GlowColors.primary} />
+                      <Text style={styles.trialBadgeText}>Trial Ready</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {pillarProgress && pillarProgress.overallReadiness > 0 ? (
+                  <View style={styles.readinessBanner}>
+                    <Text style={styles.readinessLabel}>Overall Readiness</Text>
+                    <Text style={[styles.readinessValue, { color: pillarProgress.overallReadiness >= 75 ? GlowColors.primary : Colors.dark.orange }]}>
+                      {pillarProgress.overallReadiness}%
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.pillarsList}>
+                  {activePillars.map((entry) => (
+                    <SessionPillarCard key={entry.name} entry={entry} />
+                  ))}
+                </View>
+                {pillarProgress && pillarProgress.recentFeedbackCount > 0 ? (
+                  <Text style={styles.feedbackCount}>
+                    {pillarProgress.recentFeedbackCount} session{pillarProgress.recentFeedbackCount !== 1 ? "s" : ""} rated in last 30 days
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: GlowColors.primary + "20" }]}>
+                    <Ionicons name="stats-chart" size={16} color={GlowColors.primary} />
+                  </View>
+                  <View style={styles.sectionHeaderText}>
+                    <Text style={styles.sectionTitle}>Session Ratings</Text>
+                    <Text style={styles.sectionSubtitle}>Coach pillar scores from training sessions</Text>
+                  </View>
+                </View>
+                <View style={styles.emptySection}>
+                  <Ionicons name="chatbubble-outline" size={28} color={TextColors.disabled} />
+                  <Text style={styles.emptyText}>No session ratings yet. Your coach will rate your pillars after training sessions.</Text>
+                </View>
+              </View>
+            )}
+
+            {sortedSummaries.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                    <Ionicons name="school" size={16} color={Colors.dark.xpCyan} />
+                  </View>
+                  <View style={styles.sectionHeaderText}>
+                    <Text style={styles.sectionTitle}>Deep Assessments</Text>
+                    <Text style={styles.sectionSubtitle}>Detailed skill-by-skill evaluations</Text>
+                  </View>
+                </View>
+                <View style={styles.pillarsList}>
+                  {sortedSummaries.map((summary) => (
+                    <PillarCard key={summary.id} summary={summary} />
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                    <Ionicons name="school" size={16} color={Colors.dark.xpCyan} />
+                  </View>
+                  <View style={styles.sectionHeaderText}>
+                    <Text style={styles.sectionTitle}>Deep Assessments</Text>
+                    <Text style={styles.sectionSubtitle}>Detailed skill-by-skill evaluations</Text>
+                  </View>
+                </View>
+                <View style={styles.emptySection}>
+                  <Ionicons name="analytics-outline" size={28} color={TextColors.disabled} />
+                  <Text style={styles.emptyText}>No deep assessments yet. Your coach will record these during dedicated assessment sessions.</Text>
+                </View>
+              </View>
+            )}
+
+            {activePillars.length === 0 && sortedSummaries.length === 0 ? (
+              <EmptyStateCard
+                icon="school"
+                title="No Feedback Yet"
+                description="Your coach will rate your progress after training sessions. Check back after your next lesson!"
+                ctaText="Go Back"
+                onPress={() => navigation.goBack()}
+                variant="info"
+              />
+            ) : null}
+          </>
         )}
       </ScrollView>
     </View>
@@ -192,6 +349,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
+    gap: Spacing.lg,
   },
   loadingContainer: {
     flex: 1,
@@ -204,17 +362,84 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     marginTop: Spacing.md,
   },
-  errorCard: {
-    alignItems: "center",
-    padding: Spacing.xl,
+  section: {
+    gap: Spacing.md,
   },
-  errorText: {
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sectionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionHeaderText: {
+    flex: 1,
+  },
+  sectionTitle: {
+    ...Typography.h3,
+    color: TextColors.primary,
+    fontWeight: "700",
+  },
+  sectionSubtitle: {
+    ...Typography.caption,
+    color: TextColors.muted,
+  },
+  trialBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  trialBadgeText: {
+    ...Typography.caption,
+    color: GlowColors.primary,
+    fontWeight: "700",
+  },
+  readinessBanner: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  readinessLabel: {
     ...Typography.body,
-    color: Colors.dark.error,
-    marginTop: Spacing.md,
+    color: TextColors.secondary,
+  },
+  readinessValue: {
+    ...Typography.h3,
+    fontWeight: "700",
   },
   pillarsList: {
-    gap: Spacing.md,
+    gap: Spacing.sm,
+  },
+  feedbackCount: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    textAlign: "center",
+  },
+  emptySection: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+  },
+  emptyText: {
+    ...Typography.small,
+    color: TextColors.muted,
+    textAlign: "center",
+    paddingHorizontal: Spacing.lg,
   },
   pillarCard: {
     backgroundColor: Backgrounds.elevated,
@@ -223,10 +448,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
   },
+  sessionPillarCard: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    gap: Spacing.sm,
+  },
   pillarHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   pillarIcon: {
     width: 44,
@@ -247,6 +480,10 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: TextColors.muted,
     marginTop: 2,
+  },
+  trendRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   scoreBadge: {
     alignItems: "center",
@@ -286,5 +523,14 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: 6,
     borderRadius: 3,
+  },
+  errorCard: {
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  errorText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    marginTop: Spacing.md,
   },
 });

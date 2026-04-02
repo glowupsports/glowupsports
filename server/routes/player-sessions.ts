@@ -1283,6 +1283,31 @@ import fs from "fs";
     },
   );
 
+  // Get player pillar progress summary (player-auth version of coach endpoint)
+  router.get(
+    "/api/player/me/pillar-progress",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        if (!req.user!.playerId) {
+          return res.json({
+            pillars: [],
+            overallReadiness: 0,
+            trialGateReady: false,
+            recentFeedbackCount: 0,
+          });
+        }
+        const playerId = req.user!.playerId!;
+        const summary = await storage.getPlayerPillarProgressSummary(playerId);
+        res.json(summary);
+      } catch (error) {
+        console.error("Error fetching player pillar progress:", error);
+        res.status(500).json({ error: "Failed to fetch pillar progress" });
+      }
+    },
+  );
+
   // Get player attendance summary per series/class
   router.get(
     "/api/player/me/attendance",

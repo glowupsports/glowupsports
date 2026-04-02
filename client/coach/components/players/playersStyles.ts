@@ -2084,6 +2084,23 @@ export const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.tabIconDefault,
   },
+  ratePillarButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary + "18",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  ratePillarButtonText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "700" as const,
+    color: Colors.dark.primary,
+  },
   baselineManagementCard: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,

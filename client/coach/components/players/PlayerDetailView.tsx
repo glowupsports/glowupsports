@@ -42,6 +42,7 @@ import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
+import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
 import { PlayerAttendanceSection } from "./PlayerAttendanceSection";
 import { PlayerStrokeFeedbackSection } from "./PlayerStrokeFeedbackSection";
@@ -251,6 +252,8 @@ export function PlayerDetailView({
   const tabBarHeight = TAB_BAR_HEIGHT;
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [pillarProgressExpanded, setPillarProgressExpanded] = useState(false);
+  const [showRatePlayerSessions, setShowRatePlayerSessions] = useState(false);
+  const [selectedSessionForRating, setSelectedSessionForRating] = useState<{ id: string; players: { id: string; name: string; ballLevel?: string | null }[] } | null>(null);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
   const [showEditPlayer, setShowEditPlayer] = useState(false);
   const [editName, setEditName] = useState(player.name);
@@ -591,6 +594,28 @@ export function PlayerDetailView({
     queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
   });
 
+  interface AttendanceHistoryRecord {
+    sessionId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    sessionType: string;
+    status: string | null;
+    sessionStatus: string | null;
+    seriesTitle?: string | null;
+  }
+  const { data: attendanceHistoryData } = useQuery<{ history: AttendanceHistoryRecord[] }>({
+    queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+    enabled: showRatePlayerSessions,
+  });
+
+  const recentCompletedSessions = React.useMemo(() => {
+    if (!attendanceHistoryData?.history) return [];
+    return attendanceHistoryData.history
+      .filter(h => h.sessionStatus === "completed")
+      .slice(0, 10);
+  }, [attendanceHistoryData]);
+
   // Calculate level readiness (returns null for max level or invalid level)
   const levelReadiness = getLevelReadiness(localPlayer.ballLevel, xpData?.totalXp || 0);
 
@@ -859,6 +884,16 @@ export function PlayerDetailView({
                 </Text>
               </View>
             ) : null}
+            <Pressable
+              style={styles.ratePillarButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowRatePlayerSessions(true);
+              }}
+            >
+              <Ionicons name="star" size={14} color={Colors.dark.primary} />
+              <Text style={styles.ratePillarButtonText}>Rate Player</Text>
+            </Pressable>
             </> : null}
           </View>
         ) : null}
@@ -1070,7 +1105,75 @@ export function PlayerDetailView({
         </Pressable>
       </Modal>
 
+      {/* Session Picker Modal for Rate Player */}
+      <Modal visible={showRatePlayerSessions} transparent animationType="slide" onRequestClose={() => setShowRatePlayerSessions(false)}>
+        <Pressable style={styles.editAttendanceModalOverlay} onPress={() => setShowRatePlayerSessions(false)}>
+          <Pressable style={[styles.editAttendanceModalContent, { maxHeight: "70%" }]} onPress={(e) => e.stopPropagation()} onStartShouldSetResponder={() => true}>
+            <Text style={styles.editAttendanceModalTitle}>Rate Session</Text>
+            <Text style={{ color: Colors.dark.textSecondary, fontSize: 13, marginBottom: Spacing.md }}>
+              Select a completed session to rate {localPlayer.name}
+            </Text>
+            {!attendanceHistoryData ? (
+              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginVertical: Spacing.lg }} />
+            ) : recentCompletedSessions.length === 0 ? (
+              <View style={{ alignItems: "center", paddingVertical: Spacing.xl }}>
+                <Ionicons name="calendar-outline" size={32} color={Colors.dark.tabIconDefault} />
+                <Text style={{ color: Colors.dark.textSecondary, marginTop: Spacing.sm, textAlign: "center" }}>No completed sessions found</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {recentCompletedSessions.map((session) => {
+                  const sessionDate = new Date(session.date);
+                  const dateStr = sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                  return (
+                    <Pressable
+                      key={session.sessionId}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: Spacing.md,
+                        borderBottomWidth: 1,
+                        borderBottomColor: "rgba(255,255,255,0.06)",
+                        gap: Spacing.sm,
+                      }}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setShowRatePlayerSessions(false);
+                        setSelectedSessionForRating({
+                          id: session.sessionId,
+                          players: [{ id: player.id, name: localPlayer.name, ballLevel: localPlayer.ballLevel }],
+                        });
+                      }}
+                    >
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.dark.primary + "20", justifyContent: "center", alignItems: "center" }}>
+                        <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>{dateStr}</Text>
+                        {session.seriesTitle ? (
+                          <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>{session.seriesTitle}</Text>
+                        ) : null}
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.tabIconDefault} />
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
+      {/* Quick Feedback Modal launched from Rate Player */}
+      <QuickFeedbackModal
+        visible={selectedSessionForRating !== null}
+        session={selectedSessionForRating}
+        onClose={() => setSelectedSessionForRating(null)}
+        onComplete={() => {
+          setSelectedSessionForRating(null);
+          queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/pillar-progress`] });
+        }}
+      />
 
     </View>
   );
