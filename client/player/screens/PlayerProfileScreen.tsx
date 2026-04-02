@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { HeaderButton } from "@react-navigation/elements";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -433,6 +434,16 @@ export default function PlayerProfileScreen() {
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <HeaderButton onPress={() => navigation.navigate("PlayerEditProfile")}>
+          <Ionicons name="create-outline" size={22} color={Colors.dark.primary} />
+        </HeaderButton>
+      ),
+    });
+  }, [navigation]);
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
