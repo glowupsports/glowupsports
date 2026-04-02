@@ -24,7 +24,7 @@ interface AdminInlinePlayerProfileProps {
   selectedPlayerId: string;
   selectedPlayer: AdminPlayer | undefined;
   onBack: () => void;
-  onEditPlayer: (player: { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; parentName?: string; parentPhone?: string }) => void;
+  onEditPlayer: (player: { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; parentName?: string; parentPhone?: string; dateOfBirth?: string | null }) => void;
   onShowDeleteModal: () => void;
   onShowInvoiceModal: () => void;
   onShowCreditStoreModal: () => void;
@@ -137,6 +137,7 @@ export function AdminInlinePlayerProfile({
               ballLevel: stats.player.ballLevel,
               parentName: stats.player.parentName,
               parentPhone: stats.player.parentPhone,
+              dateOfBirth: stats.player.dateOfBirth,
             });
           }
         }}>
@@ -176,6 +177,49 @@ export function AdminInlinePlayerProfile({
               <Text style={styles.coachAssignment}>Coach: {stats.player.coachName}</Text>
             ) : null}
           </View>
+
+          {(stats.player.dateOfBirth || stats.player.parentEmail || stats.player.parentName || stats.player.parentPhone || stats.player.medicalNotes) ? (
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>Personal Info</Text>
+              {stats.player.dateOfBirth ? (
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Date of Birth</Text>
+                  <Text style={styles.financeValue}>
+                    {(() => {
+                      const dob = new Date(stats.player.dateOfBirth + "T00:00:00");
+                      const formatted = dob.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+                      const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                      return `${formatted} · Age ${age}`;
+                    })()}
+                  </Text>
+                </View>
+              ) : null}
+              {stats.player.parentName ? (
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Parent Name</Text>
+                  <Text style={styles.financeValue}>{stats.player.parentName}</Text>
+                </View>
+              ) : null}
+              {stats.player.parentPhone ? (
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Parent Phone</Text>
+                  <Text style={styles.financeValue}>{stats.player.parentPhone}</Text>
+                </View>
+              ) : null}
+              {stats.player.parentEmail ? (
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>Parent Email</Text>
+                  <Text style={[styles.financeValue, { flexShrink: 1 }]}>{stats.player.parentEmail}</Text>
+                </View>
+              ) : null}
+              {stats.player.medicalNotes ? (
+                <View style={[styles.financeRow, { alignItems: "flex-start" }]}>
+                  <Text style={styles.financeLabel}>Medical Notes</Text>
+                  <Text style={[styles.financeValue, { flexShrink: 1, flexWrap: "wrap" }]}>{stats.player.medicalNotes}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={[styles.section, CardStyles.elevated]}>
             <Text style={styles.sectionTitle}>Attendance</Text>

@@ -2300,7 +2300,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           coachName: coach?.name || "Unassigned",
           parentName: player.parentName,
           parentPhone: player.parentPhone,
+          parentEmail: player.parentEmail,
           medicalNotes: player.medicalNotes,
+          dateOfBirth: player.dateOfBirth,
         },
         attendance: {
           totalSessions: sessions.length,

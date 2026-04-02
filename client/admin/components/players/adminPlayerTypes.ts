@@ -72,6 +72,7 @@ export type AdminPlayerStats = {
     coachName?: string;
     parentName?: string;
     parentPhone?: string;
+    parentEmail?: string | null;
     medicalNotes?: string;
     dateOfBirth?: string | null;
   };
