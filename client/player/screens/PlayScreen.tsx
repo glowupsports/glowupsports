@@ -305,6 +305,16 @@ export default function PlayScreen() {
 
   const [locationPermission, requestLocationPermission] = Location.useForegroundPermissions();
 
+  // Auto-request location permission when status is undetermined (first time)
+  useEffect(() => {
+    if (locationPermission?.status === "undetermined") {
+      const timer = setTimeout(() => {
+        requestLocationPermission();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [locationPermission?.status]);
+
   // Stable ref to prevent repeated geocode calls on re-renders (time interval causes frequent re-renders)
   const geocodedRef = useRef(false);
   const profileDataRef = useRef(profileData);
@@ -1580,6 +1590,21 @@ export default function PlayScreen() {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
+        {locationPermission !== null && !locationPermission.granted && locationPermission.status === "denied" && !locationPermission.canAskAgain && Platform.OS !== "web" ? (
+          <Pressable
+            style={styles.topLocationBanner}
+            onPress={async () => {
+              try { await Linking.openSettings(); } catch {}
+            }}
+          >
+            <Ionicons name="location-outline" size={16} color={Colors.dark.primary} />
+            <Text style={styles.topLocationBannerText}>
+              Allow location to see courts nearby and find players close to you
+            </Text>
+            <Text style={styles.topLocationBannerAction}>Open Settings</Text>
+          </Pressable>
+        ) : null}
+
         {activeTab === "Group Lessons" ? (
           <>
             <View style={styles.filterContainer}>
@@ -3248,6 +3273,31 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: Colors.dark.text,
+  },
+  topLocationBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  topLocationBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.text,
+    lineHeight: 18,
+  },
+  topLocationBannerAction: {
+    fontSize: 12,
+    color: Colors.dark.primary,
+    fontWeight: "700",
   },
 
   // Courts Near You

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert as RNAlert,
   Platform,
+  Linking,
   RefreshControl,
   Image as RNImage,
 } from "react-native";
@@ -519,6 +520,7 @@ export default function DashboardScreen() {
   // === GPS LOCATION TRACKING ===
   const locationWatcherRef = useRef<Location.LocationSubscription | null>(null);
   const lastSentLocationRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
+  const [locationDeniedPermanently, setLocationDeniedPermanently] = useState(false);
 
   const sendLocationToServer = useCallback(async (lat: number, lng: number) => {
     try {
@@ -533,8 +535,13 @@ export default function DashboardScreen() {
     let cancelled = false;
 
     async function setupLocationTracking() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted" || cancelled) return;
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== "granted" || cancelled) {
+        if (perm.status === "denied" && !perm.canAskAgain && !cancelled) {
+          setLocationDeniedPermanently(true);
+        }
+        return;
+      }
 
       const initial = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
@@ -1176,6 +1183,22 @@ export default function DashboardScreen() {
             })}
           </View>
         )}
+
+        {/* === LOCATION DENIED BANNER === */}
+        {locationDeniedPermanently && Platform.OS !== "web" ? (
+          <Pressable
+            style={styles.locationDeniedBanner}
+            onPress={async () => {
+              try { await Linking.openSettings(); } catch {}
+            }}
+          >
+            <Ionicons name="location-outline" size={18} color="#FFD700" />
+            <Text style={styles.locationDeniedText}>
+              Enable location in Settings to get departure alerts between courts
+            </Text>
+            <Text style={styles.locationDeniedAction}>Open Settings</Text>
+          </Pressable>
+        ) : null}
 
         {/* === TRAVEL ALERT BANNER === */}
         {nextSessionEta && !nextSessionEta.sameLocation && nextSessionEta.locationName && typeof nextSessionEta.shouldLeaveInMinutes === "number" && nextSessionEta.shouldLeaveInMinutes <= 45 ? (
@@ -1923,6 +1946,30 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  locationDeniedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#FFD70018",
+    borderColor: "#FFD70050",
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  locationDeniedText: {
+    flex: 1,
+    ...Typography.caption,
+    color: "#FFD700",
+    lineHeight: 16,
+  },
+  locationDeniedAction: {
+    ...Typography.caption,
+    color: "#FFD700",
+    fontWeight: "700",
   },
   loadingContainer: {
     flex: 1,
