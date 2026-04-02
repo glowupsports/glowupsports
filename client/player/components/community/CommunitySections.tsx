@@ -665,7 +665,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
               </Pressable>
               <Pressable
                 style={friendStyles.findPlayersBtn}
-                onPress={() => navigation.navigate("PlayStack", { screen: "OpenMatches" })}
+                onPress={() => navigation.navigate("PlayerFinder" as never)}
               >
                 <ThemedText style={friendStyles.findPlayersBtnText}>{t('player.community.findPlayers')}</ThemedText>
                 <Ionicons name="arrow-forward" size={16} color={Colors.dark.backgroundRoot} />
