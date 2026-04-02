@@ -15,12 +15,12 @@ Preferred communication style: Simple, everyday language.
 - Current version after last submit (build #15): **1.3.3** (ready for next build)
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
-**Every `.local/tasks/*.md` plan file MUST state near the top whether the change needs an OTA or a new build:**
+**Every `.local/tasks/*.md` plan file MUST have one of these lines near the top (under "Done looks like" or as its own section):**
 - **Deployment: OTA update** — JS/TS-only changes; push instantly via EAS update, no App Store submission needed
-- **Deployment: New build required** — must rebuild the native binary and submit to the App Store
+- **Deployment: New build required** — native module changes, `app.json` plugin/permission changes, or new native packages; must rebuild and submit to App Store
 
 **OTA triggers** (no build needed):
-- Server-side changes, frontend logic, UI updates, translation strings, API tweaks, bug fixes in JS/TS
+- Server-side only, frontend logic, UI changes, translation strings, API tweaks, bug fixes in JS/TS
 
 **New build triggers** (must rebuild + submit):
 - Adding a native package (non-JS Expo module), changing `app.json` plugins/permissions/bundleId, updating Expo SDK major version, adding new native capabilities
