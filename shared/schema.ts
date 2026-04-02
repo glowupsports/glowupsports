@@ -1101,6 +1101,8 @@ export const updatePlayerSchema = z.object({
   })).optional().nullable(),
   // Contact / family fields
   homeAddress: z.string().max(500).optional().nullable(),
+  homeLat: z.number().optional().nullable(),
+  homeLng: z.number().optional().nullable(),
   parentName: z.string().max(100).optional().nullable(),
   parentPhone: z.string().max(50).optional().nullable(),
 }).transform((data) => ({

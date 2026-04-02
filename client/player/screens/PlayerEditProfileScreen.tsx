@@ -332,7 +332,12 @@ export default function PlayerEditProfileScreen() {
       navigation.goBack();
     },
     onError: (err: Error) => {
-      Alert.alert("Error", err.message);
+      const msg = err.message || "";
+      if (msg.startsWith("409") && msg.includes("nickname_taken")) {
+        Alert.alert("Nickname Taken", "This nickname is already in use. Please choose a different one.");
+      } else {
+        Alert.alert("Error", "Failed to save profile. Please try again.");
+      }
     },
   });
 

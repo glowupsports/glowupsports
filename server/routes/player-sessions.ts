@@ -1827,35 +1827,7 @@ import fs from "fs";
       }
       try {
         const playerId = req.user!.playerId!;
-        const allowedFields = updatePlayerSchema.pick({
-          name: true,
-          phone: true,
-          dateOfBirth: true,
-          ballLevel: true,
-          dominantHand: true,
-          backhandType: true,
-          tshirtSize: true,
-          height: true,
-          bio: true,
-          medicalNotes: true,
-          displayName: true,
-          nickname: true,
-          playStyle: true,
-          tennisIdol: true,
-          shortTermGoal: true,
-          longTermDream: true,
-          weeklyCommitment: true,
-          favoriteShot: true,
-          openToPlay: true,
-          typicalPlayTimes: true,
-          preferredCities: true,
-          matchPreference: true,
-          preferredPlayType: true,
-          homeAddress: true,
-          parentName: true,
-          parentPhone: true,
-        });
-        const parseResult = allowedFields.safeParse(req.body);
+        const parseResult = updatePlayerSchema.safeParse(req.body);
         if (!parseResult.success) {
           return res.status(400).json({
             error: "Validation failed",
@@ -1863,6 +1835,20 @@ import fs from "fs";
           });
         }
         const updateData: typeof parseResult.data & { age?: number | null } = { ...parseResult.data };
+        // Check nickname uniqueness (case-insensitive) — reject if another player already has it
+        if (updateData.nickname) {
+          const existingNickname = await db
+            .select({ id: players.id })
+            .from(players)
+            .where(and(ilike(players.nickname, updateData.nickname), ne(players.id, playerId)))
+            .limit(1);
+          if (existingNickname.length > 0) {
+            return res.status(409).json({
+              error: "nickname_taken",
+              message: "This nickname is already taken. Please choose a different one.",
+            });
+          }
+        }
         // Recalculate age from dateOfBirth so subsequent session logic uses the correct age group
         if (updateData.dateOfBirth) {
           const birth = new Date(updateData.dateOfBirth);
