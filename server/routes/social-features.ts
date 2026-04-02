@@ -27,6 +27,7 @@ import { chatRateLimiter, postRateLimiter } from "../rateLimiter";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { uploadToSupabase } from "../utils/supabaseStorage";
 
 const router = Router();
 
@@ -39,21 +40,10 @@ if (!fs.existsSync(SOCIAL_POSTS_DIR)) {
   fs.mkdirSync(SOCIAL_POSTS_DIR, { recursive: true });
 }
 
-const socialPostStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, SOCIAL_POSTS_DIR);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, `post-${uniqueSuffix}${ext}`);
-  },
-});
-
 const socialPostUpload = multer({
-  storage: socialPostStorage,
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max (for videos)
+    fileSize: 50 * 1024 * 1024,
   },
   fileFilter: (_req, file, cb) => {
     const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"];
@@ -433,25 +423,34 @@ const socialPostUpload = multer({
     }
   });
 
-  // Upload images for social posts
+  // Upload images/videos for social posts (stored in Supabase Storage)
   router.post("/api/social/posts/upload-images", authMiddleware, requireFeatureUnlock("community_feed"), socialPostUpload.array("images", 5), async (req: AuthRequest, res: Response) => {
     try {
       const files = req.files as Express.Multer.File[];
-      
+
       if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No images uploaded" });
+        return res.status(400).json({ error: "No files uploaded" });
       }
 
-      const imageUrls = files.map(file => `/uploads/social-posts/${file.filename}`);
-      
-      res.json({ 
-        success: true, 
-        images: imageUrls,
-        count: imageUrls.length
+      const uploadResults = await Promise.all(
+        files.map(async (file) => {
+          const publicUrl = await uploadToSupabase(
+            file.buffer,
+            file.originalname,
+            file.mimetype
+          );
+          return publicUrl;
+        })
+      );
+
+      res.json({
+        success: true,
+        images: uploadResults,
+        count: uploadResults.length,
       });
     } catch (error) {
-      console.error("[Social] Error uploading images:", error);
-      res.status(500).json({ error: "Failed to upload images" });
+      console.error("[Social] Error uploading to Supabase Storage:", error);
+      res.status(500).json({ error: "Failed to upload media" });
     }
   });
 

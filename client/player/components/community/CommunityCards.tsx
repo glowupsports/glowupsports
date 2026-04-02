@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   Alert,
 } from "react-native";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
+import { useVideoPlayer, VideoView, type VideoPlayerStatus } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
@@ -25,11 +25,35 @@ import {
   formatTimeAgo,
 } from "./CommunityTypes";
 
+function MediaUnavailable() {
+  return (
+    <View style={styles.mediaUnavailable}>
+      <Ionicons name="videocam-off" size={28} color={Colors.dark.textSecondary} />
+      <ThemedText style={styles.mediaUnavailableText}>Media no longer available</ThemedText>
+    </View>
+  );
+}
+
 export function VideoPostMedia({ uri }: { uri: string }) {
+  const [hasError, setHasError] = useState(false);
+
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = false;
   });
+
+  useEffect(() => {
+    const subscription = player.addListener("statusChange", ({ status }: { status: VideoPlayerStatus }) => {
+      if (status === "error") {
+        setHasError(true);
+      }
+    });
+    return () => subscription.remove();
+  }, [player]);
+
+  if (hasError) {
+    return <MediaUnavailable />;
+  }
 
   return (
     <View style={styles.videoContainer}>
@@ -64,6 +88,7 @@ export function MomentCard({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showCheerPicker, setShowCheerPicker] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const isOwnPost = currentUserId && String(post.authorId) === String(currentUserId);
 
   const handleMoreOptions = () => {
@@ -163,6 +188,8 @@ export function MomentCard({
           <View style={styles.mediaSection}>
             {isVideo ? (
               <VideoPostMedia uri={mediaUrl} />
+            ) : imageError ? (
+              <MediaUnavailable />
             ) : (
               <View style={styles.momentImageContainer}>
                 <Image
@@ -171,6 +198,7 @@ export function MomentCard({
                   contentFit="cover"
                   placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
                   transition={200}
+                  onError={() => setImageError(true)}
                 />
               </View>
             )}
@@ -437,6 +465,18 @@ export function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onCha
 }
 
 const styles = StyleSheet.create({
+  mediaUnavailable: {
+    width: "100%",
+    height: 200,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  mediaUnavailableText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
   videoContainer: {
     position: "relative",
   },

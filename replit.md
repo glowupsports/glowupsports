@@ -70,6 +70,7 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL.
+- **Media Storage**: Supabase Storage (`social-posts` bucket) for social post photos/videos — persistent across server restarts. Upload utility at `server/utils/supabaseStorage.ts`. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` secrets.
 - **Deployment**: Replit.
 - **Push Notifications**: Firebase Cloud Messaging (FCM).
 - **Email Service**: Resend API.
