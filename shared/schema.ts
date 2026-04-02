@@ -1099,6 +1099,10 @@ export const updatePlayerSchema = z.object({
     category: z.string().optional().nullable(),
     rating: z.string().optional().nullable(),
   })).optional().nullable(),
+  // Contact / family fields
+  homeAddress: z.string().max(500).optional().nullable(),
+  parentName: z.string().max(100).optional().nullable(),
+  parentPhone: z.string().max(50).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,

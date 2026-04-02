@@ -1851,6 +1851,9 @@ import fs from "fs";
           preferredCities: true,
           matchPreference: true,
           preferredPlayType: true,
+          homeAddress: true,
+          parentName: true,
+          parentPhone: true,
         });
         const parseResult = allowedFields.safeParse(req.body);
         if (!parseResult.success) {
@@ -1873,24 +1876,12 @@ import fs from "fs";
           updateData.age = null;
         }
         const updated = await storage.updatePlayer(playerId, updateData);
-        // Handle fields not covered by updatePlayerSchema via raw SQL
+        // parentEmail is not in updatePlayerSchema — handle separately via raw SQL
         if (req.body.parentEmail !== undefined) {
           const parentEmailVal = req.body.parentEmail || null;
           await db.execute(
             sql`UPDATE players SET parent_email = ${parentEmailVal} WHERE id = ${playerId}`,
           );
-        }
-        if (req.body.parentName !== undefined) {
-          const v = req.body.parentName || null;
-          await db.execute(sql`UPDATE players SET parent_name = ${v} WHERE id = ${playerId}`);
-        }
-        if (req.body.parentPhone !== undefined) {
-          const v = req.body.parentPhone || null;
-          await db.execute(sql`UPDATE players SET parent_phone = ${v} WHERE id = ${playerId}`);
-        }
-        if (req.body.homeAddress !== undefined) {
-          const v = req.body.homeAddress || null;
-          await db.execute(sql`UPDATE players SET home_address = ${v} WHERE id = ${playerId}`);
         }
         res.json(updated);
       } catch (error) {
