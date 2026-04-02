@@ -16,6 +16,7 @@ import { getStageFromLevel, type BallStage } from "@shared/language-switch";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -1579,6 +1580,7 @@ export default function PlayerProgressScreen() {
   const navigation = useNavigation<any>();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { activeSports, activeSport, setActiveSport, isMultiSport } = useSport();
+  const { logout, isGuest } = useAuth();
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
@@ -1595,6 +1597,7 @@ export default function PlayerProgressScreen() {
 
   const { data, isLoading, error } = useQuery<ProgressData>({
     queryKey: ["/api/player/me/progress", activeSport],
+    enabled: !isGuest,
     queryFn: async () => {
       const r = await fetch(makeSportUrl("/api/player/me/progress"), { headers: getAuthHeaders() });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1604,6 +1607,7 @@ export default function PlayerProgressScreen() {
 
   const { data: attendanceData } = useQuery<AttendanceData>({
     queryKey: ["/api/player/me/attendance", activeSport],
+    enabled: !isGuest,
     queryFn: async () => {
       const r = await fetch(makeSportUrl("/api/player/me/attendance"), { headers: getAuthHeaders() });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1613,6 +1617,7 @@ export default function PlayerProgressScreen() {
 
   const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
     queryKey: ["/api/player/me/feedback", activeSport],
+    enabled: !isGuest,
     queryFn: async () => {
       const r = await fetch(makeSportUrl("/api/player/me/feedback"), { headers: getAuthHeaders() });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1622,6 +1627,7 @@ export default function PlayerProgressScreen() {
 
   const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
     queryKey: ["/api/player/me/stroke-feedback", activeSport],
+    enabled: !isGuest,
     queryFn: async () => {
       const r = await fetch(makeSportUrl("/api/player/me/stroke-feedback"), { headers: getAuthHeaders() });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1678,6 +1684,48 @@ export default function PlayerProgressScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
+
+  if (isGuest) {
+    type GuestIconName = React.ComponentProps<typeof Ionicons>["name"];
+    const guestFeatures: Array<{ icon: GuestIconName; text: string }> = [
+      { icon: "radio-button-on-outline", text: "See your Skill Radar across all domains" },
+      { icon: "flash-outline", text: "Track your XP level & Glow Rank" },
+      { icon: "tennisball-outline", text: "View your ball level progression" },
+      { icon: "chatbubble-ellipses-outline", text: "Read coach feedback & session notes" },
+    ];
+    return (
+      <View style={[styles.container, styles.centered, styles.guestContainer]}>
+        <View style={styles.guestAvatarRing}>
+          <Ionicons name="stats-chart" size={52} color={Colors.dark.primary} />
+        </View>
+        <Text style={styles.guestBrand}>Glow Up Sports</Text>
+        <Text style={styles.guestTitle}>Browsing as Guest</Text>
+        <Text style={styles.guestSubtitle}>Sign in to unlock your full stats</Text>
+        <View style={styles.guestFeatureList}>
+          {guestFeatures.map((f) => (
+            <View key={f.text} style={styles.guestFeatureRow}>
+              <Ionicons name={f.icon} size={18} color={Colors.dark.primary} />
+              <Text style={styles.guestFeatureText}>{f.text}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          style={({ pressed }) => [styles.guestCta, { opacity: pressed ? 0.85 : 1 }]}
+          onPress={logout}
+        >
+          <LinearGradient
+            colors={[Colors.dark.primary, "#9AE66E"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.guestCtaGradient}
+          >
+            <Ionicons name="person-add-outline" size={20} color="#000" />
+            <Text style={styles.guestCtaText}>Create Account / Sign In</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -2277,6 +2325,73 @@ const styles = StyleSheet.create({
   errorSubtext: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  guestContainer: {
+    paddingTop: 80,
+    paddingHorizontal: Spacing.xl,
+  },
+  guestAvatarRing: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  guestBrand: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    textAlign: "center",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: Spacing.xs,
+  },
+  guestTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  guestSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  guestFeatureList: {
+    width: "100%",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  guestFeatureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  guestFeatureText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  guestCta: {
+    width: "100%",
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  guestCtaGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+  },
+  guestCtaText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#000",
   },
   scrollView: {
     flex: 1,

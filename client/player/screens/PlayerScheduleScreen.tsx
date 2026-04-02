@@ -6,6 +6,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate } from "react-native-reanimated";
@@ -177,6 +179,7 @@ export default function PlayerScheduleScreen() {
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
   const { playerId } = usePlayer();
+  const { logout, isGuest } = useAuth();
   const [showSportPickerModal, setShowSportPickerModal] = useState(false);
   const [sportPickerDestination, setSportPickerDestination] = useState<"LessonBooking" | "CourtBooking" | "OpenMatches">("OpenMatches");
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -207,6 +210,7 @@ export default function PlayerScheduleScreen() {
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],
+    enabled: !isGuest,
   });
 
   const { data: courtBookings } = useQuery<CourtBookingData[]>({
@@ -785,6 +789,48 @@ export default function PlayerScheduleScreen() {
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={ProTennisColors.neonCyan} />
         <Text style={styles.loadingText}>{t("player.schedule.loadingSchedule")}</Text>
+      </View>
+    );
+  }
+
+  if (isGuest) {
+    type GuestIconName = React.ComponentProps<typeof Ionicons>["name"];
+    const guestFeatures: Array<{ icon: GuestIconName; text: string }> = [
+      { icon: "calendar-outline", text: "View & track your upcoming sessions" },
+      { icon: "airplane-outline", text: "Log vacation & holiday blocks" },
+      { icon: "stats-chart-outline", text: "See your attendance stats & streaks" },
+      { icon: "link-outline", text: "Sync sessions to your calendar" },
+    ];
+    return (
+      <View style={[styles.container, styles.centered, styles.guestContainer]}>
+        <View style={styles.guestAvatarRing}>
+          <Ionicons name="calendar" size={52} color={Colors.dark.primary} />
+        </View>
+        <Text style={styles.guestBrand}>Glow Up Sports</Text>
+        <Text style={styles.guestTitle}>Browsing as Guest</Text>
+        <Text style={styles.guestSubtitle}>Sign in to see your full schedule</Text>
+        <View style={styles.guestFeatureList}>
+          {guestFeatures.map((f) => (
+            <View key={f.text} style={styles.guestFeatureRow}>
+              <Ionicons name={f.icon} size={18} color={Colors.dark.primary} />
+              <Text style={styles.guestFeatureText}>{f.text}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          style={({ pressed }) => [styles.guestCta, { opacity: pressed ? 0.85 : 1 }]}
+          onPress={logout}
+        >
+          <LinearGradient
+            colors={[Colors.dark.primary, "#9AE66E"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.guestCtaGradient}
+          >
+            <Ionicons name="person-add-outline" size={20} color="#000" />
+            <Text style={styles.guestCtaText}>Create Account / Sign In</Text>
+          </LinearGradient>
+        </Pressable>
       </View>
     );
   }
@@ -1475,6 +1521,76 @@ const styles = StyleSheet.create({
     color: ProTennisColors.error,
     fontSize: 16,
     fontWeight: "600",
+  },
+  guestContainer: {
+    paddingTop: 80,
+    paddingHorizontal: Spacing.xl,
+  },
+  guestAvatarRing: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  guestBrand: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: Colors.dark.primary,
+    textAlign: "center",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: Spacing.xs,
+  },
+  guestTitle: {
+    fontSize: 20,
+    fontWeight: "600" as const,
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  guestSubtitle: {
+    fontSize: 14,
+    color: ProTennisColors.textSecondary,
+    textAlign: "center",
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
+  },
+  guestFeatureList: {
+    width: "100%",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  guestFeatureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  guestFeatureText: {
+    fontSize: 15,
+    color: "#FFFFFF",
+    flex: 1,
+  },
+  guestCta: {
+    width: "100%",
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  guestCtaGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+  },
+  guestCtaText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#000",
   },
   screenTitleRow: {
     flexDirection: "row",
