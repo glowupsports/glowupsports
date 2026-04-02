@@ -1063,7 +1063,7 @@ export default function PlayScreen() {
           <View style={styles.locationPermissionBanner}>
             <Ionicons name="tennisball-outline" size={18} color={Colors.dark.textMuted} />
             <Text style={[styles.locationPermissionText, { color: Colors.dark.textMuted }]}>
-              No courts found within 5 km
+              No courts found nearby
             </Text>
           </View>
         </View>
