@@ -209,8 +209,6 @@ function SportProfilesSection({ sportProfiles, onUpdateSports, isSaving }: Sport
 
   return (
     <View style={sportSectionStyles.card}>
-      <Text style={sportSectionStyles.sectionTitle}>Sport Profiles</Text>
-
       <View style={sportSectionStyles.sportChipsRow}>
         {SPORTS.map((sport) => {
           const cfg = getSportConfig(sport);
@@ -695,6 +693,7 @@ export default function PlayerProfileScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.headerCard}>
         <View style={styles.header}>
           <Pressable
             style={styles.editProfileBtn}
@@ -875,6 +874,7 @@ export default function PlayerProfileScreen() {
             />
           </View>
         </View>
+        </View>
 
         {/* Quick Stats Row */}
         <View style={styles.statsRow}>
@@ -946,178 +946,183 @@ export default function PlayerProfileScreen() {
           </Pressable>
         ) : null}
 
-        {/* Profile Tabs: Moments, Friends, Groups — pill style */}
-        <View style={styles.profileTabs}>
-          {([
-            { tab: "moments" as ProfileTab, label: t("player.profile.moments"), icon: "grid-outline" },
-            { tab: "friends" as ProfileTab, label: `${t("player.profile.friends")} (${connectionsData?.friends?.length || 0})`, icon: "people-outline" },
-            { tab: "groups" as ProfileTab, label: `${t("player.profile.groups")} (${groupsData?.myGroups?.length || 0})`, icon: "people-circle-outline" },
-          ] as { tab: ProfileTab; label: string; icon: "grid-outline" | "people-outline" | "people-circle-outline" }[]).map(({ tab, label, icon }) => {
-            const isActive = activeTab === tab;
-            return (
-              <Pressable
-                key={tab}
-                style={[
-                  styles.profileTab,
-                  isActive && {
-                    backgroundColor: Colors.dark.primary + "20",
-                    borderColor: Colors.dark.primary,
-                    borderWidth: 1,
-                  },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setActiveTab(tab);
-                }}
-              >
-                <Ionicons name={icon} size={16} color={isActive ? Colors.dark.primary : Colors.dark.textMuted} />
-                <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* Profile Tabs: Moments, Friends, Groups */}
+        <View style={styles.tabsCard}>
+          <View style={styles.profileTabs}>
+            {([
+              { tab: "moments" as ProfileTab, label: t("player.profile.moments"), icon: "grid-outline" },
+              { tab: "friends" as ProfileTab, label: `${t("player.profile.friends")} (${connectionsData?.friends?.length || 0})`, icon: "people-outline" },
+              { tab: "groups" as ProfileTab, label: `${t("player.profile.groups")} (${groupsData?.myGroups?.length || 0})`, icon: "people-circle-outline" },
+            ] as { tab: ProfileTab; label: string; icon: "grid-outline" | "people-outline" | "people-circle-outline" }[]).map(({ tab, label, icon }) => {
+              const isActive = activeTab === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  style={[
+                    styles.profileTab,
+                    isActive && {
+                      backgroundColor: Colors.dark.primary + "20",
+                      borderColor: Colors.dark.primary,
+                      borderWidth: 1,
+                    },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab(tab);
+                  }}
+                >
+                  <Ionicons name={icon} size={16} color={isActive ? Colors.dark.primary : Colors.dark.textMuted} />
+                  <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        {/* Tab Content */}
-        {activeTab === "moments" ? (
-          <View style={styles.tabContent}>
-            <View style={styles.emptyTabContent}>
-              <Ionicons name="images" size={40} color={Colors.dark.textMuted} />
-              <Text style={styles.emptyTabText}>{t("player.profile.noMomentsYet")}</Text>
-              <Text style={styles.emptyTabSubtext}>{t("player.profile.momentsHint")}</Text>
+          {/* Tab Content */}
+          {activeTab === "moments" ? (
+            <View style={styles.tabContent}>
+              <View style={styles.emptyTabContent}>
+                <Ionicons name="images" size={40} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTabText}>{t("player.profile.noMomentsYet")}</Text>
+                <Text style={styles.emptyTabSubtext}>{t("player.profile.momentsHint")}</Text>
+              </View>
             </View>
-          </View>
-        ) : null}
+          ) : null}
 
-        {activeTab === "friends" ? (
-          <View style={styles.tabContent}>
-            {connectionsData?.friends && connectionsData.friends.length > 0 ? (
-              connectionsData.friends.map((conn) => (
-                <Pressable 
-                  key={conn.id} 
-                  style={styles.friendItem}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    if (conn.player?.id) {
-                      navigation.navigate("PlayerDetail", { playerId: conn.player.id });
-                    }
-                  }}
-                >
-                  <View style={styles.friendAvatar}>
-                    <Text style={styles.friendAvatarText}>{conn.player?.name?.charAt(0) || "?"}</Text>
-                  </View>
-                  <View style={styles.friendInfo}>
-                    <Text style={styles.friendName}>{conn.player?.name || "Unknown"}</Text>
-                    <Text style={styles.friendLevel}>Level {conn.player?.level || 1}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-                </Pressable>
-              ))
-            ) : (
-              <View style={styles.emptyTabContent}>
-                <EmptyStateCard
-                  icon="people"
-                  title={t("player.profile.noFriendsYet")}
-                  description={t("player.profile.findPlayersConnect")}
-                  ctaText={t("player.profile.findPlayers")}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate("PlayerFinder");
-                  }}
-                  style={styles.emptyStateCardTab}
-                />
-              </View>
-            )}
-          </View>
-        ) : null}
+          {activeTab === "friends" ? (
+            <View style={styles.tabContent}>
+              {connectionsData?.friends && connectionsData.friends.length > 0 ? (
+                connectionsData.friends.map((conn) => (
+                  <Pressable 
+                    key={conn.id} 
+                    style={styles.friendItem}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (conn.player?.id) {
+                        navigation.navigate("PlayerDetail", { playerId: conn.player.id });
+                      }
+                    }}
+                  >
+                    <View style={styles.friendAvatar}>
+                      <Text style={styles.friendAvatarText}>{conn.player?.name?.charAt(0) || "?"}</Text>
+                    </View>
+                    <View style={styles.friendInfo}>
+                      <Text style={styles.friendName}>{conn.player?.name || "Unknown"}</Text>
+                      <Text style={styles.friendLevel}>Level {conn.player?.level || 1}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                  </Pressable>
+                ))
+              ) : (
+                <View style={styles.emptyTabContent}>
+                  <EmptyStateCard
+                    icon="people"
+                    title={t("player.profile.noFriendsYet")}
+                    description={t("player.profile.findPlayersConnect")}
+                    ctaText={t("player.profile.findPlayers")}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate("PlayerFinder");
+                    }}
+                    style={styles.emptyStateCardTab}
+                  />
+                </View>
+              )}
+            </View>
+          ) : null}
 
-        {activeTab === "groups" ? (
-          <View style={styles.tabContent}>
-            {groupsData?.myGroups && groupsData.myGroups.length > 0 ? (
-              groupsData.myGroups.map((group) => (
-                <Pressable 
-                  key={group.id} 
-                  style={styles.groupItem}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate("GroupDetail", { groupId: group.id });
-                  }}
-                >
-                  <View style={styles.groupIcon}>
-                    <Ionicons 
-                      name={group.type === "squad" ? "tennisball" : group.type === "age_group" ? "calendar" : "people"} 
-                      size={20} 
-                      color={Colors.dark.primary} 
-                    />
-                  </View>
-                  <View style={styles.groupInfo}>
-                    <Text style={styles.groupName}>{group.name}</Text>
-                    <Text style={styles.groupMemberCount}>{group.memberCount} members</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-                </Pressable>
-              ))
-            ) : (
-              <View style={styles.emptyTabContent}>
-                <Ionicons name="people-circle" size={40} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTabText}>{t("player.profile.noGroupsYet")}</Text>
-                <Text style={styles.emptyTabSubtext}>{t("player.profile.groupsHint")}</Text>
-              </View>
-            )}
-          </View>
-        ) : null}
+          {activeTab === "groups" ? (
+            <View style={styles.tabContent}>
+              {groupsData?.myGroups && groupsData.myGroups.length > 0 ? (
+                groupsData.myGroups.map((group) => (
+                  <Pressable 
+                    key={group.id} 
+                    style={styles.groupItem}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate("GroupDetail", { groupId: group.id });
+                    }}
+                  >
+                    <View style={styles.groupIcon}>
+                      <Ionicons 
+                        name={group.type === "squad" ? "tennisball" : group.type === "age_group" ? "calendar" : "people"} 
+                        size={20} 
+                        color={Colors.dark.primary} 
+                      />
+                    </View>
+                    <View style={styles.groupInfo}>
+                      <Text style={styles.groupName}>{group.name}</Text>
+                      <Text style={styles.groupMemberCount}>{group.memberCount} members</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                  </Pressable>
+                ))
+              ) : (
+                <View style={styles.emptyTabContent}>
+                  <Ionicons name="people-circle" size={40} color={Colors.dark.textMuted} />
+                  <Text style={styles.emptyTabText}>{t("player.profile.noGroupsYet")}</Text>
+                  <Text style={styles.emptyTabSubtext}>{t("player.profile.groupsHint")}</Text>
+                </View>
+              )}
+            </View>
+          ) : null}
+        </View>
 
         {/* Your Tennis World — merged Academy + Coach card */}
         {(academy || coach) ? (
-          <View style={styles.tennisworldCard}>
-            {academy ? (
-              <View style={styles.tennisworldAcademyRow}>
-                <View style={styles.tennisworldAcademyIcon}>
-                  <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+          <>
+            <Text style={styles.sectionGroupHeader}>{t("player.profile.academy")}</Text>
+            <View style={styles.tennisworldCard}>
+              {academy ? (
+                <View style={styles.tennisworldAcademyRow}>
+                  <View style={styles.tennisworldAcademyIcon}>
+                    <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.tennisworldAcademyName}>{academy.name}</Text>
+                    <Text style={styles.tennisworldAcademySince}>{t("player.profile.since")} {memberSince}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.tennisworldAcademyName}>{academy.name}</Text>
-                  <Text style={styles.tennisworldAcademySince}>{t("player.profile.since")} {memberSince}</Text>
+              ) : null}
+              {academy && coach ? (
+                <View style={styles.tennisworldDivider} />
+              ) : null}
+              {coach ? (
+                <View style={styles.tennisworldCoachRow}>
+                  <View style={styles.tennisworldCoachAvatar}>
+                    <Text style={styles.tennisworldCoachAvatarText}>{coach.name.charAt(0)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.tennisworldCoachName}>{coach.name}</Text>
+                    {coach.email ? (
+                      <Text style={styles.tennisworldCoachEmail}>{coach.email}</Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    style={styles.tennisworldChatBtn}
+                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                  >
+                    <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
+                  </Pressable>
                 </View>
-              </View>
-            ) : null}
-            {academy && coach ? (
-              <View style={styles.tennisworldDivider} />
-            ) : null}
-            {coach ? (
-              <View style={styles.tennisworldCoachRow}>
-                <View style={styles.tennisworldCoachAvatar}>
-                  <Text style={styles.tennisworldCoachAvatarText}>{coach.name.charAt(0)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.tennisworldCoachName}>{coach.name}</Text>
-                  {coach.email ? (
-                    <Text style={styles.tennisworldCoachEmail}>{coach.email}</Text>
-                  ) : null}
-                </View>
-                <Pressable
-                  style={styles.tennisworldChatBtn}
-                  onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                >
-                  <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
+              ) : null}
+            </View>
+          </>
         ) : null}
 
         {/* Sport Profiles Section */}
+        <Text style={styles.sectionGroupHeader}>Sport Profiles</Text>
         <SportProfilesSection
           sportProfiles={player.sportProfiles}
           onUpdateSports={(updatedProfiles) => updateSportProfiles.mutate(updatedProfiles)}
           isSaving={updateSportProfiles.isPending}
         />
 
-        {/* Settings + Discover — merged grouped list */}
+        {/* Settings grouped list */}
+        <Text style={styles.sectionGroupHeader}>{t("player.profile.settings")}</Text>
         <View style={styles.settingsSection}>
-          <Text style={styles.settingsSectionLabel}>{t("player.profile.settings")}</Text>
-          
           <Pressable 
             style={styles.settingsItem}
             onPress={() => {
@@ -1177,7 +1182,7 @@ export default function PlayerProfileScreen() {
           </Pressable>
 
           <Pressable 
-            style={styles.settingsItem}
+            style={[styles.settingsItem, { borderBottomWidth: 0 }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowPinModal(true);
@@ -1193,10 +1198,11 @@ export default function PlayerProfileScreen() {
             <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} style={{ marginRight: Spacing.xs }} />
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
+        </View>
 
-          <View style={styles.settingsDivider} />
-          <Text style={styles.settingsSectionLabel}>{t("player.profile.discover")}</Text>
-
+        {/* Discover grouped list */}
+        <Text style={styles.sectionGroupHeader}>{t("player.profile.discover")}</Text>
+        <View style={[styles.settingsSection, { marginBottom: Spacing.lg }]}>
           <Pressable 
             style={styles.settingsItem}
             onPress={() => {
@@ -1405,7 +1411,7 @@ export default function PlayerProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: Backgrounds.root,
   },
   centered: {
     justifyContent: "center",
@@ -1427,6 +1433,27 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  headerCard: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
+    ...CardStyles.elevated,
+    borderRadius: BorderRadius.lg,
+  },
+  sectionGroupHeader: {
+    ...Typography.sectionTitle,
+    color: Colors.dark.textSubtle,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  tabsCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    ...CardStyles.elevated,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
   header: {
     alignItems: "center",
@@ -1664,8 +1691,8 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.dark.card,
+    marginBottom: Spacing.lg,
+    ...CardStyles.elevated,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -1687,12 +1714,12 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
     gap: Spacing.sm,
   },
   actionCard: {
     flex: 1,
-    backgroundColor: Colors.dark.card,
+    ...CardStyles.elevated,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: 4,
@@ -1710,8 +1737,8 @@ const styles = StyleSheet.create({
   },
   tennisworldCard: {
     marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.dark.card,
+    marginBottom: Spacing.lg,
+    ...CardStyles.elevated,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -1805,7 +1832,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     ...CardStyles.elevated,
     padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   settingsItem: {
     flexDirection: "row",
@@ -1887,21 +1914,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
   },
-  settingsSectionLabel: {
-    ...Typography.sectionTitle,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  settingsDivider: {
-    height: 1,
-    backgroundColor: Colors.dark.border,
-    marginVertical: Spacing.md,
-  },
   profileTabs: {
     flexDirection: "row",
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
+    padding: Spacing.md,
     gap: Spacing.xs,
   },
   profileTab: {
@@ -1926,8 +1941,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   tabContent: {
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
   },
   emptyTabContent: {
     alignItems: "center",
@@ -2217,7 +2232,8 @@ const profileStyles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: "rgba(255,68,68,0.25)",
-    marginHorizontal: Spacing.xs,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   liveDot: {
     width: 10,
