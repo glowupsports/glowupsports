@@ -614,6 +614,8 @@ export function PlayerDetailView({
     sessionId: string;
     createdAt: string;
   }
+  // Fetches all session_skill_feedback rows for this player — used to exclude
+  // already-rated sessions from the "Rate Player" picker so coach can't double-rate.
   const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
     queryKey: [`/api/glow/players/${player.id}/stroke-feedback`],
     enabled: showRatePlayerSessions,
@@ -623,6 +625,7 @@ export function PlayerDetailView({
     if (!attendanceHistoryData?.history) return [];
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Build set of sessionIds that already have any QuickFeedback for this player
     const ratedSessionIds = new Set((strokeFeedbackData ?? []).map(f => f.sessionId));
     return attendanceHistoryData.history
       .filter(h => {

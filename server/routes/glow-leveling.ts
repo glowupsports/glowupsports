@@ -724,7 +724,7 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
         await sendPushNotification(
           playerTokens,
           "Coach Feedback Received",
-          `Your coach has rated your session — ${overallLabel}. Check your progress!`,
+          "Your coach rated your session — check your Pillar Progress!",
           { type: "session_feedback", sessionId, playerId }
         );
       }
