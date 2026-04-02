@@ -799,6 +799,7 @@
       "daysAway": "{{count}} أيام",
       "actionNeeded": "إجراء مطلوب",
       "sessionsNeedFeedback": "جلسات تحتاج تقييم",
+      "playersNeedFeedbackToday": "لاعبون يحتاجون تقييماً اليوم",
       "reviewNow": "مراجعة الآن",
       "courtCommand": "مركز القيادة",
       "returnToToday": "العودة لليوم",

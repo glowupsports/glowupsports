@@ -799,6 +799,7 @@
       "daysAway": "{{count}} hari",
       "actionNeeded": "Perlu Tindakan",
       "sessionsNeedFeedback": "sesi butuh umpan balik",
+      "playersNeedFeedbackToday": "pemain butuh umpan balik hari ini",
       "reviewNow": "Tinjau Sekarang",
       "courtCommand": "PUSAT KOMANDO",
       "returnToToday": "KEMBALI KE HARI INI",

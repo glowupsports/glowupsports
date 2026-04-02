@@ -614,9 +614,11 @@ export default function DashboardScreen() {
   });
 
   const pendingFeedbackCount = useMemo(() => {
-    return todaysSessions.filter(
-      (s) => new Date(s.endTime) < new Date() && s.status !== "completed"
-    ).length;
+    const now = new Date();
+    const pendingSessions = todaysSessions.filter(
+      (s) => new Date(s.endTime) < now && s.status !== "completed"
+    );
+    return pendingSessions.reduce((total, s) => total + (s.players?.length || 0), 0);
   }, [todaysSessions]);
 
   const currentSession = useMemo(() => {
@@ -1087,7 +1089,7 @@ export default function DashboardScreen() {
                   ? [
                       {
                         id: "feedback",
-                        label: t("coach.dashboard.sessionsNeedFeedback"),
+                        label: t("coach.dashboard.playersNeedFeedbackToday"),
                         count: pendingFeedbackCount,
                         icon: "chatbubble-ellipses" as const,
                         priority: "high" as const,
@@ -1109,7 +1111,7 @@ export default function DashboardScreen() {
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleNavigate("Calendar");
+                handleNavigate("Coaching");
               }}
               ctaText={t("coach.dashboard.reviewNow")}
             />

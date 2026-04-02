@@ -800,6 +800,7 @@
       "daysAway": "{{count}} days",
       "actionNeeded": "Action Needed",
       "sessionsNeedFeedback": "sessions need feedback",
+      "playersNeedFeedbackToday": "players need feedback today",
       "reviewNow": "Review Now",
       "courtCommand": "COURT COMMAND",
       "returnToToday": "RETURN TO TODAY",

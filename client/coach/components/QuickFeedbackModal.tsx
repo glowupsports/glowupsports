@@ -49,6 +49,8 @@ interface QuickFeedbackModalProps {
   session: Session | null;
   onClose: () => void;
   onComplete: () => void;
+  initialPlayerIndex?: number;
+  singlePlayerMode?: boolean;
 }
 
 type RatingValue = 0 | 1 | 2;
@@ -103,11 +105,14 @@ export default function QuickFeedbackModal({
   session,
   onClose,
   onComplete,
+  initialPlayerIndex = 0,
+  singlePlayerMode = false,
 }: QuickFeedbackModalProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(initialPlayerIndex);
   const [feedbacks, setFeedbacks] = useState<Map<string, PlayerFeedback>>(new Map());
+  const [visitedPlayerIndices, setVisitedPlayerIndices] = useState<Set<number>>(new Set([initialPlayerIndex]));
   const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [selectedSkillForRubric, setSelectedSkillForRubric] = useState<string | null>(null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
@@ -153,8 +158,10 @@ export default function QuickFeedbackModal({
           skillScores: [],
         });
       });
+      const startIndex = Math.min(initialPlayerIndex, players.length - 1);
       setFeedbacks(initial);
-      setCurrentPlayerIndex(0);
+      setCurrentPlayerIndex(startIndex);
+      setVisitedPlayerIndices(new Set([startIndex]));
       setSelectedSkillForRubric(null);
     }
   }, [visible, players.length]);
@@ -261,7 +268,13 @@ export default function QuickFeedbackModal({
   const handleNext = () => {
     if (currentPlayerIndex < players.length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setCurrentPlayerIndex(prev => prev + 1);
+      const nextIndex = currentPlayerIndex + 1;
+      setCurrentPlayerIndex(nextIndex);
+      setVisitedPlayerIndices(prev => {
+        const next = new Set(prev);
+        next.add(nextIndex);
+        return next;
+      });
       setShowSkillPicker(false);
       setSelectedSkillForRubric(null);
     } else {
@@ -279,8 +292,20 @@ export default function QuickFeedbackModal({
   };
   
   const handleSubmit = () => {
-    const allFeedback = Array.from(feedbacks.values());
-    submitMutation.mutate(allFeedback);
+    const visitedPlayerIds = new Set(
+      [...visitedPlayerIndices].map((i) => players[i]?.id).filter(Boolean)
+    );
+    const visitedFeedback = Array.from(feedbacks.values()).filter(
+      (fb) => visitedPlayerIds.has(fb.playerId)
+    );
+    submitMutation.mutate(visitedFeedback);
+  };
+
+  const handleSaveCurrentPlayer = () => {
+    if (!currentPlayer) return;
+    const fb = feedbacks.get(currentPlayer.id);
+    if (!fb) return;
+    submitMutation.mutate([fb]);
   };
   
   const currentFeedback = getCurrentFeedback();
@@ -560,6 +585,23 @@ export default function QuickFeedbackModal({
         </ScrollView>
         
         <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+          {singlePlayerMode ? (
+            <Pressable
+              style={[styles.nextButton, { flex: 1 }, submitMutation.isPending && styles.nextButtonDisabled]}
+              onPress={handleSaveCurrentPlayer}
+              disabled={submitMutation.isPending}
+            >
+              {submitMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              ) : (
+                <>
+                  <Text style={styles.nextButtonText}>Save Rating</Text>
+                  <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
+                </>
+              )}
+            </Pressable>
+          ) : (
+            <>
           <Pressable
             style={[styles.navButton, currentPlayerIndex === 0 && styles.navButtonDisabled]}
             onPress={handlePrevious}
@@ -589,6 +631,8 @@ export default function QuickFeedbackModal({
               </>
             )}
           </Pressable>
+            </>
+          )}
         </View>
 
         {showSuccessAnimation && (
