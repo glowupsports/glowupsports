@@ -304,16 +304,19 @@ export default function PlayScreen() {
   });
 
   const [locationPermission, requestLocationPermission] = Location.useForegroundPermissions();
+  const hasAutoRequestedLocationRef = useRef(false);
 
-  // Auto-request location permission when status is undetermined (first time)
+  // Auto-request location permission when status is undetermined (first time).
+  // Uses a ref guard so frequent re-renders during mount don't keep cancelling the timer.
   useEffect(() => {
-    if (locationPermission?.status === "undetermined") {
+    if (locationPermission?.status === "undetermined" && !hasAutoRequestedLocationRef.current) {
+      hasAutoRequestedLocationRef.current = true;
       const timer = setTimeout(() => {
         requestLocationPermission();
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [locationPermission?.status, requestLocationPermission]);
+  }, [locationPermission?.status]);
 
   // Stable ref to prevent repeated geocode calls on re-renders (time interval causes frequent re-renders)
   const geocodedRef = useRef(false);
