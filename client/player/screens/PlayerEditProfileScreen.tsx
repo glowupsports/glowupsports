@@ -7,6 +7,7 @@ import {
   Pressable,
   Platform,
   Alert,
+  Switch,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
@@ -33,7 +34,23 @@ type ProfileData = {
     bio?: string | null;
     medicalNotes?: string | null;
     parentEmail?: string | null;
+    parentName?: string | null;
+    parentPhone?: string | null;
+    homeAddress?: string | null;
     isAdult?: boolean;
+    displayName?: string | null;
+    nickname?: string | null;
+    tennisIdol?: string | null;
+    playStyle?: string | null;
+    favoriteShot?: string | null;
+    shortTermGoal?: string | null;
+    longTermDream?: string | null;
+    weeklyCommitment?: string | null;
+    openToPlay?: boolean | null;
+    typicalPlayTimes?: string[] | null;
+    preferredCities?: string[] | null;
+    matchPreference?: string | null;
+    preferredPlayType?: string | null;
   } | null;
 };
 
@@ -47,6 +64,49 @@ const BALL_LEVELS = [
 ];
 
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+
+const PLAY_STYLES = [
+  { value: "baseline_warrior", label: "Baseline Warrior" },
+  { value: "net_ninja", label: "Net Ninja" },
+  { value: "serve_machine", label: "Serve Machine" },
+  { value: "all_court_ace", label: "All-Court Ace" },
+  { value: "counter_puncher", label: "Counter Puncher" },
+  { value: "tactical_mastermind", label: "Tactical Mastermind" },
+];
+
+const FAVORITE_SHOTS = [
+  { value: "forehand", label: "Forehand" },
+  { value: "backhand", label: "Backhand" },
+  { value: "serve", label: "Serve" },
+  { value: "volley", label: "Volley" },
+  { value: "dropshot", label: "Dropshot" },
+];
+
+const WEEKLY_COMMITMENTS = [
+  { value: "1x", label: "1x" },
+  { value: "2x", label: "2x" },
+  { value: "3x", label: "3x" },
+  { value: "4x+", label: "4x+" },
+];
+
+const PLAY_TIMES = [
+  { value: "morning", label: "Morning" },
+  { value: "afternoon", label: "Afternoon" },
+  { value: "evening", label: "Evening" },
+  { value: "weekend", label: "Weekend" },
+];
+
+const MATCH_PREFERENCES = [
+  { value: "casual", label: "Casual" },
+  { value: "training", label: "Training" },
+  { value: "competitive", label: "Competitive" },
+];
+
+const PLAY_TYPES = [
+  { value: "singles", label: "Singles" },
+  { value: "doubles", label: "Doubles" },
+  { value: "both", label: "Both" },
+];
 
 function PillChips({
   options,
@@ -88,6 +148,43 @@ function PillChips({
   );
 }
 
+function MultiPillChips({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (val: string) => void;
+}) {
+  return (
+    <View style={styles.pillRow}>
+      {options.map((opt) => {
+        const isSelected = selected.includes(opt.value);
+        return (
+          <Pressable
+            key={opt.value}
+            style={[
+              styles.pill,
+              isSelected && { backgroundColor: Colors.dark.primary, borderColor: Colors.dark.primary },
+            ]}
+            onPress={() => onToggle(opt.value)}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                isSelected && { color: "#000" },
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function PlayerEditProfileScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
@@ -99,19 +196,48 @@ export default function PlayerEditProfileScreen() {
 
   const player = profileData?.player;
 
+  // Personal Info
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [height, setHeight] = useState("");
   const [tshirtSize, setTshirtSize] = useState<string | null>(null);
+  const [homeAddress, setHomeAddress] = useState("");
+
+  // Game Profile
   const [ballLevel, setBallLevel] = useState<string | null>(null);
   const [dominantHand, setDominantHand] = useState<string | null>(null);
   const [backhandType, setBackhandType] = useState<string | null>(null);
+
+  // About
   const [bio, setBio] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [tennisIdol, setTennisIdol] = useState("");
+  const [playStyle, setPlayStyle] = useState<string | null>(null);
+  const [favoriteShot, setFavoriteShot] = useState<string | null>(null);
+
+  // Goals & Motivation
+  const [shortTermGoal, setShortTermGoal] = useState("");
+  const [longTermDream, setLongTermDream] = useState("");
+  const [weeklyCommitment, setWeeklyCommitment] = useState<string | null>(null);
+
+  // Play Preferences
+  const [openToPlay, setOpenToPlay] = useState(false);
+  const [typicalPlayTimes, setTypicalPlayTimes] = useState<string[]>([]);
+  const [matchPreference, setMatchPreference] = useState<string | null>(null);
+  const [preferredPlayType, setPreferredPlayType] = useState<string | null>(null);
+  const [preferredCities, setPreferredCities] = useState("");
+
+  // Medical
   const [medicalNotes, setMedicalNotes] = useState("");
-  const [parentEmail, setParentEmail] = useState("");
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showMedical, setShowMedical] = useState(false);
+
+  // Parent / Guardian (minors only)
+  const [parentEmail, setParentEmail] = useState("");
+  const [parentName, setParentName] = useState("");
+  const [parentPhone, setParentPhone] = useState("");
+
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     if (player) {
@@ -120,18 +246,38 @@ export default function PlayerEditProfileScreen() {
       setDateOfBirth(player.dateOfBirth || "");
       setHeight(player.height != null ? String(player.height) : "");
       setTshirtSize(player.tshirtSize || null);
+      setHomeAddress(player.homeAddress || "");
       setBallLevel(player.ballLevel || null);
       setDominantHand(player.dominantHand || null);
       setBackhandType(player.backhandType || null);
       setBio(player.bio || "");
+      setNickname(player.nickname || player.displayName || "");
+      setTennisIdol(player.tennisIdol || "");
+      setPlayStyle(player.playStyle || null);
+      setFavoriteShot(player.favoriteShot || null);
+      setShortTermGoal(player.shortTermGoal || "");
+      setLongTermDream(player.longTermDream || "");
+      setWeeklyCommitment(player.weeklyCommitment || null);
+      setOpenToPlay(player.openToPlay ?? false);
+      setTypicalPlayTimes(player.typicalPlayTimes || []);
+      setMatchPreference(player.matchPreference || null);
+      setPreferredPlayType(player.preferredPlayType || null);
+      setPreferredCities((player.preferredCities || []).join(", "));
       setMedicalNotes(player.medicalNotes || "");
-      setParentEmail(player.parentEmail || "");
       if (player.medicalNotes) setShowMedical(true);
+      setParentEmail(player.parentEmail || "");
+      setParentName(player.parentName || "");
+      setParentPhone(player.parentPhone || "");
     }
   }, [player]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      const citiesArray = preferredCities
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
+
       const body: Record<string, unknown> = {
         name: name.trim() || undefined,
         phone: phone.trim() || undefined,
@@ -143,10 +289,29 @@ export default function PlayerEditProfileScreen() {
         height: height ? parseInt(height, 10) : undefined,
         bio: bio.trim() || undefined,
         medicalNotes: medicalNotes.trim() || undefined,
+        homeAddress: homeAddress.trim() || undefined,
+        nickname: nickname.trim() || undefined,
+        displayName: nickname.trim() || undefined,
+        tennisIdol: tennisIdol.trim() || undefined,
+        playStyle: playStyle || undefined,
+        favoriteShot: favoriteShot || undefined,
+        shortTermGoal: shortTermGoal.trim() || undefined,
+        longTermDream: longTermDream.trim() || undefined,
+        weeklyCommitment: weeklyCommitment || undefined,
+        openToPlay,
+        typicalPlayTimes: typicalPlayTimes.length > 0 ? typicalPlayTimes : undefined,
+        matchPreference: matchPreference || undefined,
+        preferredPlayType: preferredPlayType || undefined,
+        preferredCities: citiesArray.length > 0 ? citiesArray : undefined,
       };
-      if (!(player?.isAdult ?? true)) {
+
+      const isMinor = player ? player.isAdult === false : false;
+      if (isMinor) {
         body.parentEmail = parentEmail.trim() || undefined;
+        body.parentName = parentName.trim() || undefined;
+        body.parentPhone = parentPhone.trim() || undefined;
       }
+
       return apiRequest("PATCH", "/api/player/me/info", body);
     },
     onSuccess: () => {
@@ -167,6 +332,12 @@ export default function PlayerEditProfileScreen() {
     updateMutation.mutate();
   };
 
+  const togglePlayTime = (val: string) => {
+    setTypicalPlayTimes((prev) =>
+      prev.includes(val) ? prev.filter((t) => t !== val) : [...prev, val]
+    );
+  };
+
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
@@ -182,7 +353,15 @@ export default function PlayerEditProfileScreen() {
         </HeaderButton>
       ),
     });
-  }, [name, phone, dateOfBirth, height, tshirtSize, ballLevel, dominantHand, backhandType, bio, medicalNotes, parentEmail, updateMutation.isPending]);
+  }, [
+    name, phone, dateOfBirth, height, tshirtSize, homeAddress,
+    ballLevel, dominantHand, backhandType,
+    bio, nickname, tennisIdol, playStyle, favoriteShot,
+    shortTermGoal, longTermDream, weeklyCommitment,
+    openToPlay, typicalPlayTimes, matchPreference, preferredPlayType, preferredCities,
+    medicalNotes, parentEmail, parentName, parentPhone,
+    updateMutation.isPending,
+  ]);
 
   const selectedDate = dateOfBirth ? new Date(dateOfBirth) : new Date();
 
@@ -297,6 +476,18 @@ export default function PlayerEditProfileScreen() {
             onSelect={setTshirtSize}
           />
         </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Home Address</Text>
+          <TextInput
+            style={styles.input}
+            value={homeAddress}
+            onChangeText={setHomeAddress}
+            placeholder="Your home address"
+            placeholderTextColor={Colors.dark.textMuted}
+            autoCapitalize="words"
+          />
+        </View>
       </View>
 
       {/* Game Profile */}
@@ -338,9 +529,9 @@ export default function PlayerEditProfileScreen() {
         </View>
       </View>
 
-      {/* About */}
+      {/* About You */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About</Text>
+        <Text style={styles.sectionTitle}>About You</Text>
 
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
@@ -357,6 +548,156 @@ export default function PlayerEditProfileScreen() {
             numberOfLines={4}
             textAlignVertical="top"
           />
+        </View>
+
+        <View style={styles.formGroup}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Nickname</Text>
+            <Text style={styles.charCount}>{nickname.length}/50</Text>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={nickname}
+            onChangeText={(t) => setNickname(t.slice(0, 50))}
+            placeholder="Your fun nickname in the app"
+            placeholderTextColor={Colors.dark.textMuted}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Tennis Idol</Text>
+          <TextInput
+            style={styles.input}
+            value={tennisIdol}
+            onChangeText={(t) => setTennisIdol(t.slice(0, 100))}
+            placeholder="Federer, Nadal, Alcaraz..."
+            placeholderTextColor={Colors.dark.textMuted}
+            autoCapitalize="words"
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Play Style</Text>
+          <PillChips
+            options={PLAY_STYLES}
+            selected={playStyle}
+            onSelect={setPlayStyle}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Favorite Shot</Text>
+          <PillChips
+            options={FAVORITE_SHOTS}
+            selected={favoriteShot}
+            onSelect={setFavoriteShot}
+          />
+        </View>
+      </View>
+
+      {/* Goals & Motivation */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Goals & Motivation</Text>
+
+        <View style={styles.formGroup}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>3-Month Goal</Text>
+            <Text style={styles.charCount}>{shortTermGoal.length}/500</Text>
+          </View>
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            value={shortTermGoal}
+            onChangeText={(t) => setShortTermGoal(t.slice(0, 500))}
+            placeholder="What do you want to achieve in the next 3 months?"
+            placeholderTextColor={Colors.dark.textMuted}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Long-Term Dream</Text>
+            <Text style={styles.charCount}>{longTermDream.length}/500</Text>
+          </View>
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            value={longTermDream}
+            onChangeText={(t) => setLongTermDream(t.slice(0, 500))}
+            placeholder="Your biggest tennis dream..."
+            placeholderTextColor={Colors.dark.textMuted}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Weekly Sessions</Text>
+          <PillChips
+            options={WEEKLY_COMMITMENTS}
+            selected={weeklyCommitment}
+            onSelect={setWeeklyCommitment}
+          />
+        </View>
+      </View>
+
+      {/* Play Preferences */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Play Preferences</Text>
+
+        <View style={[styles.formGroup, styles.toggleRow]}>
+          <View style={styles.toggleTextGroup}>
+            <Text style={styles.label}>Open to Play</Text>
+            <Text style={styles.toggleHint}>Others can find you for matches</Text>
+          </View>
+          <Switch
+            value={openToPlay}
+            onValueChange={setOpenToPlay}
+            trackColor={{ false: Colors.dark.border, true: Colors.dark.primary }}
+            thumbColor="#fff"
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Preferred Play Type</Text>
+          <PillChips
+            options={PLAY_TYPES}
+            selected={preferredPlayType}
+            onSelect={setPreferredPlayType}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Match Preference</Text>
+          <PillChips
+            options={MATCH_PREFERENCES}
+            selected={matchPreference}
+            onSelect={setMatchPreference}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Typical Play Times</Text>
+          <MultiPillChips
+            options={PLAY_TIMES}
+            selected={typicalPlayTimes}
+            onToggle={togglePlayTime}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Preferred Cities</Text>
+          <TextInput
+            style={styles.input}
+            value={preferredCities}
+            onChangeText={setPreferredCities}
+            placeholder="Dubai, Abu Dhabi, Sharjah..."
+            placeholderTextColor={Colors.dark.textMuted}
+            autoCapitalize="words"
+          />
+          <Text style={styles.fieldHint}>Separate multiple cities with commas</Text>
         </View>
       </View>
 
@@ -392,6 +733,30 @@ export default function PlayerEditProfileScreen() {
       {isMinor ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Parent / Guardian</Text>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Parent Name</Text>
+            <TextInput
+              style={styles.input}
+              value={parentName}
+              onChangeText={setParentName}
+              placeholder="Parent or guardian name"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Parent Phone</Text>
+            <TextInput
+              style={styles.input}
+              value={parentPhone}
+              onChangeText={setParentPhone}
+              placeholder="+971 50 123 4567"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="phone-pad"
+            />
+          </View>
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Parent Email</Text>
@@ -510,6 +875,26 @@ const styles = StyleSheet.create({
   addMedicalText: {
     color: Colors.dark.primary,
     ...Typography.body,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  toggleTextGroup: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  toggleHint: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  fieldHint: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
   cancelBtn: {
     color: Colors.dark.textSecondary,
