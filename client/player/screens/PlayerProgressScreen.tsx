@@ -1595,22 +1595,38 @@ export default function PlayerProgressScreen() {
 
   const { data, isLoading, error } = useQuery<ProgressData>({
     queryKey: ["/api/player/me/progress", activeSport],
-    queryFn: () => fetch(makeSportUrl("/api/player/me/progress"), { headers: getAuthHeaders() }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(makeSportUrl("/api/player/me/progress"), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
   });
 
   const { data: attendanceData } = useQuery<AttendanceData>({
     queryKey: ["/api/player/me/attendance", activeSport],
-    queryFn: () => fetch(makeSportUrl("/api/player/me/attendance"), { headers: getAuthHeaders() }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(makeSportUrl("/api/player/me/attendance"), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
   });
 
   const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
     queryKey: ["/api/player/me/feedback", activeSport],
-    queryFn: () => fetch(makeSportUrl("/api/player/me/feedback"), { headers: getAuthHeaders() }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(makeSportUrl("/api/player/me/feedback"), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
   });
 
   const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
     queryKey: ["/api/player/me/stroke-feedback", activeSport],
-    queryFn: () => fetch(makeSportUrl("/api/player/me/stroke-feedback"), { headers: getAuthHeaders() }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(makeSportUrl("/api/player/me/stroke-feedback"), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
   });
 
   useEffect(() => {
@@ -1672,7 +1688,7 @@ export default function PlayerProgressScreen() {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !Array.isArray(data.skillRadar)) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
@@ -1682,14 +1698,7 @@ export default function PlayerProgressScreen() {
     );
   }
 
-  // DEBUG: Log skill radar data to see what's coming from API
-  logger.log("[DEBUG PROGRESS] skillRadar from API:", JSON.stringify(data.skillRadar.map(s => ({
-    domainId: s.domainId,
-    domain: s.domain,
-    progress: s.progress
-  })), null, 2));
-
-  const domains: SkillDomain[] = data.skillRadar.map(skill => ({
+  const domains: SkillDomain[] = (data.skillRadar ?? []).map(skill => ({
     id: skill.domainId,
     name: skill.domain,
     value: skill.progress,
@@ -1700,16 +1709,9 @@ export default function PlayerProgressScreen() {
     insights: skill.insights,
   }));
 
-  // DEBUG: Log mapped domains
-  logger.log("[DEBUG PROGRESS] Mapped domains:", JSON.stringify(domains.map(d => ({
-    id: d.id,
-    name: d.name,
-    value: d.value
-  })), null, 2));
-
   const currentLevelXp = data.xp % 500;
 
-  const totalObservations = data.skillRadar.reduce((sum, s) => sum + s.observationCount, 0);
+  const totalObservations = (data.skillRadar ?? []).reduce((sum, s) => sum + s.observationCount, 0);
   const isNewPlayer = totalObservations === 0;
 
   return (
@@ -2037,11 +2039,11 @@ export default function PlayerProgressScreen() {
         </View>
 
 
-        {data.overallInsights.strengths.length > 0 ? (
+        {(data.overallInsights?.strengths?.length ?? 0) > 0 ? (
           <View style={styles.insightsSection}>
             <Text style={styles.sectionTitle}>Your Strengths</Text>
             <View style={styles.insightsList}>
-              {data.overallInsights.strengths.map((strength, i) => (
+              {(data.overallInsights?.strengths ?? []).map((strength, i) => (
                 <View key={i} style={styles.insightItem}>
                   <Ionicons name="checkmark-circle" size={16} color={GlowColors.primary} />
                   <Text style={styles.insightText}>{strength}</Text>
@@ -2051,11 +2053,11 @@ export default function PlayerProgressScreen() {
           </View>
         ) : null}
 
-        {data.overallInsights.focusAreas.length > 0 ? (
+        {(data.overallInsights?.focusAreas?.length ?? 0) > 0 ? (
           <View style={styles.insightsSection}>
             <Text style={styles.sectionTitle}>Focus Areas</Text>
             <View style={styles.insightsList}>
-              {data.overallInsights.focusAreas.map((area, i) => (
+              {(data.overallInsights?.focusAreas ?? []).map((area, i) => (
                 <View key={i} style={styles.insightItem}>
                   <Ionicons name="arrow-forward-circle" size={16} color={Colors.dark.xpCyan} />
                   <Text style={styles.insightText}>{area}</Text>
