@@ -438,7 +438,7 @@ export default function PlayerProfileScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <HeaderButton onPress={() => navigation.navigate("PlayerEditProfile")}>
+        <HeaderButton onPress={() => navigation.navigate("EditProfile")}>
           <Ionicons name="create-outline" size={22} color={Colors.dark.primary} />
         </HeaderButton>
       ),
