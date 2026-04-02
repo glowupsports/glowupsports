@@ -50,7 +50,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
+    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema, playerSelfUpdateSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
   } from "@shared/schema";
@@ -1827,7 +1827,7 @@ import fs from "fs";
       }
       try {
         const playerId = req.user!.playerId!;
-        const parseResult = updatePlayerSchema.safeParse(req.body);
+        const parseResult = playerSelfUpdateSchema.safeParse(req.body);
         if (!parseResult.success) {
           return res.status(400).json({
             error: "Validation failed",
@@ -1835,12 +1835,15 @@ import fs from "fs";
           });
         }
         const updateData: typeof parseResult.data & { age?: number | null } = { ...parseResult.data };
-        // Check nickname uniqueness (case-insensitive) — reject if another player already has it
+        // Check nickname uniqueness using exact case-insensitive match (no wildcard risk)
         if (updateData.nickname) {
           const existingNickname = await db
             .select({ id: players.id })
             .from(players)
-            .where(and(ilike(players.nickname, updateData.nickname), ne(players.id, playerId)))
+            .where(and(
+              sql`lower(${players.nickname}) = lower(${updateData.nickname})`,
+              ne(players.id, playerId),
+            ))
             .limit(1);
           if (existingNickname.length > 0) {
             return res.status(409).json({

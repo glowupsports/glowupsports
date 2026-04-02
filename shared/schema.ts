@@ -1113,6 +1113,40 @@ export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
 
+// Schema for player self-edit via PATCH /api/player/me/info.
+// Contains only the fields a player is allowed to change themselves.
+// Must remain a plain ZodObject (no .transform()) so .safeParse() works at runtime.
+export const playerSelfUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(),
+  ballLevel: z.enum(["blue", "red", "orange", "green", "yellow", "glow"]).optional().nullable(),
+  dominantHand: z.enum(["left", "right"]).optional().nullable(),
+  backhandType: z.enum(["single", "double"]).optional().nullable(),
+  tshirtSize: z.enum(tshirtSizes).optional().nullable(),
+  height: z.number().int().min(50).max(250).optional().nullable(),
+  bio: z.string().max(500).optional().nullable(),
+  medicalNotes: z.string().optional().nullable(),
+  displayName: z.string().max(50).optional().nullable(),
+  nickname: z.string().max(50).optional().nullable(),
+  playStyle: z.enum(["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"]).optional().nullable(),
+  tennisIdol: z.string().max(100).optional().nullable(),
+  shortTermGoal: z.string().max(500).optional().nullable(),
+  longTermDream: z.string().max(500).optional().nullable(),
+  weeklyCommitment: z.enum(["1x", "2x", "3x", "4x+"]).optional().nullable(),
+  favoriteShot: z.enum(["forehand", "backhand", "serve", "volley", "dropshot"]).optional().nullable(),
+  openToPlay: z.boolean().optional(),
+  typicalPlayTimes: z.array(z.string()).optional().nullable(),
+  preferredCities: z.array(z.string()).optional().nullable(),
+  matchPreference: z.enum(["casual", "training", "competitive"]).optional().nullable(),
+  preferredPlayType: z.enum(["singles", "doubles", "both"]).optional().nullable(),
+  homeAddress: z.string().max(500).optional().nullable(),
+  homeLat: z.number().optional().nullable(),
+  homeLng: z.number().optional().nullable(),
+  parentName: z.string().max(100).optional().nullable(),
+  parentPhone: z.string().max(50).optional().nullable(),
+});
+
 // Youth Ball Stages - Constants for skill level progression
 export const youthBallStages = ["red", "orange", "green", "yellow"] as const;
 export type YouthBallStage = typeof youthBallStages[number];
