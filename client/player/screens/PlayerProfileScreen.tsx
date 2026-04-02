@@ -16,14 +16,11 @@ import { EmptyStateCard } from "@/components/EmptyStateCard";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
-import { formatCredits } from "@/lib/dateUtils";
 import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
-import { AddressAutocomplete } from "@/components/AddressAutocomplete";
-import { MapLocationPickerModal } from "@/components/MapLocationPickerModal";
 
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
@@ -72,20 +69,6 @@ interface ProfileData {
     recentPartners: Array<{ id: string; name: string; lastPlayedAt: string }>;
     connectionsCount: number;
   };
-}
-
-function StatItem({ label, value, icon }: { label: string; value: string | number; icon: string }) {
-  return (
-    <View style={styles.statItem}>
-      <View style={styles.statIcon}>
-        <Ionicons name={icon as any} size={18} color={Colors.dark.primary} />
-      </View>
-      <View>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-      </View>
-    </View>
-  );
 }
 
 function getLevelTitle(level: number): string {
@@ -428,7 +411,6 @@ export default function PlayerProfileScreen() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [showMapPicker, setShowMapPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
@@ -535,19 +517,6 @@ export default function PlayerProfileScreen() {
     },
     onError: () => {
       Alert.alert("Error", "Could not update sport profile. Please try again.");
-    },
-  });
-
-  const updateHomeAddress = useMutation({
-    mutationFn: async ({ address, lat, lng }: { address: string; lat: number; lng: number }) => {
-      return apiRequest("PATCH", "/api/player/me/profile", { homeAddress: address, homeLat: lat, homeLng: lng });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
-    onError: () => {
-      Alert.alert("Error", "Could not save home address. Please try again.");
     },
   });
 
@@ -888,196 +857,72 @@ export default function PlayerProfileScreen() {
             ) : null}
           </View>
 
-          {/* Open to Play Toggle */}
-          <View style={styles.openToPlayCard}>
-            <LinearGradient
-              colors={player.openToPlay 
-                ? [Colors.dark.primary + "30", Colors.dark.primary + "10"]
-                : ["rgba(50, 50, 50, 0.6)", "rgba(40, 40, 40, 0.4)"]
-              }
-              style={styles.openToPlayGradient}
-            >
-              <View style={styles.openToPlayContent}>
-                <View style={styles.openToPlayLeft}>
-                  <View style={[styles.openToPlayIcon, player.openToPlay && styles.openToPlayIconActive]}>
-                    <Ionicons 
-                      name="tennisball" 
-                      size={20} 
-                      color={player.openToPlay ? Colors.dark.primary : Colors.dark.textMuted} 
-                    />
-                  </View>
-                  <View>
-                    <Text style={[styles.openToPlayTitle, player.openToPlay && styles.openToPlayTitleActive]}>
-                      Open to Play
-                    </Text>
-                    <Text style={styles.openToPlaySubtitle}>
-                      {player.openToPlay ? "Others can find you for matches" : "Hidden from match search"}
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={player.openToPlay}
-                  onValueChange={(value) => toggleOpenToPlay.mutate(value)}
-                  trackColor={{ 
-                    false: "rgba(255, 255, 255, 0.06)", 
-                    true: GlowColors.primary + "80" 
-                  }}
-                  thumbColor={player.openToPlay ? GlowColors.primary : Colors.dark.textMuted}
-                  disabled={toggleOpenToPlay.isPending}
-                />
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* Home Address Section */}
-          <View style={styles.openToPlayCard}>
-            <LinearGradient
-              colors={player.homeAddress 
-                ? [Colors.dark.xpCyan + "25", Colors.dark.xpCyan + "10"]
-                : ["rgba(50, 50, 50, 0.6)", "rgba(40, 40, 40, 0.4)"]
-              }
-              style={styles.openToPlayGradient}
-            >
-              <View style={{ paddingBottom: player.homeAddress ? Spacing.sm : 0 }}>
-                <View style={styles.openToPlayContent}>
-                  <View style={styles.openToPlayLeft}>
-                    <View style={[styles.openToPlayIcon, player.homeAddress ? styles.openToPlayIconActive : {}]}>
-                      <Ionicons 
-                        name="home" 
-                        size={20} 
-                        color={player.homeAddress ? Colors.dark.xpCyan : Colors.dark.textMuted} 
-                      />
-                    </View>
-                    <View>
-                      <Text style={[styles.openToPlayTitle, player.homeAddress ? { color: Colors.dark.xpCyan } : {}]}>
-                        Home Address
-                      </Text>
-                      <Text style={styles.openToPlaySubtitle}>
-                        {player.homeAddress ? "Used for distance & travel time" : "Set for travel time features"}
-                      </Text>
-                    </View>
-                  </View>
-                  {updateHomeAddress.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-                  ) : null}
-                </View>
-                {player.homeAddress ? (
-                  <View style={{ paddingHorizontal: Spacing.md, marginTop: -Spacing.xs }}>
-                    <Text style={{ fontSize: Typography.small.fontSize, color: Colors.dark.textMuted }} numberOfLines={2}>
-                      {player.homeAddress}
-                    </Text>
-                  </View>
-                ) : null}
-                <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
-                  <AddressAutocomplete
-                    placeholder={player.homeAddress ? "Update home address..." : "Search for your home address..."}
-                    initialValue=""
-                    onSelect={({ address, lat, lng }) => {
-                      updateHomeAddress.mutate({ address, lat, lng });
-                    }}
-                  />
-                  {/* Pick on map button */}
-                  <Pressable
-                    style={styles.pickOnMapBtn}
-                    onPress={() => setShowMapPicker(true)}
-                  >
-                    <Ionicons name="map-outline" size={14} color={Colors.dark.xpCyan} />
-                    <Text style={styles.pickOnMapText}>Pick on map</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* Map location picker modal */}
-          <MapLocationPickerModal
-            visible={showMapPicker}
-            onClose={() => setShowMapPicker(false)}
-            onConfirm={({ address, lat, lng }) => {
-              updateHomeAddress.mutate({ address, lat, lng });
-            }}
-            initialLat={player.homeLat}
-            initialLng={player.homeLng}
-          />
-
-          {/* Player Identity */}
-          <View style={styles.identityRow}>
-            {player.dominantHand ? (
-              <View style={styles.identityChip}>
-                <Ionicons name="hand-left" size={14} color={Colors.dark.xpCyan} />
-                <Text style={styles.identityText}>
-                  {player.dominantHand === "left" ? "Left" : "Right"} Hand
-                </Text>
-              </View>
-            ) : null}
-            {player.preferredPlayType ? (
-              <View style={styles.identityChip}>
-                <Ionicons 
-                  name={player.preferredPlayType === "doubles" ? "people" : "person"} 
-                  size={14} 
-                  color={Colors.dark.xpCyan} 
-                />
-                <Text style={styles.identityText}>
-                  {player.preferredPlayType === "singles" ? "Singles" : 
-                   player.preferredPlayType === "doubles" ? "Doubles" : "Both"}
-                </Text>
-              </View>
-            ) : null}
-            {player.matchPreference ? (
-              <View style={styles.identityChip}>
-                <Ionicons name="trophy" size={14} color={Colors.dark.gold} />
-                <Text style={styles.identityText}>
-                  {player.matchPreference.charAt(0).toUpperCase() + player.matchPreference.slice(1)}
-                </Text>
-              </View>
-            ) : null}
+          {/* Open to Play — compact inline pill */}
+          <View style={styles.openToPlayPill}>
+            <View style={[styles.openToPlayDot, { backgroundColor: player.openToPlay ? "#22C55E" : Colors.dark.textMuted }]} />
+            <Text style={[styles.openToPlayPillText, { color: player.openToPlay ? "#22C55E" : Colors.dark.textMuted }]}>
+              {player.openToPlay ? t("player.profile.openToPlay") : t("player.profile.offRadar")}
+            </Text>
+            <Switch
+              value={player.openToPlay}
+              onValueChange={(value) => toggleOpenToPlay.mutate(value)}
+              trackColor={{ 
+                false: "rgba(255, 255, 255, 0.06)", 
+                true: "#22C55E80" 
+              }}
+              thumbColor={player.openToPlay ? "#22C55E" : Colors.dark.textMuted}
+              disabled={toggleOpenToPlay.isPending}
+            />
           </View>
         </View>
 
-        {/* Social Signals Card */}
-        {data?.social ? (
-          <View style={styles.socialCard}>
-            <LinearGradient
-              colors={["rgba(0, 212, 255, 0.08)", "rgba(46, 204, 64, 0.05)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.socialGradient}
-            >
-              <Text style={styles.socialTitle}>Social</Text>
-              <View style={styles.socialStats}>
-                <View style={styles.socialStat}>
-                  <Text style={styles.socialStatValue}>{data.social.matchesPlayed}</Text>
-                  <Text style={styles.socialStatLabel}>Matches</Text>
-                </View>
-                <View style={styles.socialDivider} />
-                <View style={styles.socialStat}>
-                  <Text style={styles.socialStatValue}>{data.social.connectionsCount}</Text>
-                  <Text style={styles.socialStatLabel}>Connections</Text>
-                </View>
-              </View>
-              {data.social.recentPartners.length > 0 ? (
-                <View style={styles.recentPartnersSection}>
-                  <Text style={styles.recentPartnersLabel}>Recently Played With</Text>
-                  <View style={styles.recentPartnersAvatars}>
-                    {data.social.recentPartners.slice(0, 5).map((partner, index) => (
-                      <View 
-                        key={partner.id} 
-                        style={[styles.partnerAvatar, { marginLeft: index > 0 ? -12 : 0, zIndex: 5 - index }]}
-                      >
-                        <Text style={styles.partnerAvatarText}>{partner.name.charAt(0)}</Text>
-                      </View>
-                    ))}
-                    {data.social.recentPartners.length > 5 ? (
-                      <View style={[styles.partnerAvatar, styles.partnerAvatarMore, { marginLeft: -12 }]}>
-                        <Text style={styles.partnerAvatarMoreText}>+{data.social.recentPartners.length - 5}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-            </LinearGradient>
+        {/* Quick Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCol, { borderRightWidth: 1, borderRightColor: Colors.dark.border }]}>
+            <Text style={styles.statColValue}>{player.streak}</Text>
+            <Text style={styles.statColLabel}>{t("player.profile.streak")}</Text>
           </View>
-        ) : null}
+          <View style={[styles.statCol, { borderRightWidth: 1, borderRightColor: Colors.dark.border }]}>
+            <Text style={styles.statColValue}>{stats.sessionsAttended}</Text>
+            <Text style={styles.statColLabel}>{t("player.profile.sessions")}</Text>
+          </View>
+          <View style={[styles.statCol, { borderRightWidth: 1, borderRightColor: Colors.dark.border }]}>
+            <Text style={styles.statColValue}>{data.social?.matchesPlayed ?? 0}</Text>
+            <Text style={styles.statColLabel}>{t("player.profile.matches")}</Text>
+          </View>
+          <View style={styles.statCol}>
+            <Text style={styles.statColValue}>{data.social?.connectionsCount ?? 0}</Text>
+            <Text style={styles.statColLabel}>{t("player.profile.friends")}</Text>
+          </View>
+        </View>
+
+        {/* Quick Actions Row */}
+        <View style={styles.actionsRow}>
+          <Pressable
+            style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.75 }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("MatchHistory");
+            }}
+          >
+            <Ionicons name="trophy-outline" size={20} color="#CCFF00" />
+            <Text style={styles.actionCardLabel}>{t("player.profile.matchHistory")}</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} style={{ alignSelf: "flex-end", marginTop: "auto" }} />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.75 }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (player?.id) {
+                navigation.navigate("ParentCreditStore", { playerId: player.id });
+              }
+            }}
+          >
+            <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
+            <Text style={styles.actionCardLabel}>{t("player.profile.myCredits")}</Text>
+            <Text style={styles.actionCardSub}>{dashboardData?.credits?.total ?? 0} {t("player.profile.creditsAvailable")}</Text>
+          </Pressable>
+        </View>
 
         {/* Live Match Banner — shows when the player has an active live match */}
         {activeLiveMatch?.matches && activeLiveMatch.matches.length > 0 ? (
@@ -1101,121 +946,37 @@ export default function PlayerProfileScreen() {
           </Pressable>
         ) : null}
 
-        {/* Match History Button */}
-        <Pressable
-          style={({ pressed }) => [profileStyles.matchHistoryBtn, pressed && { opacity: 0.75 }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("MatchHistory");
-          }}
-        >
-          <Ionicons name="trophy-outline" size={18} color="#CCFF00" />
-          <Text style={profileStyles.matchHistoryBtnText}>Match History</Text>
-          <View style={profileStyles.matchHistoryBtnSpacer} />
-          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-        </Pressable>
-
-        {/* My Credits Section - matches Home screen design */}
-        {dashboardData?.credits ? (
-          <View style={styles.creditsCard}>
-            <View style={styles.creditsHeader}>
-              <Ionicons name="ticket-outline" size={14} color={Colors.dark.gold} />
-              <Text style={styles.creditsTitle}>{t("player.profile.myCredits")}</Text>
-            </View>
-            <View style={styles.creditsTotalRow}>
-              <Text style={styles.creditsTotalValue}>{formatCredits(dashboardData.credits.total)}</Text>
-              <Text style={styles.creditsTotalLabel}>{t("player.profile.totalAvailable")}</Text>
-            </View>
-            {dashboardData.credits.total > 0 ? (
-              <View style={styles.creditsTypeRow}>
-                <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{formatCredits(dashboardData.credits.group)}</Text>
-                  <Text style={styles.creditsTypeLabel}>{t("player.profile.group")}</Text>
-                </View>
-                <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{formatCredits(dashboardData.credits.private)}</Text>
-                  <Text style={styles.creditsTypeLabel}>{t("player.profile.private")}</Text>
-                </View>
-                <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{formatCredits(dashboardData.credits.semi_private)}</Text>
-                  <Text style={styles.creditsTypeLabel}>{t("player.profile.semiPrivate")}</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.creditsEmptyText}>{t("player.profile.noCreditsAvailable")}</Text>
-            )}
-            <Pressable 
-              style={styles.buyCreditsButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                if (player?.id) {
-                  navigation.navigate("ParentCreditStore", { playerId: player.id });
-                }
-              }}
-            >
-              <LinearGradient
-                colors={[Colors.dark.gold, "#D4A100"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buyCreditsGradient}
-              >
-                <Ionicons name="cart-outline" size={14} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.buyCreditsText}>{t("player.profile.buyCredits")}</Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {/* Profile Tabs: Moments, Friends, Groups */}
+        {/* Profile Tabs: Moments, Friends, Groups — pill style */}
         <View style={styles.profileTabs}>
-          <Pressable
-            style={[styles.profileTab, activeTab === "moments" && styles.profileTabActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("moments");
-            }}
-          >
-            <Ionicons 
-              name="grid" 
-              size={20} 
-              color={activeTab === "moments" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
-            />
-            <Text style={[styles.profileTabText, activeTab === "moments" && styles.profileTabTextActive]}>
-              {t("player.profile.moments")}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.profileTab, activeTab === "friends" && styles.profileTabActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("friends");
-            }}
-          >
-            <Ionicons 
-              name="people" 
-              size={20} 
-              color={activeTab === "friends" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
-            />
-            <Text style={[styles.profileTabText, activeTab === "friends" && styles.profileTabTextActive]}>
-              {t("player.profile.friends")} ({connectionsData?.friends?.length || 0})
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.profileTab, activeTab === "groups" && styles.profileTabActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("groups");
-            }}
-          >
-            <Ionicons 
-              name="people-circle" 
-              size={20} 
-              color={activeTab === "groups" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
-            />
-            <Text style={[styles.profileTabText, activeTab === "groups" && styles.profileTabTextActive]}>
-              {t("player.profile.groups")} ({groupsData?.myGroups?.length || 0})
-            </Text>
-          </Pressable>
+          {([
+            { tab: "moments" as ProfileTab, label: t("player.profile.moments"), icon: "grid-outline" },
+            { tab: "friends" as ProfileTab, label: `${t("player.profile.friends")} (${connectionsData?.friends?.length || 0})`, icon: "people-outline" },
+            { tab: "groups" as ProfileTab, label: `${t("player.profile.groups")} (${groupsData?.myGroups?.length || 0})`, icon: "people-circle-outline" },
+          ] as { tab: ProfileTab; label: string; icon: "grid-outline" | "people-outline" | "people-circle-outline" }[]).map(({ tab, label, icon }) => {
+            const isActive = activeTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                style={[
+                  styles.profileTab,
+                  isActive && {
+                    backgroundColor: Colors.dark.primary + "20",
+                    borderColor: Colors.dark.primary,
+                    borderWidth: 1,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setActiveTab(tab);
+                }}
+              >
+                <Ionicons name={icon} size={16} color={isActive ? Colors.dark.primary : Colors.dark.textMuted} />
+                <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Tab Content */}
@@ -1307,59 +1068,42 @@ export default function PlayerProfileScreen() {
           </View>
         ) : null}
 
-        <View style={styles.statsCard}>
-          <View style={styles.statsGridCompact}>
-            <StatItem 
-              label={t("player.profile.streak")} 
-              value={`${player.streak} ${t("player.profile.days")}`} 
-              icon="flame" 
-            />
-            <StatItem 
-              label={t("player.profile.sessions")} 
-              value={stats.sessionsAttended} 
-              icon="tennisball" 
-            />
-          </View>
-        </View>
-
-        {coach ? (
-          <View style={styles.coachCard}>
-            <Text style={styles.sectionTitle}>{t("player.profile.yourCoach")}</Text>
-            <View style={styles.coachInfo}>
-              <View style={styles.coachAvatar}>
-                <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
+        {/* Your Tennis World — merged Academy + Coach card */}
+        {(academy || coach) ? (
+          <View style={styles.tennisworldCard}>
+            {academy ? (
+              <View style={styles.tennisworldAcademyRow}>
+                <View style={styles.tennisworldAcademyIcon}>
+                  <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tennisworldAcademyName}>{academy.name}</Text>
+                  <Text style={styles.tennisworldAcademySince}>{t("player.profile.since")} {memberSince}</Text>
+                </View>
               </View>
-              <View style={styles.coachDetails}>
-                <Text style={styles.coachName}>{coach.name}</Text>
-                {coach.email ? (
-                  <Text style={styles.coachEmail}>{coach.email}</Text>
-                ) : null}
+            ) : null}
+            {academy && coach ? (
+              <View style={styles.tennisworldDivider} />
+            ) : null}
+            {coach ? (
+              <View style={styles.tennisworldCoachRow}>
+                <View style={styles.tennisworldCoachAvatar}>
+                  <Text style={styles.tennisworldCoachAvatarText}>{coach.name.charAt(0)}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tennisworldCoachName}>{coach.name}</Text>
+                  {coach.email ? (
+                    <Text style={styles.tennisworldCoachEmail}>{coach.email}</Text>
+                  ) : null}
+                </View>
+                <Pressable
+                  style={styles.tennisworldChatBtn}
+                  onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                >
+                  <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
+                </Pressable>
               </View>
-              <Pressable 
-                style={styles.chatButton}
-                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-              >
-                <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-
-        {academy ? (
-          <View style={styles.academyCardPrimary}>
-            <LinearGradient
-              colors={["rgba(46, 204, 64, 0.1)", "rgba(0, 212, 255, 0.05)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.academyGradient}
-            >
-              <View style={styles.academyIcon}>
-                <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
-              </View>
-              <Text style={styles.memberOfLabel}>{t("player.profile.memberOf")}</Text>
-              <Text style={styles.academyNameLarge}>{academy.name}</Text>
-              <Text style={styles.memberSinceSmall}>{t("player.profile.since")} {memberSince}</Text>
-            </LinearGradient>
+            ) : null}
           </View>
         ) : null}
 
@@ -1370,8 +1114,9 @@ export default function PlayerProfileScreen() {
           isSaving={updateSportProfiles.isPending}
         />
 
+        {/* Settings + Discover — merged grouped list */}
         <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>{t("player.profile.settings")}</Text>
+          <Text style={styles.settingsSectionLabel}>{t("player.profile.settings")}</Text>
           
           <Pressable 
             style={styles.settingsItem}
@@ -1448,11 +1193,10 @@ export default function PlayerProfileScreen() {
             <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} style={{ marginRight: Spacing.xs }} />
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
-        </View>
 
-        <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>{t("player.profile.discover")}</Text>
-          
+          <View style={styles.settingsDivider} />
+          <Text style={styles.settingsSectionLabel}>{t("player.profile.discover")}</Text>
+
           <Pressable 
             style={styles.settingsItem}
             onPress={() => {
@@ -1482,7 +1226,7 @@ export default function PlayerProfileScreen() {
           </Pressable>
 
           <Pressable 
-            style={styles.settingsItem}
+            style={[styles.settingsItem, { borderBottomWidth: 0 }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("TransferRequest");
@@ -1509,10 +1253,7 @@ export default function PlayerProfileScreen() {
           {deleteLoading ? (
             <ActivityIndicator size="small" color={Colors.dark.error} />
           ) : (
-            <>
-              <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-              <Text style={styles.deleteAccountText}>Delete My Account</Text>
-            </>
+            <Text style={styles.deleteAccountText}>Delete My Account</Text>
           )}
         </Pressable>
       </ScrollView>
@@ -1720,27 +1461,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     padding: 3,
   },
   avatarGradientInner: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     padding: 3,
   },
   avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: Backgrounds.card,
   },
   avatarImageWithBorder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: Backgrounds.card,
   },
   cameraIconOverlay: {
@@ -1759,7 +1500,7 @@ const styles = StyleSheet.create({
   avatarInner: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: 47,
+    borderRadius: 57,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1920,47 +1661,67 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
   },
-  statsCard: {
+  statsRow: {
+    flexDirection: "row",
     marginHorizontal: Spacing.xl,
-    ...CardStyles.elevated,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  sportLevelChip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
+    marginBottom: Spacing.md,
     backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
-  sportLevelChipActive: {
-    backgroundColor: `${Colors.dark.gold}20`,
-    borderColor: Colors.dark.gold,
+  statCol: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
   },
-  sportLevelChipText: {
+  statColValue: {
+    ...Typography.h3,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  statColLabel: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
-    fontWeight: "600",
+    marginTop: 2,
   },
-  sportLevelChipTextActive: {
-    color: Colors.dark.gold,
-  },
-  statsGrid: {
+  actionsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.md,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
-  statItem: {
-    width: "48%",
+  actionCard: {
+    flex: 1,
+    backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: 4,
+    minHeight: 80,
+  },
+  actionCardLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  actionCardSub: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  tennisworldCard: {
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  tennisworldAcademyRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    gap: Spacing.sm,
     padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
   },
-  statIcon: {
+  tennisworldAcademyIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -1968,51 +1729,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  statValue: {
+  tennisworldAcademyName: {
     ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  statLabel: {
-    ...Typography.caption,
+  tennisworldAcademySince: {
+    ...Typography.small,
     color: Colors.dark.textMuted,
   },
-  coachCard: {
-    marginHorizontal: Spacing.xl,
-    ...CardStyles.elevated,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
+  tennisworldDivider: {
+    height: 1,
+    backgroundColor: Colors.dark.border,
+    marginHorizontal: Spacing.md,
   },
-  coachInfo: {
+  tennisworldCoachRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
   },
-  coachAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  tennisworldCoachAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: Spacing.md,
   },
-  coachAvatarText: {
-    ...Typography.h4,
+  tennisworldCoachAvatarText: {
+    ...Typography.body,
     color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
   },
-  coachDetails: {
-    flex: 1,
-  },
-  coachName: {
+  tennisworldCoachName: {
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
   },
-  coachEmail: {
+  tennisworldCoachEmail: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },
-  chatButton: {
+  tennisworldChatBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -2042,53 +1801,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginLeft: 28,
   },
-  statsGridCompact: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.xl,
-  },
-  academyCardPrimary: {
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(46, 204, 64, 0.2)",
-  },
-  academyGradient: {
-    padding: Spacing.xl,
-    alignItems: "center",
-  },
-  academyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  memberOfLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  academyNameLarge: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  memberSinceSmall: {
-    ...Typography.small,
-    color: Colors.dark.xpCyan,
-  },
   settingsSection: {
     marginHorizontal: Spacing.xl,
     ...CardStyles.elevated,
     padding: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   settingsItem: {
     flexDirection: "row",
@@ -2143,11 +1860,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
   },
   deleteAccountButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xl,
     marginTop: Spacing.xs,
   },
@@ -2156,269 +1871,58 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     opacity: 0.7,
   },
-  openToPlayCard: {
-    width: "100%",
-    marginTop: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-  },
-  pickOnMapBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingTop: Spacing.xs,
-  },
-  pickOnMapText: {
-    fontSize: Typography.caption.fontSize,
-    color: Colors.dark.xpCyan,
-    fontWeight: "500",
-  },
-  openToPlayGradient: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  openToPlayContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  openToPlayLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  openToPlayIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(100, 100, 100, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  openToPlayIconActive: {
-    backgroundColor: Colors.dark.primary + "30",
-  },
-  openToPlayTitle: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    fontWeight: "600",
-  },
-  openToPlayTitleActive: {
-    color: Colors.dark.primary,
-  },
-  openToPlaySubtitle: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  identityRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  identityChip: {
+  openToPlayPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(0, 212, 255, 0.1)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.lg,
+    marginTop: 8,
   },
-  identityText: {
+  openToPlayDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  openToPlayPillText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
-    fontWeight: "500",
+    fontWeight: "600",
+    flex: 1,
   },
-  socialCard: {
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-  },
-  socialGradient: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.15)",
-  },
-  socialTitle: {
+  settingsSectionLabel: {
     ...Typography.sectionTitle,
-    color: Colors.dark.xpCyan,
-    marginBottom: Spacing.md,
-  },
-  socialStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xl,
-  },
-  socialStat: {
-    alignItems: "center",
-  },
-  socialStatValue: {
-    ...Typography.h2,
-    color: Colors.dark.text,
-  },
-  socialStatLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  socialDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  recentPartnersSection: {
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
-  },
-  recentPartnersLabel: {
-    ...Typography.caption,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
   },
-  recentPartnersAvatars: {
-    flexDirection: "row",
-  },
-  partnerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.xpCyan,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: Colors.dark.backgroundRoot,
-  },
-  partnerAvatarText: {
-    ...Typography.small,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "600",
-  },
-  partnerAvatarMore: {
-    backgroundColor: Backgrounds.card,
-  },
-  partnerAvatarMoreText: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    fontWeight: "600",
-  },
-  creditsCard: {
-    ...CardStyles.glowCard,
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-    padding: Spacing.sm,
-    borderColor: "rgba(255, 215, 0, 0.4)",
-    borderWidth: 1,
-  },
-  creditsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  creditsTitle: {
-    ...Typography.caption,
-    color: Colors.dark.gold,
-    fontWeight: "600",
-  },
-  creditsTotalRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  creditsTotalValue: {
-    ...Typography.h2,
-    color: Colors.dark.gold,
-    fontSize: 24,
-  },
-  creditsTotalLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    fontSize: 10,
-  },
-  creditsTypeRow: {
-    flexDirection: "row",
-    gap: Spacing.xs,
-  },
-  creditsTypeItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: Spacing.xs,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.xs,
-  },
-  creditsTypeValue: {
-    ...Typography.body,
-    color: Colors.dark.xpCyan,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  creditsTypeLabel: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    fontSize: 9,
-  },
-  creditsEmptyText: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  buyCreditsButton: {
-    marginTop: Spacing.xs,
-  },
-  buyCreditsGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    gap: Spacing.xs,
-  },
-  buyCreditsText: {
-    ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
-    fontWeight: "700",
+  settingsDivider: {
+    height: 1,
+    backgroundColor: Colors.dark.border,
+    marginVertical: Spacing.md,
   },
   profileTabs: {
     flexDirection: "row",
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
-    padding: 4,
+    gap: Spacing.xs,
   },
   profileTab: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 4,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-  },
-  profileTabActive: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   profileTabText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+    fontSize: 11,
   },
   profileTabTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   tabContent: {
@@ -2704,26 +2208,6 @@ const styles = StyleSheet.create({
 });
 
 const profileStyles = StyleSheet.create({
-  matchHistoryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: "rgba(204,255,0,0.06)",
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(204,255,0,0.15)",
-    marginHorizontal: Spacing.xs,
-  },
-  matchHistoryBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    flex: 1,
-  },
-  matchHistoryBtnSpacer: {
-    flex: 1,
-  },
   liveMatchBanner: {
     flexDirection: "row",
     alignItems: "center",

@@ -625,7 +625,10 @@
       "days": "أيام",
       "group": "جماعي",
       "private": "خاص",
-      "semiPrivate": "شبه خاص"
+      "semiPrivate": "شبه خاص",
+      "matchHistory": "سجل المباريات",
+      "offRadar": "غير متاح",
+      "creditsAvailable": "متاح"
     },
     "settings": {
       "title": "الإعدادات",

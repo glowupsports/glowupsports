@@ -625,7 +625,10 @@
       "days": "hari",
       "group": "Grup",
       "private": "Privat",
-      "semiPrivate": "Semi-Privat"
+      "semiPrivate": "Semi-Privat",
+      "matchHistory": "Riwayat Pertandingan",
+      "offRadar": "Tidak Aktif",
+      "creditsAvailable": "tersedia"
     },
     "settings": {
       "title": "Pengaturan",

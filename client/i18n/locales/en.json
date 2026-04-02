@@ -626,7 +626,10 @@
       "days": "days",
       "group": "Group",
       "private": "Private",
-      "semiPrivate": "Semi-Private"
+      "semiPrivate": "Semi-Private",
+      "matchHistory": "Match History",
+      "offRadar": "Off Radar",
+      "creditsAvailable": "available"
     },
     "settings": {
       "title": "Settings",
