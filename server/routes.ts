@@ -1525,7 +1525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       };
 
-      // Single query: all active courts with coordinates, plus own-academy courts without coordinates
+      // Single query: all active courts with coordinates (100 km radius), plus own-academy courts without coordinates
       const courtRows = await pool.query<CourtRow>(
         `SELECT c.id, c.name, c.surface, c.sport, c.booking_enabled, c.is_active,
                 l.lat, l.lng, l.address, l.name as location_name,

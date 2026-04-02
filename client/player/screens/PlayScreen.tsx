@@ -1144,7 +1144,7 @@ export default function PlayScreen() {
                   {court.distance != null ? (
                     <View style={styles.nearbyCourtDistanceBadge}>
                       <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
-                      <Text style={styles.nearbyCourtDistanceText}>{court.distance} km</Text>
+                      <Text style={styles.nearbyCourtDistanceText}>{court.distance} km away</Text>
                     </View>
                   ) : (
                     <View style={[styles.nearbyCourtDistanceBadge, { backgroundColor: Colors.dark.backgroundTertiary }]}>
