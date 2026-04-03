@@ -441,6 +441,19 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] coaches GPS columns migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      ALTER TABLE in_session_feedback
+      ADD CONSTRAINT in_session_feedback_session_player_type_unique
+      UNIQUE (session_id, player_id, feedback_type)
+    `);
+    console.log('[Database] in_session_feedback unique constraint applied');
+  } catch (e: any) {
+    // "already exists" is expected after first run — safe to ignore
+    if (!e.message?.includes('already exists')) {
+      console.warn('[Database] in_session_feedback unique constraint skipped:', e.message);
+    }
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
