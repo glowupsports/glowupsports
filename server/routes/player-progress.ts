@@ -2604,7 +2604,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const auth = await assertCoachSessionPlayerAccess(req, res, sessionId, playerId);
         if (!auth) return;
 
-        const { coachId, userId } = auth;
+        const { coachId } = auth;
         const {
           messages,
           structured,
