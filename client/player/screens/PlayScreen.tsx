@@ -23,7 +23,7 @@ import * as Location from "expo-location";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
@@ -92,6 +92,7 @@ interface NearbyPlayer {
   hasHomeAddress?: boolean;
   driveTimeMinutes?: number;
   driveTimeText?: string;
+  lastOnlineAt?: string | null;
 }
 
 type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
@@ -114,6 +115,19 @@ interface NearbyCourt {
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
 
 const BALL_LEVELS = ["my_level", "all", "blue", "red", "orange", "green", "yellow", "glow"] as const;
+
+function formatLastSeen(iso?: string | null): string {
+  if (!iso) return "long ago";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 5) return "online now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return "this week+";
+}
 
 function getBallLevelColor(level: string): string {
   const l = level?.toLowerCase() || "";
@@ -183,6 +197,7 @@ export default function PlayScreen() {
     }
   }, [route.params?.initialTab]);
 
+  const [brokenAvatars, setBrokenAvatars] = useState<Set<string>>(new Set());
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
@@ -1268,11 +1283,12 @@ export default function PlayScreen() {
         onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
       >
         <View style={[styles.compactAvatarRing, { borderColor: ballColor }]}>
-          {player.avatarUrl ? (
+          {player.avatarUrl && !brokenAvatars.has(player.id) ? (
             <ExpoImage 
-              source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }}
+              source={{ uri: buildPhotoUrl(player.avatarUrl) ?? undefined }}
               style={styles.compactAvatarImage}
               contentFit="cover"
+              onError={() => setBrokenAvatars(prev => new Set([...prev, player.id]))}
             />
           ) : (
             <View style={[styles.compactAvatarPlaceholder, { backgroundColor: ballColor + "30" }]}>
@@ -1292,18 +1308,10 @@ export default function PlayScreen() {
             <View style={[styles.compactLevelBadge, { backgroundColor: ballColor + "25" }]}>
               <Text style={[styles.compactLevelText, { color: ballColor }]}>{ballLabel}</Text>
             </View>
-            <View style={styles.compactXpLevelBadge}>
-              <Ionicons name="star" size={10} color={Colors.dark.gold} />
-              <Text style={styles.compactXpLevelText}>Lvl {player.level}</Text>
+            <View style={styles.compactLastSeenBadge}>
+              <Ionicons name="time-outline" size={10} color={Colors.dark.textSubtle} />
+              <Text style={styles.compactLastSeenText}>{formatLastSeen(player.lastOnlineAt)}</Text>
             </View>
-            {player.driveTimeMinutes != null ? (
-              <View style={styles.compactDriveTimeBadge}>
-                <Ionicons name="car-outline" size={10} color={Colors.dark.textSubtle} />
-                <Text style={styles.compactDriveTimeText}>~{player.driveTimeMinutes} min</Text>
-              </View>
-            ) : player.vibe ? (
-              <Text style={styles.compactVibeText} numberOfLines={1}>{player.vibe}</Text>
-            ) : null}
             {player.hasHomeAddress ? (
               <View style={styles.homeAddressBadge}>
                 <Ionicons name="home" size={10} color={Colors.dark.xpCyan} />
@@ -2953,6 +2961,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   compactDriveTimeText: {
+    fontSize: 10,
+    color: Colors.dark.textSubtle,
+  },
+  compactLastSeenBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  compactLastSeenText: {
     fontSize: 10,
     color: Colors.dark.textSubtle,
   },
