@@ -50,7 +50,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
     sessionAiSummaries, playerAiInsights, sessionAiChats,
-    coaches, glowSkills, playerSkillScores,
+    glowSkills, playerSkillScores,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -2410,16 +2410,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        const openaiKey = process.env.OPENAI_API_KEY;
-        if (!openaiKey) {
-          return res.status(503).json({ error: "AI service not configured" });
+        if (!process.env.OPENAI_API_KEY) {
+          return res.json({ narrative: null, focusAreas: [] });
         }
 
         const { generateProgressNarrative } = await import("../services/ai-progress-engine");
 
         const result = await generateProgressNarrative(id, academyId, days);
         if (!result) {
-          return res.status(500).json({ error: "Failed to generate narrative" });
+          return res.json({ narrative: null, focusAreas: [] });
         }
 
         const [saved] = await db
@@ -2445,6 +2444,42 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
   // ==================== AI COACHING CHAT ====================
 
+  type AiChatMessage = { role: "user" | "assistant"; content: string };
+
+  async function assertCoachSessionPlayerAccess(
+    req: AuthenticatedRequest,
+    res: Response,
+    sessionId: string,
+    playerId: string
+  ): Promise<{ coachId: string; userId: string } | null> {
+    const coachId = req.user!.coachId || "";
+    const userId = req.user!.id;
+    const academyId = req.user!.academyId || "";
+    const userRole = req.user!.role;
+
+    const isCoachRole = ["coach", "assistant", "academy_owner", "platform_owner"].includes(userRole);
+    if (!isCoachRole || !coachId) {
+      res.status(403).json({ error: "Coach access required" });
+      return null;
+    }
+
+    // Validate player belongs to coach's academy
+    const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+    if (!playerValid) {
+      res.status(404).json({ error: "Player not found" });
+      return null;
+    }
+
+    // Validate session belongs to coach's academy
+    const { valid: sessionValid } = await validateSessionOwnership(sessionId, academyId, storage);
+    if (!sessionValid) {
+      res.status(404).json({ error: "Session not found" });
+      return null;
+    }
+
+    return { coachId, userId };
+  }
+
   // GET /api/sessions/:sessionId/players/:playerId/ai-chat/context
   router.get(
     "/api/sessions/:sessionId/players/:playerId/ai-chat/context",
@@ -2452,9 +2487,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { sessionId, playerId } = req.params;
-        const coachId = req.user!.coachId || "";
+        const auth = await assertCoachSessionPlayerAccess(req, res, sessionId, playerId);
+        if (!auth) return;
+
         const { buildPlayerAIContext } = await import("../services/ai-progress-engine");
-        const ctx = await buildPlayerAIContext(playerId, sessionId, coachId);
+        const ctx = await buildPlayerAIContext(playerId, sessionId, auth.coachId);
         if (!ctx) return res.status(404).json({ error: "Player or session not found" });
         res.json(ctx);
       } catch (error) {
@@ -2471,15 +2508,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { sessionId, playerId } = req.params;
-        const { messages } = req.body as { messages: { role: string; content: string }[] };
-        const coachId = req.user!.coachId || "";
+        const auth = await assertCoachSessionPlayerAccess(req, res, sessionId, playerId);
+        if (!auth) return;
+
+        const { messages } = req.body as { messages: AiChatMessage[] };
+        const safeMessages: AiChatMessage[] = (messages || []).filter(
+          (m) => m.role === "user" || m.role === "assistant"
+        );
 
         if (!process.env.OPENAI_API_KEY) {
-          return res.status(503).json({ error: "AI service not configured" });
+          return res.json({ reply: null });
         }
 
         const { buildPlayerAIContext, buildCoachingSystemPrompt } = await import("../services/ai-progress-engine");
-        const ctx = await buildPlayerAIContext(playerId, sessionId, coachId);
+        const ctx = await buildPlayerAIContext(playerId, sessionId, auth.coachId);
         if (!ctx) return res.status(404).json({ error: "Player or session not found" });
 
         const systemPrompt = buildCoachingSystemPrompt(ctx);
@@ -2489,7 +2531,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
-            ...messages.filter((m) => m.role === "user" || m.role === "assistant"),
+            ...safeMessages,
           ],
           max_tokens: 400,
           temperature: 0.6,
@@ -2508,7 +2550,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           };
           const req2 = https.request(options, (r) => {
             let data = "";
-            r.on("data", (chunk) => { data += chunk; });
+            r.on("data", (chunk: Buffer) => { data += chunk; });
             r.on("end", () => {
               try {
                 const parsed = JSON.parse(data);
@@ -2538,13 +2580,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { sessionId, playerId } = req.params;
-        const coachId = req.user!.coachId || "";
-        const userId = req.user!.id;
+        const auth = await assertCoachSessionPlayerAccess(req, res, sessionId, playerId);
+        if (!auth) return;
+
+        const { coachId, userId } = auth;
         const {
           messages,
           structured,
         }: {
-          messages: { role: string; content: string }[];
+          messages: AiChatMessage[];
           structured: {
             sessionNote: string;
             overall: string;
@@ -2557,14 +2601,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           };
         } = req.body;
 
-        if (!coachId) return res.status(403).json({ error: "Not a coach account" });
+        const safeMessages: AiChatMessage[] = (messages || []).filter(
+          (m): m is AiChatMessage => m.role === "user" || m.role === "assistant"
+        );
 
         // 1. Save conversation to session_ai_chats
         await db.insert(sessionAiChats).values({
           sessionId,
           playerId,
           coachId,
-          messages: messages as any,
+          messages: safeMessages,
           committed: true,
         });
 
@@ -2613,8 +2659,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // 5. Level-up readiness flag (optional: store as a ball level record or note)
-        // For now we log it — full level-up system managed separately
+        // 5. Log level-up readiness (full level-up system managed separately)
         if (structured.levelUpFlag) {
           console.log(`[AIChat] Level-up readiness flagged for player ${playerId}: ${structured.levelUpMessage}`);
         }
