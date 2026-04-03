@@ -2315,7 +2315,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       for (const row of rows.rows as Array<{ baseline_id: string; date: Date; pillar: string; avg_rating: number }>) {
         const key = row.baseline_id;
         if (!byBaseline[key]) {
-          byBaseline[key] = { date: row.date.toISOString(), scores: {} };
+          byBaseline[key] = { date: new Date(row.date).toISOString(), scores: {} };
         }
         byBaseline[key].scores[row.pillar.toUpperCase()] = Number(row.avg_rating);
       }
