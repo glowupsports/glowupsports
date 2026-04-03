@@ -2897,11 +2897,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const academyId = req.user?.academyId || null;
         const platform = ["ios", "android", "web"].includes(clientPlatform) ? clientPlatform : "web";
 
-        // Fire-and-forget: insert without waiting for a full response
+        // Fire-and-forget: check role from DB and skip recording for staff/owner roles
         pool.query(
-          `INSERT INTO feature_events (user_id, academy_id, feature, platform) VALUES ($1, $2, $3, $4)`,
-          [userId, academyId, feature.substring(0, 100), platform],
-        ).catch(() => {});
+          `SELECT role FROM users WHERE id = $1`,
+          [userId],
+        ).then((roleResult) => {
+          const staffRoles = ["platform_owner", "academy_owner", "owner", "admin", "coach", "assistant"];
+          const dbRole = roleResult.rows[0]?.role as string | undefined;
+          if (dbRole && staffRoles.includes(dbRole)) return;
+          pool.query(
+            `INSERT INTO feature_events (user_id, academy_id, feature, platform) VALUES ($1, $2, $3, $4)`,
+            [userId, academyId, feature.substring(0, 100), platform],
+          ).catch(() => {});
+        }).catch(() => {});
 
         res.status(204).end();
       } catch {
@@ -2924,16 +2932,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         let academyFilter = "";
         if (academyId) {
           params.push(academyId);
-          academyFilter = `AND academy_id = $${params.length}`;
+          academyFilter = `AND fe.academy_id = $${params.length}`;
         }
 
         const result = await pool.query(
-          `SELECT feature,
+          `SELECT fe.feature,
                   COUNT(*)::int AS total
-           FROM feature_events
-           WHERE created_at >= NOW() - ($1 || ' days')::interval
+           FROM feature_events fe
+           JOIN users u ON u.id = fe.user_id
+           WHERE fe.created_at >= NOW() - ($1 || ' days')::interval
+             AND u.role NOT IN ('platform_owner', 'academy_owner', 'owner', 'admin', 'coach', 'assistant')
            ${academyFilter}
-           GROUP BY feature
+           GROUP BY fe.feature
            ORDER BY total DESC`,
           params,
         );
@@ -3033,6 +3043,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                JOIN users u ON u.id = fe.user_id
                WHERE fe.created_at >= NOW() - ($1 || ' days')::interval
                  AND u.player_id IS NOT NULL
+                 AND u.role NOT IN ('platform_owner', 'academy_owner', 'owner', 'admin', 'coach', 'assistant')
                GROUP BY u.player_id, fe.feature
              ),
              player_totals AS (
@@ -3057,7 +3068,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
            JOIN players p ON p.id = pt.player_id
            LEFT JOIN academies a ON a.id = p.academy_id
            LEFT JOIN fe_period fp ON fp.player_id = pt.player_id
-           WHERE 1=1 ${academyFilter}
+           WHERE NOT EXISTS (
+             SELECT 1 FROM users pu
+             WHERE pu.player_id = p.id
+               AND pu.role IN ('platform_owner', 'academy_owner', 'owner', 'admin', 'coach', 'assistant')
+           )
+           ${academyFilter}
            GROUP BY p.id, p.name, p.level, p.total_xp, p.streak, a.id, a.name, pt.period_total
            ORDER BY pt.period_total DESC`,
           params,
