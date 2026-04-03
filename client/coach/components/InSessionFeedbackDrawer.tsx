@@ -168,6 +168,8 @@ export default function InSessionFeedbackDrawer({
     if (visible && initialPlayerId && players.length > 0) {
       const match = players.find((p) => p.id === initialPlayerId) ?? null;
       if (match) setSelectedPlayer(match);
+    } else if (visible && !initialPlayerId && players.length === 1) {
+      setSelectedPlayer(players[0]);
     }
   }, [visible, initialPlayerId, players]);
 
@@ -450,7 +452,7 @@ export default function InSessionFeedbackDrawer({
           <View style={styles.handle} />
           
           <View style={styles.header}>
-            <Text style={styles.title}>Quick Feedback</Text>
+            <Text style={styles.title}>Feedback</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
