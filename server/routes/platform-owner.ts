@@ -2934,8 +2934,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
            WHERE created_at >= NOW() - ($1 || ' days')::interval
            ${academyFilter}
            GROUP BY feature
-           ORDER BY total DESC
-           LIMIT 50`,
+           ORDER BY total DESC`,
           params,
         );
 
