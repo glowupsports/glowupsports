@@ -293,7 +293,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
               <Text style={styles.emptyTitle}>No insights yet</Text>
               <Text style={styles.emptySubtitle}>
                 {myProfile
-                  ? "Insights are generated automatically after sessions with feedback."
+                  ? "Tap below to generate your first development story, or complete a session with feedback to get one automatically."
                   : "Complete a session with feedback to see the first digest."}
               </Text>
               {effectivePlayerId ? (
@@ -334,14 +334,13 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
               {narrative.focusAreas && narrative.focusAreas.length > 0 ? (
                 <View style={styles.focusBlock}>
                   <Text style={styles.focusLabel}>Recommended Focus Areas</Text>
-                  {narrative.focusAreas.map((area, i) => (
-                    <View key={i} style={styles.focusRow}>
-                      <View style={styles.focusNumber}>
-                        <Text style={styles.focusNumberText}>{i + 1}</Text>
+                  <View style={styles.chipsRow}>
+                    {narrative.focusAreas.map((area, i) => (
+                      <View key={i} style={styles.focusChip}>
+                        <Text style={styles.focusChipText}>{area}</Text>
                       </View>
-                      <Text style={styles.focusText}>{area}</Text>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
                 </View>
               ) : null}
             </View>
@@ -510,32 +509,24 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  focusRow: {
+  chipsRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  focusNumber: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  focusChip: {
     backgroundColor: Colors.dark.primary + "20",
-    justifyContent: "center",
-    alignItems: "center",
-    flexShrink: 0,
-    marginTop: 1,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    borderRadius: 999,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
-  focusNumberText: {
-    ...Typography.caption,
-    color: Colors.dark.primary,
-    fontWeight: "700",
-    fontSize: 10,
-  },
-  focusText: {
+  focusChipText: {
     ...Typography.small,
-    color: Colors.dark.text,
-    flex: 1,
-    lineHeight: 18,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    fontSize: 12,
   },
   chartBlock: {
     backgroundColor: Colors.dark.backgroundSecondary,
