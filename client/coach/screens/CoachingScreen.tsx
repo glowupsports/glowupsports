@@ -7,7 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
@@ -43,19 +43,27 @@ export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const [activeTab, setActiveTab] = useState<TabType>("series");
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const { coach } = useCoach();
   const { registerTabCallback } = useTabNavigation();
 
   useEffect(() => {
     const unregister = registerTabCallback("Coaching", (screen: string) => {
-      if (screen === "feedback") {
-        setActiveTab("feedback");
+      if (screen === "feedback" || screen === "today") {
+        setActiveTab("today");
       }
     });
     return unregister;
   }, [registerTabCallback]);
-  // Fetch coach XP and stats
+
+  useEffect(() => {
+    if (route.params?.openTab) {
+      setActiveTab(route.params.openTab as TabType);
+    }
+  }, [route.params?.openTab]);
+
   const { data: xpData } = useQuery<{ level: number; totalXp: number; currentLevelXp: number; nextLevelXp: number; xpProgress: number }>({
     queryKey: [`/api/coach/${coach?.id}/xp`],
     enabled: !!coach?.id,
@@ -65,6 +73,17 @@ export default function CoachingScreen() {
     queryKey: [`/api/coach/${coach?.id}/stats`],
     enabled: !!coach?.id,
   });
+
+  const { data: pendingActions } = useQuery<{
+    pendingRatings: number;
+    trialReady: number;
+    newReviews: number;
+  }>({
+    queryKey: [`/api/coach/pending-actions`],
+    enabled: !!coach?.id,
+    staleTime: 60000,
+  });
+
   const headerPulse = useSharedValue(0.4);
   const iconGlow = useSharedValue(1);
 
@@ -95,6 +114,12 @@ export default function CoachingScreen() {
     transform: [{ scale: iconGlow.value }],
   }));
 
+  const hasPendingActions =
+    !bannerDismissed &&
+    ((pendingActions?.pendingRatings ?? 0) > 0 ||
+      (pendingActions?.trialReady ?? 0) > 0 ||
+      (pendingActions?.newReviews ?? 0) > 0);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
@@ -103,7 +128,6 @@ export default function CoachingScreen() {
       />
 
       {/* Compact Header */}
-      
       <View style={styles.compactHeader}>
         <View style={styles.compactHeaderLeft}>
           <View style={styles.compactLevelBadge}>
@@ -124,13 +148,75 @@ export default function CoachingScreen() {
           <Text style={styles.compactStatLabel}>SESSIONS</Text>
         </View>
       </View>
-      
+
+      {/* Pending Actions Banner (A4) */}
+      {hasPendingActions ? (
+        <View style={localStyles.pendingBanner}>
+          <View style={localStyles.pendingBannerContent}>
+            <Text style={localStyles.pendingBannerTitle}>Today's Actions</Text>
+            <View style={localStyles.pendingBannerItems}>
+              {(pendingActions?.pendingRatings ?? 0) > 0 ? (
+                <Pressable
+                  style={localStyles.pendingItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab("today");
+                  }}
+                >
+                  <Ionicons name="time-outline" size={12} color={Colors.dark.gold} />
+                  <Text style={localStyles.pendingItemText}>
+                    {pendingActions!.pendingRatings} session{pendingActions!.pendingRatings !== 1 ? "s" : ""} need ratings
+                  </Text>
+                </Pressable>
+              ) : null}
+              {(pendingActions?.trialReady ?? 0) > 0 ? (
+                <Pressable
+                  style={localStyles.pendingItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab("levels");
+                  }}
+                >
+                  <Ionicons name="star-outline" size={12} color={Colors.dark.successNeon} />
+                  <Text style={localStyles.pendingItemText}>
+                    {pendingActions!.trialReady} player{pendingActions!.trialReady !== 1 ? "s" : ""} ready for trial
+                  </Text>
+                </Pressable>
+              ) : null}
+              {(pendingActions?.newReviews ?? 0) > 0 ? (
+                <Pressable
+                  style={localStyles.pendingItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("MyReviews");
+                  }}
+                >
+                  <Ionicons name="star-half-outline" size={12} color={Colors.dark.xpCyan} />
+                  <Text style={localStyles.pendingItemText}>
+                    {pendingActions!.newReviews} new player review{pendingActions!.newReviews !== 1 ? "s" : ""}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+          <Pressable
+            onPress={() => setBannerDismissed(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Category: PLANNING TOOLS */}
+      <View style={localStyles.categoryHeader}>
+        <Text style={localStyles.categoryLabel}>PLANNING TOOLS</Text>
+      </View>
 
       {/* Compact Pill Tabs */}
-      
       <View style={styles.pillTabContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.pillTabScroll}
         >
@@ -139,7 +225,6 @@ export default function CoachingScreen() {
             { id: "weekPlanner", label: "Week View", icon: "calendar-outline", color: Colors.dark.primary },
             { id: "roster", label: "Roster", icon: "people-outline", color: "#FF8C00" },
             { id: "plans", label: "Plans", icon: "bulb", color: Colors.dark.gold },
-            { id: "feedback", label: "Feedback", icon: "chatbubble-ellipses", color: Colors.dark.successNeon },
           ] as const).map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -169,13 +254,69 @@ export default function CoachingScreen() {
           })}
         </ScrollView>
       </View>
-      
+
+      {/* Category: FEEDBACK & ASSESSMENT */}
+      <View style={localStyles.categoryHeader}>
+        <Text style={localStyles.categoryLabel}>FEEDBACK & ASSESSMENT</Text>
+      </View>
+
+      {/* Feedback & Assessment Tools Row */}
+      <View style={styles.glowToolsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.glowToolsScroll}
+        >
+          <Pressable
+            style={[styles.glowToolButton, (activeTab === "today" || activeTab === "feedback") && styles.glowToolButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab(activeTab === "today" ? "series" : "today");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.successNeon + "20" }, (activeTab === "today" || activeTab === "feedback") && { backgroundColor: Colors.dark.successNeon + "40" }]}>
+              <Ionicons name="star-outline" size={18} color={Colors.dark.successNeon} />
+            </View>
+            <Text style={[styles.glowToolLabel, (activeTab === "today" || activeTab === "feedback") && { color: Colors.dark.successNeon }]}>Rate Sessions</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.glowToolButton, activeTab === "progress" && styles.glowToolButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab(activeTab === "progress" ? "series" : "progress");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.xpCyan + "20" }, activeTab === "progress" && { backgroundColor: Colors.dark.xpCyan + "40" }]}>
+              <Ionicons name="trending-up-outline" size={18} color={Colors.dark.xpCyan} />
+            </View>
+            <Text style={[styles.glowToolLabel, activeTab === "progress" && { color: Colors.dark.xpCyan }]}>Progress</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.glowToolButton, activeTab === "levels" && styles.glowToolButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab(activeTab === "levels" ? "series" : "levels");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.gold + "20" }, activeTab === "levels" && { backgroundColor: Colors.dark.gold + "40" }]}>
+              <Ionicons name="trophy-outline" size={18} color={Colors.dark.gold} />
+            </View>
+            <Text style={[styles.glowToolLabel, activeTab === "levels" && { color: Colors.dark.gold }]}>Glow Levels</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+
+      {/* Category: CONTENT TOOLS */}
+      <View style={localStyles.categoryHeader}>
+        <Text style={localStyles.categoryLabel}>CONTENT TOOLS</Text>
+      </View>
 
       {/* Glow Tools Quick Access Row */}
-      
       <View style={styles.glowToolsContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.glowToolsScroll}
         >
@@ -245,7 +386,6 @@ export default function CoachingScreen() {
           </Pressable>
         </ScrollView>
       </View>
-      
 
       {activeTab === "series" ? (
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
@@ -277,6 +417,57 @@ export default function CoachingScreen() {
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  pendingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.gold,
+    gap: Spacing.sm,
+  },
+  pendingBannerContent: {
+    flex: 1,
+  },
+  pendingBannerTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  pendingBannerItems: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  pendingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  pendingItemText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+  },
+  categoryHeader: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.xs,
+    paddingBottom: 2,
+  },
+  categoryLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+  },
+});
 
 interface SessionPlayer {
   id: string;

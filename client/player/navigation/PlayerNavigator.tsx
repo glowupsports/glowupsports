@@ -566,7 +566,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
     { key: "Schedule", label: "Sched", icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
     { key: "Quests", label: "Quests", icon: "flash-outline", iconFocused: "flash", component: QuestsScreen },
-    { key: "Progress", label: "Stats", icon: "stats-chart-outline", iconFocused: "stats-chart", component: ProgressStackNavigator },
+    { key: "Progress", label: "Progress", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
     { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
   ], [t]);
   

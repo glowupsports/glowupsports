@@ -1,7 +1,9 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionDetailDrawer";
 import { styles } from "../coachingStyles";
@@ -10,6 +12,7 @@ import type { FeedbackTabState } from "./useFeedbackTab";
 type ViewPeriod = "week" | "month";
 
 export function SessionListView(props: FeedbackTabState) {
+  const navigation = useNavigation<any>();
   const {
     viewPeriod, setViewPeriod,
     periodOffset, setPeriodOffset,
@@ -27,6 +30,11 @@ export function SessionListView(props: FeedbackTabState) {
     getSessionXp,
     formatTime,
   } = props;
+
+  const { data: reviewsData } = useQuery<{ stats: { totalReviews: number; averageOverall: number | null } | null; reviews: any[] }>({
+    queryKey: ["/api/coach/my-reviews"],
+    staleTime: 120000,
+  });
 
   // State for accordion expansion is defined as expandedDays below
   
@@ -80,6 +88,9 @@ export function SessionListView(props: FeedbackTabState) {
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 
+  const hasReviews = (reviewsData?.stats?.totalReviews ?? 0) > 0;
+  const avgRating = reviewsData?.stats?.averageOverall ?? 0;
+
   return (
     <>
     <ScrollView
@@ -87,6 +98,31 @@ export function SessionListView(props: FeedbackTabState) {
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
     >
+      {/* E2: My Reviews Compact Card */}
+      {hasReviews ? (
+        <Pressable
+          style={listLocalStyles.reviewsCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("MyReviews");
+          }}
+        >
+          <View style={listLocalStyles.reviewsCardLeft}>
+            <Ionicons name="star" size={16} color={Colors.dark.gold} />
+            <Text style={listLocalStyles.reviewsRating}>
+              {avgRating.toFixed(1)}
+            </Text>
+            <Text style={listLocalStyles.reviewsCount}>
+              from {reviewsData!.stats!.totalReviews} review{reviewsData!.stats!.totalReviews !== 1 ? "s" : ""}
+            </Text>
+          </View>
+          <View style={listLocalStyles.reviewsCardRight}>
+            <Text style={listLocalStyles.reviewsSeeAll}>See all</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.dark.xpCyan} />
+          </View>
+        </Pressable>
+      ) : null}
+
       {/* Period Toggle (Week/Month) */}
       <View style={styles.periodToggleRow}>
         {(["week", "month"] as const).map((period) => {
@@ -303,6 +339,11 @@ export function SessionListView(props: FeedbackTabState) {
                         ? sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
                         : null;
                       
+                      const sessionStartTime = session.startTime ? new Date(session.startTime) : null;
+                      const isPastSession = sessionStartTime ? sessionStartTime < new Date() : false;
+                      const isScheduled = !isPastSession && session.status !== "completed";
+                      const feedbackStatus = hasSessionFeedback(session) ? "done" : isScheduled ? "scheduled" : "pending";
+
                       return (
                         <Pressable
                           key={session.id}
@@ -387,22 +428,27 @@ export function SessionListView(props: FeedbackTabState) {
                             </View>
                             
                             <View style={styles.richSessionFooter}>
-                              {needsFeedback ? (
+                              {feedbackStatus === "scheduled" ? (
+                                <View style={[styles.richCompletedBadge, { backgroundColor: Colors.dark.xpCyan + "15", borderColor: Colors.dark.xpCyan + "40" }]}>
+                                  <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
+                                  <Text style={[styles.richCompletedText, { color: Colors.dark.xpCyan }]}>Scheduled</Text>
+                                </View>
+                              ) : feedbackStatus === "pending" ? (
                                 <View style={styles.xpRewardBadge}>
-                                  <Ionicons name="flash" size={12} color={Colors.dark.gold} />
-                                  <Text style={styles.xpRewardText}>+{sessionXp} XP</Text>
+                                  <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
+                                  <Text style={styles.xpRewardText}>Needs Feedback</Text>
                                 </View>
                               ) : (
                                 <View style={styles.richCompletedBadge}>
                                   <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
-                                  <Text style={styles.richCompletedText}>Completed</Text>
+                                  <Text style={styles.richCompletedText}>Done</Text>
                                 </View>
                               )}
                               <View style={styles.feedbackActionRow}>
-                                <Text style={[styles.feedbackActionText, !needsFeedback && { color: Colors.dark.xpCyan }]}>
-                                  {needsFeedback ? "Add Feedback" : "View Details"}
+                                <Text style={[styles.feedbackActionText, feedbackStatus === "done" && { color: Colors.dark.xpCyan }]}>
+                                  {feedbackStatus === "done" ? "View Details" : feedbackStatus === "scheduled" ? "View Session" : "Add Feedback"}
                                 </Text>
-                                <Ionicons name="chevron-forward" size={16} color={needsFeedback ? Colors.dark.gold : Colors.dark.xpCyan} />
+                                <Ionicons name="chevron-forward" size={16} color={feedbackStatus === "done" ? Colors.dark.xpCyan : Colors.dark.gold} />
                               </View>
                             </View>
                           </View>
@@ -434,3 +480,43 @@ export function SessionListView(props: FeedbackTabState) {
   </>
   );
 }
+
+const listLocalStyles = StyleSheet.create({
+  reviewsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+  },
+  reviewsCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  reviewsRating: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+  },
+  reviewsCount: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  reviewsCardRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  reviewsSeeAll: {
+    fontSize: 12,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+});

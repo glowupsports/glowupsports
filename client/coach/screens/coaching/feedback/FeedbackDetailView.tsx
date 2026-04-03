@@ -50,6 +50,15 @@ export function FeedbackDetailView(props: FeedbackTabState) {
 
   if (!selectedSession) return null;
 
+  const STEPS = ["Intensity", "Mood", "Players", "Note"];
+  const stepsDone = [
+    intensity !== null && intensity !== undefined && intensity !== "",
+    mood !== null && mood !== undefined && mood !== "",
+    playerFeedback.some(pf => pf.progressTrend !== "stable" || pf.effortLevel !== "normal" || pf.note),
+    generalNote.trim().length > 0,
+  ];
+  const stepsComplete = stepsDone.filter(Boolean).length;
+
   return (
       <View style={{ flex: 1 }}>
         {showSuccess ? (
@@ -57,7 +66,7 @@ export function FeedbackDetailView(props: FeedbackTabState) {
             <View style={styles.successContent}>
               <Ionicons name="checkmark-circle" size={64} color={Colors.dark.primary} />
               <Text style={styles.successText}>Feedback Saved</Text>
-              <Text style={styles.successSubtext}>Progress updated for all players</Text>
+              <Text style={styles.successSubtext}>Feedback saved — pillar scores updated</Text>
             </View>
           </View>
         ) : null}
@@ -76,6 +85,36 @@ export function FeedbackDetailView(props: FeedbackTabState) {
           <Text style={styles.feedbackTime}>
             {formatTime(selectedSession.startTime)} - {formatTime(selectedSession.endTime)}
           </Text>
+        </View>
+
+        {/* Step Progress Indicator (B4) */}
+        <View style={{ paddingHorizontal: Spacing.lg, marginBottom: Spacing.md }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>
+              {stepsComplete === STEPS.length ? "Ready to save" : `${stepsComplete} of ${STEPS.length} sections filled`}
+            </Text>
+            <Text style={{ fontSize: 11, color: stepsComplete === STEPS.length ? Colors.dark.successNeon : Colors.dark.xpCyan }}>
+              {Math.round((stepsComplete / STEPS.length) * 100)}%
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 4 }}>
+            {STEPS.map((step, i) => (
+              <View key={step} style={{ flex: 1 }}>
+                <View
+                  style={{
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: stepsDone[i]
+                      ? Colors.dark.xpCyan
+                      : Colors.dark.backgroundSecondary,
+                  }}
+                />
+                <Text style={{ fontSize: 9, color: stepsDone[i] ? Colors.dark.xpCyan : Colors.dark.textMuted, marginTop: 3, textAlign: "center" }}>
+                  {step}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={styles.feedbackSection}>

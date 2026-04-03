@@ -20,6 +20,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
   import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
+  import { updatePillarProgress } from "../utils/pillarProgress";
   import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
   import {
@@ -994,6 +995,24 @@ const router = Router();
         storage
           .updateCoachStatsFromObservations(coachId)
           .catch((err) => console.error("Failed to update coach stats:", err));
+
+        // Also update pillar progress from observations as server-side fallback (B3)
+        if (observations.length > 0) {
+          const effortMap: Record<string, number> = { high: 2, normal: 1, low: 0 };
+          const directionMap: Record<string, number> = { up: 2, stable: 1, down: 0 };
+          const avgEffort = effortLevels.length > 0
+            ? effortLevels.reduce((sum, e) => sum + (effortMap[e] ?? 1), 0) / effortLevels.length
+            : 1;
+          const avgExecution = observations.length > 0
+            ? observations.reduce((sum: number, o: any) => sum + (directionMap[o.direction] ?? 1), 0) / observations.length
+            : 1;
+          updatePillarProgress(playerId, sessionId, {
+            effort: Math.round(avgEffort),
+            execution: Math.round(avgExecution),
+            understanding: 1,
+            overall: avgExecution > 1.2 ? "improved" : avgExecution < 0.8 ? "declined" : "stable",
+          }).catch((err) => console.error("Failed to update pillar progress from observations:", err));
+        }
 
         res.status(201).json({
           observations: results,

@@ -1074,6 +1074,46 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // GET /api/player/me/glow-ratings - Get player's glow session ratings (effort/execution/understanding from coaches)
+  router.get(
+    "/api/player/me/glow-ratings",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(400).json({ error: "Player not found" });
+        }
+
+        const ratings = await db
+          .select({
+            id: sessionSkillFeedback.id,
+            sessionId: sessionSkillFeedback.sessionId,
+            effort: sessionSkillFeedback.effort,
+            execution: sessionSkillFeedback.execution,
+            understanding: sessionSkillFeedback.understanding,
+            overall: sessionSkillFeedback.overall,
+            note: sessionSkillFeedback.note,
+            createdAt: sessionSkillFeedback.createdAt,
+            sessionDate: sessions.startTime,
+            coachName: coaches.name,
+          })
+          .from(sessionSkillFeedback)
+          .leftJoin(sessions, eq(sessions.id, sessionSkillFeedback.sessionId))
+          .leftJoin(coaches, eq(coaches.id, sessionSkillFeedback.coachId))
+          .where(eq(sessionSkillFeedback.playerId, playerId))
+          .orderBy(desc(sessionSkillFeedback.createdAt))
+          .limit(10);
+
+        res.json(ratings);
+      } catch (error) {
+        console.error("Error fetching player glow ratings:", error);
+        res.status(500).json({ error: "Failed to fetch glow ratings" });
+      }
+    },
+  );
+
   // ==================== PLAYER NOTIFICATIONS ====================
 
   // GET /api/player/me/notifications - Get player's notifications

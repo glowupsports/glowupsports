@@ -1724,6 +1724,23 @@ export default function PlayerProgressScreen() {
     enabled: !isGuest,
   });
 
+  interface GlowRatingItem {
+    id: string;
+    sessionId: string;
+    effort: number;
+    execution: number;
+    understanding: number;
+    overall: string;
+    note: string | null;
+    createdAt: string;
+    sessionDate: string | null;
+    coachName: string | null;
+  }
+  const { data: glowRatings = [] } = useQuery<GlowRatingItem[]>({
+    queryKey: ["/api/player/me/glow-ratings"],
+    enabled: !isGuest,
+  });
+
   const { data: videoFeedbacks } = useQuery<VideoFeedbackItem[]>({
     queryKey: ["/api/player/me/video-feedback"],
     enabled: !isGuest,
@@ -2231,6 +2248,68 @@ export default function PlayerProgressScreen() {
                   <Text style={styles.insightText}>{area}</Text>
                 </View>
               ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Latest Coach Ratings (Section 2 - D1) */}
+        {glowRatings.length > 0 ? (
+          <View style={styles.feedbackSection}>
+            <View style={styles.feedbackHeader}>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.sectionIconSmall, { backgroundColor: Colors.dark.successNeon + "20" }]}>
+                  <Ionicons name="star" size={16} color={Colors.dark.successNeon} />
+                </View>
+                <Text style={styles.sectionTitle}>Latest Coach Ratings</Text>
+              </View>
+            </View>
+            <View style={styles.feedbackList}>
+              {glowRatings.slice(0, 3).map((rating) => {
+                const overallColor = rating.overall === "improved" ? Colors.dark.successNeon : rating.overall === "declined" ? Colors.dark.error : Colors.dark.textMuted;
+                const overallIcon = rating.overall === "improved" ? "trending-up" : rating.overall === "declined" ? "trending-down" : "remove";
+                const overallLabel = rating.overall === "improved" ? "Improved" : rating.overall === "declined" ? "Declined" : "Stable";
+                return (
+                  <View key={rating.id} style={styles.noteCard}>
+                    <View style={styles.noteCardHeader}>
+                      <Text style={styles.noteDateText}>{formatShortDate(rating.sessionDate || rating.createdAt)}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name={overallIcon as any} size={12} color={overallColor} />
+                        <Text style={[styles.noteTypeText, { color: overallColor }]}>{overallLabel}</Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 12, marginVertical: 6 }}>
+                      {[
+                        { label: "Effort", value: rating.effort },
+                        { label: "Execution", value: rating.execution },
+                        { label: "Understanding", value: rating.understanding },
+                      ].map((metric) => (
+                        <View key={metric.label} style={{ alignItems: "center", flex: 1 }}>
+                          <Text style={{ fontSize: 10, color: Colors.dark.textMuted, marginBottom: 2 }}>{metric.label}</Text>
+                          <View style={{ flexDirection: "row", gap: 2 }}>
+                            {[0, 1, 2].map((i) => (
+                              <View
+                                key={i}
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 4,
+                                  backgroundColor: i <= (metric.value ?? 0) ? Colors.dark.xpCyan : Colors.dark.backgroundSecondary,
+                                }}
+                              />
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                    {rating.note ? (
+                      <Text style={styles.noteMessage} numberOfLines={2}>{rating.note}</Text>
+                    ) : null}
+                    {rating.coachName ? (
+                      <Text style={styles.noteCoach}>{rating.coachName}</Text>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
           </View>
         ) : null}

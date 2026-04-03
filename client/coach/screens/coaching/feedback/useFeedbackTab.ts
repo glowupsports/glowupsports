@@ -333,18 +333,54 @@ export function useFeedbackTab(tabBarHeight: number) {
     return { complete, open, all: periodSessions.length };
   }, [periodSessions]);
 
+  const effortToScore = (effortLevel: string): number => {
+    if (effortLevel === "high") return 2;
+    if (effortLevel === "low") return 0;
+    return 1;
+  };
+
+  const trendToScore = (progressTrend: string): number => {
+    if (progressTrend === "up" || progressTrend === "improved") return 2;
+    if (progressTrend === "down" || progressTrend === "declined") return 0;
+    return 1;
+  };
+
+  const trendToOverall = (progressTrend: string): string => {
+    if (progressTrend === "up" || progressTrend === "improved") return "improved";
+    if (progressTrend === "down" || progressTrend === "declined") return "declined";
+    return "stable";
+  };
+
   const saveFeedbackMutation = useMutation({
     mutationFn: async (data: { sessionId: string; feedback: any }) => {
       await apiRequest("POST", `/api/coach/sessions/${data.sessionId}/feedback`, data.feedback);
       const coachId = coach?.id;
-      if (coachId && domains.length > 0) {
-        for (const pf of data.feedback.playerFeedback) {
+
+      for (const pf of data.feedback.playerFeedback) {
+        // B1: Call glow session feedback to update playerPillarProgress
+        try {
+          await apiRequest("POST", `/api/glow/sessions/${data.sessionId}/feedback`, {
+            playerId: pf.playerId,
+            effort: effortToScore(pf.effortLevel),
+            execution: trendToScore(pf.progressTrend),
+            understanding: 1,
+            overall: trendToOverall(pf.progressTrend),
+            note: pf.note || null,
+          });
+        } catch (err: any) {
+          if (!err?.message?.includes("already submitted")) {
+            console.error("Failed to submit glow feedback for player:", pf.playerId, err);
+          }
+        }
+
+        // Also submit domain observations for the old system
+        if (coachId && domains.length > 0) {
           const skillProgress = pf.skillProgress || {};
           const upCount = Object.values(skillProgress).filter(s => s === "up").length;
           const downCount = Object.values(skillProgress).filter(s => s === "down").length;
           const overallDirection = upCount > downCount ? "up" : downCount > upCount ? "down" : "stable";
-          const technicalDomain = domains.find(d => d.name === "technical");
-          const mentalDomain = domains.find(d => d.name === "mental");
+          const technicalDomain = domains.find((d: any) => d.name === "technical");
+          const mentalDomain = domains.find((d: any) => d.name === "mental");
           const observations = [];
           if (technicalDomain) {
             const technicalSkills = ["Forehand", "Backhand", "Serve", "Volley"];
@@ -373,6 +409,7 @@ export function useFeedbackTab(tabBarHeight: number) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/progress/domains"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/pillar-progress"] });
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);

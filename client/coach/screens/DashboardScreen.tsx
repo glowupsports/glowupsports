@@ -613,6 +613,13 @@ export default function DashboardScreen() {
     staleTime: 55 * 1000,
   });
 
+  // Fetch coach reviews for dashboard card (E1)
+  const { data: coachReviewsData } = useQuery<{ stats: { totalReviews: number; averageOverall: number | null } | null; reviews: any[] }>({
+    queryKey: ["/api/coach/my-reviews"],
+    enabled: !!coach?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const pendingFeedbackCount = useMemo(() => {
     const now = new Date();
     const pendingSessions = todaysSessions.filter(
@@ -1117,6 +1124,40 @@ export default function DashboardScreen() {
             />
           </View>
         )}
+
+        {/* === MY REVIEWS CARD (E1) === */}
+        {(coachReviewsData?.stats?.totalReviews ?? 0) > 0 ? (
+          <Pressable
+            style={dashReviewStyles.reviewsCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("MyReviews");
+            }}
+          >
+            <View style={dashReviewStyles.reviewsLeft}>
+              <View style={dashReviewStyles.reviewsIconRow}>
+                <Ionicons name="star" size={18} color={Colors.dark.gold} />
+                <Text style={dashReviewStyles.reviewsAvg}>
+                  {(coachReviewsData!.stats!.averageOverall ?? 0).toFixed(1)}
+                </Text>
+              </View>
+              <Text style={dashReviewStyles.reviewsCountText}>
+                {coachReviewsData!.stats!.totalReviews} player review{coachReviewsData!.stats!.totalReviews !== 1 ? "s" : ""}
+              </Text>
+              {(coachReviewsData?.reviews ?? []).slice(0, 1).map((r: any) => (
+                r.whatDoesWell ? (
+                  <Text key={r.id} style={dashReviewStyles.reviewsExcerpt} numberOfLines={1}>
+                    "{r.whatDoesWell}"
+                  </Text>
+                ) : null
+              ))}
+            </View>
+            <View style={dashReviewStyles.reviewsRight}>
+              <Text style={dashReviewStyles.reviewsSeeAll}>See all reviews</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
+            </View>
+          </Pressable>
+        ) : null}
 
         {/* === PENDING BOOKING REQUESTS === */}
         {pendingBookingRequests.length > 0 && (
@@ -3960,5 +4001,55 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: Colors.dark.disabled,
+  },
+});
+
+const dashReviewStyles = StyleSheet.create({
+  reviewsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+  },
+  reviewsLeft: {
+    flex: 1,
+    gap: 4,
+  },
+  reviewsIconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  reviewsAvg: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.dark.gold,
+  },
+  reviewsCountText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  reviewsExcerpt: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    marginTop: 2,
+  },
+  reviewsRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  reviewsSeeAll: {
+    fontSize: 12,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
 });

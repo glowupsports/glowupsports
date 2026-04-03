@@ -20,6 +20,7 @@ import { awardXP } from "../services/xp-service";
 import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
 import { checkForScoringAnomaly } from "../services/coach-calibration-engine";
 import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
+import { updatePillarProgress } from "../utils/pillarProgress";
 
 const router = Router();
 
@@ -1232,86 +1233,7 @@ router.get("/api/glow/skills/:skillId/rubrics", async (req, res: Response) => {
 
 // ==================== HELPER FUNCTIONS ====================
 
-async function updatePillarProgress(
-  playerId: string,
-  sessionId: string,
-  feedback: {
-    effort: number;
-    execution: number;
-    understanding: number;
-    overall: string;
-    pillarRatings?: Record<string, number>;
-  }
-) {
-  const pillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
-  
-  // Calculate overall session score (0-2 scale)
-  const sessionScore = (feedback.effort + feedback.execution + feedback.understanding) / 3;
-  
-  for (const pillar of pillars) {
-    // Get current progress
-    const [current] = await db
-      .select()
-      .from(playerPillarProgress)
-      .where(and(
-        eq(playerPillarProgress.playerId, playerId),
-        eq(playerPillarProgress.pillar, pillar)
-      ));
-    
-    // Calculate new score with exponential moving average (alpha = 0.3)
-    const alpha = 0.3;
-    const pillarScore = feedback.pillarRatings?.[pillar] ?? sessionScore;
-    
-    let newScore: number;
-    let trend: string;
-    let delta: string;
-    
-    if (current) {
-      const oldScore = Number(current.currentScore);
-      newScore = alpha * pillarScore + (1 - alpha) * oldScore;
-      
-      const diff = newScore - oldScore;
-      if (diff > 0.1) {
-        trend = "improving";
-        delta = `+${diff.toFixed(2)}`;
-      } else if (diff < -0.1) {
-        trend = "declining";
-        delta = diff.toFixed(2);
-      } else {
-        trend = "stable";
-        delta = "0.00";
-      }
-      
-      await db
-        .update(playerPillarProgress)
-        .set({
-          currentScore: newScore.toFixed(2),
-          trend,
-          lastSessionDelta: delta,
-          lastSessionId: sessionId,
-          lastUpdatedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(playerPillarProgress.id, current.id));
-    } else {
-      newScore = pillarScore;
-      trend = "stable";
-      delta = "0.00";
-      
-      await db
-        .insert(playerPillarProgress)
-        .values({
-          playerId,
-          pillar,
-          currentScore: newScore.toFixed(2),
-          trend,
-          lastSessionDelta: delta,
-          lastSessionId: sessionId,
-          lastUpdatedAt: new Date(),
-        });
-    }
-  }
-}
+// updatePillarProgress is imported from ../utils/pillarProgress
 
 async function processSkillScores(
   playerId: string,
