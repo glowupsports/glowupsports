@@ -555,8 +555,8 @@ export default function FamilyLobbyScreen() {
           refreshFamily();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Alert.alert(
-            "Profiel aangemaakt!",
-            `${newPlayerName} is toegevoegd aan de Family Lobby.`,
+            "Profile created!",
+            `${newPlayerName} has been added to the Family Lobby.`,
             [{ text: "OK" }]
           );
         }}
