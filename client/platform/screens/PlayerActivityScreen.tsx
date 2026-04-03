@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   DimensionValue,
 } from "react-native";
