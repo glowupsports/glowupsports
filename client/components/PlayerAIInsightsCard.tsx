@@ -56,10 +56,10 @@ const PILLAR_COLORS: Record<string, string> = {
 };
 
 const PILLAR_LABELS: Record<string, string> = {
-  TECHNIQUE: "Technique",
-  TACTICAL: "Tactical",
-  PHYSICAL: "Physical",
-  MENTAL: "Mental",
+  TECHNIQUE: "Tech",
+  TACTICAL: "Tact",
+  PHYSICAL: "Phys",
+  MENTAL: "Ment",
 };
 
 function formatRelativeDate(dateStr: string): string {
@@ -253,7 +253,27 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
   }
 
   if (error) {
-    return null;
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <Ionicons name="alert-circle-outline" size={18} color={Colors.dark.textMuted} />
+            <Text style={styles.cardTitle}>
+              {myProfile ? "My Development Story" : "AI Progress Insights"}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.errorRow}>
+          <Text style={styles.errorText}>Could not load insights.</Text>
+          <Pressable
+            onPress={() => queryClient.invalidateQueries({ queryKey })}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -599,6 +619,31 @@ const styles = StyleSheet.create({
   digestDate: {
     ...Typography.caption,
     color: Colors.dark.disabled,
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  errorText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  retryButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  retryButtonText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   generateButton: {
     flexDirection: "row",

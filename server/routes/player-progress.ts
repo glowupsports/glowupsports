@@ -2326,7 +2326,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         PHYSICAL: scores["PHYSICAL"] ?? null,
         MENTAL: scores["MENTAL"] ?? null,
       }));
-    } catch {
+    } catch (err) {
+      console.error("[AIInsights] fetchPillarHistory failed:", err);
       return [];
     }
   }
