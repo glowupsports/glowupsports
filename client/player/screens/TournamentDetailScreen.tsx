@@ -14,7 +14,8 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 import {
   Spacing,
   Typography,
@@ -113,6 +114,15 @@ interface TournamentDetail {
   matches: any[];
 }
 
+interface MatchReadinessResult {
+  readinessScore: number;
+  topStrength: string;
+  biggestGap: string;
+  tacticalTips: string[];
+  rationale: string;
+  generatedAt: string;
+}
+
 const ROUND_LABELS: Record<string, string> = {
   R32: "R32",
   R16: "R16",
@@ -120,6 +130,139 @@ const ROUND_LABELS: Record<string, string> = {
   SF: "SF",
   F: "Final",
 };
+
+function ScoreRing({ score }: { score: number }) {
+  const size = 72;
+  const strokeWidth = 6;
+  const color = score >= 75 ? "#00E676" : score >= 50 ? "#FFB020" : "#FF4D4D";
+
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ position: "absolute", width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: "rgba(255,255,255,0.1)" }} />
+      <View style={{
+        position: "absolute",
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: strokeWidth,
+        borderColor: color,
+        borderTopColor: "transparent",
+        borderRightColor: score > 25 ? color : "transparent",
+        borderBottomColor: score > 50 ? color : "transparent",
+        borderLeftColor: score > 75 ? color : "transparent",
+        transform: [{ rotate: "-90deg" }],
+      }} />
+      <Text style={{ fontSize: 18, fontWeight: "800", color }}>
+        {score}%
+      </Text>
+    </View>
+  );
+}
+
+function MatchReadinessCard({
+  tournamentId,
+  isRegistered,
+}: {
+  tournamentId: string;
+  isRegistered: boolean;
+}) {
+  const [matchPrep, setMatchPrep] = useState<MatchReadinessResult | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/tournaments/${tournamentId}/match-prep`);
+      return res.json() as Promise<MatchReadinessResult>;
+    },
+    onSuccess: (data) => {
+      setMatchPrep(data);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  if (!isRegistered) return null;
+
+  return (
+    <View style={readinessStyles.card}>
+      <View style={readinessStyles.cardHeader}>
+        <View style={readinessStyles.headerLeft}>
+          <Ionicons name="flash" size={14} color={GlowColors.primary} />
+          <Text style={readinessStyles.headerTitle}>Match Readiness</Text>
+        </View>
+        {matchPrep ? (
+          <Text style={readinessStyles.generatedAt}>
+            {new Date(matchPrep.generatedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </Text>
+        ) : null}
+      </View>
+
+      {matchPrep ? (
+        <View style={readinessStyles.resultContainer}>
+          <View style={readinessStyles.scoreRow}>
+            <ScoreRing score={matchPrep.readinessScore} />
+            <View style={readinessStyles.scoreLabels}>
+              <Text style={readinessStyles.rationale}>{matchPrep.rationale}</Text>
+            </View>
+          </View>
+
+          <View style={readinessStyles.insightRow}>
+            <View style={[readinessStyles.insightCard, readinessStyles.strengthCard]}>
+              <View style={readinessStyles.insightHeader}>
+                <Ionicons name="trending-up" size={12} color="#00E676" />
+                <Text style={[readinessStyles.insightLabel, { color: "#00E676" }]}>Top Strength</Text>
+              </View>
+              <Text style={readinessStyles.insightText}>{matchPrep.topStrength}</Text>
+            </View>
+            <View style={[readinessStyles.insightCard, readinessStyles.gapCard]}>
+              <View style={readinessStyles.insightHeader}>
+                <Ionicons name="alert-circle-outline" size={12} color="#FFB020" />
+                <Text style={[readinessStyles.insightLabel, { color: "#FFB020" }]}>Focus Area</Text>
+              </View>
+              <Text style={readinessStyles.insightText}>{matchPrep.biggestGap}</Text>
+            </View>
+          </View>
+
+          <View style={readinessStyles.tipsSection}>
+            <Text style={readinessStyles.tipsTitle}>Tactical Tips</Text>
+            {matchPrep.tacticalTips.map((tip, i) => (
+              <View key={i} style={readinessStyles.tipRow}>
+                <View style={readinessStyles.tipNumber}>
+                  <Text style={readinessStyles.tipNumberText}>{i + 1}</Text>
+                </View>
+                <Text style={readinessStyles.tipText}>{tip}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View style={readinessStyles.ctaContainer}>
+          <Text style={readinessStyles.ctaDescription}>
+            Get personalised tactical advice, your readiness score, and tips for your upcoming match.
+          </Text>
+          <Pressable
+            style={[readinessStyles.ctaButton, mutation.isPending ? readinessStyles.ctaButtonLoading : null]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              mutation.mutate();
+            }}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="flash" size={14} color="#fff" />
+                <Text style={readinessStyles.ctaButtonText}>Get match prep</Text>
+              </>
+            )}
+          </Pressable>
+          {mutation.isError ? (
+            <Text style={readinessStyles.errorMsg}>Could not generate prep. Please try again.</Text>
+          ) : null}
+        </View>
+      )}
+    </View>
+  );
+}
 
 function DrawBracket({ matches }: { matches: DrawMatch[][] }) {
   return (
@@ -501,6 +644,11 @@ export default function TournamentDetailScreen() {
           <Text style={styles.statValue}>{tournament.entryFee ? `$${tournament.entryFee}` : t("common.free")}</Text>
         </View>
       </View>
+
+      <MatchReadinessCard
+        tournamentId={tournamentId}
+        isRegistered={tournament.isRegistered}
+      />
 
       {tournament.isRegistered && nextMatch ? (
         <View style={styles.nextMatchCard}>
@@ -1071,5 +1219,163 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     textAlign: "center",
     marginTop: 8,
+  },
+});
+
+const readinessStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Backgrounds.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "25",
+    overflow: "hidden",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: TextColors.primary,
+    letterSpacing: 0.3,
+  },
+  generatedAt: {
+    fontSize: 10,
+    color: TextColors.muted,
+  },
+  ctaContainer: {
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  ctaDescription: {
+    fontSize: 12,
+    color: TextColors.secondary,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  ctaButtonLoading: {
+    opacity: 0.7,
+  },
+  ctaButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  errorMsg: {
+    fontSize: 11,
+    color: "#FF4D4D",
+    textAlign: "center",
+  },
+  resultContainer: {
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  scoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  scoreLabels: {
+    flex: 1,
+  },
+  rationale: {
+    fontSize: 12,
+    color: TextColors.secondary,
+    lineHeight: 18,
+  },
+  insightRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  insightCard: {
+    flex: 1,
+    borderRadius: 8,
+    padding: Spacing.sm,
+    gap: 4,
+    borderWidth: 1,
+  },
+  strengthCard: {
+    backgroundColor: "rgba(0, 230, 118, 0.08)",
+    borderColor: "rgba(0, 230, 118, 0.2)",
+  },
+  gapCard: {
+    backgroundColor: "rgba(255, 176, 32, 0.08)",
+    borderColor: "rgba(255, 176, 32, 0.2)",
+  },
+  insightHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  insightLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  insightText: {
+    fontSize: 11,
+    color: TextColors.secondary,
+    lineHeight: 16,
+  },
+  tipsSection: {
+    gap: 8,
+  },
+  tipsTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: TextColors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  tipRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  tipNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: GlowColors.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  tipNumberText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: GlowColors.primary,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 12,
+    color: TextColors.secondary,
+    lineHeight: 18,
   },
 });

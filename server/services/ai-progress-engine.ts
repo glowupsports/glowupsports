@@ -21,6 +21,7 @@ import {
   playerXpEvents,
   questTemplates,
   playerQuests as playerQuestsTable,
+  tournamentMatches,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 
@@ -493,7 +494,6 @@ Return ONLY valid JSON (no markdown, no code block), like:
   }
 }
 
-// ==================== AI COACHING CHAT ====================
 
 export interface PlayerAIContext {
   playerName: string;
@@ -840,7 +840,6 @@ YOUR JOB:
 ${summaryInstruction}`;
 }
 
-// ==================== PLAYER SELF AI COACH ====================
 
 export interface PlayerSelfAIContext {
   playerName: string;
@@ -1132,7 +1131,6 @@ RULES FOR YOUR RESPONSES:
 - Never reveal the raw data format; weave data naturally into coaching language`;
 }
 
-// ==================== AI SESSION PLANNER ====================
 
 export interface GroupSessionPlayerProfile {
   name: string;
@@ -1683,7 +1681,6 @@ Tone: warm, parent-friendly, positive but honest. No scores or numbers from the 
   }
 }
 
-// ==================== ROSTER INSIGHTS (COACH) ====================
 
 export interface RosterPlayerSummary {
   playerId: string;
@@ -1748,6 +1745,31 @@ export async function buildRosterInsightsContext(coachId: string): Promise<Roste
         attendanceStatus: sessionPlayers.attendanceStatus,
         sessionId: sessionPlayers.sessionId,
       })
+
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(
+        and(
+export interface MatchReadinessResult {
+  readinessScore: number;
+  topStrength: string;
+  biggestGap: string;
+  tacticalTips: string[];
+  rationale: string;
+  generatedAt: string;
+}
+
+export async function buildMatchReadinessScore(
+  playerId: string
+): Promise<MatchReadinessResult | null> {
+  try {
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return null;
+
+    const since28 = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
+
+    // 1. Attendance consistency (last 4 weeks)
+    const attendanceRows = await db
+      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
       .where(
@@ -2034,6 +2056,234 @@ Return ONLY valid JSON (no markdown), like:
     };
   } catch (error) {
     console.error("[AIEngine] Error generating roster insights:", error);
+          eq(sessionPlayers.playerId, playerId),
+          gte(sessions.startTime, since28)
+        )
+      );
+    const totalSessions = attendanceRows.length;
+    const attendedSessions = attendanceRows.filter(
+      (r) => r.attendanceStatus === "present" || r.attendanceStatus === "late"
+    ).length;
+    const attendanceRate = totalSessions > 0 ? attendedSessions / totalSessions : 0;
+
+    // 2. Skill scores vs pillar average
+    const [levelRow] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+    const ballLevel = levelRow?.levelId || player.ballLevel || "unknown";
+
+    let skillScoreAvg = 0;
+    let topStrengthSkill = "";
+    let biggestGapSkill = "";
+    let skillLines = "";
+
+    const latestSkillScores = await db
+      .select({
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        score: playerSkillScores.score,
+        movingAverage: playerSkillScores.movingAverage,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(eq(playerSkillScores.playerId, playerId))
+      .orderBy(desc(playerSkillScores.createdAt))
+      .limit(50);
+
+    // Deduplicate — latest score per skill
+    const seenSkills = new Set<string>();
+    const deduped: { skillName: string; pillar: string; score: number }[] = [];
+    for (const s of latestSkillScores) {
+      if (!seenSkills.has(s.skillName)) {
+        seenSkills.add(s.skillName);
+        deduped.push({
+          skillName: s.skillName,
+          pillar: s.pillar || "Technical",
+          score: Number(s.movingAverage ?? s.score),
+        });
+      }
+    }
+
+    if (deduped.length > 0) {
+      skillScoreAvg = deduped.reduce((acc, s) => acc + s.score, 0) / deduped.length / 2;
+      const sorted = [...deduped].sort((a, b) => b.score - a.score);
+      topStrengthSkill = sorted[0]?.skillName || "";
+      biggestGapSkill = sorted[sorted.length - 1]?.skillName || "";
+      skillLines = deduped.map((s) => `${s.skillName} (${s.pillar}): ${s.score.toFixed(1)}/2`).join(", ");
+    }
+
+    // 3. Skill trend: compare most recent vs earlier scores per skill (improving/stable/declining)
+    // latestSkillScores is ordered newest-first; build history groups BEFORE dedup
+    let skillTrendScore = 0; // -1 = declining, 0 = stable, +1 = improving
+    {
+      const skillHistory = new Map<string, number[]>();
+      for (const s of latestSkillScores) {
+        const name = s.skillName;
+        if (!skillHistory.has(name)) skillHistory.set(name, []);
+        skillHistory.get(name)!.push(Number(s.movingAverage ?? s.score));
+      }
+      let improvingCount = 0;
+      let decliningCount = 0;
+      for (const [, scores] of skillHistory) {
+        if (scores.length >= 2) {
+          // scores[0] = most recent, scores[last] = oldest within the 50-row window
+          const delta = scores[0] - scores[scores.length - 1];
+          if (delta >= 0.1) improvingCount++;
+          else if (delta <= -0.1) decliningCount++;
+        }
+      }
+      if (improvingCount > decliningCount) skillTrendScore = 1;
+      else if (decliningCount > improvingCount) skillTrendScore = -1;
+    }
+
+    // 4. Coach mental/tactical notes (playerNotes)
+    const coachNoteRows = await db
+      .select({ category: playerNotes.category, content: playerNotes.content })
+      .from(playerNotes)
+      .where(eq(playerNotes.playerId, playerId))
+      .orderBy(desc(playerNotes.createdAt))
+      .limit(10);
+
+    const mentalNotes = coachNoteRows.filter((n) => n.category === "mental" || n.category === "general");
+    const tacticalNotes = coachNoteRows.filter((n) => n.category === "technique" || n.category === "next-lesson");
+    const coachNotesText = coachNoteRows.map((n) => `[${n.category}] ${n.content}`).join("; ") || "none";
+
+    // Mental flag: deduct points if mental/confidence concerns are flagged
+    const hasMentalConcern = mentalNotes.some(
+      (n) => /\b(struggle|concern|anxious|nervous|confidence|inconsistent|mental|pressure)\b/i.test(n.content)
+    );
+    // Tactical flag: bonus if coach has positive tactical notes (e.g., "ready", "strong", "improved")
+    const hasPositiveTacticalFlag = tacticalNotes.some(
+      (n) => /\b(ready|strong|improved|good|excellent|solid|consistent)\b/i.test(n.content)
+    );
+
+    // 5. Recent match win rate from tournament_matches
+    const recentMatches = await db
+      .select({
+        winnerId: tournamentMatches.winnerId,
+        player1Id: tournamentMatches.player1Id,
+        player2Id: tournamentMatches.player2Id,
+        status: tournamentMatches.status,
+      })
+      .from(tournamentMatches)
+      .where(
+        and(
+          eq(tournamentMatches.status, "completed"),
+          gte(tournamentMatches.completedAt, since28)
+        )
+      )
+      .limit(20);
+
+    const playerMatches = recentMatches.filter(
+      (m) => m.player1Id === playerId || m.player2Id === playerId
+    );
+    const wins = playerMatches.filter((m) => m.winnerId === playerId).length;
+    const winRate = playerMatches.length > 0 ? wins / playerMatches.length : null;
+
+    // 6. Recent session digests for context
+    const recentDigests = await db
+      .select({ summaryText: sessionAiSummaries.summaryText })
+      .from(sessionAiSummaries)
+      .where(eq(sessionAiSummaries.playerId, playerId))
+      .orderBy(desc(sessionAiSummaries.generatedAt))
+      .limit(4);
+    const digestsText = recentDigests.map((d) => d.summaryText).join(" | ") || "no recent session summaries";
+
+    // Calculate a base readiness score (0–100) algorithmically with all required inputs:
+    // - Attendance consistency (last 4 weeks):   25 pts max
+    // - Skill score average vs pillar target:    25 pts max
+    // - Skill trend (improving/stable/declining): 15 pts max
+    // - Coach mental/tactical flags:             15 pts max (penalty/bonus)
+    // - Recent match win rate:                   20 pts max
+    const attendancePts = Math.round(attendanceRate * 25);
+    const skillPts = Math.round(skillScoreAvg * 25);
+    // Trend: improving = 15, stable = 10, declining = 5
+    const trendPts = skillTrendScore === 1 ? 15 : skillTrendScore === 0 ? 10 : 5;
+    // Mental/tactical flag component: start at 10, +5 for positive tactical note, -10 for mental concern
+    let mentalTacticalPts = 10;
+    if (hasPositiveTacticalFlag) mentalTacticalPts = Math.min(15, mentalTacticalPts + 5);
+    if (hasMentalConcern) mentalTacticalPts = Math.max(0, mentalTacticalPts - 10);
+    const winRatePts = winRate !== null ? Math.round(winRate * 20) : 10;
+    const baseScore = Math.min(100, Math.max(0, attendancePts + skillPts + trendPts + mentalTacticalPts + winRatePts));
+
+    const skillTrendLabel = skillTrendScore === 1 ? "improving" : skillTrendScore === 0 ? "stable" : "declining";
+
+    // Build prompt for AI to generate tactical tips, strength, gap
+    const prompt = `Player: ${player.name}, level: ${ballLevel}
+Attendance (last 4 weeks): ${Math.round(attendanceRate * 100)}% (${attendedSessions}/${totalSessions} sessions) → ${attendancePts}/25 pts
+Skill scores: ${skillLines || "no data"} → ${skillPts}/25 pts
+Skill trend (last 4 weeks): ${skillTrendLabel} → ${trendPts}/15 pts
+Coach mental/tactical flags: mental concern=${hasMentalConcern}, positive tactical=${hasPositiveTacticalFlag} → ${mentalTacticalPts}/15 pts
+Coach notes: ${coachNotesText}
+Match win rate (last 4 weeks): ${winRate !== null ? `${Math.round(winRate * 100)}% (${wins}/${playerMatches.length} matches)` : "no recent match data"} → ${winRatePts}/20 pts
+Algorithmic readiness score: ${baseScore}/100
+Recent session summaries: ${digestsText}
+
+You are generating a match readiness report for this player's upcoming tournament match.
+Return ONLY valid JSON (no markdown), structured exactly as:
+{
+  "readinessScore": <integer 0-100>,
+  "topStrength": "<one concise sentence about their strongest asset for competition>",
+  "biggestGap": "<one concise sentence about the area most needing attention>",
+  "tacticalTips": ["<tip 1>", "<tip 2>", "<tip 3>"],
+  "rationale": "<one-line rationale for the readiness score>"
+}
+The readinessScore should be close to the algorithmic estimate (${baseScore}) but can be adjusted ±10 based on qualitative context.
+All text must be specific, actionable, and based on the data above. Never use emojis.`;
+
+    const systemPrompt =
+      "You are an expert sports coaching AI. Generate accurate, data-driven match readiness assessments for players preparing for tournament matches. Return only valid JSON without markdown. Never use emojis.";
+
+    const response = await callOpenAI(prompt, systemPrompt, 500);
+    if (!response) {
+      return {
+        readinessScore: baseScore,
+        topStrength: topStrengthSkill ? `Strong ${topStrengthSkill} is a key weapon heading into the match.` : "Consistent training builds confidence.",
+        biggestGap: biggestGapSkill ? `Focus on improving ${biggestGapSkill} under pressure.` : "Continue developing all-round consistency.",
+        tacticalTips: [
+          "Stick to high-percentage shots and reduce unforced errors.",
+          "Control the pace early in each game to build confidence.",
+          "Stay focused on each point and maintain a positive mindset.",
+        ],
+        rationale: `Readiness based on ${Math.round(attendanceRate * 100)}% attendance, average skill scores, and recent form.`,
+        generatedAt: new Date().toISOString(),
+      };
+    }
+
+    try {
+      const cleaned = response.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.readinessScore !== undefined && parsed.topStrength && parsed.biggestGap && Array.isArray(parsed.tacticalTips)) {
+        return {
+          readinessScore: Math.min(100, Math.max(0, Math.round(Number(parsed.readinessScore)))),
+          topStrength: parsed.topStrength,
+          biggestGap: parsed.biggestGap,
+          tacticalTips: parsed.tacticalTips.slice(0, 3),
+          rationale: parsed.rationale || `Score based on training consistency and skill data.`,
+          generatedAt: new Date().toISOString(),
+        };
+      }
+    } catch {
+      // fallback
+    }
+
+    return {
+      readinessScore: baseScore,
+      topStrength: topStrengthSkill ? `Strong ${topStrengthSkill} is a key asset for the match.` : "Consistent attendance shows good preparation.",
+      biggestGap: biggestGapSkill ? `Continue developing ${biggestGapSkill} to strengthen overall game.` : "Focus on consistency across all skills.",
+      tacticalTips: [
+        "Stick to high-percentage shots and keep errors low.",
+        "Control the pace early to build match confidence.",
+        "Stay process-focused — trust your training.",
+      ],
+      rationale: `Score based on ${Math.round(attendanceRate * 100)}% attendance and skill data.`,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("[AIEngine] Error building match readiness score:", error);
     return null;
   }
 }

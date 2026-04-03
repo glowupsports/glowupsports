@@ -43,7 +43,7 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits } from "./pushNotifications";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -838,6 +838,7 @@ function setupErrorHandler(app: express.Application) {
       
       startReminderScheduler();
       startDailyTipScheduler();
+      startMatchPrepNotificationScheduler();
       // Legacy startAutoSessionCompletionScheduler DISABLED — processAutoCompleteSession now handles
       // both session completion AND attendance+credit processing atomically (every 5 min)
       startMonthlyReportScheduler();

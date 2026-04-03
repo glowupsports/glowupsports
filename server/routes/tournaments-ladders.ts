@@ -11,6 +11,10 @@ import {
   type JWTPayload,
 } from "../auth";
 import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
+import { buildMatchReadinessScore } from "../services/ai-progress-engine";
+
+// In-memory cache: key = `${playerId}:${tournamentId}`, value = { result, expiresAt }
+const matchPrepCache = new Map<string, { result: any; expiresAt: number }>();
 
 // Helper: send tournament notification to all participants
 async function notifyTournamentParticipants(
@@ -448,6 +452,72 @@ router.get("/api/player/tournaments/:id/participants", authMiddleware, async (re
   } catch (error) {
     console.error("Error fetching participants:", error);
     res.status(500).json({ error: "Failed to fetch participants" });
+  }
+});
+
+// ==================== MATCH PREP ENDPOINT ====================
+
+router.post("/api/tournaments/:tournamentId/match-prep", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { tournamentId } = req.params;
+    const playerId = req.user!.playerId;
+
+    if (!playerId) {
+      return res.status(400).json({ error: "Player context required" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId));
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    const [participant] = await db.select().from(tournamentParticipants)
+      .where(and(
+        eq(tournamentParticipants.tournamentId, tournamentId),
+        eq(tournamentParticipants.playerId, playerId)
+      ));
+    if (!participant) {
+      return res.status(403).json({ error: "You are not registered for this tournament" });
+    }
+
+    // Find the player's next scheduled match in this tournament (for per-match caching)
+    const playerScheduledMatches = await db.select({ id: tournamentMatches.id })
+      .from(tournamentMatches)
+      .where(
+        and(
+          eq(tournamentMatches.tournamentId, tournamentId),
+          eq(tournamentMatches.status, "scheduled"),
+          or(
+            eq(tournamentMatches.player1Id, playerId),
+            eq(tournamentMatches.player2Id, playerId)
+          )
+        )
+      )
+      .orderBy(asc(tournamentMatches.matchOrder))
+      .limit(1);
+
+    // Cache key is per player+match (or per player+tournament if no specific match yet)
+    const matchId = playerScheduledMatches[0]?.id || "pending";
+    const cacheKey = `${playerId}:${matchId}`;
+    const cached = matchPrepCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return res.json(cached.result);
+    }
+
+    const result = await buildMatchReadinessScore(playerId);
+    if (!result) {
+      return res.status(500).json({ error: "Failed to generate match prep" });
+    }
+
+    matchPrepCache.set(cacheKey, {
+      result,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error generating match prep:", error);
+    res.status(500).json({ error: "Failed to generate match prep" });
   }
 });
 

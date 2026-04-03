@@ -1,0 +1,97 @@
+  1556	    const recentSessionData = await db
+  1557	      .select({
+  1558	        playerId: sessionPlayers.playerId,
+  1559	        attendanceStatus: sessionPlayers.attendanceStatus,
+  1560	        sessionId: sessionPlayers.sessionId,
+  1561	      })
+  1562	
+  1563	      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+  1564	      .where(
+  1565	        and(
+  1566	export interface MatchReadinessResult {
+  1567	  readinessScore: number;
+  1568	  topStrength: string;
+  1569	  biggestGap: string;
+  1570	  tacticalTips: string[];
+  1571	  rationale: string;
+  1572	  generatedAt: string;
+  1573	}
+  1574	
+  1575	export async function buildMatchReadinessScore(
+  1576	  playerId: string
+  1577	): Promise<MatchReadinessResult | null> {
+  1578	  try {
+  1579	    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+  1580	    if (!player) return null;
+  1581	
+  1582	    const since28 = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
+  1583	
+  1584	    // 1. Attendance consistency (last 4 weeks)
+  1585	    const attendanceRows = await db
+  1586	      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+  1587	      .from(sessionPlayers)
+  1588	      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+  1589	      .where(
+  1590	        and(
+  1591	          inArray(sessionPlayers.playerId, playerIds),
+  1592	          gte(sessions.startTime, since30)
+  1593	        )
+  1594	      );
+  1595	
+  1596	    // Get current ball levels from playerBallLevels table
+  1597	    const ballLevelRows = await db
+  1598	      .select({
+  1599	        playerId: playerBallLevels.playerId,
+  1600	        levelId: playerBallLevels.levelId,
+  1601	      })
+  1602	      .from(playerBallLevels)
+  1603	      .where(inArray(playerBallLevels.playerId, playerIds))
+  1604	      .orderBy(desc(playerBallLevels.assignedAt));
+  1605	
+  1606	    const latestBallLevel = new Map<string, string>();
+  1607	    for (const row of ballLevelRows) {
+  1608	      if (!latestBallLevel.has(row.playerId)) {
+  1609	        latestBallLevel.set(row.playerId, row.levelId);
+  1610	      }
+  1611	    }
+  1612	
+  1613	    // Get level skill targets
+  1614	    const allBallLevelIds = [...new Set(coachPlayers.map((p) => latestBallLevel.get(p.id) || p.ballLevel || "unknown"))];
+  1615	    const levelSkillTargets = await db
+  1616	      .select({
+  1617	        levelId: levelSkills.levelId,
+  1618	        skillName: glowSkills.name,
+  1619	        pillar: glowSkills.pillar,
+  1620	        targetScore: levelSkills.targetScore,
+  1621	        isRequired: levelSkills.isRequired,
+  1622	      })
+  1623	      .from(levelSkills)
+  1624	      .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+  1625	      .where(and(inArray(levelSkills.levelId, allBallLevelIds), eq(levelSkills.isRequired, true)));
+  1626	
+  1627	    // Get coach notes/flags for players
+  1628	    const coachNotes = await db
+  1629	      .select({
+  1630	        playerId: playerNotes.playerId,
+  1631	        content: playerNotes.content,
+  1632	        category: playerNotes.category,
+  1633	        isPinned: playerNotes.isPinned,
+  1634	      })
+  1635	      .from(playerNotes)
+  1636	      .where(
+  1637	        and(
+  1638	          inArray(playerNotes.playerId, playerIds),
+  1639	          eq(playerNotes.coachId, coachId),
+  1640	          eq(playerNotes.isPinned, true)
+  1641	        )
+  1642	      );
+  1643	
+  1644	    // Aggregate data per player
+  1645	    const playerSummaries: RosterPlayerSummary[] = [];
+  1646	
+  1647	    for (const player of coachPlayers) {
+  1648	      const effectiveLevel = latestBallLevel.get(player.id) || player.ballLevel || "unknown";
+  1649	      const playerSessions = recentSessionData.filter((s) => s.playerId === player.id);
+  1650	      const totalSessions = playerSessions.length;
+  1651	      const attendedSessions = playerSessions.filter(
+  1652	        (s) => s.attendanceStatus === "present" || s.attendanceStatus === "late"

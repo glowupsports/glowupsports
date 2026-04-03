@@ -1,6 +1,6 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants } from "@shared/schema";
 import { storage, ensureCreditProcessed } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
@@ -3329,4 +3329,108 @@ export function stopWeeklyAIDigestScheduler(): void {
     weeklyAIDigestInterval = null;
     console.log("[WeeklyDigest] Scheduler stopped");
   }
+}
+
+// ==================== MATCH PREP NOTIFICATION SCHEDULER ====================
+
+async function processMatchPrepNotifications(): Promise<void> {
+  try {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStart = new Date(tomorrow);
+    tomorrowStart.setHours(0, 0, 0, 0);
+    const tomorrowEnd = new Date(tomorrow);
+    tomorrowEnd.setHours(23, 59, 59, 999);
+
+    // Find tournament matches scheduled for tomorrow
+    const matchesTomorrow = await db
+      .select({
+        matchId: tournamentMatches.id,
+        tournamentId: tournamentMatches.tournamentId,
+        player1Id: tournamentMatches.player1Id,
+        player2Id: tournamentMatches.player2Id,
+        scheduledTime: tournamentMatches.scheduledTime,
+      })
+      .from(tournamentMatches)
+      .where(
+        and(
+          eq(tournamentMatches.status, "scheduled"),
+          gte(tournamentMatches.scheduledTime, tomorrowStart),
+          lte(tournamentMatches.scheduledTime, tomorrowEnd)
+        )
+      );
+
+    if (matchesTomorrow.length === 0) {
+      console.log("[MatchPrep] No matches scheduled for tomorrow");
+      return;
+    }
+
+    const tournamentIds = [...new Set(matchesTomorrow.map((m) => m.tournamentId))];
+    const tournamentMap = new Map<string, string>();
+
+    const tournamentRows = await db
+      .select({ id: tournaments.id, name: tournaments.name })
+      .from(tournaments)
+      .where(inArray(tournaments.id, tournamentIds));
+
+    for (const t of tournamentRows) {
+      tournamentMap.set(t.id, t.name);
+    }
+
+    const notifiedPlayers = new Set<string>();
+
+    for (const match of matchesTomorrow) {
+      const tournamentName = tournamentMap.get(match.tournamentId) || "tournament";
+      const playerIds = [match.player1Id, match.player2Id].filter(Boolean) as string[];
+
+      for (const playerId of playerIds) {
+        if (notifiedPlayers.has(playerId)) continue;
+        notifiedPlayers.add(playerId);
+
+        const tokens = await getPlayerPushTokens(playerId);
+        if (tokens.length === 0) continue;
+
+        await sendPushNotification(
+          tokens,
+          "Your match is tomorrow",
+          `See your AI match prep for ${tournamentName}. Check your readiness score and tactical tips.`,
+          {
+            type: "match_prep_ready",
+            tournamentId: match.tournamentId,
+            screen: "TournamentDetail",
+          },
+          playerId
+        );
+
+        console.log(`[MatchPrep] Notified player ${playerId} for tomorrow's match in tournament ${match.tournamentId}`);
+      }
+    }
+
+    console.log(`[MatchPrep] Sent notifications to ${notifiedPlayers.size} player(s) for ${matchesTomorrow.length} match(es) tomorrow`);
+  } catch (error) {
+    console.error("[MatchPrep] Error processing match prep notifications:", error);
+  }
+}
+
+let matchPrepSchedulerInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startMatchPrepNotificationScheduler(): void {
+  if (matchPrepSchedulerInterval) {
+    console.log("[MatchPrep] Scheduler already running");
+    return;
+  }
+
+  console.log("[MatchPrep] Starting match prep notification scheduler");
+
+  matchPrepSchedulerInterval = setInterval(() => {
+    const now = new Date();
+    const hour = parseInt(
+      now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "Asia/Dubai" })
+    );
+
+    // Send notifications at 6 PM Dubai time (day before match)
+    if (hour === 18) {
+      processMatchPrepNotifications().catch(console.error);
+    }
+  }, 60 * 60 * 1000);
 }
