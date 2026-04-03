@@ -15,7 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiFetch } from "@/lib/query-client";
 
 interface Message {
   role: "user" | "assistant";
@@ -80,22 +80,77 @@ export default function PlayerAICoachScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   };
 
-  const fetchAIGreeting = async () => {
+  const streamChat = async (msgs: Message[], isGreeting = false) => {
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let accumulated = "";
+    let started = false;
+
     try {
-      const resp = await apiRequest("POST", "/api/player/me/ai-coach/chat", {
-        messages: [{ role: "user", content: "__greeting__" }],
+      const resp = await apiFetch("/api/player/me/ai-coach/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: msgs }),
       });
-      const data = await resp.json();
-      if (data.reply) {
-        setMessages([{ role: "assistant", content: data.reply }]);
-        scrollToBottom();
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("No stream reader available");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") {
+            reader.cancel();
+            break;
+          }
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.token) {
+              accumulated += parsed.token;
+              if (!started) {
+                if (isGreeting) {
+                  setMessages([{ role: "assistant", content: accumulated }]);
+                } else {
+                  setMessages((prev) => [...prev, { role: "assistant", content: accumulated }]);
+                }
+                started = true;
+              } else {
+                setMessages((prev) => {
+                  const copy = [...prev];
+                  copy[copy.length - 1] = { role: "assistant", content: accumulated };
+                  return copy;
+                });
+              }
+              scrollToBottom();
+            }
+          } catch {}
+        }
       }
     } catch (err) {
-      console.error("[PlayerAICoach] Greeting error:", err);
-      setMessages([{
-        role: "assistant",
-        content: "Welcome! I'm your personal AI coach. Ask me anything about your game, what to focus on, or how you've been progressing.",
-      }]);
+      console.error("[PlayerAICoach] Stream error:", err);
+      const fallback = isGreeting
+        ? "Welcome! I'm your personal AI coach. Ask me anything about your game, what to focus on, or how you've been progressing."
+        : "Sorry, I had trouble connecting right now. Please try again in a moment.";
+      if (isGreeting) {
+        setMessages([{ role: "assistant", content: fallback }]);
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", content: fallback }]);
+      }
+      scrollToBottom();
+    }
+  };
+
+  const fetchAIGreeting = async () => {
+    try {
+      await streamChat([{ role: "user", content: "__greeting__" }], true);
     } finally {
       setIsLoading(false);
     }
@@ -121,25 +176,7 @@ export default function PlayerAICoachScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      const resp = await apiRequest("POST", "/api/player/me/ai-coach/chat", {
-        messages: next,
-      });
-      const data = await resp.json();
-      if (data.reply) {
-        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-        scrollToBottom();
-      }
-    } catch (err) {
-      console.error("[PlayerAICoach] Error:", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Sorry, I had trouble connecting right now. Please try again in a moment.",
-        },
-      ]);
-      scrollToBottom();
+      await streamChat(next);
     } finally {
       setIsLoading(false);
     }
@@ -219,7 +256,9 @@ export default function PlayerAICoachScreen() {
               {messages.map((msg, i) => (
                 <MessageBubble key={i} message={msg} />
               ))}
-              {isLoading ? <TypingIndicator /> : null}
+              {isLoading && messages[messages.length - 1]?.role === "user" ? (
+                <TypingIndicator />
+              ) : null}
             </>
           )}
         </ScrollView>

@@ -2733,9 +2733,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
         });
 
-        let reply: string | null = null;
+        // SSE streaming response
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
+
         try {
-          const response = await openai.chat.completions.create({
+          const stream = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: systemPrompt },
@@ -2743,13 +2748,23 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             ],
             max_tokens: 400,
             temperature: 0.7,
+            stream: true,
           });
-          reply = response.choices?.[0]?.message?.content || null;
+
+          for await (const chunk of stream) {
+            const token = chunk.choices[0]?.delta?.content;
+            if (token) {
+              res.write(`data: ${JSON.stringify({ token })}\n\n`);
+            }
+          }
         } catch (err) {
-          console.error("[PlayerAICoach] OpenAI call failed:", err);
+          console.error("[PlayerAICoach] OpenAI stream failed:", err);
+          res.write(`data: ${JSON.stringify({ error: "Stream failed" })}\n\n`);
         }
 
-        res.json({ reply: reply ?? null });
+        res.write("data: [DONE]\n\n");
+        res.end();
+        return;
       } catch (error) {
         console.error("[PlayerAICoach] Error processing chat turn:", error);
         res.status(500).json({ error: "Failed to process chat" });

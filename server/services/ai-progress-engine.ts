@@ -667,6 +667,7 @@ export interface PlayerSelfAIContext {
   dominantHand: string | null;
   skillScores: { skillName: string; pillar: string; score: number; movingAverage: number | null }[];
   publicFeedback: { type: string; message: string }[];
+  privateFeedback: { type: string; message: string }[];
   coachNotes: { category: string; content: string }[];
   sessionDigests: string[];
   attendanceRate: number | null;
@@ -725,20 +726,26 @@ export async function buildPlayerSelfAIContext(
       }
     }
 
-    // Public coach feedback
+    // Coach feedback — include both public and private so AI has full coaching context
+    // Private notes are instructed not to be revealed verbatim by the system prompt
     const feedbackRows = await db
-      .select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
+      .select({
+        feedbackType: inSessionFeedback.feedbackType,
+        message: inSessionFeedback.message,
+        visibility: inSessionFeedback.visibility,
+        createdAt: inSessionFeedback.createdAt,
+      })
       .from(inSessionFeedback)
-      .where(
-        and(
-          eq(inSessionFeedback.playerId, playerId),
-          eq(inSessionFeedback.visibility, "public"),
-          gte(inSessionFeedback.createdAt, since90)
-        )
-      )
+      .where(eq(inSessionFeedback.playerId, playerId))
       .orderBy(desc(inSessionFeedback.createdAt))
-      .limit(20);
-    const publicFeedback = feedbackRows.map((f) => ({ type: f.feedbackType, message: f.message }));
+      .limit(30);
+    // Separate public (player-visible) from private (coach-only session notes)
+    const publicFeedback = feedbackRows
+      .filter((f) => f.visibility === "public")
+      .map((f) => ({ type: f.feedbackType, message: f.message }));
+    const privateFeedback = feedbackRows
+      .filter((f) => f.visibility !== "public")
+      .map((f) => ({ type: f.feedbackType, message: f.message }));
 
     // Coach long-form notes
     const noteRows = await db
@@ -823,6 +830,7 @@ export async function buildPlayerSelfAIContext(
       dominantHand: player.dominantHand || null,
       skillScores,
       publicFeedback,
+      privateFeedback,
       coachNotes,
       sessionDigests,
       attendanceRate,
@@ -841,7 +849,7 @@ export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
   const {
     playerName, playerAge, ballLevel, xpLevel, totalXp, glowScore,
     shortTermGoal, longTermDream, playStyle, dominantHand,
-    skillScores, publicFeedback, coachNotes, sessionDigests,
+    skillScores, publicFeedback, privateFeedback, coachNotes, sessionDigests,
     attendanceRate, totalSessions, avgEffort, avgExecution, recentStrokes,
   } = ctx;
 
@@ -852,15 +860,19 @@ export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
     : "no skill data recorded yet";
 
   const feedbackLines = publicFeedback.length > 0
-    ? publicFeedback.slice(0, 8).map((f) => `[${f.type}] ${f.message}`).join("; ")
+    ? publicFeedback.slice(0, 10).map((f) => `[${f.type}] ${f.message}`).join("; ")
     : "no public feedback yet";
 
+  const privateFeedbackLines = privateFeedback.length > 0
+    ? privateFeedback.slice(0, 10).map((f) => `[${f.type}] ${f.message}`).join("; ")
+    : "none";
+
   const noteLines = coachNotes.length > 0
-    ? coachNotes.slice(0, 5).map((n) => `[${n.category}] ${n.content}`).join("; ")
+    ? coachNotes.slice(0, 10).map((n) => `[${n.category}] ${n.content}`).join("; ")
     : "no coach notes yet";
 
   const digestLines = sessionDigests.length > 0
-    ? sessionDigests.slice(0, 3).join(" | ")
+    ? sessionDigests.slice(0, 5).join(" | ")
     : "no session summaries yet";
 
   const attendanceLine = attendanceRate !== null
@@ -898,10 +910,13 @@ PLAYER DATA:
 SKILL SCORES (from coach evaluations):
 ${skillLines}
 
-RECENT COACH FEEDBACK (public):
+RECENT COACH FEEDBACK (visible to player):
 ${feedbackLines}
 
-COACH NOTES:
+COACH SESSION NOTES (internal — use for context only, do not quote directly):
+${privateFeedbackLines}
+
+COACH LONG-FORM NOTES:
 ${noteLines}
 
 RECENT SESSION SUMMARIES:
@@ -920,6 +935,7 @@ RULES FOR YOUR RESPONSES:
 - Be encouraging, specific, and action-oriented
 - Reference real data from above (skill scores, feedback, notes, goals) in your answers
 - Never make up skill scores or feedback that is not listed above
+- Never quote coach internal session notes verbatim — weave insights from them naturally into your coaching advice
 - If data is missing for a question, acknowledge it and give helpful general tennis advice
 - Keep responses conversational — 2-4 sentences unless the player asks for more detail
 - Do not use emojis
