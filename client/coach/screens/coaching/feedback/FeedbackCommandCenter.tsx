@@ -108,7 +108,13 @@ function PlayerRateCard({
   const initials = row.player.name?.charAt(0)?.toUpperCase() || "?";
 
   return (
-    <View style={[ccStyles.playerCard, isRated && ccStyles.playerCardRated]}>
+    <Pressable
+      style={[ccStyles.playerCard, isRated && ccStyles.playerCardRated]}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onRatePress(row);
+      }}
+    >
       <View style={[ccStyles.playerAvatar, { backgroundColor: typeColor + "30" }]}>
         <Text style={[ccStyles.playerAvatarText, { color: typeColor }]}>{initials}</Text>
       </View>
@@ -126,75 +132,19 @@ function PlayerRateCard({
       </View>
 
       {isRated ? (
-        <View style={ccStyles.doneBadge}>
-          <Ionicons name="checkmark-circle" size={16} color={Colors.dark.tabIconDefault} />
-          <Text style={ccStyles.doneText}>Done</Text>
+        <View style={ccStyles.ratedBadge}>
+          <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
+          <Text style={ccStyles.ratedBadgeText}>Rated</Text>
         </View>
       ) : (
-        <Pressable
-          style={ccStyles.rateButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onRatePress(row);
-          }}
-        >
+        <View style={ccStyles.rateButton}>
           <Text style={ccStyles.rateButtonText}>Rate</Text>
-        </Pressable>
+        </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
-function CompletedSessionRow({
-  session,
-  players,
-  isExpanded,
-  onToggle,
-}: {
-  session: Session;
-  players: Player[];
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  const typeColor = getTypeColor(session.sessionType);
-  return (
-    <View style={ccStyles.completedGroup}>
-      <Pressable style={ccStyles.completedHeader} onPress={onToggle}>
-        <View style={ccStyles.completedHeaderLeft}>
-          <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
-          <Text style={ccStyles.completedHeaderText}>
-            {players.length} player{players.length !== 1 ? "s" : ""} rated
-            {" \u00B7 "}
-            {formatSessionTime(session.startTime)}
-            {" \u00B7 "}
-            {SESSION_TYPE_LABELS[session.sessionType] || session.sessionType}
-          </Text>
-        </View>
-        <Ionicons
-          name={isExpanded ? "chevron-up" : "chevron-down"}
-          size={14}
-          color={Colors.dark.tabIconDefault}
-        />
-      </Pressable>
-
-      {isExpanded ? (
-        <View style={ccStyles.completedPlayers}>
-          {players.map((player) => (
-            <View key={player.id} style={ccStyles.completedPlayerRow}>
-              <View style={[ccStyles.playerAvatarSmall, { backgroundColor: typeColor + "20" }]}>
-                <Text style={[ccStyles.playerAvatarSmallText, { color: typeColor }]}>
-                  {player.name?.charAt(0)?.toUpperCase() || "?"}
-                </Text>
-              </View>
-              <Text style={ccStyles.completedPlayerName}>{player.name}</Text>
-              <Ionicons name="checkmark" size={14} color={Colors.dark.primary} />
-            </View>
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: FeedbackCommandCenterProps) {
   const { coach } = useCoach();
@@ -203,7 +153,6 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
   const [quickFeedbackSession, setQuickFeedbackSession] = useState<Session | null>(null);
   const [quickFeedbackPlayerIndex, setQuickFeedbackPlayerIndex] = useState(0);
   const [localRated, setLocalRated] = useState<Set<string>>(new Set());
-  const [expandedCompletedSessions, setExpandedCompletedSessions] = useState<Set<string>>(new Set());
 
   const now = new Date();
   const todayStr = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split("T")[0];
@@ -364,11 +313,6 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
     );
   }, [playerRows, localRated]);
 
-  const todayRatedCount = useMemo(
-    () => todayRows.filter((r) => r.isRated || localRated.has(`${r.session.id}:${r.player.id}`)).length,
-    [todayRows, localRated]
-  );
-
   const handleRatePress = useCallback((row: PlayerRow) => {
     const playersForSession = sessionsWithPlayers.data?.find((s) => s.sessionId === row.session.id)?.players || row.session.players || [];
     const sessionWithPlayers: Session = {
@@ -407,16 +351,6 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
     });
   }, [quickFeedbackSession, quickFeedbackPlayerIndex, queryClient]);
 
-  const toggleCompletedSession = useCallback((sessionId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExpandedCompletedSessions((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  }, []);
-
   const isDataLoading =
     isLoading ||
     (recentSessions.length > 0 &&
@@ -442,41 +376,10 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
     );
   }
 
-  if (allRated) {
-    return (
-      <View style={ccStyles.center}>
-        <Ionicons name="checkmark-done-circle" size={56} color={Colors.dark.primary} />
-        <Text style={ccStyles.allCaughtUpTitle}>All caught up!</Text>
-        <Text style={ccStyles.allCaughtUpSub}>
-          {todayRatedCount > 0
-            ? `${todayRatedCount} player${todayRatedCount !== 1 ? "s" : ""} rated today.`
-            : "All players from the past 3 days have been rated."}
-        </Text>
-      </View>
-    );
-  }
-
   const renderRows = (rows: PlayerRow[]) => {
     const uniqueSessions = Array.from(new Set(rows.map((r) => r.session.id)));
     return uniqueSessions.map((sessionId) => {
       const sessionRows = rows.filter((r) => r.session.id === sessionId);
-      const session = sessionRows[0].session;
-      const allSessionRated = sessionRows.every(
-        (r) => r.isRated || localRated.has(`${r.session.id}:${r.player.id}`)
-      );
-
-      if (allSessionRated) {
-        return (
-          <CompletedSessionRow
-            key={sessionId}
-            session={session}
-            players={sessionRows.map((r) => r.player)}
-            isExpanded={expandedCompletedSessions.has(sessionId)}
-            onToggle={() => toggleCompletedSession(sessionId)}
-          />
-        );
-      }
-
       return (
         <View key={sessionId}>
           {sessionRows.map((row) => (
@@ -499,6 +402,12 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
+        {allRated ? (
+          <View style={ccStyles.allRatedBanner}>
+            <Ionicons name="checkmark-done-circle" size={18} color={Colors.dark.primary} />
+            <Text style={ccStyles.allRatedBannerText}>All rated — tap any player to re-rate</Text>
+          </View>
+        ) : null}
         {todayRows.length > 0 ? (
           <View style={ccStyles.section}>
             <View style={ccStyles.sectionHeader}>
@@ -597,6 +506,25 @@ const ccStyles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.textSecondary,
     textAlign: "center",
+  },
+  allRatedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    marginHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  allRatedBannerText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    flex: 1,
   },
   section: {
     marginTop: Spacing.lg,
@@ -716,68 +644,15 @@ const ccStyles = StyleSheet.create({
     fontWeight: "700",
     color: "#000",
   },
-  doneBadge: {
+  ratedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  doneText: {
+  ratedBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.tabIconDefault,
-  },
-  completedGroup: {
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "25",
-    marginBottom: Spacing.sm,
-    overflow: "hidden",
-  },
-  completedHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: Spacing.md,
-  },
-  completedHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    flex: 1,
-  },
-  completedHeaderText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    flex: 1,
-  },
-  completedPlayers: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  completedPlayerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  playerAvatarSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  playerAvatarSmallText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  completedPlayerName: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.primary,
   },
   sessionListLink: {
     marginHorizontal: Spacing.md,
