@@ -3003,7 +3003,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
-  // GET /api/platform/analytics/player-activity — per-player engagement composite
+  // GET /api/platform/analytics/player-activity
+  // Returns players who had app events in the period, ranked by period event count.
+  // Each player includes a feature_breakdown map: { [feature]: count }
   router.get(
     "/api/platform/analytics/player-activity",
     authMiddleware,
@@ -3020,112 +3022,80 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           academyFilter = `AND p.academy_id = $${params.length}`;
         }
 
+        // Fetch per-player, per-feature counts in the period
         const result = await pool.query(
           `WITH
              fe_period AS (
-               SELECT u.player_id, COUNT(*)::int AS cnt
+               SELECT
+                 u.player_id,
+                 fe.feature,
+                 COUNT(*)::int AS cnt
                FROM feature_events fe
                JOIN users u ON u.id = fe.user_id
                WHERE fe.created_at >= NOW() - ($1 || ' days')::interval
                  AND u.player_id IS NOT NULL
-               GROUP BY u.player_id
+               GROUP BY u.player_id, fe.feature
              ),
-             fe_all AS (
-               SELECT u.player_id, COUNT(*)::int AS cnt
-               FROM feature_events fe
-               JOIN users u ON u.id = fe.user_id
-               WHERE u.player_id IS NOT NULL
-               GROUP BY u.player_id
-             ),
-             sa AS (
-               SELECT sp.player_id, COUNT(*)::int AS cnt
-               FROM session_players sp
-               WHERE sp.attendance_status = 'present'
-               GROUP BY sp.player_id
-             ),
-             bm AS (
-               SELECT br.player_id, COUNT(*)::int AS cnt
-               FROM booking_requests br
-               GROUP BY br.player_id
-             ),
-             fg AS (
-               SELECT cr.player_id, COUNT(*)::int AS cnt
-               FROM coach_reviews cr
-               GROUP BY cr.player_id
-             ),
-             qc AS (
-               SELECT pq.player_id, COUNT(*)::int AS cnt
-               FROM player_quests pq
-               WHERE pq.claimed_at IS NOT NULL OR pq.status = 'completed'
-               GROUP BY pq.player_id
+             player_totals AS (
+               SELECT player_id, SUM(cnt)::int AS period_total
+               FROM fe_period
+               GROUP BY player_id
              )
            SELECT
-             p.id AS player_id,
-             p.name AS player_name,
-             p.level,
-             p.total_xp AS xp,
-             p.streak,
-             p.total_matches_played AS matches_played,
-             p.no_show_count,
-             p.onboarding_completed,
-             a.id AS academy_id,
-             a.name AS academy_name,
-             COALESCE(fe_period.cnt, 0) AS feature_events_period,
-             COALESCE(fe_all.cnt, 0) AS feature_events_all_time,
-             COALESCE(sa.cnt, 0) AS sessions_attended,
-             COALESCE(bm.cnt, 0) AS bookings_made,
-             COALESCE(fg.cnt, 0) AS feedback_given,
-             COALESCE(qc.cnt, 0) AS quests_completed
-           FROM players p
+             p.id                          AS player_id,
+             p.name                        AS player_name,
+             COALESCE(p.level, 1)          AS level,
+             COALESCE(p.total_xp, 0)       AS xp,
+             COALESCE(p.streak, 0)         AS streak,
+             a.id                          AS academy_id,
+             COALESCE(a.name, '')          AS academy_name,
+             pt.period_total,
+             json_agg(
+               json_build_object('feature', fp.feature, 'count', fp.cnt)
+               ORDER BY fp.cnt DESC
+             )                             AS features_json
+           FROM player_totals pt
+           JOIN players p ON p.id = pt.player_id
            LEFT JOIN academies a ON a.id = p.academy_id
-           LEFT JOIN fe_period ON fe_period.player_id = p.id
-           LEFT JOIN fe_all ON fe_all.player_id = p.id
-           LEFT JOIN sa ON sa.player_id = p.id
-           LEFT JOIN bm ON bm.player_id = p.id
-           LEFT JOIN fg ON fg.player_id = p.id
-           LEFT JOIN qc ON qc.player_id = p.id
+           LEFT JOIN fe_period fp ON fp.player_id = pt.player_id
            WHERE 1=1 ${academyFilter}
-           ORDER BY (COALESCE(fe_all.cnt, 0) + COALESCE(sa.cnt, 0) * 2) DESC
-           LIMIT 200`,
+           GROUP BY p.id, p.name, p.level, p.total_xp, p.streak, a.id, a.name, pt.period_total
+           ORDER BY pt.period_total DESC
+           LIMIT 100`,
           params,
         );
 
-        const rows = result.rows as {
+        interface RawRow {
           player_id: string;
           player_name: string;
           level: number;
           xp: number;
           streak: number;
-          matches_played: number;
-          no_show_count: number;
-          onboarding_completed: boolean;
           academy_id: string;
           academy_name: string;
-          feature_events_period: number;
-          feature_events_all_time: number;
-          sessions_attended: number;
-          bookings_made: number;
-          feedback_given: number;
-          quests_completed: number;
-        }[];
+          period_total: number;
+          features_json: { feature: string; count: number }[];
+        }
 
-        // Compute engagement score (0–100) per player
-        const maxSessions = Math.max(1, ...rows.map(r => r.sessions_attended));
-        const maxEvents = Math.max(1, ...rows.map(r => r.feature_events_period));
-        const maxBookings = Math.max(1, ...rows.map(r => r.bookings_made));
-        const maxQuests = Math.max(1, ...rows.map(r => r.quests_completed));
-        const maxFeedback = Math.max(1, ...rows.map(r => r.feedback_given));
-
-        const players = rows.map(r => {
-          const score = Math.round(
-            (r.sessions_attended / maxSessions) * 35 +
-            (r.feature_events_period / maxEvents) * 25 +
-            (r.bookings_made / maxBookings) * 20 +
-            (r.quests_completed / maxQuests) * 10 +
-            (r.feedback_given / maxFeedback) * 10,
-          );
-          return { ...r, engagement_score: Math.min(100, score) };
-        }).sort((a, b) => b.engagement_score - a.engagement_score);
+        const players = (result.rows as RawRow[]).map(r => {
+          const feature_breakdown: Record<string, number> = {};
+          if (Array.isArray(r.features_json)) {
+            for (const f of r.features_json) {
+              if (f && f.feature) feature_breakdown[f.feature] = f.count;
+            }
+          }
+          return {
+            player_id: r.player_id,
+            player_name: r.player_name,
+            level: r.level,
+            xp: r.xp,
+            streak: r.streak,
+            academy_id: r.academy_id,
+            academy_name: r.academy_name,
+            period_total: r.period_total,
+            feature_breakdown,
+          };
+        });
 
         res.json({ players, days, generatedAt: new Date().toISOString() });
       } catch (error) {

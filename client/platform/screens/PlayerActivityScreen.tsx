@@ -103,18 +103,10 @@ interface PlayerActivityItem {
   level: number;
   xp: number;
   streak: number;
-  matches_played: number;
-  no_show_count: number;
-  onboarding_completed: boolean;
   academy_id: string;
   academy_name: string;
-  feature_events_period: number;
-  feature_events_all_time: number;
-  sessions_attended: number;
-  bookings_made: number;
-  feedback_given: number;
-  quests_completed: number;
-  engagement_score: number;
+  period_total: number;
+  feature_breakdown: Record<string, number>;
 }
 
 interface DrilldownPlayer {
@@ -209,30 +201,12 @@ function FilterPills({ options, value, onChange }: {
   );
 }
 
-function EngagementBar({ score }: { score: number }) {
-  const color = score >= 60 ? GREEN : score >= 30 ? AMBER : score > 0 ? RED : Colors.dark.textSubtle;
-  return (
-    <View style={s.engBar}>
-      <View style={[s.engFill, { width: `${Math.max(score, 2)}%` as DimensionValue, backgroundColor: color }]} />
-    </View>
-  );
-}
-
-function StatBadge({ icon, value, color }: { icon: string; value: number; color: string }) {
-  return (
-    <View style={s.statBadge}>
-      <Ionicons name={icon as any} size={11} color={color} />
-      <Text style={[s.statBadgeText, { color }]}>{value}</Text>
-    </View>
-  );
-}
-
-function PlayerCard({ player }: { player: PlayerActivityItem }) {
+function PlayerCard({ player, rank }: { player: PlayerActivityItem; rank: number }) {
   const [expanded, setExpanded] = useState(false);
-  const score = player.engagement_score;
-  const engColor = score >= 60 ? GREEN : score >= 30 ? AMBER : score > 0 ? RED : Colors.dark.textSubtle;
-  const isNeverOpened = player.feature_events_all_time === 0;
-  const isActiveThisWeek = player.feature_events_period > 0;
+  const breakdown = player.feature_breakdown;
+  const sortedFeatures = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+  const topFeature = sortedFeatures[0];
+  const maxCount = Math.max(1, topFeature?.[1] || 1);
 
   return (
     <Pressable
@@ -241,8 +215,11 @@ function PlayerCard({ player }: { player: PlayerActivityItem }) {
     >
       <View style={s.playerCardHeader}>
         <View style={s.playerCardLeft}>
-          <View style={[s.levelBadge, { backgroundColor: `${PURPLE}20` }]}>
-            <Text style={[s.levelText, { color: PURPLE }]}>{player.level}</Text>
+          <View style={[s.rankBadge, { backgroundColor: `${PURPLE}18` }]}>
+            <Text style={[s.rankText, { color: PURPLE }]}>{rank}</Text>
+          </View>
+          <View style={[s.levelBadge, { backgroundColor: `${CYAN}15` }]}>
+            <Text style={[s.levelText, { color: CYAN }]}>{player.level}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.playerName} numberOfLines={1}>{player.player_name}</Text>
@@ -250,68 +227,43 @@ function PlayerCard({ player }: { player: PlayerActivityItem }) {
           </View>
         </View>
         <View style={s.playerCardRight}>
-          <Text style={[s.scoreText, { color: engColor }]}>{score}</Text>
+          <Text style={[s.scoreText, { color: GREEN }]}>{player.period_total}</Text>
+          <Text style={s.scoreLabel}>events</Text>
           <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.dark.textMuted} />
         </View>
       </View>
-      <EngagementBar score={score} />
-      <View style={s.statRow}>
-        <StatBadge icon="calendar" value={player.sessions_attended} color={CYAN} />
-        <StatBadge icon="bookmark" value={player.bookings_made} color={GREEN} />
-        <StatBadge icon="star" value={player.quests_completed} color={AMBER} />
-        <StatBadge icon="chatbubble" value={player.feedback_given} color={PURPLE} />
-        <StatBadge icon="phone-portrait" value={player.feature_events_period} color={Colors.dark.textMuted} />
-      </View>
-      <View style={s.badgeRow}>
-        {player.onboarding_completed ? (
-          <View style={[s.tag, { backgroundColor: `${GREEN}18`, borderColor: `${GREEN}40` }]}>
-            <Text style={[s.tagText, { color: GREEN }]}>Activated</Text>
-          </View>
-        ) : (
-          <View style={[s.tag, { backgroundColor: `${RED}18`, borderColor: `${RED}40` }]}>
-            <Text style={[s.tagText, { color: RED }]}>Not activated</Text>
-          </View>
-        )}
-        {isNeverOpened && (
-          <View style={[s.tag, { backgroundColor: `${RED}18`, borderColor: `${RED}40` }]}>
-            <Text style={[s.tagText, { color: RED }]}>Never opened app</Text>
-          </View>
-        )}
-        {isActiveThisWeek && !isNeverOpened && (
-          <View style={[s.tag, { backgroundColor: `${GREEN}18`, borderColor: `${GREEN}40` }]}>
-            <Text style={[s.tagText, { color: GREEN }]}>Active this period</Text>
-          </View>
-        )}
-        {player.no_show_count >= 2 && (
-          <View style={[s.tag, { backgroundColor: `${AMBER}18`, borderColor: `${AMBER}40` }]}>
-            <Text style={[s.tagText, { color: AMBER }]}>No-show risk</Text>
-          </View>
-        )}
-      </View>
+
+      {topFeature ? (
+        <View style={s.topFeatureRow}>
+          <Ionicons name="trending-up" size={11} color={AMBER} />
+          <Text style={s.topFeatureText} numberOfLines={1}>
+            Top: {KNOWN_FEATURES.find(f => f.key === topFeature[0])?.label || topFeature[0]} ({topFeature[1]}×)
+          </Text>
+        </View>
+      ) : null}
+
       {expanded && (
         <View style={s.expandedDetails}>
-          <DetailRow label="Sessions attended" value={player.sessions_attended} />
-          <DetailRow label="Lessons booked" value={player.bookings_made} />
-          <DetailRow label="Quests completed" value={player.quests_completed} />
-          <DetailRow label="Coach reviews given" value={player.feedback_given} />
-          <DetailRow label="App events (period)" value={player.feature_events_period} />
-          <DetailRow label="App events (all time)" value={player.feature_events_all_time} />
-          <DetailRow label="Matches played" value={player.matches_played} />
-          <DetailRow label="XP total" value={player.xp} />
-          <DetailRow label="Streak days" value={player.streak} />
-          <DetailRow label="No-shows" value={player.no_show_count} />
+          <Text style={s.breakdownTitle}>Feature usage this period</Text>
+          {sortedFeatures.map(([feature, count]) => {
+            const known = KNOWN_FEATURES.find(f => f.key === feature);
+            const label = known?.label || feature;
+            const cat = known?.category || "Other";
+            const barColor = CATEGORY_COLORS[cat] || PURPLE;
+            const pct = (count / maxCount) * 100;
+            return (
+              <View key={feature} style={s.breakdownRow}>
+                <Text style={s.breakdownLabel} numberOfLines={1}>{label}</Text>
+                <View style={s.breakdownBarTrack}>
+                  <View style={[s.breakdownBarFill, { width: `${Math.max(pct, 4)}%` as DimensionValue, backgroundColor: barColor }]} />
+                </View>
+                <Text style={[s.breakdownCount, { color: barColor }]}>{count}</Text>
+              </View>
+            );
+          })}
         </View>
       )}
     </Pressable>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: number }) {
-  return (
-    <View style={s.detailRow}>
-      <Text style={s.detailLabel}>{label}</Text>
-      <Text style={s.detailValue}>{value}</Text>
-    </View>
   );
 }
 
@@ -454,8 +406,6 @@ function FeaturesTab({ days, academyId }: { days: number; academyId: string | nu
 function PlayersTab({ days, academyId }: { days: number; academyId: string | null }) {
   const { data, isLoading, refetch, isRefetching } = usePlayerActivity(days, academyId);
   const players = data?.players || [];
-  const neverOpened = players.filter(p => p.feature_events_all_time === 0);
-  const active = players.filter(p => p.feature_events_all_time > 0);
 
   if (isLoading) {
     return (
@@ -470,7 +420,8 @@ function PlayersTab({ days, academyId }: { days: number; academyId: string | nul
     return (
       <View style={s.centered}>
         <Ionicons name="people-outline" size={40} color={Colors.dark.textMuted} />
-        <Text style={s.emptyText}>No players found</Text>
+        <Text style={s.emptyText}>No app activity in this period</Text>
+        <Text style={s.emptySubText}>Players appear here as they use the app</Text>
       </View>
     );
   }
@@ -482,41 +433,20 @@ function PlayersTab({ days, academyId }: { days: number; academyId: string | nul
     >
       <View style={s.legendRow}>
         <View style={s.legendItem}>
-          <Ionicons name="calendar" size={11} color={CYAN} />
-          <Text style={s.legendText}>Sessions</Text>
+          <View style={[s.catDot, { backgroundColor: PURPLE }]} />
+          <Text style={s.legendText}>Rank by total events</Text>
         </View>
         <View style={s.legendItem}>
-          <Ionicons name="bookmark" size={11} color={GREEN} />
-          <Text style={s.legendText}>Bookings</Text>
+          <Ionicons name="trending-up" size={11} color={AMBER} />
+          <Text style={s.legendText}>Top feature</Text>
         </View>
         <View style={s.legendItem}>
-          <Ionicons name="star" size={11} color={AMBER} />
-          <Text style={s.legendText}>Quests</Text>
-        </View>
-        <View style={s.legendItem}>
-          <Ionicons name="chatbubble" size={11} color={PURPLE} />
-          <Text style={s.legendText}>Feedback</Text>
-        </View>
-        <View style={s.legendItem}>
-          <Ionicons name="phone-portrait" size={11} color={Colors.dark.textMuted} />
-          <Text style={s.legendText}>App opens</Text>
+          <Ionicons name="chevron-down" size={11} color={Colors.dark.textMuted} />
+          <Text style={s.legendText}>Tap to expand</Text>
         </View>
       </View>
 
-      {active.map(p => <PlayerCard key={p.player_id} player={p} />)}
-
-      {neverOpened.length > 0 && (
-        <View style={{ marginTop: 24 }}>
-          <View style={s.sectionHeaderRow}>
-            <Ionicons name="person-remove-outline" size={16} color={RED} />
-            <Text style={[s.sectionLabel, { color: RED }]}>Never opened the app</Text>
-            <View style={[s.countBadge, { backgroundColor: `${RED}20` }]}>
-              <Text style={[s.countBadgeText, { color: RED }]}>{neverOpened.length}</Text>
-            </View>
-          </View>
-          {neverOpened.map(p => <PlayerCard key={p.player_id} player={p} />)}
-        </View>
-      )}
+      {players.map((p, i) => <PlayerCard key={p.player_id} player={p} rank={i + 1} />)}
     </ScrollView>
   );
 }
@@ -864,41 +794,27 @@ const s = StyleSheet.create({
   playerName: { ...Typography.body, color: Colors.dark.text, fontWeight: "600", fontSize: 14 },
   academyName: { fontSize: 11, color: Colors.dark.textMuted },
   scoreText: { fontSize: 18, fontWeight: "700" },
-  engBar: {
-    height: 5,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  engFill: { height: "100%", borderRadius: 3 },
-  statRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  statBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  statBadgeText: { fontSize: 11, fontWeight: "700" },
-  badgeRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  tag: {
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderWidth: 1,
-  },
-  tagText: { fontSize: 10, fontWeight: "600" },
+  scoreLabel: { fontSize: 10, color: Colors.dark.textMuted, alignSelf: "flex-end", marginBottom: 2 },
+  topFeatureRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  topFeatureText: { fontSize: 11, color: Colors.dark.textMuted, flex: 1 },
   expandedDetails: {
     backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
-    gap: 6,
+    gap: 8,
   },
-  detailRow: { flexDirection: "row", justifyContent: "space-between" },
-  detailLabel: { ...Typography.small, color: Colors.dark.textMuted },
-  detailValue: { ...Typography.small, color: Colors.dark.text, fontWeight: "600" },
+  breakdownTitle: { fontSize: 11, fontWeight: "700", color: Colors.dark.textMuted, marginBottom: 4 },
+  breakdownRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  breakdownLabel: { fontSize: 11, color: Colors.dark.textMuted, width: 120 },
+  breakdownBarTrack: {
+    flex: 1,
+    height: 5,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  breakdownBarFill: { height: "100%", borderRadius: 3 },
+  breakdownCount: { fontSize: 11, fontWeight: "700", width: 26, textAlign: "right" },
   legendRow: {
     flexDirection: "row",
     gap: 12,
