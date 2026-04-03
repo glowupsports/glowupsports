@@ -955,7 +955,15 @@ export default function SessionDetailDrawer({
         <Text style={styles.sectionTitle}>Players ({(liveSession?.players?.filter(p => !removedPlayerIds.has(p.id))?.length) || 0})</Text>
         {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 ? (
           <View style={styles.playersGrid}>
-            {liveSession.players.filter(p => !removedPlayerIds.has(p.id)).map(player => {
+            {(() => {
+              const filteredPlayers = liveSession.players.filter(p => !removedPlayerIds.has(p.id));
+              const rows: typeof filteredPlayers[] = [];
+              for (let i = 0; i < filteredPlayers.length; i += 2) {
+                rows.push(filteredPlayers.slice(i, i + 2));
+              }
+              return rows.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.playersGridRow}>
+                  {row.map(player => {
               const isGuest = player.name.includes("(Guest)") || player.isGuest;
               const isPastSession = new Date(session.endTime) < new Date();
               const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
@@ -1030,7 +1038,11 @@ export default function SessionDetailDrawer({
                   </Pressable>
                 </View>
               );
-            })}
+                  })}
+                  {row.length === 1 ? <View style={styles.playerCardSpacer} /> : null}
+                </View>
+              ));
+            })()}
           </View>
         ) : (
           <View style={styles.noPlayersCard}>
@@ -1472,26 +1484,30 @@ export default function SessionDetailDrawer({
           <View style={styles.feedbackHubContainer}>
             <Text style={styles.feedbackHubLabel}>FEEDBACK TOOLS</Text>
             <View style={styles.feedbackHubGrid}>
-              {TILES.map((tile) => (
-                <Pressable
-                  key={tile.key}
-                  style={[styles.feedbackHubTile, tile.disabled && { opacity: 0.4 }]}
-                  onPress={tile.disabled ? () => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                    Alert.alert("Registered Players Required", "This tool requires at least one registered (non-guest) player in the session.");
-                  } : tile.onPress}
-                >
-                  <View style={[styles.feedbackHubIcon, { backgroundColor: tile.color + "25" }]}>
-                    <Ionicons name={tile.icon} size={20} color={tile.color} />
-                  </View>
-                  <Text style={[styles.feedbackHubTileTitle, { color: tile.color }]} numberOfLines={1}>{tile.label}</Text>
-                  <Text style={styles.feedbackHubTileSubtitle} numberOfLines={2}>{tile.subtitle}</Text>
-                  {tile.xp ? (
-                    <View style={styles.feedbackHubXp}>
-                      <Text style={styles.feedbackHubXpText}>+XP</Text>
-                    </View>
-                  ) : null}
-                </Pressable>
+              {[TILES.slice(0, 2), TILES.slice(2, 4), TILES.slice(4, 6)].map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.feedbackHubGridRow}>
+                  {row.map((tile) => (
+                    <Pressable
+                      key={tile.key}
+                      style={[styles.feedbackHubTile, tile.disabled && { opacity: 0.4 }]}
+                      onPress={tile.disabled ? () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        Alert.alert("Registered Players Required", "This tool requires at least one registered (non-guest) player in the session.");
+                      } : tile.onPress}
+                    >
+                      <View style={[styles.feedbackHubIcon, { backgroundColor: tile.color + "25" }]}>
+                        <Ionicons name={tile.icon} size={20} color={tile.color} />
+                      </View>
+                      <Text style={[styles.feedbackHubTileTitle, { color: tile.color }]} numberOfLines={1}>{tile.label}</Text>
+                      <Text style={styles.feedbackHubTileSubtitle} numberOfLines={2}>{tile.subtitle}</Text>
+                      {tile.xp ? (
+                        <View style={styles.feedbackHubXp}>
+                          <Text style={styles.feedbackHubXpText}>+XP</Text>
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
               ))}
             </View>
           </View>
@@ -2873,13 +2889,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   playersGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: Spacing.sm,
     marginTop: Spacing.sm,
   },
+  playersGridRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  playerCardSpacer: {
+    flex: 1,
+  },
   playerCard: {
-    width: "48%",
+    flex: 1,
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.sm,
@@ -3763,12 +3784,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   feedbackHubGrid: {
+    gap: Spacing.sm,
+  },
+  feedbackHubGridRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: Spacing.sm,
   },
   feedbackHubTile: {
-    width: "47.5%",
+    flex: 1,
     backgroundColor: Colors.dark.cardBackground,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
