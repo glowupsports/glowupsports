@@ -5,6 +5,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -23,6 +25,7 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
 const PLATFORM_PURPLE = "#9B59B6";
 
@@ -65,6 +68,7 @@ interface FeatureUsageData {
 
 function FeatureUsageCard() {
   const [days, setDays] = useState(7);
+  const navigation = useNavigation<NativeStackNavigationProp<PlatformStackParamList>>();
   const { data, isLoading } = useQuery<FeatureUsageData>({
     queryKey: [`/api/platform/analytics/feature-usage`, days],
     queryFn: async ({ queryKey }) => {
@@ -82,15 +86,21 @@ function FeatureUsageCard() {
     { label: "30d", value: 30 },
   ];
 
-  const features = data?.features || [];
+  const features = (data?.features || []).slice(0, 6);
+
+  const handleSeeAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("PlayerActivity", { initialTab: "features" });
+  };
 
   return (
     <View style={styles.section}>
       <View style={fuStyles.header}>
-        <View style={fuStyles.titleRow}>
+        <Pressable style={fuStyles.titleRow} onPress={handleSeeAll} hitSlop={8}>
           <Ionicons name="analytics" size={16} color={PLATFORM_PURPLE} />
           <Text style={styles.sectionTitle}>Feature Usage</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={14} color={PLATFORM_PURPLE} style={{ marginLeft: 2 }} />
+        </Pressable>
         <View style={fuStyles.periodRow}>
           {periodOptions.map((opt) => (
             <Pressable
@@ -143,6 +153,12 @@ function FeatureUsageCard() {
               </View>
             );
           })
+        )}
+        {features.length > 0 && (
+          <Pressable style={fuStyles.seeAllBtn} onPress={handleSeeAll}>
+            <Text style={fuStyles.seeAllText}>See full report — players & dead zones</Text>
+            <Ionicons name="arrow-forward" size={13} color={PLATFORM_PURPLE} />
+          </Pressable>
         )}
       </View>
     </View>
@@ -854,5 +870,19 @@ const fuStyles = StyleSheet.create({
     width: 30,
     textAlign: "right",
     fontWeight: "600",
+  },
+  seeAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  seeAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: PLATFORM_PURPLE,
   },
 });

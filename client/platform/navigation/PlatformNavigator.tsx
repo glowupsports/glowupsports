@@ -19,6 +19,7 @@ import NotificationTemplatesScreen from "@/platform/screens/NotificationTemplate
 import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
 import ProviderInviteManagementScreen from "@/platform/screens/ProviderInviteManagementScreen";
+import PlayerActivityScreen from "@/platform/screens/PlayerActivityScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
@@ -49,6 +50,7 @@ export type PlatformStackParamList = {
   AuditLogs: undefined;
   Diagnostics: undefined;
   ProviderInviteManagement: undefined;
+  PlayerActivity: { initialTab?: "features" | "players" | "dead_zones" };
 };
 
 const Stack = createNativeStackNavigator<PlatformStackParamList>();
@@ -91,6 +93,7 @@ function PlatformStackNavigator() {
       <Stack.Screen name="AuditLogs" component={AuditLogsScreen} />
       <Stack.Screen name="Diagnostics" component={DiagnosticsScreen} />
       <Stack.Screen name="ProviderInviteManagement" component={ProviderInviteManagementScreen} />
+      <Stack.Screen name="PlayerActivity" component={PlayerActivityScreen} />
     </Stack.Navigator>
   );
 }

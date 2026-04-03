@@ -2956,4 +2956,183 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // GET /api/platform/analytics/feature-drilldown — top players for a specific feature
+  router.get(
+    "/api/platform/analytics/feature-drilldown",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const feature = (req.query.feature as string)?.substring(0, 100);
+        if (!feature) return res.status(400).json({ error: "feature is required" });
+        const days = Math.min(parseInt((req.query.days as string) || "7", 10) || 7, 90);
+        const academyId = req.query.academyId as string | undefined;
+
+        const params: any[] = [feature, days];
+        let academyFilter = "";
+        if (academyId) {
+          params.push(academyId);
+          academyFilter = `AND p.academy_id = $${params.length}`;
+        }
+
+        const result = await pool.query(
+          `SELECT
+             fe.user_id,
+             COALESCE(p.name, u.username, u.email) AS player_name,
+             p.id AS player_id,
+             a.name AS academy_name,
+             COUNT(*)::int AS count
+           FROM feature_events fe
+           JOIN users u ON u.id = fe.user_id
+           LEFT JOIN players p ON p.id = u.player_id
+           LEFT JOIN academies a ON a.id = p.academy_id
+           WHERE fe.feature = $1
+             AND fe.created_at >= NOW() - ($2 || ' days')::interval
+             ${academyFilter}
+           GROUP BY fe.user_id, p.name, u.username, u.email, p.id, a.name
+           ORDER BY count DESC
+           LIMIT 20`,
+          params,
+        );
+
+        res.json({ feature, days, players: result.rows });
+      } catch (error) {
+        console.error("Feature drilldown analytics error:", error);
+        res.status(500).json({ error: "Failed to fetch feature drilldown" });
+      }
+    },
+  );
+
+  // GET /api/platform/analytics/player-activity — per-player engagement composite
+  router.get(
+    "/api/platform/analytics/player-activity",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const days = Math.min(parseInt((req.query.days as string) || "7", 10) || 7, 90);
+        const academyId = req.query.academyId as string | undefined;
+
+        const params: any[] = [days];
+        let academyFilter = "";
+        if (academyId) {
+          params.push(academyId);
+          academyFilter = `AND p.academy_id = $${params.length}`;
+        }
+
+        const result = await pool.query(
+          `WITH
+             fe_period AS (
+               SELECT u.player_id, COUNT(*)::int AS cnt
+               FROM feature_events fe
+               JOIN users u ON u.id = fe.user_id
+               WHERE fe.created_at >= NOW() - ($1 || ' days')::interval
+                 AND u.player_id IS NOT NULL
+               GROUP BY u.player_id
+             ),
+             fe_all AS (
+               SELECT u.player_id, COUNT(*)::int AS cnt
+               FROM feature_events fe
+               JOIN users u ON u.id = fe.user_id
+               WHERE u.player_id IS NOT NULL
+               GROUP BY u.player_id
+             ),
+             sa AS (
+               SELECT sp.player_id, COUNT(*)::int AS cnt
+               FROM session_players sp
+               WHERE sp.attendance_status = 'present'
+               GROUP BY sp.player_id
+             ),
+             bm AS (
+               SELECT br.player_id, COUNT(*)::int AS cnt
+               FROM booking_requests br
+               GROUP BY br.player_id
+             ),
+             fg AS (
+               SELECT cr.player_id, COUNT(*)::int AS cnt
+               FROM coach_reviews cr
+               GROUP BY cr.player_id
+             ),
+             qc AS (
+               SELECT pq.player_id, COUNT(*)::int AS cnt
+               FROM player_quests pq
+               WHERE pq.claimed_at IS NOT NULL OR pq.status = 'completed'
+               GROUP BY pq.player_id
+             )
+           SELECT
+             p.id AS player_id,
+             p.name AS player_name,
+             p.level,
+             p.total_xp AS xp,
+             p.streak,
+             p.total_matches_played AS matches_played,
+             p.no_show_count,
+             p.onboarding_completed,
+             a.id AS academy_id,
+             a.name AS academy_name,
+             COALESCE(fe_period.cnt, 0) AS feature_events_period,
+             COALESCE(fe_all.cnt, 0) AS feature_events_all_time,
+             COALESCE(sa.cnt, 0) AS sessions_attended,
+             COALESCE(bm.cnt, 0) AS bookings_made,
+             COALESCE(fg.cnt, 0) AS feedback_given,
+             COALESCE(qc.cnt, 0) AS quests_completed
+           FROM players p
+           LEFT JOIN academies a ON a.id = p.academy_id
+           LEFT JOIN fe_period ON fe_period.player_id = p.id
+           LEFT JOIN fe_all ON fe_all.player_id = p.id
+           LEFT JOIN sa ON sa.player_id = p.id
+           LEFT JOIN bm ON bm.player_id = p.id
+           LEFT JOIN fg ON fg.player_id = p.id
+           LEFT JOIN qc ON qc.player_id = p.id
+           WHERE 1=1 ${academyFilter}
+           ORDER BY (COALESCE(fe_all.cnt, 0) + COALESCE(sa.cnt, 0) * 2) DESC
+           LIMIT 200`,
+          params,
+        );
+
+        const rows = result.rows as {
+          player_id: string;
+          player_name: string;
+          level: number;
+          xp: number;
+          streak: number;
+          matches_played: number;
+          no_show_count: number;
+          onboarding_completed: boolean;
+          academy_id: string;
+          academy_name: string;
+          feature_events_period: number;
+          feature_events_all_time: number;
+          sessions_attended: number;
+          bookings_made: number;
+          feedback_given: number;
+          quests_completed: number;
+        }[];
+
+        // Compute engagement score (0–100) per player
+        const maxSessions = Math.max(1, ...rows.map(r => r.sessions_attended));
+        const maxEvents = Math.max(1, ...rows.map(r => r.feature_events_period));
+        const maxBookings = Math.max(1, ...rows.map(r => r.bookings_made));
+        const maxQuests = Math.max(1, ...rows.map(r => r.quests_completed));
+        const maxFeedback = Math.max(1, ...rows.map(r => r.feedback_given));
+
+        const players = rows.map(r => {
+          const score = Math.round(
+            (r.sessions_attended / maxSessions) * 35 +
+            (r.feature_events_period / maxEvents) * 25 +
+            (r.bookings_made / maxBookings) * 20 +
+            (r.quests_completed / maxQuests) * 10 +
+            (r.feedback_given / maxFeedback) * 10,
+          );
+          return { ...r, engagement_score: Math.min(100, score) };
+        }).sort((a, b) => b.engagement_score - a.engagement_score);
+
+        res.json({ players, days, generatedAt: new Date().toISOString() });
+      } catch (error) {
+        console.error("Player activity analytics error:", error);
+        res.status(500).json({ error: "Failed to fetch player activity" });
+      }
+    },
+  );
+
 export default router;
