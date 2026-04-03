@@ -418,6 +418,23 @@ export default function FamilyLobbyScreen() {
           <Text style={styles.welcomeText}>Family Lobby</Text>
         </View>
         <Text style={styles.subtitle}>Choose a profile to continue</Text>
+        <View style={styles.roleBadgeRow}>
+          <View style={[styles.roleBadge, isParent ? styles.roleBadgeParent : styles.roleBadgeChild]}>
+            <Ionicons
+              name={isParent ? "shield-checkmark" : "person"}
+              size={13}
+              color={isParent ? "#00BCD4" : Colors.dark.primary}
+            />
+            <Text style={[styles.roleBadgeText, isParent ? styles.roleBadgeTextParent : styles.roleBadgeTextChild]}>
+              {isParent ? "Viewing as: Parent" : "Viewing as: Child"}
+            </Text>
+          </View>
+          {familyData.parentEmail ? (
+            <Text style={styles.parentEmailText} numberOfLines={1}>
+              Family managed by: {familyData.parentEmail}
+            </Text>
+          ) : null}
+        </View>
       </Animated.View>
 
       {familyData.outstandingTotal > 0 && (
@@ -491,28 +508,23 @@ export default function FamilyLobbyScreen() {
               index={index}
             />
           ))}
-          {isParent ? (
-            <Animated.View entering={FadeInRight.delay(familyData.members.length * 100).duration(400)}>
-              <Pressable
-                style={styles.addChildCard}
-                onPress={handleOpenAddChildModal}
-                accessibilityRole="button"
-                accessibilityLabel="Add a child to your family"
-              >
-                <View style={styles.addChildInner}>
-                  <View style={styles.addChildIconCircle}>
-                    <Ionicons name="person-add" size={28} color={Colors.dark.primary} />
-                  </View>
-                  <Text style={styles.addChildText}>Add Child</Text>
-                  <Text style={styles.addChildSubtext}>Link a player</Text>
-                </View>
-              </Pressable>
-            </Animated.View>
-          ) : null}
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+        {isParent ? (
+          <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.addChildStickyWrapper}>
+            <Pressable
+              style={styles.addChildStickyButton}
+              onPress={handleOpenAddChildModal}
+              accessibilityRole="button"
+              accessibilityLabel="Add a child to your family"
+            >
+              <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.addChildStickyText}>Add Child</Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
         <View style={styles.footerRow}>
           <Ionicons name="people" size={16} color={Colors.dark.textMuted} />
           <Text style={styles.footerText}>
@@ -894,6 +906,65 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.primary,
   },
+  roleBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    marginLeft: 32,
+  },
+  roleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  roleBadgeParent: {
+    backgroundColor: "rgba(0,188,212,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0,188,212,0.3)",
+  },
+  roleBadgeChild: {
+    backgroundColor: Colors.dark.primary + "18",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "35",
+  },
+  roleBadgeText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+  },
+  roleBadgeTextParent: {
+    color: "#00BCD4",
+  },
+  roleBadgeTextChild: {
+    color: Colors.dark.primary,
+  },
+  parentEmailText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    flexShrink: 1,
+  },
+  addChildStickyWrapper: {
+    marginBottom: Spacing.sm,
+  },
+  addChildStickyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+  },
+  addChildStickyText: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
@@ -1006,43 +1077,6 @@ const styles = StyleSheet.create({
   controlLabel: {
     fontSize: FontSizes.sm,
     color: Colors.dark.textSecondary,
-  },
-  addChildCard: {
-    width: 160,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: Colors.dark.primary + "40",
-    borderStyle: "dashed",
-    backgroundColor: Colors.dark.primary + "08",
-  },
-  addChildInner: {
-    padding: Spacing.md,
-    alignItems: "center",
-    gap: Spacing.sm,
-    minHeight: 200,
-    justifyContent: "center",
-  },
-  addChildIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.dark.primary + "20",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: Colors.dark.primary + "40",
-  },
-  addChildText: {
-    fontSize: FontSizes.lg,
-    fontWeight: "700",
-    color: Colors.dark.primary,
-    textAlign: "center",
-  },
-  addChildSubtext: {
-    fontSize: FontSizes.sm,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
   },
   tabRow: {
     flexDirection: "row",
