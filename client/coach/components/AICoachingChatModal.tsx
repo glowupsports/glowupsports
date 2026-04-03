@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -50,6 +51,10 @@ interface Props {
   playerName: string;
 }
 
+function getDraftKey(sessionId: string, playerId: string): string {
+  return `ai-chat-draft-${sessionId}-${playerId}`;
+}
+
 function parseStructuredSummary(text: string): StructuredSummary | null {
   const match = text.match(/```json\s*([\s\S]*?)```/);
   if (!match) return null;
@@ -78,12 +83,19 @@ function getRatingLabel(score: number): string {
   return "Needs attention";
 }
 
+const WRAP_UP_PROMPT =
+  "Please wrap up our conversation now. Based on everything we've discussed, generate the structured JSON summary block to close this coaching session.";
+
 export function AICoachingChatModal({ visible, onClose, sessionId, playerId, playerName }: Props) {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [pendingSummary, setPendingSummary] = useState<StructuredSummary | null>(null);
   const [levelUpChoice, setLevelUpChoice] = useState<boolean | null>(null);
+  const [resumedDraft, setResumedDraft] = useState(false);
+  // isDraftHydrated guards both greeting and persistence effects from running
+  // before the AsyncStorage restore attempt has finished.
+  const [isDraftHydrated, setIsDraftHydrated] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   // Load player context
@@ -93,9 +105,41 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     staleTime: Infinity,
   });
 
-  // Initial greeting when context loads
+  // Restore draft on open — sets isDraftHydrated when done (with or without a draft)
   useEffect(() => {
-    if (ctx && messages.length === 0) {
+    if (!visible || !sessionId || !playerId) return;
+    setIsDraftHydrated(false);
+    const key = getDraftKey(sessionId, playerId);
+    AsyncStorage.getItem(key)
+      .then((raw) => {
+        if (raw) {
+          try {
+            const draft: Message[] = JSON.parse(raw);
+            if (Array.isArray(draft) && draft.length > 0) {
+              setMessages(draft);
+              setResumedDraft(true);
+              // If the last assistant message contains a summary, restore it
+              for (let i = draft.length - 1; i >= 0; i--) {
+                if (draft[i].role === "assistant") {
+                  const summary = parseStructuredSummary(draft[i].content);
+                  if (summary) setPendingSummary(summary);
+                  break;
+                }
+              }
+            }
+          } catch { /* ignore bad draft */ }
+        }
+      })
+      .catch(() => { /* ignore storage errors */ })
+      .finally(() => {
+        setIsDraftHydrated(true);
+      });
+  }, [visible, sessionId, playerId]);
+
+  // Initial greeting when context loads — only after hydration and only if no draft
+  useEffect(() => {
+    if (!isDraftHydrated) return;
+    if (ctx && messages.length === 0 && !resumedDraft) {
       const requiredList = ctx.requiredSkills.filter((s) => s.required).slice(0, 3);
       const skillHint =
         requiredList.length > 0
@@ -104,7 +148,15 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       const greeting = `You just finished a ${ctx.sessionType} session with ${ctx.playerName}${ctx.playerAge ? ` (age ${ctx.playerAge})` : ""} at ${ctx.ballLevel} ball level.${skillHint} What was the main focus of today's session?`;
       setMessages([{ role: "assistant", content: greeting }]);
     }
-  }, [ctx]);
+  }, [ctx, isDraftHydrated, messages.length, resumedDraft]);
+
+  // Persist draft on every messages change — only after hydration to avoid overwriting
+  useEffect(() => {
+    if (!isDraftHydrated || !sessionId || !playerId || !visible) return;
+    if (messages.length === 0) return;
+    const key = getDraftKey(sessionId, playerId);
+    AsyncStorage.setItem(key, JSON.stringify(messages)).catch(() => {});
+  }, [messages, sessionId, playerId, visible, isDraftHydrated]);
 
   // Reset on close
   useEffect(() => {
@@ -113,6 +165,8 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       setInputText("");
       setPendingSummary(null);
       setLevelUpChoice(null);
+      setResumedDraft(false);
+      setIsDraftHydrated(false);
     }
   }, [visible]);
 
@@ -155,6 +209,8 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Clear draft on commit
+      AsyncStorage.removeItem(getDraftKey(sessionId, playerId)).catch(() => {});
       onClose();
     },
   });
@@ -165,6 +221,12 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     setInputText("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     chatMutation.mutate(text);
+  };
+
+  const handleWrapUp = () => {
+    if (chatMutation.isPending) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    chatMutation.mutate(WRAP_UP_PROMPT);
   };
 
   return (
@@ -190,9 +252,21 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
               <Text style={styles.headerSubtitle}>{playerName}</Text>
             </View>
           </View>
-          <Pressable style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
-          </Pressable>
+          <View style={styles.headerRight}>
+            {!pendingSummary ? (
+              <Pressable
+                style={[styles.wrapUpButton, chatMutation.isPending && { opacity: 0.4 }]}
+                onPress={handleWrapUp}
+                disabled={chatMutation.isPending || messages.length < 2}
+              >
+                <Ionicons name="checkmark-done" size={14} color={Colors.dark.primary} />
+                <Text style={styles.wrapUpButtonText}>Wrap Up</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.closeButton} onPress={onClose}>
+              <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
         </View>
 
         {ctxLoading ? (
@@ -210,6 +284,13 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
               showsVerticalScrollIndicator={false}
               onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
             >
+              {resumedDraft && messages.length > 0 ? (
+                <View style={styles.resumeBanner}>
+                  <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
+                  <Text style={styles.resumeBannerText}>Resuming previous chat</Text>
+                </View>
+              ) : null}
+
               {messages.map((msg, i) => (
                 <View
                   key={i}
@@ -302,6 +383,10 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                   </View>
                 ) : null}
 
+                <Text style={styles.saveInfoText}>
+                  This will save session notes, skill scores, and progress tracking for {playerName}.
+                </Text>
+
                 <View style={styles.summaryActions}>
                   <Pressable
                     style={styles.continueButton}
@@ -382,6 +467,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
   aiIcon: {
     width: 32,
     height: 32,
@@ -398,6 +488,23 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  wrapUpButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+    backgroundColor: Colors.dark.primary + "12",
+  },
+  wrapUpButtonText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    fontSize: 12,
   },
   closeButton: {
     padding: Spacing.sm,
@@ -418,6 +525,22 @@ const styles = StyleSheet.create({
   messageListContent: {
     padding: Spacing.xl,
     gap: Spacing.lg,
+  },
+  resumeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    alignSelf: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full ?? 999,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginBottom: Spacing.sm,
+  },
+  resumeBannerText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
   },
   messageBubble: {
     maxWidth: "88%",
@@ -549,6 +672,13 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  saveInfoText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 17,
+    paddingHorizontal: Spacing.sm,
   },
   summaryActions: {
     flexDirection: "row",
