@@ -93,6 +93,9 @@ export default function PlayerAICoachScreen() {
         body: JSON.stringify({ messages: msgs }),
       });
 
+      if (!resp.ok) {
+        throw new Error(`Server error: ${resp.status}`);
+      }
       const reader = resp.body?.getReader();
       if (!reader) throw new Error("No stream reader available");
 
