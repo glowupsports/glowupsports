@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -22,7 +22,6 @@ const PURPLE = "#9B59B6";
 const CYAN = Colors.dark.xpCyan;
 const GREEN = Colors.dark.primary;
 const AMBER = "#F39C12";
-const RED = Colors.dark.error;
 
 type Tab = "features" | "players" | "dead_zones";
 
