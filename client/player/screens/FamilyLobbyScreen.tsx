@@ -30,7 +30,7 @@ import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 
-export const FAMILY_SWITCH_KEY = "@family_switch";
+export const FAMILY_SWITCH_KEY = "family_switch";
 
 function parseApiError(error: any, fallback: string): string {
   const raw: string = error?.message || "";

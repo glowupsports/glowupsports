@@ -117,7 +117,7 @@ import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-const FAMILY_SWITCH_KEY = "@family_switch";
+const FAMILY_SWITCH_KEY = "family_switch";
 
 interface FamilySwitchInfo {
   originalToken?: string;
