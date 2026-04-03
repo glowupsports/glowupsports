@@ -3232,6 +3232,16 @@ Return ONLY valid JSON, no markdown:
           temperature: 0.7,
         });
 
+        const { logAiCall } = await import("./middleware/aiQuotaMiddleware");
+        logAiCall({
+          userId: null,
+          featureType: "notification",
+          model: "gpt-4o-mini",
+          promptTokens: response.usage?.prompt_tokens ?? 0,
+          completionTokens: response.usage?.completion_tokens ?? 0,
+          totalTokens: response.usage?.total_tokens ?? 0,
+        }).catch(() => {});
+
         const rawContent = response.choices?.[0]?.message?.content || null;
         if (!rawContent) continue;
 

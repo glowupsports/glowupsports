@@ -6842,3 +6842,29 @@ export const sessionAiChats = pgTable("session_ai_chats", {
 export const insertSessionAiChatSchema = createInsertSchema(sessionAiChats).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSessionAiChat = z.infer<typeof insertSessionAiChatSchema>;
 export type SessionAiChat = typeof sessionAiChats.$inferSelect;
+
+// ==================== AI USAGE TRACKING ====================
+
+export const AI_FEATURE_TYPES = ["chat", "session-plan", "report", "quest", "notification", "other"] as const;
+export type AiFeatureType = typeof AI_FEATURE_TYPES[number];
+
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  featureType: text("feature_type").notNull().$type<AiFeatureType>(),
+  model: text("model").notNull().default("gpt-4o-mini"),
+  promptTokens: integer("prompt_tokens").default(0),
+  completionTokens: integer("completion_tokens").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  academyId: varchar("academy_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("ai_usage_logs_user_idx").on(table.userId),
+  index("ai_usage_logs_academy_idx").on(table.academyId),
+  index("ai_usage_logs_created_idx").on(table.createdAt),
+  index("ai_usage_logs_feature_idx").on(table.featureType),
+]);
+
+export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({ id: true, createdAt: true });
+export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect;

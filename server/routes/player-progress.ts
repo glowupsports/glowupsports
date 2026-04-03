@@ -54,6 +54,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
+  import { aiQuotaMiddleware, logAiCall } from "../middleware/aiQuotaMiddleware";
   const router = Router();
   
     // ==================== PLAYER PROGRESS ====================
@@ -2596,6 +2597,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   router.post(
     "/api/sessions/:sessionId/players/:playerId/ai-chat",
     authMiddleware,
+    aiQuotaMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { sessionId, playerId } = req.params;
@@ -2631,6 +2633,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             temperature: 0.6,
           });
           reply = response.choices?.[0]?.message?.content || null;
+          logAiCall({
+            userId: req.user!.id,
+            featureType: "chat",
+            model: "gpt-4o-mini",
+            promptTokens: response.usage?.prompt_tokens ?? 0,
+            completionTokens: response.usage?.completion_tokens ?? 0,
+            totalTokens: response.usage?.total_tokens ?? 0,
+            academyId: req.user!.academyId ?? null,
+          }).catch(() => {});
         } catch (err) {
           console.error("[AIChat] OpenAI call failed:", err);
         }
@@ -2801,6 +2812,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   router.post(
     "/api/player/me/ai-coach/chat",
     authMiddleware,
+    aiQuotaMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const playerId = req.user!.playerId;
@@ -2843,14 +2855,29 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             max_tokens: 400,
             temperature: 0.7,
             stream: true,
+            stream_options: { include_usage: true },
           });
 
+          let lastUsage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
           for await (const chunk of stream) {
             const token = chunk.choices[0]?.delta?.content;
             if (token) {
               res.write(`data: ${JSON.stringify({ token })}\n\n`);
             }
+            if (chunk.usage) {
+              lastUsage = chunk.usage;
+            }
           }
+
+          logAiCall({
+            userId: req.user!.id,
+            featureType: "chat",
+            model: "gpt-4o-mini",
+            promptTokens: lastUsage?.prompt_tokens ?? 0,
+            completionTokens: lastUsage?.completion_tokens ?? 0,
+            totalTokens: lastUsage?.total_tokens ?? 0,
+            academyId: req.user!.academyId ?? null,
+          }).catch(() => {});
         } catch (err) {
           console.error("[PlayerAICoach] OpenAI stream failed:", err);
           res.write(`data: ${JSON.stringify({ error: "Stream failed" })}\n\n`);
@@ -2872,6 +2899,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   router.post(
     "/api/sessions/:sessionId/ai-plan",
     authMiddleware,
+    aiQuotaMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { sessionId } = req.params;

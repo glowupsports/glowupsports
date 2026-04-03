@@ -24,6 +24,7 @@ import {
   tournamentMatches,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
+import { logAiCall } from "../middleware/aiQuotaMiddleware";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -33,7 +34,8 @@ const openai = new OpenAI({
 async function callOpenAI(
   userPrompt: string,
   systemPrompt: string,
-  maxTokens: number = 600
+  maxTokens: number = 600,
+  context?: { userId?: string | null; featureType?: string; academyId?: string | null }
 ): Promise<string | null> {
   try {
     const response = await openai.chat.completions.create({
@@ -45,6 +47,19 @@ async function callOpenAI(
       max_tokens: maxTokens,
       temperature: 0.7,
     });
+
+    if (context) {
+      logAiCall({
+        userId: context.userId ?? null,
+        featureType: context.featureType ?? "other",
+        model: "gpt-4o-mini",
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
+        totalTokens: response.usage?.total_tokens ?? 0,
+        academyId: context.academyId ?? null,
+      }).catch(() => {});
+    }
+
     return response.choices?.[0]?.message?.content || null;
   } catch (err) {
     console.error("[AIEngine] OpenAI call failed:", err);
@@ -219,7 +234,7 @@ Write a 2-3 sentence session digest for this player. Write it in third person (e
     const systemPrompt =
       "You are an expert tennis/padel/pickleball coaching assistant. Generate concise, encouraging, data-driven session digests for player development records. Never use emojis.";
 
-    const summary = await callOpenAI(prompt, systemPrompt, 300);
+    const summary = await callOpenAI(prompt, systemPrompt, 300, { featureType: "report" });
     if (!summary) return;
 
     await db.insert(sessionAiSummaries).values({
@@ -464,7 +479,7 @@ Return ONLY valid JSON (no markdown, no code block), like:
     const systemPrompt =
       "You are an expert tennis/sports development assistant for a multi-academy coaching platform. Generate data-driven, encouraging progress narratives. Return only valid JSON without markdown formatting. Never use emojis.";
 
-    const response = await callOpenAI(prompt, systemPrompt, 700);
+    const response = await callOpenAI(prompt, systemPrompt, 700, { featureType: "report" });
     if (!response) return null;
 
     try {
@@ -1348,7 +1363,7 @@ Return a JSON object with exactly this structure:
   "flags": ["any group-level observations or concerns (1-3 items)"]
 }`;
 
-  const raw = await callOpenAI(userPrompt, systemPrompt, 800);
+  const raw = await callOpenAI(userPrompt, systemPrompt, 800, { featureType: "session-plan" });
   if (!raw) return null;
 
   try {
@@ -1673,7 +1688,7 @@ Tone: warm, parent-friendly, positive but honest. No scores or numbers from the 
 
     const systemPrompt = "You are a friendly sports academy communicator writing monthly progress letters to parents of junior tennis players. Your letters are warm, jargon-free, positive, and give parents clear, actionable ways to support their child at home. Never use emojis. Never mention internal scores or numbers.";
 
-    const letter = await callOpenAI(userPrompt, systemPrompt, 700);
+    const letter = await callOpenAI(userPrompt, systemPrompt, 700, { featureType: "report" });
     return letter?.trim() || null;
   } catch (error) {
     console.error("[AIEngine] Error generating parent progress letter:", error);

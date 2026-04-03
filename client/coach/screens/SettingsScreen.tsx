@@ -1202,6 +1202,21 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </Pressable>
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => navigation.navigate("AiUsage")}
+          >
+            <View style={styles.settingInfo}>
+              <View style={[styles.settingIconWrapper, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                <Ionicons name="analytics-outline" size={20} color={Colors.dark.xpCyan} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>AI Usage</Text>
+                <Text style={styles.settingDescription}>View AI call usage and estimated costs</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+          </Pressable>
           </> : null}
         </View>
 

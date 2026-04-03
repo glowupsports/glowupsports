@@ -186,6 +186,10 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       const res = await apiRequest("POST", `/api/sessions/${sessionId}/players/${playerId}/ai-chat`, {
         messages: updatedMessages,
       });
+      if (res.status === 429) {
+        const data = await res.json() as { error: string; message: string };
+        throw Object.assign(new Error(data.message || "Quota exceeded"), { isQuota: true, serverMessage: data.message });
+      }
       const data = await res.json() as { reply: string | null };
       return { reply: data.reply, userMessages: updatedMessages };
     },
@@ -196,6 +200,16 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       const summary = parseStructuredSummary(replyText);
       if (summary) setPendingSummary(summary);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    },
+    onError: (err: any) => {
+      if (err.isQuota) {
+        Alert.alert(
+          "AI-limiet bereikt",
+          err.serverMessage || "Je AI-limiet voor vandaag is bereikt — probeer het morgen opnieuw.",
+          [{ text: "OK" }]
+        );
+        setMessages((prev) => prev.slice(0, -1));
+      }
     },
   });
 

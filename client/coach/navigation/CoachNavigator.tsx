@@ -36,6 +36,7 @@ import VideoFeedbackScreen from "@/coach/screens/VideoFeedbackScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import TournamentManagementScreen from "@/coach/screens/TournamentManagementScreen";
+import AiUsageScreen from "@/coach/screens/AiUsageScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
@@ -94,6 +95,7 @@ export type CoachStackParamList = {
   PlayerMatchHistory: { playerId: string; playerName?: string };
   LiveMatchViewer: { matchId: string; playerName?: string };
   TournamentManagement: { tournamentId?: string } | undefined;
+  AiUsage: undefined;
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -352,6 +354,14 @@ function CoachStackNavigator() {
         component={TournamentManagementScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AiUsage"
+        component={AiUsageScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "AI Usage",
         }}
       />
     </Stack.Navigator>

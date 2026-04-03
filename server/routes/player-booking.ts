@@ -718,6 +718,16 @@ Return only the JSON array, nothing else.`;
         if (Array.isArray(parsed)) {
           suggestions = parsed.slice(0, 3);
         }
+        const { logAiCall } = await import("../middleware/aiQuotaMiddleware");
+        logAiCall({
+          userId: (req as any).user?.id ?? null,
+          featureType: "other",
+          model: "gpt-4o-mini",
+          promptTokens: response.usage?.prompt_tokens ?? 0,
+          completionTokens: response.usage?.completion_tokens ?? 0,
+          totalTokens: response.usage?.total_tokens ?? 0,
+          academyId: (req as any).user?.academyId ?? null,
+        }).catch(() => {});
       } catch {
         suggestions = [];
       }

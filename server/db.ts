@@ -454,6 +454,28 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.warn('[Database] in_session_feedback AI note partial index skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_usage_logs (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+        feature_type TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+        prompt_tokens INTEGER DEFAULT 0,
+        completion_tokens INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        academy_id VARCHAR REFERENCES academies(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_usage_logs_user_idx ON ai_usage_logs(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_usage_logs_academy_idx ON ai_usage_logs(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_usage_logs_created_idx ON ai_usage_logs(created_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ai_usage_logs_feature_idx ON ai_usage_logs(feature_type)`);
+    console.log('[Database] ai_usage_logs migration successful');
+  } catch (e: any) {
+    console.log('[Database] ai_usage_logs migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

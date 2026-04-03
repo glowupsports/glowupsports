@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -93,6 +94,16 @@ export default function PlayerAICoachScreen() {
         body: JSON.stringify({ messages: msgs }),
       });
 
+      if (resp.status === 429) {
+        let quotaMsg = "Je AI-limiet voor vandaag is bereikt — probeer het morgen opnieuw.";
+        try {
+          const data = await resp.json() as { message?: string };
+          if (data.message) quotaMsg = data.message;
+        } catch {}
+        Alert.alert("AI-limiet bereikt", quotaMsg, [{ text: "OK" }]);
+        setIsLoading(false);
+        return;
+      }
       if (!resp.ok) {
         throw new Error(`Server error: ${resp.status}`);
       }
