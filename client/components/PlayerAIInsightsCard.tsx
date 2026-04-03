@@ -360,9 +360,11 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
 
               {narrative.focusAreas && narrative.focusAreas.length > 0 ? (
                 <View style={styles.focusBlock}>
-                  <Text style={styles.focusLabel}>Recommended Focus Areas</Text>
+                  <Text style={styles.focusLabel}>
+                    {myProfile ? "Your Focus Areas" : "Recommended Focus Areas"}
+                  </Text>
                   <View style={styles.chipsRow}>
-                    {narrative.focusAreas.map((area, i) => (
+                    {narrative.focusAreas.slice(0, 3).map((area, i) => (
                       <View key={i} style={styles.focusChip}>
                         <Text style={styles.focusChipText}>{area}</Text>
                       </View>
@@ -381,7 +383,9 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
 
           {digests.length > 0 ? (
             <View style={styles.digestsBlock}>
-              <Text style={styles.digestsLabel}>Recent Session Digests</Text>
+              <Text style={styles.digestsLabel}>
+                {myProfile ? "Recent Session Highlights" : "Recent Session Digests"}
+              </Text>
               {digests.map((digest) => (
                 <View key={digest.id} style={styles.digestRow}>
                   <View style={styles.digestDot} />
