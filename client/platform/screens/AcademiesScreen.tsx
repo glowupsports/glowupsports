@@ -21,6 +21,7 @@ interface AcademyData {
   mrr: number;
   status: "active" | "trial" | "paused" | "overdue";
   lastActivity: string | null;
+  tier?: string;
 }
 
 interface PlatformStats {
@@ -30,6 +31,12 @@ interface PlatformStats {
   };
 }
 
+const TIER_BADGE_COLORS: Record<string, string> = {
+  starter: "#888",
+  pro: "#6C63FF",
+  elite: "#F0B429",
+};
+
 interface AcademyCardProps {
   name: string;
   coaches: number;
@@ -37,10 +44,13 @@ interface AcademyCardProps {
   mrr: number;
   status: "active" | "trial" | "paused" | "overdue";
   lastActivity: string | null;
+  tier?: string;
   onPress?: () => void;
 }
 
-function AcademyCard({ name, coaches, players, mrr, status, lastActivity, onPress }: AcademyCardProps) {
+function AcademyCard({ name, coaches, players, mrr, status, lastActivity, tier, onPress }: AcademyCardProps) {
+  const tierKey = (tier || "starter").toLowerCase();
+  const tierColor = TIER_BADGE_COLORS[tierKey] || "#888";
   const statusConfig = {
     active: { color: Colors.dark.primary, label: "Active" },
     trial: { color: Colors.dark.xpCyan, label: "Trial" },
@@ -83,7 +93,14 @@ function AcademyCard({ name, coaches, players, mrr, status, lastActivity, onPres
           <Ionicons name="business" size={24} color={PLATFORM_COLOR} />
         </View>
         <View style={styles.academyInfo}>
-          <Text style={styles.academyName}>{name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <Text style={styles.academyName}>{name}</Text>
+            <View style={[styles.tierBadge, { backgroundColor: `${tierColor}20`, borderColor: `${tierColor}40` }]}>
+              <Text style={[styles.tierBadgeText, { color: tierColor }]}>
+                {tier || "Starter"}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.academyActivity}>Last active: {formatLastActivity(lastActivity)}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
@@ -416,6 +433,20 @@ export default function AcademiesScreen() {
               <View>
                 <Text style={styles.title}>Academies</Text>
                 <Text style={styles.subtitle}>{academies.length} total academies</Text>
+                {academies.length > 0 ? (
+                  <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                    {["Starter", "Pro", "Elite"].map((tier) => {
+                      const count = academies.filter((a) => (a.tier || "Starter") === tier).length;
+                      if (count === 0) return null;
+                      const color = TIER_BADGE_COLORS[tier.toLowerCase()] || "#888";
+                      return (
+                        <View key={tier} style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: `${color}20`, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ color, fontSize: 11, fontWeight: "700" }}>{count} {tier}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
               <Pressable
                 style={{
@@ -642,6 +673,18 @@ const styles = StyleSheet.create({
     ...Typography.small,
     fontSize: 11,
     fontWeight: "600",
+  },
+  tierBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  tierBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   academyStats: {
     flexDirection: "row",

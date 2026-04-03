@@ -1435,6 +1435,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           lastLoginRows.map((r) => [r.academyId, r.lastLogin]),
         );
 
+        // Fetch tier info for all academies in one query
+        const tierRows = await pool.query(
+          `SELECT s.academy_id, sp.name AS plan_name
+           FROM subscriptions s
+           JOIN subscription_plans sp ON sp.id = s.plan_id
+           WHERE s.status IN ('active','trialing')
+           ORDER BY sp.monthly_price DESC`
+        );
+        const tierMap = new Map<string, string>();
+        for (const row of tierRows.rows) {
+          if (!tierMap.has(row.academy_id)) {
+            tierMap.set(row.academy_id, row.plan_name);
+          }
+        }
+
         const academyStats = await Promise.all(
           academies.slice(0, 20).map(async (academy) => {
             const players = await storage.getPlayersByAcademy(academy.id);
@@ -1455,6 +1470,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                       ? "overdue"
                       : "active",
               lastActivity: lastLoginMap.get(academy.id) || null,
+              tier: tierMap.get(academy.id) || "Starter",
             };
           }),
         );

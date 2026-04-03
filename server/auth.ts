@@ -472,6 +472,187 @@ export function isAppleReviewAccount(email?: string | null): boolean {
   return email === APPLE_REVIEW_EMAIL;
 }
 
+// ===========================================================
+// SUBSCRIPTION TIER FEATURE GATES
+// ===========================================================
+
+/**
+ * Cache: academy_id → { features, limits, planName }
+ * TTL: 60 seconds so live changes reflect quickly.
+ */
+const tierCache = new Map<string, { data: any; expiresAt: number }>();
+const TIER_CACHE_TTL_MS = 60_000;
+
+async function getAcademyTierData(academyId: string): Promise<{
+  planName: string;
+  features: Record<string, boolean>;
+  maxCoaches: number;
+  maxPlayers: number;
+  maxLocations: number;
+} | null> {
+  const cached = tierCache.get(academyId);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  try {
+    const { pool } = await import("./db");
+    const result = await pool.query(
+      `SELECT sp.name, sp.features, sp.max_coaches, sp.max_players, sp.max_locations
+       FROM subscriptions s
+       JOIN subscription_plans sp ON sp.id = s.plan_id
+       WHERE s.academy_id = $1 AND s.status IN ('active','trialing')
+       ORDER BY sp.monthly_price DESC
+       LIMIT 1`,
+      [academyId],
+    );
+
+    if (result.rows.length === 0) {
+      // No active subscription → treat as Starter
+      const starter = await pool.query(
+        `SELECT name, features, max_coaches, max_players, max_locations FROM subscription_plans WHERE LOWER(name) = 'starter' ORDER BY sort_order LIMIT 1`,
+      );
+      const row = starter.rows[0];
+      if (!row) return null;
+      const data = {
+        planName: row.name,
+        features: row.features || {},
+        maxCoaches: row.max_coaches,
+        maxPlayers: row.max_players,
+        maxLocations: row.max_locations,
+      };
+      tierCache.set(academyId, { data, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
+      return data;
+    }
+
+    const row = result.rows[0];
+    const data = {
+      planName: row.name,
+      features: row.features || {},
+      maxCoaches: row.max_coaches,
+      maxPlayers: row.max_players,
+      maxLocations: row.max_locations,
+    };
+    tierCache.set(academyId, { data, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
+    return data;
+  } catch (err) {
+    console.error("[TierGate] Error fetching tier data:", err);
+    return null;
+  }
+}
+
+export function invalidateTierCache(academyId: string): void {
+  tierCache.delete(academyId);
+}
+
+/**
+ * requireFeature("video_feedback") — 403 with upgradeRequired if feature flag is false.
+ * Platform owners and Apple Review bypass this check.
+ */
+export function requireFeature(flagName: string) {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+
+    // Platform owner always has full access
+    if (req.user.role === "platform_owner") return next();
+
+    // Apple review bypass
+    if (isAppleReviewAccount(req.user.email)) return next();
+
+    const academyId = req.user.academyId;
+    if (!academyId) return next(); // No academy context → pass through
+
+    try {
+      const tierData = await getAcademyTierData(academyId);
+      if (!tierData) return next(); // Can't determine tier → fail open
+
+      const hasFeature = tierData.features[flagName] === true;
+      if (hasFeature) return next();
+
+      // Determine which tier unlocks this feature
+      const { pool } = await import("./db");
+      const plans = await pool.query(
+        `SELECT name, monthly_price, features FROM subscription_plans WHERE is_active = true ORDER BY sort_order ASC`,
+      );
+      let requiredTier = "pro";
+      for (const plan of plans.rows) {
+        if (plan.features?.[flagName] === true) {
+          requiredTier = plan.name.toLowerCase();
+          break;
+        }
+      }
+
+      res.status(403).json({
+        error: "Feature not available on your current plan",
+        upgradeRequired: true,
+        featureName: flagName,
+        currentTier: tierData.planName.toLowerCase(),
+        requiredTier,
+      });
+    } catch (err) {
+      console.error("[TierGate] requireFeature error:", err);
+      next(); // Fail open
+    }
+  };
+}
+
+/**
+ * requirePlanLimit("maxCoaches", countFn) — checks that current count < limit.
+ * Pass -1 as limit to mean "unlimited".
+ */
+export function requirePlanLimit(
+  limitName: "maxCoaches" | "maxPlayers" | "maxLocations",
+  getCurrentCount: (academyId: string) => Promise<number>,
+) {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    if (req.user.role === "platform_owner") return next();
+    if (isAppleReviewAccount(req.user.email)) return next();
+
+    const academyId = req.user.academyId;
+    if (!academyId) return next();
+
+    try {
+      const tierData = await getAcademyTierData(academyId);
+      if (!tierData) return next();
+
+      const limit = tierData[limitName] as number;
+      if (limit === -1) return next(); // Unlimited
+
+      const current = await getCurrentCount(academyId);
+      if (current < limit) return next();
+
+      const { pool } = await import("./db");
+      const plans = await pool.query(
+        `SELECT name, monthly_price, ${limitName === "maxCoaches" ? "max_coaches" : limitName === "maxPlayers" ? "max_players" : "max_locations"} AS plan_limit
+         FROM subscription_plans WHERE is_active = true ORDER BY sort_order ASC`,
+      );
+      let requiredTier = "pro";
+      for (const plan of plans.rows) {
+        if (plan.plan_limit === -1 || plan.plan_limit > current) {
+          requiredTier = plan.name.toLowerCase();
+          break;
+        }
+      }
+
+      res.status(403).json({
+        error: `You have reached the ${limitName} limit for your current plan`,
+        upgradeRequired: true,
+        limitName,
+        currentTier: tierData.planName.toLowerCase(),
+        requiredTier,
+      });
+    } catch (err) {
+      console.error("[TierGate] requirePlanLimit error:", err);
+      next();
+    }
+  };
+}
+
 export function requireFeatureUnlock(featureKey: string) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {

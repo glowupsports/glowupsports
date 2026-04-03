@@ -476,6 +476,79 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] ai_usage_logs migration skipped:', e.message);
   }
+  try {
+    // Subscription plans table — academy tier management
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        description TEXT,
+        stripe_price_id TEXT,
+        stripe_product_id TEXT,
+        monthly_price NUMERIC NOT NULL DEFAULT 0,
+        yearly_price NUMERIC,
+        currency TEXT NOT NULL DEFAULT 'EUR',
+        max_coaches INTEGER NOT NULL DEFAULT 1,
+        max_players INTEGER NOT NULL DEFAULT 50,
+        max_locations INTEGER NOT NULL DEFAULT 1,
+        features JSONB NOT NULL DEFAULT '{}'::jsonb,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS sp_sort_idx ON subscription_plans(sort_order)`);
+    await pool.query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS description TEXT`);
+    await pool.query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id TEXT`);
+    await pool.query(`ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+
+    // Subscriptions table — active academy subscriptions
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        academy_id VARCHAR NOT NULL REFERENCES academies(id) ON DELETE CASCADE,
+        plan_id VARCHAR NOT NULL REFERENCES subscription_plans(id),
+        stripe_subscription_id TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        billing_period TEXT NOT NULL DEFAULT 'monthly',
+        current_period_start TIMESTAMP,
+        current_period_end TIMESTAMP,
+        trial_ends_at TIMESTAMP,
+        cancelled_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS sub_academy_idx ON subscriptions(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS sub_plan_idx ON subscriptions(plan_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS sub_status_idx ON subscriptions(status)`);
+    await pool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+
+    // Seed the 3 default subscription plans if none exist
+    const existing = await pool.query(`SELECT COUNT(*) FROM subscription_plans`);
+    if (parseInt(existing.rows[0].count, 10) === 0) {
+      await pool.query(`
+        INSERT INTO subscription_plans (name, description, monthly_price, currency, max_coaches, max_players, max_locations, features, sort_order)
+        VALUES
+          ('Starter', 'Perfect for small academies getting started', 0, 'EUR', 3, 30, 1, 
+           '{"ai_coach_basic":false,"ai_coach_unlimited":false,"video_feedback":false,"match_analytics":false,"tournaments":false,"custom_roles":false,"white_labeling":false,"advanced_invoicing":false}'::jsonb,
+           0),
+          ('Pro', 'For growing academies needing more tools', 49, 'EUR', 10, 150, 3,
+           '{"ai_coach_basic":true,"ai_coach_unlimited":false,"video_feedback":true,"match_analytics":true,"tournaments":false,"custom_roles":false,"white_labeling":false,"advanced_invoicing":true}'::jsonb,
+           1),
+          ('Elite', 'Full power for elite and multi-location academies', 99, 'EUR', -1, -1, -1,
+           '{"ai_coach_basic":true,"ai_coach_unlimited":true,"video_feedback":true,"match_analytics":true,"tournaments":true,"custom_roles":true,"white_labeling":true,"advanced_invoicing":true}'::jsonb,
+           2)
+        ON CONFLICT DO NOTHING
+      `);
+      console.log('[Database] Subscription plans seeded: Starter, Pro, Elite');
+    }
+    console.log('[Database] Subscription plans/subscriptions migration successful');
+  } catch (e: any) {
+    console.log('[Database] Subscription plans migration skipped:', e.message);
+>>>>>>> ca7793eb (feat: Academy subscription tiers + platform tier management (Task #334))
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

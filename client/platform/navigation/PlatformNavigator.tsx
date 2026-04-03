@@ -20,6 +20,7 @@ import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
 import ProviderInviteManagementScreen from "@/platform/screens/ProviderInviteManagementScreen";
 import PlayerActivityScreen from "@/platform/screens/PlayerActivityScreen";
+import TierManagementScreen from "@/platform/screens/TierManagementScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
@@ -51,6 +52,7 @@ export type PlatformStackParamList = {
   Diagnostics: undefined;
   ProviderInviteManagement: undefined;
   PlayerActivity: { initialTab?: "features" | "players" | "dead_zones" };
+  TierManagement: undefined;
 };
 
 const Stack = createNativeStackNavigator<PlatformStackParamList>();
@@ -94,6 +96,7 @@ function PlatformStackNavigator() {
       <Stack.Screen name="Diagnostics" component={DiagnosticsScreen} />
       <Stack.Screen name="ProviderInviteManagement" component={ProviderInviteManagementScreen} />
       <Stack.Screen name="PlayerActivity" component={PlayerActivityScreen} />
+      <Stack.Screen name="TierManagement" component={TierManagementScreen} />
     </Stack.Navigator>
   );
 }
@@ -143,6 +146,13 @@ function PlatformQuickActionsFAB() {
       icon: "key-outline",
       color: PLATFORM_COLOR,
       onPress: () => navigation.navigate("FeatureUnlocks"),
+    },
+    {
+      id: "tier-management",
+      label: "Tiers",
+      icon: "layers-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("TierManagement"),
     },
   ];
 

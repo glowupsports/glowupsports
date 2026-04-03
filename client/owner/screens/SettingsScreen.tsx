@@ -8,6 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as Linking from "expo-linking";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -38,6 +39,347 @@ interface ResetCounts {
 }
 
 type NavigationProp = NativeStackNavigationProp<OwnerStackParamList>;
+
+// =====================================================================
+// Subscription Section Component
+// =====================================================================
+const TIER_COLORS_SUB: Record<string, string> = {
+  starter: Colors.dark.textMuted,
+  pro: "#6C63FF",
+  elite: Colors.dark.gold,
+};
+
+const FEATURE_NAMES: Record<string, string> = {
+  ai_coach_basic: "AI Coach (Basis)",
+  ai_coach_unlimited: "AI Coach (Onbeperkt)",
+  video_feedback: "Video Feedback",
+  match_analytics: "Match Analytics",
+  tournaments: "Toernooien & Ladders",
+  custom_roles: "Aangepaste Rollen",
+  white_labeling: "White Labeling",
+  advanced_invoicing: "Geavanceerde Facturatie",
+};
+
+interface SubPlan {
+  id: string;
+  name: string;
+  description?: string;
+  monthlyPrice: number;
+  currency: string;
+  maxCoaches: number;
+  maxPlayers: number;
+  maxLocations: number;
+  features: Record<string, boolean>;
+}
+
+interface SubStatus {
+  currentPlan: SubPlan;
+  subscription: {
+    status: string;
+    currentPeriodEnd?: string;
+    cancelledAt?: string;
+  } | null;
+  usage: { coaches: number; players: number; locations: number };
+  plans: SubPlan[];
+}
+
+function CapacityBar({ used, max, label }: { used: number; max: number; label: string }) {
+  const unlimited = max === -1;
+  const pct = unlimited ? 0 : Math.min(1, used / max);
+  const barColor = pct > 0.8 ? Colors.dark.error : pct > 0.6 ? Colors.dark.orange : Colors.dark.primary;
+
+  return (
+    <View style={subStyles.capRow}>
+      <View style={subStyles.capLabelRow}>
+        <Text style={subStyles.capLabel}>{label}</Text>
+        <Text style={subStyles.capValue}>
+          {used}{unlimited ? "" : ` / ${max}`}
+          {unlimited ? " (onbeperkt)" : ""}
+        </Text>
+      </View>
+      {!unlimited ? (
+        <View style={subStyles.capBar}>
+          <View style={[subStyles.capFill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: barColor }]} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SubscriptionSection() {
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<SubStatus>({
+    queryKey: ["/api/academy/subscription"],
+  });
+
+  const portalMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/academy/subscription/portal");
+      const json = await res.json();
+      return json.url as string;
+    },
+    onSuccess: async (url) => {
+      if (url) await Linking.openURL(url);
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/academy/subscription"] }), 3000);
+    },
+    onError: () => {
+      Alert.alert("Fout", "Kon de abonnementspagina niet openen. Controleer uw verbinding.");
+    },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await apiRequest("POST", "/api/academy/subscription/checkout", { planId });
+      const json = await res.json();
+      return json.url as string;
+    },
+    onSuccess: async (url) => {
+      if (url) await Linking.openURL(url);
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/academy/subscription"] }), 3000);
+    },
+    onError: () => {
+      Alert.alert("Fout", "Kon checkout niet starten.");
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <View style={subStyles.section}>
+        <Text style={subStyles.sectionTitle}>Abonnement</Text>
+        <View style={subStyles.card}>
+          <ActivityIndicator color={Colors.dark.gold} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!data) return null;
+
+  const { currentPlan, subscription, usage, plans } = data;
+  const tierKey = currentPlan.name.toLowerCase();
+  const tierColor = TIER_COLORS_SUB[tierKey] || Colors.dark.gold;
+  const isFreePlan = currentPlan.monthlyPrice === 0;
+  const nextBilling = subscription?.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+
+  const upgradePlans = plans.filter((p) => p.monthlyPrice > currentPlan.monthlyPrice);
+
+  return (
+    <View style={subStyles.section}>
+      <Text style={subStyles.sectionTitle}>Abonnement</Text>
+
+      <View style={subStyles.card}>
+        <View style={subStyles.tierHeader}>
+          <View style={[subStyles.tierBadge, { backgroundColor: `${tierColor}20`, borderColor: `${tierColor}40` }]}>
+            <Ionicons
+              name={tierKey === "elite" ? "diamond" : tierKey === "pro" ? "rocket" : "star-outline"}
+              size={14}
+              color={tierColor}
+            />
+            <Text style={[subStyles.tierBadgeText, { color: tierColor }]}>
+              {currentPlan.name}
+            </Text>
+          </View>
+          {subscription?.status ? (
+            <View style={[subStyles.statusBadge, {
+              backgroundColor: subscription.status === "active" ? `${Colors.dark.primary}20` : `${Colors.dark.orange}20`
+            }]}>
+              <Text style={[subStyles.statusText, {
+                color: subscription.status === "active" ? Colors.dark.primary : Colors.dark.orange
+              }]}>
+                {subscription.status === "active" ? "Actief" : subscription.status === "trialing" ? "Proefperiode" : subscription.status}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {currentPlan.description ? (
+          <Text style={subStyles.planDesc}>{currentPlan.description}</Text>
+        ) : null}
+
+        {nextBilling ? (
+          <Text style={subStyles.billing}>Volgende factuur: {nextBilling}</Text>
+        ) : null}
+
+        <View style={subStyles.divider} />
+
+        <Text style={subStyles.usageTitle}>Capaciteitsgebruik</Text>
+        <CapacityBar used={usage.coaches} max={currentPlan.maxCoaches} label="Coaches" />
+        <CapacityBar used={usage.players} max={currentPlan.maxPlayers} label="Spelers" />
+        <CapacityBar used={usage.locations} max={currentPlan.maxLocations} label="Locaties" />
+
+        <View style={subStyles.divider} />
+
+        <Text style={subStyles.usageTitle}>Inbegrepen functies</Text>
+        {Object.entries(FEATURE_NAMES).map(([key, label]) => {
+          const included = currentPlan.features[key] === true;
+          return (
+            <View key={key} style={subStyles.featureRow}>
+              <Ionicons
+                name={included ? "checkmark-circle" : "close-circle-outline"}
+                size={18}
+                color={included ? Colors.dark.primary : Colors.dark.textMuted}
+              />
+              <Text style={[subStyles.featureLabel, !included && subStyles.featureDisabled]}>
+                {label}
+              </Text>
+            </View>
+          );
+        })}
+
+        {!isFreePlan && (
+          <>
+            <View style={subStyles.divider} />
+            <Pressable
+              style={[subStyles.portalBtn, { borderColor: `${tierColor}50` }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                portalMutation.mutate();
+              }}
+              disabled={portalMutation.isPending}
+            >
+              {portalMutation.isPending ? (
+                <ActivityIndicator size="small" color={tierColor} />
+              ) : (
+                <>
+                  <Ionicons name="settings-outline" size={16} color={tierColor} />
+                  <Text style={[subStyles.portalBtnText, { color: tierColor }]}>
+                    Abonnement beheren
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </>
+        )}
+      </View>
+
+      {upgradePlans.length > 0 ? (
+        <View style={subStyles.upgradeSection}>
+          <Text style={subStyles.upgradeTitle}>Upgrade uw academie</Text>
+          {upgradePlans.map((plan) => {
+            const planColor = TIER_COLORS_SUB[plan.name.toLowerCase()] || Colors.dark.gold;
+            return (
+              <Pressable
+                key={plan.id}
+                style={[subStyles.upgradeCard, { borderColor: `${planColor}40` }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  checkoutMutation.mutate(plan.id);
+                }}
+                disabled={checkoutMutation.isPending}
+              >
+                <View style={subStyles.upgradeCardLeft}>
+                  <Text style={[subStyles.upgradePlanName, { color: planColor }]}>{plan.name}</Text>
+                  <Text style={subStyles.upgradePlanPrice}>
+                    €{plan.monthlyPrice}/maand
+                  </Text>
+                </View>
+                <View style={[subStyles.upgradeBtn, { backgroundColor: planColor }]}>
+                  <Text style={subStyles.upgradeBtnText}>Upgraden</Text>
+                  <Ionicons name="arrow-forward" size={14} color="#fff" />
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const subStyles = StyleSheet.create({
+  section: { marginBottom: Spacing.xl },
+  sectionTitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.xs,
+  },
+  card: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  tierHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  tierBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  tierBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  statusBadge: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  statusText: { fontSize: 12, fontWeight: "600" },
+  planDesc: { ...Typography.small, color: Colors.dark.textSecondary, marginBottom: Spacing.sm },
+  billing: { ...Typography.caption, color: Colors.dark.textMuted },
+  divider: { height: 1, backgroundColor: Colors.dark.border, marginVertical: Spacing.md },
+  usageTitle: { ...Typography.small, color: Colors.dark.textMuted, fontWeight: "600", marginBottom: Spacing.sm },
+  capRow: { marginBottom: Spacing.sm },
+  capLabelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  capLabel: { ...Typography.small, color: Colors.dark.textSecondary },
+  capValue: { ...Typography.small, color: Colors.dark.text, fontWeight: "600" },
+  capBar: { height: 4, backgroundColor: Colors.dark.border, borderRadius: 2 },
+  capFill: { height: 4, borderRadius: 2 },
+  featureRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: 6 },
+  featureLabel: { ...Typography.small, color: Colors.dark.text },
+  featureDisabled: { color: Colors.dark.textMuted },
+  portalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  portalBtnText: { fontWeight: "600", fontSize: 14 },
+  upgradeSection: { marginTop: Spacing.md },
+  upgradeTitle: { ...Typography.small, color: Colors.dark.textMuted, fontWeight: "600", marginBottom: Spacing.sm },
+  upgradeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  upgradeCardLeft: { flex: 1 },
+  upgradePlanName: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
+  upgradePlanPrice: { ...Typography.small, color: Colors.dark.textMuted },
+  upgradeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  upgradeBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+});
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -487,6 +829,8 @@ export default function SettingsScreen() {
         
 
         
+          <SubscriptionSection />
+
           <Section title="Billing & Pricing">
             <SettingRow
               icon="pricetag"
