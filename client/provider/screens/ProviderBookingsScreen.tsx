@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing } from "@/constants/theme";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 
 interface Booking {
   id: string;
@@ -103,9 +103,7 @@ function BookingRow({
               {booking.player.profilePhotoUrl ? (
                 <Image
                   source={{
-                    uri: booking.player.profilePhotoUrl.startsWith("/")
-                      ? getStaticAssetsUrl() + booking.player.profilePhotoUrl
-                      : booking.player.profilePhotoUrl,
+                      uri: buildPhotoUrl(booking.player.profilePhotoUrl)!,
                   }}
                   style={styles.miniAvatar}
                 />

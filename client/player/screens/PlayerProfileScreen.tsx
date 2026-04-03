@@ -16,7 +16,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
@@ -524,7 +524,7 @@ export default function PlayerProfileScreen() {
 
   const handleChangePhoto = async () => {
     if (Platform.OS === "web") {
-      Alert.alert("Change Photo", "Open the app on your phone to change your profile photo.");
+      navigation.navigate("EditProfile" as never);
       return;
     }
     try {
@@ -790,13 +790,13 @@ export default function PlayerProfileScreen() {
               {player.profilePhotoUrl ? (
                 Platform.OS === 'web' ? (
                   <RNImage
-                    source={{ uri: (player.profilePhotoUrl.startsWith('http') || player.profilePhotoUrl.startsWith('data:')) ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                     style={styles.avatarImage}
                     resizeMode="cover"
                   />
                 ) : (
                   <Image
-                    source={{ uri: (player.profilePhotoUrl.startsWith('http') || player.profilePhotoUrl.startsWith('data:')) ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                     style={styles.avatarImage}
                     contentFit="cover"
                   />

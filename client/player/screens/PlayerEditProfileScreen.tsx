@@ -8,15 +8,19 @@ import {
   Platform,
   Alert,
   Switch,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { MapLocationPickerModal, type MapLocationResult } from "@/components/MapLocationPickerModal";
@@ -201,6 +205,64 @@ export default function PlayerEditProfileScreen() {
 
   const player = profileData?.player;
 
+  // Photo
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  const pickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Please allow photo library access to change your profile photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const uploadPhoto = async (): Promise<void> => {
+    if (!photoUri) return;
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      if (Platform.OS === "web") {
+        try {
+          const res = await fetch(photoUri);
+          const blob = await res.blob();
+          const ext = blob.type.split("/")[1] || "jpg";
+          formData.append("photo", new window.File([blob], `profile.${ext}`, { type: blob.type }));
+        } catch {
+          throw new Error("Could not read selected photo");
+        }
+      } else {
+        const filename = photoUri.split("/").pop() || "photo.jpg";
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1].toLowerCase().replace("jpg", "jpeg")}` : "image/jpeg";
+        formData.append("photo", { uri: photoUri, name: filename, type } as any);
+      }
+      const token = getAuthToken();
+      const response = await fetch(`${getApiUrl()}/api/player/me/photo`, {
+        method: "POST",
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(err || "Upload failed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   // Personal Info
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -341,10 +403,17 @@ export default function PlayerEditProfileScreen() {
     },
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "Name is required");
       return;
+    }
+    if (photoUri) {
+      try {
+        await uploadPhoto();
+      } catch {
+        Alert.alert("Photo Error", "Failed to upload photo. Your other changes will still be saved.");
+      }
     }
     updateMutation.mutate();
   };
@@ -402,6 +471,31 @@ export default function PlayerEditProfileScreen() {
           { paddingTop: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl },
         ]}
       >
+        {/* Profile Photo */}
+        <View style={styles.photoSection}>
+          <Pressable onPress={pickPhoto} style={styles.photoContainer}>
+            {(photoUri || buildPhotoUrl(player?.profilePhotoUrl)) ? (
+              <Image
+                source={{ uri: photoUri || buildPhotoUrl(player?.profilePhotoUrl)! }}
+                style={styles.photoAvatar}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Ionicons name="person" size={40} color={Colors.dark.textMuted} />
+              </View>
+            )}
+            <View style={styles.photoBadge}>
+              {photoUploading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Ionicons name="camera" size={15} color="#000" />
+              )}
+            </View>
+          </Pressable>
+          <Text style={styles.photoHint}>Tap to change photo</Text>
+        </View>
+
         {/* Personal Info */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionTitleRow}>
@@ -1001,5 +1095,50 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     opacity: 0.5,
+  },
+  photoSection: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  photoContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    position: "relative",
+  },
+  photoAvatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+  },
+  photoPlaceholder: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#000",
+  },
+  photoHint: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.sm,
   },
 });

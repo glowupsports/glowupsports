@@ -14,7 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing } from "@/constants/theme";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 import { getPrimarySpecialization } from "@/provider/constants/specializations";
 
 interface Booking {
@@ -133,9 +133,7 @@ function BookingCard({ item, onPress }: { item: Booking; onPress: () => void }) 
             {item.player.profilePhotoUrl ? (
               <Image
                 source={{
-                  uri: item.player.profilePhotoUrl.startsWith("/")
-                    ? getStaticAssetsUrl() + item.player.profilePhotoUrl
-                    : item.player.profilePhotoUrl,
+                  uri: buildPhotoUrl(item.player.profilePhotoUrl)!,
                 }}
                 style={styles.playerAvatar}
               />

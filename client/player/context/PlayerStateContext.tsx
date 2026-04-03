@@ -2,7 +2,7 @@ import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
-import { getStaticAssetsUrl, getApiUrl, apiRequest } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl, getApiUrl, apiRequest } from "@/lib/query-client";
 import * as Location from "expo-location";
 
 type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
@@ -449,7 +449,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       sessionsToPromotion,
       sessionCourtName: nextSession?.courtName || null,
       sessionType: nextSession?.type || null,
-      coachPhotoUrl: dashboardData.coach?.photoUrl ? `${getStaticAssetsUrl()}${dashboardData.coach.photoUrl}` : null,
+      coachPhotoUrl: buildPhotoUrl(dashboardData.coach?.photoUrl) || null,
       sessionId: nextSession?.id || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);

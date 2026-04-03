@@ -10,7 +10,7 @@ import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { getStaticAssetsUrl, apiFetch } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl, apiFetch } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { LockedScreen } from "../components/LockedScreen";
 
@@ -58,7 +58,7 @@ function PlayerCard({ player, index }: { player: PlayerResult; index: number }) 
         <View style={styles.playerAvatarContainer}>
           {player.photoUrl ? (
             <Image
-              source={{ uri: getStaticAssetsUrl() + player.photoUrl }}
+              source={{ uri: buildPhotoUrl(player.photoUrl)! }}
               style={styles.playerAvatar}
             />
           ) : (

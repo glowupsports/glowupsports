@@ -23,7 +23,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { BirthdayCelebrationModal, shouldShowBirthdayCelebration } from "@/player/components/BirthdayCelebrationModal";
 import { BirthdayConfettiOverlay, BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 import { useMissionControl, useAssignDailyQuests, useClaimQuestReward, useQuests } from "@/player/hooks/useQuests";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -600,7 +600,7 @@ function NoSessionCard() {
 }
 
 function MentorCard({ coach, onPress }: { coach: { id: string; name: string; photoUrl?: string | null; yearsExperience?: number }; onPress: () => void }) {
-  const coachPhotoUri = coach.photoUrl ? `${getStaticAssetsUrl()}${coach.photoUrl}` : null;
+  const coachPhotoUri = buildPhotoUrl(coach.photoUrl) || null;
   
   return (
     <Pressable style={mentorStyles.card} onPress={onPress}>
@@ -689,7 +689,7 @@ interface PlayerStatusAvatarProps {
 
 function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
+  const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl) || null;
   
   return (
     <>

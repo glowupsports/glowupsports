@@ -32,7 +32,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/SportContext";
@@ -180,7 +180,7 @@ function PlayerSlots({ current, max, players }: { current: number; max: number; 
             ]}
           >
             {player?.photoUrl ? (
-              <Image source={{ uri: `${getStaticAssetsUrl()}${player.photoUrl}` }} style={styles.playerSlotImage} contentFit="cover" />
+              <Image source={{ uri: buildPhotoUrl(player.photoUrl)! }} style={styles.playerSlotImage} contentFit="cover" />
             ) : isFilled ? (
               <Ionicons name="person" size={14} color={Colors.dark.primary} />
             ) : (
@@ -288,7 +288,7 @@ function PremiumMatchCard({
         <View style={styles.hostSection}>
           <View style={styles.hostAvatar}>
             {match.host?.photoUrl ? (
-              <Image source={{ uri: `${getStaticAssetsUrl()}${match.host.photoUrl}` }} style={styles.hostAvatarImage} contentFit="cover" />
+              <Image source={{ uri: buildPhotoUrl(match.host.photoUrl)! }} style={styles.hostAvatarImage} contentFit="cover" />
             ) : (
               <LinearGradient
                 colors={[getMatchGlowColor() + "40", getMatchGlowColor() + "20"]}

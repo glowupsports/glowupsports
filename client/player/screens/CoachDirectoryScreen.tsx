@@ -20,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiFetch, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -78,7 +78,7 @@ function PremiumCoachCard({ coach, onPress, index }: { coach: CoachDirectoryEntr
           <View style={styles.cardImageSection}>
             {coach.photoUrl ? (
               <Image 
-                source={{ uri: `${getStaticAssetsUrl()}${coach.photoUrl}` }} 
+                source={{ uri: buildPhotoUrl(coach.photoUrl)! }} 
                 style={styles.coachPhoto}
                 contentFit="cover"
               />

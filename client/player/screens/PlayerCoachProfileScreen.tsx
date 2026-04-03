@@ -9,7 +9,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 interface CoachDetails {
   id: string;
@@ -106,13 +106,13 @@ export default function PlayerCoachProfileScreen() {
           {coach.profilePhotoUrl ? (
             Platform.OS === 'web' ? (
               <RNImage
-                source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
                 style={styles.avatarLargeImage}
                 resizeMode="cover"
               />
             ) : (
               <Image
-                source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
                 style={styles.avatarLargeImage}
                 contentFit="cover"
               />

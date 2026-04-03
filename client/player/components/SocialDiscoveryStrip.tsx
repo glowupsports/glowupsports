@@ -8,7 +8,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 
 export function SocialDiscoveryStrip() {
   const { state } = usePlayerState();
@@ -38,10 +38,7 @@ export function SocialDiscoveryStrip() {
   };
 
   const getAvatarSource = (player: typeof state.nearbyPlayers[0]) => {
-    if (player.profilePhotoUrl) {
-      return `${getStaticAssetsUrl()}${player.profilePhotoUrl}`;
-    }
-    return null;
+    return buildPhotoUrl(player.profilePhotoUrl) || null;
   };
 
   return (

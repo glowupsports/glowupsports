@@ -18,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -125,7 +125,7 @@ export default function CoachProfileDrawer({
             <View style={styles.heroSection}>
               {coach.profilePhotoUrl ? (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
                   style={styles.heroPhoto}
                   contentFit="cover"
                 />

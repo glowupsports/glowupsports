@@ -2353,8 +2353,11 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
               return result;
             }
           } else {
-            const file = new File(onboardingData.profilePhotoUri);
-            formData.append("photo", file);
+            const uri = onboardingData.profilePhotoUri;
+            const filename = uri.split('/').pop() || 'photo.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1].toLowerCase().replace('jpg', 'jpeg')}` : 'image/jpeg';
+            formData.append("photo", { uri, name: filename, type } as any);
           }
           
           logger.log("[Onboarding] Uploading to server...");

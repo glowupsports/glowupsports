@@ -1928,9 +1928,16 @@ import fs from "fs";
           return res.status(400).json({ error: "No photo uploaded" });
         }
 
+        if (!req.file.buffer || req.file.buffer.length === 0) {
+          return res.status(400).json({ error: "Uploaded file is empty. Please try a different photo." });
+        }
+
         const mimeType = req.file.mimetype || "image/jpeg";
-        const base64Data = req.file.buffer.toString("base64");
-        const photoUrl = `data:${mimeType};base64,${base64Data}`;
+        const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+        const storagePath = `profile-photos/${playerId}-${Date.now()}.${ext}`;
+
+        const { uploadToSupabaseWithPath } = await import("../utils/supabaseStorage");
+        const photoUrl = await uploadToSupabaseWithPath(req.file.buffer, storagePath, mimeType);
 
         await db.execute(
           sql`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`,

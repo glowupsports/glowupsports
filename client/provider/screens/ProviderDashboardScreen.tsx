@@ -26,7 +26,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode, getDefaultModeForRole } from "@/context/AppModeContext";
 import { Colors, Spacing } from "@/constants/theme";
-import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import {
   getPrimarySpecialization,
   PROVIDER_SPECIALIZATIONS,
@@ -137,7 +137,7 @@ function PlayerAvatar({ uri, size }: { uri: string | null; size: number }) {
       </View>
     );
   }
-  const fullUri = uri.startsWith("/") ? getStaticAssetsUrl() + uri : uri;
+  const fullUri = buildPhotoUrl(uri) || uri;
   return <Image source={{ uri: fullUri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
 }
 
@@ -530,11 +530,7 @@ export default function ProviderDashboardScreen() {
     }
   }, [stats?.streakCurrent]);
 
-  const profilePhotoUri = profile?.profilePhotoUrl
-    ? profile.profilePhotoUrl.startsWith("/")
-      ? getStaticAssetsUrl() + profile.profilePhotoUrl
-      : profile.profilePhotoUrl
-    : null;
+  const profilePhotoUri = buildPhotoUrl(profile?.profilePhotoUrl) || null;
 
   const streakCurrent = stats?.streakCurrent ?? 0;
   const streakBest = stats?.streakBest ?? 0;

@@ -14,7 +14,7 @@ import Animated, { FadeIn, FadeInRight, ZoomIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 interface Friend {
   id: string;
@@ -89,7 +89,7 @@ export default function FriendSelector({
       <View style={styles.selectedChipAvatar}>
         {item.photoUrl ? (
           <Image
-            source={{ uri: getStaticAssetsUrl() + item.photoUrl }}
+            source={{ uri: buildPhotoUrl(item.photoUrl)! }}
             style={styles.chipAvatarImage}
           />
         ) : (
@@ -127,7 +127,7 @@ export default function FriendSelector({
           <View style={styles.friendAvatar}>
             {item.photoUrl ? (
               <Image
-                source={{ uri: getStaticAssetsUrl() + item.photoUrl }}
+                source={{ uri: buildPhotoUrl(item.photoUrl)! }}
                 style={styles.avatarImage}
               />
             ) : (

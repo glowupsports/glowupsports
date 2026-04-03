@@ -17,7 +17,7 @@ import { Image } from "expo-image";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
-import { apiFetch, getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
+import { apiFetch, getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
@@ -62,9 +62,7 @@ function formatTimeAgo(dateString: string): string {
 
 function LatestPostCard({ post, onPress, queryClient }: { post: Post; onPress: () => void; queryClient: ReturnType<typeof useQueryClient> }) {
   const authorName = post.player?.name || post.author?.username || "Player";
-  const avatarUrl = post.player?.photoUrl 
-    ? (post.player.photoUrl.startsWith("http") ? post.player.photoUrl : `${getStaticAssetsUrl()}${post.player.photoUrl}`)
-    : null;
+  const avatarUrl = buildPhotoUrl(post.player?.photoUrl) || null;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0 && !!post.mediaUrls[0];
   const rawFirstMediaUrl = hasMedia ? post.mediaUrls[0] : "";
   const firstMediaUrl = rawFirstMediaUrl

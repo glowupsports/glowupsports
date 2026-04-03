@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { useQuests } from "@/player/hooks/useQuests";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -405,7 +405,7 @@ function PlayerStatusContent({
         />
         {player?.profilePhotoUrl ? (
           <Image
-            source={{ uri: player.profilePhotoUrl.startsWith("http") ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+            source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
             style={[s1.avatarCircle, { borderColor: archetypeColor + "60" }]}
           />
         ) : (

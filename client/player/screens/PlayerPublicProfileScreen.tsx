@@ -24,7 +24,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-na
 import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 interface PublicProfile {
   id: string;
@@ -334,13 +334,13 @@ export default function PlayerPublicProfileScreen() {
               {profile.photoUrl ? (
                 Platform.OS === 'web' ? (
                   <RNImage
-                    source={{ uri: profile.photoUrl.startsWith('http') ? profile.photoUrl : `${getStaticAssetsUrl()}${profile.photoUrl}` }}
+                    source={{ uri: buildPhotoUrl(profile.photoUrl)! }}
                     style={styles.avatarPhoto}
                     resizeMode="cover"
                   />
                 ) : (
                   <Image
-                    source={{ uri: profile.photoUrl.startsWith('http') ? profile.photoUrl : `${getStaticAssetsUrl()}${profile.photoUrl}` }}
+                    source={{ uri: buildPhotoUrl(profile.photoUrl)! }}
                     style={styles.avatarPhoto}
                     contentFit="cover"
                   />

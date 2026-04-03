@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing } from "@/constants/theme";
-import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import {
   PROVIDER_SPECIALIZATIONS,
   SPECIALIZATION_KEYS,
@@ -739,9 +739,7 @@ export default function ProviderProfileScreen() {
   const specs = provider?.specializations ?? [];
   const primary = getPrimarySpecialization(specs);
 
-  const photoUri = photoUrl
-    ? photoUrl.startsWith("/") ? getStaticAssetsUrl() + photoUrl : photoUrl
-    : null;
+  const photoUri = buildPhotoUrl(photoUrl) || null;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

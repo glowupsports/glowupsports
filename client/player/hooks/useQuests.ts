@@ -170,9 +170,14 @@ export function useUploadQuestEvidence() {
         const blob = await response.blob();
         formData.append("file", blob, fileName);
       } else {
-        const { File } = await import("expo-file-system");
-        const file = new File(fileUri);
-        formData.append("file", file);
+        const filename = fileUri.split('/').pop() || 'evidence';
+        const match = /\.(\w+)$/.exec(filename);
+        const ext = match?.[1]?.toLowerCase() || 'jpg';
+        const isVideo = ['mp4', 'mov', 'webm', 'm4v'].includes(ext);
+        const type = isVideo
+          ? `video/${ext === 'mov' ? 'quicktime' : ext}`
+          : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        formData.append("file", { uri: fileUri, name: filename, type } as any);
       }
       
       const url = new URL(`/api/quests/${questId}/evidence`, getApiUrl());

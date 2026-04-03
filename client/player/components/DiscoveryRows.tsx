@@ -24,7 +24,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
-import { getStaticAssetsUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
@@ -119,10 +119,7 @@ export function PlayersNearYouRow() {
   };
 
   const getAvatarSource = (player: typeof state.nearbyPlayers[0]) => {
-    if (player.profilePhotoUrl) {
-      return `${getStaticAssetsUrl()}${player.profilePhotoUrl}`;
-    }
-    return null;
+    return buildPhotoUrl(player.profilePhotoUrl) || null;
   };
 
   const getStatusLabel = (status: string) => {
@@ -535,13 +532,13 @@ export function GroupLessonsRow() {
                             {p.profilePhotoUrl ? (
                               Platform.OS === 'web' ? (
                                 <RNImage 
-                                  source={{ uri: `${getStaticAssetsUrl()}${p.profilePhotoUrl}` }} 
+                                  source={{ uri: buildPhotoUrl(p.profilePhotoUrl)! }} 
                                   style={styles.playCardAvatarImage}
                                   resizeMode="cover"
                                 />
                               ) : (
                                 <ExpoImage 
-                                  source={{ uri: `${getStaticAssetsUrl()}${p.profilePhotoUrl}` }} 
+                                  source={{ uri: buildPhotoUrl(p.profilePhotoUrl)! }} 
                                   style={styles.playCardAvatarImage}
                                   contentFit="cover"
                                 />
@@ -708,7 +705,7 @@ export function OpenMatchesRow() {
                     <View style={[styles.premiumMatchHostAvatar, { borderColor: ballColor }]}>
                       {match.participants && match.participants[0]?.profilePhotoUrl ? (
                         <ExpoImage 
-                          source={{ uri: `${getStaticAssetsUrl()}${match.participants[0].profilePhotoUrl}` }} 
+                          source={{ uri: buildPhotoUrl(match.participants[0].profilePhotoUrl)! }} 
                           style={styles.premiumMatchHostImage}
                           contentFit="cover"
                         />
@@ -785,7 +782,7 @@ export function OpenMatchesRow() {
                           >
                             {player?.profilePhotoUrl ? (
                               <ExpoImage 
-                                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }} 
+                                source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }} 
                                 style={styles.premiumMatchSlotImage}
                                 contentFit="cover"
                               />

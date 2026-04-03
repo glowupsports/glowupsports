@@ -63,6 +63,29 @@ export async function uploadToSupabase(
   return data.publicUrl;
 }
 
+export async function uploadToSupabaseWithPath(
+  fileBuffer: Buffer,
+  storagePath: string,
+  mimetype: string
+): Promise<string> {
+  await ensureBucket();
+  const client = getClient();
+
+  const { error } = await client.storage
+    .from(BUCKET)
+    .upload(storagePath, fileBuffer, {
+      contentType: mimetype,
+      upsert: true,
+    });
+
+  if (error) {
+    throw new Error(`[SupabaseStorage] Upload failed: ${error.message}`);
+  }
+
+  const { data } = client.storage.from(BUCKET).getPublicUrl(storagePath);
+  return data.publicUrl;
+}
+
 export async function uploadFileToSupabase(filePath: string, originalName: string, mimetype: string): Promise<string> {
   const buffer = fs.readFileSync(filePath);
   return uploadToSupabase(buffer, originalName, mimetype);

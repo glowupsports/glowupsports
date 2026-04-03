@@ -118,14 +118,19 @@ export default function EvidenceCaptureScreen() {
       const formData = new FormData();
       
       if (Platform.OS === "web") {
-        formData.append("video", {
-          uri,
-          type: "video/mp4",
-          name: `evidence-${Date.now()}.mp4`,
-        } as any);
+        try {
+          const blobRes = await fetch(uri);
+          const blob = await blobRes.blob();
+          const webFile = new window.File([blob], `evidence-${Date.now()}.mp4`, { type: blob.type || "video/mp4" });
+          formData.append("video", webFile);
+        } catch {
+          formData.append("video", { uri, type: "video/mp4", name: `evidence-${Date.now()}.mp4` } as any);
+        }
       } else {
-        const file = new File(uri);
-        formData.append("video", file as any);
+        const filename = uri.split('/').pop() || `evidence-${Date.now()}.mp4`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `video/${match[1].toLowerCase()}` : 'video/mp4';
+        formData.append("video", { uri, name: filename, type } as any);
       }
       
       formData.append("skillId", selectedSkill || "GENERAL");

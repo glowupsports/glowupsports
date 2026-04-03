@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
@@ -106,7 +106,7 @@ export default function BookingCoachCard({
             <View style={styles.photoSection}>
               {coach.profilePhotoUrl ? (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
                   style={styles.photo}
                   contentFit="cover"
                 />

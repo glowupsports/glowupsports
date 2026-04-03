@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, ProTennisColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 
 interface PlayerData {
@@ -106,7 +106,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const glowPulse = useSharedValue(0);
   const shimmerPosition = useSharedValue(-1);
-  const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
+  const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl) || null;
   
   const { data: levelStatus } = usePlayerLevel(player.id);
   

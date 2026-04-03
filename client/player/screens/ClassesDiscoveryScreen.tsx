@@ -20,7 +20,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, buildPhotoUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 const BG = "#090E17";
 const CARD_BG = "#12151C";
@@ -188,7 +188,7 @@ function ParticipantAvatars({ participants, maxPlayers }: { participants?: Parti
         <View key={p.id} style={[styles.avatarCircle, { marginLeft: i > 0 ? -10 : 0, zIndex: 5 - i }]}>
           {p.profilePhotoUrl ? (
             <ExpoImage
-              source={{ uri: `${getStaticAssetsUrl()}${p.profilePhotoUrl}` }}
+              source={{ uri: buildPhotoUrl(p.profilePhotoUrl)! }}
               style={styles.avatarImage}
               contentFit="cover"
             />
