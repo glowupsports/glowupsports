@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
@@ -15,6 +16,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
 import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportContext";
 import { useFamily } from "@/player/context/FamilyContext";
+import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
 
 interface SettingItem {
   id: string;
@@ -46,6 +48,9 @@ export default function PlayerSettingsScreen() {
   const [showJoinFamily, setShowJoinFamily] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
+  const [switchedName, setSwitchedName] = useState<string | null>(null);
+
+  const isSwitched = switchedName !== null;
 
   const { activeSports, updateActiveSports } = useSport();
 
@@ -70,6 +75,21 @@ export default function PlayerSettingsScreen() {
     if (Platform.OS === 'ios') {
       checkAppleStatus();
     }
+  }, []);
+
+  useEffect(() => {
+    SecureStore.getItemAsync(FAMILY_SWITCH_KEY).then(raw => {
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          setSwitchedName(parsed.switchedPlayerName || null);
+        } catch {
+          setSwitchedName(null);
+        }
+      } else {
+        setSwitchedName(null);
+      }
+    }).catch(() => setSwitchedName(null));
   }, []);
 
   const checkAppleStatus = async () => {
@@ -224,7 +244,7 @@ export default function PlayerSettingsScreen() {
                         ]
                       );
                     } catch (error: any) {
-                      showAlert("Error", error?.message || "Failed to delete account. Please contact support@glowupsports.com");
+                      Alert.alert("Error", error?.message || "Failed to delete account. Please contact support@glowupsports.com");
                     } finally {
                       setDeleteLoading(false);
                     }
@@ -412,6 +432,15 @@ export default function PlayerSettingsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 200 }]}
         showsVerticalScrollIndicator={false}
       >
+        {isSwitched ? (
+          <View style={styles.switchedBanner}>
+            <Ionicons name="swap-horizontal" size={16} color="#FFD700" />
+            <Text style={styles.switchedBannerText}>
+              Viewing as {switchedName} — return to Family Lobby to change account settings
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>My Sports</Text>
@@ -635,22 +664,24 @@ export default function PlayerSettingsScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
 
-        <Pressable
-          style={styles.deleteAccountButton}
-          onPress={handleDeleteAccount}
-          disabled={deleteLoading}
-          accessibilityRole="button"
-          accessibilityLabel="Delete my account"
-        >
-          {deleteLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
-          ) : (
-            <>
-              <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-              <Text style={styles.deleteAccountText}>Delete My Account</Text>
-            </>
-          )}
-        </Pressable>
+        {!isSwitched ? (
+          <Pressable
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            disabled={deleteLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Delete my account"
+          >
+            {deleteLoading ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+                <Text style={styles.deleteAccountText}>Delete My Account</Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <Modal visible={showJoinFamily} transparent animationType="slide" onRequestClose={() => setShowJoinFamily(false)}>
@@ -821,6 +852,23 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
     alignItems: "center",
     justifyContent: "center",
+  },
+  switchedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255, 215, 0, 0.12)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+    marginBottom: Spacing.sm,
+  },
+  switchedBannerText: {
+    ...Typography.small,
+    color: "#FFD700",
+    flex: 1,
+    lineHeight: 18,
   },
   deleteAccountButton: {
     flexDirection: "row",

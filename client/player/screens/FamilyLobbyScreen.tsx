@@ -386,6 +386,12 @@ export default function FamilyLobbyScreen() {
       }
 
       navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
+      setTimeout(() => {
+        Alert.alert(
+          "Now viewing as " + member.name,
+          "Account settings and deletion are disabled while viewing a family member's profile. Return to the Family Lobby to switch back."
+        );
+      }, 600);
     } catch (error: any) {
       Alert.alert("Switch Failed", parseApiError(error, "Could not switch to this account. Please try again."));
     } finally {
