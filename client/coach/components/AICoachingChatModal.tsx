@@ -217,7 +217,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       AsyncStorage.removeItem(getDraftKey(sessionId, playerId)).catch(() => {});
       onClose();
     },
-    onError: (err: any) => {
+    onError: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         "Could not save session",

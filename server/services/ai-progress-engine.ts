@@ -546,7 +546,9 @@ export async function buildPlayerAIContext(
       attendanceRow,
       allCoachNotes,
       recentDigests,
-      allSkillScores,
+      // All historical skill scores (for pillar averages from full history)
+      allSkillScoreHistory,
+      // Full attendance history (no cap — used for true lifetime rate)
       sessionPlayerHistory,
       latestXpEvent,
       recentMatchRows,
@@ -566,15 +568,17 @@ export async function buildPlayerAIContext(
         .from(sessionAiSummaries)
         .where(eq(sessionAiSummaries.playerId, playerId))
         .orderBy(desc(sessionAiSummaries.generatedAt)).limit(30),
-      db.select({ pillar: glowSkills.pillar, skillName: glowSkills.name, score: playerSkillScores.score, targetScore: playerSkillScores.movingAverage })
+      // Full score history — used for pillar averages AND skill mastery classification
+      db.select({ pillar: glowSkills.pillar, skillId: playerSkillScores.skillId, skillName: glowSkills.name, score: playerSkillScores.score })
         .from(playerSkillScores)
         .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
         .where(eq(playerSkillScores.playerId, playerId))
-        .orderBy(desc(playerSkillScores.createdAt)),
+        .orderBy(desc(playerSkillScores.createdAt))
+        .limit(500),
+      // Full attendance history — no cap
       db.select({ attendanceStatus: sessionPlayers.attendanceStatus })
         .from(sessionPlayers)
-        .where(eq(sessionPlayers.playerId, playerId))
-        .limit(100),
+        .where(eq(sessionPlayers.playerId, playerId)),
       db.select({ levelAtEvent: playerXpEvents.levelAtEvent, xpAfterEvent: playerXpEvents.xpAfterEvent })
         .from(playerXpEvents)
         .where(eq(playerXpEvents.playerId, playerId))
@@ -633,42 +637,55 @@ export async function buildPlayerAIContext(
       else if (age <= 17) ageGroup = "teen";
     }
 
-    // Attendance rate
+    // Attendance rate — true lifetime rate (no cap)
     const attended = sessionPlayerHistory.filter((s) => s.attendanceStatus === "present").length;
     const totalSessions = sessionPlayerHistory.length;
     const attendanceRate = totalSessions > 0 ? Math.round((attended / totalSessions) * 100) : null;
 
-    // Skill mastery by pillar (de-duplicate to latest score per skill)
-    const latestScoreBySkill = new Map<string, { pillar: string; skillName: string; score: number }>();
-    for (const s of allSkillScores) {
-      if (!latestScoreBySkill.has(s.skillName)) {
-        latestScoreBySkill.set(s.skillName, { pillar: s.pillar || "Technical", skillName: s.skillName, score: Number(s.score) });
+    // Lifetime pillar averages — computed from ALL historical score entries (not deduplicated)
+    const pillarSums = new Map<string, { sum: number; count: number }>();
+    for (const s of allSkillScoreHistory) {
+      const pillar = s.pillar || "Technical";
+      const p = pillarSums.get(pillar) || { sum: 0, count: 0 };
+      p.sum += Number(s.score);
+      p.count += 1;
+      pillarSums.set(pillar, p);
+    }
+    const pillarAverages = Array.from(pillarSums.entries()).map(([pillar, { sum, count }]) => ({
+      pillar,
+      avg: Math.round((sum / count) * 10) / 10,
+    }));
+
+    // Skill mastery by pillar — latest score per skill + curriculum "not started" skills
+    const latestScoreBySkillId = new Map<string, { pillar: string; skillName: string; score: number }>();
+    for (const s of allSkillScoreHistory) {
+      if (!latestScoreBySkillId.has(s.skillId)) {
+        latestScoreBySkillId.set(s.skillId, { pillar: s.pillar || "Technical", skillName: s.skillName, score: Number(s.score) });
       }
     }
-    const skills = Array.from(latestScoreBySkill.values());
+    const scoredSkills = Array.from(latestScoreBySkillId.values());
 
     const pillarMap = new Map<string, { mastered: string[]; developing: string[]; notStarted: string[] }>();
-    for (const s of skills) {
+    for (const s of scoredSkills) {
       if (!pillarMap.has(s.pillar)) pillarMap.set(s.pillar, { mastered: [], developing: [], notStarted: [] });
       const group = pillarMap.get(s.pillar)!;
       if (s.score >= 2) group.mastered.push(s.skillName);
       else if (s.score >= 1) group.developing.push(s.skillName);
       else group.notStarted.push(s.skillName);
     }
-    const skillsByPillar = Array.from(pillarMap.entries()).map(([pillar, g]) => ({ pillar, ...g }));
 
-    // Lifetime pillar averages
-    const pillarSums = new Map<string, { sum: number; count: number }>();
-    for (const s of skills) {
-      const p = pillarSums.get(s.pillar) || { sum: 0, count: 0 };
-      p.sum += s.score;
-      p.count += 1;
-      pillarSums.set(s.pillar, p);
+    // Add curriculum skills not yet scored as "notStarted"
+    const scoredSkillIds = latestScoreBySkillId;
+    for (const skill of requiredSkills) {
+      const alreadyScored = Array.from(scoredSkillIds.values()).some((s) => s.skillName === skill.skillName);
+      if (!alreadyScored) {
+        const pillar = skill.pillar || "Technical";
+        if (!pillarMap.has(pillar)) pillarMap.set(pillar, { mastered: [], developing: [], notStarted: [] });
+        pillarMap.get(pillar)!.notStarted.push(skill.skillName);
+      }
     }
-    const pillarAverages = Array.from(pillarSums.entries()).map(([pillar, { sum, count }]) => ({
-      pillar,
-      avg: Math.round((sum / count) * 10) / 10,
-    }));
+
+    const skillsByPillar = Array.from(pillarMap.entries()).map(([pillar, g]) => ({ pillar, ...g }));
 
     return {
       playerName: player.name,
@@ -750,9 +767,9 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     ? `Coach notes about this player:\n${coachNotes.map((n) => `- [${n.category}${n.pinned ? ", pinned" : ""}] ${n.content}`).join("\n")}`
     : "";
 
-  // Recent session summaries (last 5 in prompt for brevity)
+  // Session summaries — all 30 for full longitudinal context
   const digestContext = recentDigests.length > 0
-    ? `Recent session history (latest first): ${recentDigests.slice(0, 5).join(" | ")}`
+    ? `Session history (${recentDigests.length} sessions, latest first):\n${recentDigests.map((d, i) => `${i + 1}. ${d}`).join("\n")}`
     : "";
 
   // Recent feedback notes
@@ -806,9 +823,10 @@ YOUR JOB:
    - PHYSICAL: energy levels, movement, stamina, footwork
    - MENTAL: focus, composure under pressure, confidence, resilience
 3. Reference coach notes when relevant (e.g. "You've noted before that she struggles with composure — how was that today?").
-4. Never ask more than 2 questions at once.
-5. Keep responses under 3 sentences unless proposing the summary.
-6. Never use emojis.
+4. IMPORTANT: Do NOT re-ask about facts already recorded in Coach Memory Hub notes. Instead, build on them (e.g. if the notes say backhand is weak, ask how the backhand went today — not whether it is weak).
+5. Never ask more than 2 questions at once.
+6. Keep responses under 3 sentences unless proposing the summary.
+7. Never use emojis.
 ${summaryInstruction}`;
 }
 
