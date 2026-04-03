@@ -2456,10 +2456,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        if (!process.env.OPENAI_API_KEY) {
-          return res.json({ narrative: null, focusAreas: [] });
-        }
-
         const { generateProgressNarrative } = await import("../services/ai-progress-engine");
 
         const result = await generateProgressNarrative(id, academyId, days);
@@ -2562,53 +2558,33 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           (m) => m.role === "user" || m.role === "assistant"
         );
 
-        if (!process.env.OPENAI_API_KEY) {
-          return res.json({ reply: null });
-        }
-
         const { buildPlayerAIContext, buildCoachingSystemPrompt } = await import("../services/ai-progress-engine");
         const ctx = await buildPlayerAIContext(playerId, sessionId, auth.coachId);
         if (!ctx) return res.status(404).json({ error: "Player or session not found" });
 
         const systemPrompt = buildCoachingSystemPrompt(ctx);
 
-        const https = await import("https");
-        const requestBody = JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...safeMessages,
-          ],
-          max_tokens: 400,
-          temperature: 0.6,
+        const OpenAI = (await import("openai")).default;
+        const openai = new OpenAI({
+          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
         });
 
-        const reply = await new Promise<string | null>((resolve) => {
-          const options = {
-            hostname: "api.openai.com",
-            path: "/v1/chat/completions",
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-              "Content-Length": Buffer.byteLength(requestBody),
-            },
-          };
-          const req2 = https.request(options, (r) => {
-            let data = "";
-            r.on("data", (chunk: Buffer) => { data += chunk; });
-            r.on("end", () => {
-              try {
-                const parsed = JSON.parse(data);
-                resolve(parsed.choices?.[0]?.message?.content || null);
-              } catch { resolve(null); }
-            });
+        let reply: string | null = null;
+        try {
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...safeMessages,
+            ],
+            max_tokens: 400,
+            temperature: 0.6,
           });
-          req2.on("error", () => resolve(null));
-          req2.setTimeout(20000, () => { req2.destroy(); resolve(null); });
-          req2.write(requestBody);
-          req2.end();
-        });
+          reply = response.choices?.[0]?.message?.content || null;
+        } catch (err) {
+          console.error("[AIChat] OpenAI call failed:", err);
+        }
 
         res.json({ reply: reply ?? null });
       } catch (error) {

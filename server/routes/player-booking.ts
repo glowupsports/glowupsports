@@ -699,20 +699,36 @@ ${xpSummary}
 Return format example: ["Backhand slice consistency", "Net approach footwork", "Serve second ball placement"]
 Return only the JSON array, nothing else.`;
 
-      const openaiKey = process.env.OPENAI_API_KEY;
-      
-      if (!openaiKey) {
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      let suggestions: string[] = [];
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 200,
+          temperature: 0.7,
+        });
+        const content = response.choices?.[0]?.message?.content?.trim() || "[]";
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          suggestions = parsed.slice(0, 3);
+        }
+      } catch {
+        suggestions = [];
+      }
+
+      if (suggestions.length === 0) {
         // Build suggestions from Glow Score weak areas first, then ball level fallbacks
-        const suggestions: string[] = [];
-        
-        // Add top weak Glow Score skills as focus suggestions
         if (weakGlowAreas.length > 0) {
           for (const area of weakGlowAreas.slice(0, 3)) {
             suggestions.push(`Improve ${area.skillName.toLowerCase()}`);
           }
         }
-        
-        // Fallback to ball-level defaults if not enough from Glow Score
         if (suggestions.length < 3) {
           const fallbacks: Record<string, string[]> = {
             red: ["Basic rally consistency", "Forehand groundstroke", "Court positioning"],
@@ -728,53 +744,9 @@ Return only the JSON array, nothing else.`;
             if (!suggestions.includes(s)) suggestions.push(s);
           }
         }
-        
-        return res.json({ suggestions: suggestions.slice(0, 3) });
       }
 
-      // Call OpenAI API
-      const requestBody = JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 200,
-        temperature: 0.7,
-      });
-
-      const aiResponse = await new Promise<string>((resolve, reject) => {
-        const options = {
-          hostname: "api.openai.com",
-          path: "/v1/chat/completions",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openaiKey}`,
-            "Content-Length": Buffer.byteLength(requestBody),
-          },
-        };
-
-        const req = https.request(options, (res) => {
-          let data = "";
-          res.on("data", chunk => { data += chunk; });
-          res.on("end", () => resolve(data));
-        });
-        req.on("error", reject);
-        req.write(requestBody);
-        req.end();
-      });
-
-      const parsed = JSON.parse(aiResponse);
-      const content = parsed.choices?.[0]?.message?.content?.trim() || "[]";
-      
-      let suggestions: string[] = [];
-      try {
-        suggestions = JSON.parse(content);
-        if (!Array.isArray(suggestions)) suggestions = [];
-        suggestions = suggestions.slice(0, 3);
-      } catch {
-        suggestions = ["Technique refinement", "Match consistency", "Footwork"];
-      }
-
-      res.json({ suggestions });
+      res.json({ suggestions: suggestions.slice(0, 3) });
     } catch (error) {
       console.error("AI focus suggestions error:", error);
       res.json({ suggestions: ["Technique refinement", "Match consistency", "Footwork"] });

@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { eq, and, desc, gte } from "drizzle-orm";
-import https from "https";
+import OpenAI from "openai";
 import {
   inSessionFeedback,
   sessionSkillFeedback,
@@ -18,58 +18,31 @@ import {
   coaches,
 } from "@shared/schema";
 
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
+
 async function callOpenAI(
   userPrompt: string,
   systemPrompt: string,
   maxTokens: number = 600
 ): Promise<string | null> {
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) return null;
-
-  const requestBody = JSON.stringify({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    max_tokens: maxTokens,
-    temperature: 0.7,
-  });
-
-  return new Promise<string | null>((resolve) => {
-    const options = {
-      hostname: "api.openai.com",
-      path: "/v1/chat/completions",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Length": Buffer.byteLength(requestBody),
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed.choices?.[0]?.message?.content || null);
-        } catch {
-          resolve(null);
-        }
-      });
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.7,
     });
-
-    req.on("error", () => resolve(null));
-    req.setTimeout(20000, () => {
-      req.destroy();
-      resolve(null);
-    });
-
-    req.write(requestBody);
-    req.end();
-  });
+    return response.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    console.error("[AIEngine] OpenAI call failed:", err);
+    return null;
+  }
 }
 
 export async function generateSessionDigest(
