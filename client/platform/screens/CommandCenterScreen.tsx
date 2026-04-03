@@ -278,7 +278,7 @@ function FeatureUsageCard({ academies }: { academies: AcademyOption[] }) {
         )}
         {features.length > 0 && (
           <Pressable style={fuStyles.seeAllBtn} onPress={handleSeeAll}>
-            <Text style={fuStyles.seeAllText}>See full report — players & dead zones</Text>
+            <Text style={fuStyles.seeAllText}>See full report →</Text>
             <Ionicons name="arrow-forward" size={13} color={PLATFORM_PURPLE} />
           </Pressable>
         )}
