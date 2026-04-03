@@ -2239,56 +2239,72 @@ export default function SessionDetailDrawer({
         />
       ) : null}
 
-      {feedbackPickerMode !== null && (
-        <Modal
-          visible={feedbackPickerMode !== null}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setFeedbackPickerMode(null)}
-        >
-          <Pressable style={styles.pickerOverlay} onPress={() => setFeedbackPickerMode(null)}>
-            <View style={styles.pickerSheet}>
-              <View style={styles.pickerHandle} />
-              <Text style={styles.pickerTitle}>
-                {feedbackPickerMode === "evidence" ? "Skill Evidence" :
-                 feedbackPickerMode === "baseline" ? "Quick Assessment" :
-                 feedbackPickerMode === "ai" ? "Coach with AI" : "Deep Assessment"}
-              </Text>
-              <Text style={styles.pickerSubtitle}>Select a player</Text>
-              {(liveSession?.players || [])
-                .filter(p => !removedPlayerIds.has(p.id) && !p.isGuest)
-                .map(p => (
-                  <Pressable
-                    key={p.id}
-                    style={styles.pickerPlayerRow}
-                    onPress={() => {
-                      const mode = feedbackPickerMode;
-                      setFeedbackPickerMode(null);
-                      setTimeout(() => {
-                        if (mode === "evidence") {
-                          navigation.navigate("EvidenceCapture", { sessionId: session.id, playerId: p.id });
-                        } else if (mode === "baseline") {
-                          setBaselinePlayer(p);
-                        } else if (mode === "ai") {
-                          setAiChatPlayer({ id: p.id, name: p.name });
-                        } else {
-                          setDeepAssessPlayer(p);
-                        }
-                      }, 300);
-                    }}
-                  >
-                    <View style={styles.pickerPlayerAvatar}>
-                      <Text style={styles.pickerPlayerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
-                    </View>
-                    <Text style={styles.pickerPlayerName}>{p.name}</Text>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-                  </Pressable>
-                ))
-              }
-            </View>
-          </Pressable>
-        </Modal>
-      )}
+      {feedbackPickerMode !== null && (() => {
+        const modeConfig: Record<string, { label: string; icon: React.ComponentProps<typeof Ionicons>["name"]; color: string }> = {
+          evidence: { label: "Skill Evidence", icon: "videocam", color: "#F472B6" },
+          baseline: { label: "Quick Assessment", icon: "clipboard", color: Colors.dark.gold },
+          deep: { label: "Deep Assessment", icon: "bar-chart", color: "#A78BFA" },
+          ai: { label: "Coach with AI", icon: "sparkles", color: GlowColors.primary },
+        };
+        const cfg = modeConfig[feedbackPickerMode] ?? modeConfig.ai;
+        const players = (liveSession?.players || []).filter(p => !removedPlayerIds.has(p.id) && !p.isGuest);
+        return (
+          <Modal
+            visible={feedbackPickerMode !== null}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setFeedbackPickerMode(null)}
+          >
+            <Pressable style={styles.pickerOverlay} onPress={() => setFeedbackPickerMode(null)}>
+              <View style={styles.pickerSheet}>
+                <View style={styles.pickerHandle} />
+                <View style={styles.pickerHeader}>
+                  <View style={[styles.pickerModeIconWrap, { backgroundColor: cfg.color + "20", borderColor: cfg.color + "40" }]}>
+                    <Ionicons name={cfg.icon} size={24} color={cfg.color} />
+                  </View>
+                  <Text style={styles.pickerTitle}>{cfg.label}</Text>
+                  <Text style={styles.pickerSubtitle}>Select a player</Text>
+                </View>
+                <View style={styles.pickerPlayerList}>
+                  {players.map((p, index) => (
+                    <Pressable
+                      key={p.id}
+                      style={({ pressed }) => [
+                        styles.pickerPlayerRow,
+                        index === 0 && styles.pickerPlayerRowFirst,
+                        pressed && styles.pickerPlayerRowPressed,
+                      ]}
+                      onPress={() => {
+                        const mode = feedbackPickerMode;
+                        setFeedbackPickerMode(null);
+                        setTimeout(() => {
+                          if (mode === "evidence") {
+                            navigation.navigate("EvidenceCapture", { sessionId: session.id, playerId: p.id });
+                          } else if (mode === "baseline") {
+                            setBaselinePlayer(p);
+                          } else if (mode === "ai") {
+                            setAiChatPlayer({ id: p.id, name: p.name });
+                          } else {
+                            setDeepAssessPlayer(p);
+                          }
+                        }, 300);
+                      }}
+                    >
+                      <View style={[styles.pickerPlayerAvatar, { backgroundColor: cfg.color + "20", borderColor: cfg.color + "50" }]}>
+                        <Text style={[styles.pickerPlayerInitial, { color: cfg.color }]}>{p.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={styles.pickerPlayerName}>{p.name}</Text>
+                      <View style={styles.pickerChevronWrap}>
+                        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </Pressable>
+          </Modal>
+        );
+      })()}
     </>
   );
 }
@@ -3832,60 +3848,101 @@ const styles = StyleSheet.create({
   },
   pickerOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: "rgba(0,0,0,0.72)",
     justifyContent: "flex-end",
   },
   pickerSheet: {
-    backgroundColor: Colors.dark.cardBackground,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: Spacing.lg,
-    paddingBottom: 36,
+    backgroundColor: Backgrounds.elevated,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderTopColor: "rgba(255, 255, 255, 0.22)",
+    paddingTop: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: 40,
   },
   pickerHandle: {
-    width: 36,
-    height: 4,
-    backgroundColor: Colors.dark.border,
-    borderRadius: 2,
+    width: 44,
+    height: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.35)",
+    borderRadius: 3,
     alignSelf: "center",
+    marginBottom: Spacing.xl,
+  },
+  pickerHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  pickerModeIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.md,
   },
   pickerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
     color: Colors.dark.text,
     marginBottom: 4,
+    textAlign: "center",
   },
   pickerSubtitle: {
     fontSize: 13,
     color: Colors.dark.textMuted,
-    marginBottom: Spacing.md,
+    textAlign: "center",
+  },
+  pickerPlayerList: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   pickerPlayerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
     paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+  },
+  pickerPlayerRowFirst: {
+    borderTopWidth: 0,
+  },
+  pickerPlayerRowPressed: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   pickerPlayerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: GlowColors.primary + "30",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
   pickerPlayerInitial: {
     fontSize: 16,
     fontWeight: "700",
-    color: GlowColors.primary,
   },
   pickerPlayerName: {
     flex: 1,
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  pickerChevronWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
