@@ -17,6 +17,8 @@ import {
   playerBaselineSkillScores,
   coaches,
   playerNotes,
+  matchLogs,
+  playerXpEvents,
 } from "@shared/schema";
 
 const openai = new OpenAI({
@@ -497,10 +499,32 @@ export interface PlayerAIContext {
   sessionType: string;
   sessionDate: string;
   coachName: string;
-  requiredSkills: { skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
-  recentDigests: string[];
-  attendanceStatus: string;
   ageGroup: "young_child" | "child" | "teen" | "adult";
+  attendanceStatus: string;
+  // Curriculum skills for current level
+  requiredSkills: { skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
+  // Session summaries (up to 30)
+  recentDigests: string[];
+  // Coach Memory Hub notes (all — no cap)
+  coachNotes: { category: string; content: string; pinned: boolean }[];
+  // All skill mastery grouped by pillar
+  skillsByPillar: { pillar: string; mastered: string[]; developing: string[]; notStarted: string[] }[];
+  // Lifetime pillar averages
+  pillarAverages: { pillar: string; avg: number }[];
+  // Player goals from onboarding
+  shortTermGoal: string | null;
+  longTermDream: string | null;
+  playStyle: string | null;
+  // XP info
+  xpLevel: number | null;
+  xpTotal: number | null;
+  // Attendance
+  attendanceRate: number | null;
+  totalSessions: number;
+  // Recent matches (last 5)
+  recentMatches: { result: string; format: string; opponentLevel: string | null }[];
+  // Recent in-session feedback notes (last 10)
+  recentFeedbackNotes: { feedbackType: string; message: string }[];
 }
 
 export async function buildPlayerAIContext(
@@ -515,23 +539,59 @@ export async function buildPlayerAIContext(
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
     if (!session) return null;
 
-    const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq(coaches.id, coachId));
+    // Run independent queries in parallel
+    const [
+      coachRow,
+      playerLevelRow,
+      attendanceRow,
+      allCoachNotes,
+      recentDigests,
+      allSkillScores,
+      sessionPlayerHistory,
+      latestXpEvent,
+      recentMatchRows,
+      recentFeedbackRows,
+    ] = await Promise.all([
+      db.select({ name: coaches.name }).from(coaches).where(eq(coaches.id, coachId)).limit(1),
+      db.select({ levelId: playerBallLevels.levelId }).from(playerBallLevels)
+        .where(eq(playerBallLevels.playerId, playerId))
+        .orderBy(desc(playerBallLevels.assignedAt)).limit(1),
+      db.select({ attendanceStatus: sessionPlayers.attendanceStatus }).from(sessionPlayers)
+        .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.playerId, playerId))),
+      db.select({ category: playerNotes.category, content: playerNotes.content, isPinned: playerNotes.isPinned })
+        .from(playerNotes)
+        .where(eq(playerNotes.playerId, playerId))
+        .orderBy(desc(playerNotes.isPinned), desc(playerNotes.createdAt)),
+      db.select({ summaryText: sessionAiSummaries.summaryText })
+        .from(sessionAiSummaries)
+        .where(eq(sessionAiSummaries.playerId, playerId))
+        .orderBy(desc(sessionAiSummaries.generatedAt)).limit(30),
+      db.select({ pillar: glowSkills.pillar, skillName: glowSkills.name, score: playerSkillScores.score, targetScore: playerSkillScores.movingAverage })
+        .from(playerSkillScores)
+        .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+        .where(eq(playerSkillScores.playerId, playerId))
+        .orderBy(desc(playerSkillScores.createdAt)),
+      db.select({ attendanceStatus: sessionPlayers.attendanceStatus })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, playerId))
+        .limit(100),
+      db.select({ levelAtEvent: playerXpEvents.levelAtEvent, xpAfterEvent: playerXpEvents.xpAfterEvent })
+        .from(playerXpEvents)
+        .where(eq(playerXpEvents.playerId, playerId))
+        .orderBy(desc(playerXpEvents.createdAt)).limit(1),
+      db.select({ result: matchLogs.result, matchFormat: matchLogs.matchFormat, opponentLevel: matchLogs.opponentLevel })
+        .from(matchLogs)
+        .where(eq(matchLogs.playerId, playerId))
+        .orderBy(desc(matchLogs.createdAt)).limit(5),
+      db.select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
+        .from(inSessionFeedback)
+        .where(eq(inSessionFeedback.playerId, playerId))
+        .orderBy(desc(inSessionFeedback.createdAt)).limit(10),
+    ]);
 
-    const [playerLevel] = await db
-      .select({ levelId: playerBallLevels.levelId })
-      .from(playerBallLevels)
-      .where(eq(playerBallLevels.playerId, playerId))
-      .orderBy(desc(playerBallLevels.assignedAt))
-      .limit(1);
+    const ballLevel = playerLevelRow[0]?.levelId || player.ballLevel || "unknown";
 
-    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
-
-    const [attendance] = await db
-      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
-      .from(sessionPlayers)
-      .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.playerId, playerId)));
-
-    // Get required skills for current level
+    // Get required skills for current level with current scores
     let requiredSkills: PlayerAIContext["requiredSkills"] = [];
     if (ballLevel && ballLevel !== "unknown") {
       const levelSkillsList = await db
@@ -547,14 +607,12 @@ export async function buildPlayerAIContext(
         .where(eq(levelSkills.levelId, ballLevel))
         .limit(8);
 
-      // Get player's current score for each skill
       for (const skill of levelSkillsList) {
         const [latestScore] = await db
           .select({ score: playerSkillScores.score, movingAverage: playerSkillScores.movingAverage })
           .from(playerSkillScores)
           .where(and(eq(playerSkillScores.playerId, playerId), eq(playerSkillScores.skillId, skill.skillId)))
-          .orderBy(desc(playerSkillScores.createdAt))
-          .limit(1);
+          .orderBy(desc(playerSkillScores.createdAt)).limit(1);
 
         requiredSkills.push({
           skillName: skill.skillName,
@@ -566,15 +624,7 @@ export async function buildPlayerAIContext(
       }
     }
 
-    // Recent digests
-    const recentDigests = await db
-      .select({ summaryText: sessionAiSummaries.summaryText })
-      .from(sessionAiSummaries)
-      .where(eq(sessionAiSummaries.playerId, playerId))
-      .orderBy(desc(sessionAiSummaries.generatedAt))
-      .limit(3);
-
-    // Determine age group
+    // Age group
     const age = player.age ? Number(player.age) : null;
     let ageGroup: PlayerAIContext["ageGroup"] = "adult";
     if (age !== null) {
@@ -583,17 +633,66 @@ export async function buildPlayerAIContext(
       else if (age <= 17) ageGroup = "teen";
     }
 
+    // Attendance rate
+    const attended = sessionPlayerHistory.filter((s) => s.attendanceStatus === "present").length;
+    const totalSessions = sessionPlayerHistory.length;
+    const attendanceRate = totalSessions > 0 ? Math.round((attended / totalSessions) * 100) : null;
+
+    // Skill mastery by pillar (de-duplicate to latest score per skill)
+    const latestScoreBySkill = new Map<string, { pillar: string; skillName: string; score: number }>();
+    for (const s of allSkillScores) {
+      if (!latestScoreBySkill.has(s.skillName)) {
+        latestScoreBySkill.set(s.skillName, { pillar: s.pillar || "Technical", skillName: s.skillName, score: Number(s.score) });
+      }
+    }
+    const skills = Array.from(latestScoreBySkill.values());
+
+    const pillarMap = new Map<string, { mastered: string[]; developing: string[]; notStarted: string[] }>();
+    for (const s of skills) {
+      if (!pillarMap.has(s.pillar)) pillarMap.set(s.pillar, { mastered: [], developing: [], notStarted: [] });
+      const group = pillarMap.get(s.pillar)!;
+      if (s.score >= 2) group.mastered.push(s.skillName);
+      else if (s.score >= 1) group.developing.push(s.skillName);
+      else group.notStarted.push(s.skillName);
+    }
+    const skillsByPillar = Array.from(pillarMap.entries()).map(([pillar, g]) => ({ pillar, ...g }));
+
+    // Lifetime pillar averages
+    const pillarSums = new Map<string, { sum: number; count: number }>();
+    for (const s of skills) {
+      const p = pillarSums.get(s.pillar) || { sum: 0, count: 0 };
+      p.sum += s.score;
+      p.count += 1;
+      pillarSums.set(s.pillar, p);
+    }
+    const pillarAverages = Array.from(pillarSums.entries()).map(([pillar, { sum, count }]) => ({
+      pillar,
+      avg: Math.round((sum / count) * 10) / 10,
+    }));
+
     return {
       playerName: player.name,
       playerAge: age,
       ballLevel,
       sessionType: session.sessionType,
-      sessionDate: session.date || new Date().toISOString().split("T")[0],
-      coachName: coach?.name || "Coach",
+      sessionDate: session.startTime ? new Date(session.startTime).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      coachName: coachRow[0]?.name || "Coach",
+      ageGroup,
+      attendanceStatus: attendanceRow[0]?.attendanceStatus || "present",
       requiredSkills,
       recentDigests: recentDigests.map((d) => d.summaryText),
-      attendanceStatus: attendance?.attendanceStatus || "present",
-      ageGroup,
+      coachNotes: allCoachNotes.map((n) => ({ category: n.category, content: n.content, pinned: n.isPinned })),
+      skillsByPillar,
+      pillarAverages,
+      shortTermGoal: player.shortTermGoal || null,
+      longTermDream: player.longTermDream || null,
+      playStyle: player.playStyle || null,
+      xpLevel: latestXpEvent[0]?.levelAtEvent ?? null,
+      xpTotal: latestXpEvent[0]?.xpAfterEvent ?? null,
+      attendanceRate,
+      totalSessions,
+      recentMatches: recentMatchRows.map((m) => ({ result: m.result, format: m.matchFormat, opponentLevel: m.opponentLevel })),
+      recentFeedbackNotes: recentFeedbackRows.map((f) => ({ feedbackType: f.feedbackType, message: f.message })),
     };
   } catch (error) {
     console.error("[AIEngine] Error building player AI context:", error);
@@ -602,53 +701,114 @@ export async function buildPlayerAIContext(
 }
 
 export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
-  const { playerName, playerAge, ballLevel, sessionType, ageGroup, requiredSkills, recentDigests } = ctx;
+  const {
+    playerName, playerAge, ballLevel, sessionType, ageGroup,
+    requiredSkills, recentDigests, coachNotes, skillsByPillar, pillarAverages,
+    shortTermGoal, longTermDream, playStyle, xpLevel, attendanceRate, totalSessions,
+    recentMatches, recentFeedbackNotes,
+  } = ctx;
 
   const ageInstruction =
     ageGroup === "young_child"
-      ? "Use very simple, encouraging language. Ask about fun, effort, and one concrete skill at a time. Avoid technical jargon."
+      ? "Use very simple, encouraging language. Ask about fun, effort, and one concrete skill at a time."
       : ageGroup === "child"
-      ? "Use clear, positive language with concrete examples. Focus on what they practised and how much they enjoyed it."
+      ? "Use clear, positive language. Focus on what they practised and how much they enjoyed it."
       : ageGroup === "teen"
-      ? "Use technical tennis terms but keep it conversational. Ask about tactics, consistency and competitive play."
+      ? "Use technical tennis terms but keep it conversational. Ask about tactics, consistency, and competitive play."
       : "Use professional coaching language. Ask about technical details, tactical application, and mental aspects.";
 
-  const levelContext = `${playerName} is currently at ${ballLevel} ball level, attending a ${sessionType} session.`;
+  // Player portrait
+  const portrait = [
+    `${playerName}${playerAge ? `, age ${playerAge}` : ""} — ${ballLevel} ball level, ${sessionType} session.`,
+    playStyle ? `Playing style: ${playStyle.replace(/_/g, " ")}.` : "",
+    xpLevel ? `Level ${xpLevel} on the Glow platform.` : "",
+    attendanceRate !== null ? `Attendance: ${attendanceRate}% across ${totalSessions} sessions.` : "",
+    shortTermGoal ? `Short-term goal: "${shortTermGoal}".` : "",
+    longTermDream ? `Long-term dream: "${longTermDream}".` : "",
+  ].filter(Boolean).join(" ");
 
+  // Pillar averages
+  const pillarSummary = pillarAverages.length > 0
+    ? `Lifetime pillar averages (0-2): ${pillarAverages.map((p) => `${p.pillar} ${p.avg}`).join(", ")}.`
+    : "";
+
+  // Skill mastery summary (compact)
+  const skillMastery = skillsByPillar.map((p) => {
+    const parts: string[] = [];
+    if (p.mastered.length > 0) parts.push(`mastered: ${p.mastered.slice(0, 4).join(", ")}`);
+    if (p.developing.length > 0) parts.push(`developing: ${p.developing.slice(0, 4).join(", ")}`);
+    return parts.length > 0 ? `${p.pillar} — ${parts.join("; ")}` : null;
+  }).filter(Boolean).join(" | ");
+
+  // Current curriculum skills needing work
   const skillsNeeded = requiredSkills.length > 0
-    ? `For the ${ballLevel} curriculum, key skills to cover: ${requiredSkills.map((s) => `${s.skillName} (${s.pillar}, current: ${s.currentScore !== null ? s.currentScore + "/2" : "not yet scored"}, target: ${s.targetScore}/2, ${s.required ? "required" : "optional"})`).join("; ")}.`
+    ? `Current ${ballLevel} curriculum: ${requiredSkills.map((s) => `${s.skillName} (${s.pillar}, ${s.currentScore !== null ? s.currentScore + "/2" : "unscored"}, target ${s.targetScore}/2${s.required ? ", required" : ""})`).join("; ")}.`
     : "";
 
+  // Coach Memory Hub notes (all — no cap)
+  const notesSection = coachNotes.length > 0
+    ? `Coach notes about this player:\n${coachNotes.map((n) => `- [${n.category}${n.pinned ? ", pinned" : ""}] ${n.content}`).join("\n")}`
+    : "";
+
+  // Recent session summaries (last 5 in prompt for brevity)
   const digestContext = recentDigests.length > 0
-    ? `Recent sessions: ${recentDigests.slice(0, 2).join(" | ")}`
+    ? `Recent session history (latest first): ${recentDigests.slice(0, 5).join(" | ")}`
     : "";
 
-  const summaryInstruction = `After 3-6 coach exchanges, say "Here is what I'll save" and propose a JSON summary inside a code block like this:
+  // Recent feedback notes
+  const feedbackContext = recentFeedbackNotes.length > 0
+    ? `Recent coaching notes: ${recentFeedbackNotes.slice(0, 5).map((f) => f.message).join(" | ")}`
+    : "";
+
+  // Recent match results
+  const matchContext = recentMatches.length > 0
+    ? `Recent matches: ${recentMatches.map((m) => `${m.result} (${m.format}${m.opponentLevel ? ", vs " + m.opponentLevel : ""})`).join(", ")}.`
+    : "";
+
+  const summaryInstruction = `After 4-8 coach exchanges covering all four pillars (Technical, Tactical, Physical, Mental), say "Here is what I'll save" and propose a JSON summary inside a code block:
 \`\`\`json
 {
-  "sessionNote": "A sentence summarising what was worked on.",
+  "sessionNote": "One sentence summarising what was worked on today.",
   "overall": "improved",
   "effort": 2,
   "execution": 1,
   "understanding": 1,
+  "techniquePillar": 1,
+  "tacticalPillar": 2,
+  "physicalPillar": 1,
+  "mentalPillar": 2,
   "skillRatings": [{"skillName": "...", "score": 1}],
   "levelUpFlag": false,
   "levelUpMessage": ""
 }
 \`\`\`
-Values: overall = improved/stable/declined. effort/execution/understanding = 0 (attention needed), 1 (developing), 2 (good). levelUpFlag = true only if 3+ required skills were met at target score this session.`;
+Values: overall = improved/stable/declined. All numeric fields = 0 (needs attention), 1 (developing), 2 (good). Include a skillRating for each curriculum skill that was worked on. levelUpFlag = true only if 3+ required skills hit target score this session.`;
 
-  return `You are a sports development AI coach assistant helping a coach log a session for ${playerName}${playerAge ? `, age ${playerAge}` : ""}.
-${levelContext}
+  return `You are an expert sports development AI assistant helping coach ${ctx.coachName} log a session for ${playerName}.
+
+PLAYER PORTRAIT:
+${portrait}
+${pillarSummary}
+${skillMastery ? `Skill mastery: ${skillMastery}.` : ""}
 ${skillsNeeded}
+${notesSection}
 ${digestContext}
+${feedbackContext}
+${matchContext}
 
-Language rule: ${ageInstruction}
-Start by asking what was the main focus of today's session.
-Ask targeted follow-ups about the skills listed above — check if they were worked on and how well the player responded.
-Never ask more than 2 questions at once.
-Keep responses under 3 sentences per turn unless proposing the summary.
-Never use emojis.
+LANGUAGE RULE: ${ageInstruction}
+
+YOUR JOB:
+1. Ask what the main focus of today's session was.
+2. Ask 1-2 targeted follow-up questions per turn. Cover all four pillars before wrapping up:
+   - TECHNICAL: stroke mechanics, consistency, shot quality
+   - TACTICAL: decision-making, game strategy, patterns of play
+   - PHYSICAL: energy levels, movement, stamina, footwork
+   - MENTAL: focus, composure under pressure, confidence, resilience
+3. Reference coach notes when relevant (e.g. "You've noted before that she struggles with composure — how was that today?").
+4. Never ask more than 2 questions at once.
+5. Keep responses under 3 sentences unless proposing the summary.
+6. Never use emojis.
 ${summaryInstruction}`;
 }
 

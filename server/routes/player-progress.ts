@@ -2616,6 +2616,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             effort: number;
             execution: number;
             understanding: number;
+            techniquePillar?: number;
+            tacticalPillar?: number;
+            physicalPillar?: number;
+            mentalPillar?: number;
             skillRatings: { skillName: string; score: number }[];
             levelUpFlag: boolean;
             levelUpMessage: string;
@@ -2647,17 +2651,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           });
         }
 
-        // 3. Write to session_skill_feedback
-        await db.insert(sessionSkillFeedback).values({
+        // 3. Write to session_skill_feedback (upsert so re-save always updates)
+        const clamp = (v: number | undefined, fallback = 1) => Math.min(2, Math.max(0, v ?? fallback));
+        const overallValue = (["improved", "stable", "declined"].includes(structured.overall) ? structured.overall : "stable") as "improved" | "stable" | "declined";
+        const skillFeedbackValues = {
           sessionId,
           playerId,
           coachId,
-          effort: Math.min(2, Math.max(0, structured.effort ?? 1)),
-          execution: Math.min(2, Math.max(0, structured.execution ?? 1)),
-          understanding: Math.min(2, Math.max(0, structured.understanding ?? 1)),
-          overall: (["improved", "stable", "declined"].includes(structured.overall) ? structured.overall : "stable") as "improved" | "stable" | "declined",
+          effort: clamp(structured.effort),
+          execution: clamp(structured.execution),
+          understanding: clamp(structured.understanding),
+          overall: overallValue,
           note: structured.sessionNote,
-        }).onConflictDoNothing();
+          techniquePillar: structured.techniquePillar !== undefined ? clamp(structured.techniquePillar) : null,
+          tacticalPillar: structured.tacticalPillar !== undefined ? clamp(structured.tacticalPillar) : null,
+          physicalPillar: structured.physicalPillar !== undefined ? clamp(structured.physicalPillar) : null,
+          mentalPillar: structured.mentalPillar !== undefined ? clamp(structured.mentalPillar) : null,
+        };
+        await db.insert(sessionSkillFeedback).values(skillFeedbackValues).onConflictDoUpdate({
+          target: [sessionSkillFeedback.sessionId, sessionSkillFeedback.playerId],
+          set: {
+            effort: skillFeedbackValues.effort,
+            execution: skillFeedbackValues.execution,
+            understanding: skillFeedbackValues.understanding,
+            overall: skillFeedbackValues.overall,
+            note: skillFeedbackValues.note,
+            techniquePillar: skillFeedbackValues.techniquePillar,
+            tacticalPillar: skillFeedbackValues.tacticalPillar,
+            physicalPillar: skillFeedbackValues.physicalPillar,
+            mentalPillar: skillFeedbackValues.mentalPillar,
+          },
+        });
 
         // 4. Write individual playerSkillScores for each skill rating
         if (structured.skillRatings && structured.skillRatings.length > 0) {

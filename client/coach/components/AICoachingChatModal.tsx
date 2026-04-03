@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -38,6 +39,10 @@ interface StructuredSummary {
   effort: number;
   execution: number;
   understanding: number;
+  techniquePillar?: number;
+  tacticalPillar?: number;
+  physicalPillar?: number;
+  mentalPillar?: number;
   skillRatings: { skillName: string; score: number }[];
   levelUpFlag: boolean;
   levelUpMessage: string;
@@ -209,9 +214,16 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Clear draft on commit
       AsyncStorage.removeItem(getDraftKey(sessionId, playerId)).catch(() => {});
       onClose();
+    },
+    onError: (err: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Could not save session",
+        "Something went wrong while saving the session notes. Please try again.",
+        [{ text: "OK" }]
+      );
     },
   });
 
@@ -353,6 +365,38 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                     <Text style={styles.summaryChipValue}>{getRatingLabel(pendingSummary.execution)}</Text>
                   </View>
                 </View>
+
+                {(pendingSummary.techniquePillar !== undefined ||
+                  pendingSummary.tacticalPillar !== undefined ||
+                  pendingSummary.physicalPillar !== undefined ||
+                  pendingSummary.mentalPillar !== undefined) ? (
+                  <View style={styles.pillarRow}>
+                    {pendingSummary.techniquePillar !== undefined ? (
+                      <View style={styles.pillarChip}>
+                        <Text style={styles.pillarChipLabel}>Tech</Text>
+                        <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.techniquePillar)}</Text>
+                      </View>
+                    ) : null}
+                    {pendingSummary.tacticalPillar !== undefined ? (
+                      <View style={styles.pillarChip}>
+                        <Text style={styles.pillarChipLabel}>Tactical</Text>
+                        <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.tacticalPillar)}</Text>
+                      </View>
+                    ) : null}
+                    {pendingSummary.physicalPillar !== undefined ? (
+                      <View style={styles.pillarChip}>
+                        <Text style={styles.pillarChipLabel}>Physical</Text>
+                        <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.physicalPillar)}</Text>
+                      </View>
+                    ) : null}
+                    {pendingSummary.mentalPillar !== undefined ? (
+                      <View style={styles.pillarChip}>
+                        <Text style={styles.pillarChipLabel}>Mental</Text>
+                        <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.mentalPillar)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
                 {pendingSummary.levelUpFlag ? (
                   <View style={styles.levelUpBanner}>
@@ -637,6 +681,36 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
     fontSize: 11,
+  },
+  pillarRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+  },
+  pillarChip: {
+    flex: 1,
+    minWidth: 60,
+    backgroundColor: Colors.dark.primary + "14",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.xs,
+    alignItems: "center",
+    gap: 2,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "25",
+  },
+  pillarChipLabel: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  pillarChipValue: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    fontSize: 10,
   },
   levelUpBanner: {
     backgroundColor: Colors.dark.gold + "15",
