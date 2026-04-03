@@ -2296,7 +2296,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
   // ==================== AI PLAYER PROGRESS ENGINE ====================
 
-  // Helper: fetch pillar score history from baseline skill assessments
+  // Helper: fetch pillar score history from detailed baseline skill assessments.
+  // Queries player_baseline_skill_scores (deep per-skill scores, not the quick rating fields
+  // on player_baselines itself), grouped by baseline assessment date.
   async function fetchPillarHistory(playerId: string): Promise<Array<{ date: string; TECHNIQUE: number | null; TACTICAL: number | null; PHYSICAL: number | null; MENTAL: number | null }>> {
     try {
       const rows = await db.execute(sql`
