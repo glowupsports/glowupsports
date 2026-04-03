@@ -626,6 +626,127 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Create a new player profile as a family member (no login credentials)
+  router.post(
+    "/api/family/create-member",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const tokenUser = req.user!;
+
+        const freshUser = await storage.getUserById(tokenUser.userId);
+        if (!freshUser || !freshUser.playerId) {
+          return res.status(403).json({ error: "Player profile required" });
+        }
+
+        const parentPlayer = await storage.getPlayer(freshUser.playerId);
+        if (!parentPlayer || !parentPlayer.email) {
+          return res.status(403).json({ error: "Account not found" });
+        }
+
+        // Only parent accounts (not children themselves) can create new members
+        if (parentPlayer.parentEmail) {
+          return res.status(403).json({ error: "Only parent accounts can add family members." });
+        }
+
+        // Allowed values matching the CreateFamilyMemberFlow UI
+        const VALID_DOMINANT_HANDS = ["right", "left"];
+        const VALID_BACKHAND_TYPES = ["single", "double"];
+        const VALID_EXPERIENCE_LEVELS = ["new", "6-12months", "1-3years", "3-5years", "5-10years", "10-20years"];
+        const VALID_MOTIVATION_TYPES = ["fun", "improve", "compete", "unsure"];
+
+        const {
+          firstName,
+          lastName,
+          dateOfBirth,
+          dominantHand,
+          backhandType,
+          experienceLevel,
+          motivationType,
+          enjoymentTags,
+          focusGoals,
+          selfConfidenceFlags,
+        } = req.body;
+
+        if (!firstName || typeof firstName !== "string" || !firstName.trim()) {
+          return res.status(400).json({ error: "First name is required" });
+        }
+        if (!lastName || typeof lastName !== "string" || !lastName.trim()) {
+          return res.status(400).json({ error: "Last name is required" });
+        }
+
+        // Validate enum fields if provided
+        if (dominantHand && !VALID_DOMINANT_HANDS.includes(dominantHand)) {
+          return res.status(400).json({ error: "Invalid dominant hand value" });
+        }
+        if (backhandType && !VALID_BACKHAND_TYPES.includes(backhandType)) {
+          return res.status(400).json({ error: "Invalid backhand type value" });
+        }
+        if (experienceLevel && !VALID_EXPERIENCE_LEVELS.includes(experienceLevel)) {
+          return res.status(400).json({ error: "Invalid experience level value" });
+        }
+        if (motivationType && !VALID_MOTIVATION_TYPES.includes(motivationType)) {
+          return res.status(400).json({ error: "Invalid motivation type value" });
+        }
+
+        const memberName = `${firstName.trim()} ${lastName.trim()}`;
+
+        // Compute age from dateOfBirth if provided
+        let age: number | null = null;
+        if (dateOfBirth && typeof dateOfBirth === "string") {
+          const birthDate = new Date(dateOfBirth);
+          if (isNaN(birthDate.getTime())) {
+            return res.status(400).json({ error: "Invalid date of birth" });
+          }
+          const today = new Date();
+          age = today.getFullYear() - birthDate.getFullYear();
+          const m = today.getMonth() - birthDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+        }
+
+        // Always use parent's academyId — never trust client-provided academyId
+        const resolvedAcademyId = parentPlayer.academyId || null;
+
+        // Create the player record (no user/auth record — under parent account)
+        const [newPlayer] = await db.insert(players).values({
+          name: memberName,
+          email: parentPlayer.email, // share parent email so family grouping works
+          parentEmail: parentPlayer.email, // explicit link to parent
+          academyId: resolvedAcademyId,
+          dateOfBirth: dateOfBirth || null,
+          age,
+          dominantHand: dominantHand || null,
+          backhandType: backhandType || null,
+          experienceLevel: experienceLevel || null,
+          motivationType: motivationType || null,
+          enjoymentTags: Array.isArray(enjoymentTags) ? enjoymentTags : [],
+          focusGoals: Array.isArray(focusGoals) ? focusGoals : [],
+          selfConfidenceFlags: Array.isArray(selfConfidenceFlags) ? selfConfidenceFlags : [],
+          onboardingCompleted: true,
+          level: 1,
+          totalXp: 0,
+          glowScore: 0,
+          streak: 0,
+        }).returning();
+
+        res.status(201).json({
+          success: true,
+          player: {
+            id: newPlayer.id,
+            name: newPlayer.name,
+            email: newPlayer.email,
+            parentEmail: newPlayer.parentEmail,
+          },
+        });
+      } catch (error) {
+        console.error("Error creating family member:", error);
+        res.status(500).json({ error: "Failed to create family member" });
+      }
+    },
+  );
+
   // Join family with invite code (child calls this)
   router.post(
     "/api/family/join",

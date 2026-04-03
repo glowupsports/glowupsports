@@ -25,6 +25,7 @@ import Animated, { FadeInUp, FadeInRight, ZoomIn } from "react-native-reanimated
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 
 function parseApiError(error: any, fallback: string): string {
   const raw: string = error?.message || "";
@@ -242,6 +243,7 @@ export default function FamilyLobbyScreen() {
   const { familyData, setActivePlayer, isLoading, refreshFamily, isParent } = useFamily();
   const [showControls, setShowControls] = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
+  const [showCreateMember, setShowCreateMember] = useState(false);
   const [addChildTab, setAddChildTab] = useState<"email" | "code">("email");
   const [childEmail, setChildEmail] = useState("");
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -520,14 +522,28 @@ export default function FamilyLobbyScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.addChildStickyWrapper}>
+          {isParent ? (
+            <Pressable
+              style={[styles.addChildStickyButton, styles.createMemberButton]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowCreateMember(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Create a new player profile for a family member"
+            >
+              <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.addChildStickyText}>Nieuwe speler toevoegen</Text>
+            </Pressable>
+          ) : null}
           <Pressable
-            style={styles.addChildStickyButton}
+            style={[styles.addChildStickyButton, isParent ? styles.addMemberSecondaryButton : null]}
             onPress={handleOpenAddChildModal}
             accessibilityRole="button"
             accessibilityLabel="Add a member to your family"
           >
-            <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
-            <Text style={styles.addChildStickyText}>Add Member</Text>
+            <Ionicons name="link-outline" size={20} color={isParent ? Colors.dark.textSecondary : Colors.dark.backgroundRoot} />
+            <Text style={[styles.addChildStickyText, isParent ? styles.addMemberSecondaryText : null]}>Koppel bestaand account</Text>
           </Pressable>
         </Animated.View>
         <View style={styles.footerRow}>
@@ -537,6 +553,21 @@ export default function FamilyLobbyScreen() {
           </Text>
         </View>
       </View>
+
+      <CreateFamilyMemberFlow
+        visible={showCreateMember}
+        onClose={() => setShowCreateMember(false)}
+        onComplete={(_newPlayerId, newPlayerName) => {
+          setShowCreateMember(false);
+          refreshFamily();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert(
+            "Profiel aangemaakt!",
+            `${newPlayerName} is toegevoegd aan de Family Lobby.`,
+            [{ text: "OK" }]
+          );
+        }}
+      />
 
       <Modal visible={showControls} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -954,6 +985,7 @@ const styles = StyleSheet.create({
   },
   addChildStickyWrapper: {
     marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   addChildStickyButton: {
     flexDirection: "row",
@@ -965,10 +997,21 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
   },
+  createMemberButton: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  addMemberSecondaryButton: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
   addChildStickyText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
     color: Colors.dark.backgroundRoot,
+  },
+  addMemberSecondaryText: {
+    color: Colors.dark.textSecondary,
   },
   footer: {
     paddingHorizontal: Spacing.lg,

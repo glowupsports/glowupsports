@@ -75,6 +75,7 @@ import ManageMatchScreen from "@/player/screens/ManageMatchScreen";
 import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
+import AddFamilyMemberPrompt from "@/player/components/AddFamilyMemberPrompt";
 import CorporateBenefitsScreen from "@/player/screens/CorporateBenefitsScreen";
 import CompanyContactDashboardScreen from "@/player/screens/CompanyContactDashboardScreen";
 import FindGameScreen from "@/player/screens/FindGameScreen";
@@ -1226,6 +1227,7 @@ export default function PlayerNavigator() {
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [showPrivacySetup, setShowPrivacySetup] = useState(false);
+  const [showFamilyPrompt, setShowFamilyPrompt] = useState(false);
 
 
   // Fetch dashboard for player role accounts and any account with a playerId
@@ -1267,7 +1269,19 @@ export default function PlayerNavigator() {
 
   // Show privacy setup modal after onboarding
   if (showPrivacySetup) {
-    return <PrivacySettingsScreen isOnboarding onComplete={() => setShowPrivacySetup(false)} />;
+    return <PrivacySettingsScreen isOnboarding onComplete={() => { setShowPrivacySetup(false); setShowFamilyPrompt(true); }} />;
+  }
+
+  // Show family prompt after onboarding + privacy setup
+  if (showFamilyPrompt) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
+        <AddFamilyMemberPrompt
+          visible={true}
+          onDone={() => setShowFamilyPrompt(false)}
+        />
+      </View>
+    );
   }
 
   const playerId = user?.playerId || dashboard?.player?.id || null;
