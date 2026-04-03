@@ -950,8 +950,9 @@ export interface GroupSessionPlayerProfile {
   name: string;
   age: number | null;
   ballLevel: string;
-  skillScores: { skillName: string; pillar: string; score: number }[];
+  skillScores: { skillName: string; pillar: string; score: number; trend: "improving" | "stable" | "declining" }[];
   recentFeedback: string[];
+  coachNotes: string[];
   recentDigests: string[];
   attendanceRate: number | null;
   recentAbsences: number;
@@ -1024,21 +1025,36 @@ export async function buildGroupSessionAIContext(
         .orderBy(desc(playerSkillScores.createdAt))
         .limit(30);
 
-      const seenSkills = new Set<string>();
-      const skillScores: GroupSessionPlayerProfile["skillScores"] = [];
+      // Compute skill scores with trend by grouping by skill name, comparing latest vs previous
+      const skillsByName = new Map<string, typeof rawScores>();
       for (const s of rawScores) {
-        if (!seenSkills.has(s.skillName)) {
-          seenSkills.add(s.skillName);
-          skillScores.push({
-            skillName: s.skillName,
-            pillar: s.pillar || "Technical",
-            score: Number(s.movingAverage ?? s.score),
-          });
-          if (skillScores.length >= 6) break;
-        }
+        const key = s.skillName;
+        if (!skillsByName.has(key)) skillsByName.set(key, []);
+        skillsByName.get(key)!.push(s);
       }
 
-      // Recent coach feedback
+      const skillScores: GroupSessionPlayerProfile["skillScores"] = [];
+      for (const [skillName, entries] of skillsByName) {
+        if (skillScores.length >= 6) break;
+        const latest = entries[0];
+        const prev = entries[1];
+        const latestScore = Number(latest.movingAverage ?? latest.score);
+        let trend: "improving" | "stable" | "declining" = "stable";
+        if (prev) {
+          const prevScore = Number(prev.movingAverage ?? prev.score);
+          const delta = latestScore - prevScore;
+          if (delta >= 0.15) trend = "improving";
+          else if (delta <= -0.15) trend = "declining";
+        }
+        skillScores.push({
+          skillName,
+          pillar: latest.pillar || "Technical",
+          score: latestScore,
+          trend,
+        });
+      }
+
+      // Recent coach session feedback (in-session feedback notes)
       const feedbackRows = await db
         .select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
         .from(inSessionFeedback)
@@ -1046,6 +1062,15 @@ export async function buildGroupSessionAIContext(
         .orderBy(desc(inSessionFeedback.createdAt))
         .limit(5);
       const recentFeedback = feedbackRows.map((f) => `[${f.feedbackType}] ${f.message}`);
+
+      // Coach long-form notes from playerNotes table
+      const noteRows = await db
+        .select({ category: playerNotes.category, content: playerNotes.content })
+        .from(playerNotes)
+        .where(eq(playerNotes.playerId, sp.playerId))
+        .orderBy(desc(playerNotes.createdAt))
+        .limit(3);
+      const coachNotes = noteRows.map((n) => `[${n.category}] ${n.content}`);
 
       // Session digests
       const digestRows = await db
@@ -1077,6 +1102,7 @@ export async function buildGroupSessionAIContext(
         ballLevel,
         skillScores,
         recentFeedback,
+        coachNotes,
         recentDigests,
         attendanceRate,
         recentAbsences,
@@ -1104,13 +1130,14 @@ export async function generateGroupSessionPlan(
 ): Promise<SessionPlan | null> {
   const playerLines = ctx.players.map((p) => {
     const skills = p.skillScores.length > 0
-      ? p.skillScores.map((s) => `${s.skillName}(${s.score.toFixed(1)}/2)`).join(", ")
+      ? p.skillScores.map((s) => `${s.skillName}(${s.score.toFixed(1)}/2, ${s.trend})`).join(", ")
       : "no skill data";
     const feedback = p.recentFeedback.length > 0 ? p.recentFeedback.slice(0, 3).join("; ") : "none";
+    const notes = p.coachNotes.length > 0 ? p.coachNotes.slice(0, 2).join("; ") : "none";
     const digest = p.recentDigests.length > 0 ? p.recentDigests[0] : "none";
     const attendance = p.attendanceRate !== null ? `${p.attendanceRate}% attendance` : "attendance unknown";
     const absenceNote = p.recentAbsences >= 2 ? ` (${p.recentAbsences} recent absences)` : "";
-    return `${p.name}${p.age ? ` (age ${p.age})` : ""} — ${p.ballLevel} ball level, ${attendance}${absenceNote}. Skills: ${skills}. Recent feedback: ${feedback}. Last digest: ${digest}`;
+    return `${p.name}${p.age ? ` (age ${p.age})` : ""} — ${p.ballLevel} ball level, ${attendance}${absenceNote}. Skills: ${skills}. Feedback: ${feedback}. Coach notes: ${notes}. Last session digest: ${digest}`;
   }).join("\n");
 
   const systemPrompt = `You are an expert tennis coach AI that creates precise session plans based on real player data. Respond ONLY with valid JSON matching the schema exactly — no extra text, no markdown, no code fences. Never use emojis.`;

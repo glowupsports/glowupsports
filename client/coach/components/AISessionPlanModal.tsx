@@ -45,6 +45,7 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
   const [plan, setPlan] = useState<SessionPlan | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const planMutation = useMutation({
     mutationFn: async () => {
@@ -57,6 +58,25 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPlan(data.plan);
       setGeneratedAt(data.generatedAt);
+      setSaved(false);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/sessions/${sessionId}/ai-plan`, { save: true });
+      const data = await res.json() as { plan: SessionPlan; generatedAt: string; saved: boolean };
+      if (!data.plan) throw new Error("Save failed");
+      return data;
+    },
+    onSuccess: (data) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setPlan(data.plan);
+      setGeneratedAt(data.generatedAt);
+      setSaved(true);
     },
     onError: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -74,13 +94,16 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
     setTimeout(() => {
       setPlan(null);
       setGeneratedAt(null);
+      setSaved(false);
       planMutation.reset();
+      saveMutation.reset();
     }, 300);
   };
 
   const handleRegenerate = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPlan(null);
+    setSaved(false);
     planMutation.mutate();
   };
 
@@ -249,6 +272,34 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
                 </View>
               </View>
             ) : null}
+
+            {/* Save as session note */}
+            <Pressable
+              style={[
+                styles.saveNoteButton,
+                saved && styles.saveNoteButtonSaved,
+                saveMutation.isPending && { opacity: 0.6 },
+              ]}
+              onPress={() => {
+                if (saved || saveMutation.isPending) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                saveMutation.mutate();
+              }}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              ) : (
+                <Ionicons
+                  name={saved ? "checkmark-circle" : "bookmark-outline"}
+                  size={18}
+                  color={saved ? GlowColors.primary : Colors.dark.backgroundRoot}
+                />
+              )}
+              <Text style={[styles.saveNoteButtonText, saved && { color: GlowColors.primary }]}>
+                {saveMutation.isPending ? "Saving..." : saved ? "Saved as session note" : "Save as session note"}
+              </Text>
+            </Pressable>
 
             {generatedAt ? (
               <Text style={styles.timestamp}>
@@ -522,5 +573,24 @@ const styles = StyleSheet.create({
     color: Colors.dark.disabled,
     textAlign: "center",
     marginTop: Spacing.sm,
+  },
+  saveNoteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.sm,
+  },
+  saveNoteButtonSaved: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  saveNoteButtonText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
 });

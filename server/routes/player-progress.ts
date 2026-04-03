@@ -2773,7 +2773,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   );
 
   // POST /api/sessions/:sessionId/ai-plan
-  // Generates an AI session plan for a group session (coach only)
+  // Generates an AI session plan for a group/semi_private session (coach only)
+  // Body: { save?: boolean } — when save=true, persists plan to sessionPlans.coachNotes
   router.post(
     "/api/sessions/:sessionId/ai-plan",
     authMiddleware,
@@ -2783,6 +2784,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const coachId = req.user!.coachId || "";
         const academyId = req.user!.academyId || "";
         const userRole = req.user!.role;
+        const { save } = req.body as { save?: boolean };
 
         const isCoachRole = ["coach", "assistant", "academy_owner", "platform_owner"].includes(userRole);
         if (!isCoachRole || !coachId) {
@@ -2792,6 +2794,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const { valid: sessionValid } = await validateSessionOwnership(sessionId, academyId, storage);
         if (!sessionValid) {
           return res.status(404).json({ error: "Session not found" });
+        }
+
+        // Enforce group/semi_private only
+        const [sessionRow] = await db.select({ sessionType: sessions.sessionType }).from(sessions).where(eq(sessions.id, sessionId));
+        if (!sessionRow || !["group", "semi_private"].includes(sessionRow.sessionType)) {
+          return res.status(422).json({ error: "AI session planning is only available for group and semi-private sessions" });
         }
 
         const { buildGroupSessionAIContext, generateGroupSessionPlan } = await import("../services/ai-progress-engine");
@@ -2805,7 +2813,56 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(500).json({ error: "AI plan generation failed" });
         }
 
-        res.json({ plan, generatedAt: new Date().toISOString() });
+        // Optionally persist to session_plans.coachNotes
+        if (save) {
+          const planText = [
+            `AI SESSION PLAN — ${plan.theme}`,
+            ``,
+            `Rationale: ${plan.rationale}`,
+            ``,
+            `Player Focus:`,
+            ...plan.playerBreakdown.map((p) => `• ${p.name}: ${p.focus}${p.flag ? ` [${p.flag}]` : ""}`),
+            ``,
+            `Drills:`,
+            ...plan.drills.map((d, i) => `${i + 1}. ${d.title} — ${d.description}`),
+            ...(plan.flags.length > 0 ? [``, `Notes:`, ...plan.flags.map((f) => `• ${f}`)] : []),
+          ].join("\n");
+
+          // Upsert into sessionPlans using coachNotes field
+          const [existingPlan] = await db
+            .select({ id: sessionPlans.id })
+            .from(sessionPlans)
+            .where(eq(sessionPlans.sessionId, sessionId));
+
+          if (existingPlan) {
+            await db
+              .update(sessionPlans)
+              .set({ coachNotes: planText, updatedAt: new Date() })
+              .where(eq(sessionPlans.id, existingPlan.id));
+          } else {
+            // Convert drills to blocks for sessionPlans schema
+            const blocks = plan.drills.map((d, i) => ({
+              id: `AI_BLOCK_${i + 1}`,
+              name: d.title,
+              blockType: "drill",
+              durationMinutes: Math.floor((ctx.durationMinutes - 10) / plan.drills.length),
+              orderIndex: i,
+              skillIds: [],
+              status: "pending",
+              coachInstructions: d.description,
+            }));
+
+            await db.insert(sessionPlans).values({
+              sessionId,
+              status: "draft",
+              blocks,
+              coachNotes: planText,
+              generatedBy: coachId,
+            });
+          }
+        }
+
+        res.json({ plan, generatedAt: new Date().toISOString(), saved: !!save });
       } catch (error) {
         console.error("[AISessionPlan] Error:", error);
         res.status(500).json({ error: "Failed to generate session plan" });
