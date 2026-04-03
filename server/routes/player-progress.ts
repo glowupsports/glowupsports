@@ -2772,4 +2772,45 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     }
   );
 
+  // POST /api/sessions/:sessionId/ai-plan
+  // Generates an AI session plan for a group session (coach only)
+  router.post(
+    "/api/sessions/:sessionId/ai-plan",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { sessionId } = req.params;
+        const coachId = req.user!.coachId || "";
+        const academyId = req.user!.academyId || "";
+        const userRole = req.user!.role;
+
+        const isCoachRole = ["coach", "assistant", "academy_owner", "platform_owner"].includes(userRole);
+        if (!isCoachRole || !coachId) {
+          return res.status(403).json({ error: "Coach access required" });
+        }
+
+        const { valid: sessionValid } = await validateSessionOwnership(sessionId, academyId, storage);
+        if (!sessionValid) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        const { buildGroupSessionAIContext, generateGroupSessionPlan } = await import("../services/ai-progress-engine");
+        const ctx = await buildGroupSessionAIContext(sessionId);
+        if (!ctx) {
+          return res.status(422).json({ error: "Session must have at least 2 registered players to generate a plan" });
+        }
+
+        const plan = await generateGroupSessionPlan(ctx);
+        if (!plan) {
+          return res.status(500).json({ error: "AI plan generation failed" });
+        }
+
+        res.json({ plan, generatedAt: new Date().toISOString() });
+      } catch (error) {
+        console.error("[AISessionPlan] Error:", error);
+        res.status(500).json({ error: "Failed to generate session plan" });
+      }
+    }
+  );
+
 export default router;

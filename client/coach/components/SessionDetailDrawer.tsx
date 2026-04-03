@@ -44,6 +44,7 @@ import StrokeFeedbackModal from "./StrokeFeedbackModal";
 import QuickBaselineDrawer from "./QuickBaselineDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { AICoachingChatModal } from "./AICoachingChatModal";
+import { AISessionPlanModal } from "./AISessionPlanModal";
 
 interface Player {
   id: string;
@@ -123,6 +124,7 @@ export default function SessionDetailDrawer({
   const [deepAssessPlayer, setDeepAssessPlayer] = useState<Player | null>(null);
   const [feedbackPickerMode, setFeedbackPickerMode] = useState<"evidence" | "baseline" | "deep" | "ai" | null>(null);
   const [aiChatPlayer, setAiChatPlayer] = useState<{ id: string; name: string } | null>(null);
+  const [showAISessionPlan, setShowAISessionPlan] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
@@ -1514,6 +1516,29 @@ export default function SessionDetailDrawer({
         );
       })()}
 
+      {/* Plan with AI Card — group/semi-private sessions with 2+ players */}
+      {(session?.sessionType === "group" || session?.sessionType === "semi_private") &&
+       (liveSession?.players?.filter((p) => !p.isGuest).length ?? 0) >= 2 ? (
+        <Pressable
+          style={[styles.feedbackCard, { borderColor: GlowColors.primary + "30" }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowAISessionPlan(true);
+          }}
+        >
+          <View style={styles.attendanceCardLeft}>
+            <View style={[styles.attendanceIconContainer, { backgroundColor: GlowColors.primary + "20" }]}>
+              <Ionicons name="sparkles" size={22} color={GlowColors.primary} />
+            </View>
+            <View>
+              <Text style={[styles.attendanceCardTitle, { color: GlowColors.primary }]}>Plan with AI</Text>
+              <Text style={styles.attendanceCardSubtitle}>AI session plan for your group</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={GlowColors.primary} />
+        </Pressable>
+      ) : null}
+
       {/* Feedback Card */}
       {onFeedback ? (
         <Pressable style={styles.feedbackCard} onPress={onFeedback}>
@@ -2238,6 +2263,13 @@ export default function SessionDetailDrawer({
           playerName={aiChatPlayer.name}
         />
       ) : null}
+
+      <AISessionPlanModal
+        visible={showAISessionPlan}
+        onClose={() => setShowAISessionPlan(false)}
+        sessionId={session.id}
+        sessionType={session.sessionType}
+      />
 
       {feedbackPickerMode !== null && (() => {
         const modeConfig: Record<string, { label: string; icon: React.ComponentProps<typeof Ionicons>["name"]; color: string }> = {

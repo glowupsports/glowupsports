@@ -944,6 +944,212 @@ RULES FOR YOUR RESPONSES:
 - Never reveal the raw data format; weave data naturally into coaching language`;
 }
 
+// ==================== AI SESSION PLANNER ====================
+
+export interface GroupSessionPlayerProfile {
+  name: string;
+  age: number | null;
+  ballLevel: string;
+  skillScores: { skillName: string; pillar: string; score: number }[];
+  recentFeedback: string[];
+  recentDigests: string[];
+  attendanceRate: number | null;
+  recentAbsences: number;
+}
+
+export interface GroupSessionAIContext {
+  sessionId: string;
+  sessionType: string;
+  sessionDate: string;
+  durationMinutes: number;
+  playerCount: number;
+  players: GroupSessionPlayerProfile[];
+}
+
+export interface SessionPlan {
+  theme: string;
+  rationale: string;
+  playerBreakdown: { name: string; focus: string; flag?: string }[];
+  drills: { title: string; description: string }[];
+  flags: string[];
+}
+
+export async function buildGroupSessionAIContext(
+  sessionId: string
+): Promise<GroupSessionAIContext | null> {
+  try {
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    if (!session) return null;
+
+    // Get all registered (non-guest) players in this session
+    const spRows = await db
+      .select({ playerId: sessionPlayers.playerId, isGuest: sessionPlayers.isGuest })
+      .from(sessionPlayers)
+      .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.isGuest, false)));
+
+    if (spRows.length < 2) return null;
+
+    const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const playerProfiles: GroupSessionPlayerProfile[] = [];
+
+    for (const sp of spRows) {
+      if (!sp.playerId) continue;
+
+      const [player] = await db.select().from(players).where(eq(players.id, sp.playerId));
+      if (!player) continue;
+
+      // Ball level
+      const [levelRow] = await db
+        .select({ levelId: playerBallLevels.levelId })
+        .from(playerBallLevels)
+        .where(eq(playerBallLevels.playerId, sp.playerId))
+        .orderBy(desc(playerBallLevels.assignedAt))
+        .limit(1);
+      const ballLevel = levelRow?.levelId || player.ballLevel || "unknown";
+
+      // Latest skill scores (top 5 by most recent)
+      const rawScores = await db
+        .select({
+          skillName: glowSkills.name,
+          pillar: glowSkills.pillar,
+          score: playerSkillScores.score,
+          movingAverage: playerSkillScores.movingAverage,
+          createdAt: playerSkillScores.createdAt,
+        })
+        .from(playerSkillScores)
+        .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+        .where(eq(playerSkillScores.playerId, sp.playerId))
+        .orderBy(desc(playerSkillScores.createdAt))
+        .limit(30);
+
+      const seenSkills = new Set<string>();
+      const skillScores: GroupSessionPlayerProfile["skillScores"] = [];
+      for (const s of rawScores) {
+        if (!seenSkills.has(s.skillName)) {
+          seenSkills.add(s.skillName);
+          skillScores.push({
+            skillName: s.skillName,
+            pillar: s.pillar || "Technical",
+            score: Number(s.movingAverage ?? s.score),
+          });
+          if (skillScores.length >= 6) break;
+        }
+      }
+
+      // Recent coach feedback
+      const feedbackRows = await db
+        .select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
+        .from(inSessionFeedback)
+        .where(and(eq(inSessionFeedback.playerId, sp.playerId), gte(inSessionFeedback.createdAt, since30)))
+        .orderBy(desc(inSessionFeedback.createdAt))
+        .limit(5);
+      const recentFeedback = feedbackRows.map((f) => `[${f.feedbackType}] ${f.message}`);
+
+      // Session digests
+      const digestRows = await db
+        .select({ summaryText: sessionAiSummaries.summaryText })
+        .from(sessionAiSummaries)
+        .where(eq(sessionAiSummaries.playerId, sp.playerId))
+        .orderBy(desc(sessionAiSummaries.generatedAt))
+        .limit(2);
+      const recentDigests = digestRows.map((d) => d.summaryText);
+
+      // Attendance in last 90 days
+      const attRows = await db
+        .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .where(and(eq(sessionPlayers.playerId, sp.playerId), gte(sessions.startTime, since90)));
+      const total = attRows.length;
+      const present = attRows.filter(
+        (r) => r.attendanceStatus === "present" || r.attendanceStatus === "late"
+      ).length;
+      const recentAbsences = attRows.filter(
+        (r) => r.attendanceStatus === "absent"
+      ).length;
+      const attendanceRate = total > 0 ? Math.round((present / total) * 100) : null;
+
+      playerProfiles.push({
+        name: player.name,
+        age: player.age ? Number(player.age) : null,
+        ballLevel,
+        skillScores,
+        recentFeedback,
+        recentDigests,
+        attendanceRate,
+        recentAbsences,
+      });
+    }
+
+    if (playerProfiles.length < 2) return null;
+
+    return {
+      sessionId,
+      sessionType: session.sessionType,
+      sessionDate: session.startTime.toISOString().split("T")[0],
+      durationMinutes: session.duration ?? 60,
+      playerCount: playerProfiles.length,
+      players: playerProfiles,
+    };
+  } catch (error) {
+    console.error("[AIEngine] Error building group session context:", error);
+    return null;
+  }
+}
+
+export async function generateGroupSessionPlan(
+  ctx: GroupSessionAIContext
+): Promise<SessionPlan | null> {
+  const playerLines = ctx.players.map((p) => {
+    const skills = p.skillScores.length > 0
+      ? p.skillScores.map((s) => `${s.skillName}(${s.score.toFixed(1)}/2)`).join(", ")
+      : "no skill data";
+    const feedback = p.recentFeedback.length > 0 ? p.recentFeedback.slice(0, 3).join("; ") : "none";
+    const digest = p.recentDigests.length > 0 ? p.recentDigests[0] : "none";
+    const attendance = p.attendanceRate !== null ? `${p.attendanceRate}% attendance` : "attendance unknown";
+    const absenceNote = p.recentAbsences >= 2 ? ` (${p.recentAbsences} recent absences)` : "";
+    return `${p.name}${p.age ? ` (age ${p.age})` : ""} — ${p.ballLevel} ball level, ${attendance}${absenceNote}. Skills: ${skills}. Recent feedback: ${feedback}. Last digest: ${digest}`;
+  }).join("\n");
+
+  const systemPrompt = `You are an expert tennis coach AI that creates precise session plans based on real player data. Respond ONLY with valid JSON matching the schema exactly — no extra text, no markdown, no code fences. Never use emojis.`;
+
+  const userPrompt = `Create a pre-session coaching plan for a ${ctx.sessionType} session on ${ctx.sessionDate} (${ctx.durationMinutes} minutes) with ${ctx.playerCount} players.
+
+PLAYER DATA:
+${playerLines}
+
+Return a JSON object with exactly this structure:
+{
+  "theme": "short session theme (4-7 words)",
+  "rationale": "1-2 sentences explaining why this theme suits this group today",
+  "playerBreakdown": [
+    { "name": "player name", "focus": "specific focus for this player based on their data", "flag": "optional concern like returning from absence or skill gap" }
+  ],
+  "drills": [
+    { "title": "drill name", "description": "what to do and why (1-2 sentences)" },
+    { "title": "drill name", "description": "what to do and why (1-2 sentences)" },
+    { "title": "drill name", "description": "what to do and why (1-2 sentences)" }
+  ],
+  "flags": ["any group-level observations or concerns (1-3 items)"]
+}`;
+
+  const raw = await callOpenAI(userPrompt, systemPrompt, 800);
+  if (!raw) return null;
+
+  try {
+    // Strip any accidental code fences
+    const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleaned) as SessionPlan;
+    if (!parsed.theme || !Array.isArray(parsed.drills)) return null;
+    return parsed;
+  } catch {
+    console.error("[AIEngine] Failed to parse session plan JSON:", raw);
+    return null;
+  }
+}
+
 export async function storeProgressNarrative(
   playerId: string,
   academyId: string,
