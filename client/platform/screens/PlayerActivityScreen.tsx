@@ -201,12 +201,13 @@ function FilterPills({ options, value, onChange }: {
   );
 }
 
-function PlayerCard({ player, rank }: { player: PlayerActivityItem; rank: number }) {
+function PlayerCard({ player, rank, maxTotal }: { player: PlayerActivityItem; rank: number; maxTotal: number }) {
   const [expanded, setExpanded] = useState(false);
   const breakdown = player.feature_breakdown;
   const sortedFeatures = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
   const topFeature = sortedFeatures[0];
   const maxCount = Math.max(1, topFeature?.[1] || 1);
+  const activityPct = Math.max(4, (player.period_total / Math.max(1, maxTotal)) * 100);
 
   return (
     <Pressable
@@ -231,6 +232,10 @@ function PlayerCard({ player, rank }: { player: PlayerActivityItem; rank: number
           <Text style={s.scoreLabel}>events</Text>
           <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.dark.textMuted} />
         </View>
+      </View>
+
+      <View style={s.activityBarTrack}>
+        <View style={[s.activityBarFill, { width: `${activityPct}%` as DimensionValue }]} />
       </View>
 
       {topFeature ? (
@@ -406,6 +411,7 @@ function FeaturesTab({ days, academyId }: { days: number; academyId: string | nu
 function PlayersTab({ days, academyId }: { days: number; academyId: string | null }) {
   const { data, isLoading, refetch, isRefetching } = usePlayerActivity(days, academyId);
   const players = data?.players || [];
+  const maxTotal = Math.max(1, ...players.map(p => p.period_total));
 
   if (isLoading) {
     return (
@@ -446,7 +452,7 @@ function PlayersTab({ days, academyId }: { days: number; academyId: string | nul
         </View>
       </View>
 
-      {players.map((p, i) => <PlayerCard key={p.player_id} player={p} rank={i + 1} />)}
+      {players.map((p, i) => <PlayerCard key={p.player_id} player={p} rank={i + 1} maxTotal={maxTotal} />)}
     </ScrollView>
   );
 }
@@ -531,7 +537,7 @@ export default function PlayerActivityScreen({ route }: { route?: { params?: { i
   ];
 
   const academyOptions = useMemo(() => [
-    { label: "All", value: null as string | null },
+    { label: "All Academies", value: null as string | null },
     ...academies.map(a => ({ label: a.name, value: a.id })),
   ], [academies]);
 
@@ -795,6 +801,13 @@ const s = StyleSheet.create({
   academyName: { fontSize: 11, color: Colors.dark.textMuted },
   scoreText: { fontSize: 18, fontWeight: "700" },
   scoreLabel: { fontSize: 10, color: Colors.dark.textMuted, alignSelf: "flex-end", marginBottom: 2 },
+  activityBarTrack: {
+    height: 4,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  activityBarFill: { height: "100%", borderRadius: 2, backgroundColor: PURPLE },
   topFeatureRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   topFeatureText: { fontSize: 11, color: Colors.dark.textMuted, flex: 1 },
   expandedDetails: {
