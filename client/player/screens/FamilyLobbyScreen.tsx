@@ -294,7 +294,7 @@ export default function FamilyLobbyScreen() {
     },
     onError: (error: any) => {
       const msg = parseApiError(error, "Please try again.");
-      Alert.alert("Could not add child", msg);
+      Alert.alert("Could not add member", msg);
     },
   });
 
@@ -426,7 +426,7 @@ export default function FamilyLobbyScreen() {
               color={isParent ? "#00BCD4" : Colors.dark.primary}
             />
             <Text style={[styles.roleBadgeText, isParent ? styles.roleBadgeTextParent : styles.roleBadgeTextChild]}>
-              {isParent ? "Viewing as: Parent" : "Viewing as: Child"}
+              {isParent ? "Viewing as: Parent" : "Viewing as: Member"}
             </Text>
           </View>
           {familyData.parentEmail ? (
@@ -517,10 +517,10 @@ export default function FamilyLobbyScreen() {
             style={styles.addChildStickyButton}
             onPress={handleOpenAddChildModal}
             accessibilityRole="button"
-            accessibilityLabel="Add a child to your family"
+            accessibilityLabel="Add a member to your family"
           >
             <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
-            <Text style={styles.addChildStickyText}>Add Child</Text>
+            <Text style={styles.addChildStickyText}>Add Member</Text>
           </Pressable>
         </Animated.View>
         <View style={styles.footerRow}>
@@ -544,7 +544,7 @@ export default function FamilyLobbyScreen() {
               </Pressable>
             </View>
             <Text style={styles.modalSubtitle}>
-              Manage what your children can do in the app
+              Manage what your family members can do in the app
             </Text>
             <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
               {familyData.members.map((member) => (
@@ -565,9 +565,9 @@ export default function FamilyLobbyScreen() {
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
                 <Ionicons name="person-add" size={24} color={Colors.dark.primary} />
-                <Text style={styles.modalTitle}>Add Child</Text>
+                <Text style={styles.modalTitle}>Add Member</Text>
               </View>
-              <Pressable onPress={() => setShowAddChild(false)} accessibilityRole="button" accessibilityLabel="Close add child modal">
+              <Pressable onPress={() => setShowAddChild(false)} accessibilityRole="button" accessibilityLabel="Close add member modal">
                 <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
               </Pressable>
             </View>
@@ -598,14 +598,14 @@ export default function FamilyLobbyScreen() {
                 </Text>
                 <TextInput
                   style={styles.emailInput}
-                  placeholder="child@example.com"
+                  placeholder="member@example.com"
                   placeholderTextColor={Colors.dark.textMuted}
                   value={childEmail}
                   onChangeText={setChildEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  accessibilityLabel="Child email address"
+                  accessibilityLabel="Member email address"
                 />
                 <Pressable
                   style={[styles.addButton, (!childEmail.trim() || addChildMutation.isPending) ? styles.addButtonDisabled : null]}
@@ -616,7 +616,7 @@ export default function FamilyLobbyScreen() {
                   }}
                   disabled={!childEmail.trim() || addChildMutation.isPending}
                   accessibilityRole="button"
-                  accessibilityLabel="Add child by email"
+                  accessibilityLabel="Add member by email"
                 >
                   {addChildMutation.isPending ? (
                     <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
@@ -628,7 +628,7 @@ export default function FamilyLobbyScreen() {
             ) : (
               <View style={styles.tabContent}>
                 <Text style={styles.modalSubtitle}>
-                  Share this code with your child. They can enter it in Settings to join your family.
+                  Share this code with the player. They can enter it in Settings to join your family.
                 </Text>
                 {inviteCodeMutation.isPending ? (
                   <ActivityIndicator color={Colors.dark.primary} size="large" style={{ marginVertical: Spacing.xl }} />
