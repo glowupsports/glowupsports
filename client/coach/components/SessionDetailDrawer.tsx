@@ -36,6 +36,8 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import PlayerFeedbackHistorySheet from "./PlayerFeedbackHistorySheet";
 import StrokeFeedbackModal from "./StrokeFeedbackModal";
@@ -101,7 +103,7 @@ export default function SessionDetailDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { isOffline, logOfflineAttempt } = useNetwork();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const isOfflineRef = useRef(isOffline);
   useEffect(() => { isOfflineRef.current = isOffline; }, [isOffline]);
   
@@ -1382,7 +1384,7 @@ export default function SessionDetailDrawer({
           if (nonGuestPlayers.length === 1) {
             const p = nonGuestPlayers[0];
             if (mode === "evidence") {
-              navigation.navigate("EvidenceCapture" as never, { sessionId: session.id, playerId: p.id } as never);
+              navigation.navigate("EvidenceCapture", { sessionId: session.id, playerId: p.id });
             } else if (mode === "baseline") {
               setBaselinePlayer(p);
             } else {
@@ -2172,6 +2174,7 @@ export default function SessionDetailDrawer({
         visible={!!baselinePlayer}
         player={baselinePlayer}
         onClose={() => setBaselinePlayer(null)}
+        onComplete={() => setBaselinePlayer(null)}
       />
 
       {/* Deep Assessment Drawer */}
@@ -2208,7 +2211,7 @@ export default function SessionDetailDrawer({
                       setFeedbackPickerMode(null);
                       setTimeout(() => {
                         if (mode === "evidence") {
-                          navigation.navigate("EvidenceCapture" as never, { sessionId: session.id, playerId: p.id } as never);
+                          navigation.navigate("EvidenceCapture", { sessionId: session.id, playerId: p.id });
                         } else if (mode === "baseline") {
                           setBaselinePlayer(p);
                         } else {
