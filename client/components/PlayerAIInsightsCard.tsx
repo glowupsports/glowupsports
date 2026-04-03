@@ -5,12 +5,15 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
+import Svg, { Path, Line, Circle, Text as SvgText } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, FontSizes } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface SessionDigest {
   id: string;
@@ -19,7 +22,16 @@ interface SessionDigest {
   generatedAt: string;
 }
 
+interface PillarSnapshot {
+  date: string;
+  TECHNIQUE: number | null;
+  TACTICAL: number | null;
+  PHYSICAL: number | null;
+  MENTAL: number | null;
+}
+
 interface AIInsightsData {
+  playerId: string;
   narrative: {
     id: string;
     narrativeText: string;
@@ -28,12 +40,27 @@ interface AIInsightsData {
     generatedAt: string;
   } | null;
   sessionDigests: SessionDigest[];
+  pillarHistory: PillarSnapshot[];
 }
 
 interface Props {
   playerId?: string;
   myProfile?: boolean;
 }
+
+const PILLAR_COLORS: Record<string, string> = {
+  TECHNIQUE: "#10B981",
+  TACTICAL: "#F59E0B",
+  PHYSICAL: "#EF4444",
+  MENTAL: "#8B5CF6",
+};
+
+const PILLAR_LABELS: Record<string, string> = {
+  TECHNIQUE: "Technique",
+  TACTICAL: "Tactical",
+  PHYSICAL: "Physical",
+  MENTAL: "Mental",
+};
 
 function formatRelativeDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -47,8 +74,134 @@ function formatRelativeDate(dateStr: string): string {
   return `${Math.floor(diffDays / 30)} months ago`;
 }
 
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapshot[] }) {
+  const screenWidth = Dimensions.get("window").width;
+  const chartWidth = screenWidth - Spacing.xl * 2 - Spacing.lg * 2 - 32;
+  const chartHeight = 120;
+  const padding = { left: 28, right: 10, top: 10, bottom: 28 };
+  const innerW = chartWidth - padding.left - padding.right;
+  const innerH = chartHeight - padding.top - padding.bottom;
+
+  const minVal = 0;
+  const maxVal = 3;
+  const range = maxVal - minVal;
+
+  const getX = (i: number) =>
+    padding.left + (pillarHistory.length > 1 ? (i / (pillarHistory.length - 1)) * innerW : innerW / 2);
+
+  const getY = (val: number) =>
+    padding.top + innerH - ((val - minVal) / range) * innerH;
+
+  const pillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL"] as const;
+
+  const buildPath = (pillar: typeof pillars[number]) => {
+    const points: Array<{ x: number; y: number }> = [];
+    pillarHistory.forEach((snap, i) => {
+      const val = snap[pillar];
+      if (val !== null) {
+        points.push({ x: getX(i), y: getY(val) });
+      }
+    });
+    if (points.length < 2) return null;
+    return points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
+  };
+
+  const yLabels = [0, 1, 2, 3];
+
+  return (
+    <View>
+      <View style={styles.chartHeader}>
+        <Text style={styles.chartTitle}>Pillar Score Trend</Text>
+        <View style={styles.chartLegend}>
+          {pillars.map((p) => (
+            <View key={p} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: PILLAR_COLORS[p] }]} />
+              <Text style={styles.legendText}>{PILLAR_LABELS[p][0]}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <Svg width={chartWidth} height={chartHeight}>
+        {yLabels.map((val) => (
+          <React.Fragment key={val}>
+            <Line
+              x1={padding.left}
+              y1={getY(val)}
+              x2={padding.left + innerW}
+              y2={getY(val)}
+              stroke={Colors.dark.backgroundTertiary}
+              strokeWidth={1}
+              strokeDasharray="3,3"
+            />
+            <SvgText
+              x={padding.left - 4}
+              y={getY(val) + 4}
+              fontSize={9}
+              fill={Colors.dark.disabled}
+              textAnchor="end"
+            >
+              {val}
+            </SvgText>
+          </React.Fragment>
+        ))}
+
+        {pillarHistory.map((snap, i) => (
+          <SvgText
+            key={i}
+            x={getX(i)}
+            y={chartHeight - 4}
+            fontSize={9}
+            fill={Colors.dark.disabled}
+            textAnchor="middle"
+          >
+            {formatDateShort(snap.date)}
+          </SvgText>
+        ))}
+
+        {pillars.map((pillar) => {
+          const pathD = buildPath(pillar);
+          if (!pathD) return null;
+          return (
+            <Path
+              key={pillar}
+              d={pathD}
+              stroke={PILLAR_COLORS[pillar]}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+
+        {pillars.map((pillar) =>
+          pillarHistory.map((snap, i) => {
+            const val = snap[pillar];
+            if (val === null) return null;
+            return (
+              <Circle
+                key={`${pillar}-${i}`}
+                cx={getX(i)}
+                cy={getY(val)}
+                r={3}
+                fill={PILLAR_COLORS[pillar]}
+              />
+            );
+          })
+        )}
+      </Svg>
+    </View>
+  );
+}
+
 export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
 
   const queryKey = myProfile
@@ -61,12 +214,12 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
     staleTime: 5 * 60 * 1000,
   });
 
+  const effectivePlayerId = myProfile ? (data?.playerId || user?.playerId) : playerId;
+
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const endpoint = playerId
-        ? `/api/players/${playerId}/ai-insights/generate`
-        : `/api/players/${playerId}/ai-insights/generate`;
-      return apiRequest("POST", endpoint, {});
+      if (!effectivePlayerId) throw new Error("No player ID");
+      return apiRequest("POST", `/api/players/${effectivePlayerId}/ai-insights/generate`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -76,14 +229,20 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
 
   const narrative = data?.narrative;
   const digests = data?.sessionDigests || [];
+  const pillarHistory = data?.pillarHistory || [];
   const hasData = !!narrative || digests.length > 0;
+  const showChart = pillarHistory.length >= 2;
 
   if (isLoading) {
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Ionicons name="sparkles" size={18} color={Colors.dark.primary} />
-          <Text style={styles.cardTitle}>AI Progress Insights</Text>
+          <View style={styles.cardHeaderLeft}>
+            <Ionicons name="sparkles" size={18} color={Colors.dark.primary} />
+            <Text style={styles.cardTitle}>
+              {myProfile ? "My Development Story" : "AI Progress Insights"}
+            </Text>
+          </View>
         </View>
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color={Colors.dark.primary} />
@@ -108,7 +267,9 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
       >
         <View style={styles.cardHeaderLeft}>
           <Ionicons name="sparkles" size={18} color={Colors.dark.primary} />
-          <Text style={styles.cardTitle}>AI Progress Insights</Text>
+          <Text style={styles.cardTitle}>
+            {myProfile ? "My Development Story" : "AI Progress Insights"}
+          </Text>
           {narrative ? (
             <View style={styles.freshBadge}>
               <Text style={styles.freshBadgeText}>
@@ -128,11 +289,32 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
         <View style={styles.cardBody}>
           {!hasData ? (
             <View style={styles.emptyState}>
-              <Ionicons name="analytics-outline" size={32} color={Colors.dark.textDisabled} />
+              <Ionicons name="analytics-outline" size={32} color={Colors.dark.disabled} />
               <Text style={styles.emptyTitle}>No insights yet</Text>
               <Text style={styles.emptySubtitle}>
-                Insights are generated automatically after sessions. Complete a session with feedback to see your first digest.
+                {myProfile
+                  ? "Insights are generated automatically after sessions with feedback."
+                  : "Complete a session with feedback to see the first digest."}
               </Text>
+              {effectivePlayerId ? (
+                <Pressable
+                  style={[styles.generateButton, generateMutation.isPending && styles.generateButtonDisabled]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    generateMutation.mutate();
+                  }}
+                  disabled={generateMutation.isPending}
+                >
+                  {generateMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <Ionicons name="sparkles-outline" size={14} color={Colors.dark.backgroundRoot} />
+                  )}
+                  <Text style={styles.generateButtonText}>
+                    {generateMutation.isPending ? "Generating..." : "Generate First Insight"}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
@@ -165,6 +347,12 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
             </View>
           ) : null}
 
+          {showChart ? (
+            <View style={styles.chartBlock}>
+              <SkillProgressionChart pillarHistory={pillarHistory} />
+            </View>
+          ) : null}
+
           {digests.length > 0 ? (
             <View style={styles.digestsBlock}>
               <Text style={styles.digestsLabel}>Recent Session Digests</Text>
@@ -182,7 +370,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
             </View>
           ) : null}
 
-          {playerId ? (
+          {effectivePlayerId ? (
             <Pressable
               style={[
                 styles.generateButton,
@@ -281,7 +469,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     ...Typography.small,
-    color: Colors.dark.textDisabled,
+    color: Colors.dark.disabled,
     textAlign: "center",
     lineHeight: 18,
   },
@@ -304,7 +492,7 @@ const styles = StyleSheet.create({
   },
   narrativeDate: {
     ...Typography.caption,
-    color: Colors.dark.textDisabled,
+    color: Colors.dark.disabled,
   },
   narrativeText: {
     ...Typography.body,
@@ -349,6 +537,42 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  chartBlock: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+  },
+  chartHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  chartTitle: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  chartLegend: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  legendDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  legendText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
   digestsBlock: {
     gap: Spacing.md,
   },
@@ -383,7 +607,7 @@ const styles = StyleSheet.create({
   },
   digestDate: {
     ...Typography.caption,
-    color: Colors.dark.textDisabled,
+    color: Colors.dark.disabled,
   },
   generateButton: {
     flexDirection: "row",

@@ -2296,6 +2296,41 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
   // ==================== AI PLAYER PROGRESS ENGINE ====================
 
+  // Helper: fetch pillar score history from baseline skill assessments
+  async function fetchPillarHistory(playerId: string): Promise<Array<{ date: string; TECHNIQUE: number | null; TACTICAL: number | null; PHYSICAL: number | null; MENTAL: number | null }>> {
+    try {
+      const rows = await db.execute(sql`
+        SELECT
+          pb.id AS baseline_id,
+          pb.created_at AS date,
+          pbss.pillar,
+          AVG(pbss.rating)::float AS avg_rating
+        FROM player_baselines pb
+        JOIN player_baseline_skill_scores pbss ON pbss.baseline_id = pb.id
+        WHERE pb.player_id = ${playerId} AND pbss.rating IS NOT NULL
+        GROUP BY pb.id, pb.created_at, pbss.pillar
+        ORDER BY pb.created_at ASC
+      `);
+      const byBaseline: Record<string, { date: string; scores: Record<string, number> }> = {};
+      for (const row of rows.rows as Array<{ baseline_id: string; date: Date; pillar: string; avg_rating: number }>) {
+        const key = row.baseline_id;
+        if (!byBaseline[key]) {
+          byBaseline[key] = { date: row.date.toISOString(), scores: {} };
+        }
+        byBaseline[key].scores[row.pillar.toUpperCase()] = Number(row.avg_rating);
+      }
+      return Object.values(byBaseline).map(({ date, scores }) => ({
+        date,
+        TECHNIQUE: scores["TECHNIQUE"] ?? null,
+        TACTICAL: scores["TACTICAL"] ?? null,
+        PHYSICAL: scores["PHYSICAL"] ?? null,
+        MENTAL: scores["MENTAL"] ?? null,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   // GET /api/player/me/ai-insights — player viewing own AI insights
   router.get(
     "/api/player/me/ai-insights",
@@ -2321,9 +2356,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .orderBy(desc(sessionAiSummaries.generatedAt))
           .limit(5);
 
+        const pillarHistory = await fetchPillarHistory(playerId);
+
         res.json({
+          playerId,
           narrative: latestNarrative || null,
           sessionDigests: recentDigests,
+          pillarHistory,
         });
       } catch (error) {
         console.error("[AIInsights] Error fetching player me AI insights:", error);
@@ -2373,9 +2412,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .orderBy(desc(sessionAiSummaries.generatedAt))
           .limit(5);
 
+        const pillarHistory = await fetchPillarHistory(id);
+
         res.json({
+          playerId: id,
           narrative: latestNarrative || null,
           sessionDigests: recentDigests,
+          pillarHistory,
         });
       } catch (error) {
         console.error("[AIInsights] Error fetching AI insights:", error);
