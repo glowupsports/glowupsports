@@ -2703,4 +2703,58 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     }
   );
 
+  // POST /api/player/me/ai-coach/chat — player chatting with their personal AI coach
+  router.post(
+    "/api/player/me/ai-coach/chat",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(403).json({ error: "Not a player account" });
+        }
+
+        const { messages } = req.body as { messages: AiChatMessage[] };
+        const safeMessages: AiChatMessage[] = (messages || []).filter(
+          (m) => m.role === "user" || m.role === "assistant"
+        );
+
+        const { buildPlayerSelfAIContext, buildPlayerSelfSystemPrompt } = await import(
+          "../services/ai-progress-engine"
+        );
+        const ctx = await buildPlayerSelfAIContext(playerId);
+        if (!ctx) return res.status(404).json({ error: "Player not found" });
+
+        const systemPrompt = buildPlayerSelfSystemPrompt(ctx);
+
+        const OpenAI = (await import("openai")).default;
+        const openai = new OpenAI({
+          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        });
+
+        let reply: string | null = null;
+        try {
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...safeMessages,
+            ],
+            max_tokens: 400,
+            temperature: 0.7,
+          });
+          reply = response.choices?.[0]?.message?.content || null;
+        } catch (err) {
+          console.error("[PlayerAICoach] OpenAI call failed:", err);
+        }
+
+        res.json({ reply: reply ?? null });
+      } catch (error) {
+        console.error("[PlayerAICoach] Error processing chat turn:", error);
+        res.status(500).json({ error: "Failed to process chat" });
+      }
+    }
+  );
+
 export default router;

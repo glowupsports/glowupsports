@@ -91,6 +91,7 @@ import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
 import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
+import PlayerAICoachScreen from "@/player/screens/PlayerAICoachScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import PlayerEditProfileScreen from "@/player/screens/PlayerEditProfileScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
@@ -340,6 +341,7 @@ export type PlayerStackParamList = {
   MatchHistory: {
     playerId?: string;
   } | undefined;
+  PlayerAICoach: undefined;
 };
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -991,6 +993,14 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="VideoFeedbackPlayer" 
         component={VideoFeedbackPlayerScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PlayerAICoach"
+        component={PlayerAICoachScreen}
         options={{
           presentation: "card",
           headerShown: false,

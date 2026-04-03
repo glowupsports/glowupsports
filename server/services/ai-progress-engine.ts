@@ -16,6 +16,7 @@ import {
   playerAiInsights,
   playerBaselineSkillScores,
   coaches,
+  playerNotes,
 } from "@shared/schema";
 
 const openai = new OpenAI({
@@ -649,6 +650,274 @@ Never ask more than 2 questions at once.
 Keep responses under 3 sentences per turn unless proposing the summary.
 Never use emojis.
 ${summaryInstruction}`;
+}
+
+// ==================== PLAYER SELF AI COACH ====================
+
+export interface PlayerSelfAIContext {
+  playerName: string;
+  playerAge: number | null;
+  ballLevel: string;
+  xpLevel: number;
+  totalXp: number;
+  glowScore: number;
+  shortTermGoal: string | null;
+  longTermDream: string | null;
+  playStyle: string | null;
+  dominantHand: string | null;
+  skillScores: { skillName: string; pillar: string; score: number; movingAverage: number | null }[];
+  publicFeedback: { type: string; message: string }[];
+  coachNotes: { category: string; content: string }[];
+  sessionDigests: string[];
+  attendanceRate: number | null;
+  totalSessions: number;
+  avgEffort: number | null;
+  avgExecution: number | null;
+  recentStrokes: string[];
+}
+
+export async function buildPlayerSelfAIContext(
+  playerId: string
+): Promise<PlayerSelfAIContext | null> {
+  try {
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return null;
+
+    const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Ball level
+    const [levelRow] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+    const ballLevel = levelRow?.levelId || player.ballLevel || "unknown";
+
+    // Latest skill scores (one per skill, most recent)
+    const allScores = await db
+      .select({
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        score: playerSkillScores.score,
+        movingAverage: playerSkillScores.movingAverage,
+        createdAt: playerSkillScores.createdAt,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(eq(playerSkillScores.playerId, playerId))
+      .orderBy(desc(playerSkillScores.createdAt))
+      .limit(50);
+
+    // Deduplicate to latest score per skill
+    const seenSkills = new Set<string>();
+    const skillScores: PlayerSelfAIContext["skillScores"] = [];
+    for (const s of allScores) {
+      if (!seenSkills.has(s.skillName)) {
+        seenSkills.add(s.skillName);
+        skillScores.push({
+          skillName: s.skillName,
+          pillar: s.pillar || "Technical",
+          score: Number(s.score),
+          movingAverage: s.movingAverage !== null ? Number(s.movingAverage) : null,
+        });
+      }
+    }
+
+    // Public coach feedback
+    const feedbackRows = await db
+      .select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
+      .from(inSessionFeedback)
+      .where(
+        and(
+          eq(inSessionFeedback.playerId, playerId),
+          eq(inSessionFeedback.visibility, "public"),
+          gte(inSessionFeedback.createdAt, since90)
+        )
+      )
+      .orderBy(desc(inSessionFeedback.createdAt))
+      .limit(20);
+    const publicFeedback = feedbackRows.map((f) => ({ type: f.feedbackType, message: f.message }));
+
+    // Coach long-form notes
+    const noteRows = await db
+      .select({ category: playerNotes.category, content: playerNotes.content })
+      .from(playerNotes)
+      .where(eq(playerNotes.playerId, playerId))
+      .orderBy(desc(playerNotes.createdAt))
+      .limit(10);
+    const coachNotes = noteRows.map((n) => ({ category: n.category, content: n.content }));
+
+    // Session digests
+    const digestRows = await db
+      .select({ summaryText: sessionAiSummaries.summaryText })
+      .from(sessionAiSummaries)
+      .where(eq(sessionAiSummaries.playerId, playerId))
+      .orderBy(desc(sessionAiSummaries.generatedAt))
+      .limit(5);
+    const sessionDigests = digestRows.map((d) => d.summaryText);
+
+    // Attendance: count total sessions and attended in last 90 days
+    const attendanceRows = await db
+      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(
+        and(
+          eq(sessionPlayers.playerId, playerId),
+          gte(sessions.startTime, since90)
+        )
+      );
+    const totalSessions = attendanceRows.length;
+    const attendedSessions = attendanceRows.filter(
+      (r) => r.attendanceStatus === "present" || r.attendanceStatus === "late"
+    ).length;
+    const attendanceRate = totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : null;
+
+    // Recent effort/execution trends from session skill feedback
+    const feedbackTrend = await db
+      .select({
+        effort: sessionSkillFeedback.effort,
+        execution: sessionSkillFeedback.execution,
+        strokeFeedback: sessionSkillFeedback.strokeFeedback,
+      })
+      .from(sessionSkillFeedback)
+      .where(
+        and(
+          eq(sessionSkillFeedback.playerId, playerId),
+          gte(sessionSkillFeedback.createdAt, since30)
+        )
+      )
+      .orderBy(desc(sessionSkillFeedback.createdAt))
+      .limit(8);
+
+    let avgEffort: number | null = null;
+    let avgExecution: number | null = null;
+    const recentStrokes = new Set<string>();
+
+    if (feedbackTrend.length > 0) {
+      avgEffort = Math.round(
+        (feedbackTrend.reduce((s, f) => s + (f.effort ?? 1), 0) / feedbackTrend.length) * 10
+      ) / 10;
+      avgExecution = Math.round(
+        (feedbackTrend.reduce((s, f) => s + (f.execution ?? 1), 0) / feedbackTrend.length) * 10
+      ) / 10;
+      for (const f of feedbackTrend) {
+        if (f.strokeFeedback && Array.isArray(f.strokeFeedback)) {
+          (f.strokeFeedback as { stroke: string }[]).forEach((s) => recentStrokes.add(s.stroke));
+        }
+      }
+    }
+
+    return {
+      playerName: player.name,
+      playerAge: player.age ? Number(player.age) : null,
+      ballLevel,
+      xpLevel: player.level ?? 1,
+      totalXp: player.totalXp ?? 0,
+      glowScore: player.glowScore ?? 0,
+      shortTermGoal: (player as any).shortTermGoal || null,
+      longTermDream: (player as any).longTermDream || null,
+      playStyle: (player as any).playStyle || null,
+      dominantHand: player.dominantHand || null,
+      skillScores,
+      publicFeedback,
+      coachNotes,
+      sessionDigests,
+      attendanceRate,
+      totalSessions,
+      avgEffort,
+      avgExecution,
+      recentStrokes: [...recentStrokes],
+    };
+  } catch (error) {
+    console.error("[AIEngine] Error building player self context:", error);
+    return null;
+  }
+}
+
+export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
+  const {
+    playerName, playerAge, ballLevel, xpLevel, totalXp, glowScore,
+    shortTermGoal, longTermDream, playStyle, dominantHand,
+    skillScores, publicFeedback, coachNotes, sessionDigests,
+    attendanceRate, totalSessions, avgEffort, avgExecution, recentStrokes,
+  } = ctx;
+
+  const skillLines = skillScores.length > 0
+    ? skillScores
+        .map((s) => `${s.skillName} (${s.pillar}): ${s.movingAverage !== null ? s.movingAverage.toFixed(1) : s.score}/2`)
+        .join(", ")
+    : "no skill data recorded yet";
+
+  const feedbackLines = publicFeedback.length > 0
+    ? publicFeedback.slice(0, 8).map((f) => `[${f.type}] ${f.message}`).join("; ")
+    : "no public feedback yet";
+
+  const noteLines = coachNotes.length > 0
+    ? coachNotes.slice(0, 5).map((n) => `[${n.category}] ${n.content}`).join("; ")
+    : "no coach notes yet";
+
+  const digestLines = sessionDigests.length > 0
+    ? sessionDigests.slice(0, 3).join(" | ")
+    : "no session summaries yet";
+
+  const attendanceLine = attendanceRate !== null
+    ? `${attendanceRate}% attendance rate over ${totalSessions} sessions`
+    : "no session history yet";
+
+  const effortLine = avgEffort !== null
+    ? `Recent avg effort: ${avgEffort}/2, execution: ${avgExecution}/2`
+    : "";
+
+  const strokeLine = recentStrokes.length > 0
+    ? `Recently worked on: ${recentStrokes.join(", ")}`
+    : "";
+
+  const goalLine = [
+    shortTermGoal ? `Short-term goal: ${shortTermGoal}` : "",
+    longTermDream ? `Long-term dream: ${longTermDream}` : "",
+  ].filter(Boolean).join(". ");
+
+  const profileLine = [
+    playStyle ? `Playing style: ${playStyle}` : "",
+    dominantHand ? `Dominant hand: ${dominantHand}` : "",
+  ].filter(Boolean).join(". ");
+
+  return `You are a personal AI tennis coach speaking directly to ${playerName}${playerAge ? `, age ${playerAge}` : ""}.
+
+PLAYER DATA:
+- Ball level: ${ballLevel} | XP level: ${xpLevel} (${totalXp.toLocaleString()} XP) | Glow Score: ${glowScore}
+- ${profileLine || "No profile data yet"}
+- ${goalLine || "No goals set yet"}
+- ${attendanceLine}
+- ${effortLine}
+- ${strokeLine}
+
+SKILL SCORES (from coach evaluations):
+${skillLines}
+
+RECENT COACH FEEDBACK (public):
+${feedbackLines}
+
+COACH NOTES:
+${noteLines}
+
+RECENT SESSION SUMMARIES:
+${digestLines}
+
+RULES FOR YOUR RESPONSES:
+- Speak directly to ${playerName} in second person ("You", "Your")
+- Be encouraging, specific, and action-oriented
+- Reference real data from above (skill scores, feedback, notes, goals) in your answers
+- Never make up skill scores or feedback that is not listed above
+- If data is missing for a question, acknowledge it and give helpful general tennis advice
+- Keep responses conversational — 2-4 sentences unless the player asks for more detail
+- Do not use emojis
+- If the player asks about a skill, refer to their actual score if available
+- Focus on helping them improve — be their personal coach and biggest supporter
+- Never reveal the raw data format; weave data naturally into coaching language`;
 }
 
 export async function storeProgressNarrative(
