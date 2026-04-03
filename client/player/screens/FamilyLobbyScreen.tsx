@@ -512,19 +512,17 @@ export default function FamilyLobbyScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
-        {isParent ? (
-          <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.addChildStickyWrapper}>
-            <Pressable
-              style={styles.addChildStickyButton}
-              onPress={handleOpenAddChildModal}
-              accessibilityRole="button"
-              accessibilityLabel="Add a child to your family"
-            >
-              <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.addChildStickyText}>Add Child</Text>
-            </Pressable>
-          </Animated.View>
-        ) : null}
+        <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.addChildStickyWrapper}>
+          <Pressable
+            style={styles.addChildStickyButton}
+            onPress={handleOpenAddChildModal}
+            accessibilityRole="button"
+            accessibilityLabel="Add a child to your family"
+          >
+            <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.addChildStickyText}>Add Child</Text>
+          </Pressable>
+        </Animated.View>
         <View style={styles.footerRow}>
           <Ionicons name="people" size={16} color={Colors.dark.textMuted} />
           <Text style={styles.footerText}>
