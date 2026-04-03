@@ -138,6 +138,119 @@ const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelR
 import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
 
+interface PlayerQuestItem {
+  id: string;
+  name: string;
+  description: string;
+  iconName: string;
+  iconColor: string;
+  category: string;
+  currentProgress: number;
+  targetProgress: number;
+  status: string;
+  xpReward: number | null;
+  personalisedBy: string | null;
+}
+
+function PlayerQuestsSection({ playerId }: { playerId: string }) {
+  const { data, isLoading } = useQuery<{ quests: PlayerQuestItem[] }>({
+    queryKey: ["/api/coach/players", playerId, "quests"],
+    queryFn: async () => {
+      return apiRequest("GET", `/api/coach/players/${playerId}/quests`);
+    },
+  });
+
+  const quests = data?.quests || [];
+
+  if (isLoading) {
+    return (
+      <View style={{ paddingVertical: 16, alignItems: "center" }}>
+        <ActivityIndicator size="small" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  if (quests.length === 0) {
+    return (
+      <View style={{ paddingVertical: 12, alignItems: "center", gap: 6 }}>
+        <Ionicons name="flash-outline" size={24} color={Colors.dark.tabIconDefault} />
+        <Text style={{ color: Colors.dark.textSecondary, fontSize: 13, textAlign: "center" }}>
+          No active quests assigned
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 8, paddingTop: 4 }}>
+      {quests.map((quest) => {
+        const progress = quest.targetProgress > 0 ? quest.currentProgress / quest.targetProgress : 0;
+        const isComplete = quest.status === "completed" || quest.status === "claimed";
+        return (
+          <View
+            key={quest.id}
+            style={{
+              backgroundColor: Colors.dark.backgroundSecondary,
+              borderRadius: 10,
+              padding: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              borderWidth: isComplete ? 1 : 0,
+              borderColor: isComplete ? Colors.dark.primary + "40" : "transparent",
+            }}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: (quest.iconColor || "#00FF88") + "20",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name={(quest.iconName || "flash") as React.ComponentProps<typeof Ionicons>["name"]} size={18} color={isComplete ? Colors.dark.primary : (quest.iconColor || "#00FF88")} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <Text style={{ color: isComplete ? Colors.dark.primary : Colors.dark.text, fontSize: 13, fontWeight: "600", flexShrink: 1 }} numberOfLines={1}>
+                  {quest.name}
+                </Text>
+                {quest.personalisedBy === "ai" ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#00FF8820", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, borderWidth: 1, borderColor: "#00FF8840" }}>
+                    <Ionicons name="sparkles" size={9} color="#00FF88" />
+                    <Text style={{ fontSize: 9, fontWeight: "700", color: "#00FF88" }}>For you</Text>
+                  </View>
+                ) : null}
+                {isComplete ? (
+                  <View style={{ backgroundColor: Colors.dark.primary + "20", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5 }}>
+                    <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.dark.primary }}>Done</Text>
+                  </View>
+                ) : null}
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <View style={{ flex: 1, height: 4, backgroundColor: Colors.dark.backgroundRoot, borderRadius: 2, overflow: "hidden" }}>
+                  <View style={{ width: `${Math.min(progress * 100, 100)}%`, height: "100%", backgroundColor: isComplete ? Colors.dark.primary : (quest.iconColor || "#00FF88"), borderRadius: 2 }} />
+                </View>
+                <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, minWidth: 36 }}>
+                  {quest.currentProgress}/{quest.targetProgress}
+                </Text>
+              </View>
+            </View>
+            {quest.xpReward ? (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+                <Text style={{ fontSize: 10, fontWeight: "600", color: Colors.dark.xpCyan }}>+{quest.xpReward}</Text>
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function ProminentInviteCard({
   inviteCode,
   playerName,
@@ -1090,6 +1203,10 @@ export function PlayerDetailView({
         </CollapsibleSection>
 
         <PlayerStrokeFeedbackSection playerId={player.id} />
+
+        <CollapsibleSection title="Active Quests" icon="flash-outline" iconColor="#00FF88">
+          <PlayerQuestsSection playerId={player.id} />
+        </CollapsibleSection>
 
         <CollapsibleSection title="Coach Notes" icon="document-text-outline" iconColor={Colors.dark.primary}>
           <PlayerNotesSection playerId={player.id} coachId={coach?.id} hideHeader />

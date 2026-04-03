@@ -340,6 +340,12 @@ function QuestCard({
                     {quest.category}
                   </ThemedText>
                 </View>
+                {quest.personalisedBy === "ai" ? (
+                  <View style={styles.personalisedBadge}>
+                    <Ionicons name="sparkles" size={10} color="#00FF88" />
+                    <ThemedText style={styles.personalisedText}>For you</ThemedText>
+                  </View>
+                ) : null}
               </View>
             </View>
             
@@ -1075,5 +1081,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textSecondary,
     textAlign: "center",
+  },
+  personalisedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#00FF8820",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#00FF8840",
+  },
+  personalisedText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#00FF88",
   },
 });

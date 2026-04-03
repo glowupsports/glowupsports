@@ -17,6 +17,7 @@ export interface Quest {
   expiresAt?: string;
   evidenceUrl?: string;
   evidenceType?: string;
+  personalisedBy?: string | null;
 }
 
 export interface StreakData {

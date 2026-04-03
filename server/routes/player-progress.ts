@@ -934,6 +934,55 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Get player's active quests (for coach view)
+  router.get(
+    "/api/coach/players/:playerId/quests",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { playerId } = req.params;
+        const academyId = req.user!.academyId;
+
+        const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+        if (!valid) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        const activeQuests = await db
+          .select({
+            id: playerQuestsTable.id,
+            name: questTemplatesTable.name,
+            description: questTemplatesTable.description,
+            iconName: questTemplatesTable.iconName,
+            iconColor: questTemplatesTable.iconColor,
+            category: questTemplatesTable.category,
+            questType: questTemplatesTable.questType,
+            currentProgress: playerQuestsTable.currentProgress,
+            targetProgress: playerQuestsTable.targetProgress,
+            status: playerQuestsTable.status,
+            xpReward: playerQuestsTable.xpReward,
+            expiresAt: playerQuestsTable.expiresAt,
+            personalisedBy: playerQuestsTable.personalisedBy,
+          })
+          .from(playerQuestsTable)
+          .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+          .where(
+            and(
+              eq(playerQuestsTable.playerId, playerId),
+              inArray(playerQuestsTable.status, ["active", "completed"])
+            )
+          )
+          .orderBy(asc(questTemplatesTable.order));
+
+        res.json({ quests: activeQuests });
+      } catch (error) {
+        console.error("Error fetching player quests for coach:", error);
+        res.status(500).json({ error: "Failed to fetch player quests" });
+      }
+    }
+  );
+
   // Get player full attendance history with session details
   router.get(
     "/api/coach/players/:playerId/attendance-history",

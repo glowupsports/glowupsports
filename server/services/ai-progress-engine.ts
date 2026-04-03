@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, gte, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, inArray, count } from "drizzle-orm";
 import OpenAI from "openai";
 import {
   inSessionFeedback,
@@ -19,7 +19,10 @@ import {
   playerNotes,
   matchLogs,
   playerXpEvents,
+  questTemplates,
+  playerQuests as playerQuestsTable,
 } from "@shared/schema";
+import type { QuestTemplate } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -1380,6 +1383,188 @@ export async function storeProgressNarrative(
   console.log(`[AIEngine] Progress narrative stored for player ${playerId}`);
 }
 
+// ==================== AI QUEST PERSONALISATION ====================
+
+/**
+ * Checks if a player qualifies for AI-personalised quests.
+ * Requires at least 3 coach skill assessments (baseline skill scores).
+ */
+export async function qualifiesForPersonalisedQuests(playerId: string): Promise<boolean> {
+  try {
+    const [result] = await db
+      .select({ total: count() })
+      .from(playerBaselineSkillScores)
+      .where(eq(playerBaselineSkillScores.playerId, playerId));
+    return (result?.total ?? 0) >= 3;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ranks existing quest templates by relevance to the player's current weaknesses,
+ * goals, and recent completion patterns, returning the top N templates.
+ * Falls back to the input templates unchanged if AI fails.
+ */
+export async function pickPersonalisedQuests(
+  playerId: string,
+  templates: QuestTemplate[],
+  topN: number = 3
+): Promise<{ templates: QuestTemplate[]; personalisedBy: "ai" | null }> {
+  if (templates.length <= topN) {
+    return { templates, personalisedBy: null };
+  }
+
+  try {
+    const [player] = await db
+      .select({ name: players.name, age: players.age, focusGoals: players.focusGoals, motivationType: players.motivationType })
+      .from(players)
+      .where(eq(players.id, playerId));
+    if (!player) return { templates: templates.slice(0, topN), personalisedBy: null };
+
+    const recentBaselineScores = await db
+      .select({
+        pillar: playerBaselineSkillScores.pillar,
+        skillCategory: playerBaselineSkillScores.skillCategory,
+        rating: playerBaselineSkillScores.rating,
+      })
+      .from(playerBaselineSkillScores)
+      .where(eq(playerBaselineSkillScores.playerId, playerId))
+      .orderBy(desc(playerBaselineSkillScores.createdAt))
+      .limit(30);
+
+    const recentSkillScores = await db
+      .select({
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        score: playerSkillScores.score,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(eq(playerSkillScores.playerId, playerId))
+      .orderBy(desc(playerSkillScores.createdAt))
+      .limit(20);
+
+    const [playerLevel] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+
+    // Recent quest completion patterns: what categories/actions has player completed vs struggled with?
+    const recentCompletedQuests = await db
+      .select({
+        category: questTemplates.category,
+        targetAction: questTemplates.targetAction,
+        status: playerQuestsTable.status,
+        completedAt: playerQuestsTable.completedAt,
+      })
+      .from(playerQuestsTable)
+      .innerJoin(questTemplates, eq(playerQuestsTable.questTemplateId, questTemplates.id))
+      .where(
+        and(
+          eq(playerQuestsTable.playerId, playerId),
+          gte(playerQuestsTable.assignedAt, new Date(Date.now() - 14 * 24 * 60 * 60 * 1000))
+        )
+      )
+      .orderBy(desc(playerQuestsTable.assignedAt))
+      .limit(20);
+
+    const completedCategories = recentCompletedQuests
+      .filter((q) => q.status === "completed" || q.status === "claimed")
+      .map((q) => q.category)
+      .filter(Boolean);
+    const expiredCategories = recentCompletedQuests
+      .filter((q) => q.status === "expired" || (q.status === "active" && !q.completedAt))
+      .map((q) => q.category)
+      .filter(Boolean);
+
+    const byPillar = recentBaselineScores.reduce((acc: Record<string, number[]>, s) => {
+      if (s.rating !== null) {
+        acc[s.pillar] = acc[s.pillar] || [];
+        acc[s.pillar].push(s.rating);
+      }
+      return acc;
+    }, {});
+
+    const weakPillars = Object.entries(byPillar)
+      .map(([pillar, ratings]) => ({
+        pillar,
+        avg: ratings.reduce((a, b) => a + b, 0) / ratings.length,
+      }))
+      .sort((a, b) => a.avg - b.avg)
+      .slice(0, 3)
+      .map((p) => `${p.pillar} (avg ${p.avg.toFixed(1)}/3)`);
+
+    const weakSkillCategories = recentBaselineScores
+      .filter((s) => s.rating !== null && s.rating <= 1)
+      .slice(0, 5)
+      .map((s) => s.skillCategory);
+
+    const lowSkillScores = recentSkillScores
+      .filter((s) => s.score < 1.5)
+      .slice(0, 5)
+      .map((s) => `${s.skillName} (${s.score}/2)`);
+
+    const playerGoals = Array.isArray(player.focusGoals) && player.focusGoals.length > 0
+      ? (player.focusGoals as string[]).join(", ")
+      : player.motivationType || "not specified";
+
+    const completionPatternSummary = [
+      completedCategories.length > 0 ? `Recently completed quest categories: ${[...new Set(completedCategories)].join(", ")}` : "",
+      expiredCategories.length > 0 ? `Recently struggled with categories: ${[...new Set(expiredCategories)].join(", ")}` : "",
+    ].filter(Boolean).join(". ");
+
+    const templateDescriptions = templates.map((t, i) => `${i}: [${t.category}] ${t.name} – ${t.description}`).join("\n");
+
+    const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, ball level: ${playerLevel?.levelId ?? "unknown"}
+Player goals: ${playerGoals}
+
+Weak skill pillars (lowest rated): ${weakPillars.join(", ") || "none"}
+Low-rated skill categories: ${weakSkillCategories.join(", ") || "none"}
+Low in-session skill scores: ${lowSkillScores.join(", ") || "none"}
+${completionPatternSummary ? `Quest completion patterns (last 2 weeks): ${completionPatternSummary}` : ""}
+
+Available quest templates (index: details):
+${templateDescriptions}
+
+Select the ${topN} quest indices (0-based) that best address this player's weaknesses, goals, and completion history. Prefer quests in areas the player is working on, and avoid over-repeating recently completed categories unless crucial for development. Return ONLY a JSON array of ${topN} numbers, e.g. [2, 0, 5]. No explanation.`;
+
+    const systemPrompt =
+      "You are a sports coaching AI that selects the most relevant quests for a player based on their skill gaps. Return only a JSON array of indices. Never use emojis.";
+
+    const response = await callOpenAI(prompt, systemPrompt, 100);
+    if (!response) return { templates: templates.slice(0, topN), personalisedBy: null };
+
+    const cleaned = response.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
+    const indices: number[] = JSON.parse(cleaned);
+
+    if (!Array.isArray(indices) || indices.length === 0) {
+      return { templates: templates.slice(0, topN), personalisedBy: null };
+    }
+
+    const picked = indices
+      .filter((i) => typeof i === "number" && i >= 0 && i < templates.length)
+      .slice(0, topN)
+      .map((i) => templates[i]);
+
+    if (picked.length < topN) {
+      const usedIds = new Set(picked.map((t) => t.id));
+      for (const t of templates) {
+        if (picked.length >= topN) break;
+        if (!usedIds.has(t.id)) picked.push(t);
+      }
+    }
+
+    console.log(`[AIEngine] Personalised quests selected for player ${playerId}:`, picked.map((t) => t.name));
+    return { templates: picked, personalisedBy: "ai" };
+  } catch (error) {
+    console.error("[AIEngine] Error picking personalised quests:", error);
+    return { templates: templates.slice(0, topN), personalisedBy: null };
+  }
+}
+
 // ==================== PARENT PROGRESS LETTER ====================
 
 export async function generateParentProgressLetter(
@@ -1448,7 +1633,7 @@ export async function generateParentProgressLetter(
       .orderBy(desc(playerBallLevels.assignedAt))
       .limit(1);
 
-    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
+    const ballLevel = playerLevel?.levelId || (player as any).ballLevel || "unknown";
     const firstName = player.name.split(" ")[0];
     const age = player.age ? Number(player.age) : null;
 

@@ -49,6 +49,7 @@ import {
 import { sendBadgeEarnedNotification } from "../pushNotifications";
 import { sendEmail, sendDeleteAccountRequestEmail } from "../emailService";
 import { fireQuestEvent } from "../services/quest-events";
+import { qualifiesForPersonalisedQuests, pickPersonalisedQuests } from "../services/ai-progress-engine";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { adminRepairLimiter } from "../rateLimiter";
@@ -142,6 +143,7 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
         expiresAt: q.quest.expiresAt,
         evidenceUrl: q.quest.evidenceUrl,
         evidenceType: q.quest.evidenceType,
+        personalisedBy: q.quest.personalisedBy || null,
       });
       
       const currentStreak = streak?.currentStreak || 0;
@@ -215,8 +217,19 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
         .orderBy(asc(questTemplatesTable.order));
       
       const shuffled = allDailyTemplates.sort(() => Math.random() - 0.5);
-      const templates = shuffled.slice(0, 3);
-      
+
+      let templates = shuffled.slice(0, 3);
+      let personalisedBy: string | null = null;
+
+      if (shuffled.length > 3) {
+        const qualifies = await qualifiesForPersonalisedQuests(playerId).catch(() => false);
+        if (qualifies) {
+          const result = await pickPersonalisedQuests(playerId, shuffled, 3).catch(() => ({ templates: shuffled.slice(0, 3), personalisedBy: null as null }));
+          templates = result.templates;
+          personalisedBy = result.personalisedBy;
+        }
+      }
+
       if (templates.length === 0) {
         return res.json({ message: "No quest templates available", quests: [] });
       }
@@ -231,6 +244,7 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
           xpReward: template.xpReward,
           currencyReward: template.currencyReward,
           expiresAt: endOfDay,
+          personalisedBy,
         }).returning();
         createdQuests.push(quest);
       }
