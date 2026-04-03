@@ -373,10 +373,10 @@ function FeaturesTab({ days, academyId }: { days: number; academyId: string | nu
       {deadZones.length > 0 && (
         <View style={{ marginTop: 24 }}>
           <View style={s.sectionHeaderRow}>
-            <Ionicons name="eye-off-outline" size={16} color={RED} />
-            <Text style={[s.sectionLabel, { color: RED }]}>Not used in this period</Text>
-            <View style={[s.countBadge, { backgroundColor: `${RED}20` }]}>
-              <Text style={[s.countBadgeText, { color: RED }]}>{deadZones.length}</Text>
+            <Ionicons name="eye-off-outline" size={16} color={Colors.dark.textMuted} />
+            <Text style={[s.sectionLabel, { color: Colors.dark.textMuted }]}>Not used in this period</Text>
+            <View style={[s.countBadge, { backgroundColor: Colors.dark.backgroundSecondary }]}>
+              <Text style={[s.countBadgeText, { color: Colors.dark.textMuted }]}>{deadZones.length}</Text>
             </View>
           </View>
           <View style={s.card}>
@@ -393,8 +393,8 @@ function FeaturesTab({ days, academyId }: { days: number; academyId: string | nu
                   {catDead.map((f, i) => (
                     <View key={f.key} style={[s.deadRow, i < catDead.length - 1 && s.drillBorder]}>
                       <Text style={s.deadLabel}>{f.label}</Text>
-                      <View style={[s.zeroBadge, { borderColor: `${RED}40` }]}>
-                        <Text style={[s.zeroText, { color: RED }]}>0</Text>
+                      <View style={[s.zeroBadge, { borderColor: Colors.dark.border }]}>
+                        <Text style={[s.zeroText, { color: Colors.dark.textMuted }]}>0</Text>
                       </View>
                     </View>
                   ))}
@@ -508,8 +508,8 @@ function DeadZonesTab({ days, academyId }: { days: number; academyId: string | n
                 <View key={f.key} style={[s.deadRowFull, i < catDead.length - 1 && s.drillBorder]}>
                   <View style={[s.catDot, { backgroundColor: catColor, marginRight: 8 }]} />
                   <Text style={[s.deadLabel, { flex: 1 }]}>{f.label}</Text>
-                  <View style={[s.zeroBadge, { borderColor: `${RED}40` }]}>
-                    <Text style={[s.zeroText, { color: RED }]}>0 players</Text>
+                  <View style={[s.zeroBadge, { borderColor: Colors.dark.border }]}>
+                    <Text style={[s.zeroText, { color: Colors.dark.textMuted }]}>0 players</Text>
                   </View>
                 </View>
               ))}
