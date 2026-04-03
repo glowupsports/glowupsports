@@ -13,7 +13,8 @@ import {
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
 } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
+import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -1025,7 +1026,8 @@ Return only the JSON array, nothing else.`;
         .where(and(
           eq(players.academyId, academyId || ""),
           ne(players.id, playerId),
-          inArray(players.id, activePlayerIdSubquery)
+          inArray(players.id, activePlayerIdSubquery),
+          not(inArray(players.id, HIDDEN_PLAYER_IDS))
         ));
 
       // Build enriched players with mutual session counts and openToPlay status

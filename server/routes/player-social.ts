@@ -38,7 +38,8 @@ import {
   contentReports as contentReportsTable,
   playerBlocks as playerBlocksTable,
 } from "@shared/schema";
-import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike, not } from "drizzle-orm";
+import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -1349,6 +1350,8 @@ router.get("/api/player/search", authMiddleware, async (req: AuthRequest, res: R
       if (openToPlayOnly) {
         conditions.push(eq(players.openToPlay, true));
       }
+
+      conditions.push(not(inArray(players.id, HIDDEN_PLAYER_IDS)));
       
       const results = await db.select({
         id: players.id,
@@ -1418,6 +1421,7 @@ router.get("/api/player/discover", authMiddleware, requireFeatureUnlock("player_
       let conditions: any[] = [
         eq(players.status, "active"),
         sql`${players.id} != ${playerId}`,
+        not(inArray(players.id, HIDDEN_PLAYER_IDS)),
       ];
       let orderBy = desc(players.glowScore);
       
@@ -1481,6 +1485,7 @@ router.get("/api/player/open-to-play", authMiddleware, requireFeatureUnlock("pla
       const playerConditions = [
         eq(players.status, "active"),
         eq(players.openToPlay, true),
+        not(inArray(players.id, HIDDEN_PLAYER_IDS)),
       ];
       if (academyId) {
         playerConditions.push(eq(players.academyId, academyId));
