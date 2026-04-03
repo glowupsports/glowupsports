@@ -4,6 +4,7 @@ import https from "https";
 import {
   inSessionFeedback,
   sessionSkillFeedback,
+  sessionSkillObservations,
   sessionPlayers,
   sessions,
   players,
@@ -13,6 +14,7 @@ import {
   levelSkills,
   sessionAiSummaries,
   playerAiInsights,
+  playerBaselineSkillScores,
   coaches,
 } from "@shared/schema";
 
@@ -145,11 +147,13 @@ export async function generateSessionDigest(
         )
       );
 
-    // Required curriculum skills for current level
+    // Curriculum progress: compare required level skills against scores
+    // Priority: session-specific scores, fallback to player's most recent scores
     let curriculumProgress = "";
-    if (playerLevel?.levelId && sessionSkillScores.length > 0) {
+    if (playerLevel?.levelId) {
       const required = await db
         .select({
+          skillId: levelSkills.skillId,
           skillName: glowSkills.name,
           targetScore: levelSkills.targetScore,
           isRequired: levelSkills.isRequired,
@@ -158,27 +162,47 @@ export async function generateSessionDigest(
         .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
         .where(and(eq(levelSkills.levelId, playerLevel.levelId), eq(levelSkills.isRequired, true)));
 
-      const scoreMap = new Map(sessionSkillScores.map((s) => [s.skillName, s.score]));
+      // Session-specific score map (highest priority)
+      const sessionScoreMap = new Map(sessionSkillScores.map((s) => [s.skillName, s.score]));
+
+      // For skills not scored this session, get player's latest overall score
+      const unscoreThisSession = required.filter((r) => !sessionScoreMap.has(r.skillName));
+      const latestScoreMap = new Map<string, number>();
+      for (const r of unscoreThisSession) {
+        const [latest] = await db
+          .select({ score: playerSkillScores.score })
+          .from(playerSkillScores)
+          .where(and(eq(playerSkillScores.playerId, playerId), eq(playerSkillScores.skillId, r.skillId)))
+          .orderBy(desc(playerSkillScores.createdAt))
+          .limit(1);
+        if (latest) latestScoreMap.set(r.skillName, latest.score);
+      }
+
       const met: string[] = [];
       const notMet: string[] = [];
+      const noData: string[] = [];
+
       for (const r of required) {
-        const score = scoreMap.get(r.skillName);
+        const score = sessionScoreMap.get(r.skillName) ?? latestScoreMap.get(r.skillName);
         if (score !== undefined) {
+          const label = sessionScoreMap.has(r.skillName) ? "" : " (historical)";
           if (score >= r.targetScore) {
-            met.push(`${r.skillName} (${score}/${r.targetScore})`);
+            met.push(`${r.skillName}${label} (${score}/${r.targetScore})`);
           } else {
-            notMet.push(`${r.skillName} (${score}/${r.targetScore})`);
+            notMet.push(`${r.skillName}${label} (${score}/${r.targetScore})`);
           }
+        } else {
+          noData.push(r.skillName);
         }
       }
-      if (met.length > 0 || notMet.length > 0) {
-        curriculumProgress = [
-          met.length > 0 ? `Met required skills: ${met.join(", ")}` : "",
-          notMet.length > 0 ? `Still developing: ${notMet.join(", ")}` : "",
-        ]
-          .filter(Boolean)
-          .join(". ");
-      }
+
+      const parts = [
+        met.length > 0 ? `Met required: ${met.join(", ")}` : "",
+        notMet.length > 0 ? `Still developing: ${notMet.join(", ")}` : "",
+        noData.length > 0 ? `Not yet assessed: ${noData.join(", ")}` : "",
+      ].filter(Boolean);
+
+      if (parts.length > 0) curriculumProgress = parts.join(". ");
     }
 
     const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
@@ -312,6 +336,40 @@ export async function generateProgressNarrative(
       .orderBy(desc(playerSkillScores.createdAt))
       .limit(15);
 
+    // Skill evidence captures (Skill Evidence Capture tool)
+    const recentEvidenceCaptures = await db
+      .select({
+        direction: sessionSkillObservations.direction,
+        effortLevel: sessionSkillObservations.effortLevel,
+        note: sessionSkillObservations.note,
+      })
+      .from(sessionSkillObservations)
+      .where(
+        and(
+          eq(sessionSkillObservations.playerId, playerId),
+          gte(sessionSkillObservations.createdAt, since)
+        )
+      )
+      .orderBy(desc(sessionSkillObservations.createdAt))
+      .limit(10);
+
+    // Quick/Deep assessment baseline scores
+    const recentBaselineScores = await db
+      .select({
+        pillar: playerBaselineSkillScores.pillar,
+        skillCategory: playerBaselineSkillScores.skillCategory,
+        rating: playerBaselineSkillScores.rating,
+      })
+      .from(playerBaselineSkillScores)
+      .where(
+        and(
+          eq(playerBaselineSkillScores.playerId, playerId),
+          gte(playerBaselineSkillScores.createdAt, since)
+        )
+      )
+      .orderBy(desc(playerBaselineSkillScores.createdAt))
+      .limit(20);
+
     // Session skill feedback trend (effort/execution/understanding + stroke data)
     const recentSessionFeedback = await db
       .select({
@@ -374,6 +432,36 @@ export async function generateProgressNarrative(
       sessionFeedbackTrend = `Avg effort ${avgEffort}/2, execution ${avgExec}/2, understanding ${avgUnderstanding}/2 over ${recentSessionFeedback.length} sessions. Overall trend: ${overallTrend || "no data"}.${strokeTypes.size > 0 ? ` Strokes trained: ${[...strokeTypes].join(", ")}.` : ""}`;
     }
 
+    // Evidence capture summary
+    let evidenceSummary = "";
+    if (recentEvidenceCaptures.length > 0) {
+      const upCount = recentEvidenceCaptures.filter((e) => e.direction === "up").length;
+      const downCount = recentEvidenceCaptures.filter((e) => e.direction === "down").length;
+      const notes = recentEvidenceCaptures.filter((e) => e.note).map((e) => e.note).slice(0, 3).join("; ");
+      evidenceSummary = `${recentEvidenceCaptures.length} evidence captures: ${upCount} improving, ${downCount} declining.${notes ? ` Notes: ${notes}` : ""}`;
+    }
+
+    // Baseline assessment summary
+    let baselineSummary = "";
+    if (recentBaselineScores.length > 0) {
+      const byPillar = recentBaselineScores.reduce((acc: Record<string, number[]>, s) => {
+        if (s.rating !== null) {
+          acc[s.pillar] = acc[s.pillar] || [];
+          acc[s.pillar].push(s.rating);
+        }
+        return acc;
+      }, {});
+      const pillarAvgs = Object.entries(byPillar)
+        .map(([pillar, ratings]) => `${pillar} avg ${(ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)}/3`)
+        .join(", ");
+      const topSkills = recentBaselineScores
+        .filter((s) => s.rating !== null && s.rating >= 2)
+        .slice(0, 3)
+        .map((s) => s.skillCategory)
+        .join(", ");
+      baselineSummary = `Assessment data (${recentBaselineScores.length} skills scored): ${pillarAvgs}.${topSkills ? ` Proficient in: ${topSkills}` : ""}`;
+    }
+
     const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, ball level: ${ballLevel}
 Period: last ${days} days
 
@@ -383,6 +471,8 @@ ${digestsText}
 Feedback received: ${feedbackSummary}
 ${sessionFeedbackTrend ? `Session performance trend: ${sessionFeedbackTrend}` : ""}
 Skill scores tracked: ${skillProgress}
+${evidenceSummary ? `Skill evidence captures: ${evidenceSummary}` : ""}
+${baselineSummary ? `Assessment scores: ${baselineSummary}` : ""}
 Level curriculum skills (${ballLevel}): ${curriculumSkills.join(", ") || "none configured"}
 
 Task 1: Write a 3-4 sentence progress narrative summarising development over the last ${days} days. Be specific about observed trends and curriculum alignment.

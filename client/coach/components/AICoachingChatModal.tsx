@@ -126,13 +126,14 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       setMessages(updatedMessages);
       const data = await apiRequest("POST", `/api/sessions/${sessionId}/players/${playerId}/ai-chat`, {
         messages: updatedMessages,
-      });
-      return { reply: (data as any).reply as string, userMessages: updatedMessages };
+      }) as { reply: string | null };
+      return { reply: data.reply, userMessages: updatedMessages };
     },
     onSuccess: ({ reply, userMessages }) => {
-      const withReply: Message[] = [...userMessages, { role: "assistant", content: reply }];
+      const replyText = reply ?? "AI coaching is unavailable right now.";
+      const withReply: Message[] = [...userMessages, { role: "assistant", content: replyText }];
       setMessages(withReply);
-      const summary = parseStructuredSummary(reply);
+      const summary = parseStructuredSummary(replyText);
       if (summary) setPendingSummary(summary);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     },
