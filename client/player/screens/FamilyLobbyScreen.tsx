@@ -512,8 +512,6 @@ export default function FamilyLobbyScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
-        {/* Add Member is intentionally visible to all roles (Task #289).
-            Backend /api/family/add-child enforces the parent-role check server-side. */}
         <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.addChildStickyWrapper}>
           <Pressable
             style={styles.addChildStickyButton}
