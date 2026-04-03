@@ -1351,7 +1351,7 @@ export default function SessionDetailDrawer({
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
       </Pressable>
 
-      {/* Quick Feedback Button - In-Session */}
+      {/* Feedback Button - In-Session */}
       {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (
         <Pressable 
           style={styles.quickFeedbackCard} 
@@ -1365,11 +1365,11 @@ export default function SessionDetailDrawer({
               colors={[GlowColors.primary, "#7ACC2C"]}
               style={[styles.attendanceIconContainer]}
             >
-              <Ionicons name="flash" size={22} color={Colors.dark.buttonText} />
+              <Ionicons name="chatbubble-ellipses" size={22} color={Colors.dark.buttonText} />
             </LinearGradient>
             <View>
-              <Text style={[styles.attendanceCardTitle, { color: GlowColors.primary }]}>Quick Feedback</Text>
-              <Text style={styles.attendanceCardSubtitle}>Give instant feedback to players</Text>
+              <Text style={[styles.attendanceCardTitle, { color: GlowColors.primary }]}>Feedback</Text>
+              <Text style={styles.attendanceCardSubtitle}>Select a player · Give detailed feedback</Text>
             </View>
           </View>
           <View style={styles.xpIndicator}>
