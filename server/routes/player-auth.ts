@@ -644,10 +644,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(403).json({ error: "Account not found" });
         }
 
-        // Only parent accounts (not children themselves) can create new members
-        if (parentPlayer.parentEmail) {
-          return res.status(403).json({ error: "Only parent accounts can add family members." });
-        }
 
         // Allowed values matching the CreateFamilyMemberFlow UI
         const VALID_DOMINANT_HANDS = ["right", "left"];
