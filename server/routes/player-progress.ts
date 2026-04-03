@@ -2784,7 +2784,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const coachId = req.user!.coachId || "";
         const academyId = req.user!.academyId || "";
         const userRole = req.user!.role;
-        const { save } = req.body as { save?: boolean };
+        const { save, plan: providedPlan } = req.body as { save?: boolean; plan?: { theme: string; rationale: string; playerBreakdown: { name: string; focus: string; flag?: string }[]; drills: { title: string; description: string }[]; flags: string[] } };
 
         const isCoachRole = ["coach", "assistant", "academy_owner", "platform_owner"].includes(userRole);
         if (!isCoachRole || !coachId) {
@@ -2802,19 +2802,26 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(422).json({ error: "AI session planning is only available for group and semi-private sessions" });
         }
 
-        const { buildGroupSessionAIContext, generateGroupSessionPlan } = await import("../services/ai-progress-engine");
-        const ctx = await buildGroupSessionAIContext(sessionId);
-        if (!ctx) {
-          return res.status(422).json({ error: "Session must have at least 2 registered players to generate a plan" });
+        // If save=true and a plan payload was provided, skip AI generation and just persist
+        let plan: { theme: string; rationale: string; playerBreakdown: { name: string; focus: string; flag?: string }[]; drills: { title: string; description: string }[]; flags: string[] } | null = null;
+
+        if (save && providedPlan) {
+          plan = providedPlan;
+        } else {
+          const { buildGroupSessionAIContext, generateGroupSessionPlan } = await import("../services/ai-progress-engine");
+          const ctx = await buildGroupSessionAIContext(sessionId);
+          if (!ctx) {
+            return res.status(422).json({ error: "Session must have at least 2 registered players to generate a plan" });
+          }
+
+          plan = await generateGroupSessionPlan(ctx);
+          if (!plan) {
+            return res.status(500).json({ error: "AI plan generation failed" });
+          }
         }
 
-        const plan = await generateGroupSessionPlan(ctx);
-        if (!plan) {
-          return res.status(500).json({ error: "AI plan generation failed" });
-        }
-
-        // Optionally persist to session_plans.coachNotes
-        if (save) {
+        // Persist to session_plans.coachNotes when save=true
+        if (save && plan) {
           const planText = [
             `AI SESSION PLAN — ${plan.theme}`,
             ``,
@@ -2862,6 +2869,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        // For save-only requests (plan provided by client), just return saved status
+        if (save && providedPlan) {
+          return res.json({ saved: true });
+        }
         res.json({ plan, generatedAt: new Date().toISOString(), saved: !!save });
       } catch (error) {
         console.error("[AISessionPlan] Error:", error);

@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -31,14 +30,6 @@ interface Props {
   sessionId: string;
   sessionType: string;
 }
-
-const PILLAR_COLORS: Record<string, string> = {
-  Technical: "#38BDF8",
-  Tactical: "#A78BFA",
-  Physical: GlowColors.primary,
-  Mental: Colors.dark.gold,
-  Social: "#F472B6",
-};
 
 export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }: Props) {
   const insets = useSafeAreaInsets();
@@ -66,16 +57,16 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/sessions/${sessionId}/ai-plan`, { save: true });
-      const data = await res.json() as { plan: SessionPlan; generatedAt: string; saved: boolean };
-      if (!data.plan) throw new Error("Save failed");
+    mutationFn: async (planToSave: SessionPlan) => {
+      const res = await apiRequest("POST", `/api/sessions/${sessionId}/ai-plan`, {
+        save: true,
+        plan: planToSave,
+      });
+      const data = await res.json() as { saved: boolean };
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setPlan(data.plan);
-      setGeneratedAt(data.generatedAt);
       setSaved(true);
     },
     onError: () => {
@@ -281,9 +272,9 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
                 saveMutation.isPending && { opacity: 0.6 },
               ]}
               onPress={() => {
-                if (saved || saveMutation.isPending) return;
+                if (saved || saveMutation.isPending || !plan) return;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                saveMutation.mutate();
+                saveMutation.mutate(plan);
               }}
               disabled={saveMutation.isPending}
             >
