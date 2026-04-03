@@ -1379,7 +1379,7 @@ export default function SessionDetailDrawer({
       {/* Feedback Hub — all systems */}
       {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (() => {
         const activePlayers = liveSession.players!.filter(p => !removedPlayerIds.has(p.id));
-        const nonGuestPlayers = activePlayers.filter(p => !p.isGuest);
+        const nonGuestPlayers = activePlayers.filter(p => !p.isGuest && !p.name.includes("(Guest)"));
 
         const openForPlayer = (mode: "evidence" | "baseline" | "deep") => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1476,7 +1476,10 @@ export default function SessionDetailDrawer({
                 <Pressable
                   key={tile.key}
                   style={[styles.feedbackHubTile, tile.disabled && { opacity: 0.4 }]}
-                  onPress={tile.disabled ? undefined : tile.onPress}
+                  onPress={tile.disabled ? () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    Alert.alert("Registered Players Required", "This tool requires at least one registered (non-guest) player in the session.");
+                  } : tile.onPress}
                 >
                   <View style={[styles.feedbackHubIcon, { backgroundColor: tile.color + "25" }]}>
                     <Ionicons name={tile.icon} size={20} color={tile.color} />
@@ -2056,7 +2059,7 @@ export default function SessionDetailDrawer({
       <Modal
         visible={visible}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle={(Platform as any).isPad ? "fullScreen" : "pageSheet"}
         onRequestClose={onClose}
       >
         <View style={[styles.container, { paddingBottom: insets.bottom + Spacing.md }]}>
