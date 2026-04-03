@@ -1493,7 +1493,7 @@ export function SessionHeroCard({
     );
   }
 
-  if (sessionStatus === "none") {
+  if (sessionStatus === "none" || sessionStatus === "ended" || !sessionStatus) {
     return (
       <View style={styles.coachStyleCard}>
         <View style={styles.coachCardAccentLine} />
@@ -2395,7 +2395,93 @@ export function SessionHeroCard({
     );
   }
 
-  return null;
+  return (
+    <View style={styles.coachStyleCard}>
+      <View style={styles.coachCardAccentLine} />
+      <View
+        style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
+      >
+        <View style={styles.commandHeader}>
+          <View style={styles.commandTitleSection}>
+            <View style={styles.commandIconWrap}>
+              <Feather name="calendar" size={14} color={GlowColors.primary} />
+            </View>
+            <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
+          </View>
+        </View>
+
+        <View style={styles.commandDisplay}>
+          <Text style={styles.commandPrimary}>{t("player.home.noSessionsToday")}</Text>
+          <Text style={styles.commandSecondary}>{t("player.home.hitTheCourt")}</Text>
+        </View>
+
+        <View style={styles.commandActions}>
+          <SwipeBlocker>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cleanPrimaryButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleBookSession}
+            >
+              <LinearGradient
+                colors={[GlowColors.primary, GlowColors.soft]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cleanPrimaryGradient}
+              >
+                <Feather name="calendar" size={18} color={Backgrounds.root} />
+                <Text style={styles.cleanPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
+              </LinearGradient>
+            </Pressable>
+          </SwipeBlocker>
+
+          <SwipeBlocker>
+            <Pressable
+              style={({ pressed }) => [
+                styles.commandOutlineButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleBookCourt}
+            >
+              <Feather name="grid" size={16} color={GlowColors.primary} />
+              <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
+            </Pressable>
+          </SwipeBlocker>
+
+          <View style={styles.commandLinkRow}>
+            <SwipeBlocker>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.commandLink,
+                  pressed && { opacity: 0.6 },
+                ]}
+                onPress={handleFindMatch}
+                hitSlop={16}
+              >
+                <Feather name="users" size={14} color="#B8BCC6" />
+                <Text style={styles.commandLinkText}>{t("player.home.findPlayers")}</Text>
+              </Pressable>
+            </SwipeBlocker>
+
+            <SwipeBlocker>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.commandLink,
+                  pressed && { opacity: 0.6 },
+                ]}
+                onPress={handleJoinOpenGroup}
+                hitSlop={16}
+              >
+                <Feather name="play-circle" size={14} color="#B8BCC6" />
+                <Text style={styles.commandLinkText}>{t("player.home.joinOpenGroup")}</Text>
+              </Pressable>
+            </SwipeBlocker>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
