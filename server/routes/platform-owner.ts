@@ -2920,7 +2920,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const days = Math.min(parseInt((req.query.days as string) || "7", 10) || 7, 90);
         const academyId = req.query.academyId as string | undefined;
 
-        const params: any[] = [days];
+        const params: (string | number)[] = [days];
         let academyFilter = "";
         if (academyId) {
           params.push(academyId);
@@ -2968,7 +2968,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const days = Math.min(parseInt((req.query.days as string) || "7", 10) || 7, 90);
         const academyId = req.query.academyId as string | undefined;
 
-        const params: any[] = [feature, days];
+        const params: (string | number)[] = [feature, days];
         let academyFilter = "";
         if (academyId) {
           params.push(academyId);
@@ -3015,7 +3015,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const days = Math.min(parseInt((req.query.days as string) || "7", 10) || 7, 90);
         const academyId = req.query.academyId as string | undefined;
 
-        const params: any[] = [days];
+        const params: (string | number)[] = [days];
         let academyFilter = "";
         if (academyId) {
           params.push(academyId);
@@ -3060,8 +3060,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
            LEFT JOIN fe_period fp ON fp.player_id = pt.player_id
            WHERE 1=1 ${academyFilter}
            GROUP BY p.id, p.name, p.level, p.total_xp, p.streak, a.id, a.name, pt.period_total
-           ORDER BY pt.period_total DESC
-           LIMIT 100`,
+           ORDER BY pt.period_total DESC`,
           params,
         );
 

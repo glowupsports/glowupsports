@@ -184,7 +184,7 @@ function useFeatureDrilldown(feature: string | null, days: number, academyId: st
 function FilterPills({ options, value, onChange }: {
   options: { label: string; value: string | number | null }[];
   value: string | number | null;
-  onChange: (v: any) => void;
+  onChange: (v: string | number | null) => void;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pillRow}>
@@ -535,7 +535,7 @@ export default function PlayerActivityScreen({ route }: { route?: { params?: { i
     ...academies.map(a => ({ label: a.name, value: a.id })),
   ], [academies]);
 
-  const tabs: { key: Tab; label: string; icon: string }[] = [
+  const tabs: { key: Tab; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[] = [
     { key: "features", label: "Features", icon: "analytics" },
     { key: "players", label: "Players", icon: "people" },
     { key: "dead_zones", label: "Dead Zones", icon: "eye-off" },
@@ -573,7 +573,7 @@ export default function PlayerActivityScreen({ route }: { route?: { params?: { i
             style={[s.tabBtn, activeTab === tab.key && s.tabBtnActive]}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab(tab.key); }}
           >
-            <Ionicons name={tab.icon as any} size={14} color={activeTab === tab.key ? PURPLE : Colors.dark.textMuted} />
+            <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? PURPLE : Colors.dark.textMuted} />
             <Text style={[s.tabLabel, activeTab === tab.key && s.tabLabelActive]}>{tab.label}</Text>
           </Pressable>
         ))}
