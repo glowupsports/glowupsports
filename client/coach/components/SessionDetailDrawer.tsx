@@ -2164,7 +2164,10 @@ export default function SessionDetailDrawer({
       {/* Stroke Analysis Modal */}
       <StrokeFeedbackModal
         visible={showStrokeFeedback}
-        session={liveSession}
+        session={liveSession ? {
+          ...liveSession,
+          players: (liveSession.players || []).filter(p => !removedPlayerIds.has(p.id)),
+        } : null}
         onClose={() => setShowStrokeFeedback(false)}
         onComplete={() => setShowStrokeFeedback(false)}
       />
