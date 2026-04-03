@@ -124,9 +124,10 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
         { role: "user", content: userMessage },
       ];
       setMessages(updatedMessages);
-      const data = await apiRequest("POST", `/api/sessions/${sessionId}/players/${playerId}/ai-chat`, {
+      const res = await apiRequest("POST", `/api/sessions/${sessionId}/players/${playerId}/ai-chat`, {
         messages: updatedMessages,
-      }) as { reply: string | null };
+      });
+      const data = await res.json() as { reply: string | null };
       return { reply: data.reply, userMessages: updatedMessages };
     },
     onSuccess: ({ reply, userMessages }) => {

@@ -2610,8 +2610,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           req2.end();
         });
 
-        if (!reply) return res.status(500).json({ error: "AI response failed" });
-        res.json({ reply });
+        res.json({ reply: reply ?? null });
       } catch (error) {
         console.error("[AIChat] Error processing chat turn:", error);
         res.status(500).json({ error: "Failed to process chat" });
