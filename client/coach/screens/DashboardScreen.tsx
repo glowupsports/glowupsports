@@ -1111,7 +1111,7 @@ export default function DashboardScreen() {
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleNavigate("Coaching");
+                navigateToTab("Coaching", { screen: "feedback" });
               }}
               ctaText={t("coach.dashboard.reviewNow")}
             />

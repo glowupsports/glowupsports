@@ -24,6 +24,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { styles } from "./coaching/coachingStyles";
 import type { TabType, ProgressTrend, EffortLevel } from "./coaching/types";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { SeriesTab } from "./coaching/SeriesTab";
 import { WeekPlannerTab } from "./coaching/WeekPlannerTab";
 import { RosterPlannerTab } from "./coaching/RosterPlannerTab";
@@ -44,6 +45,16 @@ export default function CoachingScreen() {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>("series");
   const { coach } = useCoach();
+  const { registerTabCallback } = useTabNavigation();
+
+  useEffect(() => {
+    const unregister = registerTabCallback("Coaching", (screen: string) => {
+      if (screen === "feedback") {
+        setActiveTab("feedback");
+      }
+    });
+    return unregister;
+  }, [registerTabCallback]);
   // Fetch coach XP and stats
   const { data: xpData } = useQuery<{ level: number; totalXp: number; currentLevelXp: number; nextLevelXp: number; xpProgress: number }>({
     queryKey: [`/api/coach/${coach?.id}/xp`],
@@ -128,6 +139,7 @@ export default function CoachingScreen() {
             { id: "weekPlanner", label: "Week View", icon: "calendar-outline", color: Colors.dark.primary },
             { id: "roster", label: "Roster", icon: "people-outline", color: "#FF8C00" },
             { id: "plans", label: "Plans", icon: "bulb", color: Colors.dark.gold },
+            { id: "feedback", label: "Feedback", icon: "chatbubble-ellipses", color: Colors.dark.successNeon },
           ] as const).map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -241,6 +253,8 @@ export default function CoachingScreen() {
         <WeekPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "roster" ? (
         <RosterPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "feedback" ? (
+        <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "today" ? (
         <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "progress" ? (
