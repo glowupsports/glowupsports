@@ -316,6 +316,13 @@ export default function FamilyLobbyScreen() {
 
   const handleOpenAddChildModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!isParent) {
+      Alert.alert(
+        "Parent Account Required",
+        "Only the parent account can add members to this Family Lobby. Switch to the parent account to manage members.",
+      );
+      return;
+    }
     setChildEmail("");
     setInviteCode(null);
     setInviteExpiry(null);
