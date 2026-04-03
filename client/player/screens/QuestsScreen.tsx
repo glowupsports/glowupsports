@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, StyleSheet, ScrollView, Pressable, Dimensions, Platform, Linking, Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -451,6 +452,7 @@ export default function QuestsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
+  const track = useTrackFeature();
   const [activeTab, setActiveTab] = useState<QuestType>("daily");
   
   const { data: questsData, isLoading } = useQuests();
@@ -489,6 +491,7 @@ export default function QuestsScreen() {
     quests.filter(q => q.status === "completed" || q.status === "claimed").length;
   
   const handleClaim = (questId: string) => {
+    track("quests:claim");
     claimReward.mutate(questId);
   };
   
@@ -523,6 +526,7 @@ export default function QuestsScreen() {
         const fileName = asset.fileName || `evidence-${Date.now()}.jpg`;
         const mimeType = asset.mimeType || "image/jpeg";
         
+        track("quests:upload_proof");
         uploadEvidence.mutate({
           questId,
           fileUri: asset.uri,
@@ -560,6 +564,7 @@ export default function QuestsScreen() {
                 key={tab.key}
                 style={[styles.tab, isActive && styles.tabActive]}
                 onPress={() => {
+                  track(`quests:tab_${tab.key}`);
                   setActiveTab(tab.key);
                   Haptics.selectionAsync();
                 }}

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   View,
   Text,
@@ -272,6 +273,11 @@ function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Cour
 export default function CourtBookingScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
+  const track = useTrackFeature();
+
+  useEffect(() => {
+    track("booking:court");
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSurface, setSelectedSurface] = useState<keyof typeof SURFACE_CONFIG>("all");

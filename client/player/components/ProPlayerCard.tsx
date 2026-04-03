@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, Text, StyleSheet, Pressable, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -65,6 +66,7 @@ export function ProPlayerCard({
   unreadNotificationCount = 0,
 }: ProPlayerCardProps) {
   const { t } = useTranslation();
+  const track = useTrackFeature();
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
@@ -249,12 +251,12 @@ export function ProPlayerCard({
             </Pressable>
 
             {player.streak > 0 ? (
-              <View style={styles.streakChip}>
+              <Pressable style={styles.streakChip} onPress={() => track("home:streak")}>
                 <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
                 <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
                   {player.streak}
                 </Text>
-              </View>
+              </Pressable>
             ) : null}
 
             <View style={{ flex: 1 }} />

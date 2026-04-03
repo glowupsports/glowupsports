@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   View,
   Text,
@@ -74,6 +75,7 @@ type Tab = "badges" | "titles";
 export default function CollectionScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const track = useTrackFeature();
   const [activeTab, setActiveTab] = useState<Tab>("badges");
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [selectedTitle, setSelectedTitle] = useState<Title | null>(null);
@@ -225,7 +227,7 @@ export default function CollectionScreen() {
       <View style={styles.tabsContainer}>
         <Pressable
           style={[styles.tab, activeTab === "badges" && styles.tabActive]}
-          onPress={() => setActiveTab("badges")}
+          onPress={() => { track("collection:badges"); setActiveTab("badges"); }}
         >
           <Ionicons 
             name="ribbon-outline" 
@@ -238,7 +240,7 @@ export default function CollectionScreen() {
         </Pressable>
         <Pressable
           style={[styles.tab, activeTab === "titles" && styles.tabActive]}
-          onPress={() => setActiveTab("titles")}
+          onPress={() => { track("collection:titles"); setActiveTab("titles"); }}
         >
           <Ionicons 
             name="medal-outline" 

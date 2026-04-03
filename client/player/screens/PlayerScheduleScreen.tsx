@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform } from "react-native";
 import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -175,6 +176,7 @@ export default function PlayerScheduleScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const track = useTrackFeature();
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
@@ -640,6 +642,7 @@ export default function PlayerScheduleScreen() {
   };
 
   const handleSetVacation = () => {
+    track("schedule:vacation_mode");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowVacationModal(true);
   };
@@ -1154,7 +1157,7 @@ export default function PlayerScheduleScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t("player.schedule.attendanceHistory")}</Text>
           </View>
-          <NeonBorderCard accentColor={ProTennisColors.neonGreen} onPress={() => setShowAttendanceModal(true)}>
+          <NeonBorderCard accentColor={ProTennisColors.neonGreen} onPress={() => { track("schedule:session_detail"); setShowAttendanceModal(true); }}>
             <View style={styles.attendanceStats}>
               <View style={styles.attendanceStat}>
                 <Text style={[styles.attendanceValue, { color: ProTennisColors.neonGreen }]}>{attendanceStats.attended}</Text>

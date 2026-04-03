@@ -18,6 +18,7 @@ import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { CoachReviewModal } from "@/player/components/CoachReviewModal";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -1634,6 +1635,7 @@ function formatShortDate(dateStr: string): string {
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const track = useTrackFeature();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { activeSports, activeSport, setActiveSport, isMultiSport } = useSport();
   const { logout, isGuest } = useAuth();
@@ -1786,6 +1788,7 @@ export default function PlayerProgressScreen() {
         icon: mapping.icon,
         color: mapping.color,
       };
+      track("progress:pillar_tap");
       setSelectedPillar(pillarData);
       setShowPillarModal(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -2095,11 +2098,13 @@ export default function PlayerProgressScreen() {
         )}
 
         {data.levelReadiness && !isNewPlayer ? (
-          <LevelReadinessSection 
-            readiness={data.levelReadiness} 
-            currentLevel={data.ballLevel}
-            nextLevel={data.nextBallLevel}
-          />
+          <Pressable onPress={() => track("progress:level_readiness")}>
+            <LevelReadinessSection 
+              readiness={data.levelReadiness} 
+              currentLevel={data.ballLevel}
+              nextLevel={data.nextBallLevel}
+            />
+          </Pressable>
         ) : null}
 
         {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
@@ -2182,7 +2187,7 @@ export default function PlayerProgressScreen() {
         </View>
 
         {/* Skill Radar - Always shown, with placeholder for new players */}
-        <View style={styles.radarSection}>
+        <Pressable style={styles.radarSection} onPress={() => track("progress:skill_radar")}>
           <View style={styles.radarHeader}>
             <Text style={styles.sectionTitle}>SKILL RADAR</Text>
             {isNewPlayer && (
@@ -2199,7 +2204,7 @@ export default function PlayerProgressScreen() {
               { id: "match", name: "Match", value: 5, maxValue: 100, icon: "trophy", color: "#3B82F6" },
             ]} />
           </View>
-        </View>
+        </Pressable>
 
 
         {(data.overallInsights?.strengths?.length ?? 0) > 0 ? (
@@ -2259,6 +2264,7 @@ export default function PlayerProgressScreen() {
               <Pressable
                 style={styles.seeAllButton}
                 onPress={() => {
+                  track("progress:coach_notes_all");
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   navigation.navigate("CoachFeedbackHistory");
                 }}
@@ -2294,6 +2300,7 @@ export default function PlayerProgressScreen() {
             <Pressable
               style={styles.videoCard}
               onPress={() => {
+                track("progress:video_feedback");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate("VideoFeedbackPlayer");
               }}

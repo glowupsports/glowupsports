@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -146,6 +147,7 @@ function PlayerHomeContent() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const track = useTrackFeature();
   const { user, isGuest } = useAuth();
   const { openDrawer } = usePlayerDrawer();
   const navigation = useNavigation<any>();
@@ -447,7 +449,10 @@ function PlayerHomeContent() {
   };
 
   const handleSquadPress = () => {
-    guardAction(() => navigation.navigate("FamilyLobby"));
+    guardAction(() => {
+      track("home:family_lobby");
+      navigation.navigate("FamilyLobby");
+    });
   };
 
   const handleBookLesson = () => {
@@ -607,6 +612,7 @@ function PlayerHomeContent() {
             quest={activeQuest}
             questType={activeQuestType}
             onViewAll={() => {
+              track("home:quest_tracker");
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("Quests" as never);
             }}

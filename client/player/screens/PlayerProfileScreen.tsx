@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -402,6 +403,7 @@ export default function PlayerProfileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const track = useTrackFeature();
   const { setMode } = useAppMode();
   const { logout, isGuest } = useAuth();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
@@ -476,6 +478,7 @@ export default function PlayerProfileScreen() {
       return apiRequest("POST", `/api/player/titles/${titleId}/equip`);
     },
     onSuccess: () => {
+      track("collection:equip_title");
       queryClient.invalidateQueries({ queryKey: ["/api/player/titles"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowTitlesModal(false);

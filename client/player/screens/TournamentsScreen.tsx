@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -451,6 +452,7 @@ export default function TournamentsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const track = useTrackFeature();
   const [activeTab, setActiveTab] = useState<TabType>("upcoming");
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -535,6 +537,7 @@ export default function TournamentsScreen() {
   const ladders = laddersData || [];
 
   const handleTabPress = (tab: TabType) => {
+    track(`tournaments:${tab}`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
   };
@@ -550,6 +553,7 @@ export default function TournamentsScreen() {
   };
 
   const handleRegister = (tournament: Tournament) => {
+    track("tournaments:register");
     if (tournament.categories && tournament.categories.length > 0) {
       Alert.alert(
         "Select Category",

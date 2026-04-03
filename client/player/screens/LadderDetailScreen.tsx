@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   View,
   Text,
@@ -169,6 +170,7 @@ function ChallengeModal({
 
 export default function LadderDetailScreen() {
   const { t } = useTranslation();
+  const track = useTrackFeature();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const insets = useSafeAreaInsets();
@@ -223,6 +225,7 @@ export default function LadderDetailScreen() {
   const myPosition = data.myPosition || 0;
 
   const handleChallenge = (player: LadderPlayer) => {
+    track("ladder:challenge");
     setSelectedPlayer(player);
   };
 

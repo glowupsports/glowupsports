@@ -1,5 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useMemo, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   View,
   StyleSheet,
@@ -68,6 +69,7 @@ export default function CommunityScreen() {
   const { isMinor, communityEnabled } = usePlayer();
   const [showSafetyModal, setShowSafetyModal] = useState(isMinor && !hasShownSafetyReminder());
   const canInteract = !isMinor || communityEnabled;
+  const track = useTrackFeature();
   const [mainTab, setMainTab] = useState<MainTab>("feed");
   const [filter, setFilter] = useState<FeedFilter>("for_you");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -213,6 +215,7 @@ export default function CommunityScreen() {
   };
 
   const handleCreateMoment = () => {
+    track("community:create_post");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowCreateModal(true);
   };
@@ -256,7 +259,7 @@ export default function CommunityScreen() {
 
       {mainTab === "feed" ? (
         <>
-            <FeedFilterTabs active={filter} onChange={setFilter} />
+            <FeedFilterTabs active={filter} onChange={(f) => { track(`community:feed_${f}`); setFilter(f); }} />
 
           {filter === "for_you" ? (
             <AchievementShowcase

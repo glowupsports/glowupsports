@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   View,
   Text,
@@ -70,6 +71,7 @@ export default function MatchScreen() {
   const route = useRoute<NativeStackScreenProps<ScheduleStackParamList, "Match">["route"]>();
   const { player } = usePlayer();
   const queryClient = useQueryClient();
+  const track = useTrackFeature();
   const [activeTab, setActiveTab] = useState<"upcoming" | "history">(
     route.params?.initialTab ?? "upcoming"
   );
@@ -231,6 +233,7 @@ export default function MatchScreen() {
           <Pressable
             style={styles.addButton}
             onPress={() => {
+              track("match:log_match");
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               setShowPrepareModal(true);
             }}
@@ -250,7 +253,7 @@ export default function MatchScreen() {
         </Pressable>
         <Pressable
           style={[styles.tab, activeTab === "history" && styles.activeTab]}
-          onPress={() => setActiveTab("history")}
+          onPress={() => { track("match:history"); setActiveTab("history"); }}
         >
           <Text style={[styles.tabText, activeTab === "history" && styles.activeTabText]}>
             History

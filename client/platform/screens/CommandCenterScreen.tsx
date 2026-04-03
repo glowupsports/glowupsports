@@ -52,6 +52,35 @@ const FEATURE_LABEL_MAP: Record<string, string> = {
   "screen:quick_book": "Quick Book",
   "screen:shop": "Shop Screen",
   "screen:lesson_booking": "Lesson Booking",
+  "progress:pillar_tap": "Progress Pillar Tap",
+  "progress:video_feedback": "Video Feedback",
+  "progress:coach_notes_all": "Coach Notes (All)",
+  "quests:tab_daily": "Quests - Daily Tab",
+  "quests:tab_weekly": "Quests - Weekly Tab",
+  "quests:tab_monthly": "Quests - Monthly Tab",
+  "quests:claim": "Quest Claim Reward",
+  "quests:upload_proof": "Quest Upload Proof",
+  "collection:badges": "Collection - Badges",
+  "collection:titles": "Collection - Titles",
+  "tournaments:upcoming": "Tournaments - Upcoming",
+  "tournaments:my_tournaments": "Tournaments - My Tournaments",
+  "tournaments:ladders": "Tournaments - Ladders",
+  "tournaments:register": "Tournament Register",
+  "community:feed_for_you": "Community - For You Feed",
+  "community:feed_friends": "Community - Friends Feed",
+  "community:create_post": "Community - Create Post",
+  "schedule:vacation_mode": "Vacation Mode Toggle",
+  "schedule:session_detail": "Session Detail",
+  "booking:court": "Court Booking",
+  "match:log_match": "Log Match",
+  "match:history": "Match History",
+  "home:quest_tracker": "Home - Quest Tracker",
+  "home:streak": "Home - Streak",
+  "home:family_lobby": "Home - Family Lobby",
+  "progress:skill_radar": "Skill Radar",
+  "progress:level_readiness": "Level Readiness",
+  "collection:equip_title": "Equip Title",
+  "ladder:challenge": "Ladder Challenge",
 };
 
 interface FeatureUsageItem {
@@ -66,13 +95,24 @@ interface FeatureUsageData {
   generatedAt: string;
 }
 
-function FeatureUsageCard() {
+interface AcademyOption {
+  id: string;
+  name: string;
+}
+
+function FeatureUsageCard({ academies }: { academies: AcademyOption[] }) {
   const [days, setDays] = useState(7);
   const navigation = useNavigation<NativeStackNavigationProp<PlatformStackParamList>>();
+  const [selectedAcademyId, setSelectedAcademyId] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<FeatureUsageData>({
-    queryKey: [`/api/platform/analytics/feature-usage`, days],
+    queryKey: [`/api/platform/analytics/feature-usage`, days, selectedAcademyId],
     queryFn: async ({ queryKey }) => {
-      const url = new URL(`/api/platform/analytics/feature-usage?days=${queryKey[1]}`, getApiUrl());
+      const daysVal = queryKey[1];
+      const academyId = queryKey[2];
+      const url = new URL(`/api/platform/analytics/feature-usage`, getApiUrl());
+      url.searchParams.set("days", String(daysVal));
+      if (academyId) url.searchParams.set("academyId", String(academyId));
       const res = await fetch(url.toString(), { headers: getAuthHeaders(), credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch feature usage");
       return res.json();
@@ -86,12 +126,52 @@ function FeatureUsageCard() {
     { label: "30d", value: 30 },
   ];
 
-  const features = (data?.features || []).slice(0, 6);
+  const CATEGORY_CONFIG: Array<{ prefix: string[]; label: string; color: string }> = [
+    { prefix: ["tab:"], label: "Navigation", color: PLATFORM_PURPLE },
+    { prefix: ["action:"], label: "Quick Actions", color: "#3498DB" },
+    { prefix: ["screen:"], label: "Screens", color: "#1ABC9C" },
+    { prefix: ["progress:", "home:"], label: "Progress & Home", color: Colors.dark.xpCyan },
+    { prefix: ["quests:"], label: "Quests", color: "#F39C12" },
+    { prefix: ["collection:"], label: "Collection", color: "#9B59B6" },
+    { prefix: ["tournaments:", "ladder:"], label: "Competition", color: "#E74C3C" },
+    { prefix: ["community:"], label: "Social", color: "#2ECC71" },
+    { prefix: ["schedule:", "booking:", "match:"], label: "Schedule & Booking", color: "#E67E22" },
+  ];
+
+  const getCategoryColor = (feature: string) => {
+    for (const cat of CATEGORY_CONFIG) {
+      if (cat.prefix.some(p => feature.startsWith(p))) return cat.color;
+    }
+    return Colors.dark.xpCyan;
+  };
+
+  const getCategoryLabel = (feature: string) => {
+    for (const cat of CATEGORY_CONFIG) {
+      if (cat.prefix.some(p => feature.startsWith(p))) return cat.label;
+    }
+    return "Other";
+  };
+
+  const features = data?.features || [];
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("PlayerActivity", { initialTab: "features" });
   };
+
+  type GroupedFeatures = { category: string; color: string; items: (FeatureUsageItem & { globalIndex: number })[] };
+  const groupedFeatures = useMemo<GroupedFeatures[]>(() => {
+    const groups = new Map<string, GroupedFeatures>();
+    features.forEach((item, idx) => {
+      const catLabel = getCategoryLabel(item.feature);
+      const catColor = getCategoryColor(item.feature);
+      if (!groups.has(catLabel)) {
+        groups.set(catLabel, { category: catLabel, color: catColor, items: [] });
+      }
+      groups.get(catLabel)!.items.push({ ...item, globalIndex: idx });
+    });
+    return Array.from(groups.values());
+  }, [features]);
 
   return (
     <View style={styles.section}>
@@ -119,6 +199,41 @@ function FeatureUsageCard() {
         </View>
       </View>
 
+      {academies.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={fuStyles.academyFilterScroll}
+          contentContainerStyle={fuStyles.academyFilterContent}
+        >
+          <Pressable
+            style={[fuStyles.academyPill, selectedAcademyId === null && fuStyles.academyPillActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedAcademyId(null);
+            }}
+          >
+            <Text style={[fuStyles.academyPillText, selectedAcademyId === null && fuStyles.academyPillTextActive]}>
+              All Academies
+            </Text>
+          </Pressable>
+          {academies.map((academy) => (
+            <Pressable
+              key={academy.id}
+              style={[fuStyles.academyPill, selectedAcademyId === academy.id && fuStyles.academyPillActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedAcademyId(academy.id);
+              }}
+            >
+              <Text style={[fuStyles.academyPillText, selectedAcademyId === academy.id && fuStyles.academyPillTextActive]}>
+                {academy.name}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+
       <View style={fuStyles.card}>
         {isLoading ? (
           <View style={fuStyles.loadingContainer}>
@@ -132,27 +247,34 @@ function FeatureUsageCard() {
             <Text style={fuStyles.emptySubText}>Events appear as players use the app</Text>
           </View>
         ) : (
-          features.map((item, index) => {
-            const label = FEATURE_LABEL_MAP[item.feature] || item.feature;
-            const isTab = item.feature.startsWith("tab:");
-            const barColor = isTab ? PLATFORM_PURPLE : Colors.dark.xpCyan;
-            return (
-              <View key={item.feature} style={[fuStyles.row, index < features.length - 1 && fuStyles.rowBorder]}>
-                <View style={fuStyles.rowLeft}>
-                  <View style={[fuStyles.rankBadge, { backgroundColor: `${barColor}18` }]}>
-                    <Text style={[fuStyles.rankText, { color: barColor }]}>{index + 1}</Text>
-                  </View>
-                  <Text style={fuStyles.featureLabel} numberOfLines={1}>{label}</Text>
-                </View>
-                <View style={fuStyles.rowRight}>
-                  <View style={fuStyles.barTrack}>
-                    <View style={[fuStyles.barFill, { width: `${Math.max(item.intensity * 100, 4)}%` as DimensionValue, backgroundColor: barColor }]} />
-                  </View>
-                  <Text style={fuStyles.countText}>{item.total}</Text>
-                </View>
+          groupedFeatures.map((group) => (
+            <View key={group.category}>
+              <View style={[fuStyles.categoryHeader, { borderLeftColor: group.color }]}>
+                <Text style={[fuStyles.categoryLabel, { color: group.color }]}>{group.category}</Text>
               </View>
-            );
-          })
+              {group.items.map((item, indexInGroup) => {
+                const label = FEATURE_LABEL_MAP[item.feature] || item.feature;
+                const barColor = group.color;
+                const isLastInGroup = indexInGroup === group.items.length - 1;
+                return (
+                  <View key={item.feature} style={[fuStyles.row, !isLastInGroup && fuStyles.rowBorder]}>
+                    <View style={fuStyles.rowLeft}>
+                      <View style={[fuStyles.rankBadge, { backgroundColor: `${barColor}18` }]}>
+                        <Text style={[fuStyles.rankText, { color: barColor }]}>{item.globalIndex + 1}</Text>
+                      </View>
+                      <Text style={fuStyles.featureLabel} numberOfLines={1}>{label}</Text>
+                    </View>
+                    <View style={fuStyles.rowRight}>
+                      <View style={fuStyles.barTrack}>
+                        <View style={[fuStyles.barFill, { width: `${Math.max(item.intensity * 100, 4)}%` as DimensionValue, backgroundColor: barColor }]} />
+                      </View>
+                      <Text style={fuStyles.countText}>{item.total}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ))
         )}
         {features.length > 0 && (
           <Pressable style={fuStyles.seeAllBtn} onPress={handleSeeAll}>
@@ -505,7 +627,7 @@ export default function CommandCenterScreen() {
 
         <SmartInsightsPanel insights={insights} />
 
-        <FeatureUsageCard />
+        <FeatureUsageCard academies={(platformData?.academies || []).map(a => ({ id: a.id, name: a.name }))} />
 
         <BetaFeedbackPanel />
 
@@ -884,5 +1006,47 @@ const fuStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: PLATFORM_PURPLE,
+  },
+  categoryHeader: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderLeftWidth: 3,
+    marginLeft: 0,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  categoryLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  academyFilterScroll: {
+    marginBottom: Spacing.sm,
+  },
+  academyFilterContent: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    paddingHorizontal: 2,
+  },
+  academyPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  academyPillActive: {
+    backgroundColor: `${PLATFORM_PURPLE}20`,
+    borderColor: PLATFORM_PURPLE,
+  },
+  academyPillText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  academyPillTextActive: {
+    color: PLATFORM_PURPLE,
+    fontWeight: "600",
   },
 });

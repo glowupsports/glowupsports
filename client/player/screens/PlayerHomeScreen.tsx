@@ -1,5 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useCallback, useEffect } from "react";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -821,6 +822,7 @@ function PlayerStatusAvatar({ player, coach, academy }: PlayerStatusAvatarProps)
 export default function PlayerHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const track = useTrackFeature();
   const { user } = useAuth();
   const { mode } = useAppMode();
   const { openDrawer } = usePlayerDrawer();
@@ -1353,7 +1355,10 @@ export default function PlayerHomeScreen() {
           streak={questsData?.streak?.currentStreak || 0}
           streakMultiplier={questsData?.streak?.multiplier || 1}
           onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
-          onViewAll={() => navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } })}
+          onViewAll={() => {
+            track("home:quest_tracker");
+            navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } });
+          }}
         />
 
         {/* E) Social Highlights - Always show */}
