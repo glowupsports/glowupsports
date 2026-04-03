@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import BallLevelBadge from "@/components/BallLevelBadge";
+import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
 
 interface TodaySession {
   id: string;
@@ -34,6 +35,7 @@ interface QuickStat {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }
+
 
 export default function CoachHQScreen() {
   const insets = useSafeAreaInsets();
@@ -250,6 +252,8 @@ export default function CoachHQScreen() {
           </Card>
         ))
       )}
+
+      <RosterInsightsCard />
 
       <View style={styles.quickActions}>
         <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>

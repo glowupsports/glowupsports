@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc, gte, inArray } from "drizzle-orm";
 import OpenAI from "openai";
 import {
   inSessionFeedback,
@@ -1494,6 +1494,361 @@ Tone: warm, parent-friendly, positive but honest. No scores or numbers from the 
     return letter?.trim() || null;
   } catch (error) {
     console.error("[AIEngine] Error generating parent progress letter:", error);
+    return null;
+  }
+}
+
+// ==================== ROSTER INSIGHTS (COACH) ====================
+
+export interface RosterPlayerSummary {
+  playerId: string;
+  playerName: string;
+  ballLevel: string;
+  age: number | null;
+  attendanceRate: number | null;
+  missedSessionsLast30: number;
+  totalSessionsLast30: number;
+  skillGaps: { skillName: string; pillar: string; score: number; target: number }[];
+  trendDirection: "improving" | "declining" | "stable" | "insufficient_data";
+  coachFlags: string[];
+}
+
+export interface RosterInsightsContext {
+  totalPlayers: number;
+  players: RosterPlayerSummary[];
+  commonSkillGaps: { skillName: string; pillar: string; playerCount: number; totalPlayers: number }[];
+  attendanceConcerns: { playerId: string; playerName: string; missedSessions: number }[];
+  improvingPlayers: { playerId: string; playerName: string }[];
+  decliningPlayers: { playerId: string; playerName: string }[];
+}
+
+export async function buildRosterInsightsContext(coachId: string): Promise<RosterInsightsContext | null> {
+  try {
+    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const coachPlayers = await db
+      .select({
+        id: players.id,
+        name: players.name,
+        ballLevel: players.ballLevel,
+        age: players.age,
+        status: players.status,
+      })
+      .from(players)
+      .where(and(eq(players.coachId, coachId), eq(players.status, "active")));
+
+    if (coachPlayers.length === 0) return null;
+
+    const playerIds = coachPlayers.map((p) => p.id);
+
+    // Get recent skill scores per player
+    const allSkillScores = await db
+      .select({
+        playerId: playerSkillScores.playerId,
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        score: playerSkillScores.score,
+        movingAverage: playerSkillScores.movingAverage,
+        createdAt: playerSkillScores.createdAt,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(and(inArray(playerSkillScores.playerId, playerIds), gte(playerSkillScores.createdAt, since30)))
+      .orderBy(desc(playerSkillScores.createdAt));
+
+    // Get recent session attendance per player
+    const recentSessionData = await db
+      .select({
+        playerId: sessionPlayers.playerId,
+        attendanceStatus: sessionPlayers.attendanceStatus,
+        sessionId: sessionPlayers.sessionId,
+      })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(
+        and(
+          inArray(sessionPlayers.playerId, playerIds),
+          gte(sessions.startTime, since30)
+        )
+      );
+
+    // Get current ball levels from playerBallLevels table
+    const ballLevelRows = await db
+      .select({
+        playerId: playerBallLevels.playerId,
+        levelId: playerBallLevels.levelId,
+      })
+      .from(playerBallLevels)
+      .where(inArray(playerBallLevels.playerId, playerIds))
+      .orderBy(desc(playerBallLevels.assignedAt));
+
+    const latestBallLevel = new Map<string, string>();
+    for (const row of ballLevelRows) {
+      if (!latestBallLevel.has(row.playerId)) {
+        latestBallLevel.set(row.playerId, row.levelId);
+      }
+    }
+
+    // Get level skill targets
+    const allBallLevelIds = [...new Set(coachPlayers.map((p) => latestBallLevel.get(p.id) || p.ballLevel || "unknown"))];
+    const levelSkillTargets = await db
+      .select({
+        levelId: levelSkills.levelId,
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        targetScore: levelSkills.targetScore,
+        isRequired: levelSkills.isRequired,
+      })
+      .from(levelSkills)
+      .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+      .where(and(inArray(levelSkills.levelId, allBallLevelIds), eq(levelSkills.isRequired, true)));
+
+    // Get coach notes/flags for players
+    const coachNotes = await db
+      .select({
+        playerId: playerNotes.playerId,
+        content: playerNotes.content,
+        category: playerNotes.category,
+        isPinned: playerNotes.isPinned,
+      })
+      .from(playerNotes)
+      .where(
+        and(
+          inArray(playerNotes.playerId, playerIds),
+          eq(playerNotes.coachId, coachId),
+          eq(playerNotes.isPinned, true)
+        )
+      );
+
+    // Aggregate data per player
+    const playerSummaries: RosterPlayerSummary[] = [];
+
+    for (const player of coachPlayers) {
+      const effectiveLevel = latestBallLevel.get(player.id) || player.ballLevel || "unknown";
+      const playerSessions = recentSessionData.filter((s) => s.playerId === player.id);
+      const totalSessions = playerSessions.length;
+      const attendedSessions = playerSessions.filter(
+        (s) => s.attendanceStatus === "present" || s.attendanceStatus === "late"
+      ).length;
+      const missedSessions = playerSessions.filter((s) => s.attendanceStatus === "absent").length;
+      const attendanceRate = totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : null;
+
+      // Get latest score per skill for this player
+      const playerScores = allSkillScores.filter((s) => s.playerId === player.id);
+      const latestScoreBySkill = new Map<string, number>();
+      for (const score of playerScores) {
+        if (!latestScoreBySkill.has(score.skillName)) {
+          latestScoreBySkill.set(score.skillName, Number(score.movingAverage ?? score.score));
+        }
+      }
+
+      // Calculate skill gaps against level targets
+      const levelTargets = levelSkillTargets.filter((lt) => lt.levelId === effectiveLevel);
+      const skillGaps: RosterPlayerSummary["skillGaps"] = [];
+      for (const target of levelTargets) {
+        const currentScore = latestScoreBySkill.get(target.skillName);
+        if (currentScore !== undefined && currentScore < target.targetScore) {
+          skillGaps.push({
+            skillName: target.skillName,
+            pillar: target.pillar || "Technical",
+            score: currentScore,
+            target: target.targetScore,
+          });
+        }
+      }
+
+      // Simple trend: compare oldest vs newest score in the period
+      let trendDirection: RosterPlayerSummary["trendDirection"] = "insufficient_data";
+      if (playerScores.length >= 2) {
+        const oldest = playerScores[playerScores.length - 1];
+        const newest = playerScores[0];
+        const diff = Number(newest.movingAverage ?? newest.score) - Number(oldest.movingAverage ?? oldest.score);
+        if (diff > 0.1) trendDirection = "improving";
+        else if (diff < -0.1) trendDirection = "declining";
+        else trendDirection = "stable";
+      }
+
+      // Get coach flags (pinned notes)
+      const flags = coachNotes
+        .filter((n) => n.playerId === player.id)
+        .map((n) => `[${n.category}] ${n.content}`.substring(0, 80));
+
+      playerSummaries.push({
+        playerId: player.id,
+        playerName: player.name,
+        ballLevel: effectiveLevel,
+        age: player.age ? Number(player.age) : null,
+        attendanceRate,
+        missedSessionsLast30: missedSessions,
+        totalSessionsLast30: totalSessions,
+        skillGaps,
+        trendDirection,
+        coachFlags: flags,
+      });
+    }
+
+    // Aggregate common skill gaps across roster
+    const skillGapCount = new Map<string, { pillar: string; count: number }>();
+    for (const ps of playerSummaries) {
+      for (const gap of ps.skillGaps) {
+        const entry = skillGapCount.get(gap.skillName);
+        if (entry) {
+          entry.count++;
+        } else {
+          skillGapCount.set(gap.skillName, { pillar: gap.pillar, count: 1 });
+        }
+      }
+    }
+
+    const commonSkillGaps = [...skillGapCount.entries()]
+      .map(([skillName, { pillar, count }]) => ({
+        skillName,
+        pillar,
+        playerCount: count,
+        totalPlayers: playerSummaries.length,
+      }))
+      .sort((a, b) => b.playerCount - a.playerCount)
+      .slice(0, 5);
+
+    const attendanceConcerns = playerSummaries
+      .filter((p) => p.missedSessionsLast30 >= 2)
+      .map((p) => ({
+        playerId: p.playerId,
+        playerName: p.playerName,
+        missedSessions: p.missedSessionsLast30,
+      }))
+      .sort((a, b) => b.missedSessions - a.missedSessions);
+
+    const improvingPlayers = playerSummaries
+      .filter((p) => p.trendDirection === "improving")
+      .map((p) => ({ playerId: p.playerId, playerName: p.playerName }));
+
+    const decliningPlayers = playerSummaries
+      .filter((p) => p.trendDirection === "declining")
+      .map((p) => ({ playerId: p.playerId, playerName: p.playerName }));
+
+    return {
+      totalPlayers: playerSummaries.length,
+      players: playerSummaries,
+      commonSkillGaps,
+      attendanceConcerns,
+      improvingPlayers,
+      decliningPlayers,
+    };
+  } catch (error) {
+    console.error("[AIEngine] Error building roster insights context:", error);
+    return null;
+  }
+}
+
+export async function generateRosterInsights(coachId: string): Promise<{ insights: { text: string; playerIds: string[] }[]; generatedAt: string } | null> {
+  try {
+    const context = await buildRosterInsightsContext(coachId);
+    if (!context || context.totalPlayers === 0) return null;
+
+    // Build structured prompt
+    const lines: string[] = [
+      `Roster overview: ${context.totalPlayers} active players`,
+    ];
+
+    if (context.commonSkillGaps.length > 0) {
+      lines.push(
+        `Top skill gaps across roster: ${context.commonSkillGaps
+          .map((g) => `${g.skillName} (${g.playerCount}/${g.totalPlayers} players)`)
+          .join(", ")}`
+      );
+    }
+
+    if (context.attendanceConcerns.length > 0) {
+      lines.push(
+        `Attendance concerns: ${context.attendanceConcerns
+          .map((p) => `${p.playerName} (${p.missedSessions} missed sessions)`)
+          .join(", ")}`
+      );
+    }
+
+    if (context.improvingPlayers.length > 0) {
+      lines.push(
+        `Players improving: ${context.improvingPlayers.map((p) => p.playerName).join(", ")} (${context.improvingPlayers.length} players)`
+      );
+    }
+
+    if (context.decliningPlayers.length > 0) {
+      lines.push(
+        `Players declining: ${context.decliningPlayers.map((p) => p.playerName).join(", ")} (${context.decliningPlayers.length} players)`
+      );
+    }
+
+    // Add a sample of per-player summaries (skill gaps only)
+    const playersWithGaps = context.players.filter((p) => p.skillGaps.length > 0).slice(0, 8);
+    if (playersWithGaps.length > 0) {
+      const playerLines = playersWithGaps.map(
+        (p) => `  - ${p.playerName} (${p.ballLevel}): gaps in ${p.skillGaps.map((g) => g.skillName).join(", ")}`
+      );
+      lines.push("Per-player skill gaps:\n" + playerLines.join("\n"));
+    }
+
+    // Include coach flags (pinned notes) in the context
+    const playersWithFlags = context.players.filter((p) => p.coachFlags.length > 0);
+    if (playersWithFlags.length > 0) {
+      const flagLines = playersWithFlags.map(
+        (p) => `  - ${p.playerName}: ${p.coachFlags.join(" | ")}`
+      );
+      lines.push("Coach-flagged notes (pinned):\n" + flagLines.join("\n"));
+    }
+
+    const prompt = `You are a head tennis/sports coach reviewing your roster data for coaching intelligence.
+
+${lines.join("\n")}
+
+Generate EXACTLY 3 concise, actionable insights for the coach dashboard. Each insight should:
+- Be 1-2 sentences max
+- Reference specific numbers (e.g. "7 of 12 players", "3 sessions missed")
+- Be immediately actionable (e.g. suggest a group session topic, flag a player to check in with)
+- Cover different aspects: skill trends, attendance, or individual player progress
+- Never use emojis
+
+Also, for each insight, list which player IDs are most relevant (use the playerIds from the data below).
+
+Player ID mapping:
+${context.players.map((p) => `${p.playerName}: ${p.playerId}`).join("\n")}
+
+Return ONLY valid JSON (no markdown), like:
+[
+  {"text": "insight text here", "playerIds": ["id1", "id2"]},
+  {"text": "insight text here", "playerIds": ["id3"]},
+  {"text": "insight text here", "playerIds": ["id4", "id5"]}
+]`;
+
+    const systemPrompt =
+      "You are an expert sports analytics AI for a coaching platform. Generate concise, data-driven roster insights. Return only valid JSON without markdown formatting. Never use emojis.";
+
+    const response = await callOpenAI(prompt, systemPrompt, 600);
+    if (!response) return null;
+
+    const cleaned = response.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/, "").trim();
+    let parsed: { text: string; playerIds: string[] }[];
+    try {
+      parsed = JSON.parse(cleaned);
+      if (!Array.isArray(parsed)) return null;
+    } catch {
+      return null;
+    }
+
+    const insights = parsed
+      .filter((item) => item.text && typeof item.text === "string")
+      .slice(0, 3)
+      .map((item) => ({
+        text: item.text.trim(),
+        playerIds: Array.isArray(item.playerIds) ? item.playerIds : [],
+      }));
+
+    return {
+      insights,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("[AIEngine] Error generating roster insights:", error);
     return null;
   }
 }

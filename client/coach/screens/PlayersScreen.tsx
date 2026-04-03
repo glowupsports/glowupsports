@@ -161,6 +161,7 @@ export default function PlayersScreen() {
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons" | "holiday">("all");
+  const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "nameDesc" | "credits" | "creditsDesc" | "negative" | "nonDebt" | "lastLesson" | "oldestLesson" | "newest" | "oldest" | "notActivated" | "appActive">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -189,7 +190,13 @@ export default function PlayersScreen() {
 
   useEffect(() => {
     const unregister = registerTabCallback("Players", (_screen: string, params?: any) => {
-      if (params?.playerId) {
+      if (params?.playerIds && Array.isArray(params.playerIds)) {
+        setFilterPlayerIds(params.playerIds);
+        setSearchQuery("");
+        setFilterLevel(null);
+        setFilterSubLevel(null);
+        setFilterStatus("all");
+      } else if (params?.playerId) {
         if (players.length > 0) {
           const player = players.find((p) => p.id === params.playerId || p.id === String(params.playerId));
           if (player) {
@@ -250,6 +257,10 @@ export default function PlayersScreen() {
 
   const filteredPlayers = useMemo(() => {
     let result = players;
+    if (filterPlayerIds !== null) {
+      const idSet = new Set(filterPlayerIds);
+      result = result.filter((p) => idSet.has(p.id));
+    }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -329,7 +340,7 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy]);
+  }, [players, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -697,6 +708,20 @@ export default function PlayersScreen() {
           );
         })}
       </View>
+
+      {/* === ROSTER INSIGHTS FILTER BANNER === */}
+      {filterPlayerIds !== null ? (
+        <Pressable
+          style={styles.rosterFilterBanner}
+          onPress={() => setFilterPlayerIds(null)}
+        >
+          <Ionicons name="people-circle-outline" size={16} color={Colors.dark.primary} />
+          <Text style={styles.rosterFilterBannerText}>
+            Showing {filterPlayerIds.length} players from Roster Insights
+          </Text>
+          <Ionicons name="close-circle" size={16} color={Colors.dark.primary} />
+        </Pressable>
+      ) : null}
 
       {/* === GAMING FILTER PILLS === */}
       

@@ -723,4 +723,63 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+// ==================== ROSTER INSIGHTS (AI) ====================
+
+// In-memory cache for roster insights: coachId -> { insights, generatedAt, cachedAt }
+const rosterInsightsCache = new Map<string, { insights: { text: string; playerIds: string[] }[]; generatedAt: string; cachedAt: number }>();
+const ROSTER_INSIGHTS_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+router.get(
+  "/api/coach/roster-insights",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "No coach profile found" });
+      }
+
+      const forceRefresh = req.query.refresh === "true";
+
+      // Check cache (24h TTL)
+      const cached = rosterInsightsCache.get(coachId);
+      if (cached && !forceRefresh && Date.now() - cached.cachedAt < ROSTER_INSIGHTS_TTL_MS) {
+        return res.json({
+          insights: cached.insights,
+          generatedAt: cached.generatedAt,
+          fromCache: true,
+        });
+      }
+
+      const { generateRosterInsights } = await import("../services/ai-progress-engine");
+      const result = await generateRosterInsights(coachId);
+
+      if (!result) {
+        return res.json({
+          insights: [],
+          generatedAt: new Date().toISOString(),
+          fromCache: false,
+          message: "No roster data available to generate insights.",
+        });
+      }
+
+      rosterInsightsCache.set(coachId, {
+        insights: result.insights,
+        generatedAt: result.generatedAt,
+        cachedAt: Date.now(),
+      });
+
+      return res.json({
+        insights: result.insights,
+        generatedAt: result.generatedAt,
+        fromCache: false,
+      });
+    } catch (error) {
+      console.error("Error generating roster insights:", error);
+      res.status(500).json({ error: "Failed to generate roster insights" });
+    }
+  }
+);
+
 export default router;

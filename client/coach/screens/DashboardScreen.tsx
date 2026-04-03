@@ -54,6 +54,7 @@ import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
 import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
+import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GettingStartedChecklist, ChecklistStep } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
@@ -1795,6 +1796,9 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
+
+        {/* === ROSTER INSIGHTS === */}
+        <RosterInsightsCard />
 
         {/* === ACTION QUEUE - Gaming Alerts HUD === */}
         {alerts.length > 0 ? (
