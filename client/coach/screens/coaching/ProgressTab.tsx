@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
