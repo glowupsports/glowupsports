@@ -6,7 +6,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import Svg, { Polygon, Circle, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
@@ -17,6 +17,7 @@ import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { CoachReviewModal } from "@/player/components/CoachReviewModal";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -100,6 +101,44 @@ interface StrokeFeedbackRow {
   overall: number | null;
   effort: number | null;
   createdAt: string;
+}
+
+interface SessionFeedbackItem {
+  id: string;
+  sessionId: string;
+  sessionDate: string;
+  sessionType: string;
+  coachName: string;
+  coachId: string;
+  feedbackType: string;
+  message: string;
+  xpAwarded: number;
+  visibility: string;
+  pillarId: string | null;
+  createdAt: string;
+}
+
+interface VideoFeedbackItem {
+  id: string;
+  coachId: string;
+  playerId: string;
+  title: string;
+  videoUrl: string;
+  thumbnailUrl: string | null;
+  annotations: { timestamp: number; text: string }[];
+  createdAt: string;
+}
+
+interface PlayerProfileData {
+  player: {
+    id: string;
+    name: string;
+    coachId: string | null;
+  } | null;
+  coach: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface SkillDomain {
@@ -1575,6 +1614,23 @@ function getSessionTypeColor(type: string): string {
   return map[type] || Colors.dark.textMuted;
 }
 
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  private: "Private",
+  semi_private: "Semi-Private",
+  group: "Group",
+  camp: "Camp",
+};
+
+function getSessionTypeLabel(sessionType: string): string {
+  const key = sessionType?.toLowerCase()?.replace("-", "_") || "private";
+  return SESSION_TYPE_LABELS[key] || sessionType;
+}
+
+function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -1588,6 +1644,7 @@ export default function PlayerProgressScreen() {
   const [showAdultGlowModal, setShowAdultGlowModal] = useState(false);
   const [showPillarModal, setShowPillarModal] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   const makeSportUrl = (path: string) => {
     const url = new URL(path, getApiUrl());
@@ -1659,6 +1716,31 @@ export default function PlayerProgressScreen() {
       return r.json();
     },
   });
+
+  const { data: sessionFeedbacks } = useQuery<SessionFeedbackItem[]>({
+    queryKey: ["/api/player/me/session-feedback"],
+    enabled: !isGuest,
+  });
+
+  const { data: videoFeedbacks } = useQuery<VideoFeedbackItem[]>({
+    queryKey: ["/api/player/me/video-feedback"],
+    enabled: !isGuest,
+  });
+
+  const { data: playerProfile } = useQuery<PlayerProfileData>({
+    queryKey: ["/api/player/me/profile"],
+    enabled: !isGuest,
+  });
+
+  const recentNotes = useMemo(() => {
+    if (!sessionFeedbacks || sessionFeedbacks.length === 0) return [];
+    return [...sessionFeedbacks]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3);
+  }, [sessionFeedbacks]);
+
+  const videoCount = videoFeedbacks?.length ?? 0;
+  const assignedCoach = playerProfile?.coach ?? null;
 
   useEffect(() => {
     if (!hasSeenScreen("Progress")) {
@@ -2073,11 +2155,11 @@ export default function PlayerProgressScreen() {
             }}
           >
             <View style={styles.feedbackCenterIcon}>
-              <Ionicons name="document-text" size={18} color={GlowColors.primary} />
+              <Ionicons name="school" size={18} color={GlowColors.primary} />
             </View>
             <View style={styles.feedbackCenterInfo}>
-              <Text style={styles.feedbackCenterTitle}>Feedback Center</Text>
-              <Text style={styles.feedbackCenterSubtitle}>View all skill assessments from coaches</Text>
+              <Text style={styles.feedbackCenterTitle}>Skill Assessments</Text>
+              <Text style={styles.feedbackCenterSubtitle}>View deep skill-by-skill evaluations</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
@@ -2148,71 +2230,92 @@ export default function PlayerProgressScreen() {
           </View>
         ) : null}
 
-        {/* Coach Feedback Section */}
-        {coachFeedback && coachFeedback.length > 0 ? (
-          <View style={styles.feedbackSection}>
-            <View style={styles.feedbackHeader}>
-              <View style={styles.sectionTitleRow}>
-                <Text style={styles.sectionTitle}>Coach Feedback</Text>
-                <View style={styles.feedbackBadge}>
-                  <Ionicons name="star" size={12} color={GlowColors.primary} />
-                  <Text style={styles.feedbackBadgeText}>{coachFeedback.length}</Text>
-                </View>
+        {/* Coach Notes Section */}
+        <View style={styles.feedbackSection}>
+          <View style={styles.feedbackHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconSmall, { backgroundColor: Colors.dark.orange + "20" }]}>
+                <Ionicons name="document-text" size={16} color={Colors.dark.orange} />
               </View>
-              <Pressable 
-                style={styles.viewAllButton}
+              <Text style={styles.sectionTitle}>Coach Notes</Text>
+            </View>
+          </View>
+          {recentNotes.length > 0 ? (
+            <>
+              <View style={styles.feedbackList}>
+                {recentNotes.map((note) => (
+                  <View key={note.id} style={styles.noteCard}>
+                    <View style={styles.noteCardHeader}>
+                      <Text style={styles.noteDateText}>{formatShortDate(note.sessionDate || note.createdAt)}</Text>
+                      <View style={styles.noteTypeBadge}>
+                        <Text style={styles.noteTypeText}>{getSessionTypeLabel(note.sessionType)}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.noteMessage} numberOfLines={3}>{note.message}</Text>
+                    <Text style={styles.noteCoach}>{note.coachName}</Text>
+                  </View>
+                ))}
+              </View>
+              <Pressable
+                style={styles.seeAllButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   navigation.navigate("CoachFeedbackHistory");
                 }}
               >
-                <Text style={styles.viewAllText}>View All</Text>
-                <Ionicons name="chevron-forward" size={14} color={Colors.dark.xpCyan} />
+                <Text style={styles.seeAllText}>See all</Text>
+                <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
               </Pressable>
+            </>
+          ) : (
+            <View style={styles.emptyFeedbackCard}>
+              <Ionicons name="document-outline" size={24} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyFeedbackText}>No coach notes yet. Your coach will leave written feedback after sessions.</Text>
             </View>
-            <View style={styles.feedbackList}>
-              {coachFeedback.slice(0, 5).map((feedback) => {
-                const feedbackIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
-                  praise: "star",
-                  effort: "flame",
-                  technique: "bulb",
-                  improvement: "trending-up",
-                };
-                const feedbackColors: Record<string, string> = {
-                  praise: GlowColors.primary,
-                  effort: Colors.dark.orange,
-                  technique: Colors.dark.xpCyan,
-                  improvement: "#10B981",
-                };
-                return (
-                  <View key={feedback.id} style={styles.feedbackCard}>
-                    <View style={[styles.feedbackIconContainer, { backgroundColor: (feedbackColors[feedback.feedbackType] || GlowColors.primary) + "20" }]}>
-                      <Ionicons 
-                        name={feedbackIcons[feedback.feedbackType] || "chatbubble"} 
-                        size={18} 
-                        color={feedbackColors[feedback.feedbackType] || GlowColors.primary} 
-                      />
-                    </View>
-                    <View style={styles.feedbackContent}>
-                      <Text style={styles.feedbackMessage}>{feedback.message}</Text>
-                      <View style={styles.feedbackMeta}>
-                        <Text style={styles.feedbackDate}>
-                          {new Date(feedback.createdAt).toLocaleDateString()}
-                        </Text>
-                        {feedback.xpAwarded > 0 && (
-                          <View style={styles.feedbackXp}>
-                            <Ionicons name="sparkles" size={10} color={GlowColors.primary} />
-                            <Text style={styles.feedbackXpText}>+{feedback.xpAwarded} XP</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
+          )}
+        </View>
+
+        {/* Video Feedback Section */}
+        <View style={styles.feedbackSection}>
+          <View style={styles.feedbackHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconSmall, { backgroundColor: FunctionColors.planning + "20" }]}>
+                <Ionicons name="videocam" size={16} color={FunctionColors.planning} />
+              </View>
+              <Text style={styles.sectionTitle}>Video Feedback</Text>
+              {videoCount > 0 ? (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{videoCount}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
-        ) : null}
+          {videoCount > 0 ? (
+            <Pressable
+              style={styles.videoCard}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("VideoFeedbackPlayer");
+              }}
+            >
+              <View style={styles.videoCardIcon}>
+                <Ionicons name="play-circle" size={32} color={FunctionColors.planning} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.videoCardTitle}>
+                  {videoCount} video clip{videoCount !== 1 ? "s" : ""} available
+                </Text>
+                <Text style={styles.videoCardSubtitle}>Tap to watch your coach's technique feedback</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+            </Pressable>
+          ) : (
+            <View style={styles.emptyFeedbackCard}>
+              <Ionicons name="videocam-outline" size={24} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyFeedbackText}>No video feedback yet. Your coach will share technique clips here.</Text>
+            </View>
+          )}
+        </View>
 
         {/* Stroke Feedback Timeline */}
         {strokeFeedbackData && strokeFeedbackData.some(r => r.strokeFeedback && r.strokeFeedback.length > 0) ? (
@@ -2292,6 +2395,31 @@ export default function PlayerProgressScreen() {
           </View>
         ) : null}
 
+        {/* Rate My Coach Section */}
+        {assignedCoach ? (
+          <View style={styles.feedbackSection}>
+            <View style={styles.rateCoachCard}>
+              <View style={styles.rateCoachAvatar}>
+                <Text style={styles.rateCoachAvatarText}>{assignedCoach.name.charAt(0).toUpperCase()}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rateCoachTitle}>Rate My Coach</Text>
+                <Text style={styles.rateCoachSubtitle}>{assignedCoach.name}</Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [styles.rateCoachButton, { opacity: pressed ? 0.8 : 1 }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowReviewModal(true);
+                }}
+              >
+                <Ionicons name="star" size={14} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.rateCoachButtonText}>Write a review</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
           <Text style={styles.infoText}>
@@ -2331,6 +2459,12 @@ export default function PlayerProgressScreen() {
         onClose={() => setShowPillarModal(false)}
         domain={selectedPillar}
         currentLevel={data?.ballLevel}
+      />
+      <CoachReviewModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        coach={assignedCoach}
+        onSuccess={() => setShowReviewModal(false)}
       />
     </View>
   );
@@ -3073,6 +3207,167 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     flex: 1,
+  },
+  sectionIconSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noteCard: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    gap: Spacing.xs,
+  },
+  noteCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  noteDateText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  noteTypeBadge: {
+    backgroundColor: Colors.dark.orange + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  noteTypeText: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
+  noteMessage: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    lineHeight: 20,
+  },
+  noteCoach: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    paddingVertical: Spacing.xs,
+  },
+  seeAllText: {
+    ...Typography.small,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  emptyFeedbackCard: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    gap: Spacing.sm,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+  },
+  emptyFeedbackText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    paddingHorizontal: Spacing.lg,
+  },
+  countBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: FunctionColors.planning + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xs,
+  },
+  countBadgeText: {
+    ...Typography.caption,
+    color: FunctionColors.planning,
+    fontWeight: "700",
+  },
+  videoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: FunctionColors.planning + "25",
+  },
+  videoCardIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.md,
+    backgroundColor: FunctionColors.planning + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoCardTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  videoCardSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  rateCoachCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "25",
+  },
+  rateCoachAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rateCoachAvatarText: {
+    ...Typography.h3,
+    color: Colors.dark.gold,
+    fontWeight: "700",
+  },
+  rateCoachTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  rateCoachSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 1,
+  },
+  rateCoachButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  rateCoachButtonText: {
+    ...Typography.caption,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   strokeFeedbackRow: {
     flexDirection: "row",
