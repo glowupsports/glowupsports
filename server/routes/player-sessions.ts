@@ -767,20 +767,23 @@ import fs from "fs";
 
         // Create diagnostic report for platform owner visibility
         await storage.createDiagnosticReport({
-          source: "player_app",
-          category: `session_issue_${issueType}`,
-          severity: issueType === "safety" ? "high" : "medium",
-          title: `${issueLabels[issueType]} - Session Report`,
+          errorId: crypto.randomUUID(),
+          userId: req.user!.id,
+          academyId: session.academyId ?? undefined,
+          userRole: "player",
+          severity: issueType === "safety" ? "critical" : "error",
           message: description || `Player reported a ${issueType} issue`,
-          metadata: JSON.stringify({
+          screen: "LiveSession",
+          context: {
             sessionId,
             playerId,
             playerName: player?.name,
             issueType,
+            issueLabel: issueLabels[issueType],
             sessionDate: session.startTime,
             coachId: session.coachId,
             academyId: session.academyId,
-          }),
+          },
           status: "new",
         });
 
@@ -832,12 +835,15 @@ import fs from "fs";
 
           // Create additional critical-level diagnostic for immediate visibility
           await storage.createDiagnosticReport({
-            source: "player_app",
-            category: "safety_critical",
+            errorId: crypto.randomUUID(),
+            userId: req.user!.id,
+            academyId: session.academyId ?? undefined,
+            userRole: "player",
             severity: "critical",
-            title: "URGENT: Safety Concern - Immediate Action Required",
-            message: `Player reported safety concern: ${description || "No details provided"}`,
-            metadata: JSON.stringify({
+            message: `URGENT - Player reported safety concern: ${description || "No details provided"}`,
+            screen: "LiveSession",
+            userComment: description || undefined,
+            context: {
               sessionId,
               playerId,
               playerName: player?.name,
@@ -846,7 +852,7 @@ import fs from "fs";
               coachId: session.coachId,
               academyId: session.academyId,
               urgent: true,
-            }),
+            },
             status: "new",
           });
         }
