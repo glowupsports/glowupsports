@@ -2902,6 +2902,17 @@ async function autoCancel(
       if (!singleAutoCancelled && session.status === "scheduled") {
         await storage.updateSession(id, { status: "completed" });
         console.log(`[Attendance] Auto-completed session ${id} after attendance save`);
+        // Fire-and-forget AI session digest for this player
+        if (playerId) {
+          const _sessionId = id;
+          const _playerId = playerId;
+          setImmediate(async () => {
+            try {
+              const { generateSessionDigest } = await import("../services/ai-progress-engine");
+              await generateSessionDigest(_sessionId, _playerId);
+            } catch { /* non-critical */ }
+          });
+        }
         
         // Check if player is eligible for coach review prompt (3+ sessions)
         if (playerId && session.coachId) {
@@ -3216,6 +3227,18 @@ async function autoCancel(
           }
         }
       }
+
+      // Fire-and-forget AI session digests for all players after session feedback
+      const _feedbackSessionId = id;
+      const _feedbackPlayerIds = sessionPlayersList.map((sp) => sp.playerId).filter(Boolean) as string[];
+      setImmediate(async () => {
+        try {
+          const { generateSessionDigest } = await import("../services/ai-progress-engine");
+          for (const pid of _feedbackPlayerIds) {
+            await generateSessionDigest(_feedbackSessionId, pid);
+          }
+        } catch { /* non-critical */ }
+      });
 
       res.status(201).json({ 
         feedback, 

@@ -1,0 +1,513 @@
+import { db } from "../db";
+import { eq, and, desc, gte } from "drizzle-orm";
+import https from "https";
+import {
+  inSessionFeedback,
+  sessionSkillFeedback,
+  sessionPlayers,
+  sessions,
+  players,
+  playerBallLevels,
+  playerSkillScores,
+  glowSkills,
+  levelSkills,
+  sessionAiSummaries,
+  playerAiInsights,
+  coaches,
+} from "@shared/schema";
+
+async function callOpenAI(
+  userPrompt: string,
+  systemPrompt: string,
+  maxTokens: number = 600
+): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) return null;
+
+  const requestBody = JSON.stringify({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    max_tokens: maxTokens,
+    temperature: 0.7,
+  });
+
+  return new Promise<string | null>((resolve) => {
+    const options = {
+      hostname: "api.openai.com",
+      path: "/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Length": Buffer.byteLength(requestBody),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed.choices?.[0]?.message?.content || null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on("error", () => resolve(null));
+    req.setTimeout(20000, () => {
+      req.destroy();
+      resolve(null);
+    });
+
+    req.write(requestBody);
+    req.end();
+  });
+}
+
+export async function generateSessionDigest(
+  sessionId: string,
+  playerId: string
+): Promise<void> {
+  try {
+    const existing = await db
+      .select({ id: sessionAiSummaries.id })
+      .from(sessionAiSummaries)
+      .where(
+        and(
+          eq(sessionAiSummaries.sessionId, sessionId),
+          eq(sessionAiSummaries.playerId, playerId)
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) return;
+
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    if (!session) return;
+
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return;
+
+    const feedbackNotes = await db
+      .select()
+      .from(inSessionFeedback)
+      .where(
+        and(
+          eq(inSessionFeedback.sessionId, sessionId),
+          eq(inSessionFeedback.playerId, playerId)
+        )
+      );
+
+    const [skillFeedback] = await db
+      .select()
+      .from(sessionSkillFeedback)
+      .where(
+        and(
+          eq(sessionSkillFeedback.sessionId, sessionId),
+          eq(sessionSkillFeedback.playerId, playerId)
+        )
+      );
+
+    const [attendance] = await db
+      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+      .from(sessionPlayers)
+      .where(
+        and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        )
+      );
+
+    const [playerLevel] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+
+    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
+    const attendanceStatus = attendance?.attendanceStatus || "present";
+
+    const feedbackList =
+      feedbackNotes.map((f) => `${f.feedbackType}: ${f.message}`).join("; ") ||
+      "no notes";
+
+    const ratingsSummary = skillFeedback
+      ? `Effort ${skillFeedback.effort}/2, Execution ${skillFeedback.execution}/2, Understanding ${skillFeedback.understanding}/2, Overall: ${skillFeedback.overall}`
+      : "";
+
+    const strokeDetails =
+      skillFeedback?.strokeFeedback && Array.isArray(skillFeedback.strokeFeedback)
+        ? (skillFeedback.strokeFeedback as { stroke: string; rating: number; note?: string }[])
+            .map((s) => `${s.stroke} (${s.rating}/2${s.note ? " – " + s.note : ""})`)
+            .join(", ")
+        : "";
+
+    const playerNote = skillFeedback?.playerNote || skillFeedback?.note || "";
+
+    const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, level ${ballLevel}
+Session type: ${session.sessionType}, date: ${session.date}
+Attendance: ${attendanceStatus}
+Coach feedback notes: ${feedbackList}
+${ratingsSummary ? `Skill ratings: ${ratingsSummary}` : ""}
+${strokeDetails ? `Strokes worked on: ${strokeDetails}` : ""}
+${playerNote ? `Coach note: ${playerNote}` : ""}
+
+Write a 2-3 sentence session digest for this player. Write it in third person (e.g., "[Name] worked on..."). Keep it positive, specific and actionable. Mention what was practised, what went well, and one clear area to continue working on. Never use emojis.`;
+
+    const systemPrompt =
+      "You are an expert tennis/padel/pickleball coaching assistant. Generate concise, encouraging, data-driven session digests for player development records. Never use emojis.";
+
+    const summary = await callOpenAI(prompt, systemPrompt, 300);
+    if (!summary) return;
+
+    await db.insert(sessionAiSummaries).values({
+      sessionId,
+      playerId,
+      summaryText: summary.trim(),
+    });
+
+    console.log(
+      `[AIEngine] Session digest generated for player ${playerId}, session ${sessionId}`
+    );
+  } catch (error) {
+    console.error("[AIEngine] Error generating session digest:", error);
+  }
+}
+
+export async function generateProgressNarrative(
+  playerId: string,
+  _academyId: string,
+  days: number = 30
+): Promise<{ narrative: string; focusAreas: string[] } | null> {
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return null;
+
+    const recentDigests = await db
+      .select({ summaryText: sessionAiSummaries.summaryText, generatedAt: sessionAiSummaries.generatedAt })
+      .from(sessionAiSummaries)
+      .where(
+        and(
+          eq(sessionAiSummaries.playerId, playerId),
+          gte(sessionAiSummaries.generatedAt, since)
+        )
+      )
+      .orderBy(desc(sessionAiSummaries.generatedAt))
+      .limit(5);
+
+    const recentFeedback = await db
+      .select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
+      .from(inSessionFeedback)
+      .where(
+        and(
+          eq(inSessionFeedback.playerId, playerId),
+          gte(inSessionFeedback.createdAt, since)
+        )
+      )
+      .orderBy(desc(inSessionFeedback.createdAt))
+      .limit(20);
+
+    const [playerLevel] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+
+    let curriculumSkills: string[] = [];
+    if (playerLevel?.levelId) {
+      const levelSkillInfo = await db
+        .select({
+          skillName: glowSkills.name,
+          pillar: glowSkills.pillar,
+          targetScore: levelSkills.targetScore,
+          isRequired: levelSkills.isRequired,
+        })
+        .from(levelSkills)
+        .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+        .where(eq(levelSkills.levelId, playerLevel.levelId))
+        .limit(10);
+
+      curriculumSkills = levelSkillInfo.map(
+        (s) =>
+          `${s.skillName} (${s.pillar}, target ${s.targetScore}/2${s.isRequired ? ", required" : ""})`
+      );
+    }
+
+    const recentSkillScores = await db
+      .select({
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        score: playerSkillScores.score,
+        movingAverage: playerSkillScores.movingAverage,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(
+        and(
+          eq(playerSkillScores.playerId, playerId),
+          gte(playerSkillScores.createdAt, since)
+        )
+      )
+      .orderBy(desc(playerSkillScores.createdAt))
+      .limit(15);
+
+    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
+    const digestsText =
+      recentDigests.map((d) => `- ${d.summaryText}`).join("\n") ||
+      "No session digests available yet.";
+
+    const feedbackFrequency = recentFeedback.reduce(
+      (acc: Record<string, number>, f) => {
+        acc[f.feedbackType] = (acc[f.feedbackType] || 0) + 1;
+        return acc;
+      },
+      {}
+    );
+    const feedbackSummary =
+      Object.entries(feedbackFrequency)
+        .map(([k, v]) => `${k} (${v}x)`)
+        .join(", ") || "none";
+
+    const skillProgress =
+      recentSkillScores.map((s) => `${s.skillName}: ${s.score}/2`).join(", ") ||
+      "no skill data recorded";
+
+    const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, ball level: ${ballLevel}
+Period: last ${days} days
+
+Recent session summaries:
+${digestsText}
+
+Feedback received: ${feedbackSummary}
+Skill scores tracked: ${skillProgress}
+Level curriculum skills (${ballLevel}): ${curriculumSkills.join(", ") || "none configured"}
+
+Task 1: Write a 3-4 sentence progress narrative summarising development over the last ${days} days. Be specific about observed trends and curriculum alignment.
+Task 2: Provide exactly 3 recommended focus areas for upcoming sessions, aligned to the curriculum skills listed above.
+
+Return ONLY valid JSON (no markdown, no code block), like:
+{"narrative": "...", "focusAreas": ["focus 1", "focus 2", "focus 3"]}`;
+
+    const systemPrompt =
+      "You are an expert tennis/sports development assistant for a multi-academy coaching platform. Generate data-driven, encouraging progress narratives. Return only valid JSON without markdown formatting. Never use emojis.";
+
+    const response = await callOpenAI(prompt, systemPrompt, 700);
+    if (!response) return null;
+
+    try {
+      const cleaned = response.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.narrative && Array.isArray(parsed.focusAreas)) {
+        return {
+          narrative: parsed.narrative,
+          focusAreas: parsed.focusAreas.slice(0, 3),
+        };
+      }
+    } catch {
+      return {
+        narrative: response.trim(),
+        focusAreas: [
+          "Continue regular practice sessions",
+          "Focus on curriculum skill development",
+          "Work on competitive match play",
+        ],
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[AIEngine] Error generating progress narrative:", error);
+    return null;
+  }
+}
+
+// ==================== AI COACHING CHAT ====================
+
+export interface PlayerAIContext {
+  playerName: string;
+  playerAge: number | null;
+  ballLevel: string;
+  sessionType: string;
+  sessionDate: string;
+  coachName: string;
+  requiredSkills: { skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
+  recentDigests: string[];
+  attendanceStatus: string;
+  ageGroup: "young_child" | "child" | "teen" | "adult";
+}
+
+export async function buildPlayerAIContext(
+  playerId: string,
+  sessionId: string,
+  coachId: string
+): Promise<PlayerAIContext | null> {
+  try {
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return null;
+
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    if (!session) return null;
+
+    const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq(coaches.id, coachId));
+
+    const [playerLevel] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+
+    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
+
+    const [attendance] = await db
+      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+      .from(sessionPlayers)
+      .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.playerId, playerId)));
+
+    // Get required skills for current level
+    let requiredSkills: PlayerAIContext["requiredSkills"] = [];
+    if (ballLevel && ballLevel !== "unknown") {
+      const levelSkillsList = await db
+        .select({
+          skillId: levelSkills.skillId,
+          skillName: glowSkills.name,
+          pillar: glowSkills.pillar,
+          targetScore: levelSkills.targetScore,
+          isRequired: levelSkills.isRequired,
+        })
+        .from(levelSkills)
+        .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+        .where(eq(levelSkills.levelId, ballLevel))
+        .limit(8);
+
+      // Get player's current score for each skill
+      for (const skill of levelSkillsList) {
+        const [latestScore] = await db
+          .select({ score: playerSkillScores.score, movingAverage: playerSkillScores.movingAverage })
+          .from(playerSkillScores)
+          .where(and(eq(playerSkillScores.playerId, playerId), eq(playerSkillScores.skillId, skill.skillId)))
+          .orderBy(desc(playerSkillScores.createdAt))
+          .limit(1);
+
+        requiredSkills.push({
+          skillName: skill.skillName,
+          pillar: skill.pillar || "Technical",
+          targetScore: skill.targetScore || 2,
+          currentScore: latestScore ? Number(latestScore.movingAverage || latestScore.score) : null,
+          required: skill.isRequired ?? true,
+        });
+      }
+    }
+
+    // Recent digests
+    const recentDigests = await db
+      .select({ summaryText: sessionAiSummaries.summaryText })
+      .from(sessionAiSummaries)
+      .where(eq(sessionAiSummaries.playerId, playerId))
+      .orderBy(desc(sessionAiSummaries.generatedAt))
+      .limit(3);
+
+    // Determine age group
+    const age = player.age ? Number(player.age) : null;
+    let ageGroup: PlayerAIContext["ageGroup"] = "adult";
+    if (age !== null) {
+      if (age <= 8) ageGroup = "young_child";
+      else if (age <= 12) ageGroup = "child";
+      else if (age <= 17) ageGroup = "teen";
+    }
+
+    return {
+      playerName: player.name,
+      playerAge: age,
+      ballLevel,
+      sessionType: session.sessionType,
+      sessionDate: session.date || new Date().toISOString().split("T")[0],
+      coachName: coach?.name || "Coach",
+      requiredSkills,
+      recentDigests: recentDigests.map((d) => d.summaryText),
+      attendanceStatus: attendance?.attendanceStatus || "present",
+      ageGroup,
+    };
+  } catch (error) {
+    console.error("[AIEngine] Error building player AI context:", error);
+    return null;
+  }
+}
+
+export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
+  const { playerName, playerAge, ballLevel, sessionType, ageGroup, requiredSkills, recentDigests } = ctx;
+
+  const ageInstruction =
+    ageGroup === "young_child"
+      ? "Use very simple, encouraging language. Ask about fun, effort, and one concrete skill at a time. Avoid technical jargon."
+      : ageGroup === "child"
+      ? "Use clear, positive language with concrete examples. Focus on what they practised and how much they enjoyed it."
+      : ageGroup === "teen"
+      ? "Use technical tennis terms but keep it conversational. Ask about tactics, consistency and competitive play."
+      : "Use professional coaching language. Ask about technical details, tactical application, and mental aspects.";
+
+  const levelContext = `${playerName} is currently at ${ballLevel} ball level, attending a ${sessionType} session.`;
+
+  const skillsNeeded = requiredSkills.length > 0
+    ? `For the ${ballLevel} curriculum, key skills to cover: ${requiredSkills.map((s) => `${s.skillName} (${s.pillar}, current: ${s.currentScore !== null ? s.currentScore + "/2" : "not yet scored"}, target: ${s.targetScore}/2, ${s.required ? "required" : "optional"})`).join("; ")}.`
+    : "";
+
+  const digestContext = recentDigests.length > 0
+    ? `Recent sessions: ${recentDigests.slice(0, 2).join(" | ")}`
+    : "";
+
+  const summaryInstruction = `After 3-6 coach exchanges, say "Here is what I'll save" and propose a JSON summary inside a code block like this:
+\`\`\`json
+{
+  "sessionNote": "A sentence summarising what was worked on.",
+  "overall": "improved",
+  "effort": 2,
+  "execution": 1,
+  "understanding": 1,
+  "skillRatings": [{"skillName": "...", "score": 1}],
+  "levelUpFlag": false,
+  "levelUpMessage": ""
+}
+\`\`\`
+Values: overall = improved/stable/declined. effort/execution/understanding = 0 (attention needed), 1 (developing), 2 (good). levelUpFlag = true only if 3+ required skills were met at target score this session.`;
+
+  return `You are a sports development AI coach assistant helping a coach log a session for ${playerName}${playerAge ? `, age ${playerAge}` : ""}.
+${levelContext}
+${skillsNeeded}
+${digestContext}
+
+Language rule: ${ageInstruction}
+Start by asking what was the main focus of today's session.
+Ask targeted follow-ups about the skills listed above — check if they were worked on and how well the player responded.
+Never ask more than 2 questions at once.
+Keep responses under 3 sentences per turn unless proposing the summary.
+Never use emojis.
+${summaryInstruction}`;
+}
+
+export async function storeProgressNarrative(
+  playerId: string,
+  academyId: string,
+  days: number = 30
+): Promise<void> {
+  const result = await generateProgressNarrative(playerId, academyId, days);
+  if (!result) return;
+
+  await db.insert(playerAiInsights).values({
+    playerId,
+    narrativeText: result.narrative,
+    focusAreas: result.focusAreas,
+    periodDays: days,
+  });
+
+  console.log(`[AIEngine] Progress narrative stored for player ${playerId}`);
+}

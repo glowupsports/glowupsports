@@ -6781,3 +6781,58 @@ export const familyInviteCodes = pgTable("family_invite_codes", {
 export const insertFamilyInviteCodeSchema = createInsertSchema(familyInviteCodes).omit({ id: true, createdAt: true, usedAt: true, usedByPlayerId: true });
 export type InsertFamilyInviteCode = z.infer<typeof insertFamilyInviteCodeSchema>;
 export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;
+
+// ==================== AI PROGRESS ENGINE ====================
+
+// Per-session AI digest: what was practised, what went well, one focus area
+export const sessionAiSummaries = pgTable("session_ai_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  summaryText: text("summary_text").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+}, (table) => [
+  index("session_ai_summaries_session_idx").on(table.sessionId),
+  index("session_ai_summaries_player_idx").on(table.playerId),
+  unique("session_ai_summaries_session_player").on(table.sessionId, table.playerId),
+]);
+
+export const insertSessionAiSummarySchema = createInsertSchema(sessionAiSummaries).omit({ id: true, generatedAt: true });
+export type InsertSessionAiSummary = z.infer<typeof insertSessionAiSummarySchema>;
+export type SessionAiSummary = typeof sessionAiSummaries.$inferSelect;
+
+// Per-player AI narrative: 30-day development summary + focus areas
+export const playerAiInsights = pgTable("player_ai_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  narrativeText: text("narrative_text").notNull(),
+  focusAreas: jsonb("focus_areas").$type<string[]>().notNull(),
+  periodDays: integer("period_days").notNull().default(30),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+}, (table) => [
+  index("player_ai_insights_player_idx").on(table.playerId),
+  index("player_ai_insights_generated_idx").on(table.generatedAt),
+]);
+
+export const insertPlayerAiInsightSchema = createInsertSchema(playerAiInsights).omit({ id: true, generatedAt: true });
+export type InsertPlayerAiInsight = z.infer<typeof insertPlayerAiInsightSchema>;
+export type PlayerAiInsight = typeof playerAiInsights.$inferSelect;
+
+// AI Coaching Chat — stores conversation history per session+player for review
+export const sessionAiChats = pgTable("session_ai_chats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  messages: jsonb("messages").$type<{ role: "system" | "user" | "assistant"; content: string }[]>().notNull().default([]),
+  committed: boolean("committed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("session_ai_chats_session_idx").on(table.sessionId),
+  index("session_ai_chats_player_idx").on(table.playerId),
+]);
+
+export const insertSessionAiChatSchema = createInsertSchema(sessionAiChats).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSessionAiChat = z.infer<typeof insertSessionAiChatSchema>;
+export type SessionAiChat = typeof sessionAiChats.$inferSelect;

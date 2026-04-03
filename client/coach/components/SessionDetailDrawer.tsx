@@ -43,6 +43,7 @@ import PlayerFeedbackHistorySheet from "./PlayerFeedbackHistorySheet";
 import StrokeFeedbackModal from "./StrokeFeedbackModal";
 import QuickBaselineDrawer from "./QuickBaselineDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
+import { AICoachingChatModal } from "./AICoachingChatModal";
 
 interface Player {
   id: string;
@@ -120,7 +121,8 @@ export default function SessionDetailDrawer({
   const [showStrokeFeedback, setShowStrokeFeedback] = useState(false);
   const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
   const [deepAssessPlayer, setDeepAssessPlayer] = useState<Player | null>(null);
-  const [feedbackPickerMode, setFeedbackPickerMode] = useState<"evidence" | "baseline" | "deep" | null>(null);
+  const [feedbackPickerMode, setFeedbackPickerMode] = useState<"evidence" | "baseline" | "deep" | "ai" | null>(null);
+  const [aiChatPlayer, setAiChatPlayer] = useState<{ id: string; name: string } | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
@@ -1395,6 +1397,16 @@ export default function SessionDetailDrawer({
           }
         };
 
+        const openAIChat = () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          if (nonGuestPlayers.length === 1) {
+            const p = nonGuestPlayers[0];
+            setAiChatPlayer({ id: p.id, name: p.name });
+          } else if (nonGuestPlayers.length > 1) {
+            setFeedbackPickerMode("ai");
+          }
+        };
+
         const TILES = [
           {
             key: "feedback",
@@ -1442,6 +1454,16 @@ export default function SessionDetailDrawer({
             color: "#A78BFA",
             xp: false,
             onPress: () => openForPlayer("deep"),
+            disabled: nonGuestPlayers.length === 0,
+          },
+          {
+            key: "ai-chat",
+            label: "Coach with AI",
+            subtitle: "AI-guided debrief",
+            icon: "sparkles" as const,
+            color: GlowColors.primary,
+            xp: false,
+            onPress: () => openAIChat(),
             disabled: nonGuestPlayers.length === 0,
           },
         ];
@@ -2188,6 +2210,16 @@ export default function SessionDetailDrawer({
       />
 
       {/* Feedback Player Picker — for multi-player sessions */}
+      {aiChatPlayer ? (
+        <AICoachingChatModal
+          visible={!!aiChatPlayer}
+          onClose={() => setAiChatPlayer(null)}
+          sessionId={session.id}
+          playerId={aiChatPlayer.id}
+          playerName={aiChatPlayer.name}
+        />
+      ) : null}
+
       {feedbackPickerMode !== null && (
         <Modal
           visible={feedbackPickerMode !== null}
@@ -2200,7 +2232,8 @@ export default function SessionDetailDrawer({
               <View style={styles.pickerHandle} />
               <Text style={styles.pickerTitle}>
                 {feedbackPickerMode === "evidence" ? "Skill Evidence" :
-                 feedbackPickerMode === "baseline" ? "Quick Assessment" : "Deep Assessment"}
+                 feedbackPickerMode === "baseline" ? "Quick Assessment" :
+                 feedbackPickerMode === "ai" ? "Coach with AI" : "Deep Assessment"}
               </Text>
               <Text style={styles.pickerSubtitle}>Select a player</Text>
               {(liveSession?.players || [])
@@ -2217,6 +2250,8 @@ export default function SessionDetailDrawer({
                           navigation.navigate("EvidenceCapture", { sessionId: session.id, playerId: p.id });
                         } else if (mode === "baseline") {
                           setBaselinePlayer(p);
+                        } else if (mode === "ai") {
+                          setAiChatPlayer({ id: p.id, name: p.name });
                         } else {
                           setDeepAssessPlayer(p);
                         }

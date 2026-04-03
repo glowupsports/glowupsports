@@ -49,6 +49,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
+    sessionAiSummaries, playerAiInsights, sessionAiChats,
+    coaches, glowSkills, playerSkillScores,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -2290,6 +2292,349 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         res.status(500).json({ error: "Failed to delete template" });
       }
     },
+  );
+
+  // ==================== AI PLAYER PROGRESS ENGINE ====================
+
+  // GET /api/player/me/ai-insights — player viewing own AI insights
+  router.get(
+    "/api/player/me/ai-insights",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(403).json({ error: "Not a player account" });
+        }
+
+        const [latestNarrative] = await db
+          .select()
+          .from(playerAiInsights)
+          .where(eq(playerAiInsights.playerId, playerId))
+          .orderBy(desc(playerAiInsights.generatedAt))
+          .limit(1);
+
+        const recentDigests = await db
+          .select()
+          .from(sessionAiSummaries)
+          .where(eq(sessionAiSummaries.playerId, playerId))
+          .orderBy(desc(sessionAiSummaries.generatedAt))
+          .limit(5);
+
+        res.json({
+          narrative: latestNarrative || null,
+          sessionDigests: recentDigests,
+        });
+      } catch (error) {
+        console.error("[AIInsights] Error fetching player me AI insights:", error);
+        res.status(500).json({ error: "Failed to fetch AI insights" });
+      }
+    }
+  );
+
+  // GET /api/players/:id/ai-insights — latest cached narrative + last 5 session digests
+  router.get(
+    "/api/players/:id/ai-insights",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId;
+        const userRole = req.user!.role;
+        const userPlayerId = req.user!.playerId;
+
+        // Allow coach/academy roles OR the player themselves
+        const isPlayerSelf = userRole === "player" && userPlayerId === id;
+        const isCoachRole = ["coach", "assistant", "academy_owner", "platform_owner"].includes(userRole);
+
+        if (!isPlayerSelf && !isCoachRole) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+
+        // If coach, validate player belongs to their academy
+        if (isCoachRole && academyId) {
+          const { valid } = await validatePlayerOwnership(id, academyId, storage);
+          if (!valid) {
+            return res.status(404).json({ error: "Player not found" });
+          }
+        }
+
+        const [latestNarrative] = await db
+          .select()
+          .from(playerAiInsights)
+          .where(eq(playerAiInsights.playerId, id))
+          .orderBy(desc(playerAiInsights.generatedAt))
+          .limit(1);
+
+        const recentDigests = await db
+          .select()
+          .from(sessionAiSummaries)
+          .where(eq(sessionAiSummaries.playerId, id))
+          .orderBy(desc(sessionAiSummaries.generatedAt))
+          .limit(5);
+
+        res.json({
+          narrative: latestNarrative || null,
+          sessionDigests: recentDigests,
+        });
+      } catch (error) {
+        console.error("[AIInsights] Error fetching AI insights:", error);
+        res.status(500).json({ error: "Failed to fetch AI insights" });
+      }
+    }
+  );
+
+  // POST /api/players/:id/ai-insights/generate — trigger fresh narrative generation
+  router.post(
+    "/api/players/:id/ai-insights/generate",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId || "";
+        const userRole = req.user!.role;
+        const userPlayerId = req.user!.playerId;
+        const days = parseInt(req.query.days as string) || 30;
+
+        const isPlayerSelf = userRole === "player" && userPlayerId === id;
+        const isCoachRole = ["coach", "assistant", "academy_owner", "platform_owner"].includes(userRole);
+
+        if (!isPlayerSelf && !isCoachRole) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+
+        if (isCoachRole && academyId) {
+          const { valid } = await validatePlayerOwnership(id, academyId, storage);
+          if (!valid) {
+            return res.status(404).json({ error: "Player not found" });
+          }
+        }
+
+        const openaiKey = process.env.OPENAI_API_KEY;
+        if (!openaiKey) {
+          return res.status(503).json({ error: "AI service not configured" });
+        }
+
+        const { generateProgressNarrative } = await import("../services/ai-progress-engine");
+
+        const result = await generateProgressNarrative(id, academyId, days);
+        if (!result) {
+          return res.status(500).json({ error: "Failed to generate narrative" });
+        }
+
+        const [saved] = await db
+          .insert(playerAiInsights)
+          .values({
+            playerId: id,
+            narrativeText: result.narrative,
+            focusAreas: result.focusAreas,
+            periodDays: days,
+          })
+          .returning();
+
+        res.json({
+          narrative: saved,
+          focusAreas: result.focusAreas,
+        });
+      } catch (error) {
+        console.error("[AIInsights] Error generating narrative:", error);
+        res.status(500).json({ error: "Failed to generate AI insights" });
+      }
+    }
+  );
+
+  // ==================== AI COACHING CHAT ====================
+
+  // GET /api/sessions/:sessionId/players/:playerId/ai-chat/context
+  router.get(
+    "/api/sessions/:sessionId/players/:playerId/ai-chat/context",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { sessionId, playerId } = req.params;
+        const coachId = req.user!.coachId || "";
+        const { buildPlayerAIContext } = await import("../services/ai-progress-engine");
+        const ctx = await buildPlayerAIContext(playerId, sessionId, coachId);
+        if (!ctx) return res.status(404).json({ error: "Player or session not found" });
+        res.json(ctx);
+      } catch (error) {
+        console.error("[AIChat] Error building context:", error);
+        res.status(500).json({ error: "Failed to build context" });
+      }
+    }
+  );
+
+  // POST /api/sessions/:sessionId/players/:playerId/ai-chat
+  router.post(
+    "/api/sessions/:sessionId/players/:playerId/ai-chat",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { sessionId, playerId } = req.params;
+        const { messages } = req.body as { messages: { role: string; content: string }[] };
+        const coachId = req.user!.coachId || "";
+
+        if (!process.env.OPENAI_API_KEY) {
+          return res.status(503).json({ error: "AI service not configured" });
+        }
+
+        const { buildPlayerAIContext, buildCoachingSystemPrompt } = await import("../services/ai-progress-engine");
+        const ctx = await buildPlayerAIContext(playerId, sessionId, coachId);
+        if (!ctx) return res.status(404).json({ error: "Player or session not found" });
+
+        const systemPrompt = buildCoachingSystemPrompt(ctx);
+
+        const https = await import("https");
+        const requestBody = JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages.filter((m) => m.role === "user" || m.role === "assistant"),
+          ],
+          max_tokens: 400,
+          temperature: 0.6,
+        });
+
+        const reply = await new Promise<string | null>((resolve) => {
+          const options = {
+            hostname: "api.openai.com",
+            path: "/v1/chat/completions",
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              "Content-Length": Buffer.byteLength(requestBody),
+            },
+          };
+          const req2 = https.request(options, (r) => {
+            let data = "";
+            r.on("data", (chunk) => { data += chunk; });
+            r.on("end", () => {
+              try {
+                const parsed = JSON.parse(data);
+                resolve(parsed.choices?.[0]?.message?.content || null);
+              } catch { resolve(null); }
+            });
+          });
+          req2.on("error", () => resolve(null));
+          req2.setTimeout(20000, () => { req2.destroy(); resolve(null); });
+          req2.write(requestBody);
+          req2.end();
+        });
+
+        if (!reply) return res.status(500).json({ error: "AI response failed" });
+        res.json({ reply });
+      } catch (error) {
+        console.error("[AIChat] Error processing chat turn:", error);
+        res.status(500).json({ error: "Failed to process chat" });
+      }
+    }
+  );
+
+  // POST /api/sessions/:sessionId/players/:playerId/ai-chat/commit
+  router.post(
+    "/api/sessions/:sessionId/players/:playerId/ai-chat/commit",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { sessionId, playerId } = req.params;
+        const coachId = req.user!.coachId || "";
+        const userId = req.user!.id;
+        const {
+          messages,
+          structured,
+        }: {
+          messages: { role: string; content: string }[];
+          structured: {
+            sessionNote: string;
+            overall: string;
+            effort: number;
+            execution: number;
+            understanding: number;
+            skillRatings: { skillName: string; score: number }[];
+            levelUpFlag: boolean;
+            levelUpMessage: string;
+          };
+        } = req.body;
+
+        if (!coachId) return res.status(403).json({ error: "Not a coach account" });
+
+        // 1. Save conversation to session_ai_chats
+        await db.insert(sessionAiChats).values({
+          sessionId,
+          playerId,
+          coachId,
+          messages: messages as any,
+          committed: true,
+        });
+
+        // 2. Write to in_session_feedback (session note)
+        if (structured.sessionNote) {
+          await db.insert(inSessionFeedback).values({
+            sessionId,
+            playerId,
+            coachId: userId,
+            feedbackType: "technique",
+            message: structured.sessionNote,
+            visibility: "private",
+          });
+        }
+
+        // 3. Write to session_skill_feedback
+        await db.insert(sessionSkillFeedback).values({
+          sessionId,
+          playerId,
+          coachId,
+          effort: Math.min(2, Math.max(0, structured.effort ?? 1)),
+          execution: Math.min(2, Math.max(0, structured.execution ?? 1)),
+          understanding: Math.min(2, Math.max(0, structured.understanding ?? 1)),
+          overall: (["improved", "stable", "declined"].includes(structured.overall) ? structured.overall : "stable") as "improved" | "stable" | "declined",
+          note: structured.sessionNote,
+        }).onConflictDoNothing();
+
+        // 4. Write individual playerSkillScores for each skill rating
+        if (structured.skillRatings && structured.skillRatings.length > 0) {
+          for (const sr of structured.skillRatings) {
+            const [skill] = await db
+              .select({ id: glowSkills.id })
+              .from(glowSkills)
+              .where(eq(glowSkills.name, sr.skillName))
+              .limit(1);
+            if (skill) {
+              await db.insert(playerSkillScores).values({
+                playerId,
+                skillId: skill.id,
+                score: Math.min(2, Math.max(0, sr.score)),
+                sessionId,
+                coachId,
+                movingAverage: String(sr.score),
+              });
+            }
+          }
+        }
+
+        // 5. Level-up readiness flag (optional: store as a ball level record or note)
+        // For now we log it — full level-up system managed separately
+        if (structured.levelUpFlag) {
+          console.log(`[AIChat] Level-up readiness flagged for player ${playerId}: ${structured.levelUpMessage}`);
+        }
+
+        // 6. Trigger session digest (fire-and-forget)
+        const _sid = sessionId;
+        const _pid = playerId;
+        setImmediate(async () => {
+          try {
+            const { generateSessionDigest } = await import("../services/ai-progress-engine");
+            await generateSessionDigest(_sid, _pid);
+          } catch { /* non-critical */ }
+        });
+
+        res.json({ success: true, levelUpFlag: structured.levelUpFlag });
+      } catch (error) {
+        console.error("[AIChat] Error committing chat:", error);
+        res.status(500).json({ error: "Failed to commit session" });
+      }
+    }
   );
 
 export default router;

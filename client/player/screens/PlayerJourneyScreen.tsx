@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from "react-native-reanimated";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
+import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 
 interface Milestone {
   id: string;
@@ -583,6 +584,9 @@ export default function PlayerJourneyScreen() {
             { paddingBottom: insets.bottom + 200 },
           ]}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <PlayerAIInsightsCard myProfile />
+          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="tennisball-outline" size={64} color={Colors.dark.xpCyan} />

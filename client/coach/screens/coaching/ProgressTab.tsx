@@ -14,6 +14,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
+import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 import type { TabProps, PlayerSkillState, PlayerXpData, ObservationTrend, SkillDomain } from "./types";
 import { styles } from "./coachingStyles";
 import { getDomainIcon, getTrendIcon, getTrendColor, getMomentumColor, getProgressColor, getAssessmentBadge, getLevelColor, formatSessionTime, formatSessionDate, getSessionTypeLabel } from "./progressUtils";
@@ -188,6 +189,9 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
             ) : null}
           </View>
         ) : null}
+
+        {/* AI Progress Insights */}
+        <PlayerAIInsightsCard playerId={selectedPlayer.id} />
 
         {/* Observation Trends */}
         {observationTrends.length > 0 ? (
