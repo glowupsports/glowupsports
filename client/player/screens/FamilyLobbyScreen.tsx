@@ -14,6 +14,7 @@ import {
   Share,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import * as SecureStore from "expo-secure-store";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,8 +25,12 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInUp, FadeInRight, ZoomIn } from "react-native-reanimated";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
+import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
+
+export const FAMILY_SWITCH_KEY = "@family_switch";
 
 function parseApiError(error: any, fallback: string): string {
   const raw: string = error?.message || "";
@@ -241,6 +246,8 @@ export default function FamilyLobbyScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { familyData, setActivePlayer, isLoading, refreshFamily, isParent } = useFamily();
+  const { user, loginWithToken } = useAuth();
+  const [switching, setSwitching] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
@@ -351,14 +358,39 @@ export default function FamilyLobbyScreen() {
     } catch (_) {}
   };
 
-  const handleSelectChild = (member: FamilyMember) => {
-    setActivePlayer(member.id);
-    setTimeout(() => {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "PlayerTabs" as never }],
-      });
-    }, 50);
+  const handleSelectChild = async (member: FamilyMember) => {
+    if (switching) return;
+    setSwitching(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const result: { token: string | null; playerName: string; hasOwnAccount: boolean } =
+        await apiRequest("POST", `/api/family/switch/${member.id}`, undefined);
+
+      if (result.hasOwnAccount && result.token) {
+        const originalToken = getAuthToken();
+        await SecureStore.setItemAsync(
+          FAMILY_SWITCH_KEY,
+          JSON.stringify({ originalToken, switchedPlayerName: member.name, hasOwnAccount: true })
+        );
+        const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
+          headers: { Authorization: `Bearer ${result.token}` },
+        });
+        const meData = await meResp.json();
+        await loginWithToken(result.token, meData.user);
+      } else {
+        await SecureStore.setItemAsync(
+          FAMILY_SWITCH_KEY,
+          JSON.stringify({ originalPlayerId: user?.playerId, switchedPlayerName: member.name, hasOwnAccount: false })
+        );
+        setActivePlayer(member.id);
+      }
+
+      navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
+    } catch (error: any) {
+      Alert.alert("Switch Failed", parseApiError(error, "Could not switch to this account. Please try again."));
+    } finally {
+      setSwitching(false);
+    }
   };
 
   const handlePayAll = () => {

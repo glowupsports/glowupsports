@@ -1,7 +1,9 @@
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
-import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
@@ -100,11 +102,13 @@ import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
-import { Colors } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
-import { FamilyProvider } from "@/player/context/FamilyContext";
+import { FamilyProvider, useFamily } from "@/player/context/FamilyContext";
+import { getApiUrl } from "@/lib/query-client";
+
 import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
 import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
@@ -112,6 +116,81 @@ import { SportContextProvider } from "@/player/context/SportContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
+const FAMILY_SWITCH_KEY = "@family_switch";
+
+interface FamilySwitchInfo {
+  originalToken?: string;
+  originalPlayerId?: string;
+  switchedPlayerName: string;
+  hasOwnAccount: boolean;
+}
+
+function FamilySwitchBackBanner() {
+  const { user, loginWithToken } = useAuth();
+  const { setActivePlayer } = useFamily();
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const [switchInfo, setSwitchInfo] = useState<FamilySwitchInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const raw = await SecureStore.getItemAsync(FAMILY_SWITCH_KEY);
+        setSwitchInfo(raw ? JSON.parse(raw) : null);
+      } catch {
+        setSwitchInfo(null);
+      }
+    };
+    check();
+  }, []);
+
+  const handleSwitchBack = async () => {
+    if (!switchInfo || loading) return;
+    setLoading(true);
+    try {
+      await SecureStore.deleteItemAsync(FAMILY_SWITCH_KEY);
+      if (switchInfo.hasOwnAccount && switchInfo.originalToken) {
+        const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
+          headers: { Authorization: `Bearer ${switchInfo.originalToken}` },
+        });
+        const meData = await meResp.json();
+        await loginWithToken(switchInfo.originalToken, meData.user);
+      } else {
+        const restoreId = switchInfo.originalPlayerId || user?.playerId;
+        if (restoreId) setActivePlayer(restoreId);
+      }
+      setSwitchInfo(null);
+      navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
+    } catch (e) {
+      console.error("[FamilySwitch] Switch back error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!switchInfo) return null;
+
+  return (
+    <Pressable
+      style={[styles.switchBanner, { paddingTop: insets.top > 0 ? insets.top : Spacing.sm }]}
+      onPress={handleSwitchBack}
+      disabled={loading}
+    >
+      <Ionicons name="people" size={14} color="#000" />
+      <Text style={styles.switchBannerText} numberOfLines={1}>
+        Viewing as {switchInfo.switchedPlayerName}
+      </Text>
+      <View style={styles.switchBannerChip}>
+        {loading
+          ? <ActivityIndicator size="small" color="#000" />
+          : <Text style={styles.switchBannerChipText}>Switch Back</Text>
+        }
+      </View>
+    </Pressable>
+  );
+}
 
 export { usePlayerDrawer };
 
@@ -1296,6 +1375,7 @@ export default function PlayerNavigator() {
                 <PlayerLevelProvider playerId={playerId}>
                   <WalkthroughProvider>
                     <View style={styles.container}>
+                      <FamilySwitchBackBanner />
                       <PlayerStackNavigator />
                       <WalkthroughOverlay />
                     </View>
@@ -1383,6 +1463,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  switchBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
+    zIndex: 100,
+  },
+  switchBannerText: {
+    flex: 1,
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    color: "#000",
+  },
+  switchBannerChip: {
+    backgroundColor: "rgba(0,0,0,0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  switchBannerChipText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "700",
+    color: "#000",
   },
   tabsContainer: {
     flex: 1,

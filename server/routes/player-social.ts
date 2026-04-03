@@ -3173,13 +3173,9 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    if (req.user?.role !== "player") {
-      return res.status(403).json({ error: "Only player accounts can be deleted via this endpoint" });
-    }
-
     // Capture PII before anonymizing for the confirmation email
     let playerEmailForNotification: string | null = null;
-    let playerNameForNotification = "Player";
+    let playerNameForNotification = "User";
 
     if (playerId) {
       const [playerRecord] = await db.select({ email: players.email, name: players.name })
@@ -3188,6 +3184,25 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
       if (playerRecord) {
         playerEmailForNotification = playerRecord.email;
         playerNameForNotification = playerRecord.name;
+      }
+    }
+
+    // Fallback for coaches/owners/admins who may not have a player record
+    if (!playerEmailForNotification) {
+      const coachId = req.user?.coachId;
+      const [userRecord] = await db.select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId));
+      if (userRecord) {
+        playerEmailForNotification = userRecord.email?.includes("@glowupsports.invalid") ? null : userRecord.email;
+      }
+      if (!playerNameForNotification || playerNameForNotification === "User") {
+        if (coachId) {
+          const [coachRecord] = await db.select({ name: coaches.name })
+            .from(coaches)
+            .where(eq(coaches.id, coachId));
+          if (coachRecord) playerNameForNotification = coachRecord.name;
+        }
       }
     }
 

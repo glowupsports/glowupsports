@@ -848,4 +848,105 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+// POST /api/family/switch/:playerId — switch into a family member's account
+router.post(
+  "/api/family/switch/:playerId",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const tokenUser = req.user!;
+      const targetPlayerId = req.params.playerId;
+
+      // Get caller's player record
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser || !freshUser.playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      const callerPlayer = await storage.getPlayer(freshUser.playerId);
+      if (!callerPlayer || !callerPlayer.email) {
+        return res.status(403).json({ error: "Account not found" });
+      }
+
+      // Build caller's family member IDs (same logic as /api/family/status)
+      const byEmail = await db
+        .select({ id: players.id })
+        .from(players)
+        .where(eq(players.email, callerPlayer.email));
+
+      const byParentEmail = await db
+        .select({ id: players.id })
+        .from(players)
+        .where(eq(players.parentEmail, callerPlayer.email));
+
+      const familyIds = new Set<string>([
+        ...byEmail.map(p => p.id),
+        ...byParentEmail.map(p => p.id),
+      ]);
+
+      // Also add siblings if caller is a child
+      if (callerPlayer.parentEmail) {
+        const siblings = await db
+          .select({ id: players.id })
+          .from(players)
+          .where(eq(players.parentEmail, callerPlayer.parentEmail!));
+        for (const s of siblings) familyIds.add(s.id);
+
+        const parentPlayers = await db
+          .select({ id: players.id })
+          .from(players)
+          .where(eq(players.email, callerPlayer.parentEmail));
+        for (const p of parentPlayers) familyIds.add(p.id);
+      }
+
+      // Always include the caller's own ID
+      familyIds.add(freshUser.playerId);
+
+      if (!familyIds.has(targetPlayerId)) {
+        return res.status(403).json({ error: "Player is not in your family" });
+      }
+
+      // Get target player info
+      const targetPlayer = await storage.getPlayer(targetPlayerId);
+      if (!targetPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Check if target player has their own user account
+      const [targetUser] = await db
+        .select({ id: users.id, role: users.role, playerId: users.playerId, coachId: users.coachId })
+        .from(users)
+        .where(and(eq(users.playerId, targetPlayerId), eq(users.deleted, false)))
+        .limit(1);
+
+      if (targetUser) {
+        // Issue a real token for this user account
+        const token = generateToken({
+          userId: targetUser.id,
+          role: targetUser.role || "player",
+          playerId: targetUser.playerId,
+          coachId: targetUser.coachId,
+          academyId: targetPlayer.academyId,
+        });
+
+        return res.json({
+          token,
+          playerName: targetPlayer.name,
+          hasOwnAccount: true,
+        });
+      }
+
+      // No user account — will use X-Active-Player-Id override on client
+      return res.json({
+        token: null,
+        playerName: targetPlayer.name,
+        hasOwnAccount: false,
+      });
+    } catch (error) {
+      console.error("Error switching family account:", error);
+      res.status(500).json({ error: "Failed to switch account" });
+    }
+  },
+);
+
 export default router;
