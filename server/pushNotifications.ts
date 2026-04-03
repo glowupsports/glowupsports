@@ -3006,3 +3006,211 @@ export async function sendVideoFeedbackNotification(
     playerId
   );
 }
+
+// ==================== WEEKLY AI DIGEST SCHEDULER ====================
+// Every Monday at 8:00 AM academy-local time, generate and send a personalised AI focus digest
+
+let weeklyAIDigestInterval: ReturnType<typeof setInterval> | null = null;
+const weeklyAIDigestProcessedTimezones = new Set<string>();
+
+async function processWeeklyAIDigest(timezone: string): Promise<void> {
+  try {
+    const { buildPlayerSelfAIContext } = await import("./services/ai-progress-engine");
+    const OpenAI = (await import("openai")).default;
+    const openai = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    // Monday of current week (used for idempotency check)
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() + daysToMonday);
+    thisMonday.setHours(0, 0, 0, 0);
+
+    const activePlayers = await pool.query(`
+      SELECT DISTINCT p.id, p.name, p.academy_id
+      FROM players p
+      JOIN session_players sp ON sp.player_id = p.id
+      JOIN sessions s ON s.id = sp.session_id
+      JOIN academies a ON a.id = p.academy_id
+      WHERE a.timezone = $1
+        AND s.start_time >= $2
+        AND sp.attendance_status IN ('present', 'late')
+    `, [timezone, fourteenDaysAgo.toISOString()]);
+
+    if (activePlayers.rows.length === 0) {
+      console.log(`[WeeklyDigest] No active players found for timezone ${timezone}`);
+      return;
+    }
+
+    console.log(`[WeeklyDigest] Generating digests for ${activePlayers.rows.length} active players in ${timezone}`);
+
+    for (const row of activePlayers.rows) {
+      const playerId: string = row.id;
+      try {
+        // Idempotency: skip if a digest was already sent this week for this player
+        const existingDigest = await pool.query(`
+          SELECT id FROM player_notifications
+          WHERE player_id = $1
+            AND type = 'ai_weekly_digest'
+            AND created_at >= $2
+          LIMIT 1
+        `, [playerId, thisMonday.toISOString()]);
+        if (existingDigest.rows.length > 0) {
+          continue;
+        }
+
+        const ctx = await buildPlayerSelfAIContext(playerId);
+        if (!ctx) continue;
+
+        const digestsText = ctx.sessionDigests.length > 0
+          ? ctx.sessionDigests.slice(0, 3).join(" | ")
+          : "No recent session summaries yet.";
+
+        const skillsText = ctx.skillScores.length > 0
+          ? ctx.skillScores.slice(0, 5).map(s => `${s.skillName}: ${s.movingAverage !== null ? s.movingAverage.toFixed(1) : s.score}/2`).join(", ")
+          : "no skill data";
+
+        const coachNotesText = ctx.coachNotes.length > 0
+          ? ctx.coachNotes.slice(0, 3).map(n => n.content).join(". ")
+          : "none";
+
+        const goalsText = [
+          ctx.shortTermGoal ? `Short-term goal: ${ctx.shortTermGoal}` : "",
+          ctx.longTermDream ? `Long-term dream: ${ctx.longTermDream}` : "",
+        ].filter(Boolean).join(". ") || "none set";
+
+        const userPrompt = `Player: ${ctx.playerName}, level ${ctx.ballLevel}, XP level ${ctx.xpLevel}
+Recent session digests: ${digestsText}
+Skill scores: ${skillsText}
+Coach notes: ${coachNotesText}
+Goals: ${goalsText}
+Attendance: ${ctx.attendanceRate !== null ? ctx.attendanceRate + "% over " + ctx.totalSessions + " sessions" : "unknown"}
+${ctx.avgEffort !== null ? `Avg effort: ${ctx.avgEffort}/2, execution: ${ctx.avgExecution}/2` : ""}
+${ctx.recentStrokes.length > 0 ? `Recently trained strokes: ${ctx.recentStrokes.join(", ")}` : ""}
+
+Generate a Monday morning AI weekly focus digest in 3 parts:
+1. focusArea: The single most important area to focus on this week (1 short sentence, specific skill or tactic)
+2. reason: Why this is the top focus — draw from coach notes or recent session data (1-2 sentences)
+3. drillTip: One concrete drill or practice tip for this week (1 sentence)
+4. motivation: An encouraging motivational sentence drawn from the player's coaching journey (1 sentence)
+5. pushTitle: A short, punchy push notification title (max 10 words, no emojis)
+6. pushBody: Push notification body that teases the focus area (max 20 words, no emojis)
+
+Return ONLY valid JSON, no markdown:
+{"focusArea":"...","reason":"...","drillTip":"...","motivation":"...","pushTitle":"...","pushBody":"..."}`;
+
+        const systemPrompt = "You are an expert tennis/sports AI coach generating concise, personalised weekly focus digests for players. Be specific, data-driven, and encouraging. Never use emojis. Return only valid JSON.";
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: 400,
+          temperature: 0.7,
+        });
+
+        const rawContent = response.choices?.[0]?.message?.content || null;
+        if (!rawContent) continue;
+
+        let parsed: { focusArea: string; reason: string; drillTip: string; motivation: string; pushTitle: string; pushBody: string } | null = null;
+        try {
+          const cleaned = rawContent.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
+          parsed = JSON.parse(cleaned);
+        } catch {
+          console.error(`[WeeklyDigest] Failed to parse AI response for player ${playerId}`);
+          continue;
+        }
+
+        if (!parsed?.focusArea || !parsed?.pushTitle || !parsed?.pushBody) continue;
+
+        const digestData = {
+          focusArea: parsed.focusArea,
+          reason: parsed.reason,
+          drillTip: parsed.drillTip,
+          motivation: parsed.motivation,
+        };
+
+        await db.insert(playerNotifications).values({
+          playerId,
+          title: parsed.pushTitle,
+          body: parsed.pushBody,
+          type: "ai_weekly_digest",
+          data: digestData,
+        });
+
+        const tokens = await getPlayerPushTokens(playerId);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            parsed.pushTitle,
+            parsed.pushBody,
+            { type: "ai_weekly_digest", playerId, screen: "PlayerHome" },
+          );
+        }
+
+        console.log(`[WeeklyDigest] Sent weekly digest to player ${playerId}`);
+      } catch (playerErr) {
+        console.error(`[WeeklyDigest] Error processing player ${playerId}:`, playerErr);
+      }
+    }
+
+    console.log(`[WeeklyDigest] Completed for timezone ${timezone}`);
+  } catch (error) {
+    console.error(`[WeeklyDigest] Error processing timezone ${timezone}:`, error);
+  }
+}
+
+export function startWeeklyAIDigestScheduler(): void {
+  if (weeklyAIDigestInterval) {
+    console.log("[WeeklyDigest] Scheduler already running");
+    return;
+  }
+
+  console.log("[WeeklyDigest] Starting weekly AI digest scheduler (checks every 15 minutes, fires Monday 8:00-8:15 AM academy-local time)");
+
+  weeklyAIDigestInterval = setInterval(async () => {
+    try {
+      const now = new Date();
+      const todayKey = now.toISOString().split("T")[0];
+
+      const result = await pool.query(`SELECT DISTINCT timezone FROM academies WHERE timezone IS NOT NULL`);
+
+      for (const row of result.rows) {
+        const tz = row.timezone || "UTC";
+        const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+        const localDay = localNow.getDay(); // 0=Sun, 1=Mon
+        const localHour = localNow.getHours();
+        const tzWeekKey = `${tz}-${todayKey}`;
+
+        const localMinute = localNow.getMinutes();
+        if (localDay === 1 && localHour === 8 && localMinute < 15 && !weeklyAIDigestProcessedTimezones.has(tzWeekKey)) {
+          weeklyAIDigestProcessedTimezones.add(tzWeekKey);
+          processWeeklyAIDigest(tz).catch(err => console.error("[WeeklyDigest] Async error:", err));
+        }
+      }
+
+      for (const key of weeklyAIDigestProcessedTimezones) {
+        if (!key.includes(todayKey)) {
+          weeklyAIDigestProcessedTimezones.delete(key);
+        }
+      }
+    } catch (err) {
+      console.error("[WeeklyDigest] Scheduler check error:", err);
+    }
+  }, 15 * 60 * 1000);
+}
+
+export function stopWeeklyAIDigestScheduler(): void {
+  if (weeklyAIDigestInterval) {
+    clearInterval(weeklyAIDigestInterval);
+    weeklyAIDigestInterval = null;
+    console.log("[WeeklyDigest] Scheduler stopped");
+  }
+}

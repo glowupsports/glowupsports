@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, LayoutAnimation } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -88,6 +88,165 @@ function toIoniconName(name: string | null | undefined, fallback: keyof typeof I
   if (!name) return fallback;
   return name as keyof typeof Ionicons.glyphMap;
 }
+
+const WEEKLY_DIGEST_DISMISSED_KEY = "@glow_weekly_digest_dismissed_id";
+
+interface WeeklyDigestNotification {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  data: {
+    focusArea?: string;
+    reason?: string;
+    drillTip?: string;
+    motivation?: string;
+  } | null;
+  createdAt: string;
+}
+
+function WeeklyAIFocusCard({ playerId }: { playerId: string }) {
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [dismissedLoaded, setDismissedLoaded] = useState(false);
+
+  const { data: digest } = useQuery<WeeklyDigestNotification | null>({
+    queryKey: ["/api/player/me/weekly-digest"],
+    enabled: !!playerId,
+  });
+
+  useEffect(() => {
+    AsyncStorage.getItem(WEEKLY_DIGEST_DISMISSED_KEY).then((val) => {
+      setDismissed(val);
+      setDismissedLoaded(true);
+    });
+  }, []);
+
+  if (!dismissedLoaded || !digest || !digest.data?.focusArea) return null;
+  if (dismissed === digest.id) return null;
+
+  const handleDismiss = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setDismissed(digest.id);
+    AsyncStorage.setItem(WEEKLY_DIGEST_DISMISSED_KEY, digest.id);
+  };
+
+  const { focusArea, reason, drillTip, motivation } = digest.data;
+
+  return (
+    <View style={wStyles.card}>
+      <View style={wStyles.header}>
+        <View style={wStyles.headerLeft}>
+          <View style={wStyles.iconWrap}>
+            <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={wStyles.badge}>THIS WEEK'S AI FOCUS</Text>
+            <Text style={wStyles.focusArea} numberOfLines={2}>{focusArea}</Text>
+          </View>
+        </View>
+        <Pressable onPress={handleDismiss} hitSlop={10} style={wStyles.dismissBtn}>
+          <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
+      </View>
+
+      {reason ? (
+        <Text style={wStyles.reason}>{reason}</Text>
+      ) : null}
+
+      {drillTip ? (
+        <View style={wStyles.drillRow}>
+          <Ionicons name="fitness" size={13} color="#8B5CF6" />
+          <Text style={wStyles.drillTip} numberOfLines={3}>{drillTip}</Text>
+        </View>
+      ) : null}
+
+      {motivation ? (
+        <View style={wStyles.motivationRow}>
+          <Ionicons name="flame" size={13} color="#F59E0B" />
+          <Text style={wStyles.motivation} numberOfLines={2}>{motivation}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const wStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(139, 92, 246, 0.25)",
+    borderRadius: BorderRadius.lg,
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(139, 92, 246, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  badge: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    color: "#8B5CF6",
+    marginBottom: 2,
+  },
+  focusArea: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  dismissBtn: {
+    padding: 4,
+  },
+  reason: {
+    fontSize: 13,
+    color: Colors.dark.textSubtle,
+    lineHeight: 18,
+  },
+  drillRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    backgroundColor: "rgba(139, 92, 246, 0.06)",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+  },
+  drillTip: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.text,
+    lineHeight: 17,
+  },
+  motivationRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  motivation: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    lineHeight: 17,
+  },
+});
 
 function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null; questType: "daily" | "weekly" | null; onViewAll: () => void }) {
   if (!quest) {
@@ -600,6 +759,11 @@ function PlayerHomeContent() {
           <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
           <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>IMPROVE</Text>
         </View>
+
+        {/* WEEKLY AI FOCUS CARD */}
+        {!isGuest && player?.id ? (
+          <WeeklyAIFocusCard playerId={player.id} />
+        ) : null}
 
         {/* AI COACH ENTRY CARD */}
         {!isGuest ? (

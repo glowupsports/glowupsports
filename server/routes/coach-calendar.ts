@@ -1221,6 +1221,38 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // GET /api/player/me/weekly-digest - Get the latest ai_weekly_digest notification
+  router.get(
+    "/api/player/me/weekly-digest",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) return res.status(400).json({ error: "Player not found" });
+
+        const [digest] = await db
+          .select()
+          .from(playerNotifications)
+          .where(
+            and(
+              eq(playerNotifications.playerId, playerId),
+              eq(playerNotifications.type, "ai_weekly_digest"),
+            ),
+          )
+          .orderBy(desc(playerNotifications.createdAt))
+          .limit(1);
+
+        if (!digest) return res.json(null);
+
+        res.json(digest);
+      } catch (error) {
+        console.error("Error fetching weekly digest:", error);
+        res.status(500).json({ error: "Failed to fetch weekly digest" });
+      }
+    },
+  );
+
   // ==================== SESSION CANCELLATION ====================
 
   // Cancel session by coach (no charge, with reason)
