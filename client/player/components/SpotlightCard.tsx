@@ -136,8 +136,8 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
               <Ionicons name="people" size={14} color={GlowColors.primary} />
             </View>
             <View>
-              <Text style={[styles.headerTitle, { color: GlowColors.primary }]}>VRIEND SPOTLIGHT</Text>
-              <Text style={styles.headerSubtitle}>Meest actief deze week</Text>
+              <Text style={[styles.headerTitle, { color: GlowColors.primary }]}>FRIEND SPOTLIGHT</Text>
+              <Text style={styles.headerSubtitle}>Most active this week</Text>
             </View>
           </View>
         </View>
@@ -146,20 +146,20 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
           <View style={friendSpotStyles.friendRow}>
             <PlayerAvatar photoUrl={topFriend.profilePhotoUrl} size={52} borderColor={GlowColors.primary} />
             <View style={friendSpotStyles.friendInfo}>
-              <Text style={friendSpotStyles.friendLabel}>TOP VRIEND DEZE WEEK</Text>
+              <Text style={friendSpotStyles.friendLabel}>TOP FRIEND THIS WEEK</Text>
               <Text style={friendSpotStyles.friendName} numberOfLines={1}>{topFriend.playerName}</Text>
               <View style={friendSpotStyles.xpBadge}>
                 <Ionicons name="flash" size={12} color={GlowColors.primary} />
-                <Text style={friendSpotStyles.xpText}>{topFriend.weeklyXp} XP deze week</Text>
+                <Text style={friendSpotStyles.xpText}>{topFriend.weeklyXp} XP this week</Text>
               </View>
             </View>
           </View>
         ) : (
           <View style={friendSpotStyles.emptyState}>
             <Ionicons name="people-outline" size={32} color={TextColors.muted} />
-            <Text style={friendSpotStyles.emptyText}>Voeg vrienden toe om hun voortgang te zien</Text>
+            <Text style={friendSpotStyles.emptyText}>Add friends to see their progress</Text>
             <Pressable style={friendSpotStyles.addBtn} onPress={onAddFriends}>
-              <Text style={friendSpotStyles.addBtnText}>Vrienden toevoegen</Text>
+              <Text style={friendSpotStyles.addBtnText}>Add friends</Text>
               <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
             </Pressable>
           </View>

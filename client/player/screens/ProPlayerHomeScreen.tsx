@@ -626,7 +626,7 @@ function PlayerHomeContent() {
         />
 
         <FriendSpotlightCard
-          onAddFriends={() => navigation.navigate("PlayerFinder" as never)}
+          onAddFriends={() => navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } })}
         />
 
         {/* ── COMMUNITY ── Social feed (has its own header) */}

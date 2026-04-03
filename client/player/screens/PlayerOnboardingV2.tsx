@@ -2185,7 +2185,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
         <Animated.View entering={FadeInDown.delay(900).duration(600)} style={styles.inviteNudgeCard}>
           <Ionicons name="people" size={24} color={GlowColors.primary} />
           <Text style={styles.inviteNudgeTitle}>Nodig je eerste tennismaatje uit</Text>
-          <Text style={styles.inviteNudgeSubtitle}>Speel en groei samen met vrienden</Text>
+          <Text style={styles.inviteNudgeSubtitle}>Play and grow together with friends</Text>
           <Pressable
             style={styles.inviteNudgeBtn}
             onPress={async () => {
