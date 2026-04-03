@@ -442,17 +442,17 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] coaches GPS columns migration skipped:', e.message);
   }
   try {
+    // Partial unique index: only one AI session note per (session, player).
+    // Non-AI feedback types (technique, praise, etc.) are unconstrained and
+    // continue to support multiple entries per session/player.
     await pool.query(`
-      ALTER TABLE in_session_feedback
-      ADD CONSTRAINT in_session_feedback_session_player_type_unique
-      UNIQUE (session_id, player_id, feedback_type)
+      CREATE UNIQUE INDEX IF NOT EXISTS in_session_feedback_ai_note_unique
+      ON in_session_feedback(session_id, player_id)
+      WHERE feedback_type = 'ai_session_note'
     `);
-    console.log('[Database] in_session_feedback unique constraint applied');
+    console.log('[Database] in_session_feedback AI note partial index applied');
   } catch (e: any) {
-    // "already exists" is expected after first run — safe to ignore
-    if (!e.message?.includes('already exists')) {
-      console.warn('[Database] in_session_feedback unique constraint skipped:', e.message);
-    }
+    console.warn('[Database] in_session_feedback AI note partial index skipped:', e.message);
   }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);

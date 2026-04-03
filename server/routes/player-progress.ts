@@ -2639,20 +2639,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           committed: true,
         });
 
-        // 2. Write to in_session_feedback (session note) — atomic upsert
-        // Uses feedbackType "ai_session_note" + unique constraint on (session_id, player_id, feedback_type)
+        // 2. Write to in_session_feedback (AI session note) — idempotent upsert.
+        // A partial unique index (in_session_feedback_ai_note_unique) ensures at most one
+        // ai_session_note per (session, player). Non-AI types remain unconstrained.
+        // Strategy: try INSERT; on unique-violation (23505) UPDATE the existing row.
         if (structured.sessionNote) {
-          await db.insert(inSessionFeedback).values({
-            sessionId,
-            playerId,
-            coachId,
-            feedbackType: "ai_session_note",
-            message: structured.sessionNote,
-            visibility: "private",
-          }).onConflictDoUpdate({
-            target: [inSessionFeedback.sessionId, inSessionFeedback.playerId, inSessionFeedback.feedbackType],
-            set: { message: structured.sessionNote },
-          });
+          try {
+            await db.insert(inSessionFeedback).values({
+              sessionId,
+              playerId,
+              coachId,
+              feedbackType: "ai_session_note",
+              message: structured.sessionNote,
+              visibility: "private",
+            });
+          } catch (insertErr: any) {
+            if (insertErr?.code === "23505") {
+              // Row already exists — update in place
+              await db
+                .update(inSessionFeedback)
+                .set({ message: structured.sessionNote })
+                .where(
+                  and(
+                    eq(inSessionFeedback.sessionId, sessionId),
+                    eq(inSessionFeedback.playerId, playerId),
+                    eq(inSessionFeedback.feedbackType, "ai_session_note")
+                  )
+                );
+            } else {
+              throw insertErr;
+            }
+          }
         }
 
         // 3. Write to session_skill_feedback (upsert so re-save always updates)

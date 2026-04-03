@@ -1910,11 +1910,7 @@ export const inSessionFeedback = pgTable("in_session_feedback", {
   
   // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  // Ensures at most one feedback entry per type per player per session
-  // (e.g. one "ai_session_note", one "technique", etc.)
-  unique("in_session_feedback_session_player_type_unique").on(table.sessionId, table.playerId, table.feedbackType),
-]);
+});
 
 export const insertInSessionFeedbackSchema = createInsertSchema(inSessionFeedback).omit({ id: true, createdAt: true });
 export type InsertInSessionFeedback = z.infer<typeof insertInSessionFeedbackSchema>;
