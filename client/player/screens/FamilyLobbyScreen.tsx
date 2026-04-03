@@ -515,28 +515,17 @@ export default function FamilyLobbyScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.addChildStickyWrapper}>
-          {isParent ? (
-            <Pressable
-              style={[styles.addChildStickyButton, styles.createMemberButton]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowCreateMember(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Create a new player profile for a family member"
-            >
-              <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.addChildStickyText}>Add New Player</Text>
-            </Pressable>
-          ) : null}
           <Pressable
-            style={[styles.addChildStickyButton, isParent ? styles.addMemberSecondaryButton : null]}
-            onPress={handleOpenAddChildModal}
+            style={[styles.addChildStickyButton, styles.createMemberButton]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowCreateMember(true);
+            }}
             accessibilityRole="button"
-            accessibilityLabel="Add a member to your family"
+            accessibilityLabel="Create a new player profile for a family member"
           >
-            <Ionicons name="link-outline" size={20} color={isParent ? Colors.dark.textSecondary : Colors.dark.backgroundRoot} />
-            <Text style={[styles.addChildStickyText, isParent ? styles.addMemberSecondaryText : null]}>Link Existing Account</Text>
+            <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.addChildStickyText}>Add New Player</Text>
           </Pressable>
         </Animated.View>
         <View style={styles.footerRow}>
