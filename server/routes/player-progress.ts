@@ -2640,7 +2640,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await db.insert(inSessionFeedback).values({
             sessionId,
             playerId,
-            coachId: userId,
+            coachId: coachId,
             feedbackType: "technique",
             message: structured.sessionNote,
             visibility: "private",
