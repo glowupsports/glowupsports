@@ -121,7 +121,7 @@ function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapsho
           {pillars.map((p) => (
             <View key={p} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: PILLAR_COLORS[p] }]} />
-              <Text style={styles.legendText}>{PILLAR_LABELS[p][0]}</Text>
+              <Text style={styles.legendText}>{PILLAR_LABELS[p]}</Text>
             </View>
           ))}
         </View>
@@ -243,10 +243,17 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
               {myProfile ? "My Development Story" : "AI Progress Insights"}
             </Text>
           </View>
+          <Ionicons name="chevron-down" size={16} color={Colors.dark.textMuted} />
         </View>
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
-          <Text style={styles.loadingText}>Loading insights...</Text>
+        <View style={styles.skeletonBody}>
+          <View style={[styles.skeletonLine, { width: "90%" }]} />
+          <View style={[styles.skeletonLine, { width: "75%" }]} />
+          <View style={[styles.skeletonLine, { width: "60%" }]} />
+          <View style={styles.skeletonChipsRow}>
+            <View style={[styles.skeletonChip, { width: 72 }]} />
+            <View style={[styles.skeletonChip, { width: 96 }]} />
+            <View style={[styles.skeletonChip, { width: 80 }]} />
+          </View>
         </View>
       </View>
     );
@@ -457,17 +464,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 10,
   },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
-  loadingText: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-  },
   cardBody: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
@@ -619,6 +615,29 @@ const styles = StyleSheet.create({
   digestDate: {
     ...Typography.caption,
     color: Colors.dark.disabled,
+  },
+  skeletonBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundTertiary,
+    paddingTop: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  skeletonLine: {
+    height: 12,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 4,
+  },
+  skeletonChipsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  skeletonChip: {
+    height: 28,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 999,
   },
   errorRow: {
     flexDirection: "row",
