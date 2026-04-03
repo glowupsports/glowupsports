@@ -130,6 +130,57 @@ export async function generateSessionDigest(
       .orderBy(desc(playerBallLevels.assignedAt))
       .limit(1);
 
+    // Skill scores recorded this session
+    const sessionSkillScores = await db
+      .select({
+        skillName: glowSkills.name,
+        score: playerSkillScores.score,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(
+        and(
+          eq(playerSkillScores.playerId, playerId),
+          eq(playerSkillScores.sessionId, sessionId)
+        )
+      );
+
+    // Required curriculum skills for current level
+    let curriculumProgress = "";
+    if (playerLevel?.levelId && sessionSkillScores.length > 0) {
+      const required = await db
+        .select({
+          skillName: glowSkills.name,
+          targetScore: levelSkills.targetScore,
+          isRequired: levelSkills.isRequired,
+        })
+        .from(levelSkills)
+        .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+        .where(and(eq(levelSkills.levelId, playerLevel.levelId), eq(levelSkills.isRequired, true)));
+
+      const scoreMap = new Map(sessionSkillScores.map((s) => [s.skillName, s.score]));
+      const met: string[] = [];
+      const notMet: string[] = [];
+      for (const r of required) {
+        const score = scoreMap.get(r.skillName);
+        if (score !== undefined) {
+          if (score >= r.targetScore) {
+            met.push(`${r.skillName} (${score}/${r.targetScore})`);
+          } else {
+            notMet.push(`${r.skillName} (${score}/${r.targetScore})`);
+          }
+        }
+      }
+      if (met.length > 0 || notMet.length > 0) {
+        curriculumProgress = [
+          met.length > 0 ? `Met required skills: ${met.join(", ")}` : "",
+          notMet.length > 0 ? `Still developing: ${notMet.join(", ")}` : "",
+        ]
+          .filter(Boolean)
+          .join(". ");
+      }
+    }
+
     const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
     const attendanceStatus = attendance?.attendanceStatus || "present";
 
@@ -157,6 +208,7 @@ Coach feedback notes: ${feedbackList}
 ${ratingsSummary ? `Skill ratings: ${ratingsSummary}` : ""}
 ${strokeDetails ? `Strokes worked on: ${strokeDetails}` : ""}
 ${playerNote ? `Coach note: ${playerNote}` : ""}
+${curriculumProgress ? `Curriculum progress this session: ${curriculumProgress}` : ""}
 
 Write a 2-3 sentence session digest for this player. Write it in third person (e.g., "[Name] worked on..."). Keep it positive, specific and actionable. Mention what was practised, what went well, and one clear area to continue working on. Never use emojis.`;
 
@@ -260,6 +312,26 @@ export async function generateProgressNarrative(
       .orderBy(desc(playerSkillScores.createdAt))
       .limit(15);
 
+    // Session skill feedback trend (effort/execution/understanding + stroke data)
+    const recentSessionFeedback = await db
+      .select({
+        effort: sessionSkillFeedback.effort,
+        execution: sessionSkillFeedback.execution,
+        understanding: sessionSkillFeedback.understanding,
+        overall: sessionSkillFeedback.overall,
+        note: sessionSkillFeedback.note,
+        strokeFeedback: sessionSkillFeedback.strokeFeedback,
+      })
+      .from(sessionSkillFeedback)
+      .where(
+        and(
+          eq(sessionSkillFeedback.playerId, playerId),
+          gte(sessionSkillFeedback.createdAt, since)
+        )
+      )
+      .orderBy(desc(sessionSkillFeedback.createdAt))
+      .limit(10);
+
     const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
     const digestsText =
       recentDigests.map((d) => `- ${d.summaryText}`).join("\n") ||
@@ -281,6 +353,27 @@ export async function generateProgressNarrative(
       recentSkillScores.map((s) => `${s.skillName}: ${s.score}/2`).join(", ") ||
       "no skill data recorded";
 
+    let sessionFeedbackTrend = "";
+    if (recentSessionFeedback.length > 0) {
+      const avgEffort = (recentSessionFeedback.reduce((s, f) => s + (f.effort ?? 1), 0) / recentSessionFeedback.length).toFixed(1);
+      const avgExec = (recentSessionFeedback.reduce((s, f) => s + (f.execution ?? 1), 0) / recentSessionFeedback.length).toFixed(1);
+      const avgUnderstanding = (recentSessionFeedback.reduce((s, f) => s + (f.understanding ?? 1), 0) / recentSessionFeedback.length).toFixed(1);
+      const overallCounts = recentSessionFeedback.reduce((acc: Record<string, number>, f) => {
+        if (f.overall) acc[f.overall] = (acc[f.overall] || 0) + 1;
+        return acc;
+      }, {});
+      const overallTrend = Object.entries(overallCounts).map(([k, v]) => `${k}: ${v}x`).join(", ");
+
+      const strokeTypes = new Set<string>();
+      for (const f of recentSessionFeedback) {
+        if (f.strokeFeedback && Array.isArray(f.strokeFeedback)) {
+          (f.strokeFeedback as { stroke: string }[]).forEach((s) => strokeTypes.add(s.stroke));
+        }
+      }
+
+      sessionFeedbackTrend = `Avg effort ${avgEffort}/2, execution ${avgExec}/2, understanding ${avgUnderstanding}/2 over ${recentSessionFeedback.length} sessions. Overall trend: ${overallTrend || "no data"}.${strokeTypes.size > 0 ? ` Strokes trained: ${[...strokeTypes].join(", ")}.` : ""}`;
+    }
+
     const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, ball level: ${ballLevel}
 Period: last ${days} days
 
@@ -288,6 +381,7 @@ Recent session summaries:
 ${digestsText}
 
 Feedback received: ${feedbackSummary}
+${sessionFeedbackTrend ? `Session performance trend: ${sessionFeedbackTrend}` : ""}
 Skill scores tracked: ${skillProgress}
 Level curriculum skills (${ballLevel}): ${curriculumSkills.join(", ") || "none configured"}
 
