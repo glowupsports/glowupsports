@@ -16,7 +16,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { useQuery } from "@tanstack/react-query";
 
 interface Message {
   role: "user" | "assistant";
@@ -73,16 +72,41 @@ export default function PlayerAICoachScreen() {
   const navigation = useNavigation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasGreeted, setHasGreeted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [greetingFetched, setGreetingFetched] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-
-  const { data: dashboardData } = useQuery<any>({ queryKey: ["/api/player/me/dashboard"] });
-  const player = dashboardData?.player;
 
   const scrollToBottom = () => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   };
+
+  const fetchAIGreeting = async () => {
+    try {
+      const resp = await apiRequest("POST", "/api/player/me/ai-coach/chat", {
+        messages: [{ role: "user", content: "__greeting__" }],
+      });
+      const data = await resp.json();
+      if (data.reply) {
+        setMessages([{ role: "assistant", content: data.reply }]);
+        scrollToBottom();
+      }
+    } catch (err) {
+      console.error("[PlayerAICoach] Greeting error:", err);
+      setMessages([{
+        role: "assistant",
+        content: "Welcome! I'm your personal AI coach. Ask me anything about your game, what to focus on, or how you've been progressing.",
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!greetingFetched) {
+      setGreetingFetched(true);
+      fetchAIGreeting();
+    }
+  }, []);
 
   const sendMessage = async (text?: string) => {
     const content = (text ?? inputText).trim();
@@ -121,22 +145,6 @@ export default function PlayerAICoachScreen() {
     }
   };
 
-  const buildGreeting = () => {
-    const name = player?.name?.split(" ")[0] || "there";
-    const ballLevel = player?.ballLevel;
-    const levelLine = ballLevel
-      ? `You're currently at ${ballLevel} ball level`
-      : "I know your game inside and out";
-    return `Hi ${name}! I'm your personal AI coach — ${levelLine} and I have access to all your coach feedback, skill scores, and session history. Ask me anything about your game, what to focus on next, or how you've been progressing.`;
-  };
-
-  useEffect(() => {
-    if (!hasGreeted && player) {
-      setHasGreeted(true);
-      setMessages([{ role: "assistant", content: buildGreeting() }]);
-    }
-  }, [player, hasGreeted]);
-
   const QUICK_QUESTIONS = [
     "What should I focus on this week?",
     "How is my game improving?",
@@ -174,7 +182,18 @@ export default function PlayerAICoachScreen() {
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToBottom}
         >
-          {messages.length === 0 ? (
+          {messages.length === 0 && isLoading ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="sparkles" size={32} color={ACCENT} />
+              </View>
+              <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
+              <Text style={styles.emptyDesc}>
+                I know your game from every session your coach has logged. Ask me anything.
+              </Text>
+              <TypingIndicator />
+            </View>
+          ) : messages.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
                 <Ionicons name="sparkles" size={32} color={ACCENT} />

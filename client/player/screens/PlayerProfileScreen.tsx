@@ -1197,6 +1197,24 @@ export default function PlayerProfileScreen() {
           isSaving={updateSportProfiles.isPending}
         />
 
+        {/* AI Coach entry */}
+        <Pressable
+          style={styles.aiCoachCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("PlayerAICoach" as never);
+          }}
+        >
+          <View style={styles.aiCoachIcon}>
+            <Ionicons name="sparkles" size={22} color="#0d0d0d" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aiCoachTitle}>My AI Coach</Text>
+            <Text style={styles.aiCoachSub}>Ask anything about your game and progress</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+        </Pressable>
+
         {/* Settings grouped list */}
         <Text style={styles.sectionGroupHeader}>{t("player.profile.settings")}</Text>
         <View style={styles.settingsSection}>
@@ -2022,6 +2040,37 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  aiCoachCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.3)",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  aiCoachIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  aiCoachTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  aiCoachSub: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   newBadge: {
     backgroundColor: "#8A2BE2",

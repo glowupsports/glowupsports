@@ -817,9 +817,9 @@ export async function buildPlayerSelfAIContext(
       xpLevel: player.level ?? 1,
       totalXp: player.totalXp ?? 0,
       glowScore: player.glowScore ?? 0,
-      shortTermGoal: (player as any).shortTermGoal || null,
-      longTermDream: (player as any).longTermDream || null,
-      playStyle: (player as any).playStyle || null,
+      shortTermGoal: player.shortTermGoal || null,
+      longTermDream: player.longTermDream || null,
+      playStyle: player.playStyle || null,
       dominantHand: player.dominantHand || null,
       skillScores,
       publicFeedback,
@@ -906,6 +906,14 @@ ${noteLines}
 
 RECENT SESSION SUMMARIES:
 ${digestLines}
+
+GREETING INSTRUCTION:
+When the user's first message is exactly "__greeting__", respond with a warm, personalised opening message that:
+1. Greets ${playerName} by first name
+2. Mentions their current ball level or XP level
+3. Calls out 1-2 specific recent focus areas drawn from coach feedback, notes, or strokes worked on (use real data)
+4. Invites them to ask anything about their game
+Keep the greeting to 3-4 sentences — warm, specific, and motivating.
 
 RULES FOR YOUR RESPONSES:
 - Speak directly to ${playerName} in second person ("You", "Your")
