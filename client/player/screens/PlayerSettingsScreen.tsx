@@ -30,7 +30,7 @@ interface SettingItem {
 export default function PlayerSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { logout } = useAuth();
+  const { logout, loginWithToken } = useAuth();
   const { isRegistered } = usePushNotifications();
   const queryClient = useQueryClient();
   const { refreshFamily } = useFamily();
@@ -229,15 +229,40 @@ export default function PlayerSettingsScreen() {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                     try {
                       await apiRequest("DELETE", "/api/player/me/account", undefined);
+                      const doAfterDelete = async () => {
+                        const raw = await SecureStore.getItemAsync(FAMILY_SWITCH_KEY).catch(() => null);
+                        if (raw) {
+                          try {
+                            const parsed = JSON.parse(raw);
+                            if (parsed?.originalToken) {
+                              const apiBase = getApiUrl();
+                              const meRes = await fetch(`${apiBase}/api/me`, {
+                                headers: { Authorization: `Bearer ${parsed.originalToken}` },
+                              });
+                              if (meRes.ok) {
+                                const meData = await meRes.json();
+                                await loginWithToken(parsed.originalToken, meData.user);
+                                await SecureStore.deleteItemAsync(FAMILY_SWITCH_KEY).catch(() => {});
+                                Alert.alert(
+                                  "Account Removed",
+                                  `${switchedName}'s account has been permanently deleted. You are back on your main account.`
+                                );
+                                return;
+                              }
+                            }
+                          } catch {}
+                        }
+                        logout();
+                      };
                       Alert.alert(
                         "Account Deleted",
-                        "Your account has been permanently deleted. A confirmation has been sent to your email address.",
+                        "The account has been permanently deleted.",
                         [
                           {
                             text: "OK",
                             onPress: () => {
                               setTimeout(() => {
-                                logout();
+                                doAfterDelete();
                               }, 350);
                             },
                           },
