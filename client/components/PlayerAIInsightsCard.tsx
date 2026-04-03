@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Dimensions,
+
 } from "react-native";
 import Svg, { Path, Line, Circle, Text as SvgText } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -80,8 +80,8 @@ function formatDateShort(dateStr: string): string {
 }
 
 function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapshot[] }) {
-  const screenWidth = Dimensions.get("window").width;
-  const chartWidth = screenWidth - Spacing.xl * 2 - Spacing.lg * 2 - 32;
+  const [containerWidth, setContainerWidth] = React.useState(0);
+  const chartWidth = containerWidth > 0 ? containerWidth : 260;
   const chartHeight = 120;
   const padding = { left: 28, right: 10, top: 10, bottom: 28 };
   const innerW = chartWidth - padding.left - padding.right;
@@ -114,7 +114,7 @@ function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapsho
   const yLabels = [0, 1, 2, 3];
 
   return (
-    <View>
+    <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <View style={styles.chartHeader}>
         <Text style={styles.chartTitle}>Pillar Score Trend</Text>
         <View style={styles.chartLegend}>
@@ -126,6 +126,7 @@ function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapsho
           ))}
         </View>
       </View>
+      {containerWidth > 0 ? (
       <Svg width={chartWidth} height={chartHeight}>
         {yLabels.map((val) => (
           <React.Fragment key={val}>
@@ -195,6 +196,7 @@ function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapsho
           })
         )}
       </Svg>
+      ) : null}
     </View>
   );
 }
@@ -400,7 +402,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
             </View>
           ) : null}
 
-          {effectivePlayerId ? (
+          {hasData && effectivePlayerId ? (
             <Pressable
               style={[
                 styles.generateButton,
@@ -418,11 +420,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
                 <Ionicons name="refresh" size={14} color={Colors.dark.backgroundRoot} />
               )}
               <Text style={styles.generateButtonText}>
-                {generateMutation.isPending
-                  ? "Generating..."
-                  : narrative
-                  ? "Refresh Insights"
-                  : "Generate Insights"}
+                {generateMutation.isPending ? "Generating..." : "Refresh Insights"}
               </Text>
             </Pressable>
           ) : null}
