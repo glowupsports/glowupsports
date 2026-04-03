@@ -20,47 +20,47 @@ import { apiRequest } from "@/lib/query-client";
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
 const MOTIVATION_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
-  { id: "fun", label: "Spelen voor de lol", icon: "happy-outline" },
-  { id: "improve", label: "Serieus verbeteren", icon: "trending-up-outline" },
-  { id: "compete", label: "Wedstrijden spelen", icon: "trophy-outline" },
-  { id: "unsure", label: "Nog niet zeker", icon: "help-circle-outline" },
+  { id: "fun", label: "Just for fun", icon: "happy-outline" },
+  { id: "improve", label: "Improve seriously", icon: "trending-up-outline" },
+  { id: "compete", label: "Play matches", icon: "trophy-outline" },
+  { id: "unsure", label: "Not sure yet", icon: "help-circle-outline" },
 ];
 
 const HAND_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
-  { id: "right", label: "Rechtshandig", icon: "hand-right-outline" },
-  { id: "left", label: "Linkshandig", icon: "hand-left-outline" },
+  { id: "right", label: "Right-handed", icon: "hand-right-outline" },
+  { id: "left", label: "Left-handed", icon: "hand-left-outline" },
 ];
 
 const BACKHAND_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
-  { id: "single", label: "Eenhandig", icon: "hand-right-outline" },
-  { id: "double", label: "Tweehandig", icon: "body-outline" },
+  { id: "single", label: "One-handed", icon: "hand-right-outline" },
+  { id: "double", label: "Two-handed", icon: "body-outline" },
 ];
 
 const EXPERIENCE_OPTIONS: { id: string; label: string }[] = [
-  { id: "new", label: "Nieuw" },
-  { id: "6-12months", label: "6-12 mnd" },
-  { id: "1-3years", label: "1-3 jaar" },
-  { id: "3-5years", label: "3-5 jaar" },
-  { id: "5-10years", label: "5-10 jaar" },
-  { id: "10-20years", label: "10-20 jaar" },
+  { id: "new", label: "New" },
+  { id: "6-12months", label: "6-12 mo" },
+  { id: "1-3years", label: "1-3 yrs" },
+  { id: "3-5years", label: "3-5 yrs" },
+  { id: "5-10years", label: "5-10 yrs" },
+  { id: "10-20years", label: "10-20 yrs" },
 ];
 
 const ENJOYMENT_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
-  { id: "rallies", label: "Rallyen", icon: "repeat-outline" },
-  { id: "winning", label: "Punten winnen", icon: "star-outline" },
-  { id: "technique", label: "Techniek leren", icon: "school-outline" },
-  { id: "social", label: "Samen spelen", icon: "people-outline" },
-  { id: "active", label: "Bewegen", icon: "fitness-outline" },
-  { id: "competing", label: "Competitie", icon: "ribbon-outline" },
+  { id: "rallies", label: "Rallying", icon: "repeat-outline" },
+  { id: "winning", label: "Winning points", icon: "star-outline" },
+  { id: "technique", label: "Learning technique", icon: "school-outline" },
+  { id: "social", label: "Playing together", icon: "people-outline" },
+  { id: "active", label: "Being active", icon: "fitness-outline" },
+  { id: "competing", label: "Competition", icon: "ribbon-outline" },
 ];
 
 const FOCUS_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
-  { id: "technique", label: "Techniek", icon: "construct-outline" },
-  { id: "confidence", label: "Zelfvertrouwen", icon: "shield-checkmark-outline" },
-  { id: "fitness", label: "Conditie", icon: "barbell-outline" },
+  { id: "technique", label: "Technique", icon: "construct-outline" },
+  { id: "confidence", label: "Confidence", icon: "shield-checkmark-outline" },
+  { id: "fitness", label: "Fitness", icon: "barbell-outline" },
   { id: "focus", label: "Focus", icon: "eye-outline" },
-  { id: "strategy", label: "Slimmer spelen", icon: "bulb-outline" },
-  { id: "social", label: "Samen / Teamwork", icon: "people-circle-outline" },
+  { id: "strategy", label: "Play smarter", icon: "bulb-outline" },
+  { id: "social", label: "Together / Teamwork", icon: "people-circle-outline" },
 ];
 
 interface MemberData {
@@ -81,7 +81,7 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
   const [show, setShow] = useState(false);
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 80 }, (_, i) => currentYear - i);
-  const months = ["Jan", "Feb", "Mrt", "Apr", "Mei", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const [selYear, setSelYear] = useState<number | null>(null);
   const [selMonth, setSelMonth] = useState<number | null>(null);
   const [selDay, setSelDay] = useState<number | null>(null);
@@ -113,8 +113,8 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
   };
 
   const displayText = value
-    ? new Date(value).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })
-    : "Kies geboortedatum";
+    ? new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : "Select date of birth";
 
   return (
     <>
@@ -129,10 +129,10 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
       <Modal visible={show} transparent animationType="fade" onRequestClose={() => setShow(false)}>
         <Pressable style={fStyles.dobOverlay} onPress={() => setShow(false)}>
           <Pressable style={fStyles.dobModal} onPress={() => {}}>
-            <Text style={fStyles.dobTitle}>Geboortedatum</Text>
+            <Text style={fStyles.dobTitle}>Date of Birth</Text>
             <View style={fStyles.dobCols}>
               <View style={{ flex: 1 }}>
-                <Text style={fStyles.dobColLabel}>Jaar</Text>
+                <Text style={fStyles.dobColLabel}>Year</Text>
                 <ScrollView style={fStyles.dobScroll} showsVerticalScrollIndicator={false}>
                   {years.map((y) => (
                     <Pressable key={y} style={[fStyles.dobItem, selYear === y ? fStyles.dobItemActive : null]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelYear(y); }}>
@@ -142,7 +142,7 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
                 </ScrollView>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={fStyles.dobColLabel}>Maand</Text>
+                <Text style={fStyles.dobColLabel}>Month</Text>
                 <ScrollView style={fStyles.dobScroll} showsVerticalScrollIndicator={false}>
                   {months.map((m, i) => (
                     <Pressable key={m} style={[fStyles.dobItem, selMonth === i ? fStyles.dobItemActive : null]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelMonth(i); }}>
@@ -152,7 +152,7 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
                 </ScrollView>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={fStyles.dobColLabel}>Dag</Text>
+                <Text style={fStyles.dobColLabel}>Day</Text>
                 <ScrollView style={fStyles.dobScroll} showsVerticalScrollIndicator={false}>
                   {days.map((d) => (
                     <Pressable key={d} style={[fStyles.dobItem, selDay === d ? fStyles.dobItemActive : null]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelDay(d); }}>
@@ -164,14 +164,14 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
             </View>
             <View style={fStyles.dobActions}>
               <Pressable style={fStyles.dobCancel} onPress={() => setShow(false)}>
-                <Text style={fStyles.dobCancelText}>Annuleer</Text>
+                <Text style={fStyles.dobCancelText}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={[fStyles.dobConfirm, (selYear === null || selMonth === null || selDay === null) ? fStyles.dobConfirmDisabled : null]}
                 onPress={confirm}
                 disabled={selYear === null || selMonth === null || selDay === null}
               >
-                <Text style={fStyles.dobConfirmText}>Bevestig</Text>
+                <Text style={fStyles.dobConfirmText}>Confirm</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -212,8 +212,8 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
       resetFlow();
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : "Kon het profiel niet aanmaken. Probeer opnieuw.";
-      Alert.alert("Fout", msg);
+      const msg = error instanceof Error ? error.message : "Could not create the profile. Please try again.";
+      Alert.alert("Error", msg);
     },
   });
 
@@ -293,35 +293,35 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
         return (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={fStyles.stepContent} showsVerticalScrollIndicator={false}>
             <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              <Text style={fStyles.stepTitle}>Nieuw familielid</Text>
-              <Text style={fStyles.stepSubtitle}>Vul de basisgegevens in voor dit profiel</Text>
+              <Text style={fStyles.stepTitle}>New Family Member</Text>
+              <Text style={fStyles.stepSubtitle}>Enter basic details for this profile</Text>
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(200).duration(400)} style={fStyles.inputGroup}>
-              <Text style={fStyles.inputLabel}>Voornaam</Text>
+              <Text style={fStyles.inputLabel}>First name</Text>
               <TextInput
                 style={fStyles.input}
                 value={data.firstName}
                 onChangeText={(t) => setData((prev) => ({ ...prev, firstName: t }))}
-                placeholder="Voornaam"
+                placeholder="First name"
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="words"
                 autoCorrect={false}
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(260).duration(400)} style={fStyles.inputGroup}>
-              <Text style={fStyles.inputLabel}>Achternaam</Text>
+              <Text style={fStyles.inputLabel}>Last name</Text>
               <TextInput
                 style={fStyles.input}
                 value={data.lastName}
                 onChangeText={(t) => setData((prev) => ({ ...prev, lastName: t }))}
-                placeholder="Achternaam"
+                placeholder="Last name"
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="words"
                 autoCorrect={false}
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(320).duration(400)} style={fStyles.inputGroup}>
-              <Text style={fStyles.inputLabel}>Geboortedatum (optioneel)</Text>
+              <Text style={fStyles.inputLabel}>Date of birth (optional)</Text>
               <DOBPicker value={data.dateOfBirth} onChange={(d) => setData((prev) => ({ ...prev, dateOfBirth: d }))} />
             </Animated.View>
           </ScrollView>
@@ -331,8 +331,8 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
         return (
           <View style={fStyles.stepContent}>
             <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              <Text style={fStyles.stepTitle}>Wat motiveert {data.firstName || "dit lid"}?</Text>
-              <Text style={fStyles.stepSubtitle}>Kies de beste omschrijving</Text>
+              <Text style={fStyles.stepTitle}>What motivates {data.firstName || "this member"}?</Text>
+              <Text style={fStyles.stepSubtitle}>Choose the best description</Text>
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(200).duration(400)} style={fStyles.optionsList}>
               {MOTIVATION_OPTIONS.map((opt) => (
@@ -362,12 +362,12 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
         return (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={fStyles.stepContent} showsVerticalScrollIndicator={false}>
             <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              <Text style={fStyles.stepTitle}>Speelstijl</Text>
-              <Text style={fStyles.stepSubtitle}>Dominante hand, backhand en ervaring</Text>
+              <Text style={fStyles.stepTitle}>Play Style</Text>
+              <Text style={fStyles.stepSubtitle}>Dominant hand, backhand and experience</Text>
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(180).duration(400)} style={fStyles.section}>
-              <Text style={fStyles.sectionLabel}>Dominante hand</Text>
+              <Text style={fStyles.sectionLabel}>Dominant hand</Text>
               <View style={fStyles.handRow}>
                 {HAND_OPTIONS.map((opt) => (
                   <Pressable
@@ -399,7 +399,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(300).duration(400)} style={fStyles.section}>
-              <Text style={fStyles.sectionLabel}>Tennis ervaring</Text>
+              <Text style={fStyles.sectionLabel}>Tennis experience</Text>
               <View style={fStyles.expGrid}>
                 {EXPERIENCE_OPTIONS.map((opt) => (
                   <Pressable
@@ -419,8 +419,8 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
         return (
           <View style={fStyles.stepContent}>
             <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              <Text style={fStyles.stepTitle}>Wat vindt {data.firstName || "dit lid"} leuk?</Text>
-              <Text style={fStyles.stepSubtitle}>Kies tot 3 opties</Text>
+              <Text style={fStyles.stepTitle}>What does {data.firstName || "this member"} enjoy?</Text>
+              <Text style={fStyles.stepSubtitle}>Choose up to 3 options</Text>
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(200).duration(400)} style={fStyles.gridOptions}>
               {ENJOYMENT_OPTIONS.map((opt) => {
@@ -439,7 +439,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                 );
               })}
             </Animated.View>
-            <Text style={fStyles.countText}>{data.enjoymentTags.length}/3 geselecteerd</Text>
+            <Text style={fStyles.countText}>{data.enjoymentTags.length}/3 selected</Text>
           </View>
         );
 
@@ -447,8 +447,8 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
         return (
           <View style={fStyles.stepContent}>
             <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-              <Text style={fStyles.stepTitle}>Waar wil {data.firstName || "dit lid"} aan werken?</Text>
-              <Text style={fStyles.stepSubtitle}>Selecteer doelen</Text>
+              <Text style={fStyles.stepTitle}>What does {data.firstName || "this member"} want to work on?</Text>
+              <Text style={fStyles.stepSubtitle}>Select goals</Text>
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(200).duration(400)} style={fStyles.gridOptions}>
               {FOCUS_OPTIONS.map((opt) => {
@@ -483,7 +483,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                 <View key={i} style={[fStyles.dot, i <= step ? fStyles.dotActive : null]} />
               ))}
             </View>
-            <Pressable onPress={handleClose} accessibilityRole="button" accessibilityLabel="Sluiten">
+            <Pressable onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
             </Pressable>
           </View>
@@ -496,7 +496,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
             {step > 0 ? (
               <Pressable style={fStyles.backBtn} onPress={handleBack}>
                 <Ionicons name="chevron-back" size={20} color={Colors.dark.textMuted} />
-                <Text style={fStyles.backBtnText}>Terug</Text>
+                <Text style={fStyles.backBtnText}>Back</Text>
               </Pressable>
             ) : (
               <View style={fStyles.backBtn} />
@@ -512,7 +512,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                   <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
                 ) : (
                   <>
-                    <Text style={fStyles.nextBtnText}>{step === TOTAL_STEPS - 1 ? "Opslaan" : "Volgende"}</Text>
+                    <Text style={fStyles.nextBtnText}>{step === TOTAL_STEPS - 1 ? "Save" : "Next"}</Text>
                     <Ionicons name={step === TOTAL_STEPS - 1 ? "checkmark" : "chevron-forward"} size={18} color={Colors.dark.backgroundRoot} />
                   </>
                 )}

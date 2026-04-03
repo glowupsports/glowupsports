@@ -318,13 +318,6 @@ export default function FamilyLobbyScreen() {
 
   const handleOpenAddChildModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (!isParent) {
-      Alert.alert(
-        "Parent Account Required",
-        "Only the parent account can add members to this Family Lobby. Switch to the parent account to manage members.",
-      );
-      return;
-    }
     setChildEmail("");
     setInviteCode(null);
     setInviteExpiry(null);
@@ -533,7 +526,7 @@ export default function FamilyLobbyScreen() {
               accessibilityLabel="Create a new player profile for a family member"
             >
               <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.addChildStickyText}>Nieuwe speler toevoegen</Text>
+              <Text style={styles.addChildStickyText}>Add New Player</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -543,7 +536,7 @@ export default function FamilyLobbyScreen() {
             accessibilityLabel="Add a member to your family"
           >
             <Ionicons name="link-outline" size={20} color={isParent ? Colors.dark.textSecondary : Colors.dark.backgroundRoot} />
-            <Text style={[styles.addChildStickyText, isParent ? styles.addMemberSecondaryText : null]}>Koppel bestaand account</Text>
+            <Text style={[styles.addChildStickyText, isParent ? styles.addMemberSecondaryText : null]}>Link Existing Account</Text>
           </Pressable>
         </Animated.View>
         <View style={styles.footerRow}>

@@ -56,19 +56,19 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
 
             <Animated.View entering={FadeInDown.delay(200).duration(400)}>
               <Text style={styles.title}>
-                {addedCount === 0 ? "Familie toevoegen?" : "Nog een familielid?"}
+                {addedCount === 0 ? "Add Family Members?" : "Add another family member?"}
               </Text>
               <Text style={styles.subtitle}>
                 {addedCount === 0
-                  ? "Speel je tennis met je gezin? Voeg direct een profiel toe voor elk familielid — geen apart account nodig."
-                  : `${addedCount} familielid${addedCount > 1 ? "en" : ""} toegevoegd. Wil je nog iemand toevoegen?`}
+                  ? "Do you play tennis with family? Add a profile for each family member right now — no separate account needed."
+                  : `${addedCount} member${addedCount > 1 ? "s" : ""} added. Would you like to add another?`}
               </Text>
             </Animated.View>
 
             {addedCount > 0 ? (
               <Animated.View entering={FadeInDown.delay(200).duration(300)} style={styles.addedBadge}>
                 <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
-                <Text style={styles.addedText}>{addedCount} profiel{addedCount > 1 ? "en" : ""} aangemaakt</Text>
+                <Text style={styles.addedText}>{addedCount} profile{addedCount > 1 ? "s" : ""} created</Text>
               </Animated.View>
             ) : null}
 
@@ -77,20 +77,20 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
                 style={styles.addBtn}
                 onPress={handleAddMember}
                 accessibilityRole="button"
-                accessibilityLabel="Familielid toevoegen"
+                accessibilityLabel="Add family member"
               >
                 <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.addBtnText}>Ja, voeg toe</Text>
+                <Text style={styles.addBtnText}>Yes, add one</Text>
               </Pressable>
 
               <Pressable
                 style={styles.doneBtn}
                 onPress={handleDone}
                 accessibilityRole="button"
-                accessibilityLabel="Klaar, ga naar home"
+                accessibilityLabel="Done, go to home"
               >
                 <Text style={styles.doneBtnText}>
-                  {addedCount === 0 ? "Nee, klaar" : "Klaar"}
+                  {addedCount === 0 ? "No, done" : "Done"}
                 </Text>
                 <Ionicons name="arrow-forward" size={18} color={Colors.dark.textMuted} />
               </Pressable>
