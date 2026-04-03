@@ -35,8 +35,12 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelC
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import { useNavigation } from "@react-navigation/native";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import PlayerFeedbackHistorySheet from "./PlayerFeedbackHistorySheet";
+import StrokeFeedbackModal from "./StrokeFeedbackModal";
+import QuickBaselineDrawer from "./QuickBaselineDrawer";
+import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 
 interface Player {
   id: string;
@@ -97,6 +101,7 @@ export default function SessionDetailDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { isOffline, logOfflineAttempt } = useNetwork();
+  const navigation = useNavigation<any>();
   const isOfflineRef = useRef(isOffline);
   useEffect(() => { isOfflineRef.current = isOffline; }, [isOffline]);
   
@@ -110,6 +115,10 @@ export default function SessionDetailDrawer({
   const [showQuickFeedback, setShowQuickFeedback] = useState(false);
   const [selectedPlayerForHistory, setSelectedPlayerForHistory] = useState<{ id: string; name: string; photoUrl?: string | null; level?: string | null; ballLevel?: string | null } | null>(null);
   const [feedbackInitialPlayerId, setFeedbackInitialPlayerId] = useState<string | null>(null);
+  const [showStrokeFeedback, setShowStrokeFeedback] = useState(false);
+  const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
+  const [deepAssessPlayer, setDeepAssessPlayer] = useState<Player | null>(null);
+  const [feedbackPickerMode, setFeedbackPickerMode] = useState<"evidence" | "baseline" | "deep" | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
@@ -1363,32 +1372,104 @@ export default function SessionDetailDrawer({
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
       </Pressable>
 
-      {/* Feedback Button - In-Session */}
-      {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (
-        <Pressable 
-          style={styles.quickFeedbackCard} 
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setShowQuickFeedback(true);
-          }}
-        >
-          <View style={styles.attendanceCardLeft}>
-            <LinearGradient
-              colors={[GlowColors.primary, "#7ACC2C"]}
-              style={[styles.attendanceIconContainer]}
-            >
-              <Ionicons name="chatbubble-ellipses" size={22} color={Colors.dark.buttonText} />
-            </LinearGradient>
-            <View>
-              <Text style={[styles.attendanceCardTitle, { color: GlowColors.primary }]}>Feedback</Text>
-              <Text style={styles.attendanceCardSubtitle}>Select a player · Give detailed feedback</Text>
+      {/* Feedback Hub — all systems */}
+      {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (() => {
+        const activePlayers = liveSession.players!.filter(p => !removedPlayerIds.has(p.id));
+        const nonGuestPlayers = activePlayers.filter(p => !p.isGuest);
+
+        const openForPlayer = (mode: "evidence" | "baseline" | "deep") => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          if (nonGuestPlayers.length === 1) {
+            const p = nonGuestPlayers[0];
+            if (mode === "evidence") {
+              navigation.navigate("EvidenceCapture" as never, { sessionId: session.id, playerId: p.id } as never);
+            } else if (mode === "baseline") {
+              setBaselinePlayer(p);
+            } else {
+              setDeepAssessPlayer(p);
+            }
+          } else if (nonGuestPlayers.length > 1) {
+            setFeedbackPickerMode(mode);
+          }
+        };
+
+        const TILES = [
+          {
+            key: "feedback",
+            label: "Feedback",
+            subtitle: "Praise, tips, notes",
+            icon: "chatbubble-ellipses" as const,
+            color: GlowColors.primary,
+            xp: true,
+            onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowQuickFeedback(true); },
+          },
+          {
+            key: "stroke",
+            label: "Stroke Analysis",
+            subtitle: "Per-stroke breakdown",
+            icon: "layers" as const,
+            color: "#38BDF8",
+            xp: false,
+            onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowStrokeFeedback(true); },
+          },
+          {
+            key: "evidence",
+            label: "Skill Evidence",
+            subtitle: "10-sec video clip",
+            icon: "videocam" as const,
+            color: "#F472B6",
+            xp: true,
+            onPress: () => openForPlayer("evidence"),
+            disabled: nonGuestPlayers.length === 0,
+          },
+          {
+            key: "baseline",
+            label: "Quick Assessment",
+            subtitle: "Skill baseline score",
+            icon: "clipboard" as const,
+            color: Colors.dark.gold,
+            xp: false,
+            onPress: () => openForPlayer("baseline"),
+            disabled: nonGuestPlayers.length === 0,
+          },
+          {
+            key: "deep",
+            label: "Deep Assessment",
+            subtitle: "Full skill rating",
+            icon: "bar-chart" as const,
+            color: "#A78BFA",
+            xp: false,
+            onPress: () => openForPlayer("deep"),
+            disabled: nonGuestPlayers.length === 0,
+          },
+        ];
+
+        return (
+          <View style={styles.feedbackHubContainer}>
+            <Text style={styles.feedbackHubLabel}>FEEDBACK TOOLS</Text>
+            <View style={styles.feedbackHubGrid}>
+              {TILES.map((tile) => (
+                <Pressable
+                  key={tile.key}
+                  style={[styles.feedbackHubTile, tile.disabled && { opacity: 0.4 }]}
+                  onPress={tile.disabled ? undefined : tile.onPress}
+                >
+                  <View style={[styles.feedbackHubIcon, { backgroundColor: tile.color + "25" }]}>
+                    <Ionicons name={tile.icon} size={20} color={tile.color} />
+                  </View>
+                  <Text style={[styles.feedbackHubTileTitle, { color: tile.color }]} numberOfLines={1}>{tile.label}</Text>
+                  <Text style={styles.feedbackHubTileSubtitle} numberOfLines={2}>{tile.subtitle}</Text>
+                  {tile.xp ? (
+                    <View style={styles.feedbackHubXp}>
+                      <Text style={styles.feedbackHubXpText}>+XP</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ))}
             </View>
           </View>
-          <View style={styles.xpIndicator}>
-            <Text style={styles.xpIndicatorText}>+XP</Text>
-          </View>
-        </Pressable>
-      )}
+        );
+      })()}
 
       {/* Feedback Card */}
       {onFeedback ? (
@@ -2077,6 +2158,77 @@ export default function SessionDetailDrawer({
           }}
         />
       ) : null}
+
+      {/* Stroke Analysis Modal */}
+      <StrokeFeedbackModal
+        visible={showStrokeFeedback}
+        session={liveSession}
+        onClose={() => setShowStrokeFeedback(false)}
+        onComplete={() => setShowStrokeFeedback(false)}
+      />
+
+      {/* Quick Assessment Drawer */}
+      <QuickBaselineDrawer
+        visible={!!baselinePlayer}
+        player={baselinePlayer}
+        onClose={() => setBaselinePlayer(null)}
+      />
+
+      {/* Deep Assessment Drawer */}
+      <DeepAssessmentDrawer
+        visible={!!deepAssessPlayer}
+        player={deepAssessPlayer}
+        onClose={() => setDeepAssessPlayer(null)}
+      />
+
+      {/* Feedback Player Picker — for multi-player sessions */}
+      {feedbackPickerMode !== null && (
+        <Modal
+          visible={feedbackPickerMode !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setFeedbackPickerMode(null)}
+        >
+          <Pressable style={styles.pickerOverlay} onPress={() => setFeedbackPickerMode(null)}>
+            <View style={styles.pickerSheet}>
+              <View style={styles.pickerHandle} />
+              <Text style={styles.pickerTitle}>
+                {feedbackPickerMode === "evidence" ? "Skill Evidence" :
+                 feedbackPickerMode === "baseline" ? "Quick Assessment" : "Deep Assessment"}
+              </Text>
+              <Text style={styles.pickerSubtitle}>Select a player</Text>
+              {(liveSession?.players || [])
+                .filter(p => !removedPlayerIds.has(p.id) && !p.isGuest)
+                .map(p => (
+                  <Pressable
+                    key={p.id}
+                    style={styles.pickerPlayerRow}
+                    onPress={() => {
+                      const mode = feedbackPickerMode;
+                      setFeedbackPickerMode(null);
+                      setTimeout(() => {
+                        if (mode === "evidence") {
+                          navigation.navigate("EvidenceCapture" as never, { sessionId: session.id, playerId: p.id } as never);
+                        } else if (mode === "baseline") {
+                          setBaselinePlayer(p);
+                        } else {
+                          setDeepAssessPlayer(p);
+                        }
+                      }, 300);
+                    }}
+                  >
+                    <View style={styles.pickerPlayerAvatar}>
+                      <Text style={styles.pickerPlayerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.pickerPlayerName}>{p.name}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                  </Pressable>
+                ))
+              }
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </>
   );
 }
@@ -3554,5 +3706,119 @@ const styles = StyleSheet.create({
   },
   waitlistStatusTextOffered: {
     color: "#F59E0B",
+  },
+  feedbackHubContainer: {
+    marginBottom: Spacing.md,
+  },
+  feedbackHubLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: 2,
+  },
+  feedbackHubGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  feedbackHubTile: {
+    width: "47.5%",
+    backgroundColor: Colors.dark.cardBackground,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minHeight: 88,
+  },
+  feedbackHubIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  feedbackHubTileTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  feedbackHubTileSubtitle: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 14,
+  },
+  feedbackHubXp: {
+    marginTop: 4,
+    backgroundColor: GlowColors.primary + "25",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  feedbackHubXpText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: GlowColors.primary,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "flex-end",
+  },
+  pickerSheet: {
+    backgroundColor: Colors.dark.cardBackground,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: Spacing.lg,
+    paddingBottom: 36,
+  },
+  pickerHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.dark.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.md,
+  },
+  pickerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  pickerSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  pickerPlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  pickerPlayerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: GlowColors.primary + "30",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickerPlayerInitial: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  pickerPlayerName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
 });
