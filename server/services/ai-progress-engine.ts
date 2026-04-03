@@ -1194,3 +1194,121 @@ export async function storeProgressNarrative(
 
   console.log(`[AIEngine] Progress narrative stored for player ${playerId}`);
 }
+
+// ==================== PARENT PROGRESS LETTER ====================
+
+export async function generateParentProgressLetter(
+  playerId: string,
+  monthLabel: string
+): Promise<string | null> {
+  try {
+    const since = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
+
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return null;
+
+    // Recent session digests
+    const recentDigests = await db
+      .select({ summaryText: sessionAiSummaries.summaryText, generatedAt: sessionAiSummaries.generatedAt })
+      .from(sessionAiSummaries)
+      .where(and(eq(sessionAiSummaries.playerId, playerId), gte(sessionAiSummaries.generatedAt, since)))
+      .orderBy(desc(sessionAiSummaries.generatedAt))
+      .limit(5);
+
+    // Attendance this period
+    const attendanceRows = await db
+      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(eq(sessionPlayers.playerId, playerId), gte(sessions.startTime, since)));
+
+    const totalSessions = attendanceRows.length;
+    const attendedSessions = attendanceRows.filter(
+      (r) => r.attendanceStatus === "present" || r.attendanceStatus === "late"
+    ).length;
+
+    // Latest skill scores
+    const recentSkillScores = await db
+      .select({
+        skillName: glowSkills.name,
+        pillar: glowSkills.pillar,
+        score: playerSkillScores.score,
+        movingAverage: playerSkillScores.movingAverage,
+      })
+      .from(playerSkillScores)
+      .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+      .where(and(eq(playerSkillScores.playerId, playerId), gte(playerSkillScores.createdAt, since)))
+      .orderBy(desc(playerSkillScores.createdAt))
+      .limit(10);
+
+    // Coach notes (parent-safe: only public/general notes)
+    const coachNoteRows = await db
+      .select({ category: playerNotes.category, content: playerNotes.content })
+      .from(playerNotes)
+      .where(and(eq(playerNotes.playerId, playerId), gte(playerNotes.createdAt, since)))
+      .orderBy(desc(playerNotes.createdAt))
+      .limit(5);
+
+    // XP this month
+    const xpData = await db
+      .select({ totalXp: players.totalXp, level: players.level })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+
+    const [playerLevel] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .orderBy(desc(playerBallLevels.assignedAt))
+      .limit(1);
+
+    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
+    const firstName = player.name.split(" ")[0];
+    const age = player.age ? Number(player.age) : null;
+
+    const digestsText = recentDigests.length > 0
+      ? recentDigests.map((d) => `- ${d.summaryText}`).join("\n")
+      : "No session summaries recorded this month.";
+
+    const skillText = recentSkillScores.length > 0
+      ? recentSkillScores.map((s) => `${s.skillName}: ${s.movingAverage ?? s.score}/2`).join(", ")
+      : "no skill data this month";
+
+    const coachNoteText = coachNoteRows.length > 0
+      ? coachNoteRows.map((n) => n.content).join(". ")
+      : "";
+
+    const attendanceText = totalSessions > 0
+      ? `${attendedSessions} out of ${totalSessions} sessions attended`
+      : "no sessions recorded this month";
+
+    const xpLevel = xpData[0]?.level ?? 1;
+    const totalXp = xpData[0]?.totalXp ?? 0;
+
+    const userPrompt = `Write a warm, friendly progress letter to the parent of ${firstName}${age ? ` (age ${age})` : ""}, a tennis player at ${ballLevel} level, covering their progress during ${monthLabel}.
+
+Data to draw from:
+- Sessions this month: ${attendanceText}
+- Skill scores: ${skillText}
+- Session notes: ${digestsText}
+${coachNoteText ? `- Coach observations: ${coachNoteText}` : ""}
+- Current level: ${ballLevel}, XP level ${xpLevel} (${totalXp.toLocaleString()} XP total)
+
+Write 3-4 short paragraphs:
+1. A warm opening acknowledging ${firstName}'s month
+2. What they focused on and what improved (reference specific skills or session observations, no technical jargon)
+3. One or two concrete things parents can encourage at home (e.g., "encourage regular ball bouncing practice for 5-10 minutes a day")
+4. A brief motivating close
+
+Tone: warm, parent-friendly, positive but honest. No scores or numbers from the skill scores — translate them into plain language. No emojis. Address the letter to "Dear [Parent name]" using "Dear [First name]'s family" as the salutation. Sign off as "The Coaching Team at [Academy]".`;
+
+    const systemPrompt = "You are a friendly sports academy communicator writing monthly progress letters to parents of junior tennis players. Your letters are warm, jargon-free, positive, and give parents clear, actionable ways to support their child at home. Never use emojis. Never mention internal scores or numbers.";
+
+    const letter = await callOpenAI(userPrompt, systemPrompt, 700);
+    return letter?.trim() || null;
+  } catch (error) {
+    console.error("[AIEngine] Error generating parent progress letter:", error);
+    return null;
+  }
+}

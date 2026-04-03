@@ -89,6 +89,8 @@ interface Player {
   activeGroupsCount?: number;
   pausedGroupsCount?: number;
   onHoliday?: boolean;
+  parentEmail?: string | null;
+  parentReporting?: boolean;
 }
 
 interface PlayerXpData {
@@ -260,6 +262,14 @@ export function PlayerDetailView({
   const [editEmail, setEditEmail] = useState(player.email ?? "");
   const [editPhone, setEditPhone] = useState(player.phone ?? "");
   const [editBallLevel, setEditBallLevel] = useState(player.ballLevel ?? "");
+  const [editParentEmail, setEditParentEmail] = useState(player.parentEmail ?? "");
+  const [editParentReporting, setEditParentReporting] = useState(player.parentReporting ?? false);
+
+  const [showParentReport, setShowParentReport] = useState(false);
+  const [parentReportLetter, setParentReportLetter] = useState<string | null>(null);
+  const [parentReportMonthLabel, setParentReportMonthLabel] = useState<string>("");
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isSendingReport, setIsSendingReport] = useState(false);
 
 
   const [localPlayer, setLocalPlayer] = useState(player);
@@ -316,6 +326,8 @@ export function PlayerDetailView({
         email: editEmail.trim() || null,
         phone: editPhone.trim() || null,
         ballLevel: editBallLevel || null,
+        parentEmail: editParentEmail.trim() || null,
+        parentReporting: editParentReporting,
       });
       return res.json();
     },
@@ -327,11 +339,13 @@ export function PlayerDetailView({
         email: editEmail.trim() || null,
         phone: editPhone.trim() || null,
         ballLevel: editBallLevel || null,
+        parentEmail: editParentEmail.trim() || null,
+        parentReporting: editParentReporting,
       }));
       queryClient.setQueryData<Player[]>(["/api/players?withCredits=true"], (old) =>
         old?.map((p) =>
           p.id === player.id
-            ? { ...p, name: editName.trim(), email: editEmail.trim() || null, phone: editPhone.trim() || null, ballLevel: editBallLevel || null }
+            ? { ...p, name: editName.trim(), email: editEmail.trim() || null, phone: editPhone.trim() || null, ballLevel: editBallLevel || null, parentEmail: editParentEmail.trim() || null, parentReporting: editParentReporting }
             : p
         )
       );
@@ -345,6 +359,46 @@ export function PlayerDetailView({
       Alert.alert("Error", error.message || "Failed to update player");
     },
   });
+
+  const handlePreviewParentReport = async () => {
+    setIsGeneratingReport(true);
+    setParentReportLetter(null);
+    setShowParentReport(true);
+    try {
+      const res = await apiRequest("POST", `/api/players/${player.id}/parent-report/preview`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to generate report");
+      setParentReportLetter(data.letter);
+      setParentReportMonthLabel(data.monthLabel || "");
+    } catch (err: any) {
+      setShowParentReport(false);
+      setTimeout(() => Alert.alert("Error", err.message || "Failed to generate parent report"), 300);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleSendParentReport = async () => {
+    if (!localPlayer.parentEmail) {
+      Alert.alert("No Parent Email", "Please add a parent email address in the player edit form first.");
+      return;
+    }
+    setIsSendingReport(true);
+    try {
+      const res = await apiRequest("POST", `/api/players/${player.id}/parent-report/send`, {
+        letter: parentReportLetter,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send report");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowParentReport(false);
+      setTimeout(() => Alert.alert("Sent", `Parent report sent to ${data.sentTo}`), 300);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send parent report");
+    } finally {
+      setIsSendingReport(false);
+    }
+  };
 
   const sendInviteEmailMutation = useMutation<
     { success: boolean; sent: boolean; sentTo?: string; reason?: string },
@@ -682,6 +736,8 @@ export function PlayerDetailView({
                 setEditEmail(localPlayer.email ?? "");
                 setEditPhone(localPlayer.phone ?? "");
                 setEditBallLevel(localPlayer.ballLevel ?? "");
+                setEditParentEmail(localPlayer.parentEmail ?? "");
+                setEditParentReporting(localPlayer.parentReporting ?? false);
                 setShowEditPlayer(true);
               }}
             >
@@ -986,6 +1042,47 @@ export function PlayerDetailView({
               </View>
             </View>
           ) : null}
+
+          {/* Parent Reporting Section */}
+          {(localPlayer.parentEmail || (localPlayer.age && localPlayer.age < 18)) ? (
+            <View style={{ marginTop: 12, gap: 8 }}>
+              {localPlayer.parentEmail ? (
+                <View style={[styles.infoCard, { gap: 10 }]}>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="people-outline" size={20} color={Colors.dark.xpCyan} />
+                    <Text style={[styles.infoText, { flex: 1 }]}>Parent: {localPlayer.parentEmail}</Text>
+                    {localPlayer.parentReporting ? (
+                      <View style={{ backgroundColor: Colors.dark.primary + "25", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>REPORTING ON</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderRadius: 10,
+                      backgroundColor: Colors.dark.xpCyan + "15",
+                      borderWidth: 1,
+                      borderColor: Colors.dark.xpCyan + "40",
+                    }}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      handlePreviewParentReport();
+                    }}
+                  >
+                    <Ionicons name="mail-outline" size={18} color={Colors.dark.xpCyan} />
+                    <Text style={{ color: Colors.dark.xpCyan, fontWeight: "600", fontSize: 14 }}>
+                      Send Parent Report
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </CollapsibleSection>
 
         <CollapsibleSection title="Attendance History" icon="calendar-outline" iconColor={Colors.dark.xpCyan}>
@@ -1098,6 +1195,54 @@ export function PlayerDetailView({
               </View>
             </View>
 
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>PARENT EMAIL</Text>
+              <TextInput
+                style={{
+                  backgroundColor: Colors.dark.backgroundDefault,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  fontSize: 15,
+                  color: Colors.dark.text,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+                value={editParentEmail}
+                onChangeText={setEditParentEmail}
+                placeholder="Parent email (for monthly reports)"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>Monthly parent reporting</Text>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>AI progress letter sent on the 1st of each month</Text>
+              </View>
+              <Pressable
+                style={{
+                  width: 48,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: editParentReporting ? Colors.dark.primary : "rgba(255,255,255,0.15)",
+                  justifyContent: "center",
+                  paddingHorizontal: 3,
+                }}
+                onPress={() => setEditParentReporting(!editParentReporting)}
+              >
+                <View style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: "#fff",
+                  alignSelf: editParentReporting ? "flex-end" : "flex-start",
+                }} />
+              </Pressable>
+            </View>
+
             <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
               <Pressable
                 style={{ flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center" }}
@@ -1196,6 +1341,92 @@ export function PlayerDetailView({
           queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/pillar-progress`] });
         }}
       />
+
+      {/* Parent Report Preview Modal */}
+      <Modal visible={showParentReport} transparent animationType="slide" onRequestClose={() => setShowParentReport(false)}>
+        <Pressable style={styles.editAttendanceModalOverlay} onPress={() => !isGeneratingReport && !isSendingReport && setShowParentReport(false)}>
+          <Pressable style={[styles.editAttendanceModalContent, { maxHeight: "85%" }]} onPress={(e) => e.stopPropagation()} onStartShouldSetResponder={() => true}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.md }}>
+              <Text style={styles.editAttendanceModalTitle}>Parent Progress Letter</Text>
+              <Pressable onPress={() => setShowParentReport(false)}>
+                <Ionicons name="close" size={22} color={Colors.dark.tabIconDefault} />
+              </Pressable>
+            </View>
+
+            {parentReportMonthLabel ? (
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginBottom: Spacing.md }}>
+                {parentReportMonthLabel} — Preview before sending
+              </Text>
+            ) : null}
+
+            {isGeneratingReport ? (
+              <View style={{ alignItems: "center", paddingVertical: Spacing.xl * 2 }}>
+                <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+                <Text style={{ color: Colors.dark.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
+                  Generating AI letter for {localPlayer.name}...
+                </Text>
+              </View>
+            ) : parentReportLetter ? (
+              <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: Spacing.lg }}>
+                <Text style={{
+                  color: Colors.dark.text,
+                  fontSize: 14,
+                  lineHeight: 22,
+                  backgroundColor: "rgba(255,255,255,0.04)",
+                  borderRadius: 12,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.08)",
+                }}>
+                  {parentReportLetter}
+                </Text>
+              </ScrollView>
+            ) : null}
+
+            {parentReportLetter ? (
+              <View style={{ gap: 10 }}>
+                {localPlayer.parentEmail ? (
+                  <Pressable
+                    style={{
+                      paddingVertical: 13,
+                      borderRadius: 12,
+                      backgroundColor: Colors.dark.primary,
+                      alignItems: "center",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      gap: 8,
+                      opacity: isSendingReport ? 0.7 : 1,
+                    }}
+                    onPress={handleSendParentReport}
+                    disabled={isSendingReport}
+                  >
+                    {isSendingReport ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <Ionicons name="send" size={16} color="#000" />
+                    )}
+                    <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>
+                      {isSendingReport ? "Sending..." : `Send to ${localPlayer.parentEmail}`}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View style={{ backgroundColor: Colors.dark.warning + "20", borderRadius: 10, padding: 12 }}>
+                    <Text style={{ color: Colors.dark.warning, fontSize: 13, textAlign: "center" }}>
+                      No parent email on file. Add one in the Edit Player form.
+                    </Text>
+                  </View>
+                )}
+                <Pressable
+                  style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center" }}
+                  onPress={() => setShowParentReport(false)}
+                >
+                  <Text style={{ color: Colors.dark.text, fontWeight: "600", fontSize: 15 }}>Cancel</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
     </View>
   );

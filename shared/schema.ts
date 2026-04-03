@@ -1001,6 +1001,7 @@ export const players = pgTable("players", {
   
   // Family Lobby - Link multiple players to same parent account
   parentEmail: text("parent_email"), // Parent's email for family account linking
+  parentReporting: boolean("parent_reporting").default(false), // Monthly AI progress letter to parent
   
   // Child Safety - Parental Controls
   chatEnabled: boolean("chat_enabled"),
@@ -1105,6 +1106,8 @@ export const updatePlayerSchema = z.object({
   homeLng: z.number().optional().nullable(),
   parentName: z.string().max(100).optional().nullable(),
   parentPhone: z.string().max(50).optional().nullable(),
+  parentEmail: z.string().email("Invalid parent email").optional().nullable().or(z.literal("")),
+  parentReporting: z.boolean().optional(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,
