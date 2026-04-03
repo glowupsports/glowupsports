@@ -11,7 +11,7 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constan
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
-import { getStaticAssetsUrl, apiFetch, apiRequest } from "@/lib/query-client";
+import { getStaticAssetsUrl, apiFetch, apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
 interface ConnectionPlayer {
@@ -57,9 +57,7 @@ function getBallColor(ball: string | null): string {
 }
 
 function getPhotoUri(photoUrl: string | null): string | null {
-  if (!photoUrl) return null;
-  if (photoUrl.startsWith("data:") || photoUrl.startsWith("http")) return photoUrl;
-  return getStaticAssetsUrl() + photoUrl;
+  return buildPhotoUrl(photoUrl);
 }
 
 function FriendCard({ connection, onPress, onRemove }: { connection: Connection; onPress: () => void; onRemove: () => void }) {

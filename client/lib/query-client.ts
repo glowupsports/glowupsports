@@ -41,6 +41,19 @@ export function getStaticAssetsUrl(): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
+/**
+ * Builds a safe photo URL for display, handling all 3 possible formats:
+ * 1. base64 data URL (data:image/...) → use as-is
+ * 2. Full HTTP/HTTPS URL → use as-is
+ * 3. Relative path (/uploads/photo.jpg) → prepend static assets base URL
+ * Returns null for null/empty/undefined input.
+ */
+export function buildPhotoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("data:") || url.startsWith("http")) return url;
+  return `${getStaticAssetsUrl()}${url}`;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     if (res.status === 401) {

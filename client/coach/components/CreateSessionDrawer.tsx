@@ -20,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -1059,13 +1059,13 @@ export default function CreateSessionDrawer({
                     {player.profilePhotoUrl ? (
                       Platform.OS === 'web' ? (
                         <RNImage
-                          source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                          source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                           style={styles.playerAvatarPhoto}
                           resizeMode="cover"
                         />
                       ) : (
                         <Image
-                          source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                          source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                           style={styles.playerAvatarPhoto}
                           contentFit="cover"
                         />

@@ -19,7 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 interface OpenMatch {
@@ -267,7 +267,7 @@ export default function ManageMatchScreen() {
                   <View style={styles.playerAvatar}>
                     {player.photoUrl ? (
                       <Image 
-                        source={{ uri: `${getStaticAssetsUrl()}${player.photoUrl}` }} 
+                        source={{ uri: buildPhotoUrl(player.photoUrl)! }} 
                         style={styles.playerImage}
                         contentFit="cover"
                       />
@@ -288,7 +288,7 @@ export default function ManageMatchScreen() {
                 <View style={styles.playerAvatar}>
                   {match.host?.photoUrl ? (
                     <Image 
-                      source={{ uri: `${getStaticAssetsUrl()}${match.host.photoUrl}` }} 
+                      source={{ uri: buildPhotoUrl(match.host.photoUrl)! }} 
                       style={styles.playerImage}
                       contentFit="cover"
                     />
@@ -377,7 +377,7 @@ export default function ManageMatchScreen() {
                     <View style={styles.friendAvatar}>
                       {item.profilePhotoUrl ? (
                         <Image 
-                          source={{ uri: `${getStaticAssetsUrl()}${item.profilePhotoUrl}` }} 
+                          source={{ uri: buildPhotoUrl(item.profilePhotoUrl)! }} 
                           style={styles.friendImage}
                           contentFit="cover"
                         />

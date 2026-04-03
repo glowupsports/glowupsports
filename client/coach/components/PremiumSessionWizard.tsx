@@ -15,7 +15,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { BaselineFlowCard } from "./BaselineFlowCard";
@@ -1367,7 +1367,7 @@ export function PremiumSessionWizard({
                   >
                     {player.profilePhotoUrl ? (
                       <Image
-                        source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                        source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                         style={styles.playerAvatar}
                         contentFit="cover"
                       />

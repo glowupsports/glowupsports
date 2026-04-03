@@ -17,7 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Image } from "expo-image";
 
@@ -207,7 +207,7 @@ export default function MyGamesScreen() {
                 <View key={`${p.playerId}-${i}`} style={[styles.avatar, { marginLeft: i > 0 ? -10 : 0 }]}>
                   {p.photoUrl ? (
                     <Image
-                      source={{ uri: `${getStaticAssetsUrl()}${p.photoUrl}` }}
+                      source={{ uri: buildPhotoUrl(p.photoUrl)! }}
                       style={styles.avatarImg}
                       contentFit="cover"
                     />

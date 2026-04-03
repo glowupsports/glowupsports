@@ -35,7 +35,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders, buildPhotoUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useNavigation } from "@react-navigation/native";
 import { formatCredits } from "@/lib/dateUtils";
@@ -779,13 +779,13 @@ export function PlayerDetailView({
             {localPlayer.profilePhotoUrl ? (
               Platform.OS === 'web' ? (
                 <RNImage
-                  source={{ uri: `${getStaticAssetsUrl()}${localPlayer.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(localPlayer.profilePhotoUrl)! }}
                   style={styles.premiumAvatarPhoto}
                   resizeMode="cover"
                 />
               ) : (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${localPlayer.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(localPlayer.profilePhotoUrl)! }}
                   style={styles.premiumAvatarPhoto}
                   contentFit="cover"
                 />

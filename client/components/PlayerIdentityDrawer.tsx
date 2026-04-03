@@ -31,7 +31,7 @@ import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -317,9 +317,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
   const levelProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
   
   const rawPhotoUrl = player?.profilePhotoUrl;
-  const profilePhotoUrl = rawPhotoUrl 
-    ? (rawPhotoUrl.startsWith("http") ? rawPhotoUrl : `${getStaticAssetsUrl()}${rawPhotoUrl}`)
-    : null;
+  const profilePhotoUrl = buildPhotoUrl(rawPhotoUrl);
 
   const unreadCount = unreadData?.unreadCount || 0;
   const isMinor = player?.isMinor ?? false;

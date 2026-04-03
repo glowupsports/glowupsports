@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Image } from "expo-image";
 import { useSport } from "@/player/context/SportContext";
@@ -226,7 +226,7 @@ export default function FindGameScreen() {
             <View style={styles.creatorAvatar}>
               {item.creatorPhoto ? (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${item.creatorPhoto}` }}
+                  source={{ uri: buildPhotoUrl(item.creatorPhoto)! }}
                   style={styles.avatarImg}
                   contentFit="cover"
                 />
@@ -246,7 +246,7 @@ export default function FindGameScreen() {
                 <View key={p.id} style={[styles.participantAvatar, { marginLeft: i > 0 ? -10 : 0 }]}>
                   {p.photoUrl ? (
                     <Image
-                      source={{ uri: `${getStaticAssetsUrl()}${p.photoUrl}` }}
+                      source={{ uri: buildPhotoUrl(p.photoUrl)! }}
                       style={styles.avatarImgSm}
                       contentFit="cover"
                     />

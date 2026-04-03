@@ -36,7 +36,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders, buildPhotoUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -226,13 +226,13 @@ export function GamingPlayerCard({
             {player.profilePhotoUrl ? (
               Platform.OS === 'web' ? (
                 <RNImage
-                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                   style={styles.gamingAvatarPhoto}
                   resizeMode="cover"
                 />
               ) : (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
                   style={styles.gamingAvatarPhoto}
                   contentFit="cover"
                 />

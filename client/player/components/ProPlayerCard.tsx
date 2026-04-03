@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
@@ -69,7 +69,7 @@ export function ProPlayerCard({
   const track = useTrackFeature();
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
-  const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
+  const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl);
   const [showHelp, setShowHelp] = useState(false);
 
   const playerFAQs: FAQItem[] = [

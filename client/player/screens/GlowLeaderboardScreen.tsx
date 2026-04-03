@@ -10,7 +10,7 @@ import Animated, { FadeIn, FadeInDown, useAnimatedStyle, withSpring } from "reac
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { getStaticAssetsUrl, apiFetch } from "@/lib/query-client";
+import { getStaticAssetsUrl, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { LockedScreen } from "../components/LockedScreen";
 
@@ -81,7 +81,7 @@ function TopThreePlayer({ player, position }: { player: RankedPlayer; position: 
           >
             {player.photoUrl ? (
               <Image
-                source={{ uri: getStaticAssetsUrl() + player.photoUrl }}
+                source={{ uri: buildPhotoUrl(player.photoUrl)! }}
                 style={[styles.topPlayerAvatar, { width: size.avatar, height: size.avatar }]}
               />
             ) : (
@@ -125,7 +125,7 @@ function RankingRow({ player, index }: { player: RankedPlayer; index: number }) 
         
         {player.photoUrl ? (
           <Image
-            source={{ uri: getStaticAssetsUrl() + player.photoUrl }}
+            source={{ uri: buildPhotoUrl(player.photoUrl)! }}
             style={styles.rankAvatar}
           />
         ) : (

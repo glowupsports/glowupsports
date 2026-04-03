@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PANEL_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 340);
@@ -254,13 +254,13 @@ export function CoachStatusPanel({ visible, onClose, onNavigate }: CoachStatusPa
                     {coach?.photoUrl ? (
                       Platform.OS === 'web' ? (
                         <RNImage
-                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                           style={styles.avatarImage}
                           resizeMode="cover"
                         />
                       ) : (
                         <Image
-                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                           style={styles.avatarImage}
                           contentFit="cover"
                         />

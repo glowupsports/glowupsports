@@ -38,7 +38,7 @@ import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } fr
 import { useCoach } from "@/coach/context/CoachContext";
 import { getSportConfig, SPORTS, type Sport, type SportOrMulti } from "@shared/sportConfig";
 import { SportSingleSelector } from "@/components/SportBadge";
-import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -1021,7 +1021,7 @@ export default function CreateSessionWizard({
             <View style={styles.coachOptionLeft}>
               {coachItem.profilePhotoUrl ? (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${coachItem.profilePhotoUrl}` }}
+                  source={{ uri: buildPhotoUrl(coachItem.profilePhotoUrl)! }}
                   style={styles.coachOptionAvatar}
                 />
               ) : (
@@ -1598,7 +1598,7 @@ export default function CreateSessionWizard({
             <View style={styles.playerSummaryAvatar}>
               {player.profilePhotoUrl ? (
                 <Image 
-                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }} 
+                  source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }} 
                   style={styles.playerSummaryAvatarImage} 
                 />
               ) : (
@@ -2028,7 +2028,7 @@ export default function CreateSessionWizard({
               >
                 <View style={styles.playerAvatar}>
                   {player.profilePhotoUrl ? (
-                    <Image source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }} style={styles.playerAvatarImage} />
+                    <Image source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }} style={styles.playerAvatarImage} />
                   ) : (
                     <Ionicons name="person" size={20} color={Colors.dark.textMuted} />
                   )}

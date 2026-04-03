@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Colors, Spacing, getPlayerLevelTextColor } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
 const BALL_LEVEL_FILTERS = [
   { id: "my_level", label: "My Level", color: "dynamic" },
@@ -161,7 +161,7 @@ export default function BrowseGroupLessonsScreen() {
         <View style={styles.participantAvatar}>
           {hasPhoto ? (
             <Image
-              source={{ uri: `${getStaticAssetsUrl()}${participant.profilePhotoUrl}` }}
+              source={{ uri: buildPhotoUrl(participant.profilePhotoUrl)! }}
               style={styles.avatarImage}
             />
           ) : (
@@ -385,7 +385,7 @@ export default function BrowseGroupLessonsScreen() {
                               <View key={p.id} style={[styles.stackedAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i }]}>
                                 {p.profilePhotoUrl ? (
                                   <Image
-                                    source={{ uri: `${getStaticAssetsUrl()}${p.profilePhotoUrl}` }}
+                                    source={{ uri: buildPhotoUrl(p.profilePhotoUrl)! }}
                                     style={styles.miniAvatar}
                                   />
                                 ) : (

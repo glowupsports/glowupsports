@@ -45,7 +45,7 @@ import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { getApiUrl, apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
@@ -998,13 +998,13 @@ export default function DashboardScreen() {
                     {coach?.photoUrl ? (
                       Platform.OS === 'web' ? (
                         <RNImage
-                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                           style={styles.avatarPhoto}
                           resizeMode="cover"
                         />
                       ) : (
                         <Image
-                          source={{ uri: `${getApiUrl()}${coach.photoUrl}` }}
+                          source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                           style={styles.avatarPhoto}
                           contentFit="cover"
                         />
