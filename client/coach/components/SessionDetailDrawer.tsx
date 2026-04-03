@@ -36,6 +36,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
+import PlayerFeedbackHistorySheet from "./PlayerFeedbackHistorySheet";
 
 interface Player {
   id: string;
@@ -107,6 +108,8 @@ export default function SessionDetailDrawer({
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
   const [showQuickFeedback, setShowQuickFeedback] = useState(false);
+  const [selectedPlayerForHistory, setSelectedPlayerForHistory] = useState<{ id: string; name: string; photoUrl?: string | null; level?: string | null; ballLevel?: string | null } | null>(null);
+  const [feedbackInitialPlayerId, setFeedbackInitialPlayerId] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
@@ -971,9 +974,18 @@ export default function SessionDetailDrawer({
                         setShowGuestConvert({ id: player.id, name: player.name });
                         setGuestPhone("");
                         setGuestBallLevel("");
+                      } else if (!isGuest) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedPlayerForHistory({
+                          id: player.id,
+                          name: player.name,
+                          photoUrl: player.profilePhotoUrl,
+                          level: player.level,
+                          ballLevel: player.ballLevel,
+                        });
                       }
                     }}
-                    disabled={!isGuest || !isPastSession}
+                    disabled={false}
                   >
                     <View style={[
                       styles.playerCardAvatar, 
@@ -2044,8 +2056,27 @@ export default function SessionDetailDrawer({
         visible={showQuickFeedback}
         sessionId={session.id}
         players={(liveSession?.players || []).filter(p => !removedPlayerIds.has(p.id))}
-        onClose={() => setShowQuickFeedback(false)}
+        onClose={() => {
+          setShowQuickFeedback(false);
+          setFeedbackInitialPlayerId(null);
+        }}
+        initialPlayerId={feedbackInitialPlayerId}
       />
+
+      {/* Player Feedback History Sheet */}
+      {selectedPlayerForHistory ? (
+        <PlayerFeedbackHistorySheet
+          visible={!!selectedPlayerForHistory}
+          player={selectedPlayerForHistory}
+          sessionId={session.id}
+          onClose={() => setSelectedPlayerForHistory(null)}
+          onGiveFeedback={(playerId) => {
+            setSelectedPlayerForHistory(null);
+            setFeedbackInitialPlayerId(playerId);
+            setShowQuickFeedback(true);
+          }}
+        />
+      ) : null}
     </>
   );
 }

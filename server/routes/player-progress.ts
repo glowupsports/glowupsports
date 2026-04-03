@@ -881,6 +881,57 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Get all feedback given to a player by this coach
+  router.get(
+    "/api/coach/players/:playerId/feedback-history",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { playerId } = req.params;
+        const academyId = req.user!.academyId;
+        const coachUserId = req.user!.userId;
+
+        const { valid } = await validatePlayerOwnership(
+          playerId,
+          academyId,
+          storage,
+        );
+        if (!valid) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        const feedback = await db
+          .select({
+            id: inSessionFeedback.id,
+            feedbackType: inSessionFeedback.feedbackType,
+            message: inSessionFeedback.message,
+            xpAwarded: inSessionFeedback.xpAwarded,
+            visibility: inSessionFeedback.visibility,
+            createdAt: inSessionFeedback.createdAt,
+            sessionId: inSessionFeedback.sessionId,
+            sessionDate: sessions.startTime,
+            sessionTitle: sessions.title,
+          })
+          .from(inSessionFeedback)
+          .leftJoin(sessions, eq(inSessionFeedback.sessionId, sessions.id))
+          .where(
+            and(
+              eq(inSessionFeedback.playerId, playerId),
+              eq(inSessionFeedback.coachId, coachUserId),
+            ),
+          )
+          .orderBy(desc(inSessionFeedback.createdAt))
+          .limit(100);
+
+        res.json({ feedback });
+      } catch (error) {
+        console.error("Error fetching player feedback history:", error);
+        res.status(500).json({ error: "Failed to fetch feedback history" });
+      }
+    },
+  );
+
   // Get player full attendance history with session details
   router.get(
     "/api/coach/players/:playerId/attendance-history",

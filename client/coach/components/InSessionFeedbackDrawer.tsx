@@ -35,6 +35,7 @@ interface InSessionFeedbackDrawerProps {
   sessionId: string;
   players: Player[];
   onClose: () => void;
+  initialPlayerId?: string | null;
 }
 
 type FeedbackType = "praise" | "technique" | "effort" | "focus" | "attitude" | "improvement" | "note";
@@ -151,6 +152,7 @@ export default function InSessionFeedbackDrawer({
   sessionId,
   players,
   onClose,
+  initialPlayerId,
 }: InSessionFeedbackDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -161,6 +163,13 @@ export default function InSessionFeedbackDrawer({
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [showSuccess, setShowSuccess] = useState(false);
   const [successXp, setSuccessXp] = useState(0);
+
+  React.useEffect(() => {
+    if (visible && initialPlayerId && players.length > 0) {
+      const match = players.find((p) => p.id === initialPlayerId) ?? null;
+      if (match) setSelectedPlayer(match);
+    }
+  }, [visible, initialPlayerId, players]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -177,6 +186,9 @@ export default function InSessionFeedbackDrawer({
       setSuccessXp(data.xpAwarded || 0);
       setShowSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions", sessionId, "in-session-feedback"] });
+      if (selectedPlayer) {
+        queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${selectedPlayer.id}/feedback-history`] });
+      }
       setTimeout(() => {
         setShowSuccess(false);
         resetForm();
