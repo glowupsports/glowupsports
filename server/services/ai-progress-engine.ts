@@ -518,6 +518,8 @@ export interface PlayerAIContext {
   // XP info
   xpLevel: number | null;
   xpTotal: number | null;
+  // Level promotion readiness (% of required curriculum skills at target score)
+  promotionReadiness: number | null;
   // Attendance
   attendanceRate: number | null;
   totalSessions: number;
@@ -568,13 +570,12 @@ export async function buildPlayerAIContext(
         .from(sessionAiSummaries)
         .where(eq(sessionAiSummaries.playerId, playerId))
         .orderBy(desc(sessionAiSummaries.generatedAt)).limit(30),
-      // Full score history — used for pillar averages AND skill mastery classification
+      // Full score history (no cap) — used for pillar averages AND skill mastery classification
       db.select({ pillar: glowSkills.pillar, skillId: playerSkillScores.skillId, skillName: glowSkills.name, score: playerSkillScores.score })
         .from(playerSkillScores)
         .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
         .where(eq(playerSkillScores.playerId, playerId))
-        .orderBy(desc(playerSkillScores.createdAt))
-        .limit(500),
+        .orderBy(desc(playerSkillScores.createdAt)),
       // Full attendance history — no cap
       db.select({ attendanceStatus: sessionPlayers.attendanceStatus })
         .from(sessionPlayers)
@@ -608,8 +609,7 @@ export async function buildPlayerAIContext(
         })
         .from(levelSkills)
         .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
-        .where(eq(levelSkills.levelId, ballLevel))
-        .limit(8);
+        .where(eq(levelSkills.levelId, ballLevel));
 
       for (const skill of levelSkillsList) {
         const [latestScore] = await db
@@ -687,6 +687,11 @@ export async function buildPlayerAIContext(
 
     const skillsByPillar = Array.from(pillarMap.entries()).map(([pillar, g]) => ({ pillar, ...g }));
 
+    // Promotion readiness = % of required skills meeting target score
+    const required = requiredSkills.filter((s) => s.required);
+    const mastered = required.filter((s) => s.currentScore !== null && s.currentScore >= s.targetScore);
+    const promotionReadiness = required.length > 0 ? Math.round((mastered.length / required.length) * 100) : null;
+
     return {
       playerName: player.name,
       playerAge: age,
@@ -706,6 +711,7 @@ export async function buildPlayerAIContext(
       playStyle: player.playStyle || null,
       xpLevel: latestXpEvent[0]?.levelAtEvent ?? null,
       xpTotal: latestXpEvent[0]?.xpAfterEvent ?? null,
+      promotionReadiness,
       attendanceRate,
       totalSessions,
       recentMatches: recentMatchRows.map((m) => ({ result: m.result, format: m.matchFormat, opponentLevel: m.opponentLevel })),
@@ -722,7 +728,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     playerName, playerAge, ballLevel, sessionType, ageGroup,
     requiredSkills, recentDigests, coachNotes, skillsByPillar, pillarAverages,
     shortTermGoal, longTermDream, playStyle, xpLevel, attendanceRate, totalSessions,
-    recentMatches, recentFeedbackNotes,
+    promotionReadiness, recentMatches, recentFeedbackNotes,
   } = ctx;
 
   const ageInstruction =
@@ -740,6 +746,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     playStyle ? `Playing style: ${playStyle.replace(/_/g, " ")}.` : "",
     xpLevel ? `Level ${xpLevel} on the Glow platform.` : "",
     attendanceRate !== null ? `Attendance: ${attendanceRate}% across ${totalSessions} sessions.` : "",
+    promotionReadiness !== null ? `Level promotion readiness: ${promotionReadiness}% of required curriculum skills mastered.` : "",
     shortTermGoal ? `Short-term goal: "${shortTermGoal}".` : "",
     longTermDream ? `Long-term dream: "${longTermDream}".` : "",
   ].filter(Boolean).join(" ");

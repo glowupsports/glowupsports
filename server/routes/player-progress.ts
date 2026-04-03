@@ -2639,34 +2639,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           committed: true,
         });
 
-        // 2. Write to in_session_feedback (session note) — upsert: update if exists, insert if not
+        // 2. Write to in_session_feedback (session note) — atomic upsert
+        // Uses feedbackType "ai_session_note" + unique constraint on (session_id, player_id, feedback_type)
         if (structured.sessionNote) {
-          const [existingNote] = await db
-            .select({ id: inSessionFeedback.id })
-            .from(inSessionFeedback)
-            .where(
-              and(
-                eq(inSessionFeedback.sessionId, sessionId),
-                eq(inSessionFeedback.playerId, playerId),
-                eq(inSessionFeedback.feedbackType, "technique")
-              )
-            )
-            .limit(1);
-          if (existingNote) {
-            await db
-              .update(inSessionFeedback)
-              .set({ message: structured.sessionNote })
-              .where(eq(inSessionFeedback.id, existingNote.id));
-          } else {
-            await db.insert(inSessionFeedback).values({
-              sessionId,
-              playerId,
-              coachId: coachId,
-              feedbackType: "technique",
-              message: structured.sessionNote,
-              visibility: "private",
-            });
-          }
+          await db.insert(inSessionFeedback).values({
+            sessionId,
+            playerId,
+            coachId,
+            feedbackType: "ai_session_note",
+            message: structured.sessionNote,
+            visibility: "private",
+          }).onConflictDoUpdate({
+            target: [inSessionFeedback.sessionId, inSessionFeedback.playerId, inSessionFeedback.feedbackType],
+            set: { message: structured.sessionNote },
+          });
         }
 
         // 3. Write to session_skill_feedback (upsert so re-save always updates)
