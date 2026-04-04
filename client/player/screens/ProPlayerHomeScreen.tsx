@@ -19,7 +19,6 @@ import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
-import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -822,8 +821,6 @@ function PlayerHomeContent() {
         {/* ── SHOP ── Marketplace (has its own header) */}
         <GlowMarketSpotlight />
       </ScrollView>
-      
-      <QuickServeFAB bottomOffset={100} />
 
       <BetaFeedbackButton
         playerId={player?.id}
