@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 
 export interface Quest {
   id: string;
@@ -186,7 +187,7 @@ export function useUploadQuestEvidence() {
         method: "POST",
         body: formData,
         headers: {
-          "Authorization": `Bearer ${(globalThis as any).__authToken || ""}`,
+          "Authorization": `Bearer ${getAuthToken() || ""}`,
         },
       });
       
