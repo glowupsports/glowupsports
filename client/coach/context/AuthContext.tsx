@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { loginRevenueCat, logoutRevenueCat } from "@/lib/revenuecat";
 import { 
   loadAuthState, 
   saveAuthState, 
@@ -121,6 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
         setCoach(data.coach);
         setAcademy(data.academy);
+        
+        if (data.user?.id) {
+          loginRevenueCat(data.user.id).catch(() => {});
+        }
         
         const userRole = data.user?.role || "player";
         const availableModes = getModesForRole(userRole);
@@ -368,6 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setCoach(null);
       setAcademy(null);
+      logoutRevenueCat().catch(() => {});
       logger.log("[AuthContext] Logout successful");
     } catch (error) {
       console.error("[AuthContext] Logout error:", error);

@@ -1,14 +1,27 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { StyleSheet, View, Platform, Alert } from "react-native";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef, getStateFromPath as defaultGetStateFromPath } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
 import * as Sentry from "@sentry/react-native";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import i18n, { initializeI18n, isRTL } from "@/i18n";
+import { initializeRevenueCat, SubscriptionProvider } from "@/lib/revenuecat";
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const KeyboardProvider: React.ComponentType<{ children: React.ReactNode }> = isExpoGo
+  ? ({ children }) => <>{children}</>
+  : require("react-native-keyboard-controller").KeyboardProvider;
+
+try {
+  initializeRevenueCat();
+} catch (err: unknown) {
+  if (__DEV__) console.warn("[RevenueCat] Init skipped:", err instanceof Error ? err.message : String(err));
+}
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || "";
 
@@ -172,6 +185,7 @@ export default function App() {
     <ErrorBoundary>
       <I18nextProvider i18n={i18n}>
         <QueryClientProvider client={queryClient}>
+          <SubscriptionProvider>
           <SafeAreaProvider>
             <GestureHandlerRootView style={styles.root}>
               <KeyboardWrapper>
@@ -209,6 +223,7 @@ export default function App() {
               </KeyboardWrapper>
             </GestureHandlerRootView>
           </SafeAreaProvider>
+          </SubscriptionProvider>
         </QueryClientProvider>
       </I18nextProvider>
     </ErrorBoundary>

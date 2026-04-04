@@ -1,8 +1,10 @@
 import { db } from "../db";
 import { eq, and, sql } from "drizzle-orm";
 import { users, playerAiUsage } from "@shared/schema";
+import { hasActiveEntitlement } from "../lib/revenueCatClient";
 
 const FREE_TIER_LIMIT = 5;
+const AI_PRO_ENTITLEMENT = "ai_pro";
 
 function getCurrentMonth(): string {
   const now = new Date();
@@ -10,11 +12,20 @@ function getCurrentMonth(): string {
 }
 
 /**
- * Check if a user has an active AI Pro subscription via the stripe.subscriptions table.
+ * Check if a user has an active AI Pro subscription.
+ * First checks RevenueCat (Apple IAP), then falls back to Stripe.
  * Coaches always return true (bypasses check).
  */
 export async function hasAiProAccess(userId: string, role: string): Promise<boolean> {
   if (role !== "player") return true;
+
+  try {
+    const rcResult = await hasActiveEntitlement(userId, AI_PRO_ENTITLEMENT);
+    if (rcResult !== null) {
+      return rcResult;
+    }
+  } catch {
+  }
 
   try {
     const [user] = await db
@@ -87,6 +98,7 @@ export async function checkAiQuota(userId: string, role: string): Promise<{
 
 /**
  * Get the Stripe subscription details for a user (renewal date, status).
+ * Used for legacy Stripe subscribers.
  */
 export async function getSubscriptionDetails(userId: string): Promise<{
   status: string;
