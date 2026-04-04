@@ -2,13 +2,15 @@ import React, { createContext, useContext } from "react";
 import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useMutation, useQuery } from "@tanstack/react-query";
+// Types are import-only (no runtime) — safe to use on web
+import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from "react-native-purchases";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const isNative = Platform.OS !== "web";
 
 // react-native-purchases is a native-only SDK — crashes on web.
 // Load it conditionally so the web bundle remains functional.
-let Purchases: any = null;
+let Purchases: typeof import("react-native-purchases").default | null = null;
 if (isNative) {
   try {
     Purchases = require("react-native-purchases").default;
@@ -59,37 +61,33 @@ export async function logoutRevenueCat() {
   }
 }
 
-type CustomerInfo = any;
-type PurchasesOfferings = any;
-type PurchasesPackage = any;
-
 function useSubscriptionContext() {
-  const customerInfoQuery = useQuery<CustomerInfo>({
+  const customerInfoQuery = useQuery<CustomerInfo | null>({
     queryKey: ["revenuecat", "customer-info"],
-    queryFn: () => Purchases ? Purchases.getCustomerInfo() : Promise.resolve(null),
+    queryFn: () => (Purchases ? Purchases.getCustomerInfo() : Promise.resolve(null)),
     staleTime: 60 * 1000,
     enabled: !!Purchases,
   });
 
-  const offeringsQuery = useQuery<PurchasesOfferings>({
+  const offeringsQuery = useQuery<PurchasesOfferings | null>({
     queryKey: ["revenuecat", "offerings"],
-    queryFn: () => Purchases ? Purchases.getOfferings() : Promise.resolve(null),
+    queryFn: () => (Purchases ? Purchases.getOfferings() : Promise.resolve(null)),
     staleTime: 300 * 1000,
     enabled: !!Purchases,
   });
 
-  const purchaseMutation = useMutation<CustomerInfo, Error, PurchasesPackage>({
+  const purchaseMutation = useMutation<CustomerInfo | null, Error, PurchasesPackage>({
     mutationFn: async (pkg) => {
-      if (!Purchases) throw new Error("Purchases unavailable on web");
+      if (!Purchases) return null;
       const { customerInfo } = await Purchases.purchasePackage(pkg);
       return customerInfo;
     },
     onSuccess: () => customerInfoQuery.refetch(),
   });
 
-  const restoreMutation = useMutation<CustomerInfo>({
+  const restoreMutation = useMutation<CustomerInfo | null, Error, void>({
     mutationFn: async () => {
-      if (!Purchases) throw new Error("Purchases unavailable on web");
+      if (!Purchases) return null;
       return Purchases.restorePurchases();
     },
     onSuccess: () => customerInfoQuery.refetch(),
