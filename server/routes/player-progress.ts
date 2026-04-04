@@ -2820,6 +2820,22 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(403).json({ error: "Not a player account" });
         }
 
+        // AI Pro quota check for players
+        const { checkAiQuota, incrementAiCallCount } = await import("../services/aiProSubscription");
+        const userId = req.user!.id;
+        const role = req.user!.role;
+        const quota = await checkAiQuota(userId, role);
+        if (!quota.allowed) {
+          return res.status(402).json({
+            error: "ai_quota_exceeded",
+            message: "Je hebt je 5 gratis AI-gesprekken deze maand gebruikt.",
+            callCount: quota.callCount,
+            limit: quota.limit,
+            isPro: false,
+          });
+        }
+        await incrementAiCallCount(userId);
+
         const { messages } = req.body as { messages: AiChatMessage[] };
         const safeMessages: AiChatMessage[] = (messages || []).filter(
           (m) => m.role === "user" || m.role === "assistant"

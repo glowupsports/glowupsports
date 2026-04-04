@@ -17,6 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
+import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
 
 interface Message {
   role: "user" | "assistant";
@@ -75,6 +76,7 @@ export default function PlayerAICoachScreen() {
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [greetingFetched, setGreetingFetched] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const scrollToBottom = () => {
@@ -103,6 +105,23 @@ export default function PlayerAICoachScreen() {
         Alert.alert("AI-limiet bereikt", quotaMsg, [{ text: "OK" }]);
         setIsLoading(false);
         return;
+      }
+
+      if (resp.status === 402) {
+        const errorData = await resp.json().catch(() => ({}));
+        if (errorData.code === "ai_quota_exceeded") {
+          setIsLoading(false);
+          setShowUpgradeModal(true);
+          setMessages((prev) => {
+            const withoutLast = [...prev];
+            if (withoutLast[withoutLast.length - 1]?.role === "user") {
+              withoutLast.pop();
+            }
+            return withoutLast;
+          });
+          return;
+        }
+        throw new Error(`Server error: ${resp.status}`);
       }
       if (!resp.ok) {
         throw new Error(`Server error: ${resp.status}`);
@@ -306,6 +325,11 @@ export default function PlayerAICoachScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <AiProUpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </View>
   );
 }

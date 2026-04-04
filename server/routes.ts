@@ -250,6 +250,7 @@ import liveScoringRouter from "./routes/live-scoring";
 import coachLocationRouter from "./routes/coach-location";
 import aiUsageAdminRouter from "./routes/ai-usage-admin";
 import subscriptionsRouter from "./routes/subscriptions";
+import aiProRouter from "./routes/ai-pro";
 import { filterProfanity } from "./profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
 import { chatRateLimiter, postRateLimiter, diagnosticsLimiter, adminRepairLimiter } from "./rateLimiter";
@@ -567,6 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(coachLocationRouter);
   app.use(aiUsageAdminRouter);
   app.use(subscriptionsRouter);
+  app.use(aiProRouter);
 
   // ==================== USER ONBOARDING STATE ====================
 

@@ -806,6 +806,26 @@ function setupErrorHandler(app: express.Application) {
 (async () => {
   setupSecurityHeaders(app);
   setupCors(app);
+
+  // Stripe webhook MUST be registered BEFORE express.json() so it receives raw Buffer
+  app.post(
+    '/api/stripe/webhook',
+    express.raw({ type: 'application/json' }),
+    async (req: Request, res: Response) => {
+      const signature = req.headers['stripe-signature'];
+      if (!signature) return res.status(400).json({ error: 'Missing stripe-signature' });
+      try {
+        const { WebhookHandlers } = await import('./webhookHandlers');
+        const sig = Array.isArray(signature) ? signature[0] : signature;
+        await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+        res.status(200).json({ received: true });
+      } catch (error: any) {
+        console.error('[Stripe Webhook] Error:', error.message);
+        res.status(400).json({ error: 'Webhook processing error' });
+      }
+    }
+  );
+
   setupBodyParsing(app);
   setupRequestLogging(app);
 
@@ -825,6 +845,34 @@ function setupErrorHandler(app: express.Application) {
   const server = await registerRoutes(app);
 
   setupErrorHandler(app);
+
+  // Initialize Stripe schema and sync after server is set up
+  (async () => {
+    try {
+      const { runMigrations } = await import('stripe-replit-sync');
+      const databaseUrl = process.env.DATABASE_URL;
+      if (databaseUrl) {
+        await runMigrations({ databaseUrl, schema: 'stripe' });
+        log('[Stripe] Schema ready');
+
+        const { getStripeSync } = await import('./stripeClient');
+        const stripeSync = await getStripeSync();
+
+        const domain = process.env.REPLIT_DOMAINS?.split(',')[0];
+        if (domain) {
+          const webhookUrl = `https://${domain}/api/stripe/webhook`;
+          await stripeSync.findOrCreateManagedWebhook(webhookUrl);
+          log(`[Stripe] Webhook configured: ${webhookUrl}`);
+        }
+
+        stripeSync.syncBackfill()
+          .then(() => log('[Stripe] Data sync complete'))
+          .catch((err: Error) => log(`[Stripe] Sync error: ${err.message}`));
+      }
+    } catch (err: any) {
+      log(`[Stripe] Init warning: ${err.message}`);
+    }
+  })();
 
   const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(

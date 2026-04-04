@@ -22,6 +22,9 @@ export const users = pgTable("users", {
   appleId: text("apple_id").unique(), // Apple Sign-In user identifier
   deleted: boolean("deleted").default(false), // true when account has been deleted
   deletedAt: timestamp("deleted_at"), // when the account was deleted
+  // AI Pro subscription fields (players only)
+  stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID for AI Pro
+  stripeSubscriptionId: text("stripe_subscription_id"), // Active AI Pro subscription ID
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -6868,3 +6871,22 @@ export const aiUsageLogs = pgTable("ai_usage_logs", {
 export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({ id: true, createdAt: true });
 export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
+
+// ==================== AI PRO SUBSCRIPTION ====================
+
+// Monthly AI usage tracking per player user
+// Resets on the 1st of each month; free tier allows 5 calls/month
+export const playerAiUsage = pgTable("player_ai_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // references users.id
+  month: text("month").notNull(), // "YYYY-MM" e.g. "2026-04"
+  callCount: integer("call_count").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  unique("player_ai_usage_user_month").on(table.userId, table.month),
+  index("player_ai_usage_user_idx").on(table.userId),
+]);
+
+export const insertPlayerAiUsageSchema = createInsertSchema(playerAiUsage).omit({ id: true, updatedAt: true });
+export type InsertPlayerAiUsage = z.infer<typeof insertPlayerAiUsageSchema>;
+export type PlayerAiUsage = typeof playerAiUsage.$inferSelect;

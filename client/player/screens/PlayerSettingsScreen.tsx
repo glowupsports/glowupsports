@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
 import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportContext";
@@ -47,6 +47,35 @@ export default function PlayerSettingsScreen() {
   const [sportSaving, setSportSaving] = useState(false);
   const [showJoinFamily, setShowJoinFamily] = useState(false);
   const [joinCode, setJoinCode] = useState("");
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const { data: aiProStatus, refetch: refetchAiPro } = useQuery<{
+    isPro: boolean;
+    isCoach: boolean;
+    callCount: number;
+    limit: number;
+    subscription: { status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  }>({
+    queryKey: ["/api/ai-pro/status"],
+    retry: false,
+  });
+
+  const handleOpenPortal = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPortalLoading(true);
+    try {
+      const response = await apiRequest("POST", "/api/ai-pro/portal");
+      const data = await response.json();
+      if (data.url) {
+        await Linking.openURL(data.url);
+        setTimeout(() => refetchAiPro(), 2000);
+      }
+    } catch (error) {
+      console.error("[Settings] Portal error:", error);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
   const [joinLoading, setJoinLoading] = useState(false);
   const [switchedName, setSwitchedName] = useState<string | null>(null);
 
@@ -497,6 +526,82 @@ export default function PlayerSettingsScreen() {
             })}
           </View>
         </View>
+
+        {aiProStatus && !aiProStatus.isCoach ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI Plan</Text>
+            <View style={styles.sectionCard}>
+              <View style={[styles.settingItem, { flexDirection: "column", alignItems: "flex-start", gap: Spacing.sm, paddingVertical: Spacing.md }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, width: "100%" }}>
+                  <View style={[styles.settingIcon, { backgroundColor: aiProStatus.isPro ? Colors.dark.primary + "25" : "rgba(255,255,255,0.06)" }]}>
+                    <Ionicons name="flash" size={20} color={aiProStatus.isPro ? Colors.dark.primary : Colors.dark.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.settingLabel, { flex: 0 }]}>
+                      {aiProStatus.isPro ? "AI Pro" : "Free Plan"}
+                    </Text>
+                    {aiProStatus.isPro && aiProStatus.subscription?.currentPeriodEnd ? (
+                      <Text style={[Typography.small, { color: Colors.dark.textMuted }]}>
+                        {aiProStatus.subscription.cancelAtPeriodEnd ? "Verloopt op " : "Verlengt op "}
+                        {new Date(aiProStatus.subscription.currentPeriodEnd).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}
+                      </Text>
+                    ) : !aiProStatus.isPro ? (
+                      <Text style={[Typography.small, { color: Colors.dark.textMuted }]}>
+                        {aiProStatus.callCount}/{aiProStatus.limit} gesprekken gebruikt deze maand
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={[styles.aiProBadge, aiProStatus.isPro && styles.aiProBadgeActive]}>
+                    <Text style={[styles.aiProBadgeText, aiProStatus.isPro && styles.aiProBadgeTextActive]}>
+                      {aiProStatus.isPro ? "PRO" : "GRATIS"}
+                    </Text>
+                  </View>
+                </View>
+
+                {!aiProStatus.isPro ? (
+                  <View style={{ width: "100%" }}>
+                    <View style={styles.quotaBar}>
+                      <View style={[styles.quotaFill, { width: `${Math.min(100, (aiProStatus.callCount / aiProStatus.limit) * 100)}%` as any }]} />
+                    </View>
+                  </View>
+                ) : null}
+
+                {aiProStatus.isPro ? (
+                  <Pressable
+                    style={styles.manageButton}
+                    onPress={handleOpenPortal}
+                    disabled={portalLoading}
+                  >
+                    {portalLoading ? (
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                    ) : (
+                      <>
+                        <Text style={styles.manageButtonText}>Abonnement beheren</Text>
+                        <Ionicons name="open-outline" size={14} color={Colors.dark.textMuted} />
+                      </>
+                    )}
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.upgradeButtonSmall}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      const response = await apiRequest("POST", "/api/ai-pro/checkout");
+                      const data = await response.json();
+                      if (data.url) {
+                        await Linking.openURL(data.url);
+                        setTimeout(() => refetchAiPro(), 2000);
+                      }
+                    }}
+                  >
+                    <Ionicons name="flash" size={14} color="#000" />
+                    <Text style={styles.upgradeButtonSmallText}>Upgrade naar AI Pro — €4,99/maand</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('player.settings.notifications')}</Text>
@@ -986,5 +1091,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.backgroundRoot,
+  },
+  aiProBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  aiProBadgeActive: {
+    backgroundColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary + "60",
+  },
+  aiProBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: Colors.dark.textMuted,
+  },
+  aiProBadgeTextActive: {
+    color: Colors.dark.primary,
+  },
+  quotaBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginTop: 2,
+    overflow: "hidden",
+  },
+  quotaFill: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.primary,
+  },
+  manageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignSelf: "flex-start",
+  },
+  manageButtonText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  upgradeButtonSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.primary,
+    alignSelf: "flex-start",
+  },
+  upgradeButtonSmallText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#000",
   },
 });
