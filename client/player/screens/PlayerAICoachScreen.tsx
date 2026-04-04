@@ -377,13 +377,13 @@ export default function PlayerAICoachScreen() {
                 styles.usagePillText,
                 aiStatus.callCount >= aiStatus.limit && styles.usagePillTextFull,
               ]}>
-                {aiStatus.callCount}/{aiStatus.limit}
+                {aiStatus.callCount} / {aiStatus.limit} used
               </Text>
             </View>
-          ) : aiStatus && (aiStatus.isPro || aiStatus.isCoach) ? (
+          ) : aiStatus && aiStatus.isPro ? (
             <View style={styles.usagePillPro}>
               <Ionicons name="sparkles" size={10} color={Colors.dark.primary} />
-              <Text style={styles.usagePillProText}>Pro</Text>
+              <Text style={styles.usagePillProText}>Unlimited</Text>
             </View>
           ) : null}
         </View>
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   usagePillWrap: {
-    width: 56,
+    minWidth: 70,
     alignItems: "flex-end",
   },
   usagePill: {
