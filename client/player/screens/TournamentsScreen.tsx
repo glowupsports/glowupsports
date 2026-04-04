@@ -61,6 +61,7 @@ interface Tournament {
   levelMax?: number | string | null;
   academyName?: string | null;
   distanceKm?: number | null;
+  xpReward?: number | null;
 }
 
 interface TournamentData {
@@ -240,6 +241,12 @@ function TournamentCard({
             <View style={styles.formatBadge}>
               <Text style={styles.formatBadgeText}>{getFormatLabel(tournament.format, t)}</Text>
             </View>
+            {tournament.xpReward ? (
+              <View style={styles.xpBadge}>
+                <Ionicons name="flash" size={10} color="#FFD700" />
+                <Text style={styles.xpBadgeText}>Win {tournament.xpReward} XP</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -924,6 +931,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: TextColors.secondary,
     letterSpacing: 0.3,
+  },
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  xpBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFD700",
   },
   liveBadge: {
     flexDirection: "row",

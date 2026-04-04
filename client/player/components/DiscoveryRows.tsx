@@ -817,6 +817,126 @@ export function OpenMatchesRow() {
   );
 }
 
+interface TournamentMini {
+  id: string;
+  name: string;
+  sport: string;
+  startDate: string;
+  spotsTotal: number;
+  spotsTaken: number;
+  xpReward?: number | null;
+  status: string;
+}
+
+function getSportColorLocal(sport: string): string {
+  switch (sport?.toLowerCase()) {
+    case "padel": return "#1A6FC4";
+    case "pickleball": return "#E07B20";
+    default: return "#1A8C4C";
+  }
+}
+
+function getSportEmojiLocal(sport: string): string {
+  switch (sport?.toLowerCase()) {
+    case "padel": return "Padel";
+    case "pickleball": return "Pickleball";
+    default: return "Tennis";
+  }
+}
+
+function formatTournamentDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+export function TournamentsDiscoveryRow() {
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
+
+  const { data, isLoading } = useQuery<{ upcoming: TournamentMini[] }>({
+    queryKey: ["/api/player/tournaments", "registration_open"],
+    queryFn: async () => {
+      const url = new URL("/api/player/tournaments", getApiUrl());
+      url.searchParams.set("status", "registration_open");
+      const res = await fetch(url.toString(), { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to load tournaments");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const openTournaments = (data?.upcoming ?? [])
+    .filter(t => t.status === "registration_open")
+    .slice(0, 3);
+
+  const handleSeeAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Tournaments" } });
+  };
+
+  const handleCardPress = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("TournamentDetail", { tournamentId: id });
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader
+        title="Tournaments & Events"
+        count={openTournaments.length}
+        actionLabel="See All"
+        onAction={handleSeeAll}
+        accentColor="#FFD700"
+      />
+
+      {openTournaments.length === 0 ? (
+        <View style={styles.tournamentEmptyState}>
+          <Ionicons name="trophy-outline" size={28} color={Colors.dark.textMuted} />
+          <Text style={styles.tournamentEmptyText}>No tournaments right now — check back soon</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rowScrollContent}
+        >
+          {openTournaments.map((t, index) => {
+            const spotsLeft = t.spotsTotal - t.spotsTaken;
+            const sportColor = getSportColorLocal(t.sport);
+            return (
+              <Animated.View key={t.id} entering={FadeInRight.delay(index * 60).duration(300)}>
+                <Pressable
+                  style={styles.tournamentMiniCard}
+                  onPress={() => handleCardPress(t.id)}
+                >
+                  <View style={[styles.tournamentMiniSportBanner, { backgroundColor: sportColor }]} />
+                  <View style={styles.tournamentMiniCardInner}>
+                    <Text style={styles.tournamentMiniName} numberOfLines={2}>{t.name}</Text>
+                    <Text style={styles.tournamentMiniDate}>{getSportEmojiLocal(t.sport)}  ·  {formatTournamentDate(t.startDate)}</Text>
+                    <View style={styles.tournamentMiniFooter}>
+                      <Text style={styles.tournamentMiniSpots}>
+                        {spotsLeft > 0 ? `${spotsLeft} spots left` : "Full"}
+                      </Text>
+                      {t.xpReward ? (
+                        <View style={styles.tournamentXpBadge}>
+                          <Ionicons name="flash" size={10} color="#FFD700" />
+                          <Text style={styles.tournamentXpText}>Win {t.xpReward} XP</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                </Pressable>
+              </Animated.View>
+            );
+          })}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 // Keep OpenSessionsRow as alias for backward compatibility - now combines both
 export function OpenSessionsRow() {
   return (
@@ -2164,5 +2284,68 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  tournamentMiniCard: {
+    width: 180,
+    backgroundColor: "#1A1D24",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  tournamentMiniCardInner: {
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  tournamentMiniSportBanner: {
+    height: 4,
+    borderRadius: 2,
+    marginBottom: Spacing.xs,
+  },
+  tournamentMiniName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    lineHeight: 18,
+  },
+  tournamentMiniDate: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  tournamentMiniFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.sm,
+  },
+  tournamentMiniSpots: {
+    fontSize: 11,
+    color: Colors.dark.textSubtle,
+  },
+  tournamentXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  tournamentXpText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFD700",
+  },
+  tournamentEmptyState: {
+    marginHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  tournamentEmptyText: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
   },
 });

@@ -14,7 +14,7 @@ import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
+import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow, TournamentsDiscoveryRow } from "@/player/components/DiscoveryRows";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
@@ -751,6 +751,7 @@ function PlayerHomeContent() {
 
         <TrainingSessionsRow />
         <OpenSessionsRow />
+        <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── Feedback, progress, recognition */}

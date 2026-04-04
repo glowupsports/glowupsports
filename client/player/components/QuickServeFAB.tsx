@@ -81,6 +81,16 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
 
   const actions: QuickAction[] = [
     {
+      id: "tournaments",
+      label: "Tournaments",
+      icon: "trophy-outline",
+      color: "#FFD700",
+      onPress: () => {
+        track("action:tournaments");
+        navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Play", params: { initialTab: "Tournaments" } } });
+      },
+    },
+    {
       id: "classes",
       label: "Classes",
       icon: "people-outline",
