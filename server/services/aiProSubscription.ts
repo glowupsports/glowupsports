@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { eq, and, sql } from "drizzle-orm";
-import { users, playerAiUsage } from "@shared/schema";
+import { playerAiUsage } from "@shared/schema";
 import { hasActiveEntitlement } from "../lib/revenueCatClient";
 
 const FREE_TIER_LIMIT = 5;
@@ -12,8 +12,7 @@ function getCurrentMonth(): string {
 }
 
 /**
- * Check if a user has an active AI Pro subscription.
- * First checks RevenueCat (Apple IAP), then falls back to Stripe.
+ * Check if a user has an active AI Pro subscription via RevenueCat.
  * Coaches always return true (bypasses check).
  */
 export async function hasAiProAccess(userId: string, role: string): Promise<boolean> {
@@ -21,26 +20,7 @@ export async function hasAiProAccess(userId: string, role: string): Promise<bool
 
   try {
     const rcResult = await hasActiveEntitlement(userId, AI_PRO_ENTITLEMENT);
-    if (rcResult !== null) {
-      return rcResult;
-    }
-  } catch {
-  }
-
-  try {
-    const [user] = await db
-      .select({ stripeSubscriptionId: users.stripeSubscriptionId })
-      .from(users)
-      .where(eq(users.id, userId));
-
-    if (!user?.stripeSubscriptionId) return false;
-
-    const result = await db.execute(
-      sql`SELECT status FROM stripe.subscriptions WHERE id = ${user.stripeSubscriptionId} LIMIT 1`
-    );
-
-    const sub = result.rows[0] as { status?: string } | undefined;
-    return sub?.status === "active" || sub?.status === "trialing";
+    return rcResult === true;
   } catch {
     return false;
   }
@@ -94,57 +74,6 @@ export async function checkAiQuota(userId: string, role: string): Promise<{
   const callCount = await getMonthlyAiCallCount(userId);
   const allowed = callCount < FREE_TIER_LIMIT;
   return { allowed, callCount, limit: FREE_TIER_LIMIT, isPro: false };
-}
-
-/**
- * Get the Stripe subscription details for a user (renewal date, status).
- * Used for legacy Stripe subscribers.
- */
-export async function getSubscriptionDetails(userId: string): Promise<{
-  status: string;
-  currentPeriodEnd: Date | null;
-  cancelAtPeriodEnd: boolean;
-} | null> {
-  try {
-    const [user] = await db
-      .select({ stripeSubscriptionId: users.stripeSubscriptionId })
-      .from(users)
-      .where(eq(users.id, userId));
-
-    if (!user?.stripeSubscriptionId) return null;
-
-    const result = await db.execute(
-      sql`SELECT status, current_period_end, cancel_at_period_end 
-          FROM stripe.subscriptions 
-          WHERE id = ${user.stripeSubscriptionId} LIMIT 1`
-    );
-
-    const sub = result.rows[0] as {
-      status?: string;
-      current_period_end?: string | number;
-      cancel_at_period_end?: boolean;
-    } | undefined;
-
-    if (!sub) return null;
-
-    let currentPeriodEnd: Date | null = null;
-    if (sub.current_period_end) {
-      const val = sub.current_period_end;
-      if (typeof val === "number") {
-        currentPeriodEnd = new Date(val * 1000);
-      } else {
-        currentPeriodEnd = new Date(val);
-      }
-    }
-
-    return {
-      status: sub.status || "unknown",
-      currentPeriodEnd,
-      cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
-    };
-  } catch {
-    return null;
-  }
 }
 
 export { FREE_TIER_LIMIT };

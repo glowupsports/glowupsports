@@ -17,6 +17,7 @@ import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18
 import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportContext";
 import { useFamily } from "@/player/context/FamilyContext";
 import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
+import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
 
 interface SettingItem {
   id: string;
@@ -47,35 +48,17 @@ export default function PlayerSettingsScreen() {
   const [sportSaving, setSportSaving] = useState(false);
   const [showJoinFamily, setShowJoinFamily] = useState(false);
   const [joinCode, setJoinCode] = useState("");
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { data: aiProStatus, refetch: refetchAiPro } = useQuery<{
     isPro: boolean;
     isCoach: boolean;
     callCount: number;
     limit: number;
-    subscription: { status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
   }>({
     queryKey: ["/api/ai-pro/status"],
     retry: false,
   });
-
-  const handleOpenPortal = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPortalLoading(true);
-    try {
-      const response = await apiRequest("POST", "/api/ai-pro/portal");
-      const data = await response.json();
-      if (data.url) {
-        await Linking.openURL(data.url);
-        setTimeout(() => refetchAiPro(), 2000);
-      }
-    } catch (error) {
-      console.error("[Settings] Portal error:", error);
-    } finally {
-      setPortalLoading(false);
-    }
-  };
   const [joinLoading, setJoinLoading] = useState(false);
   const [switchedName, setSwitchedName] = useState<string | null>(null);
 
@@ -540,12 +523,7 @@ export default function PlayerSettingsScreen() {
                     <Text style={[styles.settingLabel, { flex: 0 }]}>
                       {aiProStatus.isPro ? "AI Pro" : "Free Plan"}
                     </Text>
-                    {aiProStatus.isPro && aiProStatus.subscription?.currentPeriodEnd ? (
-                      <Text style={[Typography.small, { color: Colors.dark.textMuted }]}>
-                        {aiProStatus.subscription.cancelAtPeriodEnd ? "Verloopt op " : "Verlengt op "}
-                        {new Date(aiProStatus.subscription.currentPeriodEnd).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}
-                      </Text>
-                    ) : !aiProStatus.isPro ? (
+                    {!aiProStatus.isPro ? (
                       <Text style={[Typography.small, { color: Colors.dark.textMuted }]}>
                         {aiProStatus.callCount}/{aiProStatus.limit} gesprekken gebruikt deze maand
                       </Text>
@@ -566,38 +544,18 @@ export default function PlayerSettingsScreen() {
                   </View>
                 ) : null}
 
-                {aiProStatus.isPro ? (
-                  <Pressable
-                    style={styles.manageButton}
-                    onPress={handleOpenPortal}
-                    disabled={portalLoading}
-                  >
-                    {portalLoading ? (
-                      <ActivityIndicator size="small" color={Colors.dark.text} />
-                    ) : (
-                      <>
-                        <Text style={styles.manageButtonText}>Abonnement beheren</Text>
-                        <Ionicons name="open-outline" size={14} color={Colors.dark.textMuted} />
-                      </>
-                    )}
-                  </Pressable>
-                ) : (
+                {!aiProStatus.isPro ? (
                   <Pressable
                     style={styles.upgradeButtonSmall}
-                    onPress={async () => {
+                    onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      const response = await apiRequest("POST", "/api/ai-pro/checkout");
-                      const data = await response.json();
-                      if (data.url) {
-                        await Linking.openURL(data.url);
-                        setTimeout(() => refetchAiPro(), 2000);
-                      }
+                      setShowUpgradeModal(true);
                     }}
                   >
                     <Ionicons name="flash" size={14} color="#000" />
-                    <Text style={styles.upgradeButtonSmallText}>Upgrade naar AI Pro — €4,99/maand</Text>
+                    <Text style={styles.upgradeButtonSmallText}>Upgrade to AI Pro</Text>
                   </Pressable>
-                )}
+                ) : null}
               </View>
             </View>
           </View>
@@ -856,6 +814,15 @@ export default function PlayerSettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      <AiProUpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSubscribed={() => {
+          setShowUpgradeModal(false);
+          refetchAiPro();
+        }}
+      />
     </View>
   );
 }
