@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { StyleSheet, View, Platform } from "react-native";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef, getStateFromPath as defaultGetStateFromPath } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
@@ -46,6 +45,18 @@ import { CoachMarksProvider } from "@/components/CoachMarks";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
 import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
+
+// react-native-keyboard-controller uses NativeEventEmitter which is unavailable
+// on web. Load KeyboardProvider only on native (iOS/Android) to prevent crashes.
+const NativeKeyboardProvider: React.ComponentType<{ children: React.ReactNode }> | null =
+  Platform.OS !== "web"
+    ? require("react-native-keyboard-controller").KeyboardProvider
+    : null;
+
+function KeyboardWrapper({ children }: { children: React.ReactNode }) {
+  if (!NativeKeyboardProvider) return <>{children}</>;
+  return React.createElement(NativeKeyboardProvider, null, children);
+}
 
 const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -163,7 +174,7 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <SafeAreaProvider>
             <GestureHandlerRootView style={styles.root}>
-              <KeyboardProvider>
+              <KeyboardWrapper>
                 <AnimatedSplashScreen isReady={isReady} onComplete={handleSplashComplete}>
                   <UpdateController>
                     <NetworkProvider>
@@ -195,7 +206,7 @@ export default function App() {
                   </UpdateController>
                 </AnimatedSplashScreen>
                 <StatusBar style="light" />
-              </KeyboardProvider>
+              </KeyboardWrapper>
             </GestureHandlerRootView>
           </SafeAreaProvider>
         </QueryClientProvider>

@@ -1,10 +1,17 @@
 import { Platform, ScrollView, ScrollViewProps } from "react-native";
-import {
-  KeyboardAwareScrollView,
-  KeyboardAwareScrollViewProps,
-} from "react-native-keyboard-controller";
 
-type Props = KeyboardAwareScrollViewProps & ScrollViewProps;
+type Props = ScrollViewProps & {
+  keyboardShouldPersistTaps?: "always" | "never" | "handled";
+  [key: string]: any;
+};
+
+// On web, react-native-keyboard-controller's NativeEventEmitter is unavailable
+// and causes a 6000ms timeout crash. Only load the native module on iOS/Android.
+let KeyboardAwareScrollViewNative: React.ComponentType<any> | null = null;
+if (Platform.OS !== "web") {
+  KeyboardAwareScrollViewNative =
+    require("react-native-keyboard-controller").KeyboardAwareScrollView;
+}
 
 /**
  * KeyboardAwareScrollView that falls back to ScrollView on web.
@@ -15,7 +22,7 @@ export function KeyboardAwareScrollViewCompat({
   keyboardShouldPersistTaps = "handled",
   ...props
 }: Props) {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || !KeyboardAwareScrollViewNative) {
     return (
       <ScrollView
         keyboardShouldPersistTaps={keyboardShouldPersistTaps}
@@ -26,12 +33,13 @@ export function KeyboardAwareScrollViewCompat({
     );
   }
 
+  const KAScrollView = KeyboardAwareScrollViewNative;
   return (
-    <KeyboardAwareScrollView
+    <KAScrollView
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       {...props}
     >
       {children}
-    </KeyboardAwareScrollView>
+    </KAScrollView>
   );
 }
