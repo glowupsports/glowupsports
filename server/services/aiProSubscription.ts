@@ -4,6 +4,7 @@ import { playerAiUsage } from "@shared/schema";
 import { hasActiveEntitlement } from "../lib/revenueCatClient";
 
 const FREE_TIER_LIMIT = 5;
+const PRO_TIER_LIMIT = 200;
 const AI_PRO_ENTITLEMENT = "ai_pro";
 
 function getCurrentMonth(): string {
@@ -66,14 +67,14 @@ export async function checkAiQuota(userId: string, role: string): Promise<{
   }
 
   const isPro = await hasAiProAccess(userId, role);
+  const callCount = await getMonthlyAiCallCount(userId);
+
   if (isPro) {
-    const callCount = await getMonthlyAiCallCount(userId);
-    return { allowed: true, callCount, limit: 0, isPro: true };
+    return { allowed: callCount < PRO_TIER_LIMIT, callCount, limit: PRO_TIER_LIMIT, isPro: true };
   }
 
-  const callCount = await getMonthlyAiCallCount(userId);
   const allowed = callCount < FREE_TIER_LIMIT;
   return { allowed, callCount, limit: FREE_TIER_LIMIT, isPro: false };
 }
 
-export { FREE_TIER_LIMIT };
+export { FREE_TIER_LIMIT, PRO_TIER_LIMIT };

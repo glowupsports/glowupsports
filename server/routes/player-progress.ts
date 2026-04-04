@@ -2847,12 +2847,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const role = req.user!.role;
         const quota = await checkAiQuota(userId, role);
         if (!quota.allowed) {
+          const resetDate = new Date();
+          resetDate.setMonth(resetDate.getMonth() + 1, 1);
+          resetDate.setHours(0, 0, 0, 0);
+          const resetStr = resetDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+          const message = quota.isPro
+            ? `You've used all ${quota.limit} messages this month — resets on ${resetStr}`
+            : `You've used all ${quota.limit} free messages this month. Upgrade to AI Pro for 200 messages/month.`;
           return res.status(402).json({
             error: "ai_quota_exceeded",
-            message: "Je hebt je 5 gratis AI-gesprekken deze maand gebruikt.",
+            message,
             callCount: quota.callCount,
             limit: quota.limit,
-            isPro: false,
+            isPro: quota.isPro,
           });
         }
         await incrementAiCallCount(userId);

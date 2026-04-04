@@ -247,6 +247,133 @@ const wStyles = StyleSheet.create({
   },
 });
 
+function AICoachEntryCard() {
+  const navigation = useNavigation<any>();
+
+  const { data: aiStatus } = useQuery<{
+    isPro: boolean;
+    isCoach: boolean;
+    callCount: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/ai-pro/status"],
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+
+  const usageLabel = aiStatus && !aiStatus.isCoach && aiStatus.limit > 0
+    ? `${aiStatus.callCount} / ${aiStatus.limit} used`
+    : null;
+
+  const isNearLimit = aiStatus && aiStatus.limit > 0 && aiStatus.callCount / aiStatus.limit >= 0.9;
+
+  return (
+    <Pressable
+      style={aiCardStyles.card}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.navigate("PlayerAICoach");
+      }}
+    >
+      <View style={aiCardStyles.left}>
+        <View style={aiCardStyles.iconWrap}>
+          <Ionicons name="sparkles" size={18} color={Colors.dark.backgroundRoot} />
+        </View>
+        <View style={aiCardStyles.textWrap}>
+          <Text style={aiCardStyles.title}>AI Coach</Text>
+          <Text style={aiCardStyles.sub}>Ask about your game, progress and strategy</Text>
+        </View>
+      </View>
+      <View style={aiCardStyles.right}>
+        {usageLabel ? (
+          <View style={[aiCardStyles.usageBadge, isNearLimit ? aiCardStyles.usageBadgeWarn : null]}>
+            {aiStatus?.isPro ? (
+              <Ionicons name="sparkles" size={9} color={isNearLimit ? Colors.dark.error : Colors.dark.primary} />
+            ) : null}
+            <Text style={[aiCardStyles.usageText, isNearLimit ? aiCardStyles.usageTextWarn : null]}>
+              {usageLabel}
+            </Text>
+          </View>
+        ) : null}
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </View>
+    </Pressable>
+  );
+}
+
+const aiCardStyles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.primary + "0F",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    borderRadius: BorderRadius.lg,
+    marginHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    gap: Spacing.sm,
+  },
+  left: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  textWrap: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  sub: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 1,
+  },
+  right: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    flexShrink: 0,
+  },
+  usageBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  usageBadgeWarn: {
+    borderColor: Colors.dark.error + "50",
+    backgroundColor: Colors.dark.error + "12",
+  },
+  usageText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  usageTextWarn: {
+    color: Colors.dark.error,
+  },
+});
+
 function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null; questType: "daily" | "weekly" | null; onViewAll: () => void }) {
   if (!quest) {
     return (
@@ -765,6 +892,8 @@ function PlayerHomeContent() {
           <WeeklyAIFocusCard playerId={player.id} />
         ) : null}
 
+        {/* AI COACH ENTRY CARD */}
+        {!isGuest ? <AICoachEntryCard /> : null}
 
         <RecentFeedbackCard />
 

@@ -20,11 +20,13 @@ interface Props {
   onClose: () => void;
   callCount?: number;
   limit?: number;
+  isPro?: boolean;
+  resetDate?: string;
   onSubscribed?: () => void;
 }
 
 const FEATURES = [
-  "Unlimited AI conversations per month",
+  "200 AI conversations per month",
   "Personal AI coach insights",
   "AI session summaries",
   "Match prep & strategy",
@@ -33,7 +35,7 @@ const FEATURES = [
 
 const ACCENT = Colors.dark.primary;
 
-export default function AiProUpgradeModal({ visible, onClose, callCount = 0, limit = 5, onSubscribed }: Props) {
+export default function AiProUpgradeModal({ visible, onClose, callCount = 0, limit = 5, isPro = false, resetDate, onSubscribed }: Props) {
   const { offerings, isPurchasing, isRestoring, purchase, restore } = useSubscription();
   const [selectedPackageType, setSelectedPackageType] = useState<"monthly" | "yearly">("yearly");
   const [restoreSuccess, setRestoreSuccess] = useState(false);
@@ -89,13 +91,17 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
           </View>
 
           <Text style={styles.title}>AI Pro</Text>
-          {callCount > 0 ? (
+          {isPro && resetDate ? (
+            <Text style={styles.subtitle}>
+              You've used all {limit} messages this month — resets on {resetDate}
+            </Text>
+          ) : callCount > 0 ? (
             <Text style={styles.subtitle}>
               You have used {callCount} of your {limit} free AI conversations this month.
             </Text>
           ) : (
             <Text style={styles.subtitle}>
-              Unlock unlimited AI coaching to reach your full potential.
+              Get 200 AI coaching messages per month and reach your full potential.
             </Text>
           )}
 

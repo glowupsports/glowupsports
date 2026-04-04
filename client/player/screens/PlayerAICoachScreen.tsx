@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -19,6 +20,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const AI_COACH_INTRO_SEEN_KEY = "ai_coach_intro_seen";
 
 interface Message {
   role: "user" | "assistant";
@@ -83,6 +87,231 @@ const MILESTONES = [
   { label: "Trend analysis", sessions: 4 },
   { label: "Full coaching", sessions: 8 },
 ];
+
+const FEATURE_HIGHLIGHTS = [
+  { icon: "calendar-outline" as const, label: "Knows your sessions", desc: "Trained on every session your coach logs with you" },
+  { icon: "trending-up-outline" as const, label: "Tracks your progress", desc: "Sees your skill scores, feedback and improvement trends" },
+  { icon: "bulb-outline" as const, label: "Gives personalised tips", desc: "Asks about your goals and tailors advice to your game" },
+  { icon: "sparkles-outline" as const, label: "Gets smarter over time", desc: "The more you train, the more data your coach has to work with" },
+];
+
+function FeatureIntroModal({ visible, isPro, callCount, limit, onStart, onUpgrade }: {
+  visible: boolean;
+  isPro: boolean;
+  callCount: number;
+  limit: number;
+  onStart: () => void;
+  onUpgrade: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const remaining = Math.max(limit - callCount, 0);
+  return (
+    <Modal visible={visible} animationType="slide" statusBarTranslucent>
+      <View style={[introStyles.container, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing.lg }]}>
+        <ScrollView contentContainerStyle={introStyles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={introStyles.iconWrap}>
+            <Ionicons name="sparkles" size={40} color={Colors.dark.primary} />
+          </View>
+          <Text style={introStyles.title}>Your Personal AI Coach</Text>
+          <Text style={introStyles.subtitle}>
+            Ask anything about your game, sessions, progress, serve technique or what to focus on next.
+          </Text>
+
+          <View style={introStyles.highlights}>
+            {FEATURE_HIGHLIGHTS.map((h) => (
+              <View key={h.label} style={introStyles.highlightRow}>
+                <View style={introStyles.highlightIcon}>
+                  <Ionicons name={h.icon} size={18} color={Colors.dark.primary} />
+                </View>
+                <View style={introStyles.highlightText}>
+                  <Text style={introStyles.highlightLabel}>{h.label}</Text>
+                  <Text style={introStyles.highlightDesc}>{h.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={introStyles.costNote}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.dark.textMuted} />
+            <Text style={introStyles.costNoteText}>
+              Every message is powered by OpenAI. We pass on a fair monthly plan so you get 200 messages per month without us running at a loss.
+            </Text>
+          </View>
+
+          {!isPro ? (
+            <View style={introStyles.limitBadge}>
+              <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.primary} />
+              <Text style={introStyles.limitBadgeText}>
+                You have {remaining} free message{remaining !== 1 ? "s" : ""} this month
+              </Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        <View style={introStyles.footer}>
+          {!isPro ? (
+            <>
+              <Pressable style={introStyles.ctaBtn} onPress={onStart}>
+                <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundRoot} />
+                <Text style={introStyles.ctaBtnText}>Try Free ({remaining} message{remaining !== 1 ? "s" : ""})</Text>
+              </Pressable>
+              <Pressable style={introStyles.upgradeBtn} onPress={onUpgrade}>
+                <Ionicons name="flash" size={15} color={Colors.dark.primary} />
+                <Text style={introStyles.upgradeBtnText}>Unlock Full Access — 200 msg/month</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable style={introStyles.ctaBtn} onPress={onStart}>
+              <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundRoot} />
+              <Text style={introStyles.ctaBtnText}>Start Chatting</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const introStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#080C14",
+  },
+  scroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
+    alignItems: "center",
+  },
+  iconWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Colors.dark.primary + "1A",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary + "50",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.md,
+  },
+  title: {
+    color: Colors.dark.text,
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  subtitle: {
+    color: Colors.dark.textSubtle,
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  highlights: {
+    width: "100%",
+    gap: Spacing.sm,
+  },
+  highlightRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    padding: Spacing.md,
+  },
+  highlightIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.dark.primary + "18",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  highlightText: {
+    flex: 1,
+    gap: 2,
+  },
+  highlightLabel: {
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  highlightDesc: {
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  costNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+    padding: Spacing.md,
+  },
+  costNoteText: {
+    flex: 1,
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontStyle: "italic",
+  },
+  limitBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  limitBadgeText: {
+    color: Colors.dark.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  footer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  ctaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md + 2,
+  },
+  ctaBtnText: {
+    color: Colors.dark.backgroundRoot,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  upgradeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: "transparent",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary + "60",
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  upgradeBtnText: {
+    color: Colors.dark.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+});
 
 function OnboardingSplash({ onStart }: { onStart: () => void }) {
   return (
@@ -173,8 +402,11 @@ export default function PlayerAICoachScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [greetingFetched, setGreetingFetched] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeModalData, setUpgradeModalData] = useState<{ isPro: boolean; callCount: number; limit: number; resetDate?: string }>({ isPro: false, callCount: 0, limit: 5 });
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [showIntroModal, setShowIntroModal] = useState(false);
+  const [introChecked, setIntroChecked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const { data: contextData } = useQuery<{ dataMaturity: DataMaturity }>({
@@ -229,9 +461,20 @@ export default function PlayerAICoachScreen() {
       }
 
       if (resp.status === 402) {
-        const errorData = await resp.json().catch(() => ({}));
-        if (errorData.code === "ai_quota_exceeded") {
+        const errorData = await resp.json().catch(() => ({})) as { error?: string; code?: string; isPro?: boolean; callCount?: number; limit?: number; message?: string };
+        if (errorData.error === "ai_quota_exceeded" || errorData.code === "ai_quota_exceeded") {
+          const isPro = errorData.isPro ?? false;
+          const callCount = errorData.callCount ?? 0;
+          const limit = errorData.limit ?? (isPro ? 200 : 5);
+          let resetDate: string | undefined;
+          if (isPro) {
+            const rd = new Date();
+            rd.setMonth(rd.getMonth() + 1, 1);
+            rd.setHours(0, 0, 0, 0);
+            resetDate = rd.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+          }
           setIsLoading(false);
+          setUpgradeModalData({ isPro, callCount, limit, resetDate });
           setShowUpgradeModal(true);
           setMessages((prev) => {
             const withoutLast = [...prev];
@@ -311,11 +554,27 @@ export default function PlayerAICoachScreen() {
   };
 
   useEffect(() => {
-    if (!greetingFetched && !showOnboarding) {
+    AsyncStorage.getItem(AI_COACH_INTRO_SEEN_KEY).then((val) => {
+      if (!val) {
+        setShowIntroModal(true);
+      }
+      setIntroChecked(true);
+    }).catch(() => {
+      setIntroChecked(true);
+    });
+  }, []);
+
+  const handleIntroStart = () => {
+    AsyncStorage.setItem(AI_COACH_INTRO_SEEN_KEY, "1").catch(() => {});
+    setShowIntroModal(false);
+  };
+
+  useEffect(() => {
+    if (!greetingFetched && !showOnboarding && !showIntroModal && introChecked) {
       setGreetingFetched(true);
       fetchAIGreeting();
     }
-  }, [showOnboarding]);
+  }, [showOnboarding, showIntroModal, introChecked]);
 
   const sendMessage = async (text?: string) => {
     const content = (text ?? inputText).trim();
@@ -368,22 +627,20 @@ export default function PlayerAICoachScreen() {
           </View>
         </View>
         <View style={styles.usagePillWrap}>
-          {aiStatus && !aiStatus.isCoach && !aiStatus.isPro && aiStatus.limit > 0 ? (
+          {aiStatus && !aiStatus.isCoach && aiStatus.limit > 0 ? (
             <View style={[
               styles.usagePill,
-              aiStatus.callCount >= aiStatus.limit && styles.usagePillFull,
+              aiStatus.callCount / aiStatus.limit >= 0.9 && styles.usagePillFull,
             ]}>
+              {aiStatus.isPro ? (
+                <Ionicons name="sparkles" size={10} color={aiStatus.callCount / aiStatus.limit >= 0.9 ? Colors.dark.error : Colors.dark.primary} style={{ marginRight: 3 }} />
+              ) : null}
               <Text style={[
                 styles.usagePillText,
-                aiStatus.callCount >= aiStatus.limit && styles.usagePillTextFull,
+                aiStatus.callCount / aiStatus.limit >= 0.9 && styles.usagePillTextFull,
               ]}>
                 {aiStatus.callCount} / {aiStatus.limit} used
               </Text>
-            </View>
-          ) : aiStatus && aiStatus.isPro ? (
-            <View style={styles.usagePillPro}>
-              <Ionicons name="sparkles" size={10} color={Colors.dark.primary} />
-              <Text style={styles.usagePillProText}>Unlimited</Text>
             </View>
           ) : null}
         </View>
@@ -491,6 +748,27 @@ export default function PlayerAICoachScreen() {
       <AiProUpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
+        callCount={upgradeModalData.callCount}
+        limit={upgradeModalData.limit}
+        isPro={upgradeModalData.isPro}
+        resetDate={upgradeModalData.resetDate}
+      />
+
+      <FeatureIntroModal
+        visible={showIntroModal}
+        isPro={aiStatus?.isPro ?? false}
+        callCount={aiStatus?.callCount ?? 0}
+        limit={aiStatus?.limit ?? 5}
+        onStart={handleIntroStart}
+        onUpgrade={() => {
+          handleIntroStart();
+          setUpgradeModalData({
+            isPro: false,
+            callCount: aiStatus?.callCount ?? 0,
+            limit: aiStatus?.limit ?? 5,
+          });
+          setShowUpgradeModal(true);
+        }}
       />
     </View>
   );
@@ -561,22 +839,6 @@ const styles = StyleSheet.create({
   },
   usagePillTextFull: {
     color: Colors.dark.error,
-  },
-  usagePillPro: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.dark.primary + "15",
-    borderRadius: BorderRadius.full ?? 999,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  usagePillProText: {
-    color: Colors.dark.primary,
-    fontSize: 11,
-    fontWeight: "700",
   },
   onboardingScroll: {
     flexGrow: 1,
