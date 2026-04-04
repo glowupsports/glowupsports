@@ -545,6 +545,8 @@ export interface PlayerAIContext {
   recentMatches: { result: string; format: string; opponentLevel: string | null }[];
   // Recent in-session feedback notes (last 10)
   recentFeedbackNotes: { feedbackType: string; message: string }[];
+  // Number of attended sessions (for data maturity)
+  sessionCount: number;
 }
 
 export async function buildPlayerAIContext(
@@ -734,6 +736,7 @@ export async function buildPlayerAIContext(
       totalSessions,
       recentMatches: recentMatchRows.map((m) => ({ result: m.result, format: m.matchFormat, opponentLevel: m.opponentLevel })),
       recentFeedbackNotes: recentFeedbackRows.map((f) => ({ feedbackType: f.feedbackType, message: f.message })),
+      sessionCount: attended,
     };
   } catch (error) {
     console.error("[AIEngine] Error building player AI context:", error);
@@ -856,6 +859,14 @@ ${summaryInstruction}`;
 }
 
 
+export type DataMaturityLevel = "none" | "basic" | "trends" | "full";
+
+export interface DataMaturity {
+  sessionCount: number;
+  maturityLevel: DataMaturityLevel;
+  nextMilestone: string;
+}
+
 export interface PlayerSelfAIContext {
   playerName: string;
   playerAge: number | null;
@@ -877,6 +888,22 @@ export interface PlayerSelfAIContext {
   avgEffort: number | null;
   avgExecution: number | null;
   recentStrokes: string[];
+  dataMaturity: DataMaturity;
+}
+
+export function computeDataMaturity(sessionCount: number): DataMaturity {
+  if (sessionCount === 0) {
+    return { sessionCount, maturityLevel: "none", nextMilestone: "Log your first session to unlock Basic advice" };
+  }
+  if (sessionCount < 4) {
+    const remaining = 4 - sessionCount;
+    return { sessionCount, maturityLevel: "basic", nextMilestone: `${remaining} more session${remaining === 1 ? "" : "s"} to unlock Trend analysis` };
+  }
+  if (sessionCount < 8) {
+    const remaining = 8 - sessionCount;
+    return { sessionCount, maturityLevel: "trends", nextMilestone: `${remaining} more session${remaining === 1 ? "" : "s"} to unlock Full personalised coaching` };
+  }
+  return { sessionCount, maturityLevel: "full", nextMilestone: "" };
 }
 
 export async function buildPlayerSelfAIContext(
@@ -1040,6 +1067,7 @@ export async function buildPlayerSelfAIContext(
       avgEffort,
       avgExecution,
       recentStrokes: [...recentStrokes],
+      dataMaturity: computeDataMaturity(attendedSessions),
     };
   } catch (error) {
     console.error("[AIEngine] Error building player self context:", error);
@@ -1053,6 +1081,7 @@ export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
     shortTermGoal, longTermDream, playStyle, dominantHand,
     skillScores, publicFeedback, privateFeedback, coachNotes, sessionDigests,
     attendanceRate, totalSessions, avgEffort, avgExecution, recentStrokes,
+    dataMaturity,
   } = ctx;
 
   const skillLines = skillScores.length > 0
@@ -1099,6 +1128,14 @@ export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
     dominantHand ? `Dominant hand: ${dominantHand}` : "",
   ].filter(Boolean).join(". ");
 
+  const maturityGuidance = dataMaturity.maturityLevel === "none"
+    ? "DATA MATURITY — NONE (0 sessions): You have no coaching history for this player yet. Be transparent and friendly about this: acknowledge you don't have data on their game yet, give general tennis advice, and encourage them to complete sessions with their coach so you can personalise your guidance."
+    : dataMaturity.maturityLevel === "basic"
+    ? `DATA MATURITY — BASIC (${dataMaturity.sessionCount} session${dataMaturity.sessionCount === 1 ? "" : "s"}): You have limited coaching history. Phrase responses with appropriate humility, e.g. "Based on your ${dataMaturity.sessionCount} session${dataMaturity.sessionCount === 1 ? "" : "s"} so far..." or "I'm still getting to know your game, but...". Avoid confident trend statements.`
+    : dataMaturity.maturityLevel === "trends"
+    ? `DATA MATURITY — TRENDS (${dataMaturity.sessionCount} sessions): You have enough data to identify patterns. Reference specific data but note where you'd like more history for stronger conclusions.`
+    : `DATA MATURITY — FULL (${dataMaturity.sessionCount} sessions): You have rich coaching history. Speak with full confidence referencing trends, patterns, and specific data points.`;
+
   return `You are a personal AI tennis coach speaking directly to ${playerName}${playerAge ? `, age ${playerAge}` : ""}.
 
 PLAYER DATA:
@@ -1124,11 +1161,13 @@ ${noteLines}
 RECENT SESSION SUMMARIES:
 ${digestLines}
 
+${maturityGuidance}
+
 GREETING INSTRUCTION:
 When the user's first message is exactly "__greeting__", respond with a warm, personalised opening message that:
 1. Greets ${playerName} by first name
 2. Mentions their current ball level or XP level
-3. Calls out 1-2 specific recent focus areas drawn from coach feedback, notes, or strokes worked on (use real data)
+3. Calls out 1-2 specific recent focus areas drawn from coach feedback, notes, or strokes worked on (use real data); if there is no data yet, acknowledge this warmly and explain that the coach learns from every session logged
 4. Invites them to ask anything about their game
 Keep the greeting to 3-4 sentences — warm, specific, and motivating.
 

@@ -31,6 +31,7 @@ interface PlayerContext {
   ballLevel: string;
   sessionType: string;
   requiredSkills: { skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
+  sessionCount: number;
 }
 
 interface StructuredSummary {
@@ -90,6 +91,31 @@ function getRatingLabel(score: number): string {
 
 const WRAP_UP_PROMPT =
   "Please wrap up our conversation now. Based on everything we've discussed, generate the structured JSON summary block to close this coaching session.";
+
+function ThinDataPill() {
+  const [showTooltip, setShowTooltip] = useState(false);
+  return (
+    <View>
+      <Pressable
+        style={styles.thinDataPill}
+        onPress={() => {
+          setShowTooltip((v) => !v);
+        }}
+        hitSlop={6}
+      >
+        <Ionicons name="analytics-outline" size={9} color={Colors.dark.warning} />
+        <Text style={styles.thinDataPillText}>Learning</Text>
+      </Pressable>
+      {showTooltip ? (
+        <View style={styles.thinDataTooltip}>
+          <Text style={styles.thinDataTooltipText}>
+            The AI has limited history for this player. Logging more sessions improves insight quality.
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export function AICoachingChatModal({ visible, onClose, sessionId, playerId, playerName }: Props) {
   const insets = useSafeAreaInsets();
@@ -275,7 +301,12 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
             </View>
             <View>
               <Text style={styles.headerTitle}>Coach with AI</Text>
-              <Text style={styles.headerSubtitle}>{playerName}</Text>
+              <View style={styles.headerSubRow}>
+                <Text style={styles.headerSubtitle}>{playerName}</Text>
+                {ctx && ctx.sessionCount < 4 ? (
+                  <ThinDataPill />
+                ) : null}
+              </View>
             </View>
           </View>
           <View style={styles.headerRight}>
@@ -543,9 +574,48 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "700",
   },
+  headerSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   headerSubtitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  thinDataPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.warning + "18",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.dark.warning + "35",
+  },
+  thinDataPillText: {
+    color: Colors.dark.warning,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  thinDataTooltip: {
+    position: "absolute",
+    top: 20,
+    left: 0,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 8,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    width: 220,
+    zIndex: 100,
+  },
+  thinDataTooltipText: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    lineHeight: 16,
   },
   wrapUpButton: {
     flexDirection: "row",

@@ -2808,6 +2808,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     }
   );
 
+  // GET /api/player/me/ai-coach/context — player fetching data maturity info
+  router.get(
+    "/api/player/me/ai-coach/context",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(403).json({ error: "Not a player account" });
+        }
+        const { buildPlayerSelfAIContext } = await import("../services/ai-progress-engine");
+        const ctx = await buildPlayerSelfAIContext(playerId);
+        if (!ctx) return res.status(404).json({ error: "Player not found" });
+        res.json({ dataMaturity: ctx.dataMaturity });
+      } catch (error) {
+        console.error("[PlayerAICoach] Error fetching context:", error);
+        res.status(500).json({ error: "Failed to fetch context" });
+      }
+    }
+  );
+
   // POST /api/player/me/ai-coach/chat — player chatting with their personal AI coach
   router.post(
     "/api/player/me/ai-coach/chat",

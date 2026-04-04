@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
@@ -22,6 +23,14 @@ import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
 interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+type DataMaturityLevel = "none" | "basic" | "trends" | "full";
+
+interface DataMaturity {
+  sessionCount: number;
+  maturityLevel: DataMaturityLevel;
+  nextMilestone: string;
 }
 
 const AI_LABEL = "AI Coach";
@@ -69,6 +78,93 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
+const MILESTONES = [
+  { label: "Basic advice", sessions: 1 },
+  { label: "Trend analysis", sessions: 4 },
+  { label: "Full coaching", sessions: 8 },
+];
+
+function OnboardingSplash({ onStart }: { onStart: () => void }) {
+  return (
+    <View style={styles.onboardingContainer}>
+      <View style={styles.onboardingIcon}>
+        <Ionicons name="sparkles" size={36} color={ACCENT} />
+      </View>
+      <Text style={styles.onboardingTitle}>Your AI Coach Starts Here</Text>
+      <Text style={styles.onboardingDesc}>
+        The AI Coach learns from every session your coach logs. The more sessions you complete, the more personalised and accurate the coaching becomes.
+      </Text>
+      <View style={styles.milestonesCard}>
+        {MILESTONES.map((m, i) => (
+          <View key={m.label} style={[styles.milestoneRow, i < MILESTONES.length - 1 && styles.milestoneRowBorder]}>
+            <View style={styles.milestoneDot}>
+              <Text style={styles.milestoneDotText}>{m.sessions}</Text>
+            </View>
+            <View style={styles.milestoneInfo}>
+              <Text style={styles.milestoneLabel}>{m.label}</Text>
+              <Text style={styles.milestoneSub}>{m.sessions === 1 ? "1 session attended" : `${m.sessions} sessions attended`}</Text>
+            </View>
+            {i === 0 ? (
+              <View style={styles.milestoneBadge}>
+                <Text style={styles.milestoneBadgeText}>Next</Text>
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </View>
+      <Text style={styles.onboardingHint}>
+        For now, the AI will give general tennis advice and get to know your goals. Chat away!
+      </Text>
+      <Pressable style={styles.onboardingCta} onPress={onStart}>
+        <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundRoot} />
+        <Text style={styles.onboardingCtaText}>Start chatting</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function MaturityBanner({ dataMaturity, onDismiss }: { dataMaturity: DataMaturity; onDismiss: () => void }) {
+  const { sessionCount, maturityLevel, nextMilestone } = dataMaturity;
+  const isBasic = maturityLevel === "basic";
+  const isTrends = maturityLevel === "trends";
+
+  const progressFraction = isBasic
+    ? Math.min(sessionCount / 4, 1)
+    : isTrends
+    ? Math.min((sessionCount - 4) / 4, 1)
+    : 0;
+
+  const accentColor = isTrends ? Colors.dark.primary : Colors.dark.warning;
+
+  return (
+    <View style={[styles.maturityBanner, { borderColor: accentColor + "30" }]}>
+      <View style={styles.maturityBannerHeader}>
+        <View style={styles.maturityBannerLeft}>
+          <View style={[styles.maturityPill, { backgroundColor: accentColor + "18" }]}>
+            <Ionicons name="analytics-outline" size={11} color={accentColor} />
+            <Text style={[styles.maturityPillText, { color: accentColor }]}>
+              {isTrends ? "Trends unlocked" : "Still learning your game"}
+            </Text>
+          </View>
+        </View>
+        <Pressable onPress={onDismiss} hitSlop={8}>
+          <Ionicons name="chevron-up" size={14} color={Colors.dark.textMuted} />
+        </Pressable>
+      </View>
+      <View style={styles.maturityProgressTrack}>
+        <View
+          style={[
+            styles.maturityProgressFill,
+            { flex: progressFraction, backgroundColor: accentColor },
+          ]}
+        />
+        <View style={{ flex: 1 - progressFraction }} />
+      </View>
+      <Text style={styles.maturityBannerSub}>{nextMilestone}</Text>
+    </View>
+  );
+}
+
 export default function PlayerAICoachScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -77,7 +173,21 @@ export default function PlayerAICoachScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [greetingFetched, setGreetingFetched] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  const { data: contextData } = useQuery<{ dataMaturity: DataMaturity }>({
+    queryKey: ["/api/player/me/ai-coach/context"],
+    staleTime: 60 * 1000,
+  });
+
+  const dataMaturity = contextData?.dataMaturity;
+  const sessionCount = dataMaturity?.sessionCount ?? null;
+  const maturityLevel = dataMaturity?.maturityLevel ?? null;
+
+  const showOnboarding = sessionCount === 0 && !onboardingDone;
+  const showBanner = !bannerDismissed && sessionCount !== null && sessionCount > 0 && sessionCount < 8;
 
   const scrollToBottom = () => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
@@ -190,11 +300,11 @@ export default function PlayerAICoachScreen() {
   };
 
   useEffect(() => {
-    if (!greetingFetched) {
+    if (!greetingFetched && !showOnboarding) {
       setGreetingFetched(true);
       fetchAIGreeting();
     }
-  }, []);
+  }, [showOnboarding]);
 
   const sendMessage = async (text?: string) => {
     const content = (text ?? inputText).trim();
@@ -212,6 +322,15 @@ export default function PlayerAICoachScreen() {
       await streamChat(next);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOnboardingStart = () => {
+    setOnboardingDone(true);
+    if (!greetingFetched) {
+      setGreetingFetched(true);
+      setIsLoading(true);
+      fetchAIGreeting();
     }
   };
 
@@ -240,91 +359,104 @@ export default function PlayerAICoachScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-      >
+      {showOnboarding ? (
         <ScrollView
-          ref={scrollRef}
-          style={styles.messageList}
-          contentContainerStyle={styles.messageListContent}
+          contentContainerStyle={[styles.onboardingScroll, { paddingBottom: insets.bottom + Spacing.xl }]}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToBottom}
         >
-          {messages.length === 0 && isLoading ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="sparkles" size={32} color={ACCENT} />
-              </View>
-              <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
-              <Text style={styles.emptyDesc}>
-                I know your game from every session your coach has logged. Ask me anything.
-              </Text>
-              <TypingIndicator />
-            </View>
-          ) : messages.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="sparkles" size={32} color={ACCENT} />
-              </View>
-              <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
-              <Text style={styles.emptyDesc}>
-                I know your game from every session your coach has logged. Ask me anything.
-              </Text>
-              <View style={styles.quickQuestions}>
-                {QUICK_QUESTIONS.map((q) => (
-                  <Pressable
-                    key={q}
-                    style={styles.quickChip}
-                    onPress={() => sendMessage(q)}
-                  >
-                    <Text style={styles.quickChipText}>{q}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : (
-            <>
-              {messages.map((msg, i) => (
-                <MessageBubble key={i} message={msg} />
-              ))}
-              {isLoading && messages[messages.length - 1]?.role === "user" ? (
-                <TypingIndicator />
-              ) : null}
-            </>
-          )}
+          <OnboardingSplash onStart={handleOnboardingStart} />
         </ScrollView>
+      ) : (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          {showBanner && dataMaturity ? (
+            <MaturityBanner dataMaturity={dataMaturity} onDismiss={() => setBannerDismissed(true)} />
+          ) : null}
 
-        <View style={[styles.inputRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Ask your coach anything..."
-            placeholderTextColor={Colors.dark.textMuted}
-            multiline
-            maxLength={500}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.messageList}
+            contentContainerStyle={styles.messageListContent}
             showsVerticalScrollIndicator={false}
-            onSubmitEditing={() => sendMessage()}
-            blurOnSubmit={false}
-          />
-          <Pressable
-            onPress={() => sendMessage()}
-            disabled={!inputText.trim() || isLoading}
-            style={[
-              styles.sendBtn,
-              { opacity: !inputText.trim() || isLoading ? 0.4 : 1 },
-            ]}
+            onContentSizeChange={scrollToBottom}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            {messages.length === 0 && isLoading ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="sparkles" size={32} color={ACCENT} />
+                </View>
+                <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
+                <Text style={styles.emptyDesc}>
+                  I know your game from every session your coach has logged. Ask me anything.
+                </Text>
+                <TypingIndicator />
+              </View>
+            ) : messages.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="sparkles" size={32} color={ACCENT} />
+                </View>
+                <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
+                <Text style={styles.emptyDesc}>
+                  I know your game from every session your coach has logged. Ask me anything.
+                </Text>
+                <View style={styles.quickQuestions}>
+                  {QUICK_QUESTIONS.map((q) => (
+                    <Pressable
+                      key={q}
+                      style={styles.quickChip}
+                      onPress={() => sendMessage(q)}
+                    >
+                      <Text style={styles.quickChipText}>{q}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
             ) : (
-              <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+              <>
+                {messages.map((msg, i) => (
+                  <MessageBubble key={i} message={msg} />
+                ))}
+                {isLoading && messages[messages.length - 1]?.role === "user" ? (
+                  <TypingIndicator />
+                ) : null}
+              </>
             )}
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+          </ScrollView>
+
+          <View style={[styles.inputRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
+            <TextInput
+              style={styles.input}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Ask your coach anything..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              maxLength={500}
+              showsVerticalScrollIndicator={false}
+              onSubmitEditing={() => sendMessage()}
+              blurOnSubmit={false}
+            />
+            <Pressable
+              onPress={() => sendMessage()}
+              disabled={!inputText.trim() || isLoading}
+              style={[
+                styles.sendBtn,
+                { opacity: !inputText.trim() || isLoading ? 0.4 : 1 },
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              ) : (
+                <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+              )}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       <AiProUpgradeModal
         visible={showUpgradeModal}
@@ -376,6 +508,168 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: 11,
   },
+  onboardingScroll: {
+    flexGrow: 1,
+    padding: Spacing.lg,
+  },
+  onboardingContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingTop: Spacing.xl,
+    gap: Spacing.md,
+  },
+  onboardingIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.primary + "1A",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary + "40",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  onboardingTitle: {
+    color: Colors.dark.text,
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  onboardingDesc: {
+    color: Colors.dark.textMuted,
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 21,
+    paddingHorizontal: Spacing.md,
+  },
+  milestonesCard: {
+    width: "100%",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    overflow: "hidden",
+    marginTop: Spacing.xs,
+  },
+  milestoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+  },
+  milestoneRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  milestoneDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary + "50",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  milestoneDotText: {
+    color: Colors.dark.primary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  milestoneInfo: {
+    flex: 1,
+  },
+  milestoneLabel: {
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  milestoneSub: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    marginTop: 1,
+  },
+  milestoneBadge: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  milestoneBadgeText: {
+    color: Colors.dark.primary,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  onboardingHint: {
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+    paddingHorizontal: Spacing.md,
+  },
+  onboardingCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  onboardingCtaText: {
+    color: Colors.dark.backgroundRoot,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  maturityBanner: {
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  maturityBannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  maturityBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  maturityPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: BorderRadius.full ?? 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  maturityPillText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  maturityProgressTrack: {
+    height: 3,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  maturityProgressFill: {
+    height: 3,
+    borderRadius: 2,
+  },
+  maturityBannerSub: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+  },
   messageList: {
     flex: 1,
   },
@@ -386,7 +680,7 @@ const styles = StyleSheet.create({
   emptyState: {
     flex: 1,
     alignItems: "center",
-    paddingTop: Spacing.xxl,
+    paddingTop: Spacing["2xl"],
     gap: Spacing.sm,
   },
   emptyIcon: {
