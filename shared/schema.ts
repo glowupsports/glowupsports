@@ -6311,7 +6311,7 @@ export const tournaments = pgTable("tournaments", {
   name: text("name").notNull(),
   sport: text("sport").notNull().default("tennis"), // tennis | padel | pickleball
   type: text("type").notNull(),
-  format: text("format").notNull(), // knockout | round_robin | group_knockout
+  format: text("format").notNull(), // knockout | round_robin | group_knockout | americano
   gender: text("gender").default("open"), // open | male | female
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
@@ -6332,6 +6332,7 @@ export const tournaments = pgTable("tournaments", {
   xpReward: integer("xp_reward").default(100), // XP awarded to tournament winner
   status: text("status").notNull().default("upcoming"), // upcoming | registration_open | registration_closed | in_progress | completed | cancelled
   drawPublished: boolean("draw_published").default(false),
+  americanoStandings: jsonb("americano_standings").$type<{ playerId: string; name: string; points: number; played: number }[]>(),
   winnerId: varchar("winner_id").references(() => players.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),

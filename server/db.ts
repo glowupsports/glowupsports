@@ -562,6 +562,12 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] Subscription plans migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS americano_standings JSONB`);
+    console.log('[Database] americano_standings column migration successful');
+  } catch (e: any) {
+    console.log('[Database] americano_standings migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

@@ -33,7 +33,7 @@ type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type TournamentType = "singles" | "doubles" | "mixed";
-type TournamentFormat = "knockout" | "round_robin" | "box_league";
+type TournamentFormat = "knockout" | "round_robin" | "box_league" | "americano";
 type TournamentGender = "open" | "male" | "female";
 type TabType = "upcoming" | "my_tournaments" | "ladders";
 
@@ -113,6 +113,7 @@ function getFormatLabel(format: TournamentFormat, t: (key: string) => string): s
     case "knockout": return t("player.tournaments.knockout");
     case "round_robin": return t("player.tournaments.roundRobin");
     case "box_league": return t("player.tournaments.league");
+    case "americano": return "Americano";
     default: return t("player.tournaments.knockout");
   }
 }
@@ -238,8 +239,10 @@ function TournamentCard({
       <View style={styles.cardBody}>
         <View style={styles.cardTopRow}>
           <View style={styles.badgeRow}>
-            <View style={styles.formatBadge}>
-              <Text style={styles.formatBadgeText}>{getFormatLabel(tournament.format, t)}</Text>
+            <View style={[styles.formatBadge, tournament.format === "americano" ? styles.americanoBadge : null]}>
+              <Text style={[styles.formatBadgeText, tournament.format === "americano" ? styles.americanoBadgeText : null]}>
+                {getFormatLabel(tournament.format, t)}
+              </Text>
             </View>
             {tournament.xpReward ? (
               <View style={styles.xpBadge}>
@@ -945,6 +948,14 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     color: "#FFD700",
+  },
+  americanoBadge: {
+    backgroundColor: "rgba(138,43,226,0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(138,43,226,0.5)",
+  },
+  americanoBadgeText: {
+    color: "#BF7FFF",
   },
   liveBadge: {
     flexDirection: "row",

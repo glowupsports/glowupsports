@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -32,7 +32,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "TournamentDetail">;
 
-type ViewMode = "draw" | "groups" | "schedule" | "participants";
+type ViewMode = "draw" | "groups" | "schedule" | "participants" | "standings";
 
 interface PlayerRef {
   id: string;
@@ -112,6 +112,19 @@ interface TournamentDetail {
   nextMatch: any | null;
   participants: ParticipantEntry[];
   matches: any[];
+}
+
+interface AmericanoStanding {
+  playerId: string;
+  name: string;
+  points: number;
+  played: number;
+}
+
+interface AmericanoData {
+  standings: AmericanoStanding[];
+  matches: any[];
+  status: string;
 }
 
 interface MatchReadinessResult {
@@ -489,6 +502,7 @@ export default function TournamentDetailScreen() {
   const route = useRoute<RouteProps>();
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<ViewMode>("draw");
+  const [viewModeInitialized, setViewModeInitialized] = useState(false);
 
   const tournamentId = route.params.tournamentId;
 
@@ -516,6 +530,24 @@ export default function TournamentDetailScreen() {
     enabled: viewMode === "participants",
   });
 
+  const { data: americanoData, isLoading: americanoLoading } = useQuery<AmericanoData>({
+    queryKey: ["/api/player/tournaments", tournamentId, "americano-standings"],
+    enabled: tournament?.format === "americano" && (viewMode === "standings" || viewMode === "schedule"),
+  });
+
+  useEffect(() => {
+    if (tournament && !viewModeInitialized) {
+      setViewModeInitialized(true);
+      if (tournament.format === "americano") {
+        setViewMode("standings");
+      } else if (tournament.format !== "knockout") {
+        setViewMode("groups");
+      } else {
+        setViewMode("draw");
+      }
+    }
+  }, [tournament, viewModeInitialized]);
+
   if (tournamentLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -542,6 +574,7 @@ export default function TournamentDetailScreen() {
   }
 
   const isKnockout = tournament.format === "knockout";
+  const isAmericano = tournament.format === "americano";
 
   const drawRounds: DrawMatch[][] = drawData
     ? Object.keys(drawData).map((round) => drawData[round])
@@ -553,7 +586,8 @@ export default function TournamentDetailScreen() {
 
   const tabs = [
     { key: "draw" as ViewMode, label: t("player.tournaments.draw"), icon: "git-network-outline" as const, show: isKnockout },
-    { key: "groups" as ViewMode, label: t("player.tournaments.groups"), icon: "grid-outline" as const, show: !isKnockout },
+    { key: "groups" as ViewMode, label: t("player.tournaments.groups"), icon: "grid-outline" as const, show: !isKnockout && !isAmericano },
+    { key: "standings" as ViewMode, label: "Standings", icon: "trophy-outline" as const, show: isAmericano },
     { key: "schedule" as ViewMode, label: t("player.tournaments.schedule"), icon: "time-outline" as const, show: true },
     { key: "participants" as ViewMode, label: t("player.tournaments.participants"), icon: "people-outline" as const, show: true },
   ].filter(tab => tab.show);
@@ -565,8 +599,91 @@ export default function TournamentDetailScreen() {
 
   const nextMatch = tournament.nextMatch;
 
+  const renderAmericanoStandings = () => {
+    if (americanoLoading) return <LoadingView />;
+    const standings = americanoData?.standings || [];
+    if (standings.length === 0) return <ErrorView message="Standings not available yet" />;
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+        <View style={styles.americanoStandingsHeader}>
+          <Text style={styles.americanoStandingsCol}>#</Text>
+          <Text style={[styles.americanoStandingsCol, { flex: 1 }]}>Player</Text>
+          <Text style={styles.americanoStandingsCol}>Played</Text>
+          <Text style={styles.americanoStandingsCol}>Points</Text>
+        </View>
+        {standings.map((entry, idx) => (
+          <View key={entry.playerId} style={[styles.americanoRow, idx % 2 === 0 ? styles.americanoRowAlt : null]}>
+            <Text style={[styles.americanoPos, idx < 3 ? { color: ["#FFB020", "#C0C0C0", "#CD7F32"][idx] } : null]}>{idx + 1}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.americanoName} numberOfLines={1}>{entry.name}</Text>
+            </View>
+            <Text style={styles.americanoStat}>{entry.played}</Text>
+            <Text style={[styles.americanoStat, styles.americanoPoints]}>{entry.points}</Text>
+          </View>
+        ))}
+        {standings.length > 0 ? (
+          <View style={styles.americanoPodium}>
+            <Ionicons name="information-circle-outline" size={13} color={TextColors.muted} />
+            <Text style={styles.americanoInfoText}>Top 3 earn XP: 300 / 200 / 100</Text>
+          </View>
+        ) : null}
+      </ScrollView>
+    );
+  };
+
+  const renderAmericanoSchedule = () => {
+    if (americanoLoading) return <LoadingView />;
+    const matches = americanoData?.matches || [];
+    if (matches.length === 0) return <ErrorView message="Schedule not generated yet" />;
+
+    const byRound: Record<string, typeof matches> = {};
+    for (const m of matches) {
+      if (!byRound[m.round]) byRound[m.round] = [];
+      byRound[m.round].push(m);
+    }
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+        {Object.entries(byRound).map(([round, roundMatches]) => (
+          <View key={round} style={styles.americanoRound}>
+            <View style={styles.americanoRoundHeader}>
+              <Ionicons name="sync-outline" size={14} color={GlowColors.primary} />
+              <Text style={styles.americanoRoundTitle}>{round}</Text>
+            </View>
+            {roundMatches.map((match: any) => {
+              const partnersStr = match.score || "";
+              const isCompleted = match.status === "completed";
+              let score = isCompleted ? match.score : null;
+              return (
+                <View key={match.id} style={[styles.americanoCourtCard, isCompleted ? styles.americanoCourtDone : null]}>
+                  <View style={styles.americanoCourtBadge}>
+                    <Text style={styles.americanoCourtText}>Court {match.matchOrder}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    {isCompleted ? (
+                      <Text style={styles.americanoScore}>{score}</Text>
+                    ) : (
+                      <Text style={styles.americanoCourtStatus}>Scheduled</Text>
+                    )}
+                  </View>
+                  {isCompleted ? (
+                    <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                  ) : (
+                    <Ionicons name="time-outline" size={16} color={TextColors.muted} />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
+    );
+  };
+
   const renderContent = () => {
     switch (viewMode) {
+      case "standings":
+        return renderAmericanoStandings();
       case "draw":
         return drawLoading ? (
           <LoadingView />
@@ -586,6 +703,7 @@ export default function TournamentDetailScreen() {
           <ErrorView message="Group standings not available yet" />
         );
       case "schedule":
+        if (isAmericano) return renderAmericanoSchedule();
         return scheduleLoading ? (
           <LoadingView />
         ) : scheduleData && scheduleData.length > 0 ? (
@@ -608,7 +726,13 @@ export default function TournamentDetailScreen() {
     }
   };
 
-  const formatLabel = tournament.format === "knockout" ? t("player.tournaments.knockout") : tournament.format === "round_robin" ? t("player.tournaments.roundRobin") : tournament.format;
+  const formatLabel = tournament.format === "knockout"
+    ? t("player.tournaments.knockout")
+    : tournament.format === "round_robin"
+    ? t("player.tournaments.roundRobin")
+    : tournament.format === "americano"
+    ? "Americano"
+    : tournament.format;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -1219,6 +1343,121 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     textAlign: "center",
     marginTop: 8,
+  },
+  americanoStandingsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 8,
+    marginBottom: 4,
+    gap: 8,
+  },
+  americanoStandingsCol: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: TextColors.muted,
+    textAlign: "center",
+    width: 50,
+    textTransform: "uppercase",
+  },
+  americanoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  americanoRowAlt: {
+    backgroundColor: "rgba(255,255,255,0.02)",
+  },
+  americanoPos: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: TextColors.muted,
+    width: 24,
+    textAlign: "center",
+  },
+  americanoName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TextColors.primary,
+  },
+  americanoStat: {
+    fontSize: 13,
+    color: TextColors.secondary,
+    width: 50,
+    textAlign: "center",
+  },
+  americanoPoints: {
+    color: GlowColors.primary,
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  americanoPodium: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  americanoInfoText: {
+    fontSize: 12,
+    color: TextColors.muted,
+  },
+  americanoRound: {
+    marginBottom: Spacing.md,
+  },
+  americanoRoundHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  americanoRoundTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: GlowColors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  americanoCourtCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    marginBottom: 6,
+  },
+  americanoCourtDone: {
+    opacity: 0.75,
+    borderColor: "rgba(16,185,129,0.2)",
+  },
+  americanoCourtBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: GlowColors.primary + "20",
+  },
+  americanoCourtText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  americanoScore: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#10B981",
+  },
+  americanoCourtStatus: {
+    fontSize: 12,
+    color: TextColors.muted,
   },
 });
 

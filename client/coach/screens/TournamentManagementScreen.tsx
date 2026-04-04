@@ -37,6 +37,7 @@ const FORMATS = [
   { key: "knockout", label: "Single Elimination" },
   { key: "round_robin", label: "Round Robin" },
   { key: "group_knockout", label: "Group + Knockout" },
+  { key: "americano", label: "Americano (Rotating Partners)" },
 ];
 const TYPES = ["singles"];
 
@@ -499,9 +500,97 @@ function TournamentList({ onCreatePress, onSelectTournament }: { onCreatePress: 
   );
 }
 
+interface AmericanoStandingEntry {
+  playerId: string;
+  name: string;
+  points: number;
+  played: number;
+}
+
+function AmericanoResultModal({ match, participants, onClose, onSubmit }: {
+  match: TournamentMatch;
+  participants: Participant[];
+  onClose: () => void;
+  onSubmit: (matchId: string, team1Points: number, team2Points: number) => void;
+}) {
+  const [team1Score, setTeam1Score] = useState("");
+  const [team2Score, setTeam2Score] = useState("");
+
+  const partnersStr = match.score || "";
+  let team1Player2Id: string | null = null;
+  let team2Player2Id: string | null = null;
+  if (partnersStr.startsWith("partners:")) {
+    const parts = partnersStr.replace("partners:", "").split("|");
+    team1Player2Id = parts[0] || null;
+    team2Player2Id = parts[1] || null;
+  }
+
+  const p1 = participants.find(p => p.participant.playerId === match.player1Id);
+  const p1partner = participants.find(p => p.participant.playerId === team1Player2Id);
+  const p2 = participants.find(p => p.participant.playerId === match.player2Id);
+  const p2partner = participants.find(p => p.participant.playerId === team2Player2Id);
+
+  const team1Name = [p1?.player.name, p1partner?.player.name].filter(Boolean).join(" & ") || "Team 1";
+  const team2Name = [p2?.player.name, p2partner?.player.name].filter(Boolean).join(" & ") || "Team 2";
+
+  const t1 = parseInt(team1Score);
+  const t2 = parseInt(team2Score);
+  const isValid = !isNaN(t1) && !isNaN(t2) && t1 >= 0 && t2 >= 0;
+
+  return (
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.resultModal}>
+          <Text style={styles.resultTitle}>Americano Score</Text>
+          <Text style={styles.resultRound}>{match.round} · Court {match.matchOrder}</Text>
+
+          <View style={{ gap: 12, marginTop: 12 }}>
+            <View>
+              <Text style={styles.fieldLabel}>{team1Name}</Text>
+              <TextInput
+                style={styles.input}
+                value={team1Score}
+                onChangeText={setTeam1Score}
+                keyboardType="numeric"
+                placeholder="e.g. 9"
+                placeholderTextColor={TextColors.muted}
+              />
+            </View>
+            <View>
+              <Text style={styles.fieldLabel}>{team2Name}</Text>
+              <TextInput
+                style={styles.input}
+                value={team2Score}
+                onChangeText={setTeam2Score}
+                keyboardType="numeric"
+                placeholder="e.g. 7"
+                placeholderTextColor={TextColors.muted}
+              />
+            </View>
+          </View>
+
+          <View style={styles.resultActions}>
+            <Pressable style={styles.cancelBtn} onPress={onClose}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.submitBtn, !isValid ? styles.submitBtnDisabled : null]}
+              disabled={!isValid}
+              onPress={() => isValid && onSubmit(match.id, t1, t2)}
+            >
+              <Text style={styles.submitBtnText}>Save Score</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
   const queryClient = useQueryClient();
   const [resultMatch, setResultMatch] = useState<TournamentMatch | null>(null);
+  const [americanoResultMatch, setAmericanoResultMatch] = useState<TournamentMatch | null>(null);
   const [swapSelection, setSwapSelection] = useState<{ matchId: string; slot: "player1" | "player2"; playerName: string } | null>(null);
 
   const { data: tournament, isLoading, refetch } = useQuery<TournamentDetail>({
@@ -558,6 +647,26 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (e: Error) => Alert.alert("Error", e.message || "Failed to record result"),
+  });
+
+  const generateAmericanoMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/coach/tournaments/${tournamentId}/generate-americano-rounds`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments", tournamentId] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (e: Error) => Alert.alert("Error", e.message || "Failed to generate Americano rounds"),
+  });
+
+  const americanoResultMutation = useMutation({
+    mutationFn: ({ matchId, team1Points, team2Points }: { matchId: string; team1Points: number; team2Points: number }) =>
+      apiRequest("POST", `/api/coach/tournaments/${tournamentId}/americano-match-result`, { matchId, team1Points, team2Points }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments", tournamentId] });
+      setAmericanoResultMatch(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (e: Error) => Alert.alert("Error", e.message || "Failed to record Americano result"),
   });
 
   if (isLoading || !tournament) {
@@ -647,54 +756,167 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
         </View>
       )}
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Draw</Text>
-        {!tournament.drawPublished && hasDraw ? (
-          <Pressable
-            style={styles.publishBtn}
-            onPress={() => {
-              Alert.alert("Publish Draw", "This will make the bracket visible to all players.", [
-                { text: "Cancel", style: "cancel" },
-                { text: "Publish", onPress: () => publishDrawMutation.mutate() },
-              ]);
-            }}
-            disabled={publishDrawMutation.isPending}
-          >
-            <Text style={styles.publishBtnText}>Publish to Players</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {tournament.format === "americano" ? (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Americano Rounds</Text>
+          </View>
 
-      {canGenerateDraw ? (
-        <Pressable
-          style={[styles.actionBtn, hasDraw ? styles.actionBtnGray : styles.actionBtnBlue]}
-          onPress={() => {
-            Alert.alert(
-              hasDraw ? "Regenerate Draw?" : "Generate Draw",
-              hasDraw ? "This will reset all existing matches. Continue?" : "Generate the bracket from current registrations?",
-              [
-                { text: "Cancel", style: "cancel" },
-                { text: "Generate", onPress: () => generateDrawMutation.mutate(false) },
-              ]
-            );
-          }}
-          disabled={generateDrawMutation.isPending}
-        >
-          {generateDrawMutation.isPending ? (
-            <ActivityIndicator size="small" color="#fff" />
+          {tournament.participants.length < 4 || tournament.participants.length % 4 !== 0 ? (
+            <Text style={styles.emptyText}>
+              Need players divisible by 4 (min 4) to generate Americano rounds. Currently {tournament.participants.length} registered.
+            </Text>
           ) : (
-            <>
-              <Ionicons name="git-network-outline" size={16} color="#fff" />
-              <Text style={styles.actionBtnText}>{hasDraw ? "Regenerate Draw" : "Generate Draw"}</Text>
-            </>
+            <Pressable
+              style={[styles.actionBtn, hasDraw ? styles.actionBtnGray : styles.actionBtnBlue]}
+              onPress={() => {
+                Alert.alert(
+                  hasDraw ? "Regenerate Rounds?" : "Generate Americano Rounds",
+                  hasDraw ? "This will reset all existing rounds. Continue?" : `Generate ${tournament.participants.length - 1} rounds for ${tournament.participants.length} players?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Generate", onPress: () => generateAmericanoMutation.mutate() },
+                  ]
+                );
+              }}
+              disabled={generateAmericanoMutation.isPending}
+            >
+              {generateAmericanoMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="sync-outline" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>{hasDraw ? "Regenerate Rounds" : "Generate Rounds"}</Text>
+                </>
+              )}
+            </Pressable>
           )}
-        </Pressable>
+
+          {hasDraw ? (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Standings</Text>
+              </View>
+              {((tournament as any).americanoStandings as AmericanoStandingEntry[] | null | undefined)?.map((entry, idx) => (
+                <View key={entry.playerId} style={styles.participantRow}>
+                  <Text style={[styles.participantNum, idx < 3 ? { color: ["#FFB020", "#C0C0C0", "#CD7F32"][idx] } : null]}>{idx + 1}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.participantName}>{entry.name}</Text>
+                    <Text style={styles.participantCategory}>{entry.played} rounds played</Text>
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: GlowColors.primary }}>{entry.points} pts</Text>
+                </View>
+              )) ?? null}
+
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Court Results</Text>
+              </View>
+              {tournament.matches.filter(m => m.status !== "completed").map(match => {
+                const partnersStr = match.score || "";
+                let p1PartnerId: string | null = null;
+                let p2PartnerId: string | null = null;
+                if (partnersStr.startsWith("partners:")) {
+                  const parts = partnersStr.replace("partners:", "").split("|");
+                  p1PartnerId = parts[0] || null;
+                  p2PartnerId = parts[1] || null;
+                }
+                const t1Names = [participantMap.get(match.player1Id || ""), participantMap.get(p1PartnerId || "")].filter(Boolean).join(" & ");
+                const t2Names = [participantMap.get(match.player2Id || ""), participantMap.get(p2PartnerId || "")].filter(Boolean).join(" & ");
+                return (
+                  <Pressable
+                    key={match.id}
+                    style={styles.matchCard}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setAmericanoResultMatch(match);
+                    }}
+                  >
+                    <View style={styles.matchRoundBadge}>
+                      <Text style={styles.matchRoundText}>{match.round}</Text>
+                    </View>
+                    <View style={styles.matchPlayers}>
+                      <Text style={styles.matchPlayer} numberOfLines={1}>{t1Names || "Team 1"}</Text>
+                      <Text style={styles.matchVs}>vs</Text>
+                      <Text style={styles.matchPlayer} numberOfLines={1}>{t2Names || "Team 2"}</Text>
+                    </View>
+                    <View style={styles.enterResultBtn}>
+                      <Text style={styles.enterResultText}>Score</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+
+              {tournament.matches.filter(m => m.status === "completed").map(match => (
+                <View key={match.id} style={[styles.matchCard, styles.matchCardCompleted]}>
+                  <View style={[styles.matchRoundBadge, { backgroundColor: "rgba(16,185,129,0.15)" }]}>
+                    <Text style={[styles.matchRoundText, { color: "#10B981" }]}>{match.round}</Text>
+                  </View>
+                  <View style={styles.matchPlayers}>
+                    <Text style={styles.matchPlayer} numberOfLines={1}>
+                      {participantMap.get(match.player1Id || "") || "Team 1"}
+                    </Text>
+                    <Text style={styles.scoreDisplay}>{match.score}</Text>
+                    <Text style={styles.matchPlayer} numberOfLines={1}>
+                      {participantMap.get(match.player2Id || "") || "Team 2"}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          ) : null}
+        </>
       ) : (
-        <Text style={styles.emptyText}>Need at least 2 participants to generate draw.</Text>
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Draw</Text>
+            {!tournament.drawPublished && hasDraw ? (
+              <Pressable
+                style={styles.publishBtn}
+                onPress={() => {
+                  Alert.alert("Publish Draw", "This will make the bracket visible to all players.", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Publish", onPress: () => publishDrawMutation.mutate() },
+                  ]);
+                }}
+                disabled={publishDrawMutation.isPending}
+              >
+                <Text style={styles.publishBtnText}>Publish to Players</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          {canGenerateDraw ? (
+            <Pressable
+              style={[styles.actionBtn, hasDraw ? styles.actionBtnGray : styles.actionBtnBlue]}
+              onPress={() => {
+                Alert.alert(
+                  hasDraw ? "Regenerate Draw?" : "Generate Draw",
+                  hasDraw ? "This will reset all existing matches. Continue?" : "Generate the bracket from current registrations?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Generate", onPress: () => generateDrawMutation.mutate(false) },
+                  ]
+                );
+              }}
+              disabled={generateDrawMutation.isPending}
+            >
+              {generateDrawMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="git-network-outline" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>{hasDraw ? "Regenerate Draw" : "Generate Draw"}</Text>
+                </>
+              )}
+            </Pressable>
+          ) : (
+            <Text style={styles.emptyText}>Need at least 2 participants to generate draw.</Text>
+          )}
+        </>
       )}
 
-      {/* Draft draw adjustment: shown when draw exists but not yet published */}
-      {hasDraw && !tournament.drawPublished ? (
+      {/* Draft draw adjustment: shown when draw exists but not yet published (non-Americano only) */}
+      {tournament.format !== "americano" && hasDraw && !tournament.drawPublished ? (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Draft Bracket</Text>
@@ -748,7 +970,7 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
         </>
       ) : null}
 
-      {pendingMatches.length > 0 ? (
+      {tournament.format !== "americano" && pendingMatches.length > 0 ? (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Pending Results ({pendingMatches.length})</Text>
@@ -782,7 +1004,7 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
         </>
       ) : null}
 
-      {completedMatches.length > 0 ? (
+      {tournament.format !== "americano" && completedMatches.length > 0 ? (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Completed ({completedMatches.length})</Text>
@@ -821,6 +1043,15 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
           participants={tournament.participants}
           onClose={() => setResultMatch(null)}
           onSubmit={(matchId, winnerId, score) => resultMutation.mutate({ matchId, winnerId, score })}
+        />
+      ) : null}
+
+      {americanoResultMatch ? (
+        <AmericanoResultModal
+          match={americanoResultMatch}
+          participants={tournament.participants}
+          onClose={() => setAmericanoResultMatch(null)}
+          onSubmit={(matchId, team1Points, team2Points) => americanoResultMutation.mutate({ matchId, team1Points, team2Points })}
         />
       ) : null}
     </ScrollView>

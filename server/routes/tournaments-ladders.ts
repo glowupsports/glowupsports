@@ -1689,6 +1689,327 @@ router.post("/api/tournaments/:id/matches/:matchId/result", authMiddleware, asyn
   }
 });
 
+// ==================== AMERICANO TOURNAMENT ENDPOINTS ====================
+
+// Americano rotation algorithm: fix player[0] at position 0, rotate others
+// For N players (must be divisible by 4), generates N-1 rounds where each round
+// has N/4 courts. Each court has 4 players split into 2 teams of 2.
+function generateAmericanoSchedule(playerIds: string[]): {
+  round: number;
+  courts: { courtNumber: number; team1: [string, string]; team2: [string, string] }[];
+}[] {
+  const N = playerIds.length;
+  if (N < 4 || N % 4 !== 0) {
+    throw new Error("Americano requires a number of players divisible by 4 (min 4)");
+  }
+
+  const numRounds = N - 1;
+  const numCourts = N / 4;
+  const rounds: { round: number; courts: { courtNumber: number; team1: [string, string]; team2: [string, string] }[] }[] = [];
+
+  // Use round-robin rotation: fix index 0, rotate the rest
+  const ids = [...playerIds];
+
+  for (let r = 0; r < numRounds; r++) {
+    const courtList: { courtNumber: number; team1: [string, string]; team2: [string, string] }[] = [];
+
+    // Current circle arrangement: position 0 is fixed (ids[0]), rest rotate
+    const circle: string[] = [ids[0]];
+    for (let i = 1; i < N; i++) {
+      circle.push(ids[i]);
+    }
+
+    // Split the N players into groups of 4, one per court
+    for (let c = 0; c < numCourts; c++) {
+      const base = c * 4;
+      // Team pairing: players at positions (base, base+3) vs (base+1, base+2)
+      // This ensures players rotate partners each round
+      const p0 = circle[base];
+      const p1 = circle[base + 1];
+      const p2 = circle[base + 2];
+      const p3 = circle[base + 3];
+
+      courtList.push({
+        courtNumber: c + 1,
+        team1: [p0, p3],
+        team2: [p1, p2],
+      });
+    }
+
+    rounds.push({ round: r + 1, courts: courtList });
+
+    // Rotate: keep ids[0] fixed, shift the rest by 1 position
+    const last = ids[ids.length - 1];
+    for (let i = ids.length - 1; i > 1; i--) {
+      ids[i] = ids[i - 1];
+    }
+    ids[1] = last;
+  }
+
+  return rounds;
+}
+
+// POST /api/coach/tournaments/:id/generate-americano-rounds
+router.post("/api/coach/tournaments/:id/generate-americano-rounds", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const role = req.user!.role;
+    const academyId = req.user!.academyId;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (tournament.format !== "americano") {
+      return res.status(400).json({ error: "Tournament is not Americano format" });
+    }
+
+    const participants = await db.select({
+      playerId: tournamentParticipants.playerId,
+    }).from(tournamentParticipants)
+      .where(eq(tournamentParticipants.tournamentId, id));
+
+    if (participants.length < 4) {
+      return res.status(400).json({ error: "Need at least 4 participants for Americano" });
+    }
+    if (participants.length % 4 !== 0) {
+      return res.status(400).json({ error: `Americano requires player count divisible by 4 (currently ${participants.length})` });
+    }
+
+    const playerIds = participants.map(p => p.playerId);
+
+    // Fetch player names for standings init
+    const playerRecords = await db.select({ id: players.id, name: players.name })
+      .from(players)
+      .where(inArray(players.id, playerIds));
+    const nameMap = new Map(playerRecords.map(p => [p.id, p.name]));
+
+    // Clear existing matches for this tournament
+    await db.delete(tournamentMatches).where(eq(tournamentMatches.tournamentId, id));
+
+    // Generate schedule
+    const schedule = generateAmericanoSchedule(playerIds);
+
+    // Insert matches as tournament_matches
+    // Each court in each round = 1 match. round label = "Round X", matchOrder = courtNumber
+    const matchDefs = schedule.flatMap(({ round, courts }) =>
+      courts.map(court => ({
+        tournamentId: id,
+        round: `Round ${round}`,
+        matchOrder: court.courtNumber,
+        player1Id: court.team1[0],
+        player2Id: court.team2[0],
+        court: `Court ${court.courtNumber}`,
+        status: "scheduled" as const,
+        // Store partner info in score field temporarily using JSON-like encoding
+        // We store team members in a structured way via a dedicated approach
+      }))
+    );
+
+    // Actually we need to store all 4 players per court match.
+    // We'll use a convention: store all court data in tournament_matches.
+    // player1Id = team1[0], player2Id = team2[0].
+    // For Americano we store partner data in the score field as a special encoded string
+    // until results are entered. This avoids schema changes to tournament_matches.
+    // Format: "t1p2:{playerId}|t2p2:{playerId}" before scoring.
+    const fullMatchDefs = schedule.flatMap(({ round, courts }) =>
+      courts.map(court => ({
+        tournamentId: id,
+        round: `Round ${round}`,
+        matchOrder: court.courtNumber,
+        player1Id: court.team1[0],
+        player2Id: court.team2[0],
+        court: `Court ${court.courtNumber}`,
+        score: `partners:${court.team1[1]}|${court.team2[1]}`,
+        status: "scheduled" as const,
+      }))
+    );
+
+    await db.insert(tournamentMatches).values(fullMatchDefs);
+
+    // Initialize standings
+    const initialStandings = playerIds.map(pid => ({
+      playerId: pid,
+      name: nameMap.get(pid) || "Unknown",
+      points: 0,
+      played: 0,
+    }));
+
+    await db.update(tournaments)
+      .set({
+        status: "in_progress",
+        drawPublished: true,
+        americanoStandings: initialStandings,
+        updatedAt: new Date(),
+      })
+      .where(eq(tournaments.id, id));
+
+    res.json({ success: true, rounds: schedule.length, matchCount: fullMatchDefs.length });
+  } catch (error: any) {
+    console.error("Error generating Americano rounds:", error);
+    res.status(500).json({ error: error.message || "Failed to generate Americano rounds" });
+  }
+});
+
+// POST /api/coach/tournaments/:id/americano-match-result
+router.post("/api/coach/tournaments/:id/americano-match-result", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const role = req.user!.role;
+    const academyId = req.user!.academyId;
+
+    if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+    if (role !== "platform_owner" && tournament.academyId !== academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (tournament.format !== "americano") {
+      return res.status(400).json({ error: "Not an Americano tournament" });
+    }
+
+    const { matchId, team1Points, team2Points } = req.body;
+    if (!matchId || team1Points == null || team2Points == null) {
+      return res.status(400).json({ error: "matchId, team1Points, and team2Points are required" });
+    }
+
+    const [match] = await db.select().from(tournamentMatches)
+      .where(and(eq(tournamentMatches.id, matchId), eq(tournamentMatches.tournamentId, id)));
+
+    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (match.status === "completed") return res.status(400).json({ error: "Match already completed" });
+
+    // Parse partner IDs from score field
+    const partnersStr = match.score || "";
+    let team1Player2: string | null = null;
+    let team2Player2: string | null = null;
+    if (partnersStr.startsWith("partners:")) {
+      const parts = partnersStr.replace("partners:", "").split("|");
+      team1Player2 = parts[0] || null;
+      team2Player2 = parts[1] || null;
+    }
+
+    const team1Players = [match.player1Id, team1Player2].filter(Boolean) as string[];
+    const team2Players = [match.player2Id, team2Player2].filter(Boolean) as string[];
+
+    const t1pts = parseInt(team1Points);
+    const t2pts = parseInt(team2Points);
+
+    // Update match record
+    await db.update(tournamentMatches)
+      .set({
+        score: `${t1pts}-${t2pts}`,
+        status: "completed",
+        completedAt: new Date(),
+        winnerId: t1pts >= t2pts ? (match.player1Id || null) : (match.player2Id || null),
+      })
+      .where(eq(tournamentMatches.id, matchId));
+
+    // Update americano_standings
+    const currentStandings: { playerId: string; name: string; points: number; played: number }[] =
+      (tournament.americanoStandings as any) || [];
+
+    const standingsMap = new Map(currentStandings.map(s => [s.playerId, { ...s }]));
+
+    for (const pid of team1Players) {
+      const entry = standingsMap.get(pid);
+      if (entry) {
+        entry.points += t1pts;
+        entry.played += 1;
+      }
+    }
+    for (const pid of team2Players) {
+      const entry = standingsMap.get(pid);
+      if (entry) {
+        entry.points += t2pts;
+        entry.played += 1;
+      }
+    }
+
+    const updatedStandings = Array.from(standingsMap.values())
+      .sort((a, b) => b.points - a.points);
+
+    // Check if all matches completed
+    const remainingMatches = await db.select({ id: tournamentMatches.id })
+      .from(tournamentMatches)
+      .where(and(
+        eq(tournamentMatches.tournamentId, id),
+        ne(tournamentMatches.status, "completed"),
+      ));
+
+    const allDone = remainingMatches.length === 0;
+
+    // Award XP to top 3 if tournament complete
+    if (allDone) {
+      const XP_REWARDS = [300, 200, 100];
+      for (let i = 0; i < Math.min(3, updatedStandings.length); i++) {
+        const entry = updatedStandings[i];
+        const xpAmount = XP_REWARDS[i];
+        try {
+          await db.insert(xpTransactions).values({
+            playerId: entry.playerId,
+            xpAmount,
+            description: `Americano tournament ${i + 1}${i === 0 ? "st" : i === 1 ? "nd" : "rd"} place: ${tournament.name}`,
+            source: "tournament_win",
+          });
+          await db.update(players)
+            .set({ totalXp: sql`total_xp + ${xpAmount}` })
+            .where(eq(players.id, entry.playerId));
+        } catch (xpErr) {
+          console.error("Error awarding Americano XP:", xpErr);
+        }
+      }
+    }
+
+    await db.update(tournaments)
+      .set({
+        americanoStandings: updatedStandings,
+        ...(allDone ? { status: "completed", winnerId: updatedStandings[0]?.playerId || null } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(tournaments.id, id));
+
+    res.json({ success: true, standings: updatedStandings, tournamentComplete: allDone });
+  } catch (error) {
+    console.error("Error recording Americano result:", error);
+    res.status(500).json({ error: "Failed to record Americano result" });
+  }
+});
+
+// GET /api/player/tournaments/:id/americano-standings
+router.get("/api/player/tournaments/:id/americano-standings", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const academyId = req.user!.academyId;
+
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+    if (tournament.academyId !== academyId) return res.status(403).json({ error: "Access denied" });
+    if (tournament.format !== "americano") return res.status(400).json({ error: "Not an Americano tournament" });
+
+    const matches = await db.select().from(tournamentMatches)
+      .where(eq(tournamentMatches.tournamentId, id))
+      .orderBy(asc(tournamentMatches.round), asc(tournamentMatches.matchOrder));
+
+    res.json({
+      standings: tournament.americanoStandings || [],
+      matches,
+      status: tournament.status,
+    });
+  } catch (error) {
+    console.error("Error fetching Americano standings:", error);
+    res.status(500).json({ error: "Failed to fetch Americano standings" });
+  }
+});
+
 // ==================== ADMIN LADDER ENDPOINTS ====================
 
 router.post("/api/ladders", authMiddleware, async (req: AuthRequest, res: Response) => {
