@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
+import { Platform, Alert } from "react-native";
+import { File } from "expo-file-system";
 
 export interface Quest {
   id: string;
@@ -165,21 +167,13 @@ export function useUploadQuestEvidence() {
       mimeType: string;
     }) => {
       const formData = new FormData();
-      const { Platform } = await import("react-native");
       
       if (Platform.OS === "web") {
         const response = await fetch(fileUri);
         const blob = await response.blob();
         formData.append("file", blob, fileName);
       } else {
-        const filename = fileUri.split('/').pop() || 'evidence';
-        const match = /\.(\w+)$/.exec(filename);
-        const ext = match?.[1]?.toLowerCase() || 'jpg';
-        const isVideo = ['mp4', 'mov', 'webm', 'm4v'].includes(ext);
-        const type = isVideo
-          ? `video/${ext === 'mov' ? 'quicktime' : ext}`
-          : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-        formData.append("file", { uri: fileUri, name: filename, type } as any);
+        formData.append("file", new File(fileUri, fileName, { type: mimeType }));
       }
       
       const url = new URL(`/api/quests/${questId}/evidence`, getApiUrl());
@@ -198,6 +192,9 @@ export function useUploadQuestEvidence() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+    },
+    onError: () => {
+      Alert.alert("Upload Failed", "Could not upload your evidence. Please try again.");
     },
   });
 }
