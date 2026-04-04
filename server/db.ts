@@ -442,6 +442,13 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] coaches GPS columns migration skipped:', e.message);
   }
   try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT`);
+    console.log('[Database] users stripe columns migration applied');
+  } catch (e: any) {
+    console.warn('[Database] users stripe columns migration skipped:', e.message);
+  }
+  try {
     // Partial unique index: only one AI session note per (session, player).
     // Non-AI feedback types (technique, praise, etc.) are unconstrained and
     // continue to support multiple entries per session/player.
