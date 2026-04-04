@@ -114,7 +114,6 @@ import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
 import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { SportContextProvider } from "@/player/context/SportContext";
-import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -676,12 +675,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     const shouldHide = HIDE_CHAT_TABS.includes(tabKey);
     if (shouldHide) return null;
     
-    return (
-      <>
-        <CoachChatFooter mode="player" onChallenge={handleChallenge} />
-        <PlayerQuickActionsFAB />
-      </>
-    );
+    return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
   }, [handleChallenge]);
   
   return (
@@ -1397,75 +1391,6 @@ export default function PlayerNavigator() {
         </PlayerDataProvider>
       </TabNavigationProvider>
     </ChatStateProvider>
-  );
-}
-
-function PlayerQuickActionsFAB() {
-  const navigation = useNavigation<any>();
-  const { isChatExpanded } = useChatState();
-  const track = useTrackFeature();
-
-  if (isChatExpanded) return null;
-
-  const playerActions: QuickAction[] = [
-    {
-      id: "book-lesson",
-      label: "Book Lesson",
-      icon: "calendar-outline",
-      color: Colors.dark.primary,
-      onPress: () => { track("action:book_lesson"); navigation.navigate("LessonBooking"); },
-    },
-    {
-      id: "match-prepare",
-      label: "Match",
-      icon: "tennisball-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => { track("action:match"); navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } }); },
-    },
-    {
-      id: "messages",
-      label: "Messages",
-      icon: "chatbubbles-outline",
-      color: Colors.dark.ballGlow,
-      onPress: () => { track("action:messages"); navigation.navigate("PlayerMessages"); },
-    },
-    {
-      id: "shop",
-      label: "Shop",
-      icon: "cart-outline",
-      color: Colors.dark.gold,
-      onPress: () => { track("action:shop"); navigation.navigate("Shop"); },
-    },
-    {
-      id: "marketplace",
-      label: "Marketplace",
-      icon: "storefront-outline",
-      color: Colors.dark.orange,
-      onPress: () => { track("action:marketplace"); navigation.navigate("Marketplace"); },
-    },
-    {
-      id: "equipment",
-      label: "Equipment",
-      icon: "bag-outline",
-      color: Colors.dark.primary,
-      onPress: () => { track("action:equipment"); navigation.navigate("Equipment"); },
-    },
-    {
-      id: "quests",
-      label: "Quests",
-      icon: "flag-outline",
-      color: Colors.dark.successNeon,
-      onPress: () => { track("action:quests"); navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } }); },
-    },
-  ];
-
-  return (
-    <QuickActionsFAB
-      actions={playerActions}
-      primaryColor={Colors.dark.ballGlow}
-      secondaryColor={Colors.dark.xpCyan}
-      bottomOffset={165}
-    />
   );
 }
 

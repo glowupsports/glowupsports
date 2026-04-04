@@ -765,28 +765,6 @@ function PlayerHomeContent() {
           <WeeklyAIFocusCard playerId={player.id} />
         ) : null}
 
-        {/* AI COACH ENTRY CARD */}
-        {!isGuest ? (
-          <Pressable
-            style={styles.aiCoachCard}
-            onPress={() => {
-              track("home:ai_coach");
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate("PlayerAICoach" as never);
-            }}
-          >
-            <View style={styles.aiCoachIconWrap}>
-              <Ionicons name="sparkles" size={20} color={Colors.dark.backgroundRoot} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.aiCoachTitle}>Ask Your AI Coach</Text>
-              <Text style={styles.aiCoachDesc}>
-                Powered by all your coach feedback and skill data
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={GlowColors.primary} />
-          </Pressable>
-        ) : null}
 
         <RecentFeedbackCard />
 
@@ -1012,36 +990,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 2.5,
     textTransform: "uppercase",
-  },
-  aiCoachCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1.5,
-    borderColor: GlowColors.primary + "40",
-    borderRadius: BorderRadius.lg,
-    marginHorizontal: Spacing.lg,
-    marginVertical: Spacing.xs,
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  aiCoachIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: GlowColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  aiCoachTitle: {
-    color: Colors.dark.text,
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  aiCoachDesc: {
-    color: Colors.dark.textMuted,
-    fontSize: 12,
   },
   freePlayerCta: {
     flexDirection: "row",

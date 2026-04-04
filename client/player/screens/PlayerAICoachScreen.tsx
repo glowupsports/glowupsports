@@ -182,6 +182,17 @@ export default function PlayerAICoachScreen() {
     staleTime: 60 * 1000,
   });
 
+  const { data: aiStatus } = useQuery<{
+    isPro: boolean;
+    isCoach: boolean;
+    callCount: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/ai-pro/status"],
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+
   const dataMaturity = contextData?.dataMaturity;
   const sessionCount = dataMaturity?.sessionCount ?? null;
   const maturityLevel = dataMaturity?.maturityLevel ?? null;
@@ -356,7 +367,26 @@ export default function PlayerAICoachScreen() {
             <Text style={styles.headerSub}>Powered by your coaching data</Text>
           </View>
         </View>
-        <View style={{ width: 40 }} />
+        <View style={styles.usagePillWrap}>
+          {aiStatus && !aiStatus.isCoach && !aiStatus.isPro && aiStatus.limit > 0 ? (
+            <View style={[
+              styles.usagePill,
+              aiStatus.callCount >= aiStatus.limit && styles.usagePillFull,
+            ]}>
+              <Text style={[
+                styles.usagePillText,
+                aiStatus.callCount >= aiStatus.limit && styles.usagePillTextFull,
+              ]}>
+                {aiStatus.callCount}/{aiStatus.limit}
+              </Text>
+            </View>
+          ) : aiStatus && (aiStatus.isPro || aiStatus.isCoach) ? (
+            <View style={styles.usagePillPro}>
+              <Ionicons name="sparkles" size={10} color={Colors.dark.primary} />
+              <Text style={styles.usagePillProText}>Pro</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {showOnboarding ? (
@@ -507,6 +537,46 @@ const styles = StyleSheet.create({
   headerSub: {
     color: Colors.dark.textMuted,
     fontSize: 11,
+  },
+  usagePillWrap: {
+    width: 56,
+    alignItems: "flex-end",
+  },
+  usagePill: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  usagePillFull: {
+    borderColor: Colors.dark.error + "60",
+    backgroundColor: Colors.dark.error + "15",
+  },
+  usagePillText: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  usagePillTextFull: {
+    color: Colors.dark.error,
+  },
+  usagePillPro: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  usagePillProText: {
+    color: Colors.dark.primary,
+    fontSize: 11,
+    fontWeight: "700",
   },
   onboardingScroll: {
     flexGrow: 1,
