@@ -547,7 +547,6 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] Subscription plans/subscriptions migration successful');
   } catch (e: any) {
     console.log('[Database] Subscription plans migration skipped:', e.message);
->>>>>>> ca7793eb (feat: Academy subscription tiers + platform tier management (Task #334))
   }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);

@@ -1760,31 +1760,6 @@ export async function buildRosterInsightsContext(coachId: string): Promise<Roste
         attendanceStatus: sessionPlayers.attendanceStatus,
         sessionId: sessionPlayers.sessionId,
       })
-
-      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
-      .where(
-        and(
-export interface MatchReadinessResult {
-  readinessScore: number;
-  topStrength: string;
-  biggestGap: string;
-  tacticalTips: string[];
-  rationale: string;
-  generatedAt: string;
-}
-
-export async function buildMatchReadinessScore(
-  playerId: string
-): Promise<MatchReadinessResult | null> {
-  try {
-    const [player] = await db.select().from(players).where(eq(players.id, playerId));
-    if (!player) return null;
-
-    const since28 = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
-
-    // 1. Attendance consistency (last 4 weeks)
-    const attendanceRows = await db
-      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
       .where(
@@ -2071,6 +2046,37 @@ Return ONLY valid JSON (no markdown), like:
     };
   } catch (error) {
     console.error("[AIEngine] Error generating roster insights:", error);
+    return null;
+  }
+}
+
+// ==================== MATCH READINESS SCORE ====================
+
+export interface MatchReadinessResult {
+  readinessScore: number;
+  topStrength: string;
+  biggestGap: string;
+  tacticalTips: string[];
+  rationale: string;
+  generatedAt: string;
+}
+
+export async function buildMatchReadinessScore(
+  playerId: string
+): Promise<MatchReadinessResult | null> {
+  try {
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!player) return null;
+
+    const since28 = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
+
+    // 1. Attendance consistency (last 4 weeks)
+    const attendanceRows = await db
+      .select({ attendanceStatus: sessionPlayers.attendanceStatus })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(
+        and(
           eq(sessionPlayers.playerId, playerId),
           gte(sessions.startTime, since28)
         )
