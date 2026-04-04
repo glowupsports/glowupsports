@@ -4,18 +4,12 @@ import { StyleSheet, View, Platform, Alert } from "react-native";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef, getStateFromPath as defaultGetStateFromPath } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import Constants, { ExecutionEnvironment } from "expo-constants";
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
 import * as Sentry from "@sentry/react-native";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import i18n, { initializeI18n, isRTL } from "@/i18n";
 import { initializeRevenueCat, SubscriptionProvider } from "@/lib/revenuecat";
-
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-const KeyboardProvider: React.ComponentType<{ children: React.ReactNode }> = isExpoGo
-  ? ({ children }) => <>{children}</>
-  : require("react-native-keyboard-controller").KeyboardProvider;
 
 try {
   initializeRevenueCat();
