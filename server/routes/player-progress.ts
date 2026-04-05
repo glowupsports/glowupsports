@@ -2843,7 +2843,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // AI Pro quota check for players
         const { checkAiQuota, incrementAiCallCount } = await import("../services/aiProSubscription");
-        const userId = req.user!.id;
+        const userId = req.user!.userId;
         const role = req.user!.role;
         const quota = await checkAiQuota(userId, role);
         if (!quota.allowed) {
