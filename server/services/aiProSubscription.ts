@@ -44,12 +44,16 @@ export async function getMonthlyAiCallCount(userId: string): Promise<number> {
  */
 export async function incrementAiCallCount(userId: string): Promise<void> {
   const month = getCurrentMonth();
-  await db.execute(
-    sql`INSERT INTO player_ai_usage (id, user_id, month, call_count, updated_at)
-        VALUES (gen_random_uuid(), ${userId}, ${month}, 1, NOW())
-        ON CONFLICT (user_id, month)
-        DO UPDATE SET call_count = player_ai_usage.call_count + 1, updated_at = NOW()`
-  );
+  await db
+    .insert(playerAiUsage)
+    .values({ userId, month, callCount: 1 })
+    .onConflictDoUpdate({
+      target: [playerAiUsage.userId, playerAiUsage.month],
+      set: {
+        callCount: sql`${playerAiUsage.callCount} + 1`,
+        updatedAt: sql`NOW()`,
+      },
+    });
 }
 
 /**
