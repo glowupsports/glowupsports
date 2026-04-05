@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
@@ -397,6 +397,7 @@ function MaturityBanner({ dataMaturity, onDismiss }: { dataMaturity: DataMaturit
 export default function PlayerAICoachScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -531,6 +532,10 @@ export default function PlayerAICoachScreen() {
           } catch {}
         }
       }
+
+      if (!isGreeting) {
+        queryClient.invalidateQueries({ queryKey: ["/api/ai-pro/status"] });
+      }
     } catch (err) {
       console.error("[PlayerAICoach] Stream error:", err);
       const fallback = isGreeting
@@ -576,9 +581,35 @@ export default function PlayerAICoachScreen() {
     }
   }, [showOnboarding, showIntroModal, introChecked]);
 
+  const openUpgradeModal = () => {
+    const isPro = aiStatus?.isPro ?? false;
+    const callCount = aiStatus?.callCount ?? 0;
+    const limit = aiStatus?.limit ?? 5;
+    let resetDate: string | undefined;
+    if (isPro) {
+      const rd = new Date();
+      rd.setMonth(rd.getMonth() + 1, 1);
+      rd.setHours(0, 0, 0, 0);
+      resetDate = rd.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+    }
+    setUpgradeModalData({ isPro, callCount, limit, resetDate });
+    setShowUpgradeModal(true);
+  };
+
+  const remaining = aiStatus && !aiStatus.isCoach && !aiStatus.isPro
+    ? Math.max(aiStatus.limit - aiStatus.callCount, 0)
+    : null;
+
+  const isOutOfMessages = remaining !== null && remaining === 0;
+
   const sendMessage = async (text?: string) => {
     const content = (text ?? inputText).trim();
     if (!content || isLoading) return;
+
+    if (isOutOfMessages) {
+      openUpgradeModal();
+      return;
+    }
 
     const userMsg: Message = { role: "user", content };
     const next = [...messages, userMsg];
@@ -627,22 +658,27 @@ export default function PlayerAICoachScreen() {
           </View>
         </View>
         <View style={styles.usagePillWrap}>
-          {aiStatus && !aiStatus.isCoach && aiStatus.limit > 0 ? (
-            <View style={[
-              styles.usagePill,
-              aiStatus.callCount / aiStatus.limit >= 0.9 && styles.usagePillFull,
-            ]}>
-              {aiStatus.isPro ? (
-                <Ionicons name="sparkles" size={10} color={aiStatus.callCount / aiStatus.limit >= 0.9 ? Colors.dark.error : Colors.dark.primary} style={{ marginRight: 3 }} />
-              ) : null}
-              <Text style={[
-                styles.usagePillText,
-                aiStatus.callCount / aiStatus.limit >= 0.9 && styles.usagePillTextFull,
+          {aiStatus && !aiStatus.isCoach && aiStatus.limit > 0 ? (() => {
+            const rem = Math.max(aiStatus.limit - aiStatus.callCount, 0);
+            const isLow = rem <= 2;
+            const pillColor = isLow ? Colors.dark.error : Colors.dark.primary;
+            return (
+              <View style={[
+                styles.usagePill,
+                isLow && { borderColor: pillColor + "60", backgroundColor: pillColor + "18" },
               ]}>
-                {aiStatus.callCount} / {aiStatus.limit} used
-              </Text>
-            </View>
-          ) : null}
+                {aiStatus.isPro ? (
+                  <Ionicons name="sparkles" size={10} color={pillColor} style={{ marginRight: 3 }} />
+                ) : null}
+                <Text style={[
+                  styles.usagePillText,
+                  isLow && { color: pillColor },
+                ]}>
+                  {`${rem} left`}
+                </Text>
+              </View>
+            );
+          })() : null}
         </View>
       </View>
 
@@ -710,38 +746,69 @@ export default function PlayerAICoachScreen() {
                 {isLoading && messages[messages.length - 1]?.role === "user" ? (
                   <TypingIndicator />
                 ) : null}
+                {!isLoading && remaining !== null && remaining > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? (
+                  <View style={styles.remainingBanner}>
+                    <Ionicons
+                      name="chatbubble-ellipses-outline"
+                      size={13}
+                      color={remaining <= 1 ? Colors.dark.error : remaining <= 2 ? "#F59E0B" : Colors.dark.textMuted}
+                    />
+                    <Text style={[
+                      styles.remainingBannerText,
+                      remaining <= 1 && { color: Colors.dark.error },
+                      remaining === 2 && { color: "#F59E0B" },
+                    ]}>
+                      {remaining} message{remaining !== 1 ? "s" : ""} left this month
+                    </Text>
+                  </View>
+                ) : null}
               </>
             )}
           </ScrollView>
 
-          <View style={[styles.inputRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
-            <TextInput
-              style={styles.input}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Ask your coach anything..."
-              placeholderTextColor={Colors.dark.textMuted}
-              multiline
-              maxLength={500}
-              showsVerticalScrollIndicator={false}
-              onSubmitEditing={() => sendMessage()}
-              blurOnSubmit={false}
-            />
+          {isOutOfMessages ? (
             <Pressable
-              onPress={() => sendMessage()}
-              disabled={!inputText.trim() || isLoading}
-              style={[
-                styles.sendBtn,
-                { opacity: !inputText.trim() || isLoading ? 0.4 : 1 },
-              ]}
+              style={[styles.lockedBar, { paddingBottom: insets.bottom + Spacing.sm }]}
+              onPress={openUpgradeModal}
             >
-              {isLoading ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-              ) : (
-                <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
-              )}
+              <View style={styles.lockedBarInner}>
+                <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
+                <Text style={styles.lockedBarText}>No messages left — upgrade to continue</Text>
+                <View style={styles.lockedUpgradeBtn}>
+                  <Text style={styles.lockedUpgradeBtnText}>Upgrade</Text>
+                </View>
+              </View>
             </Pressable>
-          </View>
+          ) : (
+            <View style={[styles.inputRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
+              <TextInput
+                style={styles.input}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Ask your coach anything..."
+                placeholderTextColor={Colors.dark.textMuted}
+                multiline
+                maxLength={500}
+                showsVerticalScrollIndicator={false}
+                onSubmitEditing={() => sendMessage()}
+                blurOnSubmit={false}
+              />
+              <Pressable
+                onPress={() => sendMessage()}
+                disabled={!inputText.trim() || isLoading}
+                style={[
+                  styles.sendBtn,
+                  { opacity: !inputText.trim() || isLoading ? 0.4 : 1 },
+                ]}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                ) : (
+                  <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+                )}
+              </Pressable>
+            </View>
+          )}
         </KeyboardAvoidingView>
       )}
 
@@ -752,6 +819,7 @@ export default function PlayerAICoachScreen() {
         limit={upgradeModalData.limit}
         isPro={upgradeModalData.isPro}
         resetDate={upgradeModalData.resetDate}
+        onSubscribed={() => queryClient.invalidateQueries({ queryKey: ["/api/ai-pro/status"] })}
       />
 
       <FeatureIntroModal
@@ -1107,6 +1175,53 @@ const styles = StyleSheet.create({
   },
   userBubbleText: {
     color: Colors.dark.text,
+  },
+  remainingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  remainingBannerText: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  lockedBar: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  lockedBarInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  lockedBarText: {
+    flex: 1,
+    color: Colors.dark.textMuted,
+    fontSize: 14,
+  },
+  lockedUpgradeBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  lockedUpgradeBtnText: {
+    color: Colors.dark.backgroundRoot,
+    fontSize: 13,
+    fontWeight: "700",
   },
   inputRow: {
     flexDirection: "row",

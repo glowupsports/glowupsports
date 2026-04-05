@@ -491,6 +491,22 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] ai_usage_logs migration skipped:', e.message);
   }
   try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_ai_usage (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        month TEXT NOT NULL,
+        call_count INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (user_id, month)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS player_ai_usage_user_idx ON player_ai_usage(user_id)`);
+    console.log('[Database] player_ai_usage migration successful');
+  } catch (e: any) {
+    console.log('[Database] player_ai_usage migration skipped:', e.message);
+  }
+  try {
     // Subscription plans table — academy tier management
     await pool.query(`
       CREATE TABLE IF NOT EXISTS subscription_plans (
