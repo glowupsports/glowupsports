@@ -584,52 +584,50 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] americano_standings migration skipped:', e.message);
   }
-  // One-time repair: find players whose players.name exactly matches their
-  // users.username (case-insensitive) AND whose name has no spaces.
-  // Legitimate full names always contain at least one space; single-word names
-  // that equal the username are placeholder/username-style values left behind
-  // when the invite-claim signup failed to save the player's real first+last name.
+  // One-time repair: find players whose players.name case-insensitively matches
+  // their users.username AND whose name contains no spaces. Legitimate full names
+  // always have at least one space; a single-word name equalling the username is
+  // a placeholder left behind when the invite-claim signup failed to save the
+  // player's real first+last name.
   //
-  // Idempotency: the WHERE restricts to names with NO spaces. After this repair:
-  //  - Multi-component emails ("john.doe@...") → "John Doe" (has a space → no longer matches)
-  //  - Single-component emails ("anarchist@...") → not updated by code, logged for coach action
-  // So on subsequent boots the WHERE finds 0 rows and is a true no-op.
+  // Idempotency strategy:
+  //  - Multi-token email ("john.doe@...") → "John Doe" (has a space) → fails
+  //    the NOT LIKE '% %' predicate on next boot → true one-time update ✓
+  //  - Single-token email ("anarchist@...") → "Anarchist" (title-cased; may still
+  //    satisfy WHERE, so the update is a safe no-op on repeated boots) ✓
+  //  - The coach can always correct any fallback name via the player edit screen.
   try {
     const affected = await pool.query(`
       SELECT p.id, p.name, u.username, u.email
       FROM players p
       JOIN users u ON u.player_id = p.id
-      WHERE LOWER(p.name) = u.username
+      WHERE LOWER(p.name) = LOWER(u.username)
         AND p.name NOT LIKE '% %'
         AND u.deleted IS NOT TRUE
     `);
-    if (affected.rows.length > 0) {
-      let fixed = 0;
-      const needsManualFix: string[] = [];
+    const scanned = affected.rows.length;
+    if (scanned > 0) {
+      let autoFixed = 0;
+      let singleToken = 0;
       for (const row of affected.rows) {
-        // Try to derive a real name from the email local-part (e.g. "john.doe@" → "John Doe")
-        const localPart = (row.email || '').split('@')[0] || '';
+        // Derive best-effort name from email local-part, splitting on separators
+        const localPart = (row.email || '').split('@')[0] || row.username;
         const parts = localPart.split(/[._\-+]/).filter((p: string) => p.length > 0);
+        // Always update — multi-token gets a real spaced name; single-token
+        // gets a title-cased fallback that the coach can refine
+        const betterName = parts.length >= 2
+          ? parts.map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
+          : localPart.charAt(0).toUpperCase() + localPart.slice(1).toLowerCase();
+        await pool.query(`UPDATE players SET name = $1 WHERE id = $2`, [betterName, row.id]);
         if (parts.length >= 2) {
-          // Email has separators → construct a spaced name: "John Doe"
-          const betterName = parts
-            .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-            .join(' ');
-          await pool.query(`UPDATE players SET name = $1 WHERE id = $2`, [betterName, row.id]);
-          fixed++;
+          autoFixed++;
         } else {
-          // Cannot determine real name automatically — log for coach to correct manually
-          needsManualFix.push(`${row.id} (current name: "${row.name}")`);
+          singleToken++;
         }
       }
-      if (fixed > 0) {
-        console.log(`[PlayerNameRepair] Auto-fixed ${fixed} player(s) using email-derived name`);
-      }
-      if (needsManualFix.length > 0) {
-        console.log(`[PlayerNameRepair] ${needsManualFix.length} player(s) need manual name correction by coach: ${needsManualFix.join(', ')}`);
-      }
+      console.log(`[PlayerNameRepair] Scanned ${scanned}, auto-fixed ${autoFixed} (email-derived), ${singleToken} need coach review (title-cased fallback applied)`);
     } else {
-      console.log('[PlayerNameRepair] No players found with username-matching name — all good');
+      console.log('[PlayerNameRepair] No players found with username-style name — all good');
     }
   } catch (e: any) {
     console.log('[PlayerNameRepair] Skipped:', e.message);
