@@ -97,15 +97,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
               <Text style={styles.subtitle}>
                 In-app purchases are only available in the App Store version of the app. Download Glow Up Sports from the App Store to subscribe to AI Pro.
               </Text>
-              <View style={styles.featureList}>
-                {FEATURES.map((f, i) => (
-                  <View key={i} style={styles.featureRow}>
-                    <Ionicons name="checkmark-circle" size={18} color={ACCENT} />
-                    <Text style={styles.featureText}>{f}</Text>
-                  </View>
-                ))}
-              </View>
-              <Pressable style={styles.upgradeButton} onPress={onClose}>
+              <Pressable style={[styles.upgradeButton, { marginTop: Spacing.lg }]} onPress={onClose}>
                 <Text style={styles.upgradeButtonText}>Got it</Text>
               </Pressable>
             </>
