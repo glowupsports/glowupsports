@@ -523,10 +523,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 holidaysByPlayer.get(h.playerId)!.push({ startDate: h.startDate, endDate: h.endDate });
               }
 
+              const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
               let healed = 0;
               for (const session of seriesSessions) {
                 if (session.status === "cancelled" || session.status === "skipped") continue;
                 const isCompleted = session.status === "completed";
+                // Sessions older than 7 days must NOT be auto-marked present or charged.
+                // Leave attendance null so the coach can review them manually.
+                const isOldSession = new Date(session.endTime) < sevenDaysAgo;
                 for (const playerId of activePlayerIds) {
                   const key = `${session.id}:${playerId}`;
                   if (!enrolledSet.has(key)) {
@@ -546,10 +550,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     const newRecord = await storage.addPlayerToSession({
                       sessionId: session.id,
                       playerId,
-                      attendanceStatus: isCompleted ? "present" : null,
+                      // Old completed sessions (> 7 days): leave null for coach review.
+                      // Recent completed sessions: mark present so credits are processed.
+                      attendanceStatus: isCompleted && !isOldSession ? "present" : null,
                     });
                     healed++;
-                    if (isCompleted && newRecord?.id) {
+                    // Only charge credits for recent sessions (≤ 7 days old).
+                    if (isCompleted && !isOldSession && newRecord?.id) {
                       try {
                         const { ensureCreditProcessed } = await import("../storage");
                         await ensureCreditProcessed(newRecord.id);
