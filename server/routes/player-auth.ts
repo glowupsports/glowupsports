@@ -100,6 +100,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(401).json({ error: "User not found" });
         }
 
+        // Fire-and-forget: update last_login_at at most once per hour per user
+        db.execute(
+          sql`UPDATE users SET last_login_at = NOW() WHERE id = ${tokenUser.userId} AND (last_login_at IS NULL OR last_login_at < NOW() - INTERVAL '1 hour')`
+        ).catch((err: unknown) => {
+          console.error("Failed to update last_login_at:", err);
+        });
+
         const isImpersonating =
           freshUser.role === "platform_owner" &&
           tokenUser.role === "academy_owner";
