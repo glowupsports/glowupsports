@@ -1251,6 +1251,7 @@ async function repairMissingSessionPlayers(): Promise<void> {
       LEFT JOIN player_holidays ph ON ph.player_id = sp2.player_id
         AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
       WHERE s.status = 'completed' 
+        AND s.end_time > NOW() - INTERVAL '7 days'
         AND sp.id IS NULL
         AND ph.id IS NULL
         AND sp2.joined_at <= s.start_time

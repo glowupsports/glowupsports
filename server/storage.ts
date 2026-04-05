@@ -2244,17 +2244,20 @@ export const storage = {
       // When a package is force-deleted with used credits, those sessions become unpaid.
       // Create session_debt transactions so the balance correctly shows the negative debt.
       if (creditsUsed > 0 && pkg.playerId) {
+        // Only convert pre-paid session consumption reasons: session_booking and session_consumed.
+        // Intentionally excludes debt/settlement rows to prevent double-accounting.
         const consumptionTxs = await tx.execute(sql`
           SELECT id, player_id, academy_id, session_id, session_player_id,
                  credit_type, amount, metadata
           FROM credit_transactions
           WHERE package_id = ${id}
             AND amount < 0
+            AND reason IN ('session_booking', 'session_consumed')
             AND COALESCE(metadata->>'cancelled', 'false') != 'true'
         `);
 
         if (consumptionTxs.rows.length > 0) {
-          console.log(`[PackageDelete] Converting ${consumptionTxs.rows.length} consumption transactions to debt for player ${pkg.playerId}`);
+          console.log(`[PackageDelete] Converting ${consumptionTxs.rows.length} session_booking/session_consumed transactions to debt for player ${pkg.playerId}`);
           for (const bookingTx of consumptionTxs.rows as any[]) {
             const debtAmount = Math.abs(Number(bookingTx.amount)) || 1;
             const debtTxId = crypto.randomUUID();
@@ -2277,6 +2280,17 @@ export const storage = {
                   })}::jsonb
                 )
                 ON CONFLICT (event_key) DO NOTHING
+              `);
+              // Mark the original booking transaction as cancelled to prevent double-accounting
+              await tx.execute(sql`
+                UPDATE credit_transactions
+                SET metadata = metadata || ${JSON.stringify({
+                  cancelled: true,
+                  cancelledAt: new Date().toISOString(),
+                  cancelledReason: 'package_deleted_converted_to_debt',
+                  debtTransactionId: debtTxId,
+                })}::jsonb
+                WHERE id = ${bookingTx.id}
               `);
             } catch (err: any) {
               if (err.code === '23505') {

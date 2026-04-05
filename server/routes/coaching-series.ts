@@ -605,7 +605,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
           const sessionsWithPlayers = new Set(spData.map((r) => r.sessionId));
           const sessionsWithNullAttendance = new Set(
-            spData.filter((r) => r.attendanceStatus === null).map((r) => r.sessionId)
+            spData.filter((r) => r.attendanceStatus === null || r.attendanceStatus === "pending").map((r) => r.sessionId)
           );
           for (const sid of completedSessionIds) {
             if (!sessionsWithPlayers.has(sid) || sessionsWithNullAttendance.has(sid)) {
