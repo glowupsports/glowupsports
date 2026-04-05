@@ -2240,6 +2240,56 @@ export const storage = {
         console.log(`[PackageDelete] Restored ${debtsSettledByThisPackage.length} debts for player ${pkg.playerId}`);
       }
       
+      // CRITICAL FIX: Convert consumption transactions to debt BEFORE clearing packageId.
+      // When a package is force-deleted with used credits, those sessions become unpaid.
+      // Create session_debt transactions so the balance correctly shows the negative debt.
+      if (creditsUsed > 0 && pkg.playerId) {
+        const consumptionTxs = await tx.execute(sql`
+          SELECT id, player_id, academy_id, session_id, session_player_id,
+                 credit_type, amount, metadata
+          FROM credit_transactions
+          WHERE package_id = ${id}
+            AND amount < 0
+            AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+        `);
+
+        if (consumptionTxs.rows.length > 0) {
+          console.log(`[PackageDelete] Converting ${consumptionTxs.rows.length} consumption transactions to debt for player ${pkg.playerId}`);
+          for (const bookingTx of consumptionTxs.rows as any[]) {
+            const debtAmount = Math.abs(Number(bookingTx.amount)) || 1;
+            const debtTxId = crypto.randomUUID();
+            const eventKey = `debt_from_booking:${bookingTx.id}`;
+            const creditType = bookingTx.credit_type || pkg.creditType || "group";
+            try {
+              await tx.execute(sql`
+                INSERT INTO credit_transactions (
+                  id, player_id, academy_id, session_id, session_player_id, package_id,
+                  type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
+                ) VALUES (
+                  ${debtTxId}, ${bookingTx.player_id}, ${bookingTx.academy_id},
+                  ${bookingTx.session_id}, ${bookingTx.session_player_id}, NULL,
+                  'debit', ${creditType}, ${-debtAmount}, 'session_debt', ${eventKey}, 0, ${-debtAmount},
+                  ${JSON.stringify({
+                    isDebt: true,
+                    convertedFromBooking: bookingTx.id,
+                    packageDeleted: id,
+                    description: `Debt: package deleted, pre-paid session became unpaid`,
+                  })}::jsonb
+                )
+                ON CONFLICT (event_key) DO NOTHING
+              `);
+            } catch (err: any) {
+              if (err.code === '23505') {
+                console.log(`[PackageDelete] Duplicate debt conversion for tx ${bookingTx.id}, skipping`);
+              } else {
+                throw err;
+              }
+            }
+          }
+          console.log(`[PackageDelete] Debt conversion complete for player ${pkg.playerId}`);
+        }
+      }
+
       // Clear any series_players references to this package first
       await tx.update(seriesPlayers)
         .set({ linkedPackageId: null })

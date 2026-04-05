@@ -109,6 +109,20 @@ export function SeriesOverviewTab({
         </View>
       </View>
 
+      {(series.stats.sessionsNeedingReview ?? 0) > 0 ? (
+        <View style={reviewBannerStyles.banner}>
+          <Ionicons name="alert-circle-outline" size={16} color={Colors.dark.gold} />
+          <View style={{ flex: 1 }}>
+            <Text style={reviewBannerStyles.title}>
+              {series.stats.sessionsNeedingReview} session{(series.stats.sessionsNeedingReview ?? 0) !== 1 ? "s" : ""} need attendance review
+            </Text>
+            <Text style={reviewBannerStyles.subtitle}>
+              These sessions were completed while the system was offline. Open each session in the Timeline tab to confirm who attended.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Schedule</Text>
         <View style={styles.infoRow}>
@@ -555,3 +569,28 @@ export function SeriesOverviewTab({
     </View>
   );
 }
+
+const reviewBannerStyles = StyleSheet.create({
+  banner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(255, 215, 0, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 16,
+  },
+});

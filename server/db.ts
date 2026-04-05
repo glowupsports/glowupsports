@@ -584,6 +584,27 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] americano_standings migration skipped:', e.message);
   }
+  // Startup repair: mark all sessions with status='scheduled' but end_time < NOW() as 'completed'.
+  // These are sessions that were missed due to server downtime (the 24hr auto-complete window lapsed).
+  // processAutoAttendance will create session_player records for sessions within 7 days.
+  // Sessions older than 7 days are left with null attendance for coach review.
+  try {
+    const stuckSessions = await pool.query(`
+      UPDATE sessions
+      SET status = 'completed'
+      WHERE status = 'scheduled'
+        AND end_time < NOW()
+      RETURNING id
+    `);
+    if (stuckSessions.rowCount && stuckSessions.rowCount > 0) {
+      console.log(`[StartupRepair] Marked ${stuckSessions.rowCount} stuck 'scheduled' sessions as 'completed'. Sessions >7 days old will need coach attendance review.`);
+    } else {
+      console.log('[StartupRepair] No stuck sessions found — all good');
+    }
+  } catch (e: any) {
+    console.log('[StartupRepair] Stuck session repair skipped:', e.message);
+  }
+
   // One-time repair: find players whose players.name case-insensitively matches
   // their users.username AND whose name contains no spaces. Legitimate full names
   // always have at least one space; a single-word name equalling the username is

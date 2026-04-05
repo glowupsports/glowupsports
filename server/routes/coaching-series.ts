@@ -589,6 +589,31 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           courtName = court?.name;
         }
 
+        // Count sessions older than 7 days that have null/pending attendance (need coach review)
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const completedSessionIds = seriesSessions
+          .filter((s) => s.status === "completed" && new Date(s.endTime) < sevenDaysAgo)
+          .map((s) => s.id);
+        let sessionsNeedingReview = 0;
+        if (completedSessionIds.length > 0) {
+          const spData = await db.select({
+            sessionId: sessionPlayers.sessionId,
+            attendanceStatus: sessionPlayers.attendanceStatus,
+          })
+          .from(sessionPlayers)
+          .where(inArray(sessionPlayers.sessionId, completedSessionIds));
+
+          const sessionsWithPlayers = new Set(spData.map((r) => r.sessionId));
+          const sessionsWithNullAttendance = new Set(
+            spData.filter((r) => r.attendanceStatus === null).map((r) => r.sessionId)
+          );
+          for (const sid of completedSessionIds) {
+            if (!sessionsWithPlayers.has(sid) || sessionsWithNullAttendance.has(sid)) {
+              sessionsNeedingReview++;
+            }
+          }
+        }
+
         res.json({
           ...series,
           locationName,
@@ -610,6 +635,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             cancelledSessions: seriesSessions.filter(
               (s) => s.status === "cancelled",
             ).length,
+            sessionsNeedingReview,
           },
         });
       } catch (error) {

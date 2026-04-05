@@ -929,16 +929,16 @@ async function processAutoCompleteSession(): Promise<void> {
     const nowUtcStr = now.toISOString().replace("T", " ").substring(0, 19);
     const completeThreshold = new Date(now.getTime() - 10 * 60 * 1000);
     const completeThresholdStr = completeThreshold.toISOString().replace("T", " ").substring(0, 19);
-    const lookbackWindow = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const lookbackStr = lookbackWindow.toISOString().replace("T", " ").substring(0, 19);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    // NO 24-hour lower bound — process ALL past scheduled sessions regardless of age.
+    // Sessions older than 7 days get null attendance (pending coach review) instead of auto-present.
     const result = await pool.query(
       `SELECT id, end_time, start_time, session_type, coach_id
        FROM sessions
        WHERE end_time <= $1::timestamp
-         AND end_time >= $2::timestamp
          AND status = 'scheduled'`,
-      [completeThresholdStr, lookbackStr]
+      [completeThresholdStr]
     );
 
     if (result.rows.length === 0) {
@@ -950,7 +950,8 @@ async function processAutoCompleteSession(): Promise<void> {
 
     for (const row of result.rows) {
       const endUtc = new Date(row.end_time).toISOString();
-      console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} | end_time(UTC): ${endUtc} | type: ${row.session_type}`);
+      const isOldSession = new Date(row.end_time) < sevenDaysAgo;
+      console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} | end_time(UTC): ${endUtc} | type: ${row.session_type} | old: ${isOldSession}`);
       await pool.query(
         `UPDATE sessions SET status = 'completed' WHERE id = $1 AND end_time <= $2::timestamp`,
         [row.id, completeThresholdStr]
@@ -963,21 +964,27 @@ async function processAutoCompleteSession(): Promise<void> {
       );
 
       if (unmarkedPlayers.rows.length > 0) {
-        console.log(`[AutoComplete]   Setting attendance for ${unmarkedPlayers.rows.length} players in session ${row.id.substring(0,8)}`);
-        for (const sp of unmarkedPlayers.rows) {
-          await pool.query(
-            `UPDATE session_players SET attendance_status = 'present', late_minutes = 0 WHERE id = $1`,
-            [sp.id]
-          );
-          try {
-            const creditResult = await ensureCreditProcessed(sp.id);
-            if (creditResult.action === "consumed") {
-              console.log(`[AutoComplete]   Consumed credit for player ${sp.player_id}`);
-            } else if (creditResult.action === "debt_created") {
-              console.log(`[AutoComplete]   Created debt for player ${sp.player_id}`);
+        if (isOldSession) {
+          // Sessions older than 7 days: leave attendance as NULL for coach review.
+          // Do NOT auto-mark as present or process credits.
+          console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} is older than 7 days — skipping auto-attendance, needs coach review`);
+        } else {
+          console.log(`[AutoComplete]   Setting attendance for ${unmarkedPlayers.rows.length} players in session ${row.id.substring(0,8)}`);
+          for (const sp of unmarkedPlayers.rows) {
+            await pool.query(
+              `UPDATE session_players SET attendance_status = 'present', late_minutes = 0 WHERE id = $1`,
+              [sp.id]
+            );
+            try {
+              const creditResult = await ensureCreditProcessed(sp.id);
+              if (creditResult.action === "consumed") {
+                console.log(`[AutoComplete]   Consumed credit for player ${sp.player_id}`);
+              } else if (creditResult.action === "debt_created") {
+                console.log(`[AutoComplete]   Created debt for player ${sp.player_id}`);
+              }
+            } catch (creditError) {
+              console.error(`[AutoComplete]   Failed credit processing for player ${sp.player_id}:`, creditError);
             }
-          } catch (creditError) {
-            console.error(`[AutoComplete]   Failed credit processing for player ${sp.player_id}:`, creditError);
           }
         }
       }
@@ -991,13 +998,18 @@ async function processAutoCompleteSession(): Promise<void> {
 
 async function processAutoAttendance(): Promise<void> {
   try {
+    // Only auto-process sessions that ended within the last 7 days.
+    // Sessions older than 7 days are left with null attendance for coach review.
+    const sevenDaysAgoAutoAttendance = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ").substring(0, 19);
     const completedSessionsWithNullAttendance = await pool.query(
       `SELECT DISTINCT s.id, s.coach_id, s.end_time, s.series_id, s.session_type, s.academy_id
        FROM sessions s
        LEFT JOIN session_players sp ON sp.session_id = s.id
        WHERE s.status = 'completed'
+         AND s.end_time >= $1::timestamp
          AND (sp.attendance_status IS NULL OR sp.attendance_status = 'pending' OR sp.id IS NULL)
-       ORDER BY s.end_time`
+       ORDER BY s.end_time`,
+      [sevenDaysAgoAutoAttendance]
     );
 
     const completedSessions = completedSessionsWithNullAttendance.rows.map((r: any) => ({
@@ -2253,16 +2265,16 @@ async function processAutoSessionCompletion(): Promise<void> {
     const now = new Date();
     const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000);
     const tenMinAgoStr = tenMinAgo.toISOString().replace("T", " ").substring(0, 19);
-    const oneDayAgoStr = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace("T", " ").substring(0, 19);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     console.log(`[AutoComplete] Running auto session completion check at ${now.toISOString()} (UTC), threshold: ${tenMinAgoStr}`);
     
+    // NO 24-hour lower bound — process ALL past scheduled sessions regardless of age.
     const result = await pool.query(
       `SELECT id, session_type, academy_id, start_time, end_time
        FROM sessions
        WHERE end_time <= $1::timestamp
-         AND end_time >= $2::timestamp
          AND status = 'scheduled'`,
-      [tenMinAgoStr, oneDayAgoStr]
+      [tenMinAgoStr]
     );
     
     const incompleteSessions = result.rows.map((row: any) => ({
@@ -2295,10 +2307,18 @@ async function processAutoSessionCompletion(): Promise<void> {
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, session.id));
         
-        // Mark each player as present and deduct credits
+        // Mark each player as present and deduct credits (skip for sessions > 7 days old)
+        const isOldSession = session.endTime < sevenDaysAgo;
         for (const sp of enrolledPlayers) {
           // Skip if already marked as present/absent or credit already deducted
           if (sp.attendanceStatus === "present" || sp.attendanceStatus === "absent" || sp.creditDeductedAt) {
+            continue;
+          }
+
+          if (isOldSession) {
+            // Sessions older than 7 days: leave attendance as NULL for coach review.
+            // Do NOT auto-mark as present or process credits.
+            console.log(`[AutoComplete] Session ${session.id} is older than 7 days — skipping auto-attendance for player ${sp.playerId}, needs coach review`);
             continue;
           }
           

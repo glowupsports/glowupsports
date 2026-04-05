@@ -310,7 +310,12 @@ export function GamingPlayerCard({
                   if (byType.private !== 0) parts.push({ text: `${formatCredits(byType.private)} Prv`, color: getCreditColor(byType.private) });
                   if (byType.group !== 0) parts.push({ text: `${formatCredits(byType.group)} Grp`, color: getCreditColor(byType.group) });
                   if (byType.semiPrivate !== 0) parts.push({ text: `${formatCredits(byType.semiPrivate)} Semi`, color: getCreditColor(byType.semiPrivate) });
-                  return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
+                  if (parts.length > 0) return parts;
+                  // Distinguish "depleted active package" from "no package at all"
+                  if ((player.totalCredits ?? 0) > 0) {
+                    return [{ text: "Depleted", color: Colors.dark.gold }];
+                  }
+                  return [{ text: "0 credits", color: Colors.dark.error }];
                 };
 
                 const parts = formatCreditParts();

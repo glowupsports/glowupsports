@@ -102,6 +102,7 @@ export interface SeriesDetail {
     completedSessions: number;
     upcomingSessions: number;
     cancelledSessions: number;
+    sessionsNeedingReview?: number;
   };
 }
 
