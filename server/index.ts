@@ -41,6 +41,7 @@ import rateLimit from "express-rate-limit";
 import * as Sentry from "@sentry/node";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
+import * as http from "http";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits } from "./pushNotifications";
@@ -284,28 +285,86 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+async function checkExpoPort(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let body = '';
+    const req = http.get(
+      { hostname: '127.0.0.1', port, path: '/status', timeout: 1000 },
+      (res: http.IncomingMessage) => {
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => { body += chunk; });
+        res.on('end', () => {
+          const isExpo =
+            body.includes('packager-status:running') ||
+            String(res.headers['x-powered-by'] || '').toLowerCase().includes('expo') ||
+            (String(res.headers['content-type'] || '').includes('application/json') && body.includes('packager'));
+          resolve(isExpo);
+        });
+      }
+    );
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+let cachedExpoPort: number | null = null;
+let portCacheExpiry = 0;
+const PORT_CACHE_TTL_MS = 5000;
+
+async function resolveExpoPort(): Promise<number> {
+  const now = Date.now();
+  if (cachedExpoPort !== null && now < portCacheExpiry) {
+    return cachedExpoPort;
+  }
+  const candidates = [8081, 8082];
+  for (const port of candidates) {
+    if (await checkExpoPort(port)) {
+      if (cachedExpoPort !== port) {
+        log(`Expo dev server detected on port ${port}`);
+      }
+      cachedExpoPort = port;
+      portCacheExpiry = now + PORT_CACHE_TTL_MS;
+      return port;
+    }
+  }
+  const defaultPort = 8081;
+  log(`Expo dev server not yet reachable on ports ${candidates.join(', ')}, defaulting to ${defaultPort}`);
+  cachedExpoPort = defaultPort;
+  portCacheExpiry = now + 1000;
+  return defaultPort;
+}
+
 function setupExpoDevProxy(app: express.Application) {
   if (process.env.NODE_ENV !== 'development') {
     return;
   }
 
-  log("Setting up Expo dev server proxy on port 5000 -> 8081");
+  log('Setting up Expo dev server proxy on port 5000 (dynamic port resolution enabled)');
 
-  const expoProxy = createProxyMiddleware({
-    target: 'http://localhost:8081',
-    changeOrigin: true,
-    ws: true,
-    logger: console,
-    on: {
-      error: (err, req, res) => {
-        log(`Expo proxy error: ${err.message} - Metro may still be starting`);
-        if (res && typeof (res as any).writeHead === 'function' && !(res as any).headersSent) {
-          (res as any).writeHead(503);
-          (res as any).end('Metro bundler is starting up, please refresh in a moment...');
+  const proxyCache = new Map<number, ReturnType<typeof createProxyMiddleware>>();
+
+  function getProxy(port: number) {
+    if (!proxyCache.has(port)) {
+      proxyCache.set(port, createProxyMiddleware({
+        target: `http://localhost:${port}`,
+        changeOrigin: true,
+        ws: true,
+        logger: console,
+        on: {
+          error: (err: Error, _req: http.IncomingMessage, res: http.ServerResponse) => {
+            log(`Expo proxy error (port ${port}): ${err.message} - Metro may still be starting`);
+            cachedExpoPort = null;
+            portCacheExpiry = 0;
+            if (!res.headersSent) {
+              res.writeHead(503);
+              res.end('Metro bundler is starting up, please refresh in a moment...');
+            }
+          }
         }
-      }
+      }));
     }
-  });
+    return proxyCache.get(port)!;
+  }
 
   const templateRoutes = ['/support', '/privacy', '/privacy-policy', '/delete-account'];
   app.use((req, res, next) => {
@@ -321,9 +380,6 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path === '/manifest' && req.header('expo-platform')) {
       return next();
     }
-    if (req.path.includes('.bundle')) {
-      return expoProxy(req, res, next);
-    }
     if (req.path === '/landing') {
       return next();
     }
@@ -333,7 +389,9 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
       return next();
     }
-    return expoProxy(req, res, next);
+    resolveExpoPort().then((port) => {
+      getProxy(port)(req, res, next);
+    }).catch(() => getProxy(8081)(req, res, next));
   });
 }
 
