@@ -9,7 +9,10 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
-        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
+        "EXPO_PUBLIC_REVENUECAT_TEST_API_KEY": "test_cybUCGcuhpEljjcgSnRLyDltgtH",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_ibBPORTiJtlHBlUfnrBKRIPZket",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_gLtMVeBOTgpDjhtBXnOXJbLImGW"
       }
     },
     "preview": {
@@ -26,7 +29,10 @@
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_ENV": "preview",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_REVENUECAT_TEST_API_KEY": "test_cybUCGcuhpEljjcgSnRLyDltgtH",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_ibBPORTiJtlHBlUfnrBKRIPZket",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_gLtMVeBOTgpDjhtBXnOXJbLImGW"
       }
     },
     "production": {
@@ -43,7 +49,10 @@
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_ENV": "production",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_REVENUECAT_TEST_API_KEY": "test_cybUCGcuhpEljjcgSnRLyDltgtH",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_ibBPORTiJtlHBlUfnrBKRIPZket",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_gLtMVeBOTgpDjhtBXnOXJbLImGW"
       }
     }
   },

@@ -1,22 +1,15 @@
 import React, { createContext, useContext } from "react";
-import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useMutation, useQuery } from "@tanstack/react-query";
-// Types are import-only (no runtime) — safe to use on web
 import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from "react-native-purchases";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-const isNative = Platform.OS !== "web";
 
-// react-native-purchases is a native-only SDK — crashes on web.
-// Load it conditionally so the web bundle remains functional.
 let Purchases: typeof import("react-native-purchases").default | null = null;
-if (isNative) {
-  try {
-    Purchases = require("react-native-purchases").default;
-  } catch {
-    // SDK unavailable (e.g. Expo Go without native build)
-  }
+try {
+  Purchases = require("react-native-purchases").default;
+} catch {
+  // SDK unavailable
 }
 
 export const REVENUECAT_ENTITLEMENT_IDENTIFIER = "ai_pro";
@@ -29,9 +22,9 @@ function getRevenueCatApiKey(): string {
   if (!REVENUECAT_TEST_API_KEY || !REVENUECAT_IOS_API_KEY || !REVENUECAT_ANDROID_API_KEY) {
     throw new Error("RevenueCat API keys not configured");
   }
-  if (__DEV__ || !isNative || isExpoGo) return REVENUECAT_TEST_API_KEY;
-  if (Platform.OS === "ios") return REVENUECAT_IOS_API_KEY;
-  if (Platform.OS === "android") return REVENUECAT_ANDROID_API_KEY;
+  if (isExpoGo || __DEV__) return REVENUECAT_TEST_API_KEY;
+  if (REVENUECAT_IOS_API_KEY && Constants.platform?.ios) return REVENUECAT_IOS_API_KEY;
+  if (REVENUECAT_ANDROID_API_KEY && Constants.platform?.android) return REVENUECAT_ANDROID_API_KEY;
   return REVENUECAT_TEST_API_KEY;
 }
 
@@ -74,6 +67,7 @@ function useSubscriptionContext() {
     queryFn: () => (Purchases ? Purchases.getOfferings() : Promise.resolve(null)),
     staleTime: 300 * 1000,
     enabled: !!Purchases,
+    retry: 2,
   });
 
   const purchaseMutation = useMutation<CustomerInfo | null, Error, PurchasesPackage>({
@@ -101,6 +95,9 @@ function useSubscriptionContext() {
     offerings: offeringsQuery.data ?? null,
     isSubscribed,
     isLoading: customerInfoQuery.isLoading || offeringsQuery.isLoading,
+    isOfferingsLoading: offeringsQuery.isLoading,
+    isOfferingsError: offeringsQuery.isError,
+    refetchOfferings: offeringsQuery.refetch,
     purchase: purchaseMutation.mutateAsync,
     restore: restoreMutation.mutateAsync,
     isPurchasing: purchaseMutation.isPending,
