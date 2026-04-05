@@ -1355,7 +1355,8 @@ router.get("/dev-preview", async (req: Request, res: Response) => {
       playerId: previewUser.playerId, displayName: previewUser.displayName,
     });
 
-    const redirectPath = role === "player" ? "/player/home" : "/coach";
+    const appMode = role === "player" ? "player" : "coach";
+    const redirectPath = "/";
 
     res.send(`<!DOCTYPE html>
 <html>
@@ -1372,6 +1373,7 @@ router.get("/dev-preview", async (req: Request, res: Response) => {
     localStorage.setItem('@refresh_token', ${JSON.stringify(refreshToken)});
     localStorage.setItem('@auth_user', ${JSON.stringify(authUser)});
     localStorage.setItem('@current_academy_id', ${JSON.stringify(previewUser.academyId || "default-academy")});
+    localStorage.setItem('@app_mode', ${JSON.stringify(appMode)});
   } catch(e) { console.error('localStorage error', e); }
   setTimeout(function() { window.location.replace(${JSON.stringify(redirectPath)}); }, 100);
 </script>
