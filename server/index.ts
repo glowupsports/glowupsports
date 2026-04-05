@@ -71,6 +71,7 @@ declare module "http" {
 
 function setupSecurityHeaders(app: express.Application) {
   // Use helmet for comprehensive security headers with CSP configured for Replit deployment
+  const isDev = process.env.NODE_ENV === 'development';
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -84,8 +85,12 @@ function setupSecurityHeaders(app: express.Application) {
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
+        // Allow embedding in Replit canvas iframes during development
+        frameAncestors: isDev ? ["'self'", "https://*.spock.replit.dev", "https://*.replit.dev"] : ["'self'"],
       },
     },
+    // Disable X-Frame-Options in dev so Replit canvas preview works (we handle it manually below)
+    frameguard: !isDev,
     crossOriginEmbedderPolicy: false, // Disabled for API compatibility
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow Expo Go to load images
   }));
@@ -93,7 +98,10 @@ function setupSecurityHeaders(app: express.Application) {
   // Additional custom headers
   app.use((req, res, next) => {
     res.header("X-Content-Type-Options", "nosniff");
-    res.header("X-Frame-Options", "DENY");
+    // Allow iframe embedding in development (Replit canvas preview) but block in production
+    if (process.env.NODE_ENV !== 'development') {
+      res.header("X-Frame-Options", "DENY");
+    }
     res.header("X-XSS-Protection", "1; mode=block");
     res.header("Referrer-Policy", "strict-origin-when-cross-origin");
     next();
