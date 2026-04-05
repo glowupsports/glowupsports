@@ -107,6 +107,7 @@ function useSubscriptionContext() {
     isRestoring: restoreMutation.isPending,
     purchaseError: purchaseMutation.error,
     refetchCustomerInfo: customerInfoQuery.refetch,
+    isPurchaseAvailable: Purchases !== null,
   };
 }
 

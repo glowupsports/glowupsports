@@ -36,7 +36,7 @@ const FEATURES = [
 const ACCENT = Colors.dark.primary;
 
 export default function AiProUpgradeModal({ visible, onClose, callCount = 0, limit = 5, isPro = false, resetDate, onSubscribed }: Props) {
-  const { offerings, isPurchasing, isRestoring, purchase, restore } = useSubscription();
+  const { offerings, isPurchasing, isRestoring, purchase, restore, isPurchaseAvailable } = useSubscription();
   const [selectedPackageType, setSelectedPackageType] = useState<"monthly" | "yearly">("yearly");
   const [restoreSuccess, setRestoreSuccess] = useState(false);
 
@@ -91,93 +91,115 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
           </View>
 
           <Text style={styles.title}>AI Pro</Text>
-          {isPro && resetDate ? (
-            <Text style={styles.subtitle}>
-              You've used all {limit} messages this month — resets on {resetDate}
-            </Text>
-          ) : callCount > 0 ? (
-            <Text style={styles.subtitle}>
-              You have used {callCount} of your {limit} free AI conversations this month.
-            </Text>
-          ) : (
-            <Text style={styles.subtitle}>
-              Get 200 AI coaching messages per month and reach your full potential.
-            </Text>
-          )}
 
-          <View style={styles.featureList}>
-            {FEATURES.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={18} color={ACCENT} />
-                <Text style={styles.featureText}>{f}</Text>
-              </View>
-            ))}
-          </View>
-
-          {isLoading ? (
-            <ActivityIndicator color={ACCENT} style={{ marginVertical: Spacing.lg }} />
-          ) : (
-            <View style={styles.planRow}>
-              {monthlyPkg ? (
-                <Pressable
-                  style={[
-                    styles.planCard,
-                    selectedPackageType === "monthly" && styles.planCardSelected,
-                  ]}
-                  onPress={() => setSelectedPackageType("monthly")}
-                >
-                  <Text style={styles.planLabel}>Monthly</Text>
-                  <Text style={styles.planPrice}>{monthlyPkg.product.priceString}</Text>
-                  <Text style={styles.planPer}>/ month</Text>
-                </Pressable>
-              ) : null}
-
-              {yearlyPkg ? (
-                <Pressable
-                  style={[
-                    styles.planCard,
-                    selectedPackageType === "yearly" && styles.planCardSelected,
-                  ]}
-                  onPress={() => setSelectedPackageType("yearly")}
-                >
-                  <View style={styles.bestValueBadge}>
-                    <Text style={styles.bestValueText}>Best Value</Text>
-                  </View>
-                  <Text style={styles.planLabel}>Yearly</Text>
-                  <Text style={styles.planPrice}>{yearlyPkg.product.priceString}</Text>
-                  <Text style={styles.planPer}>/ year</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          )}
-
-          <Pressable
-            style={[styles.upgradeButton, (isPurchasing || isLoading || !selectedPkg) && styles.upgradeButtonDisabled]}
-            onPress={handlePurchase}
-            disabled={isPurchasing || isLoading || !selectedPkg}
-          >
-            {isPurchasing ? (
-              <ActivityIndicator color="#000" size="small" />
-            ) : (
-              <Text style={styles.upgradeButtonText}>
-                {selectedPkg ? `Subscribe — ${selectedPkg.product.priceString}` : "Subscribe to AI Pro"}
+          {!isPurchaseAvailable ? (
+            <>
+              <Text style={styles.subtitle}>
+                In-app purchases are only available in the App Store version of the app. Download Glow Up Sports from the App Store to subscribe to AI Pro.
               </Text>
-            )}
-          </Pressable>
+              <View style={styles.featureList}>
+                {FEATURES.map((f, i) => (
+                  <View key={i} style={styles.featureRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={ACCENT} />
+                    <Text style={styles.featureText}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+              <Pressable style={styles.upgradeButton} onPress={onClose}>
+                <Text style={styles.upgradeButtonText}>Got it</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              {isPro && resetDate ? (
+                <Text style={styles.subtitle}>
+                  You've used all {limit} messages this month — resets on {resetDate}
+                </Text>
+              ) : callCount > 0 ? (
+                <Text style={styles.subtitle}>
+                  You have used {callCount} of your {limit} free AI conversations this month.
+                </Text>
+              ) : (
+                <Text style={styles.subtitle}>
+                  Get 200 AI coaching messages per month and reach your full potential.
+                </Text>
+              )}
 
-          <Pressable style={styles.cancelButton} onPress={onClose}>
-            <Text style={styles.cancelText}>Maybe later</Text>
-          </Pressable>
+              <View style={styles.featureList}>
+                {FEATURES.map((f, i) => (
+                  <View key={i} style={styles.featureRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={ACCENT} />
+                    <Text style={styles.featureText}>{f}</Text>
+                  </View>
+                ))}
+              </View>
 
-          <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={isRestoring}>
-            {isRestoring ? (
-              <ActivityIndicator color={Colors.dark.textMuted} size="small" />
-            ) : restoreSuccess ? (
-              <Text style={[styles.restoreText, { color: Colors.dark.successNeon }]}>Purchases restored</Text>
-            ) : (
-              <Text style={styles.restoreText}>Restore purchases</Text>
-            )}
-          </Pressable>
+              {isLoading ? (
+                <ActivityIndicator color={ACCENT} style={{ marginVertical: Spacing.lg }} />
+              ) : (
+                <View style={styles.planRow}>
+                  {monthlyPkg ? (
+                    <Pressable
+                      style={[
+                        styles.planCard,
+                        selectedPackageType === "monthly" && styles.planCardSelected,
+                      ]}
+                      onPress={() => setSelectedPackageType("monthly")}
+                    >
+                      <Text style={styles.planLabel}>Monthly</Text>
+                      <Text style={styles.planPrice}>{monthlyPkg.product.priceString}</Text>
+                      <Text style={styles.planPer}>/ month</Text>
+                    </Pressable>
+                  ) : null}
+
+                  {yearlyPkg ? (
+                    <Pressable
+                      style={[
+                        styles.planCard,
+                        selectedPackageType === "yearly" && styles.planCardSelected,
+                      ]}
+                      onPress={() => setSelectedPackageType("yearly")}
+                    >
+                      <View style={styles.bestValueBadge}>
+                        <Text style={styles.bestValueText}>Best Value</Text>
+                      </View>
+                      <Text style={styles.planLabel}>Yearly</Text>
+                      <Text style={styles.planPrice}>{yearlyPkg.product.priceString}</Text>
+                      <Text style={styles.planPer}>/ year</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              )}
+
+              <Pressable
+                style={[styles.upgradeButton, (isPurchasing || isLoading || !selectedPkg) && styles.upgradeButtonDisabled]}
+                onPress={handlePurchase}
+                disabled={isPurchasing || isLoading || !selectedPkg}
+              >
+                {isPurchasing ? (
+                  <ActivityIndicator color="#000" size="small" />
+                ) : (
+                  <Text style={styles.upgradeButtonText}>
+                    {selectedPkg ? `Subscribe — ${selectedPkg.product.priceString}` : "Subscribe to AI Pro"}
+                  </Text>
+                )}
+              </Pressable>
+
+              <Pressable style={styles.cancelButton} onPress={onClose}>
+                <Text style={styles.cancelText}>Maybe later</Text>
+              </Pressable>
+
+              <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={isRestoring}>
+                {isRestoring ? (
+                  <ActivityIndicator color={Colors.dark.textMuted} size="small" />
+                ) : restoreSuccess ? (
+                  <Text style={[styles.restoreText, { color: Colors.dark.successNeon }]}>Purchases restored</Text>
+                ) : (
+                  <Text style={styles.restoreText}>Restore purchases</Text>
+                )}
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     </Modal>
