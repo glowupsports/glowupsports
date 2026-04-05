@@ -63,6 +63,17 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    // Forward all non-mockup, non-Vite-internal requests to the main Express app.
+    // This is necessary because Replit routes external traffic to this Vite server
+    // (port 80) as the primary port. Requests for the actual app (e.g. /coach/...)
+    // need to pass through to Express on port 5000.
+    proxy: {
+      "^/(?!__mockup|@vite|@react-refresh|@id|@fs|node_modules)": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   preview: {
     port,
