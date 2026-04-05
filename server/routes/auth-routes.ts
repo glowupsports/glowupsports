@@ -1140,13 +1140,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         });
 
         // Update player with user info — include academyId so the player is
-        // visible in the academy immediately after registration
+        // visible in the academy immediately after registration.
+        // IMPORTANT: compose full name here — players table has a single `name`
+        // column, not separate firstName/lastName columns, so we must join them.
+        const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
         await storage.updatePlayer(
           playerId,
           {
+            name: fullName,
             email: email.toLowerCase().trim(),
-            firstName,
-            lastName,
             phone: phone || undefined,
             academyId: playerInvite.academyId,
           },

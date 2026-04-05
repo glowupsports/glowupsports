@@ -584,6 +584,43 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] americano_standings migration skipped:', e.message);
   }
+  // One-time repair: find players whose players.name exactly matches their
+  // users.username (case-insensitive). This happens when a coach creates a
+  // player with a placeholder/username-style name and the invite-claim signup
+  // failed to overwrite it with the real first+last name.
+  // We convert the username to a readable title-case name as a best-effort
+  // fallback (e.g. "john_smith" → "John Smith", "Anarchist" → "Anarchist").
+  // Coaches can then correct these via the player edit screen.
+  try {
+    const affected = await pool.query(`
+      SELECT p.id, p.name, u.username, u.email
+      FROM players p
+      JOIN users u ON u.player_id = p.id
+      WHERE LOWER(p.name) = LOWER(u.username)
+        AND u.deleted IS NOT TRUE
+    `);
+    if (affected.rows.length > 0) {
+      let fixed = 0;
+      for (const row of affected.rows) {
+        // Convert username to title-case name: replace _ with space, capitalise words
+        const betterName = row.username
+          .replace(/_/g, ' ')
+          .replace(/([a-z])([A-Z])/g, '$1 $2')
+          .replace(/\b\w/g, (c: string) => c.toUpperCase())
+          .trim();
+        await pool.query(
+          `UPDATE players SET name = $1 WHERE id = $2`,
+          [betterName, row.id]
+        );
+        fixed++;
+      }
+      console.log(`[PlayerNameRepair] Fixed ${fixed} player(s) whose name matched their username`);
+    } else {
+      console.log('[PlayerNameRepair] No players found with username-matching name — all good');
+    }
+  } catch (e: any) {
+    console.log('[PlayerNameRepair] Skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
