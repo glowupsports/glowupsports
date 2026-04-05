@@ -789,7 +789,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
             <Text style={styles.modalTitle}>Sessions Become Debts</Text>
             {forceDeleteInfo && (
               <Text style={styles.deleteMessage}>
-                {forceDeleteInfo.creditsUsed} pre-paid session{forceDeleteInfo.creditsUsed !== 1 ? "s" : ""} will be converted to debts for {playerName}. They will need a new package to settle them. This also removes any associated billing records.
+                {forceDeleteInfo.creditsUsed} used credit{forceDeleteInfo.creditsUsed !== 1 ? "s" : ""} will be converted to a debt for {playerName}. They will need a new package to settle it. This also removes any associated billing records.
               </Text>
             )}
             <View style={styles.modalButtons}>
