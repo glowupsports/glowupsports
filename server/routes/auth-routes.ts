@@ -1296,4 +1296,90 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+// ==================== DEV PREVIEW AUTO-LOGIN (development only) ====================
+router.get("/dev-preview", async (req: Request, res: Response) => {
+  const isDev = process.env.NODE_ENV !== "production";
+  if (!isDev) {
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  const role = (req.query.role as string) || "coach";
+
+  try {
+    let previewUser: {
+      userId: string; email: string; role: string;
+      academyId: string | null; coachId: string | null; playerId: string | null;
+      username: string; displayName: string;
+    } | null = null;
+
+    if (role === "coach") {
+      previewUser = {
+        userId: "3750b8a8-f35b-49c6-ac87-7fd3e6d56db1",
+        email: "ltvjeugd@gmail.com",
+        role: "platform_owner",
+        academyId: "default-academy",
+        coachId: "coach-thelaw-001",
+        playerId: "player-thelaw-001",
+        username: "thelaw",
+        displayName: "The Law",
+      };
+    } else if (role === "player") {
+      const playerUser = await db.select().from(users).where(
+        and(isNotNull(users.playerId), eq(users.role, "player"))
+      ).limit(1);
+      if (playerUser.length > 0) {
+        const u = playerUser[0];
+        previewUser = {
+          userId: u.id, email: u.email || "", role: u.role,
+          academyId: u.academyId || null, coachId: u.coachId || null,
+          playerId: u.playerId || null, username: u.username,
+          displayName: u.username,
+        };
+      }
+    }
+
+    if (!previewUser) {
+      return res.status(404).json({ error: "No preview user found for role: " + role });
+    }
+
+    const payload = {
+      userId: previewUser.userId, email: previewUser.email, role: previewUser.role,
+      academyId: previewUser.academyId, coachId: previewUser.coachId, playerId: previewUser.playerId,
+    };
+    const token = generateToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    const authUser = JSON.stringify({
+      id: previewUser.userId, username: previewUser.username, email: previewUser.email,
+      role: previewUser.role, academyId: previewUser.academyId, coachId: previewUser.coachId,
+      playerId: previewUser.playerId, displayName: previewUser.displayName,
+    });
+
+    const redirectPath = role === "player" ? "/player/home" : "/coach";
+
+    res.send(`<!DOCTYPE html>
+<html>
+<head><title>Loading Glow Up Sports...</title>
+<style>body{background:#000;color:#C8FF3D;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px}
+.dot{width:10px;height:10px;border-radius:50%;background:#C8FF3D;display:inline-block;animation:bounce 1.2s infinite}.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}</style></head>
+<body>
+<p style="font-size:20px;font-weight:700;letter-spacing:2px">GLOW UP</p>
+<div><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+<script>
+  try {
+    localStorage.setItem('@auth_token', ${JSON.stringify(token)});
+    localStorage.setItem('@refresh_token', ${JSON.stringify(refreshToken)});
+    localStorage.setItem('@auth_user', ${JSON.stringify(authUser)});
+    localStorage.setItem('@current_academy_id', ${JSON.stringify(previewUser.academyId || "default-academy")});
+  } catch(e) { console.error('localStorage error', e); }
+  setTimeout(function() { window.location.replace(${JSON.stringify(redirectPath)}); }, 100);
+</script>
+</body></html>`);
+  } catch (error) {
+    console.error("Dev preview error:", error);
+    res.status(500).json({ error: "Dev preview failed" });
+  }
+});
+
 export default router;
