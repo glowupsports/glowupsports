@@ -613,12 +613,13 @@ pool.query('SELECT 1').then(async () => {
         // Derive best-effort name from email local-part, splitting on separators
         const localPart = (row.email || '').split('@')[0] || row.username;
         const parts = localPart.split(/[._\-+]/).filter((p: string) => p.length > 0);
-        // Always update — multi-token gets a real spaced name; single-token
-        // gets a title-cased fallback that the coach can refine
         const betterName = parts.length >= 2
           ? parts.map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
           : localPart.charAt(0).toUpperCase() + localPart.slice(1).toLowerCase();
-        await pool.query(`UPDATE players SET name = $1 WHERE id = $2`, [betterName, row.id]);
+        // Skip the UPDATE if the name wouldn't change (avoids repeated writes for single-token cases)
+        if (betterName !== row.name) {
+          await pool.query(`UPDATE players SET name = $1 WHERE id = $2`, [betterName, row.id]);
+        }
         if (parts.length >= 2) {
           autoFixed++;
         } else {
