@@ -585,36 +585,49 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] americano_standings migration skipped:', e.message);
   }
   // One-time repair: find players whose players.name exactly matches their
-  // users.username (case-insensitive). This happens when a coach creates a
-  // player with a placeholder/username-style name and the invite-claim signup
-  // failed to overwrite it with the real first+last name.
-  // We convert the username to a readable title-case name as a best-effort
-  // fallback (e.g. "john_smith" → "John Smith", "Anarchist" → "Anarchist").
-  // Coaches can then correct these via the player edit screen.
+  // users.username (case-insensitive) AND whose name has no spaces.
+  // Legitimate full names always contain at least one space; single-word names
+  // that equal the username are placeholder/username-style values left behind
+  // when the invite-claim signup failed to save the player's real first+last name.
+  //
+  // Idempotency: the WHERE restricts to names with NO spaces. After this repair:
+  //  - Multi-component emails ("john.doe@...") → "John Doe" (has a space → no longer matches)
+  //  - Single-component emails ("anarchist@...") → not updated by code, logged for coach action
+  // So on subsequent boots the WHERE finds 0 rows and is a true no-op.
   try {
     const affected = await pool.query(`
       SELECT p.id, p.name, u.username, u.email
       FROM players p
       JOIN users u ON u.player_id = p.id
-      WHERE LOWER(p.name) = LOWER(u.username)
+      WHERE LOWER(p.name) = u.username
+        AND p.name NOT LIKE '% %'
         AND u.deleted IS NOT TRUE
     `);
     if (affected.rows.length > 0) {
       let fixed = 0;
+      const needsManualFix: string[] = [];
       for (const row of affected.rows) {
-        // Convert username to title-case name: replace _ with space, capitalise words
-        const betterName = row.username
-          .replace(/_/g, ' ')
-          .replace(/([a-z])([A-Z])/g, '$1 $2')
-          .replace(/\b\w/g, (c: string) => c.toUpperCase())
-          .trim();
-        await pool.query(
-          `UPDATE players SET name = $1 WHERE id = $2`,
-          [betterName, row.id]
-        );
-        fixed++;
+        // Try to derive a real name from the email local-part (e.g. "john.doe@" → "John Doe")
+        const localPart = (row.email || '').split('@')[0] || '';
+        const parts = localPart.split(/[._\-+]/).filter((p: string) => p.length > 0);
+        if (parts.length >= 2) {
+          // Email has separators → construct a spaced name: "John Doe"
+          const betterName = parts
+            .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+            .join(' ');
+          await pool.query(`UPDATE players SET name = $1 WHERE id = $2`, [betterName, row.id]);
+          fixed++;
+        } else {
+          // Cannot determine real name automatically — log for coach to correct manually
+          needsManualFix.push(`${row.id} (current name: "${row.name}")`);
+        }
       }
-      console.log(`[PlayerNameRepair] Fixed ${fixed} player(s) whose name matched their username`);
+      if (fixed > 0) {
+        console.log(`[PlayerNameRepair] Auto-fixed ${fixed} player(s) using email-derived name`);
+      }
+      if (needsManualFix.length > 0) {
+        console.log(`[PlayerNameRepair] ${needsManualFix.length} player(s) need manual name correction by coach: ${needsManualFix.join(', ')}`);
+      }
     } else {
       console.log('[PlayerNameRepair] No players found with username-matching name — all good');
     }
