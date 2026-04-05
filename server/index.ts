@@ -376,7 +376,7 @@ function setupExpoDevProxy(app: express.Application) {
 
   const templateRoutes = ['/support', '/privacy', '/privacy-policy', '/delete-account', '/dev-preview'];
   app.use((req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets') || req.path.startsWith('/public')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/public')) {
       return next();
     }
     if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/') || req.path.startsWith('/invite/')) {
