@@ -391,7 +391,7 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path === '/landing') {
       return next();
     }
-    if (req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
+    if (req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico') || req.path.endsWith('.jpg') || req.path.endsWith('.jpeg') || req.path.endsWith('.svg') || req.path.endsWith('.webp') || req.path.endsWith('.gif')) {
       return next();
     }
     resolveExpoPort().then((port) => {
