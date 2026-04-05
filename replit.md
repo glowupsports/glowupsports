@@ -13,6 +13,8 @@ Preferred communication style: Simple, everyday language.
 - Major release → bump major: 1.x.x → 2.0.0
 - ALWAYS update both `"version"` AND `"runtimeVersion"` in app.json
 - Current version after last submit (build #15): **1.3.4** (ready for next build — bumped for RevenueCat fix)
+- **EAS build number is at 21** (auto-incremented from failed upload attempts; next successful build will be #22)
+- **IMPORTANT**: To build v1.3.4, open the Replit Shell and run: `CI=1 node_modules/.bin/eas build --platform ios --profile production --non-interactive --no-wait` (the Shell has no timeout unlike automated tools)
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
 **Every `.local/tasks/*.md` plan file MUST have one of these lines near the top (under "Done looks like" or as its own section):**

@@ -2,42 +2,65 @@
 # Only include Expo app source + assets
 
 # Node / package managers
+node_modules
 node_modules/
+/node_modules
+/node_modules/
 npm-debug.log
 yarn-error.log
 pnpm-lock.yaml
 
 # Server / Backend (not needed for mobile build)
+server
 server/
 
 # Native directories (CNG/Prebuild generates these)
+android
 /android
+ios
 /ios
 
 # Expo / Metro
+.expo
 .expo/
-.expo-shared/
-web-build/
-dist/
+.expo-shared
+web-build
+dist
 
 # Git
+.git
 .git/
 .gitignore
 
-# Replit specific
+# Replit specific - ALL variants for hidden dirs
 .replit
 replit.nix
+.cache
 .cache/
+/.cache
+/.cache/
+**/.cache
+.local
 .local/
+/.local
+/.local/
+**/.local
+.local/state
+.local/state/
+.upm
 .upm/
+.config
 .config/
 .env
 .env.*
+nohup.out
 
 # OS / Editor
 .DS_Store
 Thumbs.db
+.vscode
 .vscode/
+.idea
 .idea/
 
 # Logs
@@ -54,6 +77,7 @@ coverage/
 *.spec.tsx
 
 # Attachments / Assets not needed
+attached_assets
 attached_assets/
 screenshots/
 docs/
@@ -64,10 +88,17 @@ drizzle.config.ts
 migrations/
 
 # Build artifacts (Replit web deployment, not needed for native)
+static-build
 static-build/
+server_dist
 server_dist/
 
+# Replit canvas / mockup sandbox artifacts
+artifacts
+artifacts/
+
 # Server uploads (user-uploaded files, handled server-side)
+uploads
 uploads/
 
 # GitHub
