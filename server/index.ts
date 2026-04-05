@@ -795,6 +795,8 @@ function configureExpoAndLanding(app: express.Application) {
     next();
   });
 
+  setupExpoDevProxy(app);
+
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
 
   // Authenticated uploads file serving
@@ -902,7 +904,6 @@ function setupErrorHandler(app: express.Application) {
   });
   app.use("/api", globalApiLimiter);
 
-  setupExpoDevProxy(app);
   configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
