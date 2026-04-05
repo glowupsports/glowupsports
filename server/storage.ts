@@ -7335,6 +7335,29 @@ export const storage = {
           })
           .where(eq(packages.id, packageToUse.id));
         
+        // Atomically stamp credit_deducted_at and credit_transaction_id on the session_player row.
+        // This keeps the idempotency guard and repairAllPlayerCredits consistent.
+        const txIdResult = await tx.execute(sql`
+          SELECT id FROM credit_transactions
+          WHERE player_id = ${playerId}
+            AND session_id = ${sessionId}
+            AND package_id = ${packageToUse.id}
+            AND amount < 0
+            AND (metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+        const consumedTxId = (txIdResult.rows[0] as any)?.id || null;
+        if (consumedTxId) {
+          await tx.execute(sql`
+            UPDATE session_players
+            SET credit_deducted_at = COALESCE(credit_deducted_at, NOW()),
+                credit_transaction_id = COALESCE(credit_transaction_id, ${consumedTxId})
+            WHERE player_id = ${playerId}
+              AND session_id = ${sessionId}
+          `);
+        }
+        
         console.log(`[Credits] Consumed 1 ${creditType} credit for player ${playerId}, session ${sessionId}. Balance: ${balanceBefore} -> ${balanceAfter}`);
         return true;
       });
@@ -11752,7 +11775,45 @@ async function repairAllPlayerCredits(): Promise<{
   }
 
   console.log(`[RepairCredits] Stuck sessions: ${stuckConsumed} consumed, ${stuckDebts} debts, ${stuckErrors} errors`);
-  
+
+  // THIRD PASS: Backfill credit_deducted_at/credit_transaction_id for session_players where
+  // credit_deducted_at IS NULL but a matching non-cancelled debit transaction already EXISTS.
+  // These were excluded from the first pass by the NOT EXISTS guard but still need stamping.
+  const needsStamp = await db.execute(sql`
+    SELECT sp.id, sp.player_id, sp.session_id
+    FROM session_players sp
+    WHERE sp.credit_deducted_at IS NULL
+      AND sp.credit_transaction_id IS NULL
+      AND sp.attendance_status IN ('present', 'late', 'absent')
+      AND EXISTS (
+        SELECT 1 FROM credit_transactions ct
+        WHERE ct.player_id = sp.player_id
+          AND ct.session_id = sp.session_id
+          AND ct.amount < 0
+          AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+      )
+    ORDER BY sp.id
+    LIMIT 500
+  `);
+
+  let stampedCount = 0;
+  for (const row of needsStamp.rows) {
+    const sp = row as any;
+    try {
+      // ensureCreditProcessed detects the existing transaction and links credit_deducted_at
+      const result = await ensureCreditProcessed(sp.id);
+      if (result.action === "already_processed" || result.action === "consumed") {
+        stampedCount++;
+      }
+    } catch (err: any) {
+      // Non-fatal — best-effort backfill
+      console.error(`[RepairCredits] Stamp backfill error for session_player ${sp.id}:`, err.message);
+    }
+  }
+  if (needsStamp.rows.length > 0) {
+    console.log(`[RepairCredits] Stamp backfill: ${stampedCount} of ${needsStamp.rows.length} session_players linked`);
+  }
+
   console.log(`[RepairCredits] Summary: ${results.processed} processed, ${results.consumed} consumed, ${results.debts} debts, ${results.notAttended} not_attended, ${results.alreadyProcessed} already_processed, ${results.errors.length} errors`);
   
   return results;

@@ -261,6 +261,17 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     return byType;
   }, [activePackages]);
 
+  const depletedByType = useMemo(() => {
+    const byType: Record<CreditType, boolean> = { group: false, private: false, semi_private: false };
+    pastPackages.forEach((p) => {
+      if (p.remainingCredits <= 0) {
+        const type = (p.creditType || "group") as CreditType;
+        byType[type] = true;
+      }
+    });
+    return byType;
+  }, [pastPackages]);
+
   const createMutation = useMutation({
     mutationFn: async (data: { 
       playerId: string; 
@@ -503,10 +514,22 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       <View style={styles.creditTypeRow}>
         {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
           const balance = creditBalance ? creditBalance[type] : creditsByType[type];
-          const dynamicColor = balance < 0 ? Colors.dark.error : balance === 0 ? Colors.dark.error : balance <= 2 ? Colors.dark.gold : "#22c55e";
+          const isDebt = balance < 0;
+          const isZeroWithDepletedPackage = balance === 0 && depletedByType[type];
+          const dynamicColor = isDebt
+            ? Colors.dark.error
+            : isZeroWithDepletedPackage
+            ? Colors.dark.gold
+            : balance === 0
+            ? Colors.dark.error
+            : balance <= 2
+            ? Colors.dark.gold
+            : "#22c55e";
           return (
             <View key={type} style={styles.creditTypeItem}>
-              <Text style={[styles.creditTypeValue, { color: dynamicColor }]}>{balance}</Text>
+              <Text style={[styles.creditTypeValue, { color: dynamicColor }]}>
+                {isZeroWithDepletedPackage ? "Dep." : balance}
+              </Text>
               <Text style={styles.creditTypeLabel}>{CREDIT_TYPE_LABELS[type]}</Text>
             </View>
           );
