@@ -2996,6 +2996,16 @@ async function autoCancel(
         }
       }
 
+      // Cancel ghost debt for players who attended without an active package
+      for (const sp of sessionPlayersForRefund) {
+        if (!sp.creditDeductedAt) {
+          const debtResult = await storage.cancelSessionDebt(sp.playerId, id);
+          if (debtResult.cancelled) {
+            console.log(`[Cancel PATCH] Cancelled ghost debt for player ${sp.playerId}, session ${id}`);
+          }
+        }
+      }
+
       // Invalidate server-side caches
       const cancelCoachId = req.user!.coachId || session.coachId;
       if (cancelCoachId) {

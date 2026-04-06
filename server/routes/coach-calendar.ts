@@ -991,7 +991,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     orange: "ORANGE_3",
     green: "GREEN_3",
     yellow: "YELLOW_3",
-    glow: "GLOW",
+    glow: "YELLOW_1",
   };
 
   router.get(
@@ -1437,6 +1437,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        // Cancel ghost debt for players who attended without an active package
+        // (creditDeductedAt is null = no package credit was consumed = potential debt transaction)
+        for (const sp of sessionPlayersForRefund) {
+          if (!sp.creditDeductedAt) {
+            const debtResult = await storage.cancelSessionDebt(sp.playerId, id);
+            if (debtResult.cancelled) {
+              console.log(`[Cancel] Cancelled ghost debt for player ${sp.playerId}, session ${id}`);
+            }
+          }
+        }
+
         // Audit log
         await storage.createAuditLog({
           entityType: "session",
@@ -1582,6 +1593,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   ]),
                 });
               }
+            }
+          }
+        }
+
+        // Cancel ghost debt for players who attended without an active package
+        const lastMinutePlayers = await storage.getSessionPlayers(id);
+        for (const sp of lastMinutePlayers) {
+          if (!sp.creditDeductedAt) {
+            const debtResult = await storage.cancelSessionDebt(sp.playerId, id);
+            if (debtResult.cancelled) {
+              console.log(`[LastMinuteCancel] Cancelled ghost debt for player ${sp.playerId}, session ${id}`);
             }
           }
         }
