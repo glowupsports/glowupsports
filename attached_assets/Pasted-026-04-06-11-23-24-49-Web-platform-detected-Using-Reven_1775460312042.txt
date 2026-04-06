@@ -1,0 +1,150 @@
+026-04-06 11:23:24.49
+Web platform detected. Using RevenueCat in Browser Mode.
+2026-04-06 11:23:24.49
+=== ENV STATUS ===
+2026-04-06 11:23:24.49
+EXPO_PUBLIC_API_URL:
+https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev:5000
+2026-04-06 11:23:24.49
+EXPO_PUBLIC_DOMAIN:
+81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev:5000
+2026-04-06 11:23:24.49
+EXPO_PUBLIC_ENV:
+development
+2026-04-06 11:23:24.49
+==================
+2026-04-06 11:23:24.49
+"shadow*" style props are deprecated. Use "boxShadow".
+2026-04-06 11:23:24.49
+"textShadow*" style props are deprecated. Use "textShadow".
+2026-04-06 11:23:24.49
+[expo-notifications] Listening to push token changes is not yet fully supported on web. Adding a listener will have no effect.
+2026-04-06 11:23:24.49
+[RevenueCat] [Purchases] Initializing Purchases SDK with RC Test store API Key.
+2026-04-06 11:23:24.49
+[RevenueCat] Configured
+2026-04-06 11:23:24.49
+Running application "main" with appParams:
+{rootTag: "#root"}
+Development-level warnings: ON. Performance optimizations: OFF.
+2026-04-06 11:23:24.49
+Running application "main" with appParams:
+{rootTag: "#root"}
+Development-level warnings: ON. Performance optimizations: OFF.
+2026-04-06 11:23:24.49
+{}
+2026-04-06 11:23:24.49
+{}
+2026-04-06 11:23:24.49
+{}
+2026-04-06 11:23:24.49
+🌐 i18next is maintained with support from Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+2026-04-06 11:23:24.49
+🌐 i18next is maintained with support from Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+2026-04-06 11:23:24.49
+🌐 i18next is maintained with support from Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+2026-04-06 11:23:24.49
+🌐 i18next is maintained with support from Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+2026-04-06 11:23:24.49
+[AuthContext] Starting auth init...
+2026-04-06 11:23:24.49
+[AuthContext] Loaded auth state:
+{hasToken: true, hasUser: true}
+2026-04-06 11:23:24.49
+[AuthContext] Fetching user data...
+2026-04-06 11:23:29.18
+[AuthContext] Received user data:
+{hasUser: true, hasCoach: true, hasAcademy: true}
+2026-04-06 11:23:29.18
+[AuthContext] Setting modes for role:
+platform_owner
+modes:
+(6) ["platform", "academy_owner", "admin", "coach", "player", "service_provider"]
+default:
+platform
+2026-04-06 11:23:29.18
+[AuthContext] Fetch user data result:
+true
+2026-04-06 11:23:29.18
+[AuthContext] User authenticated successfully
+2026-04-06 11:23:29.18
+[AuthContext] Setting isLoading to false
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md
+2026-04-06 11:23:29.18
+[NavigationContainerWithRef] Navigation ready, registering ref
+2026-04-06 11:23:43.96
+{message: "A network error occurred."}
+2026-04-06 11:23:43.96
+[PlayerContext] dateOfBirth:
+1987-09-16
+isBirthday:
+false
+today:
+2026-04-06T07:23:37.930Z
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+props.pointerEvents is deprecated. Use style.pointerEvents
+2026-04-06 11:23:43.96
+{message: "6000ms timeout exceeded", stack: "Error: 6000ms timeout exceeded at https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/client/index.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:229283:19 at sentryWrapped (https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/client/index.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable:148492:19)"}
