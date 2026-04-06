@@ -298,6 +298,93 @@ import {
   type InsertPlayerDeepAssessment,
   // Glow Skills
   glowSkills,
+  // Booking invites
+  bookingInvites,
+  bookingInviteGuests,
+  // Open matches
+  openMatches,
+  openMatchSlots,
+  matchRequests,
+  playerBookingPreferences,
+  // Lesson groups
+  lessonGroupMembers,
+  // Player level events
+  playerLevelEvents,
+  // Adult glow matches
+  adultGlowMatches,
+  adultSkillAssessments,
+  // Session waitlist & squads
+  sessionWaitlist,
+  squadMembers,
+  // Player gamification
+  playerBadges,
+  playerTitles,
+  playerQuests,
+  dailyQuestSlots,
+  playerStreaks,
+  // Shop
+  shopOrders,
+  shopOrderItems,
+  shopWishlist,
+  // Provider notes
+  providerClientNotes,
+  providerClientPreferences,
+  // Marketplace
+  marketplaceListings,
+  marketplaceFavorites,
+  marketplaceMessages,
+  sellerProfiles,
+  // Ball levels & skill scoring
+  playerBallLevels,
+  playerSkillScores,
+  levelTrials,
+  sessionSkillFeedback,
+  // Match intelligence
+  matchLogs,
+  skillEvidence,
+  levelUpEvents,
+  matches,
+  matchOpponents,
+  matchPlans,
+  matchChallenges,
+  matchReflections,
+  matchPillarScores,
+  coachMatchReviews,
+  matchTrainingSuggestions,
+  // Player XP / level up
+  playerXpEvents,
+  playerLevelUpCelebrations,
+  playerFeatureUnlockHistory,
+  // Deep assessment
+  deepAssessmentPillarSummaries,
+  // Spotlight
+  spotlightNominations,
+  spotlightWeeklyWinners,
+  spotlightMonthlyWinners,
+  // Tournaments & ladders
+  tournaments,
+  tournamentParticipants,
+  tournamentMatches,
+  ladderPlayers,
+  ladderChallenges,
+  // Beta & video feedback
+  betaFeedback,
+  videoFeedback,
+  // Play requests
+  playRequests,
+  playRequestParticipants,
+  // Live matches
+  liveMatches,
+  // AI
+  sessionAiSummaries,
+  playerAiInsights,
+  sessionAiChats,
+  // Equipment rentals
+  equipmentRentals,
+  // Family invite codes
+  familyInviteCodes,
+  // Player notifications
+  playerNotifications,
 } from "@shared/schema";
 
 export const storage = {
@@ -1918,53 +2005,254 @@ export const storage = {
       // Delete credit transactions first — they FK-reference session_players, packages, and players
       await db.delete(creditTransactions).where(eq(creditTransactions.playerId, id));
 
-      // Delete all related records in order to satisfy foreign key constraints
-      // First batch: tables with no further dependencies
+      // ---------------------------------------------------------------
+      // Batch A: Pure leaf tables — no other table FKs reference them
+      // ---------------------------------------------------------------
       await Promise.all([
-        // Player invites (MUST be deleted to avoid FK constraint errors)
+        // Player invites
         db.delete(playerInvites).where(eq(playerInvites.playerId, id)),
-        // Progress Engine V2 tables
+        // Progress Engine V2
         db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.playerId, id)),
         db.delete(playerSkillState).where(eq(playerSkillState.playerId, id)),
         db.delete(playerProgressFlags).where(eq(playerProgressFlags.playerId, id)),
         db.delete(domainAssessments).where(eq(domainAssessments.playerId, id)),
         db.delete(xpTransactions).where(eq(xpTransactions.playerId, id)),
-        // Core tables (sessionFeedback has no playerId - it's session-level)
+        // Core
         db.delete(playerNotes).where(eq(playerNotes.playerId, id)),
         db.delete(playerProgress).where(eq(playerProgress.playerId, id)),
         db.delete(playerHolidays).where(eq(playerHolidays.playerId, id)),
         db.delete(sessionPlayers).where(eq(sessionPlayers.playerId, id)),
         db.delete(playerSessionCancellations).where(eq(playerSessionCancellations.playerId, id)),
-        // Booking and transfers (academyApplications has no playerId - it's for academy applications)
+        // Booking and transfers
         db.delete(bookingRequests).where(eq(bookingRequests.playerId, id)),
         db.delete(joinRequests).where(eq(joinRequests.playerId, id)),
         db.delete(academyTransferRequests).where(eq(academyTransferRequests.playerId, id)),
-        // Chat - participants and reactions
+        // Chat
         db.delete(conversationParticipants).where(eq(conversationParticipants.playerId, id)),
         db.delete(messageReactions).where(eq(messageReactions.reactorPlayerId, id)),
         // Coach reviews and prompts
         db.delete(coachReviews).where(eq(coachReviews.playerId, id)),
         db.delete(reviewPrompts).where(eq(reviewPrompts.playerId, id)),
-        // Player matches (initiator or receiver)
+        // Player matches / connections
         db.delete(playerMatches).where(
           or(eq(playerMatches.initiatorId, id), eq(playerMatches.receiverId, id))
         ),
-        // Player connections (either party)
         db.delete(playerConnections).where(
           or(eq(playerConnections.player1Id, id), eq(playerConnections.player2Id, id))
         ),
-        // Court bookings
-        db.delete(courtBookings).where(eq(courtBookings.playerId, id)),
-        // Note: coachEarnings has no playerId - it's coach-level
+        // Booking invite guests where this player is a guest
+        db.delete(bookingInviteGuests).where(eq(bookingInviteGuests.playerId, id)),
+        // Open match slots where this player is a participant (non-host)
+        db.delete(openMatchSlots).where(eq(openMatchSlots.playerId, id)),
+        // Play request participants where this player joined someone else's request
+        db.delete(playRequestParticipants).where(eq(playRequestParticipants.playerId, id)),
+        // Match requests (creator or invited/matched party)
+        db.delete(matchRequests).where(
+          or(
+            eq(matchRequests.playerId, id),
+            eq(matchRequests.invitedPlayerId, id),
+            eq(matchRequests.matchedWithPlayerId, id)
+          )
+        ),
+        // Player booking preferences
+        db.delete(playerBookingPreferences).where(eq(playerBookingPreferences.playerId, id)),
+        // Lesson group members
+        db.delete(lessonGroupMembers).where(eq(lessonGroupMembers.playerId, id)),
+        // Player level events
+        db.delete(playerLevelEvents).where(eq(playerLevelEvents.playerId, id)),
+        // Adult glow matches (player or opponent)
+        db.delete(adultGlowMatches).where(
+          or(eq(adultGlowMatches.playerId, id), eq(adultGlowMatches.opponentId, id))
+        ),
+        // Adult skill assessments
+        db.delete(adultSkillAssessments).where(eq(adultSkillAssessments.playerId, id)),
+        // Session waitlist
+        db.delete(sessionWaitlist).where(eq(sessionWaitlist.playerId, id)),
+        // Squad members
+        db.delete(squadMembers).where(eq(squadMembers.playerId, id)),
+        // Player gamification
+        db.delete(playerBadges).where(eq(playerBadges.playerId, id)),
+        db.delete(playerTitles).where(eq(playerTitles.playerId, id)),
+        db.delete(playerStreaks).where(eq(playerStreaks.playerId, id)),
+        // Shop wishlist
+        db.delete(shopWishlist).where(eq(shopWishlist.playerId, id)),
+        // Provider client notes & preferences
+        db.delete(providerClientNotes).where(eq(providerClientNotes.playerId, id)),
+        db.delete(providerClientPreferences).where(eq(providerClientPreferences.playerId, id)),
+        // Marketplace favorites
+        db.delete(marketplaceFavorites).where(eq(marketplaceFavorites.playerId, id)),
+        // Marketplace messages (sender or recipient)
+        db.delete(marketplaceMessages).where(
+          or(eq(marketplaceMessages.senderId, id), eq(marketplaceMessages.recipientId, id))
+        ),
+        // Ball levels & skill scoring
+        db.delete(playerBallLevels).where(eq(playerBallLevels.playerId, id)),
+        db.delete(playerSkillScores).where(eq(playerSkillScores.playerId, id)),
+        db.delete(sessionSkillFeedback).where(eq(sessionSkillFeedback.playerId, id)),
+        // Match intelligence sub-tables (before matches)
+        db.delete(matchLogs).where(
+          or(eq(matchLogs.playerId, id), eq(matchLogs.opponentPlayerId, id))
+        ),
+        db.delete(skillEvidence).where(eq(skillEvidence.playerId, id)),
+        // Match challenges (challenger, opponent, or winner)
+        db.delete(matchChallenges).where(
+          or(
+            eq(matchChallenges.challengerId, id),
+            eq(matchChallenges.opponentId, id),
+            eq(matchChallenges.winnerPlayerId, id)
+          )
+        ),
+        // Player XP / level up
+        db.delete(playerXpEvents).where(eq(playerXpEvents.playerId, id)),
+        db.delete(playerLevelUpCelebrations).where(eq(playerLevelUpCelebrations.playerId, id)),
+        db.delete(playerFeatureUnlockHistory).where(eq(playerFeatureUnlockHistory.playerId, id)),
+        // Deep assessment pillar summaries
+        db.delete(deepAssessmentPillarSummaries).where(eq(deepAssessmentPillarSummaries.playerId, id)),
+        // Spotlight nominations (nominator or nominated)
+        db.delete(spotlightNominations).where(
+          or(
+            eq(spotlightNominations.nominatorPlayerId, id),
+            eq(spotlightNominations.nominatedPlayerId, id)
+          )
+        ),
+        // Spotlight winners
+        db.delete(spotlightWeeklyWinners).where(eq(spotlightWeeklyWinners.playerId, id)),
+        db.delete(spotlightMonthlyWinners).where(eq(spotlightMonthlyWinners.playerId, id)),
+        // Tournament participants
+        db.delete(tournamentParticipants).where(eq(tournamentParticipants.playerId, id)),
+        // Ladder players
+        db.delete(ladderPlayers).where(eq(ladderPlayers.playerId, id)),
+        // Ladder challenges (challenger, challenged, or winner)
+        db.delete(ladderChallenges).where(
+          or(
+            eq(ladderChallenges.challengerId, id),
+            eq(ladderChallenges.challengedId, id),
+            eq(ladderChallenges.winnerId, id)
+          )
+        ),
+        // Beta feedback
+        db.delete(betaFeedback).where(eq(betaFeedback.playerId, id)),
+        // Video feedback
+        db.delete(videoFeedback).where(eq(videoFeedback.playerId, id)),
+        // AI summaries / insights / chats
+        db.delete(sessionAiSummaries).where(eq(sessionAiSummaries.playerId, id)),
+        db.delete(playerAiInsights).where(eq(playerAiInsights.playerId, id)),
+        db.delete(sessionAiChats).where(eq(sessionAiChats.playerId, id)),
+        // Equipment rentals
+        db.delete(equipmentRentals).where(eq(equipmentRentals.playerId, id)),
+        // Series players
+        db.delete(seriesPlayers).where(eq(seriesPlayers.playerId, id)),
+        // Family invite codes (host or used_by)
+        db.delete(familyInviteCodes).where(
+          or(
+            eq(familyInviteCodes.parentPlayerId, id),
+            eq(familyInviteCodes.usedByPlayerId, id)
+          )
+        ),
+        // Player notifications
+        db.delete(playerNotifications).where(eq(playerNotifications.playerId, id)),
+        // Player deep assessments
+        db.delete(playerDeepAssessments).where(eq(playerDeepAssessments.playerId, id)),
+        // Player baseline skill scores
+        db.delete(playerBaselineSkillScores).where(eq(playerBaselineSkillScores.playerId, id)),
+        // Player pillar progress
+        db.delete(playerPillarProgress).where(eq(playerPillarProgress.playerId, id)),
+        // In-session feedback
+        db.delete(inSessionFeedback).where(eq(inSessionFeedback.playerId, id)),
+        // Corporate members (nullable playerId — unlink player reference)
+        db.update(corporateMembers).set({ playerId: null }).where(eq(corporateMembers.playerId, id)),
+        // Corporate credit transactions (nullable playerId — unlink)
+        db.update(corporateCreditTransactions).set({ playerId: null }).where(eq(corporateCreditTransactions.playerId, id)),
       ]);
-      
-      // Second batch: chat messages and parent relations
+
+      // ---------------------------------------------------------------
+      // Batch B: Tables that reference other player-owned rows deleted above
+      // ---------------------------------------------------------------
+      // daily_quest_slots references player_quests, so delete slots first
+      await db.delete(dailyQuestSlots).where(eq(dailyQuestSlots.playerId, id));
+      await db.delete(playerQuests).where(eq(playerQuests.playerId, id));
+
+      // level_trials is referenced by level_up_events (via trialId), delete events first
+      await db.delete(levelUpEvents).where(eq(levelUpEvents.playerId, id));
+      await db.delete(levelTrials).where(eq(levelTrials.playerId, id));
+
+      // match_pillar_scores, match_reflections, coach_match_reviews, match_training_suggestions
+      // all reference matches.id — delete them before matches
+      // match_opponents is referenced by matches (opponentId) — delete matches first, then orphaned opponents
       await Promise.all([
-        db.delete(messages).where(eq(messages.senderPlayerId, id)),
-        db.delete(parentPlayerRelations).where(eq(parentPlayerRelations.playerId, id)),
+        db.delete(matchPillarScores).where(eq(matchPillarScores.playerId, id)),
+        db.delete(matchReflections).where(eq(matchReflections.playerId, id)),
+        db.delete(coachMatchReviews).where(eq(coachMatchReviews.playerId, id)),
+        db.delete(matchTrainingSuggestions).where(eq(matchTrainingSuggestions.playerId, id)),
+        // match_plans references match_opponents; delete plans before opponents
+        db.delete(matchPlans).where(eq(matchPlans.playerId, id)),
       ]);
-      
-      // Third batch: billing tables (order matters due to FKs)
+      await db.delete(matches).where(eq(matches.playerId, id));
+      // Orphaned matchOpponents rows owned by this player (no active match references remain)
+      await db.delete(matchOpponents).where(eq(matchOpponents.playerId, id));
+
+      // Marketplace: messages before listings, seller profile after listings
+      await db.delete(marketplaceListings).where(eq(marketplaceListings.sellerId, id));
+      await db.delete(sellerProfiles).where(eq(sellerProfiles.playerId, id));
+
+      // Play requests where this player is the CREATOR:
+      // Must delete ALL participant rows on those requests first (other players' participant rows)
+      await db.delete(playRequestParticipants).where(
+        inArray(playRequestParticipants.requestId,
+          db.select({ id: playRequests.id }).from(playRequests).where(eq(playRequests.creatorId, id))
+        )
+      );
+      await db.delete(playRequests).where(eq(playRequests.creatorId, id));
+
+      // Live matches: SET NULL on winnerId then delete creator rows
+      await db.update(liveMatches).set({ winnerId: null }).where(eq(liveMatches.winnerId, id));
+      await db.delete(liveMatches).where(eq(liveMatches.creatorId, id));
+
+      // Tournament matches: SET NULL on winner/player refs then leave parent rows (tournament-owned)
+      await db.update(tournamentMatches).set({ winnerId: null }).where(eq(tournamentMatches.winnerId, id));
+      await db.update(tournamentMatches).set({ player1Id: null }).where(eq(tournamentMatches.player1Id, id));
+      await db.update(tournamentMatches).set({ player2Id: null }).where(eq(tournamentMatches.player2Id, id));
+
+      // Tournaments: SET NULL on winner_id (tournament rows are academy-owned, not player-owned)
+      await db.update(tournaments).set({ winnerId: null }).where(eq(tournaments.winnerId, id));
+
+      // Booking invites where this player is the HOST:
+      // Must delete ALL guest rows on those invites first (other players' guest rows we didn't catch above)
+      await db.delete(bookingInviteGuests).where(
+        inArray(bookingInviteGuests.inviteId,
+          db.select({ id: bookingInvites.id }).from(bookingInvites).where(eq(bookingInvites.hostPlayerId, id))
+        )
+      );
+      await db.delete(bookingInvites).where(eq(bookingInvites.hostPlayerId, id));
+
+      // Open matches where this player is the HOST:
+      // Must delete ALL slot rows on those matches first (other players' slots we didn't catch above)
+      await db.delete(openMatchSlots).where(
+        inArray(openMatchSlots.matchId,
+          db.select({ id: openMatches.id }).from(openMatches).where(eq(openMatches.hostPlayerId, id))
+        )
+      );
+      await db.delete(openMatches).where(eq(openMatches.hostPlayerId, id));
+
+      // Court bookings: must come after bookingInvites and openMatches (which reference court_bookings.id)
+      await db.delete(courtBookings).where(eq(courtBookings.playerId, id));
+
+      // Player baselines (baseline skill scores already deleted above)
+      await db.delete(playerBaselines).where(eq(playerBaselines.playerId, id));
+
+      // ---------------------------------------------------------------
+      // Batch C: chat messages, conversations, and parent relations
+      // ---------------------------------------------------------------
+      // messages must be deleted before conversations (senderPlayerId FK)
+      // conversationParticipants already deleted in Batch A
+      await db.delete(messages).where(eq(messages.senderPlayerId, id));
+      // conversations.playerId is nullable — NULL it out (conversation is shared with coach/provider)
+      await db.update(conversations).set({ playerId: null }).where(eq(conversations.playerId, id));
+      await db.delete(parentPlayerRelations).where(eq(parentPlayerRelations.playerId, id));
+
+      // ---------------------------------------------------------------
+      // Batch D: billing tables (order matters due to FKs)
+      // ---------------------------------------------------------------
       await db.delete(paymentReminders).where(eq(paymentReminders.playerId, id));
       await db.delete(refunds).where(
         inArray(refunds.paymentId, 
@@ -1974,6 +2262,13 @@ export const storage = {
       await db.delete(payments).where(eq(payments.playerId, id));
       await db.delete(invoices).where(eq(invoices.playerId, id));
       await db.delete(playerSubscriptions).where(eq(playerSubscriptions.playerId, id));
+      // Shop order items: must be deleted before shop orders (no ON DELETE CASCADE)
+      await db.delete(shopOrderItems).where(
+        inArray(shopOrderItems.orderId,
+          db.select({ id: shopOrders.id }).from(shopOrders).where(eq(shopOrders.playerId, id))
+        )
+      );
+      await db.delete(shopOrders).where(eq(shopOrders.playerId, id));
       await db.delete(packages).where(eq(packages.playerId, id));
       
       // Update users table to unlink the player
