@@ -49,7 +49,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
-    sessionAiSummaries, playerAiInsights, sessionAiChats,
+    sessionAiSummaries, playerAiInsights,
     glowSkills, playerSkillScores,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
@@ -2631,7 +2631,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               { role: "system", content: systemPrompt },
               ...safeMessages,
             ],
-            max_tokens: 400,
+            max_tokens: 600,
             temperature: 0.6,
           });
           reply = response.choices?.[0]?.message?.content || null;
@@ -2668,10 +2668,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const { coachId } = auth;
         const {
-          messages,
           structured,
         }: {
-          messages: AiChatMessage[];
           structured: {
             sessionNote: string;
             overall: string;
@@ -2687,19 +2685,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             levelUpMessage: string;
           };
         } = req.body;
-
-        const safeMessages: AiChatMessage[] = (messages || []).filter(
-          (m): m is AiChatMessage => m.role === "user" || m.role === "assistant"
-        );
-
-        // 1. Save conversation to session_ai_chats
-        await db.insert(sessionAiChats).values({
-          sessionId,
-          playerId,
-          coachId,
-          messages: safeMessages,
-          committed: true,
-        });
 
         // 2. Write to in_session_feedback (AI session note) — idempotent upsert.
         // A partial unique index (in_session_feedback_ai_note_unique) ensures at most one

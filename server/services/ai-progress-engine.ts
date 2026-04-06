@@ -845,7 +845,7 @@ LANGUAGE RULE: ${ageInstruction}
 
 YOUR JOB:
 1. Ask what the main focus of today's session was.
-2. Ask 1-2 targeted follow-up questions per turn. Cover all four pillars before wrapping up:
+2. Ask 1-2 targeted follow-up questions per turn. Each question MUST reference what the coach just said (e.g. if they said "backhand was lazy", ask "You mentioned the backhand was lazy — was that consistency or technique?"). Do NOT ask a generic question the coach just answered. Cover all four pillars before wrapping up:
    - TECHNICAL: stroke mechanics, consistency, shot quality
    - TACTICAL: decision-making, game strategy, patterns of play
    - PHYSICAL: energy levels, movement, stamina, footwork
