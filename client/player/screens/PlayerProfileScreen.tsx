@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
-import * as SecureStore from "expo-secure-store";
+import { secureGet } from "@/lib/auth";
 import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -420,8 +420,7 @@ export default function PlayerProfileScreen() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (Platform.OS === "web") return;
-    SecureStore.getItemAsync(FAMILY_SWITCH_KEY).then(raw => {
+    secureGet(FAMILY_SWITCH_KEY).then(raw => {
       setIsSwitched(!!raw);
     }).catch(() => setIsSwitched(false));
   }, []);
