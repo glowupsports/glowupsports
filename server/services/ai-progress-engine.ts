@@ -810,7 +810,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     ? `Recent matches: ${recentMatches.map((m) => `${m.result} (${m.format}${m.opponentLevel ? ", vs " + m.opponentLevel : ""})`).join(", ")}.`
     : "";
 
-  const summaryInstruction = `After 4-8 coach exchanges covering all four pillars (Technical, Tactical, Physical, Mental), say "Here is what I'll save" and propose a JSON summary inside a code block:
+  const summaryInstruction = `After 4-8 coach exchanges covering all six pillars (Technical, Tactical, Physical, Mental, Social, Match), say "Here is what I'll save" and propose a JSON summary inside a code block:
 \`\`\`json
 {
   "sessionNote": "One sentence summarising what was worked on today.",
@@ -822,6 +822,8 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
   "tacticalPillar": 2,
   "physicalPillar": 1,
   "mentalPillar": 2,
+  "socialPillar": 1,
+  "matchPillar": 0,
   "skillRatings": [{"skillName": "...", "score": 1}],
   "levelUpFlag": false,
   "levelUpMessage": ""
@@ -845,11 +847,13 @@ LANGUAGE RULE: ${ageInstruction}
 
 YOUR JOB:
 1. Ask what the main focus of today's session was.
-2. Ask 1-2 targeted follow-up questions per turn. Each question MUST reference what the coach just said (e.g. if they said "backhand was lazy", ask "You mentioned the backhand was lazy — was that consistency or technique?"). Do NOT ask a generic question the coach just answered. Cover all four pillars before wrapping up:
+2. Ask 1-2 targeted follow-up questions per turn. Each question MUST reference what the coach just said (e.g. if they said "backhand was lazy", ask "You mentioned the backhand was lazy — was that consistency or technique?"). Do NOT ask a generic question the coach just answered. Cover all six pillars before wrapping up:
    - TECHNICAL: stroke mechanics, consistency, shot quality
    - TACTICAL: decision-making, game strategy, patterns of play
    - PHYSICAL: energy levels, movement, stamina, footwork
    - MENTAL: focus, composure under pressure, confidence, resilience
+   - SOCIAL: teamwork, communication, attitude, respect for coach/peers
+   - MATCH (Competition): match performance, scoring, competitive pressure, results
 3. Reference coach notes when relevant (e.g. "You've noted before that she struggles with composure — how was that today?").
 4. IMPORTANT: Do NOT re-ask about facts already recorded in Coach Memory Hub notes. Instead, build on them (e.g. if the notes say backhand is weak, ask how the backhand went today — not whether it is weak).
 5. Never ask more than 2 questions at once.

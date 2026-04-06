@@ -44,6 +44,8 @@ interface StructuredSummary {
   tacticalPillar?: number;
   physicalPillar?: number;
   mentalPillar?: number;
+  socialPillar?: number;
+  matchPillar?: number;
   skillRatings: { skillName: string; score: number }[];
   levelUpFlag: boolean;
   levelUpMessage: string;
@@ -414,7 +416,9 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                 {(pendingSummary.techniquePillar !== undefined ||
                   pendingSummary.tacticalPillar !== undefined ||
                   pendingSummary.physicalPillar !== undefined ||
-                  pendingSummary.mentalPillar !== undefined) ? (
+                  pendingSummary.mentalPillar !== undefined ||
+                  pendingSummary.socialPillar !== undefined ||
+                  pendingSummary.matchPillar !== undefined) ? (
                   <View style={styles.pillarRow}>
                     {pendingSummary.techniquePillar !== undefined ? (
                       <View style={styles.pillarChip}>
@@ -438,6 +442,18 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                       <View style={styles.pillarChip}>
                         <Text style={styles.pillarChipLabel}>Mental</Text>
                         <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.mentalPillar)}</Text>
+                      </View>
+                    ) : null}
+                    {pendingSummary.socialPillar !== undefined ? (
+                      <View style={styles.pillarChip}>
+                        <Text style={styles.pillarChipLabel}>Social</Text>
+                        <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.socialPillar)}</Text>
+                      </View>
+                    ) : null}
+                    {pendingSummary.matchPillar !== undefined ? (
+                      <View style={styles.pillarChip}>
+                        <Text style={styles.pillarChipLabel}>Match</Text>
+                        <Text style={styles.pillarChipValue}>{getRatingLabel(pendingSummary.matchPillar)}</Text>
                       </View>
                     ) : null}
                   </View>

@@ -2680,6 +2680,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             tacticalPillar?: number;
             physicalPillar?: number;
             mentalPillar?: number;
+            socialPillar?: number;
+            matchPillar?: number;
             skillRatings: { skillName: string; score: number }[];
             levelUpFlag: boolean;
             levelUpMessage: string;
@@ -2695,7 +2697,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             await db.insert(inSessionFeedback).values({
               sessionId,
               playerId,
-              coachId,
+              coachId: req.user!.id,
               feedbackType: "ai_session_note",
               message: structured.sessionNote,
               visibility: "private",
@@ -2735,6 +2737,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           tacticalPillar: structured.tacticalPillar !== undefined ? clamp(structured.tacticalPillar) : null,
           physicalPillar: structured.physicalPillar !== undefined ? clamp(structured.physicalPillar) : null,
           mentalPillar: structured.mentalPillar !== undefined ? clamp(structured.mentalPillar) : null,
+          socialPillar: structured.socialPillar !== undefined ? clamp(structured.socialPillar) : null,
+          matchPillar: structured.matchPillar !== undefined ? clamp(structured.matchPillar) : null,
         };
         await db.insert(sessionSkillFeedback).values(skillFeedbackValues).onConflictDoUpdate({
           target: [sessionSkillFeedback.sessionId, sessionSkillFeedback.playerId],
@@ -2748,6 +2752,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             tacticalPillar: skillFeedbackValues.tacticalPillar,
             physicalPillar: skillFeedbackValues.physicalPillar,
             mentalPillar: skillFeedbackValues.mentalPillar,
+            socialPillar: skillFeedbackValues.socialPillar,
+            matchPillar: skillFeedbackValues.matchPillar,
           },
         });
 
