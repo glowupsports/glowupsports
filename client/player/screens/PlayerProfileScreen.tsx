@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -414,7 +416,15 @@ export default function PlayerProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
+  const [isSwitched, setIsSwitched] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    SecureStore.getItemAsync(FAMILY_SWITCH_KEY).then(raw => {
+      setIsSwitched(!!raw);
+    }).catch(() => setIsSwitched(false));
+  }, []);
 
   const { data, isLoading, error, refetch } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
@@ -1346,17 +1356,19 @@ export default function PlayerProfileScreen() {
           <Text style={styles.logoutText}>{t("player.profile.signOut")}</Text>
         </Pressable>
 
-        <Pressable
-          style={styles.deleteAccountButton}
-          onPress={handleDeleteAccount}
-          disabled={deleteLoading}
-        >
-          {deleteLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
-          ) : (
-            <Text style={styles.deleteAccountText}>Delete My Account</Text>
-          )}
-        </Pressable>
+        {!isSwitched ? (
+          <Pressable
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            disabled={deleteLoading}
+          >
+            {deleteLoading ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <Text style={styles.deleteAccountText}>Delete My Account</Text>
+            )}
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <Modal
