@@ -7058,9 +7058,9 @@ export const storage = {
     };
   },
 
-  // Cancel/reverse debt transaction when attendance changes to vacation/absent
-  // This removes the debt for a session that the player didn't actually attend
-  async cancelSessionDebt(playerId: string, sessionId: string): Promise<{ cancelled: boolean; amount: number }> {
+  // Cancel/reverse debt transaction when attendance changes to holiday/vacation, or when
+  // a session is cancelled. Removes debt for sessions the player legitimately did not attend.
+  async cancelSessionDebt(playerId: string, sessionId: string, reason: string = "attendance_changed_to_holiday"): Promise<{ cancelled: boolean; amount: number }> {
     console.log(`[CancelDebt] Checking for debt to cancel - player: ${playerId}, session: ${sessionId}`);
     
     // Find debt transactions for this player and session
@@ -7101,7 +7101,7 @@ export const storage = {
             ...(debt.metadata as Record<string, unknown> || {}),
             cancelled: true,
             cancelledAt: new Date().toISOString(),
-            cancelReason: "attendance_changed_to_vacation"
+            cancelReason: reason,
           }
         })
         .where(eq(creditTransactions.id, debt.id));
