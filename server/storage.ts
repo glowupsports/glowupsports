@@ -6766,12 +6766,15 @@ export const storage = {
     }
 
     // Debt = unsettled debt transactions (player used sessions with no package available)
-    // Includes: new-style (type='debit', reason='session_debt/join_debt/unpaid', isDebt=true)
-    //         + legacy (type='session_booking', package_id IS NULL — charged per-session without a package)
+    // Includes:
+    //   new-style: type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
+    //   legacy:    reason = 'session_booking', package_id IS NULL, amount < 0
+    //              (session_consumed is NOT debt — it represents package credits consumed)
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
       WHERE player_id = ${playerId}
+        AND amount < 0
         AND COALESCE(metadata->>'settled', 'false') != 'true'
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
         AND (
@@ -7202,12 +7205,15 @@ export const storage = {
     }
 
     // Debt = unsettled debt transactions (sessions without a package)
-    // Includes: new-style (type='debit', reason='session_debt/join_debt/unpaid', isDebt=true)
-    //         + legacy (type='session_booking', package_id IS NULL — per-session charges with no package)
+    // Includes:
+    //   new-style: type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
+    //   legacy:    reason = 'session_booking', package_id IS NULL, amount < 0
+    //              (session_consumed is NOT debt — it represents package credits consumed)
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
       WHERE player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
+        AND amount < 0
         AND COALESCE(metadata->>'settled', 'false') != 'true'
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
         AND (
@@ -12100,7 +12106,63 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
   return result;
 }
 
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits };
+// Idempotent repair: find completed series sessions AFTER a player's joinedAt where no session_players record exists,
+// then insert session_players with attendance_status=null so ensureCreditProcessed can charge them correctly.
+async function repairOrphanedSessionPlayers(): Promise<{ created: number; errors: number }> {
+  let created = 0;
+  let errors = 0;
+  try {
+    // Find all active series memberships with their join date
+    const memberships = await db.execute(sql`
+      SELECT sp.player_id, sp.series_id, COALESCE(sp.joined_at, sp.created_at) AS joined_at
+      FROM series_players sp
+      WHERE sp.status = 'active'
+    `);
+
+    for (const row of memberships.rows) {
+      const r = row as any;
+      try {
+        // Find completed sessions in this series after joined_at with no session_player record
+        const orphaned = await db.execute(sql`
+          SELECT s.id, s.session_type
+          FROM sessions s
+          WHERE s.series_id = ${r.series_id}
+            AND s.status = 'completed'
+            AND s.start_time >= ${r.joined_at}
+            AND NOT EXISTS (
+              SELECT 1 FROM session_players sp2
+              WHERE sp2.session_id = s.id AND sp2.player_id = ${r.player_id}
+            )
+        `);
+
+        for (const sess of orphaned.rows) {
+          const s = sess as any;
+          try {
+            await db.execute(sql`
+              INSERT INTO session_players (id, session_id, player_id, attendance_status)
+              VALUES (gen_random_uuid(), ${s.id}, ${r.player_id}, NULL)
+              ON CONFLICT DO NOTHING
+            `);
+            created++;
+            console.log(`[OrphanedSPRepair] Created session_player: player=${r.player_id} session=${s.id}`);
+          } catch (insertErr: any) {
+            errors++;
+            console.error(`[OrphanedSPRepair] Insert failed player=${r.player_id} session=${s.id}:`, insertErr.message);
+          }
+        }
+      } catch (memberErr: any) {
+        errors++;
+      }
+    }
+  } catch (err: any) {
+    console.error("[OrphanedSPRepair] Fatal:", err.message);
+    errors++;
+  }
+  console.log(`[OrphanedSPRepair] Done: ${created} created, ${errors} errors`);
+  return { created, errors };
+}
+
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits, repairOrphanedSessionPlayers };
 
 // ==================== VIDEO FEEDBACK ====================
 import { videoFeedback, type VideoFeedback, type InsertVideoFeedback } from "@shared/schema";

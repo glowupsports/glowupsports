@@ -964,7 +964,7 @@ function setupErrorHandler(app: express.Application) {
       
       // Run bulk credit repair on startup to fix any missing charges
       try {
-        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, reconcilePackageCredits } = await import("./storage");
+        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, reconcilePackageCredits, repairOrphanedSessionPlayers } = await import("./storage");
         
         log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
         const groupResult = await repairGroupSessionTypes();
@@ -981,6 +981,11 @@ function setupErrorHandler(app: express.Application) {
         
         log("[NullAttendanceRepair] Fixing completed sessions with NULL attendance...");
         await repairNullAttendance();
+
+        // Repair orphaned session_players: create records for completed series sessions after player joinedAt
+        log("[OrphanedSPRepair] Checking for missing session_players in series...");
+        const orphanResult = await repairOrphanedSessionPlayers();
+        log(`[OrphanedSPRepair] Complete: ${orphanResult.created} created, ${orphanResult.errors} errors`);
         
         log("[StartupRepair] Running bulk credit repair...");
         const result = await repairAllPlayerCredits();
