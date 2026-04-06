@@ -176,8 +176,51 @@ export default function PlayersScreen() {
   const [newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
   const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
   const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
+  // Active/Past tab switcher
+  const [rosterTab, setRosterTab] = useState<"active" | "past">("active");
+
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true"],
+  });
+
+  const { data: pastPlayers = [], isLoading: isPastLoading } = useQuery<Player[]>({
+    queryKey: ["/api/players?withCredits=true&status=inactive"],
+    enabled: rosterTab === "past",
+  });
+
+  const invalidatePlayerLists = () => {
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        return typeof key === "string" && key.startsWith("/api/players");
+      },
+    });
+  };
+
+  const archivePlayerMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/players/${playerId}/archive`, {});
+    },
+    onSuccess: () => {
+      invalidatePlayerLists();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to archive player");
+    },
+  });
+
+  const restorePlayerMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/players/${playerId}/restore`, {});
+    },
+    onSuccess: () => {
+      invalidatePlayerLists();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to restore player");
+    },
   });
 
   const { data: playersWithoutBaseline = [] } = useQuery<Player[]>({
@@ -256,7 +299,7 @@ export default function PlayersScreen() {
   const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
 
   const filteredPlayers = useMemo(() => {
-    let result = players;
+    let result = rosterTab === "active" ? players : pastPlayers;
     if (filterPlayerIds !== null) {
       const idSet = new Set(filterPlayerIds);
       result = result.filter((p) => idSet.has(p.id));
@@ -340,7 +383,7 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
+  }, [players, pastPlayers, rosterTab, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -388,6 +431,9 @@ export default function PlayersScreen() {
     );
   }
 
+  const currentIsLoading = rosterTab === "active" ? isLoading : isPastLoading;
+  const currentPlayers = rosterTab === "active" ? players : pastPlayers;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* === GAMING HEADER === */}
@@ -406,30 +452,63 @@ export default function PlayersScreen() {
             <Text style={styles.gamingTitle}>PLAYERS</Text>
             <View style={styles.gamingCountBadge}>
               <View style={styles.gamingCountGlow} />
-              <Text style={styles.gamingCountText}>{players.length}</Text>
-              <Text style={styles.gamingCountLabel}>ACTIVE</Text>
+              <Text style={styles.gamingCountText}>{rosterTab === "active" ? players.length : pastPlayers.length}</Text>
+              <Text style={styles.gamingCountLabel}>{rosterTab === "active" ? "ACTIVE" : "PAST"}</Text>
             </View>
           </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.headerAddButton,
-              pressed && { opacity: 0.7 },
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowAddModal(true);
-            }}
-          >
-            <LinearGradient
-              colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.headerAddButtonGradient}
+          {rosterTab === "active" ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.headerAddButton,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowAddModal(true);
+              }}
             >
-              <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.headerAddButtonText}>Add Player</Text>
-            </LinearGradient>
-          </Pressable>
+              <LinearGradient
+                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerAddButtonGradient}
+              >
+                <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.headerAddButtonText}>Add Player</Text>
+              </LinearGradient>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Active / Past Tab Switcher */}
+        <View style={styles.rosterTabSwitcher}>
+          {(["active", "past"] as const).map((tab) => {
+            const isActive = rosterTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                style={[styles.rosterTabButton, isActive && styles.rosterTabButtonActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setRosterTab(tab);
+                  setSearchQuery("");
+                  setFilterLevel(null);
+                  setFilterSubLevel(null);
+                  setFilterStatus("all");
+                  setFilterPlayerIds(null);
+                }}
+              >
+                <Ionicons
+                  name={tab === "active" ? "people" : "archive"}
+                  size={13}
+                  color={isActive ? Colors.dark.backgroundRoot : Colors.dark.tabIconDefault}
+                />
+                <Text style={[styles.rosterTabText, isActive && styles.rosterTabTextActive]}>
+                  {tab === "active" ? "Active" : "Past"}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </LinearGradient>
 
@@ -657,6 +736,7 @@ export default function PlayersScreen() {
       </Modal>
 
       {/* === LESSON STATUS FILTER === */}
+      {rosterTab === "active" ? (
       <View style={styles.statusFilterRow}>
         {(["all", "active", "no-lessons", "holiday"] as const).map((status) => {
           const isActive = filterStatus === status;
@@ -708,6 +788,7 @@ export default function PlayersScreen() {
           );
         })}
       </View>
+      ) : null}
 
       {/* === ROSTER INSIGHTS FILTER BANNER === */}
       {filterPlayerIds !== null ? (
@@ -748,14 +829,14 @@ export default function PlayersScreen() {
           </Text>
           <View style={[styles.gamingFilterCount, !filterLevel && styles.gamingFilterCountActive]}>
             <Text style={[styles.gamingFilterCountText, !filterLevel && styles.gamingFilterCountTextActive]}>
-              {players.length}
+              {currentPlayers.length}
             </Text>
           </View>
         </Pressable>
         {ballLevels.map((level) => {
           const isActive = filterLevel === level;
           const levelColor = getPlayerLevelColor(level);
-          const count = players.filter(p => getEffectiveBallLevel(p.ballLevel) === level).length;
+          const count = currentPlayers.filter(p => getEffectiveBallLevel(p.ballLevel) === level).length;
           const isKidsLevel = ["blue", "red", "orange", "green", "yellow"].includes(level);
           return (
             <Pressable
@@ -819,7 +900,7 @@ export default function PlayersScreen() {
           {[3, 2, 1].map((subLevel) => {
             const levelColor = getPlayerLevelColor(filterLevel);
             const isActive = filterSubLevel === subLevel;
-            const subLevelCount = players.filter(p => 
+            const subLevelCount = currentPlayers.filter(p => 
               getEffectiveBallLevel(p.ballLevel) === filterLevel && 
               (p.skillLevel ? parseInt(p.skillLevel) : null) === subLevel
             ).length;
@@ -849,7 +930,7 @@ export default function PlayersScreen() {
         </View>
       ) : null}
 
-      {isLoading ? (
+      {currentIsLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
         </View>
@@ -860,6 +941,16 @@ export default function PlayersScreen() {
             <Text style={styles.emptyText}>No players found</Text>
             <Text style={styles.emptySubtext}>Try a different search</Text>
           </View>
+        ) : rosterTab === "past" ? (
+          <GuidedEmptyState
+            icon="archive-outline"
+            title="No Past Players"
+            description="Archived players will appear here. Move a player to Past from the Active tab using the archive option."
+            tips={[
+              "Open a player card and use the archive option",
+              "Past players keep all their history intact",
+            ]}
+          />
         ) : (
           <GuidedEmptyState
             icon="people-outline"
@@ -874,17 +965,46 @@ export default function PlayersScreen() {
       ) : (
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
           {filteredPlayers.map((player) => (
-            <GamingPlayerCard 
-              key={player.id} 
-              player={player} 
-              onPress={() => handleSelectPlayer(player)}
-              getStatusBadge={getStatusBadge}
-              needsBaseline={playerIdsWithoutBaseline.has(player.id)}
-              onStartBaseline={() => {
-                setBaselinePlayer(player);
-                setShowBaselineDrawer(true);
-              }}
-            />
+            <View key={player.id}>
+              <GamingPlayerCard 
+                player={player} 
+                onPress={() => handleSelectPlayer(player)}
+                getStatusBadge={getStatusBadge}
+                needsBaseline={rosterTab === "active" && playerIdsWithoutBaseline.has(player.id)}
+                onStartBaseline={() => {
+                  setBaselinePlayer(player);
+                  setShowBaselineDrawer(true);
+                }}
+                isPast={rosterTab === "past"}
+                onArchive={rosterTab === "active" ? () => {
+                  Alert.alert(
+                    "Move to Past",
+                    `Move ${player.name} to Past Players? Their history will be preserved.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Move to Past",
+                        style: "destructive",
+                        onPress: () => archivePlayerMutation.mutate(player.id),
+                      },
+                    ]
+                  );
+                } : undefined}
+                onRestore={rosterTab === "past" ? () => {
+                  Alert.alert(
+                    "Restore Player",
+                    `Restore ${player.name} to Active Players?`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Restore",
+                        onPress: () => restorePlayerMutation.mutate(player.id),
+                      },
+                    ]
+                  );
+                } : undefined}
+              />
+            </View>
           ))}
           <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl }} />
         </ScrollView>

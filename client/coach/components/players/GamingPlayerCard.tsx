@@ -155,12 +155,18 @@ export function GamingPlayerCard({
   getStatusBadge,
   needsBaseline,
   onStartBaseline,
+  isPast,
+  onArchive,
+  onRestore,
 }: { 
   player: Player; 
   onPress: () => void;
   getStatusBadge: (status: string | null) => { color: string; icon: "airplane" | "bandage" | "sparkles"; label: string } | null;
   needsBaseline?: boolean;
   onStartBaseline?: () => void;
+  isPast?: boolean;
+  onArchive?: () => void;
+  onRestore?: () => void;
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
@@ -205,7 +211,7 @@ export function GamingPlayerCard({
   return (
     <>
     <AnimatedPressable
-      style={[styles.gamingCardContainer, animatedStyle]}
+      style={[styles.gamingCardContainer, animatedStyle, isPast && { opacity: 0.65 }]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -214,7 +220,7 @@ export function GamingPlayerCard({
       onPressOut={handlePressOut}
     >
       <LinearGradient
-        colors={[levelColor + "40", levelColor + "10"]}
+        colors={isPast ? ["#33333840", "#33333810"] : [levelColor + "40", levelColor + "10"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gamingCardBorder}
@@ -365,8 +371,34 @@ export function GamingPlayerCard({
             </View>
           </View>
 
-          <View style={styles.gamingChevron}>
-            <Ionicons name="chevron-forward" size={18} color={Colors.dark.tabIconDefault + "80"} />
+          <View style={{ flexDirection: "column", alignItems: "center", gap: 6 }}>
+            {onArchive ? (
+              <Pressable
+                style={styles.archiveActionBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onArchive();
+                }}
+              >
+                <Ionicons name="archive-outline" size={14} color={Colors.dark.tabIconDefault} />
+              </Pressable>
+            ) : null}
+            {onRestore ? (
+              <Pressable
+                style={styles.restoreActionBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onRestore();
+                }}
+              >
+                <Ionicons name="refresh-outline" size={14} color={Colors.dark.primary} />
+              </Pressable>
+            ) : null}
+            <View style={styles.gamingChevron}>
+              <Ionicons name="chevron-forward" size={18} color={Colors.dark.tabIconDefault + "80"} />
+            </View>
           </View>
         </View>
       </LinearGradient>

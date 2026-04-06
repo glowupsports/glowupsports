@@ -588,9 +588,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Always filter by academyId if set, even for platform_owner
         // This ensures consistency with delete/edit operations that require academy membership
         const effectiveAcademyId = academyId || undefined;
-        const { search, paginated, withCredits } = req.query;
+        const { search, paginated, withCredits, status: statusFilter } = req.query;
         const usePagination = paginated === "true";
         const includeCredits = withCredits === "true";
+        // status filter: "inactive" for past players, "active" for active (default), or undefined for all
+        const playerStatusFilter = statusFilter as string | undefined;
 
         let playerList: any[];
         let total = 0;
@@ -629,6 +631,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             playerList = await storage.getAllPlayers(effectiveAcademyId);
           }
         }
+
+        // Filter by player status if requested
+        if (playerStatusFilter === "inactive") {
+          playerList = playerList.filter((p) => p.status === "inactive");
+        } else if (!playerStatusFilter || playerStatusFilter === "active") {
+          // Default: exclude inactive (past) players
+          playerList = playerList.filter((p) => p.status !== "inactive");
+        }
+        // If playerStatusFilter === "all", no additional filter applied
 
         // Batch fetch last lesson dates for all players at once (performance optimization)
         const playerIds = playerList.map((p) => p.id);
@@ -1226,6 +1237,54 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       } catch (error) {
         console.error("Error deleting player:", error);
         res.status(500).json({ error: "Failed to delete player" });
+      }
+    },
+  );
+
+  // Archive player (move to inactive/past)
+  router.post(
+    "/api/players/:id/archive",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId;
+
+        const { valid } = await validatePlayerOwnership(id, academyId, storage);
+        if (!valid) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        await db.update(players).set({ status: "inactive" }).where(eq(players.id, id));
+        res.json({ success: true, message: "Player archived" });
+      } catch (error) {
+        console.error("Error archiving player:", error);
+        res.status(500).json({ error: "Failed to archive player" });
+      }
+    },
+  );
+
+  // Restore player (move back to active)
+  router.post(
+    "/api/players/:id/restore",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId;
+
+        const { valid } = await validatePlayerOwnership(id, academyId, storage);
+        if (!valid) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        await db.update(players).set({ status: "active" }).where(eq(players.id, id));
+        res.json({ success: true, message: "Player restored" });
+      } catch (error) {
+        console.error("Error restoring player:", error);
+        res.status(500).json({ error: "Failed to restore player" });
       }
     },
   );

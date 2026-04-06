@@ -3247,6 +3247,61 @@ export const styles = StyleSheet.create({
     color: "#000",
     fontWeight: "700",
   },
+
+  // === ROSTER TAB SWITCHER ===
+  rosterTabSwitcher: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: BorderRadius.md,
+    padding: 3,
+    gap: 3,
+  },
+  rosterTabButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.sm,
+  },
+  rosterTabButtonActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  rosterTabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.3,
+  },
+  rosterTabTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+
+  // === ARCHIVE / RESTORE ACTION BUTTONS ===
+  archiveActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  restoreActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+  },
 });
 
 export const strokeTimelineStyles = StyleSheet.create({
