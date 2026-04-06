@@ -6767,9 +6767,8 @@ export const storage = {
 
     // Debt = unsettled debt transactions (player used sessions with no package available)
     // Includes:
-    //   new-style: type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
-    //   legacy:    reason = 'session_booking', package_id IS NULL, amount < 0
-    //              (session_consumed is NOT debt — it represents package credits consumed)
+    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
+    //   legacy:     reason IN ('session_booking','session_consumed'), no package in column or metadata, amount < 0
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
@@ -6782,7 +6781,9 @@ export const storage = {
             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
             AND COALESCE(metadata->>'isDebt', 'false') = 'true')
           OR
-          (reason = 'session_booking' AND package_id IS NULL)
+          (reason IN ('session_booking', 'session_consumed')
+            AND package_id IS NULL
+            AND (metadata->>'packageId') IS NULL)
         )
       GROUP BY credit_type
     `);
@@ -7206,9 +7207,8 @@ export const storage = {
 
     // Debt = unsettled debt transactions (sessions without a package)
     // Includes:
-    //   new-style: type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
-    //   legacy:    reason = 'session_booking', package_id IS NULL, amount < 0
-    //              (session_consumed is NOT debt — it represents package credits consumed)
+    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
+    //   legacy:     reason IN ('session_booking','session_consumed'), no package in column or metadata, amount < 0
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
@@ -7221,7 +7221,9 @@ export const storage = {
             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
             AND COALESCE(metadata->>'isDebt', 'false') = 'true')
           OR
-          (reason = 'session_booking' AND package_id IS NULL)
+          (reason IN ('session_booking', 'session_consumed')
+            AND package_id IS NULL
+            AND (metadata->>'packageId') IS NULL)
         )
       GROUP BY player_id, credit_type
     `);
@@ -12106,15 +12108,16 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
   return result;
 }
 
-// Idempotent repair: find completed series sessions AFTER a player's joinedAt where no session_players record exists,
-// then insert session_players with attendance_status=null so ensureCreditProcessed can charge them correctly.
+// Idempotent repair: find completed series sessions AFTER a player's joinedAt where no session_players record exists.
+// Creates records as 'present' and immediately calls ensureCreditProcessed to create the corresponding debt transaction.
 async function repairOrphanedSessionPlayers(): Promise<{ created: number; errors: number }> {
   let created = 0;
   let errors = 0;
   try {
-    // Find all active series memberships with their join date
+    // Find all active series memberships with their effective join date
     const memberships = await db.execute(sql`
-      SELECT sp.player_id, sp.series_id, COALESCE(sp.joined_at, sp.created_at) AS joined_at
+      SELECT sp.player_id, sp.series_id, sp.academy_id,
+             COALESCE(sp.joined_at, sp.created_at) AS joined_at
       FROM series_players sp
       WHERE sp.status = 'active'
     `);
@@ -12124,7 +12127,7 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; errors
       try {
         // Find completed sessions in this series after joined_at with no session_player record
         const orphaned = await db.execute(sql`
-          SELECT s.id, s.session_type
+          SELECT s.id, s.session_type, s.duration, s.academy_id
           FROM sessions s
           WHERE s.series_id = ${r.series_id}
             AND s.status = 'completed'
@@ -12138,13 +12141,24 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; errors
         for (const sess of orphaned.rows) {
           const s = sess as any;
           try {
-            await db.execute(sql`
+            // Insert as 'present' so credit processing can charge correctly
+            const inserted = await db.execute(sql`
               INSERT INTO session_players (id, session_id, player_id, attendance_status)
-              VALUES (gen_random_uuid(), ${s.id}, ${r.player_id}, NULL)
+              VALUES (gen_random_uuid(), ${s.id}, ${r.player_id}, 'present')
               ON CONFLICT DO NOTHING
+              RETURNING id
             `);
-            created++;
-            console.log(`[OrphanedSPRepair] Created session_player: player=${r.player_id} session=${s.id}`);
+            if ((inserted as any).rowCount > 0) {
+              created++;
+              const newSpId = (inserted.rows[0] as any).id;
+              console.log(`[OrphanedSPRepair] Created session_player ${newSpId}: player=${r.player_id} session=${s.id}`);
+              // Process credit immediately so debt transaction is created
+              try {
+                await ensureCreditProcessed(newSpId);
+              } catch (creditErr: any) {
+                console.error(`[OrphanedSPRepair] ensureCreditProcessed failed for ${newSpId}:`, creditErr.message);
+              }
+            }
           } catch (insertErr: any) {
             errors++;
             console.error(`[OrphanedSPRepair] Insert failed player=${r.player_id} session=${s.id}:`, insertErr.message);
