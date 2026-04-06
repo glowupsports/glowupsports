@@ -727,7 +727,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const playerSeriesData = await db
           .select({
             seriesId: seriesPlayers.seriesId,
-            joinedAt: seriesPlayers.createdAt,
+            joinedAt: seriesPlayers.joinedAt,
           })
           .from(seriesPlayers)
           .where(
@@ -1018,7 +1018,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const playerSeriesForHistory = await db
           .select({
             seriesId: seriesPlayers.seriesId,
-            joinedAt: seriesPlayers.createdAt,
+            joinedAt: seriesPlayers.joinedAt,
           })
           .from(seriesPlayers)
           .where(

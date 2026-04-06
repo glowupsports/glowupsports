@@ -6766,15 +6766,21 @@ export const storage = {
     }
 
     // Debt = unsettled debt transactions (player used sessions with no package available)
+    // Includes: new-style (type='debit', reason='session_debt/join_debt/unpaid', isDebt=true)
+    //         + legacy (type='session_booking', package_id IS NULL — charged per-session without a package)
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
       WHERE player_id = ${playerId}
-        AND type = 'debit'
-        AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-        AND COALESCE(metadata->>'isDebt', 'false') = 'true'
         AND COALESCE(metadata->>'settled', 'false') != 'true'
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+        AND (
+          (type = 'debit'
+            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+            AND COALESCE(metadata->>'isDebt', 'false') = 'true')
+          OR
+          (reason = 'session_booking' AND package_id IS NULL)
+        )
       GROUP BY credit_type
     `);
 
@@ -7196,15 +7202,21 @@ export const storage = {
     }
 
     // Debt = unsettled debt transactions (sessions without a package)
+    // Includes: new-style (type='debit', reason='session_debt/join_debt/unpaid', isDebt=true)
+    //         + legacy (type='session_booking', package_id IS NULL — per-session charges with no package)
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
       WHERE player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
-        AND type = 'debit'
-        AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-        AND COALESCE(metadata->>'isDebt', 'false') = 'true'
         AND COALESCE(metadata->>'settled', 'false') != 'true'
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+        AND (
+          (type = 'debit'
+            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+            AND COALESCE(metadata->>'isDebt', 'false') = 'true')
+          OR
+          (reason = 'session_booking' AND package_id IS NULL)
+        )
       GROUP BY player_id, credit_type
     `);
 
