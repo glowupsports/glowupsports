@@ -160,7 +160,6 @@ export default function PlayersScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons" | "holiday">("all");
   const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "nameDesc" | "credits" | "creditsDesc" | "negative" | "nonDebt" | "lastLesson" | "oldestLesson" | "newest" | "oldest" | "notActivated" | "appActive">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -341,7 +340,6 @@ export default function PlayersScreen() {
         setSearchQuery("");
         setFilterLevel(null);
         setFilterSubLevel(null);
-        setFilterStatus("all");
       } else if (params?.playerId) {
         if (players.length > 0) {
           const player = players.find((p) => p.id === params.playerId || p.id === String(params.playerId));
@@ -415,13 +413,6 @@ export default function PlayersScreen() {
           (p.email && p.email.toLowerCase().includes(query))
       );
     }
-    if (filterStatus === "active") {
-      result = result.filter((p) => (p.activeGroupsCount ?? 0) > 0);
-    } else if (filterStatus === "no-lessons") {
-      result = result.filter((p) => (p.activeGroupsCount ?? 0) === 0 && (p.pausedGroupsCount ?? 0) === 0);
-    } else if (filterStatus === "holiday") {
-      result = result.filter((p) => p.onHoliday === true);
-    }
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
       
@@ -486,7 +477,7 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, pastPlayers, pendingPaymentPlayers, rosterTab, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
+  }, [players, pastPlayers, pendingPaymentPlayers, rosterTab, searchQuery, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -600,7 +591,6 @@ export default function PlayersScreen() {
                   setSearchQuery("");
                   setFilterLevel(null);
                   setFilterSubLevel(null);
-                  setFilterStatus("all");
                   setFilterPlayerIds(null);
                 }}
               >
@@ -847,61 +837,6 @@ export default function PlayersScreen() {
           </View>
         </Pressable>
       </Modal>
-
-      {/* === LESSON STATUS FILTER === */}
-      {rosterTab === "active" ? (
-      <View style={styles.statusFilterRow}>
-        {(["all", "active", "no-lessons", "holiday"] as const).map((status) => {
-          const isActive = filterStatus === status;
-          const countAll = players.length;
-          const countActive = players.filter((p) => (p.activeGroupsCount ?? 0) > 0).length;
-          const countNoLessons = players.filter((p) => (p.activeGroupsCount ?? 0) === 0 && (p.pausedGroupsCount ?? 0) === 0).length;
-          const countHoliday = players.filter((p) => p.onHoliday === true).length;
-          const countMap = { all: countAll, active: countActive, "no-lessons": countNoLessons, holiday: countHoliday };
-          const labelMap = { all: "All", active: "Active", "no-lessons": "No Lessons", holiday: "Holiday" };
-          const iconMap = {
-            all: "people-outline" as const,
-            active: "tennisball-outline" as const,
-            "no-lessons": "remove-circle-outline" as const,
-            holiday: "airplane-outline" as const,
-          };
-          const colorMap = {
-            all: Colors.dark.primary,
-            active: "#22c55e",
-            "no-lessons": Colors.dark.error,
-            holiday: Colors.dark.xpCyan,
-          };
-          const activeColor = colorMap[status];
-          return (
-            <Pressable
-              key={status}
-              style={[
-                styles.statusFilterPill,
-                isActive && { backgroundColor: activeColor + "20", borderColor: activeColor },
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setFilterStatus(status);
-              }}
-            >
-              <Ionicons
-                name={iconMap[status]}
-                size={12}
-                color={isActive ? activeColor : Colors.dark.tabIconDefault}
-              />
-              <Text style={[styles.statusFilterText, isActive && { color: activeColor }]}>
-                {labelMap[status]}
-              </Text>
-              <View style={[styles.statusFilterCount, isActive && { backgroundColor: activeColor + "30" }]}>
-                <Text style={[styles.statusFilterCountText, isActive && { color: activeColor }]}>
-                  {countMap[status]}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-      ) : null}
 
       {/* === ROSTER INSIGHTS FILTER BANNER === */}
       {filterPlayerIds !== null ? (
