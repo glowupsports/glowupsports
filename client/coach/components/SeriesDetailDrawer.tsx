@@ -114,6 +114,13 @@ export default function SeriesDetailDrawer({
   const [showPauseFromPicker, setShowPauseFromPicker] = useState(false);
   const [showPauseUntilPicker, setShowPauseUntilPicker] = useState(false);
   
+  // Restore identity modal state
+  const [showRestoreIdentityModal, setShowRestoreIdentityModal] = useState(false);
+  const [restoreIdentityPlayerId, setRestoreIdentityPlayerId] = useState<string | null>(null);
+  const [restoreIdentityName, setRestoreIdentityName] = useState("");
+  const [restoreIdentityEmail, setRestoreIdentityEmail] = useState("");
+  const [restoreIdentityPhone, setRestoreIdentityPhone] = useState("");
+
   // Complete / Delete series confirm modal state
   const [showSeriesCompleteConfirm, setShowSeriesCompleteConfirm] = useState(false);
   const [showSeriesDeleteConfirm, setShowSeriesDeleteConfirm] = useState(false);
@@ -610,6 +617,49 @@ export default function SeriesDetailDrawer({
 
   const handleReactivatePlayer = (playerId: string) => {
     unpausePlayerMutation.mutate(playerId);
+  };
+
+  const restoreIdentityMutation = useMutation({
+    mutationFn: async ({ playerId, name, email, phone }: { playerId: string; name: string; email?: string; phone?: string }) => {
+      return apiRequest("PATCH", `/api/players/${playerId}`, {
+        name,
+        ...(email ? { email } : {}),
+        ...(phone ? { phone } : {}),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      setShowRestoreIdentityModal(false);
+      setRestoreIdentityPlayerId(null);
+      setRestoreIdentityName("");
+      setRestoreIdentityEmail("");
+      setRestoreIdentityPhone("");
+      setPlayerActionMenuId(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to restore player identity. Please try again.");
+    },
+  });
+
+  const handleRestoreIdentity = (player: Player) => {
+    setRestoreIdentityPlayerId(player.id);
+    setRestoreIdentityName("");
+    setRestoreIdentityEmail("");
+    setRestoreIdentityPhone("");
+    setPlayerActionMenuId(null);
+    setShowRestoreIdentityModal(true);
+  };
+
+  const handleConfirmRestoreIdentity = () => {
+    if (!restoreIdentityPlayerId || !restoreIdentityName.trim()) return;
+    restoreIdentityMutation.mutate({
+      playerId: restoreIdentityPlayerId,
+      name: restoreIdentityName.trim(),
+      email: restoreIdentityEmail.trim() || undefined,
+      phone: restoreIdentityPhone.trim() || undefined,
+    });
   };
 
   const handleEditJoinDate = (player: Player) => {
@@ -1271,6 +1321,7 @@ export default function SeriesDetailDrawer({
         pausingPlayerId={pausingPlayerId}
         removingPlayerId={removingPlayerId}
         handleEditJoinDate={handleEditJoinDate}
+        handleRestoreIdentity={handleRestoreIdentity}
         handlePausePlayer={handlePausePlayer}
         handleRemovePlayer={handleRemovePlayer}
         handleReactivatePlayer={handleReactivatePlayer}
@@ -1691,6 +1742,113 @@ export default function SeriesDetailDrawer({
         calcDurationMins={calcDurationMins}
         confirmAddExtraLesson={confirmAddExtraLesson}
       />
+
+      {/* Restore Identity Modal */}
+      <Modal
+        visible={showRestoreIdentityModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRestoreIdentityModal(false)}
+      >
+        <View style={confirmStyles.overlay}>
+          <View style={confirmStyles.card}>
+            <Text style={confirmStyles.title}>Restore Player Identity</Text>
+            <Text style={confirmStyles.body}>
+              Enter the player's real name and optional contact details to restore their profile.
+            </Text>
+            <View style={{ gap: 12, marginBottom: 24 }}>
+              <View>
+                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+                  Name (required)
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: restoreIdentityName.trim() ? Colors.dark.primary : "rgba(255,255,255,0.12)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: Colors.dark.text,
+                    fontSize: 15,
+                  }}
+                  placeholder="Full name"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={restoreIdentityName}
+                  onChangeText={setRestoreIdentityName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+              </View>
+              <View>
+                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+                  Email (optional)
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.12)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: Colors.dark.text,
+                    fontSize: 15,
+                  }}
+                  placeholder="Email address"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={restoreIdentityEmail}
+                  onChangeText={setRestoreIdentityEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              <View>
+                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+                  Phone Number (optional)
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.12)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: Colors.dark.text,
+                    fontSize: 15,
+                  }}
+                  placeholder="Phone number"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={restoreIdentityPhone}
+                  onChangeText={setRestoreIdentityPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+            <View style={confirmStyles.buttonRow}>
+              <Pressable
+                style={[confirmStyles.btn, confirmStyles.cancelBtn]}
+                onPress={() => setShowRestoreIdentityModal(false)}
+              >
+                <Text style={confirmStyles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[confirmStyles.btn, confirmStyles.confirmBtn, !restoreIdentityName.trim() && { opacity: 0.4 }]}
+                onPress={handleConfirmRestoreIdentity}
+                disabled={!restoreIdentityName.trim() || restoreIdentityMutation.isPending}
+              >
+                {restoreIdentityMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#000000" />
+                ) : (
+                  <Text style={confirmStyles.confirmText}>Restore</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Complete Class confirm modal */}
       <Modal

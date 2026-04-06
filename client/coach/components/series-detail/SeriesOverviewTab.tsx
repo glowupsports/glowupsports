@@ -31,6 +31,7 @@ interface SeriesOverviewTabProps {
   pausingPlayerId: string | null;
   removingPlayerId: string | null;
   handleEditJoinDate: (player: Player) => void;
+  handleRestoreIdentity: (player: Player) => void;
   handlePausePlayer: (playerId: string) => void;
   handleRemovePlayer: (playerId: string) => void;
   handleReactivatePlayer: (playerId: string) => void;
@@ -67,6 +68,7 @@ export function SeriesOverviewTab({
   pausingPlayerId,
   removingPlayerId,
   handleEditJoinDate,
+  handleRestoreIdentity,
   handlePausePlayer,
   handleRemovePlayer,
   handleReactivatePlayer,
@@ -366,6 +368,25 @@ export function SeriesOverviewTab({
                               <Text style={[styles.playerActionText, { color: Colors.dark.text }]}>Edit Join Date</Text>
                               <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
                             </Pressable>
+                            {player.name === "Deleted User" ? (
+                              <>
+                                <View style={styles.playerActionDivider} />
+                                <Pressable
+                                  onPress={() => handleRestoreIdentity(player)}
+                                  style={({ pressed }) => [
+                                    styles.playerActionItem,
+                                    pressed && styles.playerActionItemPressed,
+                                  ]}
+                                >
+                                  <View style={[styles.playerActionIconWrapper, { backgroundColor: Colors.dark.primary + "20" }]}>
+                                    <Ionicons name="person-add" size={16} color={Colors.dark.primary} />
+                                  </View>
+                                  <Text style={[styles.playerActionText, { color: Colors.dark.primary }]}>Restore Identity</Text>
+                                  <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+                                </Pressable>
+                                <View style={styles.playerActionDivider} />
+                              </>
+                            ) : null}
                             <Pressable
                               onPress={() => handlePausePlayer(player.id)}
                               style={({ pressed }) => [
