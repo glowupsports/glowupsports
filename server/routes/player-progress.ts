@@ -2883,53 +2883,30 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
         });
 
-        // SSE streaming response
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        res.flushHeaders();
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...safeMessages,
+          ],
+          max_tokens: 400,
+          temperature: 0.7,
+        });
 
-        try {
-          const stream = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...safeMessages,
-            ],
-            max_tokens: 400,
-            temperature: 0.7,
-            stream: true,
-            stream_options: { include_usage: true },
-          });
+        const reply = completion.choices[0]?.message?.content ?? "";
+        const usage = completion.usage;
 
-          let lastUsage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
-          for await (const chunk of stream) {
-            const token = chunk.choices[0]?.delta?.content;
-            if (token) {
-              res.write(`data: ${JSON.stringify({ token })}\n\n`);
-            }
-            if (chunk.usage) {
-              lastUsage = chunk.usage;
-            }
-          }
+        logAiCall({
+          userId: req.user!.id,
+          featureType: "chat",
+          model: "gpt-4o-mini",
+          promptTokens: usage?.prompt_tokens ?? 0,
+          completionTokens: usage?.completion_tokens ?? 0,
+          totalTokens: usage?.total_tokens ?? 0,
+          academyId: req.user!.academyId ?? null,
+        }).catch(() => {});
 
-          logAiCall({
-            userId: req.user!.id,
-            featureType: "chat",
-            model: "gpt-4o-mini",
-            promptTokens: lastUsage?.prompt_tokens ?? 0,
-            completionTokens: lastUsage?.completion_tokens ?? 0,
-            totalTokens: lastUsage?.total_tokens ?? 0,
-            academyId: req.user!.academyId ?? null,
-          }).catch(() => {});
-        } catch (err) {
-          console.error("[PlayerAICoach] OpenAI stream failed:", err);
-          res.write(`data: ${JSON.stringify({ error: "Stream failed" })}\n\n`);
-        }
-
-        res.write("data: [DONE]\n\n");
-        res.end();
-        return;
+        return res.json({ reply });
       } catch (error) {
         console.error("[PlayerAICoach] Error processing chat turn:", error);
         res.status(500).json({ error: "Failed to process chat" });

@@ -438,11 +438,6 @@ export default function PlayerAICoachScreen() {
   };
 
   const streamChat = async (msgs: Message[], isGreeting = false) => {
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let accumulated = "";
-    let started = false;
-
     try {
       const resp = await apiFetch("/api/player/me/ai-coach/chat", {
         method: "POST",
@@ -478,11 +473,11 @@ export default function PlayerAICoachScreen() {
           setUpgradeModalData({ isPro, callCount, limit, resetDate });
           setShowUpgradeModal(true);
           setMessages((prev) => {
-            const withoutLast = [...prev];
-            if (withoutLast[withoutLast.length - 1]?.role === "user") {
-              withoutLast.pop();
+            const copy = [...prev];
+            if (copy[copy.length - 1]?.role === "user") {
+              copy.pop();
             }
-            return withoutLast;
+            return copy;
           });
           return;
         }
@@ -491,53 +486,26 @@ export default function PlayerAICoachScreen() {
       if (!resp.ok) {
         throw new Error(`Server error: ${resp.status}`);
       }
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error("No stream reader available");
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const data = await resp.json() as { reply?: string };
+      const reply = typeof data.reply === "string" && data.reply.trim()
+        ? data.reply
+        : isGreeting
+          ? "Welcome! I'm your personal AI coach. Ask me anything about your game, what to focus on, or how you've been progressing."
+          : "Sorry, I had trouble connecting right now. Please try again in a moment.";
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = line.slice(6).trim();
-          if (payload === "[DONE]") {
-            reader.cancel();
-            break;
-          }
-          try {
-            const parsed = JSON.parse(payload);
-            if (parsed.token) {
-              accumulated += parsed.token;
-              if (!started) {
-                if (isGreeting) {
-                  setMessages([{ role: "assistant", content: accumulated }]);
-                } else {
-                  setMessages((prev) => [...prev, { role: "assistant", content: accumulated }]);
-                }
-                started = true;
-              } else {
-                setMessages((prev) => {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { role: "assistant", content: accumulated };
-                  return copy;
-                });
-              }
-              scrollToBottom();
-            }
-          } catch {}
-        }
+      if (isGreeting) {
+        setMessages([{ role: "assistant", content: reply }]);
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       }
+      scrollToBottom();
 
       if (!isGreeting) {
         queryClient.invalidateQueries({ queryKey: ["/api/ai-pro/status"] });
       }
     } catch (err) {
-      console.error("[PlayerAICoach] Stream error:", err);
+      console.error("[PlayerAICoach] Chat error:", err);
       const fallback = isGreeting
         ? "Welcome! I'm your personal AI coach. Ask me anything about your game, what to focus on, or how you've been progressing."
         : "Sorry, I had trouble connecting right now. Please try again in a moment.";
