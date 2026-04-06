@@ -24,20 +24,23 @@
       }
     </style>
     <style id="icon-fonts">
+      /* font-family names MUST match what @expo/vector-icons uses as CSS font-family on web.
+         Expo's wrapper passes fontFile=null to the vendor createIconSet, so the web
+         fontReference = fontFamily = the fontName string (exact case matters). */
       @font-face {
-        font-family: "Ionicons";
+        font-family: "ionicons";
         src: url("/fonts/Ionicons.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "Feather";
+        font-family: "feather";
         src: url("/fonts/Feather.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "Material Icons";
+        font-family: "material";
         src: url("/fonts/MaterialIcons.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
@@ -55,32 +58,14 @@
         font-style: normal;
       }
       @font-face {
-        font-family: "Entypo";
+        font-family: "entypo";
         src: url("/fonts/Entypo.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "Material Design Icons";
+        font-family: "material-community";
         src: url("/fonts/MaterialCommunityIcons.ttf") format("truetype");
-        font-weight: normal;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: "FontAwesome5Free-Regular";
-        src: url("/fonts/FontAwesome5_Regular.ttf") format("truetype");
-        font-weight: normal;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: "FontAwesome5Free-Solid";
-        src: url("/fonts/FontAwesome5_Solid.ttf") format("truetype");
-        font-weight: normal;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: "FontAwesome5Brands-Regular";
-        src: url("/fonts/FontAwesome5_Brands.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }

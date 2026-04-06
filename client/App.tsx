@@ -166,11 +166,24 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [splashComplete, setSplashComplete] = useState(false);
 
-  // On web, @expo/vector-icons loads fonts automatically via CSS — no explicit preload needed.
-  // On native (Expo Go / production), we must preload the TTF files so icons render correctly.
+  // On native (Expo Go / production), preload TTF files via the Metro asset system.
+  // On web, preload via our Express-served /fonts/*.ttf so the browser downloads them
+  // before any icon component renders — preventing the Metro CORS error fallback.
   const [fontsLoaded, fontError] = useFonts(
-    Platform.OS !== "web"
+    Platform.OS === "web"
       ? {
+          // Keys MUST match the fontName each icon set uses as CSS font-family on web.
+          // Expo's createIconSet wrapper passes fontFile=null to the vendor, so
+          // fontReference = fontFamily = fontName (exact case matters).
+          ionicons: "/fonts/Ionicons.ttf",
+          feather: "/fonts/Feather.ttf",
+          material: "/fonts/MaterialIcons.ttf",
+          anticon: "/fonts/AntDesign.ttf",
+          FontAwesome: "/fonts/FontAwesome.ttf",
+          entypo: "/fonts/Entypo.ttf",
+          "material-community": "/fonts/MaterialCommunityIcons.ttf",
+        }
+      : {
           ...Ionicons.font,
           ...Feather.font,
           ...MaterialIcons.font,
@@ -180,7 +193,6 @@ export default function App() {
           ...MaterialCommunityIcons.font,
           ...FontAwesome5.font,
         }
-      : {}
   );
 
   useEffect(() => {
