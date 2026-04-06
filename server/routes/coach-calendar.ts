@@ -47,6 +47,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
     deepAssessmentPillarSummaries,
+    glowSkills, levelSkills, playerSkillScores,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -980,6 +981,102 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       } catch (error) {
         console.error("Error fetching skill assessments:", error);
         res.status(500).json({ error: "Failed to fetch skill assessments" });
+      }
+    },
+  );
+
+  const BALL_LEVEL_ENTRY_MAP: Record<string, string> = {
+    blue: "BLUE_3",
+    red: "RED_3",
+    orange: "ORANGE_3",
+    green: "GREEN_3",
+    yellow: "YELLOW_3",
+    glow: "GLOW",
+  };
+
+  router.get(
+    "/api/player/me/skill-scores",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(400).json({ error: "Player not found" });
+        }
+
+        const PILLAR_ALIAS_MAP: Record<string, string> = {
+          technical: "TECHNIQUE",
+          technique: "TECHNIQUE",
+          tactical: "TACTICAL",
+          physical: "PHYSICAL",
+          mental: "MENTAL",
+          social: "SOCIAL",
+          competition: "MATCH",
+          match: "MATCH",
+          TECHNIQUE: "TECHNIQUE",
+          TACTICAL: "TACTICAL",
+          PHYSICAL: "PHYSICAL",
+          MENTAL: "MENTAL",
+          SOCIAL: "SOCIAL",
+          MATCH: "MATCH",
+          COMPETITION: "MATCH",
+        };
+
+        const rawPillar = req.query.pillar as string | undefined;
+        const pillarFilter = rawPillar
+          ? (PILLAR_ALIAS_MAP[rawPillar] ?? rawPillar.toUpperCase())
+          : undefined;
+
+        const playerRow = await db
+          .select({ ballLevel: players.ballLevel })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
+
+        if (!playerRow.length) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        const ballLevel = playerRow[0].ballLevel?.toLowerCase() || "red";
+        const levelId = BALL_LEVEL_ENTRY_MAP[ballLevel] || "RED_3";
+
+        const latestScoresSq = db
+          .selectDistinctOn([playerSkillScores.skillId], {
+            skillId: playerSkillScores.skillId,
+            score: playerSkillScores.score,
+          })
+          .from(playerSkillScores)
+          .where(eq(playerSkillScores.playerId, playerId))
+          .orderBy(playerSkillScores.skillId, desc(playerSkillScores.createdAt))
+          .as("latest_scores");
+
+        const conditions = [eq(levelSkills.levelId, levelId)];
+        if (pillarFilter) {
+          conditions.push(eq(glowSkills.pillar, pillarFilter));
+        }
+
+        const skills = await db
+          .select({
+            skillId: levelSkills.skillId,
+            name: glowSkills.name,
+            pillar: glowSkills.pillar,
+            description: glowSkills.description,
+            targetScore: levelSkills.targetScore,
+            isRequired: levelSkills.isRequired,
+            playerScore: sql<number>`COALESCE(${latestScoresSq.score}, 0)`,
+            levelId: levelSkills.levelId,
+          })
+          .from(levelSkills)
+          .innerJoin(glowSkills, eq(glowSkills.id, levelSkills.skillId))
+          .leftJoin(latestScoresSq, eq(latestScoresSq.skillId, levelSkills.skillId))
+          .where(and(...conditions))
+          .orderBy(glowSkills.pillar, glowSkills.name);
+
+        res.json(skills);
+      } catch (error) {
+        console.error("Error fetching player skill scores:", error);
+        res.status(500).json({ error: "Failed to fetch skill scores" });
       }
     },
   );

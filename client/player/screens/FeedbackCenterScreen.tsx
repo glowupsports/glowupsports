@@ -100,6 +100,7 @@ export default function FeedbackCenterScreen() {
 
   const { data: summaries, isLoading } = useQuery<PillarSummary[]>({
     queryKey: ["/api/player/me/skill-assessments"],
+    staleTime: 0,
   });
 
   const sortedSummaries = React.useMemo(() => {
@@ -162,8 +163,9 @@ export default function FeedbackCenterScreen() {
               </View>
             </View>
             <View style={styles.emptySection}>
-              <Ionicons name="analytics-outline" size={28} color={TextColors.disabled} />
-              <Text style={styles.emptyText}>No deep assessments yet. Your coach will record these during dedicated assessment sessions.</Text>
+              <Ionicons name="bar-chart-outline" size={48} color={TextColors.disabled} />
+              <Text style={styles.emptyTitle}>No assessments yet</Text>
+              <Text style={styles.emptyText}>Your coach will fill these in after your first deep assessment session.</Text>
             </View>
           </View>
         )}
@@ -260,6 +262,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
+  },
+  emptyTitle: {
+    ...Typography.body,
+    color: TextColors.primary,
+    fontWeight: "600",
+    textAlign: "center",
   },
   emptyText: {
     ...Typography.small,
