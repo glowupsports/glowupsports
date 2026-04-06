@@ -201,11 +201,23 @@ export default function PlayersScreen() {
     mutationFn: async (playerId: string) => {
       return apiRequest("POST", `/api/players/${playerId}/archive`, {});
     },
+    onMutate: async (playerId: string) => {
+      const queryKey = ["/api/players?withCredits=true"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousPlayers = queryClient.getQueryData<Player[]>(queryKey);
+      queryClient.setQueryData<Player[]>(queryKey, (old) =>
+        (old ?? []).filter((p) => p.id !== playerId)
+      );
+      return { previousPlayers, queryKey };
+    },
     onSuccess: () => {
       invalidatePlayerLists();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (_err, _playerId, context) => {
+      if (context?.previousPlayers !== undefined) {
+        queryClient.setQueryData(context.queryKey, context.previousPlayers);
+      }
       Alert.alert("Error", "Failed to archive player");
     },
   });
@@ -214,11 +226,23 @@ export default function PlayersScreen() {
     mutationFn: async (playerId: string) => {
       return apiRequest("POST", `/api/players/${playerId}/restore`, {});
     },
+    onMutate: async (playerId: string) => {
+      const queryKey = ["/api/players?withCredits=true&status=inactive"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousPlayers = queryClient.getQueryData<Player[]>(queryKey);
+      queryClient.setQueryData<Player[]>(queryKey, (old) =>
+        (old ?? []).filter((p) => p.id !== playerId)
+      );
+      return { previousPlayers, queryKey };
+    },
     onSuccess: () => {
       invalidatePlayerLists();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (_err, _playerId, context) => {
+      if (context?.previousPlayers !== undefined) {
+        queryClient.setQueryData(context.queryKey, context.previousPlayers);
+      }
       Alert.alert("Error", "Failed to restore player");
     },
   });
