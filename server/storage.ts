@@ -6791,14 +6791,18 @@ export const storage = {
     `);
 
     let totalDebt = 0;
+    const debtByType = { group: 0, semi_private: 0, private: 0 };
     for (const row of debtResult.rows) {
-      totalDebt += Number((row as any).total);
+      const amount = Number((row as any).total);
+      totalDebt += amount;
+      const type = normalizeType((row as any).credit_type);
+      debtByType[type] += amount;
     }
 
     return {
-      group: balance.group,
-      semi_private: balance.semi_private,
-      private: balance.private,
+      group: balance.group - debtByType.group,
+      semi_private: balance.semi_private - debtByType.semi_private,
+      private: balance.private - debtByType.private,
       totalDebt,
       hasDebt: totalDebt > 0,
     };
