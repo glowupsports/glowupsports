@@ -326,13 +326,8 @@ import {
   shopOrders,
   shopOrderItems,
   shopWishlist,
-  // Provider notes
-  providerClientNotes,
-  providerClientPreferences,
   // Marketplace
   marketplaceListings,
-  marketplaceFavorites,
-  marketplaceMessages,
   sellerProfiles,
   // Ball levels & skill scoring
   playerBallLevels,
@@ -357,32 +352,17 @@ import {
   playerFeatureUnlockHistory,
   // Deep assessment
   deepAssessmentPillarSummaries,
-  // Spotlight
-  spotlightNominations,
-  spotlightWeeklyWinners,
-  spotlightMonthlyWinners,
   // Tournaments & ladders
   tournaments,
   tournamentParticipants,
   tournamentMatches,
   ladderPlayers,
   ladderChallenges,
-  // Beta & video feedback
-  betaFeedback,
-  videoFeedback,
   // Play requests
   playRequests,
   playRequestParticipants,
   // Live matches
   liveMatches,
-  // AI
-  sessionAiSummaries,
-  playerAiInsights,
-  sessionAiChats,
-  // Equipment rentals
-  equipmentRentals,
-  // Family invite codes
-  familyInviteCodes,
   // Player notifications
   playerNotifications,
 } from "@shared/schema";
@@ -2076,15 +2056,6 @@ export const storage = {
         db.delete(playerStreaks).where(eq(playerStreaks.playerId, id)),
         // Shop wishlist
         db.delete(shopWishlist).where(eq(shopWishlist.playerId, id)),
-        // Provider client notes & preferences
-        db.delete(providerClientNotes).where(eq(providerClientNotes.playerId, id)),
-        db.delete(providerClientPreferences).where(eq(providerClientPreferences.playerId, id)),
-        // Marketplace favorites
-        db.delete(marketplaceFavorites).where(eq(marketplaceFavorites.playerId, id)),
-        // Marketplace messages (sender or recipient)
-        db.delete(marketplaceMessages).where(
-          or(eq(marketplaceMessages.senderId, id), eq(marketplaceMessages.recipientId, id))
-        ),
         // Ball levels & skill scoring
         db.delete(playerBallLevels).where(eq(playerBallLevels.playerId, id)),
         db.delete(playerSkillScores).where(eq(playerSkillScores.playerId, id)),
@@ -2108,16 +2079,6 @@ export const storage = {
         db.delete(playerFeatureUnlockHistory).where(eq(playerFeatureUnlockHistory.playerId, id)),
         // Deep assessment pillar summaries
         db.delete(deepAssessmentPillarSummaries).where(eq(deepAssessmentPillarSummaries.playerId, id)),
-        // Spotlight nominations (nominator or nominated)
-        db.delete(spotlightNominations).where(
-          or(
-            eq(spotlightNominations.nominatorPlayerId, id),
-            eq(spotlightNominations.nominatedPlayerId, id)
-          )
-        ),
-        // Spotlight winners
-        db.delete(spotlightWeeklyWinners).where(eq(spotlightWeeklyWinners.playerId, id)),
-        db.delete(spotlightMonthlyWinners).where(eq(spotlightMonthlyWinners.playerId, id)),
         // Tournament participants
         db.delete(tournamentParticipants).where(eq(tournamentParticipants.playerId, id)),
         // Ladder players
@@ -2130,25 +2091,8 @@ export const storage = {
             eq(ladderChallenges.winnerId, id)
           )
         ),
-        // Beta feedback
-        db.delete(betaFeedback).where(eq(betaFeedback.playerId, id)),
-        // Video feedback
-        db.delete(videoFeedback).where(eq(videoFeedback.playerId, id)),
-        // AI summaries / insights / chats
-        db.delete(sessionAiSummaries).where(eq(sessionAiSummaries.playerId, id)),
-        db.delete(playerAiInsights).where(eq(playerAiInsights.playerId, id)),
-        db.delete(sessionAiChats).where(eq(sessionAiChats.playerId, id)),
-        // Equipment rentals
-        db.delete(equipmentRentals).where(eq(equipmentRentals.playerId, id)),
         // Series players
         db.delete(seriesPlayers).where(eq(seriesPlayers.playerId, id)),
-        // Family invite codes (host or used_by)
-        db.delete(familyInviteCodes).where(
-          or(
-            eq(familyInviteCodes.parentPlayerId, id),
-            eq(familyInviteCodes.usedByPlayerId, id)
-          )
-        ),
         // Player notifications
         db.delete(playerNotifications).where(eq(playerNotifications.playerId, id)),
         // Player deep assessments
@@ -2159,10 +2103,6 @@ export const storage = {
         db.delete(playerPillarProgress).where(eq(playerPillarProgress.playerId, id)),
         // In-session feedback
         db.delete(inSessionFeedback).where(eq(inSessionFeedback.playerId, id)),
-        // Corporate members (nullable playerId — unlink player reference)
-        db.update(corporateMembers).set({ playerId: null }).where(eq(corporateMembers.playerId, id)),
-        // Corporate credit transactions (nullable playerId — unlink)
-        db.update(corporateCreditTransactions).set({ playerId: null }).where(eq(corporateCreditTransactions.playerId, id)),
       ]);
 
       // ---------------------------------------------------------------
