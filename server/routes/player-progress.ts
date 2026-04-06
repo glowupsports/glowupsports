@@ -728,6 +728,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .select({
             seriesId: seriesPlayers.seriesId,
             joinedAt: seriesPlayers.joinedAt,
+            createdAt: seriesPlayers.createdAt,
           })
           .from(seriesPlayers)
           .where(
@@ -741,7 +742,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .map((s) => s.seriesId)
           .filter(Boolean) as string[];
         const seriesJoinDates = new Map(
-          playerSeriesData.map((s) => [s.seriesId, s.joinedAt]),
+          playerSeriesData.map((s) => [s.seriesId, s.joinedAt ?? s.createdAt]),
         );
         const existingSessionIds = new Set(
           sessionPlayerRecords.map((r) => r.sessionId),
@@ -1019,6 +1020,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .select({
             seriesId: seriesPlayers.seriesId,
             joinedAt: seriesPlayers.joinedAt,
+            createdAt: seriesPlayers.createdAt,
           })
           .from(seriesPlayers)
           .where(
@@ -1031,7 +1033,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .map((s) => s.seriesId)
           .filter(Boolean) as string[];
         const seriesJoinDatesForHistory = new Map(
-          playerSeriesForHistory.map((s) => [s.seriesId, s.joinedAt]),
+          playerSeriesForHistory.map((s) => [s.seriesId, s.joinedAt ?? s.createdAt]),
         );
         const existingSessionIdsForHistory = new Set(
           playerRecords.map((r) => r.sessionId),
