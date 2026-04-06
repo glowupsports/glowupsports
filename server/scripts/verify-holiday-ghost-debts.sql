@@ -16,7 +16,8 @@ WHERE ct.reason IN ('session_debt','session_join_debt','session_unpaid')
   AND COALESCE(ct.metadata->>'cancelled','false') != 'true'
   AND COALESCE(ct.metadata->>'settled','false') != 'true';
 
--- Julia Waheb balance verification (should show 1 unsettled debt for Apr 3)
+-- Julia Waheb balance verification
+-- Expected: 3 unsettled debts (13 sessions attended - 10 covered by depleted package = 3 owed)
 SELECT 
   'unsettled_debts' as metric,
   COUNT(*)::text as value
