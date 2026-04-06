@@ -176,8 +176,8 @@ export default function PlayersScreen() {
   const [newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
   const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
   const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
-  // Active/Past tab switcher
-  const [rosterTab, setRosterTab] = useState<"active" | "past">("active");
+  // Active/Past/Pending Payment tab switcher
+  const [rosterTab, setRosterTab] = useState<"active" | "past" | "pending_payment">("active");
 
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true"],
@@ -186,6 +186,10 @@ export default function PlayersScreen() {
   const { data: pastPlayers = [], isLoading: isPastLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true&status=inactive"],
     enabled: rosterTab === "past",
+  });
+
+  const { data: pendingPaymentPlayers = [], isLoading: isPendingPaymentLoading } = useQuery<Player[]>({
+    queryKey: ["/api/players?withCredits=true&status=pending_payment"],
   });
 
   const invalidatePlayerLists = () => {
@@ -244,6 +248,81 @@ export default function PlayersScreen() {
         queryClient.setQueryData(context.queryKey, context.previousPlayers);
       }
       Alert.alert("Error", "Failed to restore player");
+    },
+  });
+
+  const markPendingPaymentMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/players/${playerId}/archive`, { status: "pending_payment" });
+    },
+    onMutate: async (playerId: string) => {
+      const queryKey = ["/api/players?withCredits=true"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousPlayers = queryClient.getQueryData<Player[]>(queryKey);
+      queryClient.setQueryData<Player[]>(queryKey, (old) =>
+        (old ?? []).filter((p) => p.id !== playerId)
+      );
+      return { previousPlayers, queryKey };
+    },
+    onSuccess: () => {
+      invalidatePlayerLists();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (_err, _playerId, context) => {
+      if (context?.previousPlayers !== undefined) {
+        queryClient.setQueryData(context.queryKey, context.previousPlayers);
+      }
+      Alert.alert("Error", "Failed to mark player as pending payment");
+    },
+  });
+
+  const restoreFromPendingPaymentMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/players/${playerId}/restore`, {});
+    },
+    onMutate: async (playerId: string) => {
+      const queryKey = ["/api/players?withCredits=true&status=pending_payment"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousPlayers = queryClient.getQueryData<Player[]>(queryKey);
+      queryClient.setQueryData<Player[]>(queryKey, (old) =>
+        (old ?? []).filter((p) => p.id !== playerId)
+      );
+      return { previousPlayers, queryKey };
+    },
+    onSuccess: () => {
+      invalidatePlayerLists();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (_err, _playerId, context) => {
+      if (context?.previousPlayers !== undefined) {
+        queryClient.setQueryData(context.queryKey, context.previousPlayers);
+      }
+      Alert.alert("Error", "Failed to restore player");
+    },
+  });
+
+  const archivePendingPaymentMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      return apiRequest("POST", `/api/players/${playerId}/archive`, {});
+    },
+    onMutate: async (playerId: string) => {
+      const queryKey = ["/api/players?withCredits=true&status=pending_payment"];
+      await queryClient.cancelQueries({ queryKey });
+      const previousPlayers = queryClient.getQueryData<Player[]>(queryKey);
+      queryClient.setQueryData<Player[]>(queryKey, (old) =>
+        (old ?? []).filter((p) => p.id !== playerId)
+      );
+      return { previousPlayers, queryKey };
+    },
+    onSuccess: () => {
+      invalidatePlayerLists();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (_err, _playerId, context) => {
+      if (context?.previousPlayers !== undefined) {
+        queryClient.setQueryData(context.queryKey, context.previousPlayers);
+      }
+      Alert.alert("Error", "Failed to archive player");
     },
   });
 
@@ -323,7 +402,7 @@ export default function PlayersScreen() {
   const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
 
   const filteredPlayers = useMemo(() => {
-    let result = rosterTab === "active" ? players : pastPlayers;
+    let result = rosterTab === "active" ? players : rosterTab === "past" ? pastPlayers : pendingPaymentPlayers;
     if (filterPlayerIds !== null) {
       const idSet = new Set(filterPlayerIds);
       result = result.filter((p) => idSet.has(p.id));
@@ -407,7 +486,7 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, pastPlayers, rosterTab, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
+  }, [players, pastPlayers, pendingPaymentPlayers, rosterTab, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -455,8 +534,8 @@ export default function PlayersScreen() {
     );
   }
 
-  const currentIsLoading = rosterTab === "active" ? isLoading : isPastLoading;
-  const currentPlayers = rosterTab === "active" ? players : pastPlayers;
+  const currentIsLoading = rosterTab === "active" ? isLoading : rosterTab === "past" ? isPastLoading : isPendingPaymentLoading;
+  const currentPlayers = rosterTab === "active" ? players : rosterTab === "past" ? pastPlayers : pendingPaymentPlayers;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -476,8 +555,8 @@ export default function PlayersScreen() {
             <Text style={styles.gamingTitle}>PLAYERS</Text>
             <View style={styles.gamingCountBadge}>
               <View style={styles.gamingCountGlow} />
-              <Text style={styles.gamingCountText}>{rosterTab === "active" ? players.length : pastPlayers.length}</Text>
-              <Text style={styles.gamingCountLabel}>{rosterTab === "active" ? "ACTIVE" : "PAST"}</Text>
+              <Text style={styles.gamingCountText}>{rosterTab === "active" ? players.length : rosterTab === "past" ? pastPlayers.length : pendingPaymentPlayers.length}</Text>
+              <Text style={styles.gamingCountLabel}>{rosterTab === "active" ? "ACTIVE" : rosterTab === "past" ? "PAST" : "PENDING PAYMENT"}</Text>
             </View>
           </View>
           {rosterTab === "active" ? (
@@ -504,14 +583,17 @@ export default function PlayersScreen() {
           ) : null}
         </View>
 
-        {/* Active / Past Tab Switcher */}
+        {/* Active / Past / Pending Payment Tab Switcher */}
         <View style={styles.rosterTabSwitcher}>
-          {(["active", "past"] as const).map((tab) => {
+          {(["active", "past", "pending_payment"] as const).map((tab) => {
             const isActive = rosterTab === tab;
+            const tabIcon = tab === "active" ? "people" : tab === "past" ? "archive" : "wallet-outline";
+            const tabLabel = tab === "active" ? "Active" : tab === "past" ? "Past" : "Pending Payment";
+            const pendingCount = pendingPaymentPlayers.length;
             return (
               <Pressable
                 key={tab}
-                style={[styles.rosterTabButton, isActive && styles.rosterTabButtonActive]}
+                style={[styles.rosterTabButton, isActive && styles.rosterTabButtonActive, tab === "pending_payment" && isActive && { backgroundColor: "#f59e0b" }]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setRosterTab(tab);
@@ -523,13 +605,20 @@ export default function PlayersScreen() {
                 }}
               >
                 <Ionicons
-                  name={tab === "active" ? "people" : "archive"}
+                  name={tabIcon}
                   size={13}
-                  color={isActive ? Colors.dark.backgroundRoot : Colors.dark.tabIconDefault}
+                  color={isActive ? Colors.dark.backgroundRoot : tab === "pending_payment" ? "#f59e0b" : Colors.dark.tabIconDefault}
                 />
                 <Text style={[styles.rosterTabText, isActive && styles.rosterTabTextActive]}>
-                  {tab === "active" ? "Active" : "Past"}
+                  {tabLabel}
                 </Text>
+                {tab === "pending_payment" && pendingCount > 0 ? (
+                  <View style={{ backgroundColor: isActive ? "rgba(0,0,0,0.3)" : "#f59e0b", borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, minWidth: 18, alignItems: "center" }}>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: isActive ? Colors.dark.backgroundRoot : Colors.dark.backgroundRoot }}>
+                      {pendingCount}
+                    </Text>
+                  </View>
+                ) : null}
               </Pressable>
             );
           })}
@@ -975,6 +1064,16 @@ export default function PlayersScreen() {
               "Past players keep all their history intact",
             ]}
           />
+        ) : rosterTab === "pending_payment" ? (
+          <GuidedEmptyState
+            icon="wallet-outline"
+            title="No Pending Payments"
+            description="Players flagged for pending payment will appear here. Use the wallet icon on active player cards to flag them."
+            tips={[
+              "Tap the wallet icon on any active player card",
+              "Restore them to Active once payment is received",
+            ]}
+          />
         ) : (
           <GuidedEmptyState
             icon="people-outline"
@@ -1000,6 +1099,7 @@ export default function PlayersScreen() {
                   setShowBaselineDrawer(true);
                 }}
                 isPast={rosterTab === "past"}
+                isPendingPayment={rosterTab === "pending_payment"}
                 onArchive={rosterTab === "active" ? () => {
                   Alert.alert(
                     "Move to Past",
@@ -1013,6 +1113,19 @@ export default function PlayersScreen() {
                       },
                     ]
                   );
+                } : rosterTab === "pending_payment" ? () => {
+                  Alert.alert(
+                    "Move to Past",
+                    `Move ${player.name} to Past Players? Their history will be preserved.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Move to Past",
+                        style: "destructive",
+                        onPress: () => archivePendingPaymentMutation.mutate(player.id),
+                      },
+                    ]
+                  );
                 } : undefined}
                 onRestore={rosterTab === "past" ? () => {
                   Alert.alert(
@@ -1023,6 +1136,31 @@ export default function PlayersScreen() {
                       {
                         text: "Restore",
                         onPress: () => restorePlayerMutation.mutate(player.id),
+                      },
+                    ]
+                  );
+                } : rosterTab === "pending_payment" ? () => {
+                  Alert.alert(
+                    "Restore to Active",
+                    `Restore ${player.name} to Active Players?`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Restore",
+                        onPress: () => restoreFromPendingPaymentMutation.mutate(player.id),
+                      },
+                    ]
+                  );
+                } : undefined}
+                onPendingPayment={rosterTab === "active" ? () => {
+                  Alert.alert(
+                    "Mark as Pending Payment",
+                    `Flag ${player.name} as awaiting payment? They will be moved to the Pending Payment tab.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Mark Pending",
+                        onPress: () => markPendingPaymentMutation.mutate(player.id),
                       },
                     ]
                   );

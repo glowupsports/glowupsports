@@ -635,9 +635,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Filter by player status if requested
         if (playerStatusFilter === "inactive") {
           playerList = playerList.filter((p) => p.status === "inactive");
+        } else if (playerStatusFilter === "pending_payment") {
+          playerList = playerList.filter((p) => p.status === "pending_payment");
         } else if (!playerStatusFilter || playerStatusFilter === "active") {
-          // Default: exclude inactive (past) players
-          playerList = playerList.filter((p) => p.status !== "inactive");
+          // Default: exclude inactive (past) and pending_payment players
+          playerList = playerList.filter(
+            (p) => p.status !== "inactive" && p.status !== "pending_payment"
+          );
         }
         // If playerStatusFilter === "all", no additional filter applied
 
@@ -1256,7 +1260,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Player not found" });
         }
 
-        await db.update(players).set({ status: "inactive" }).where(eq(players.id, id));
+        const targetStatus =
+          req.body?.status === "pending_payment" ? "pending_payment" : "inactive";
+        await db
+          .update(players)
+          .set({ status: targetStatus })
+          .where(eq(players.id, id));
         res.json({ success: true, message: "Player archived" });
       } catch (error) {
         console.error("Error archiving player:", error);

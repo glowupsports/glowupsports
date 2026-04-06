@@ -156,8 +156,10 @@ export function GamingPlayerCard({
   needsBaseline,
   onStartBaseline,
   isPast,
+  isPendingPayment,
   onArchive,
   onRestore,
+  onPendingPayment,
 }: { 
   player: Player; 
   onPress: () => void;
@@ -165,8 +167,10 @@ export function GamingPlayerCard({
   needsBaseline?: boolean;
   onStartBaseline?: () => void;
   isPast?: boolean;
+  isPendingPayment?: boolean;
   onArchive?: () => void;
   onRestore?: () => void;
+  onPendingPayment?: () => void;
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
@@ -211,7 +215,7 @@ export function GamingPlayerCard({
   return (
     <>
     <AnimatedPressable
-      style={[styles.gamingCardContainer, animatedStyle, isPast && { opacity: 0.65 }]}
+      style={[styles.gamingCardContainer, animatedStyle, isPast && { opacity: 0.65 }, isPendingPayment && { opacity: 0.8 }]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -220,7 +224,7 @@ export function GamingPlayerCard({
       onPressOut={handlePressOut}
     >
       <LinearGradient
-        colors={isPast ? ["#33333840", "#33333810"] : [levelColor + "40", levelColor + "10"]}
+        colors={isPast ? ["#33333840", "#33333810"] : isPendingPayment ? ["#f59e0b40", "#f59e0b10"] : [levelColor + "40", levelColor + "10"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gamingCardBorder}
@@ -350,7 +354,12 @@ export function GamingPlayerCard({
                   <Text style={styles.baselineNeededText}>Baseline</Text>
                 </Pressable>
               )}
-              {isPendingSignup ? (
+              {isPendingPayment ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#f59e0b25", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: "#f59e0b50" }}>
+                  <Ionicons name="wallet-outline" size={9} color="#f59e0b" />
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#f59e0b", letterSpacing: 0.3 }}>Awaiting Payment</Text>
+                </View>
+              ) : isPendingSignup ? (
                 <Pressable
                   style={styles.awaitingSignupBadge}
                   onPress={(e) => {
@@ -372,6 +381,18 @@ export function GamingPlayerCard({
           </View>
 
           <View style={{ flexDirection: "column", alignItems: "center", gap: 6 }}>
+            {onPendingPayment ? (
+              <Pressable
+                style={[styles.archiveActionBtn, { backgroundColor: "#f59e0b20", borderColor: "#f59e0b50" }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onPendingPayment();
+                }}
+              >
+                <Ionicons name="wallet-outline" size={14} color="#f59e0b" />
+              </Pressable>
+            ) : null}
             {onArchive ? (
               <Pressable
                 style={styles.archiveActionBtn}
