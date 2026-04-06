@@ -19,6 +19,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SESSION_DETAILS_INTRO_KEY = "skipSessionDetailsIntro";
 
+const BALL_LEVELS = ["Blue", "Red", "Orange", "Green", "Yellow", "Glow"];
+
 const CANCELLATION_REASONS = [
   { label: "Select a reason...", value: "" },
   { label: "Personal emergency", value: "Personal emergency" },
@@ -32,6 +34,7 @@ const CANCELLATION_REASONS = [
 ];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
+import { getBallLevelColor } from "./series-detail/utils";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -193,6 +196,7 @@ export default function SessionDetailDrawer({
   const [guestBallLevel, setGuestBallLevel] = useState<string>("");
   const [conversionErrors, setConversionErrors] = useState<{email?: string; age?: string}>({});
   const [playerSearch, setPlayerSearch] = useState("");
+  const [ballLevelFilter, setBallLevelFilter] = useState<string | null>(null);
   
   // Remove player state
   const [showRemovePlayer, setShowRemovePlayer] = useState<Player | null>(null);
@@ -247,10 +251,11 @@ export default function SessionDetailDrawer({
   const existingPlayerIds = liveSession?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
   
-  // Filter players by search query
+  // Filter players by search query and ball level
   const filteredPlayers = availablePlayers.filter(p => 
-    p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
-    (p.ballLevel && p.ballLevel.toLowerCase().includes(playerSearch.toLowerCase()))
+    (p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
+    (p.ballLevel && p.ballLevel.toLowerCase().includes(playerSearch.toLowerCase()))) &&
+    (!ballLevelFilter || (p.ballLevel && p.ballLevel.toLowerCase() === ballLevelFilter))
   );
 
   const addPlayerMutation = useMutation({
@@ -1851,7 +1856,7 @@ export default function SessionDetailDrawer({
   const renderAddPlayerContent = () => (
     <>
       <View style={styles.stepHeader}>
-        <Pressable onPress={() => { setShowAddPlayer(false); setSelectedPlayer(null); setPlayerSearch(""); }}>
+        <Pressable onPress={() => { setShowAddPlayer(false); setSelectedPlayer(null); setPlayerSearch(""); setBallLevelFilter(null); }}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.stepTitle}>Add Player</Text>
@@ -1879,7 +1884,45 @@ export default function SessionDetailDrawer({
               </Pressable>
             )}
           </View>
-          
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, gap: Spacing.xs }}
+          >
+            <Pressable
+              style={[
+                sessionBallChipStyles.chip,
+                ballLevelFilter === null && sessionBallChipStyles.chipSelected,
+              ]}
+              onPress={() => setBallLevelFilter(null)}
+            >
+              <Text style={[sessionBallChipStyles.chipText, ballLevelFilter === null && sessionBallChipStyles.chipTextSelected]}>
+                All
+              </Text>
+            </Pressable>
+            {BALL_LEVELS.map((level) => {
+              const color = getBallLevelColor(level);
+              const isSelected = ballLevelFilter === level.toLowerCase();
+              return (
+                <Pressable
+                  key={level}
+                  style={[
+                    sessionBallChipStyles.chip,
+                    isSelected && { backgroundColor: color, borderColor: color },
+                  ]}
+                  onPress={() => setBallLevelFilter(isSelected ? null : level.toLowerCase())}
+                >
+                  <View style={[sessionBallChipStyles.chipDot, { backgroundColor: isSelected ? "#fff" : color }]} />
+                  <Text style={[sessionBallChipStyles.chipText, isSelected && { color: "#fff" }]}>
+                    {level}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           <ScrollView style={styles.playerSelectList}>
             {filteredPlayers.map(player => (
               <Pressable
@@ -3976,5 +4019,37 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.07)",
     alignItems: "center",
     justifyContent: "center",
+  },
+});
+
+const sessionBallChipStyles = StyleSheet.create({
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    gap: 5,
+  },
+  chipSelected: {
+    backgroundColor: "rgba(0, 229, 255, 0.15)",
+    borderColor: Colors.dark.successNeon,
+  },
+  chipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  chipText: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  chipTextSelected: {
+    color: Colors.dark.successNeon,
+    fontWeight: "600",
   },
 });

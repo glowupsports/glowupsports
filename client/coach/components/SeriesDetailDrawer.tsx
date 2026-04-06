@@ -67,6 +67,7 @@ export default function SeriesDetailDrawer({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [joinDate, setJoinDate] = useState<Date>(new Date());
   const [playerSearch, setPlayerSearch] = useState("");
+  const [ballLevelFilter, setBallLevelFilter] = useState<string | null>(null);
   const [showPackageSelection, setShowPackageSelection] = useState(false);
   const [selectedPackageTemplateId, setSelectedPackageTemplateId] = useState<string | null>(null);
   const [isGuestAdd, setIsGuestAdd] = useState(false);
@@ -371,7 +372,8 @@ export default function SeriesDetailDrawer({
   const existingPlayerIds = new Set(series?.players?.filter(p => p.status !== "left").map(p => p.id) || []);
   const filteredPlayers = allPlayers.filter(p => 
     !existingPlayerIds.has(p.id) && 
-    p.name.toLowerCase().includes(playerSearch.toLowerCase())
+    p.name.toLowerCase().includes(playerSearch.toLowerCase()) &&
+    (!ballLevelFilter || (p.ballLevel && p.ballLevel.toLowerCase() === ballLevelFilter))
   );
 
   // Mutation to add player to series (with optional package assignment)
@@ -409,6 +411,7 @@ export default function SeriesDetailDrawer({
       setJoinDate(new Date());
       setSelectedAttendance({});
       setPlayerSearch("");
+      setBallLevelFilter(null);
       setIsGuestAdd(false);
       setGuestUntilDate(getDefaultGuestUntil());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1513,6 +1516,7 @@ export default function SeriesDetailDrawer({
           setTimeout(() => {
             setSelectedPlayerId(null);
             setPlayerSearch('');
+            setBallLevelFilter(null);
             setJoinDate(new Date());
             setIsGuestAdd(false);
             setGuestUntilDate(getDefaultGuestUntil());
@@ -1576,6 +1580,8 @@ export default function SeriesDetailDrawer({
         filteredPlayers={filteredPlayers}
         playerSearch={playerSearch}
         setPlayerSearch={setPlayerSearch}
+        ballLevelFilter={ballLevelFilter}
+        setBallLevelFilter={setBallLevelFilter}
         handlePlayerSelect={handlePlayerSelect}
         handleContinueToPackage={handleContinueToPackage}
         getBallLevelColor={getBallLevelColor}

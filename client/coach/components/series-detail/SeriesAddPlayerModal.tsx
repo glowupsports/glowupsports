@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  StyleSheet,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -35,6 +36,8 @@ interface PastSession {
   startTime: string;
   weekNumber?: number;
 }
+
+const BALL_LEVELS = ["Blue", "Red", "Orange", "Green", "Yellow", "Glow"];
 
 interface SeriesAddPlayerModalProps {
   visible: boolean;
@@ -85,6 +88,8 @@ interface SeriesAddPlayerModalProps {
   filteredPlayers: Player[];
   playerSearch: string;
   setPlayerSearch: (v: string) => void;
+  ballLevelFilter: string | null;
+  setBallLevelFilter: (v: string | null) => void;
   handlePlayerSelect: (playerId: string) => void;
   handleContinueToPackage: () => void;
   getBallLevelColor: (level?: string | null) => string;
@@ -140,6 +145,8 @@ export function SeriesAddPlayerModal({
   filteredPlayers,
   playerSearch,
   setPlayerSearch,
+  ballLevelFilter,
+  setBallLevelFilter,
   handlePlayerSelect,
   handleContinueToPackage,
   getBallLevelColor,
@@ -549,6 +556,43 @@ export function SeriesAddPlayerModal({
                   onChangeText={setPlayerSearch}
                 />
               </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ flexGrow: 0 }}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, gap: Spacing.xs }}
+              >
+                <Pressable
+                  style={[
+                    ballLevelChipStyles.chip,
+                    ballLevelFilter === null && ballLevelChipStyles.chipSelected,
+                  ]}
+                  onPress={() => setBallLevelFilter(null)}
+                >
+                  <Text style={[ballLevelChipStyles.chipText, ballLevelFilter === null && ballLevelChipStyles.chipTextSelected]}>
+                    All
+                  </Text>
+                </Pressable>
+                {BALL_LEVELS.map((level) => {
+                  const color = getBallLevelColor(level);
+                  const isSelected = ballLevelFilter === level.toLowerCase();
+                  return (
+                    <Pressable
+                      key={level}
+                      style={[
+                        ballLevelChipStyles.chip,
+                        isSelected && { backgroundColor: color, borderColor: color },
+                      ]}
+                      onPress={() => setBallLevelFilter(isSelected ? null : level.toLowerCase())}
+                    >
+                      <View style={[ballLevelChipStyles.chipDot, { backgroundColor: isSelected ? "#fff" : color }]} />
+                      <Text style={[ballLevelChipStyles.chipText, isSelected && { color: "#fff" }]}>
+                        {level}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
               <ScrollView style={styles.playerList}>
                 {filteredPlayers.length === 0 ? (
                   <Text style={styles.noPlayersText}>
@@ -587,3 +631,35 @@ export function SeriesAddPlayerModal({
     </Modal>
   );
 }
+
+const ballLevelChipStyles = StyleSheet.create({
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundElevated,
+    gap: 5,
+  },
+  chipSelected: {
+    backgroundColor: Colors.dark.successNeon + "20",
+    borderColor: Colors.dark.successNeon,
+  },
+  chipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  chipText: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  chipTextSelected: {
+    color: Colors.dark.successNeon,
+    fontWeight: "600",
+  },
+});
