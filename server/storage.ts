@@ -3668,7 +3668,8 @@ export const storage = {
     // This covers the case where a debt was created at session-time (player was absent)
     // and the coach later corrects attendance to holiday/vacation.
     if (status === "holiday" || status === "vacation") {
-      const cancelResult = await this.cancelSessionDebt(playerId, sessionId);
+      const cancelReason = status === "vacation" ? "attendance_changed_to_vacation" : "attendance_changed_to_holiday";
+      const cancelResult = await this.cancelSessionDebt(playerId, sessionId, cancelReason);
       if (cancelResult.cancelled) {
         console.log(`[Attendance] Auto-cancelled ${cancelResult.amount} credit debt for player ${playerId} session ${sessionId} — status changed to ${status}`);
       }
