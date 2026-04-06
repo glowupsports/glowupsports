@@ -780,6 +780,9 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     if (req.path === "/") {
+      if (process.env.NODE_ENV === 'development') {
+        return next();
+      }
       const distIndexPath = path.resolve(process.cwd(), "dist", "index.html");
       if (fs.existsSync(distIndexPath)) {
         return res.sendFile(distIndexPath);
