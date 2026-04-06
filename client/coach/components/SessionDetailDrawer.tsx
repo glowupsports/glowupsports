@@ -281,6 +281,28 @@ export default function SessionDetailDrawer({
       }
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (selectedPlayer) {
+        setLiveSession(prev => {
+          if (!prev) return prev;
+          const alreadyExists = prev.players?.some(p => p.id === selectedPlayer.id);
+          if (alreadyExists) return prev;
+          return {
+            ...prev,
+            players: [
+              ...(prev.players || []),
+              {
+                id: selectedPlayer.id,
+                name: selectedPlayer.name,
+                ballLevel: selectedPlayer.ballLevel || null,
+                status: "active",
+                attendanceStatus: null,
+                isGuest: false,
+                profilePhotoUrl: null,
+              },
+            ],
+          };
+        });
+      }
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -307,6 +329,29 @@ export default function SessionDetailDrawer({
       });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setLiveSession(prev => {
+        if (!prev) return prev;
+        const playerId = creditMismatchWarning.playerId;
+        const playerName = creditMismatchWarning.playerName;
+        const ballLevel = selectedPlayer?.ballLevel || null;
+        const alreadyExists = prev.players?.some(p => p.id === playerId);
+        if (alreadyExists) return prev;
+        return {
+          ...prev,
+          players: [
+            ...(prev.players || []),
+            {
+              id: playerId,
+              name: playerName,
+              ballLevel: ballLevel,
+              status: "active",
+              attendanceStatus: null,
+              isGuest: false,
+              profilePhotoUrl: null,
+            },
+          ],
+        };
+      });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
