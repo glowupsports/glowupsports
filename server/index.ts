@@ -374,6 +374,13 @@ function setupExpoDevProxy(app: express.Application) {
     return proxyCache.get(port)!;
   }
 
+  // Serve icon fonts directly from Express so the browser can load them without
+  // hitting Metro's CORS/origin check (which blocks requests from the Replit domain).
+  app.use("/fonts", express.static(
+    path.resolve(process.cwd(), "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts"),
+    { maxAge: "1d" }
+  ));
+
   const templateRoutes = ['/support', '/privacy', '/privacy-policy', '/delete-account', '/dev-preview'];
   app.use((req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/public')) {
