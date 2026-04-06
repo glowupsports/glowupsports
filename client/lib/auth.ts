@@ -10,21 +10,21 @@ const CURRENT_ACADEMY_KEY = "current_academy_id";
 // SecureStore uses iOS Keychain / Android Keystore for hardware-backed encryption.
 // On web, SecureStore is unavailable so we fall back to AsyncStorage.
 // On native, we ONLY use SecureStore — errors are surfaced, never silently bypassed.
-async function secureGet(key: string): Promise<string | null> {
+export async function secureGet(key: string): Promise<string | null> {
   if (Platform.OS === "web") {
     return AsyncStorage.getItem("@" + key);
   }
   return SecureStore.getItemAsync(key);
 }
 
-async function secureSet(key: string, value: string): Promise<void> {
+export async function secureSet(key: string, value: string): Promise<void> {
   if (Platform.OS === "web") {
     return AsyncStorage.setItem("@" + key, value);
   }
   return SecureStore.setItemAsync(key, value);
 }
 
-async function secureDelete(key: string): Promise<void> {
+export async function secureDelete(key: string): Promise<void> {
   if (Platform.OS === "web") {
     return AsyncStorage.removeItem("@" + key);
   }

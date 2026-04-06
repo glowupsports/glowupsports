@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text } from "react-native";
-import * as SecureStore from "expo-secure-store";
+import { secureGet, secureDelete } from "@/lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -137,7 +137,7 @@ function FamilySwitchBackBanner() {
   useEffect(() => {
     const check = async () => {
       try {
-        const raw = await SecureStore.getItemAsync(FAMILY_SWITCH_KEY);
+        const raw = await secureGet(FAMILY_SWITCH_KEY);
         setSwitchInfo(raw ? JSON.parse(raw) : null);
       } catch {
         setSwitchInfo(null);
@@ -150,7 +150,7 @@ function FamilySwitchBackBanner() {
     if (!switchInfo || loading) return;
     setLoading(true);
     try {
-      await SecureStore.deleteItemAsync(FAMILY_SWITCH_KEY);
+      await secureDelete(FAMILY_SWITCH_KEY);
       if (switchInfo.hasOwnAccount && switchInfo.originalToken) {
         const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
           headers: { Authorization: `Bearer ${switchInfo.originalToken}` },

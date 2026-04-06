@@ -14,7 +14,6 @@ import {
   Share,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import * as SecureStore from "expo-secure-store";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +26,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
-import { getAuthToken } from "@/lib/auth";
+import { getAuthToken, secureSet } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 
 export const FAMILY_SWITCH_KEY = "family_switch";
@@ -368,7 +367,7 @@ export default function FamilyLobbyScreen() {
 
       if (result.hasOwnAccount && result.token) {
         const originalToken = getAuthToken();
-        await SecureStore.setItemAsync(
+        await secureSet(
           FAMILY_SWITCH_KEY,
           JSON.stringify({ originalToken, switchedPlayerName: member.name, hasOwnAccount: true })
         );
@@ -378,7 +377,7 @@ export default function FamilyLobbyScreen() {
         const meData = await meResp.json();
         await loginWithToken(result.token, meData.user);
       } else {
-        await SecureStore.setItemAsync(
+        await secureSet(
           FAMILY_SWITCH_KEY,
           JSON.stringify({ originalPlayerId: user?.playerId, switchedPlayerName: member.name, hasOwnAccount: false })
         );

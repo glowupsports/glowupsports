@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as SecureStore from "expo-secure-store";
+import { secureGet, secureDelete } from "@/lib/auth";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
@@ -90,7 +90,7 @@ export default function PlayerSettingsScreen() {
   }, []);
 
   useEffect(() => {
-    SecureStore.getItemAsync(FAMILY_SWITCH_KEY).then(raw => {
+    secureGet(FAMILY_SWITCH_KEY).then(raw => {
       if (raw) {
         try {
           const parsed = JSON.parse(raw);
@@ -242,7 +242,7 @@ export default function PlayerSettingsScreen() {
                     try {
                       await apiRequest("DELETE", "/api/player/me/account", undefined);
                       const doAfterDelete = async () => {
-                        const raw = await SecureStore.getItemAsync(FAMILY_SWITCH_KEY).catch(() => null);
+                        const raw = await secureGet(FAMILY_SWITCH_KEY).catch(() => null);
                         if (raw) {
                           try {
                             const parsed = JSON.parse(raw);
@@ -254,7 +254,7 @@ export default function PlayerSettingsScreen() {
                               if (meRes.ok) {
                                 const meData = await meRes.json();
                                 await loginWithToken(parsed.originalToken, meData.user);
-                                await SecureStore.deleteItemAsync(FAMILY_SWITCH_KEY).catch(() => {});
+                                await secureDelete(FAMILY_SWITCH_KEY).catch(() => {});
                                 Alert.alert(
                                   "Account Removed",
                                   `${switchedName}'s account has been permanently deleted. You are back on your main account.`
