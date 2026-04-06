@@ -3626,9 +3626,11 @@ export const storage = {
         eq(sessionPlayers.playerId, playerId)
       ));
     
+    let result: SessionPlayer | undefined;
+
     if (existing.length > 0) {
       // Update existing record
-      const result = await db
+      const rows = await db
         .update(sessionPlayers)
         .set({
           attendanceStatus: status,
@@ -3642,10 +3644,10 @@ export const storage = {
           )
         )
         .returning();
-      return result[0];
+      result = rows[0];
     } else {
       // Insert new record
-      const result = await db
+      const rows = await db
         .insert(sessionPlayers)
         .values({
           id: randomUUID(),
@@ -3657,9 +3659,22 @@ export const storage = {
           isGuest: false,
         })
         .returning();
+      result = rows[0];
       console.log(`[Attendance] Created new session_player record for session ${sessionId}, player ${playerId}, status ${status}`);
-      return result[0];
     }
+
+    // CRITICAL: When attendance changes to holiday or vacation, cancel any existing debt.
+    // A player on holiday/vacation should never owe for a session they legitimately skipped.
+    // This covers the case where a debt was created at session-time (player was absent)
+    // and the coach later corrects attendance to holiday/vacation.
+    if (status === "holiday" || status === "vacation") {
+      const cancelResult = await this.cancelSessionDebt(playerId, sessionId);
+      if (cancelResult.cancelled) {
+        console.log(`[Attendance] Auto-cancelled ${cancelResult.amount} credit debt for player ${playerId} session ${sessionId} — status changed to ${status}`);
+      }
+    }
+
+    return result;
   },
   
   // Mark attendance for backfill - returns object with isNewAttendance flag

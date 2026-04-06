@@ -1835,6 +1835,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     console.error(`[OfflineSync] Credit processing failed for player ${action.playerId}:`, creditErr);
                   }
                 }
+                // Note: holiday/vacation debt cancellation is handled inside updateAttendance()
                 break;
               }
               case "feedback":

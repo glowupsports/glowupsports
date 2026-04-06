@@ -2651,11 +2651,12 @@ async function autoCancel(
             fireQuestEvent(record.playerId, "complete_session").catch(() => {});
           }
 
-          // When attendance changes to vacation, cancel any debt for this session
-          if (record.status === "vacation") {
+          // When attendance changes to holiday/vacation, cancel any debt for this session
+          // Note: updateAttendance() now also handles this internally — this is a safety net
+          if (record.status === "vacation" || record.status === "holiday") {
             const cancelResult = await storage.cancelSessionDebt(record.playerId, id);
             if (cancelResult.cancelled) {
-              console.log(`[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to vacation status`);
+              console.log(`[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`);
             }
           }
         }
