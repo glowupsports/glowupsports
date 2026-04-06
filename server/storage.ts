@@ -6768,7 +6768,8 @@ export const storage = {
     // Debt = unsettled debt transactions (player used sessions with no package available)
     // Includes:
     //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
-    //   legacy:     reason IN ('session_booking','session_consumed'), no package in column or metadata, amount < 0
+    //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
+    //               no package in column or metadata, amount < 0
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
@@ -6781,7 +6782,8 @@ export const storage = {
             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
             AND COALESCE(metadata->>'isDebt', 'false') = 'true')
           OR
-          (reason IN ('session_booking', 'session_consumed')
+          (type IN ('debit', 'session_booking', 'session_consumed')
+            AND reason IN ('session_booking', 'session_consumed')
             AND package_id IS NULL
             AND (metadata->>'packageId') IS NULL)
         )
@@ -7208,7 +7210,8 @@ export const storage = {
     // Debt = unsettled debt transactions (sessions without a package)
     // Includes:
     //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
-    //   legacy:     reason IN ('session_booking','session_consumed'), no package in column or metadata, amount < 0
+    //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
+    //               no package in column or metadata, amount < 0
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
@@ -7221,7 +7224,8 @@ export const storage = {
             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
             AND COALESCE(metadata->>'isDebt', 'false') = 'true')
           OR
-          (reason IN ('session_booking', 'session_consumed')
+          (type IN ('debit', 'session_booking', 'session_consumed')
+            AND reason IN ('session_booking', 'session_consumed')
             AND package_id IS NULL
             AND (metadata->>'packageId') IS NULL)
         )
@@ -12108,72 +12112,89 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
   return result;
 }
 
+interface OrphanedSPMembership {
+  player_id: string;
+  series_id: string;
+  joined_at: string;
+}
+
+interface OrphanedSPSession {
+  id: string;
+  session_type: string;
+  duration: number;
+  academy_id: string;
+}
+
+interface OrphanedSPInsertResult {
+  id: string;
+}
+
+interface OrphanRepairFailure {
+  playerId: string;
+  sessionId: string;
+  reason: string;
+}
+
 // Idempotent repair: find completed series sessions AFTER a player's joinedAt where no session_players record exists.
-// Creates records as 'present' and immediately calls ensureCreditProcessed to create the corresponding debt transaction.
-async function repairOrphanedSessionPlayers(): Promise<{ created: number; errors: number }> {
+// Creates records as 'present' and immediately calls ensureCreditProcessed to create the debt transaction.
+async function repairOrphanedSessionPlayers(): Promise<{ created: number; failures: OrphanRepairFailure[] }> {
   let created = 0;
-  let errors = 0;
-  try {
-    // Find all active series memberships with their effective join date
-    const memberships = await db.execute(sql`
-      SELECT sp.player_id, sp.series_id, sp.academy_id,
-             COALESCE(sp.joined_at, sp.created_at) AS joined_at
-      FROM series_players sp
-      WHERE sp.status = 'active'
+  const failures: OrphanRepairFailure[] = [];
+
+  const memberships = await db.execute(sql`
+    SELECT sp.player_id, sp.series_id,
+           COALESCE(sp.joined_at, sp.created_at) AS joined_at
+    FROM series_players sp
+    WHERE sp.status = 'active'
+  `);
+
+  for (const row of memberships.rows) {
+    const m = row as OrphanedSPMembership;
+
+    const orphaned = await db.execute(sql`
+      SELECT s.id, s.session_type, s.duration, s.academy_id
+      FROM sessions s
+      WHERE s.series_id = ${m.series_id}
+        AND s.status = 'completed'
+        AND s.start_time >= ${m.joined_at}
+        AND NOT EXISTS (
+          SELECT 1 FROM session_players sp2
+          WHERE sp2.session_id = s.id AND sp2.player_id = ${m.player_id}
+        )
     `);
 
-    for (const row of memberships.rows) {
-      const r = row as any;
-      try {
-        // Find completed sessions in this series after joined_at with no session_player record
-        const orphaned = await db.execute(sql`
-          SELECT s.id, s.session_type, s.duration, s.academy_id
-          FROM sessions s
-          WHERE s.series_id = ${r.series_id}
-            AND s.status = 'completed'
-            AND s.start_time >= ${r.joined_at}
-            AND NOT EXISTS (
-              SELECT 1 FROM session_players sp2
-              WHERE sp2.session_id = s.id AND sp2.player_id = ${r.player_id}
-            )
-        `);
+    for (const sess of orphaned.rows) {
+      const s = sess as OrphanedSPSession;
+      // Insert as 'present'; ON CONFLICT DO NOTHING ensures idempotency
+      const inserted = await db.execute(sql`
+        INSERT INTO session_players (id, session_id, player_id, attendance_status)
+        VALUES (gen_random_uuid(), ${s.id}, ${m.player_id}, 'present')
+        ON CONFLICT DO NOTHING
+        RETURNING id
+      `);
 
-        for (const sess of orphaned.rows) {
-          const s = sess as any;
-          try {
-            // Insert as 'present' so credit processing can charge correctly
-            const inserted = await db.execute(sql`
-              INSERT INTO session_players (id, session_id, player_id, attendance_status)
-              VALUES (gen_random_uuid(), ${s.id}, ${r.player_id}, 'present')
-              ON CONFLICT DO NOTHING
-              RETURNING id
-            `);
-            if ((inserted as any).rowCount > 0) {
-              created++;
-              const newSpId = (inserted.rows[0] as any).id;
-              console.log(`[OrphanedSPRepair] Created session_player ${newSpId}: player=${r.player_id} session=${s.id}`);
-              // Process credit immediately so debt transaction is created
-              try {
-                await ensureCreditProcessed(newSpId);
-              } catch (creditErr: any) {
-                console.error(`[OrphanedSPRepair] ensureCreditProcessed failed for ${newSpId}:`, creditErr.message);
-              }
-            }
-          } catch (insertErr: any) {
-            errors++;
-            console.error(`[OrphanedSPRepair] Insert failed player=${r.player_id} session=${s.id}:`, insertErr.message);
-          }
+      if ((inserted as { rowCount: number }).rowCount > 0) {
+        const newSpId = (inserted.rows[0] as OrphanedSPInsertResult).id;
+        created++;
+        console.log(`[OrphanedSPRepair] Created session_player ${newSpId}: player=${m.player_id} session=${s.id}`);
+
+        // Process credit immediately so the debt transaction is created
+        const creditResult = await ensureCreditProcessed(newSpId).catch((err: Error) => {
+          failures.push({ playerId: m.player_id, sessionId: s.id, reason: `ensureCreditProcessed: ${err.message}` });
+          return null;
+        });
+        if (creditResult === null) {
+          console.error(`[OrphanedSPRepair] Credit processing failed for session_player ${newSpId} (player=${m.player_id} session=${s.id})`);
         }
-      } catch (memberErr: any) {
-        errors++;
       }
     }
-  } catch (err: any) {
-    console.error("[OrphanedSPRepair] Fatal:", err.message);
-    errors++;
   }
-  console.log(`[OrphanedSPRepair] Done: ${created} created, ${errors} errors`);
-  return { created, errors };
+
+  if (failures.length > 0) {
+    console.error(`[OrphanedSPRepair] Completed with ${failures.length} credit-processing failure(s):`, JSON.stringify(failures));
+  }
+  console.log(`[OrphanedSPRepair] Done: ${created} created, ${failures.length} failures`);
+  return { created, failures };
 }
 
 export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits, repairOrphanedSessionPlayers };

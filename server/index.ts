@@ -985,7 +985,7 @@ function setupErrorHandler(app: express.Application) {
         // Repair orphaned session_players: create records for completed series sessions after player joinedAt
         log("[OrphanedSPRepair] Checking for missing session_players in series...");
         const orphanResult = await repairOrphanedSessionPlayers();
-        log(`[OrphanedSPRepair] Complete: ${orphanResult.created} created, ${orphanResult.errors} errors`);
+        log(`[OrphanedSPRepair] Complete: ${orphanResult.created} created, ${orphanResult.failures.length} failures`);
         
         log("[StartupRepair] Running bulk credit repair...");
         const result = await repairAllPlayerCredits();
