@@ -1,6 +1,17 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { StyleSheet, View, Platform, Alert } from "react-native";
+import { useFonts } from "expo-font";
+import {
+  Ionicons,
+  Feather,
+  MaterialIcons,
+  AntDesign,
+  FontAwesome,
+  Entypo,
+  MaterialCommunityIcons,
+  FontAwesome5,
+} from "@expo/vector-icons";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef, getStateFromPath as defaultGetStateFromPath } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -155,6 +166,23 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [splashComplete, setSplashComplete] = useState(false);
 
+  // On web, @expo/vector-icons loads fonts automatically via CSS — no explicit preload needed.
+  // On native (Expo Go / production), we must preload the TTF files so icons render correctly.
+  const [fontsLoaded, fontError] = useFonts(
+    Platform.OS !== "web"
+      ? {
+          ...Ionicons.font,
+          ...Feather.font,
+          ...MaterialIcons.font,
+          ...AntDesign.font,
+          ...FontAwesome.font,
+          ...Entypo.font,
+          ...MaterialCommunityIcons.font,
+          ...FontAwesome5.font,
+        }
+      : {}
+  );
+
   useEffect(() => {
     async function prepare() {
       try {
@@ -171,6 +199,8 @@ export default function App() {
     prepare();
   }, []);
 
+  const appIsReady = isReady && (fontsLoaded || fontError != null);
+
   const handleSplashComplete = useCallback(() => {
     setSplashComplete(true);
   }, []);
@@ -183,7 +213,7 @@ export default function App() {
           <SafeAreaProvider>
             <GestureHandlerRootView style={styles.root}>
               <KeyboardWrapper>
-                <AnimatedSplashScreen isReady={isReady} onComplete={handleSplashComplete}>
+                <AnimatedSplashScreen isReady={appIsReady} onComplete={handleSplashComplete}>
                   <UpdateController>
                     <NetworkProvider>
                       <AppModeProvider>
