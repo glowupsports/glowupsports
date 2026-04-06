@@ -27,6 +27,13 @@ Preferred communication style: Simple, everyday language.
 **New build triggers** (must rebuild + submit):
 - Adding a native package (non-JS Expo module), changing `app.json` plugins/permissions/bundleId, updating Expo SDK major version, adding new native capabilities
 
+### CRITICAL: Database Queries — Always Use Supabase
+**The `executeSql` / `code_execution` SQL tool queries a LOCAL database, NOT Supabase.**
+- The server and the app connect to **Supabase** via `SUPABASE_DATABASE_URL`.
+- SQL run via the `executeSql` tool (code_execution sandbox) hits a **local postgres** — completely different data.
+- **ALWAYS use `psql "$SUPABASE_DATABASE_URL" -c "..."` for any real database query or mutation.**
+- Never trust `executeSql` results for debugging production data — they will be wrong/empty.
+
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**
 
