@@ -54,6 +54,10 @@ export function RosterInsightsCard() {
 
   const hasInsights = data && data.insights && data.insights.length > 0;
 
+  if (!isLoading && !error && !hasInsights) {
+    return null;
+  }
+
   return (
     <View style={styles.card}>
       <Pressable style={styles.cardHeader} onPress={() => setCollapsed((c) => !c)}>

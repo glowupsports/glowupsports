@@ -2318,6 +2318,15 @@ export async function generateRosterInsights(coachId: string): Promise<{ insight
     const context = await buildRosterInsightsContext(coachId);
     if (!context || context.totalPlayers === 0) return null;
 
+    // Require at least one meaningful pattern: 3+ players sharing a common weakness or trend
+    const hasMeaningfulPattern =
+      context.commonSkillGaps.some((g) => g.playerCount >= 3) ||
+      context.attendanceConcerns.length >= 3 ||
+      context.improvingPlayers.length >= 3 ||
+      context.decliningPlayers.length >= 3;
+
+    if (!hasMeaningfulPattern) return null;
+
     // Build structured prompt
     const lines: string[] = [
       `Roster overview: ${context.totalPlayers} active players`,
