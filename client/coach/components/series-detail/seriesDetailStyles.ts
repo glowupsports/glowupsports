@@ -2084,7 +2084,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderWidth: 1,
     borderColor: Colors.dark.textMuted + "30",
     alignItems: "center",

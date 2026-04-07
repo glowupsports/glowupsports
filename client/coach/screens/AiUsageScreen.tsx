@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderLeftWidth: 3,
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   card: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   noticeCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginTop: Spacing.md,
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   academyCard: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalCard: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     width: "100%",

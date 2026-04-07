@@ -307,10 +307,10 @@ function GlowMirrorCard({
         disabled={saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          <ActivityIndicator size="small" color={Colors.dark.background} />
+          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
         ) : (
           <>
-            <Ionicons name="checkmark-circle" size={18} color={Colors.dark.background} />
+            <Ionicons name="checkmark-circle" size={18} color={Colors.dark.buttonText} />
             <Text style={mirrorStyles.saveButtonText}>Save Reflection</Text>
           </>
         )}
@@ -436,7 +436,7 @@ const mirrorStyles = StyleSheet.create({
   },
   saveButtonText: {
     ...Typography.body,
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

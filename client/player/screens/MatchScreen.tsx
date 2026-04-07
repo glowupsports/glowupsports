@@ -174,7 +174,7 @@ export default function MatchScreen() {
               setShowResultModal(true);
             }}
           >
-            <Ionicons name="play" size={18} color={Colors.dark.background} />
+            <Ionicons name="play" size={18} color={Colors.dark.buttonText} />
             <Text style={styles.primaryButtonText}>Enter Result</Text>
           </Pressable>
         </View>
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     ...Typography.caption,
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   historyCard: {
@@ -1248,7 +1248,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   selectedTacticText: {
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
   },
   optionsRow: {
     flexDirection: "row",
@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   selectedOptionText: {
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   confidenceRow: {

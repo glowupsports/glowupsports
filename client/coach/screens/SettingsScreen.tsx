@@ -2583,7 +2583,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   deleteModalContent: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     width: "100%",

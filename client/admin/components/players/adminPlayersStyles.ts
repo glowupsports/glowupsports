@@ -1568,7 +1568,7 @@ export const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   unpaidPackageCard: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -1628,7 +1628,7 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
   },
   attendanceSectionPremium: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.xl,
     padding: 0,
     overflow: "hidden",

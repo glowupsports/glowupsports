@@ -381,7 +381,7 @@ export default function MatchReviewScreen() {
                 style={styles.addButton}
                 onPress={addImprovement}
               >
-                <Ionicons name="add" size={20} color={Colors.dark.background} />
+                <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
               </Pressable>
             </View>
           )}
@@ -415,7 +415,7 @@ export default function MatchReviewScreen() {
             submitReviewMutation.mutate();
           }}
         >
-          <Ionicons name="checkmark-circle" size={20} color={Colors.dark.background} />
+          <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
           <Text style={styles.submitButtonText}>
             {submitReviewMutation.isPending ? "Saving..." : "Submit Review"}
           </Text>
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     ...Typography.body,
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });

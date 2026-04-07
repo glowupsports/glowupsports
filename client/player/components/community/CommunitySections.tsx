@@ -825,7 +825,7 @@ export function GroupsSection() {
           <Ionicons
             name={filter.icon as any}
             size={16}
-            color={groupFilter === filter.key ? Colors.dark.background : Colors.dark.textSecondary}
+            color={groupFilter === filter.key ? Colors.dark.buttonText : Colors.dark.textSecondary}
           />
           <ThemedText
             style={[
@@ -900,7 +900,7 @@ export function GroupsSection() {
             setShowCreateModal(true);
           }}
         >
-          <Ionicons name="add" size={28} color={Colors.dark.background} />
+          <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
         </Pressable>
       ) : null}
 
@@ -948,14 +948,14 @@ export function GroupsSection() {
                     style={[groupStyles.createGroupTypeBtn, newGroupType === "social" && groupStyles.createGroupTypeBtnActive]}
                     onPress={() => setNewGroupType("social")}
                   >
-                    <Ionicons name="people" size={18} color={newGroupType === "social" ? Colors.dark.background : Colors.dark.textSecondary} />
+                    <Ionicons name="people" size={18} color={newGroupType === "social" ? Colors.dark.buttonText : Colors.dark.textSecondary} />
                     <ThemedText style={[groupStyles.createGroupTypeText, newGroupType === "social" && groupStyles.createGroupTypeTextActive]}>{t('player.community.social')}</ThemedText>
                   </Pressable>
                   <Pressable
                     style={[groupStyles.createGroupTypeBtn, newGroupType === "friends" && groupStyles.createGroupTypeBtnActive]}
                     onPress={() => setNewGroupType("friends")}
                   >
-                    <Ionicons name="heart" size={18} color={newGroupType === "friends" ? Colors.dark.background : Colors.dark.textSecondary} />
+                    <Ionicons name="heart" size={18} color={newGroupType === "friends" ? Colors.dark.buttonText : Colors.dark.textSecondary} />
                     <ThemedText style={[groupStyles.createGroupTypeText, newGroupType === "friends" && groupStyles.createGroupTypeTextActive]}>{t('player.community.friends')}</ThemedText>
                   </Pressable>
                 </View>
@@ -968,7 +968,7 @@ export function GroupsSection() {
               disabled={!newGroupName.trim() || createGroupMutation.isPending}
             >
               {createGroupMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.background} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <ThemedText style={groupStyles.createGroupSubmitText}>{t('player.community.createGroup')}</ThemedText>
               )}
@@ -1715,7 +1715,7 @@ const groupStyles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   groupFilterTextActive: {
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   createGroupBtn: {
@@ -1845,7 +1845,7 @@ const groupStyles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   createGroupTypeTextActive: {
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   createGroupSubmitBtn: {
@@ -1861,6 +1861,6 @@ const groupStyles = StyleSheet.create({
   createGroupSubmitText: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.dark.background,
+    color: Colors.dark.buttonText,
   },
 });

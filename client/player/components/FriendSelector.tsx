@@ -153,7 +153,7 @@ export default function FriendSelector({
           
           <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
             {selected ? (
-              <Ionicons name="checkmark" size={16} color={Colors.dark.background} />
+              <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
             ) : null}
           </View>
         </Pressable>
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   levelBadge: {
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,

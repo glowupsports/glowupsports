@@ -202,7 +202,7 @@ export function MonthlyAssessmentModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: Colors.dark.background }}
+        style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.container}>
@@ -340,7 +340,7 @@ export function MonthlyAssessmentModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   header: {
     paddingTop: 20,
@@ -393,12 +393,12 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   bodyContent: {
     padding: 24,
     paddingBottom: 40,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   stepQuestion: {
     fontSize: 18,
