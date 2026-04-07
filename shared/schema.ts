@@ -7116,3 +7116,31 @@ export const playerMonthlyReports = pgTable("player_monthly_reports", {
 export const insertPlayerMonthlyReportSchema = createInsertSchema(playerMonthlyReports).omit({ id: true, generatedAt: true });
 export type InsertPlayerMonthlyReport = z.infer<typeof insertPlayerMonthlyReportSchema>;
 export type PlayerMonthlyReport = typeof playerMonthlyReports.$inferSelect;
+
+// ==================== SESSION RATINGS ====================
+
+export const sessionRatings = pgTable("session_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  academyId: varchar("academy_id").references(() => academies.id),
+  rating: integer("rating").notNull(), // 1–5
+  comment: text("comment"), // optional, max 300 chars
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("session_ratings_session_id_idx").on(table.sessionId),
+  index("session_ratings_player_id_idx").on(table.playerId),
+  index("session_ratings_coach_id_idx").on(table.coachId),
+  index("session_ratings_academy_id_idx").on(table.academyId),
+  unique("session_ratings_session_id_player_id_unique").on(table.sessionId, table.playerId),
+]);
+
+export const insertSessionRatingSchema = createInsertSchema(sessionRatings).omit({ id: true, createdAt: true });
+export const sessionRatingInputSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(300).optional(),
+});
+export type InsertSessionRating = z.infer<typeof insertSessionRatingSchema>;
+export type SessionRating = typeof sessionRatings.$inferSelect;
+export type SessionRatingInput = z.infer<typeof sessionRatingInputSchema>;

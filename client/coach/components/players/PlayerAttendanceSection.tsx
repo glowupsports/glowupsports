@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
@@ -65,6 +66,17 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   });
   const attendanceHistory = attendanceData?.history || [];
   const seriesAttendanceSummaries = attendanceData?.seriesSummaries || [];
+
+  interface SessionRatingRecord {
+    rating: number;
+    comment: string | null;
+    createdAt: Date | null;
+  }
+  const { data: sessionRatingsData } = useQuery<{ ratings: Record<string, SessionRatingRecord> }>({
+    queryKey: [`/api/coach/players/${playerId}/session-ratings`],
+    enabled: attendanceHistory.length > 0,
+  });
+  const sessionRatingsMap = sessionRatingsData?.ratings ?? {};
 
   const formatAttendanceDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -204,67 +216,86 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
 
   const displayedHistory = showAllHistory ? attendanceHistory : attendanceHistory.slice(0, 5);
 
-  const renderAttendanceRow = (record: AttendanceHistoryRecord, showTime = false) => (
-    <View key={record.sessionId} style={styles.attendanceHistoryRow}>
-      <View style={styles.attendanceHistoryDate}>
-        <Text style={styles.attendanceHistoryDateText}>{formatAttendanceDate(record.date)}</Text>
-        {showTime ? (
-          <Text style={styles.attendanceHistoryTime}>
-            {formatAttendanceTime(record.startTime)} - {formatAttendanceTime(record.endTime)}
-          </Text>
-        ) : null}
-      </View>
-      <View style={styles.attendanceHistoryDetails}>
-        <View style={styles.attendanceHistoryType}>
-          <Text style={styles.attendanceHistoryTypeText}>
-            {record.sessionType === "private" ? "Private" :
-             record.sessionType === "group" ? "Group" :
-             record.sessionType === "semi-private" ? "Semi" : record.sessionType}
-          </Text>
+  const renderAttendanceRow = (record: AttendanceHistoryRecord, showTime = false) => {
+    const sessionRating = sessionRatingsMap[record.sessionId];
+    return (
+    <View key={record.sessionId}>
+      <View style={styles.attendanceHistoryRow}>
+        <View style={styles.attendanceHistoryDate}>
+          <Text style={styles.attendanceHistoryDateText}>{formatAttendanceDate(record.date)}</Text>
+          {showTime ? (
+            <Text style={styles.attendanceHistoryTime}>
+              {formatAttendanceTime(record.startTime)} - {formatAttendanceTime(record.endTime)}
+            </Text>
+          ) : null}
         </View>
-        <View style={[
-          styles.attendanceStatusBadge,
-          record.status === "present" ? styles.attendanceStatusPresent :
-          record.status === "absent" ? styles.attendanceStatusAbsent :
-          (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
-          styles.attendanceStatusPending
-        ]}>
-          <Ionicons
-            name={record.status === "present" ? "checkmark-circle" :
-                  record.status === "absent" ? "close-circle" :
-                  (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"}
-            size={14}
-            color={record.status === "present" ? Colors.dark.primary :
-                   record.status === "absent" ? Colors.dark.error :
-                   (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
-          />
-          <Text style={[
-            styles.attendanceStatusText,
-            record.status === "present" ? styles.attendanceStatusTextPresent :
-            record.status === "absent" ? styles.attendanceStatusTextAbsent :
-            (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
-            styles.attendanceStatusTextPending
+        <View style={styles.attendanceHistoryDetails}>
+          <View style={styles.attendanceHistoryType}>
+            <Text style={styles.attendanceHistoryTypeText}>
+              {record.sessionType === "private" ? "Private" :
+               record.sessionType === "group" ? "Group" :
+               record.sessionType === "semi-private" ? "Semi" : record.sessionType}
+            </Text>
+          </View>
+          <View style={[
+            styles.attendanceStatusBadge,
+            record.status === "present" ? styles.attendanceStatusPresent :
+            record.status === "absent" ? styles.attendanceStatusAbsent :
+            (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
+            styles.attendanceStatusPending
           ]}>
-            {record.status === "present" ? "Present" :
-             record.status === "absent" ? "Absent" :
-             record.status === "holiday" ? "Holiday" :
-             record.status === "vacation" ? "Vacation" :
-             record.status === "cancelled" ? "Cancelled" : "Pending"}
-            {showTime && record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
+            <Ionicons
+              name={record.status === "present" ? "checkmark-circle" :
+                    record.status === "absent" ? "close-circle" :
+                    (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"}
+              size={14}
+              color={record.status === "present" ? Colors.dark.primary :
+                     record.status === "absent" ? Colors.dark.error :
+                     (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
+            />
+            <Text style={[
+              styles.attendanceStatusText,
+              record.status === "present" ? styles.attendanceStatusTextPresent :
+              record.status === "absent" ? styles.attendanceStatusTextAbsent :
+              (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
+              styles.attendanceStatusTextPending
+            ]}>
+              {record.status === "present" ? "Present" :
+               record.status === "absent" ? "Absent" :
+               record.status === "holiday" ? "Holiday" :
+               record.status === "vacation" ? "Vacation" :
+               record.status === "cancelled" ? "Cancelled" : "Pending"}
+              {showTime && record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
+            </Text>
+          </View>
+          {sessionRating ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 4 }}>
+              <Feather name="star" size={12} color="#FFD700" />
+              <Text style={{ color: "#FFD700", fontSize: 11, fontWeight: "600" }}>{sessionRating.rating}/5</Text>
+            </View>
+          ) : null}
+          <Pressable
+            style={styles.attendanceEditButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setEditingAttendance(record);
+            }}
+          >
+            <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+          </Pressable>
+        </View>
+      </View>
+      {sessionRating?.comment ? (
+        <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs, flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+          <Feather name="message-square" size={11} color={Colors.dark.textSecondary} style={{ marginTop: 2 }} />
+          <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontStyle: "italic", flex: 1 }} numberOfLines={2}>
+            {sessionRating.comment}
           </Text>
         </View>
-        <Pressable
-          style={styles.attendanceEditButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setEditingAttendance(record);
-          }}
-        >
-          <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
-        </Pressable>
-      </View>
+      ) : null}
     </View>
-  );
+    );
+  };
 
   const actionButtons = (
     <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -321,6 +352,16 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             <View style={styles.attendanceHistoryTitleRow}>
               <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
               <Text style={styles.sectionLabel}>ATTENDANCE HISTORY</Text>
+              {Object.keys(sessionRatingsMap).length > 0 && (() => {
+                const vals = Object.values(sessionRatingsMap).map(r => r.rating);
+                const avg = (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1);
+                return (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginLeft: 8, backgroundColor: "rgba(255,215,0,0.12)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                    <Feather name="star" size={11} color="#FFD700" />
+                    <Text style={{ color: "#FFD700", fontSize: 11, fontWeight: "600" }}>{avg} avg</Text>
+                  </View>
+                );
+              })()}
             </View>
             {actionButtons}
           </View>

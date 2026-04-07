@@ -268,6 +268,16 @@ export default function SessionDetailDrawer({
     retry: false,
   });
 
+  const { data: sessionRatingsData } = useQuery<{
+    ratings: { playerId: string; playerName: string; rating: number; comment: string | null }[];
+    average: number | null;
+    count: number;
+  }>({
+    queryKey: [`/api/coach/sessions/${session?.id}/ratings`],
+    enabled: visible && !!session?.id && session?.status === "completed",
+    retry: false,
+  });
+
   const [briefExpanded, setBriefExpanded] = useState(true);
 
   const existingPlayerIds = liveSession?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
@@ -1061,6 +1071,48 @@ export default function SessionDetailDrawer({
               ))}
             </View>
           ) : null}
+        </View>
+      ) : null}
+
+      {sessionRatingsData && sessionRatingsData.count > 0 ? (
+        <View style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md, marginBottom: Spacing.xs }}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm, gap: Spacing.sm }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Lesson Ratings</Text>
+            <View style={{
+              backgroundColor: Colors.dark.gold + "22",
+              borderRadius: 10,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+            }}>
+              <Ionicons name="star" size={12} color={Colors.dark.gold} />
+              <Text style={{ color: Colors.dark.gold, fontSize: 12, fontWeight: "600" }}>
+                {sessionRatingsData.average !== null ? sessionRatingsData.average.toFixed(1) : "–"} avg
+              </Text>
+            </View>
+          </View>
+          {sessionRatingsData.ratings.map((r) => (
+            <View key={r.playerId} style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: Spacing.sm,
+              paddingVertical: 6,
+              borderBottomWidth: 1,
+              borderBottomColor: Colors.dark.border + "44",
+            }}>
+              <Text style={{ color: Colors.dark.text, fontSize: 13, flex: 1 }} numberOfLines={1}>{r.playerName}</Text>
+              <View style={{ flexDirection: "row", gap: 2 }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Ionicons key={s} name={s <= r.rating ? "star" : "star-outline"} size={13} color={Colors.dark.gold} />
+                ))}
+              </View>
+              {r.comment ? (
+                <Text style={{ color: Colors.dark.textMuted, fontSize: 11, flex: 2 }} numberOfLines={2}>{r.comment}</Text>
+              ) : null}
+            </View>
+          ))}
         </View>
       ) : null}
 

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -26,6 +27,19 @@ export default function ParentDashboardScreen() {
     queryKey: [`/api/parent/dashboard/${playerId}`],
     enabled: !!playerId,
   });
+
+  interface SessionRatingItem {
+    id: string;
+    sessionId: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string | null;
+  }
+  const { data: ratingsData } = useQuery<{ ratings: SessionRatingItem[] }>({
+    queryKey: [`/api/parent/children/${playerId}/session-ratings`],
+    enabled: !!playerId,
+  });
+  const recentRatings = ratingsData?.ratings?.slice(0, 5) ?? [];
 
   const navigateToInvoices = () => {
     if (playerId) {
@@ -224,6 +238,32 @@ export default function ParentDashboardScreen() {
                 </Pressable>
               </View>
             </View>
+
+            {recentRatings.length > 0 && (
+              <View style={styles.summarySection}>
+                <Text style={styles.sectionTitle}>Recent Lesson Ratings</Text>
+                <View style={styles.lessonSummaryCard}>
+                  {recentRatings.map((item) => (
+                    <View key={item.id} style={{ flexDirection: "row", alignItems: "flex-start", paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.dark.border }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, minWidth: 52 }}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Feather key={s} name="star" size={12} color={s <= item.rating ? "#FFD700" : Colors.dark.disabled} />
+                        ))}
+                      </View>
+                      {item.comment ? (
+                        <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, flex: 1, marginLeft: 8, fontStyle: "italic" }} numberOfLines={2}>
+                          {item.comment}
+                        </Text>
+                      ) : (
+                        <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginLeft: 8 }}>
+                          {item.rating}/5
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             <View style={styles.quickActions}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>

@@ -48,7 +48,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
     deepAssessmentPillarSummaries,
     glowSkills, levelSkills, playerSkillScores,
-    sessionAiBriefs,
+    sessionAiBriefs, sessionRatings,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -1898,6 +1898,98 @@ router.get(
     } catch (error) {
       console.error("[API] Error fetching session brief:", error);
       return res.status(500).json({ error: "Failed to fetch session brief" });
+    }
+  }
+);
+
+// GET /api/coach/players/:playerId/session-ratings — fetch all ratings for a player (keyed by sessionId)
+router.get(
+  "/api/coach/players/:playerId/session-ratings",
+  authMiddleware,
+  requireRole("coach"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const coachAcademyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      if (!coachAcademyId && !coachId) return res.status(403).json({ error: "Coach scope required" });
+
+      // Scoped to the coach's academy or, for non-academy coaches, to their own sessions
+      const whereClause = coachAcademyId
+        ? and(eq(sessionRatings.playerId, playerId), eq(sessionRatings.academyId, coachAcademyId))
+        : and(eq(sessionRatings.playerId, playerId), eq(sessionRatings.coachId, coachId!));
+
+      const ratings = await db
+        .select({
+          sessionId: sessionRatings.sessionId,
+          rating: sessionRatings.rating,
+          comment: sessionRatings.comment,
+          createdAt: sessionRatings.createdAt,
+        })
+        .from(sessionRatings)
+        .where(whereClause)
+        .orderBy(desc(sessionRatings.createdAt));
+
+      // Return as a map keyed by sessionId for easy lookup
+      const ratingMap: Record<string, { rating: number; comment: string | null; createdAt: Date | null }> = {};
+      for (const r of ratings) {
+        ratingMap[r.sessionId] = { rating: r.rating, comment: r.comment, createdAt: r.createdAt };
+      }
+      return res.json({ ratings: ratingMap });
+    } catch (error) {
+      console.error("[API] Error fetching player session ratings:", error);
+      return res.status(500).json({ error: "Failed to fetch ratings" });
+    }
+  }
+);
+
+// GET /api/coach/sessions/:sessionId/ratings — fetch player ratings for a session
+router.get(
+  "/api/coach/sessions/:sessionId/ratings",
+  authMiddleware,
+  requireRole("coach"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const coachAcademyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      if (!coachAcademyId && !coachId) return res.status(403).json({ error: "Coach scope required" });
+
+      // Verify session belongs to this coach's academy (or this coach directly)
+      const sessionRow = await db.query.sessions.findFirst({
+        where: eq(sessions.id, sessionId),
+      });
+      if (!sessionRow) return res.status(404).json({ error: "Session not found" });
+      if (coachAcademyId && sessionRow.academyId !== coachAcademyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      if (!coachAcademyId && coachId && sessionRow.coachId !== coachId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const ratings = await db
+        .select({
+          id: sessionRatings.id,
+          playerId: sessionRatings.playerId,
+          rating: sessionRatings.rating,
+          comment: sessionRatings.comment,
+          createdAt: sessionRatings.createdAt,
+          playerName: players.name,
+        })
+        .from(sessionRatings)
+        .leftJoin(players, eq(sessionRatings.playerId, players.id))
+        .where(eq(sessionRatings.sessionId, sessionId))
+        .orderBy(desc(sessionRatings.createdAt));
+
+      const averageRating =
+        ratings.length > 0
+          ? Math.round((ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) * 10) / 10
+          : null;
+
+      return res.json({ ratings, averageRating, count: ratings.length });
+    } catch (error) {
+      console.error("[API] Error fetching session ratings:", error);
+      return res.status(500).json({ error: "Failed to fetch ratings" });
     }
   }
 );

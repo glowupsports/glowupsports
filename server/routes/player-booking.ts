@@ -12,6 +12,7 @@ import {
   submitReviewSchema,
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
+  sessionRatings, sessionRatingInputSchema,
 } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
@@ -5274,5 +5275,173 @@ Return only the JSON array, nothing else.`;
     }
   });
 
+// POST /api/player/sessions/:sessionId/rate — submit a lesson rating (one per session/player)
+router.post(
+  "/api/player/sessions/:sessionId/rate",
+  authMiddleware,
+  requireRole("player"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(403).json({ error: "Player access required" });
+      const { sessionId } = req.params;
+
+      const parseResult = sessionRatingInputSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid rating data", details: parseResult.error.flatten() });
+      }
+      const { rating, comment } = parseResult.data;
+
+      // Resolve playerId from userId
+      const playerRow = await db.query.players.findFirst({
+        where: eq(players.userId, userId),
+      });
+      if (!playerRow) return res.status(404).json({ error: "Player not found" });
+      const playerId = playerRow.id;
+
+      // Validate session exists and is completed (endTime has passed or status is completed)
+      const sessionRow = await db.query.sessions.findFirst({ where: eq(sessions.id, sessionId) });
+      if (!sessionRow) return res.status(404).json({ error: "Session not found" });
+
+      if (sessionRow.status === "cancelled") {
+        return res.status(400).json({ error: "Cannot rate a cancelled session" });
+      }
+      const sessionEnded = sessionRow.status === "completed" || new Date(sessionRow.endTime) <= new Date();
+      if (!sessionEnded) {
+        return res.status(400).json({ error: "Session has not ended yet" });
+      }
+
+      // Verify the player was enrolled in this session
+      const enrollment = await db.query.sessionPlayers.findFirst({
+        where: and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        ),
+      });
+      if (!enrollment) {
+        return res.status(403).json({ error: "You were not enrolled in this session" });
+      }
+
+      // Enforce attendance eligibility: only allow rating if player actually attended
+      if (enrollment.attendanceStatus && !["present", "late"].includes(enrollment.attendanceStatus)) {
+        return res.status(403).json({ error: "You can only rate sessions you attended" });
+      }
+
+      // Check duplicate
+      const existing = await db.query.sessionRatings.findFirst({
+        where: and(eq(sessionRatings.sessionId, sessionId), eq(sessionRatings.playerId, playerId)),
+      });
+      if (existing) {
+        return res.status(409).json({ error: "You have already rated this session" });
+      }
+
+      const [created] = await db
+        .insert(sessionRatings)
+        .values({
+          sessionId,
+          playerId,
+          coachId: sessionRow.coachId ?? null,
+          academyId: sessionRow.academyId ?? null,
+          rating,
+          comment: comment ?? null,
+        })
+        .returning();
+
+      return res.status(201).json({ success: true, rating: created });
+    } catch (error: unknown) {
+      // Catch DB-level unique constraint violation as a 409 (race-condition protection)
+      if (typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "23505") {
+        return res.status(409).json({ error: "You have already rated this session" });
+      }
+      console.error("[API] Error submitting session rating:", error);
+      return res.status(500).json({ error: "Failed to submit rating" });
+    }
+  }
+);
+
+// GET /api/player/sessions/:sessionId/my-rating — check if player already rated
+router.get(
+  "/api/player/sessions/:sessionId/my-rating",
+  authMiddleware,
+  requireRole("player"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(403).json({ error: "Player access required" });
+      const { sessionId } = req.params;
+
+      const playerRow = await db.query.players.findFirst({
+        where: eq(players.userId, userId),
+      });
+      if (!playerRow) return res.status(404).json({ error: "Player not found" });
+
+      const existing = await db.query.sessionRatings.findFirst({
+        where: and(eq(sessionRatings.sessionId, sessionId), eq(sessionRatings.playerId, playerRow.id)),
+      });
+
+      return res.json({ rating: existing ?? null });
+    } catch (error) {
+      console.error("[API] Error fetching session rating:", error);
+      return res.status(500).json({ error: "Failed to fetch rating" });
+    }
+  }
+);
+
+// GET /api/player/sessions/pending-rating — server-driven: first unrated completed session for the player
+router.get(
+  "/api/player/sessions/pending-rating",
+  authMiddleware,
+  requireRole("player"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(403).json({ error: "Player access required" });
+
+      const playerRow = await db.query.players.findFirst({
+        where: eq(players.userId, userId),
+      });
+      if (!playerRow) return res.status(404).json({ error: "Player not found" });
+      const playerId = playerRow.id;
+
+      // Find the most recent completed session the player attended but hasn't rated yet.
+      // Uses a LEFT JOIN to avoid an arbitrary session cap.
+      const now = new Date();
+      const [pending] = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+        })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .leftJoin(
+          sessionRatings,
+          and(
+            eq(sessionRatings.sessionId, sessionPlayers.sessionId),
+            eq(sessionRatings.playerId, playerId)
+          )
+        )
+        .where(
+          and(
+            eq(sessionPlayers.playerId, playerId),
+            lte(sessions.endTime, now),
+            ne(sessions.status, "cancelled"),
+            isNull(sessionRatings.id), // no rating yet
+            // Only prompt players who actually attended (or attendance not yet recorded)
+            or(
+              isNull(sessionPlayers.attendanceStatus),
+              eq(sessionPlayers.attendanceStatus, "present"),
+              eq(sessionPlayers.attendanceStatus, "late"),
+            ),
+          )
+        )
+        .orderBy(desc(sessions.endTime))
+        .limit(1);
+
+      return res.json({ sessionId: pending?.sessionId ?? null });
+    } catch (error) {
+      console.error("[API] Error fetching pending rating session:", error);
+      return res.status(500).json({ error: "Failed to fetch pending rating" });
+    }
+  }
+);
 
 export default router;

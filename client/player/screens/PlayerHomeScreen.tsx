@@ -1,7 +1,8 @@
 import logger from "@/lib/logger";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert, Image as RNImage } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +32,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MatchReadinessCard } from "@/player/components/MatchReadinessCard";
+import LessonRatingModal from "@/player/components/LessonRatingModal";
 
 interface VacationData {
   active: boolean;
@@ -325,10 +327,17 @@ interface MissionCardProps {
   onReportIssue: () => void;
 }
 
-function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: { targetDate: Date; sessionDuration?: number; size?: number }) {
+function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140, onSessionEnded }: { targetDate: Date; sessionDuration?: number; size?: number; onSessionEnded?: () => void }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [timeRemaining, setTimeRemaining] = useState({ minutes: 0, seconds: 0 });
   const [isSessionEnded, setIsSessionEnded] = useState(false);
+  const hasCalledOnEnded = useRef(false);
+
+  // Reset the fired flag whenever the target session changes (stable timestamp primitive)
+  const targetTimestamp = targetDate.getTime();
+  useEffect(() => {
+    hasCalledOnEnded.current = false;
+  }, [targetTimestamp]);
   
   useEffect(() => {
     const updateCountdown = () => {
@@ -339,6 +348,10 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
       if (now.getTime() >= sessionEnd) {
         setIsSessionEnded(true);
         setTimeRemaining({ minutes: 0, seconds: 0 });
+        if (!hasCalledOnEnded.current) {
+          hasCalledOnEnded.current = true;
+          onSessionEnded?.();
+        }
       } else if (now.getTime() >= sessionStart && now.getTime() < sessionEnd) {
         setIsSessionEnded(false);
         const remaining = Math.max(0, sessionEnd - now.getTime());
@@ -466,6 +479,8 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
   );
 }
 
+const RATING_DISMISSED_KEY = (sessionId: string) => `session_rating_dismissed_${sessionId}`;
+
 function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession, onCancel, onLate, onReportIssue }: MissionCardProps) {
   const sessionDate = new Date(session.date);
   const status = getSessionStatus(sessionDate);
@@ -477,7 +492,46 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
                            session.type === "group" ? "GROUP" : 
                            session.type === "semi" ? "SEMI-PRIVATE" : "TRAINING";
   
+  const [showRatingModal, setShowRatingModal] = useState(false);
+
+  const handleSessionEnded = useCallback(async () => {
+    try {
+      const dismissed = await AsyncStorage.getItem(RATING_DISMISSED_KEY(session.id));
+      if (dismissed) return;
+
+      // Cross-device guard: check server first to avoid re-prompting on a second device
+      const res = await apiRequest("GET", `/api/player/sessions/${session.id}/my-rating`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rating) {
+          // Already rated on another device — mark locally so we don't check again
+          await AsyncStorage.setItem(RATING_DISMISSED_KEY(session.id), "1");
+          return;
+        }
+      }
+      setShowRatingModal(true);
+    } catch {
+      // silently ignore — fall back to showing modal
+      setShowRatingModal(true);
+    }
+  }, [session.id]);
+
+  const handleRatingClose = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(RATING_DISMISSED_KEY(session.id), "1");
+    } catch {
+      // silently ignore
+    }
+    setShowRatingModal(false);
+  }, [session.id]);
+
   return (
+    <>
+    <LessonRatingModal
+      visible={showRatingModal}
+      sessionId={session.id}
+      onClose={handleRatingClose}
+    />
     <Animated.View entering={FadeIn.duration(400)} style={missionStyles.card}>
       <LinearGradient
         colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault + "E0"]}
@@ -514,7 +568,7 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
             ) : null}
           </View>
           
-          <MissionCountdownRing targetDate={sessionDate} sessionDuration={session.duration || 60} size={130} />
+          <MissionCountdownRing targetDate={sessionDate} sessionDuration={session.duration || 60} size={130} onSessionEnded={handleSessionEnded} />
         </View>
         
         {shouldHideActions ? (
@@ -555,6 +609,7 @@ function MissionCard({ session, coach, isVacationActive, upcomingOverlapsSession
         <View style={missionStyles.cornerAccentBR} />
       </LinearGradient>
     </Animated.View>
+    </>
   );
 }
 
@@ -913,6 +968,29 @@ export default function PlayerHomeScreen() {
     }, [canAccessPlayerMode, showPlayerDashboard])
   );
   
+  const [fallbackRatingSessionId, setFallbackRatingSessionId] = useState<string | null>(null);
+
+  // Server-driven fallback: check for any unrated completed sessions on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!canAccessPlayerMode || !showPlayerDashboard) return;
+      (async () => {
+        try {
+          const res = await apiRequest("GET", "/api/player/sessions/pending-rating");
+          if (!res.ok) return;
+          const { sessionId } = await res.json();
+          if (!sessionId) return;
+          const dismissed = await AsyncStorage.getItem(RATING_DISMISSED_KEY(sessionId));
+          if (!dismissed) {
+            setFallbackRatingSessionId(sessionId);
+          }
+        } catch {
+          // silently ignore
+        }
+      })();
+    }, [canAccessPlayerMode, showPlayerDashboard])
+  );
+
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showLateModal, setShowLateModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
@@ -1240,6 +1318,19 @@ export default function PlayerHomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Fallback: show rating modal for any unrated completed session found on focus */}
+      {fallbackRatingSessionId ? (
+        <LessonRatingModal
+          visible={!!fallbackRatingSessionId}
+          sessionId={fallbackRatingSessionId}
+          onClose={async () => {
+            try { await AsyncStorage.setItem(RATING_DISMISSED_KEY(fallbackRatingSessionId), "1"); } catch {}
+            setFallbackRatingSessionId(null);
+          }}
+          onSubmitted={() => setFallbackRatingSessionId(null)}
+        />
+      ) : null}
+
       <CollapsibleModeSwitcher />
       
       {actionSuccess ? (

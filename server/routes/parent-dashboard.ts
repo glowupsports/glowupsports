@@ -4,6 +4,7 @@ import {
   players,
   sessions,
   sessionFeedback,
+  sessionRatings,
   playerBallLevels,
   ballLevels,
   levelUpEvents,
@@ -242,6 +243,46 @@ router.get("/api/parent/messages", authMiddleware, async (req: AuthenticatedRequ
   } catch (error) {
     console.error("Error fetching parent messages:", error);
     res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+// GET /api/parent/children/:playerId/session-ratings — parent view of child's self-submitted lesson ratings
+router.get("/api/parent/children/:playerId/session-ratings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { playerId } = req.params;
+    const { limit = "10" } = req.query;
+
+    // Verify the player belongs to this parent
+    const [child] = await db
+      .select()
+      .from(players)
+      .where(and(
+        eq(players.id, playerId),
+        eq(players.parentUserId, userId)
+      ));
+
+    if (!child) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const ratings = await db
+      .select({
+        id: sessionRatings.id,
+        sessionId: sessionRatings.sessionId,
+        rating: sessionRatings.rating,
+        comment: sessionRatings.comment,
+        createdAt: sessionRatings.createdAt,
+      })
+      .from(sessionRatings)
+      .where(eq(sessionRatings.playerId, playerId))
+      .orderBy(desc(sessionRatings.createdAt))
+      .limit(parseInt(limit as string));
+
+    return res.json({ ratings });
+  } catch (error) {
+    console.error("Error fetching child session ratings:", error);
+    return res.status(500).json({ error: "Failed to fetch ratings" });
   }
 });
 
