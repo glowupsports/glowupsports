@@ -3,7 +3,8 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
+  Animated,
+  Dimensions,
   Pressable,
   TextInput,
   ScrollView,
@@ -130,6 +131,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
   // before the AsyncStorage restore attempt has finished.
   const [isDraftHydrated, setIsDraftHydrated] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const slideAnim = useRef(new Animated.Value(1)).current; // 0 = visible, 1 = off-screen below
 
   // Load player context
   const { data: ctx, isLoading: ctxLoading } = useQuery<PlayerContext>({
@@ -200,6 +202,19 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       setLevelUpChoice(null);
       setResumedDraft(false);
       setIsDraftHydrated(false);
+      slideAnim.setValue(1); // reset for next open
+    }
+  }, [visible]);
+
+  // Slide-in animation when opened
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }).start();
     }
   }, [visible]);
 
@@ -283,12 +298,26 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     chatMutation.mutate(WRAP_UP_PROMPT);
   };
 
+  if (!visible) return null;
+
+  const screenHeight = Dimensions.get("window").height;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+    <Animated.View
+      style={[
+        StyleSheet.absoluteFillObject,
+        styles.overlay,
+        {
+          transform: [
+            {
+              translateY: slideAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, screenHeight],
+              }),
+            },
+          ],
+        },
+      ]}
     >
       <KeyboardAvoidingView
         style={styles.container}
@@ -549,11 +578,15 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
           </>
         )}
       </KeyboardAvoidingView>
-    </Modal>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    zIndex: 999,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
