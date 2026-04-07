@@ -340,7 +340,7 @@ function QuestCard({
                     {quest.category}
                   </ThemedText>
                 </View>
-                {quest.personalisedBy === "ai" ? (
+                {quest.personalisedBy ? (
                   <View style={styles.personalisedBadge}>
                     <Ionicons name="sparkles" size={10} color="#00FF88" />
                     <ThemedText style={styles.personalisedText}>For you</ThemedText>

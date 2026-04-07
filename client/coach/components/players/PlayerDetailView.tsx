@@ -217,7 +217,7 @@ function PlayerQuestsSection({ playerId }: { playerId: string }) {
                 <Text style={{ color: isComplete ? Colors.dark.primary : Colors.dark.text, fontSize: 13, fontWeight: "600", flexShrink: 1 }} numberOfLines={1}>
                   {quest.name}
                 </Text>
-                {quest.personalisedBy === "ai" ? (
+                {quest.personalisedBy ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#00FF8820", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, borderWidth: 1, borderColor: "#00FF8840" }}>
                     <Ionicons name="sparkles" size={9} color="#00FF88" />
                     <Text style={{ fontSize: 9, fontWeight: "700", color: "#00FF88" }}>For you</Text>

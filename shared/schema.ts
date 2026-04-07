@@ -4086,8 +4086,8 @@ export const playerQuests = pgTable("player_quests", {
   xpReward: integer("xp_reward"),
   currencyReward: integer("currency_reward"),
 
-  // AI personalisation flag
-  personalisedBy: text("personalised_by"), // 'ai' | null
+  // Personalisation flag
+  personalisedBy: text("personalised_by"), // 'weak_areas' | null
 }, (table) => [
   index("player_quests_player_idx").on(table.playerId),
   index("player_quests_status_idx").on(table.playerId, table.status),
