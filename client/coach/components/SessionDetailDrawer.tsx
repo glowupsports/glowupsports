@@ -2188,7 +2188,7 @@ export default function SessionDetailDrawer({
       <Modal
         visible={visible}
         animationType="slide"
-        presentationStyle={Platform.OS === "ios" && Platform.isPad ? "fullScreen" : "pageSheet"}
+        presentationStyle="pageSheet"
         onRequestClose={onClose}
       >
         <View style={[styles.container, { paddingBottom: insets.bottom + Spacing.md }]}>
