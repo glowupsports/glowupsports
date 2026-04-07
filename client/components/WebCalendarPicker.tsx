@@ -10,7 +10,7 @@ interface WebCalendarPickerProps {
   minimumDate?: Date;
 }
 
-const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }: WebCalendarPickerProps) {
@@ -23,7 +23,7 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
   }, [value]);
 
   const daysInMonth = useMemo(() => {
-    const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+    const firstDay = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
     const lastDate = new Date(viewYear, viewMonth + 1, 0).getDate();
     
     const days: (number | null)[] = [];
