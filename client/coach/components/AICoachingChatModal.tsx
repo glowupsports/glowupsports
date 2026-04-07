@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  BackHandler,
   Pressable,
   TextInput,
   ScrollView,
@@ -217,6 +218,16 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       }).start();
     }
   }, [visible]);
+
+  // Android hardware back — close AI chat, not the outer session drawer
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
 
   // Chat turn mutation
   const chatMutation = useMutation({
