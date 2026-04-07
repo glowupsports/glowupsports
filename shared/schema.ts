@@ -6920,6 +6920,26 @@ export const insertPlayerAiUsageSchema = createInsertSchema(playerAiUsage).omit(
 export type InsertPlayerAiUsage = z.infer<typeof insertPlayerAiUsageSchema>;
 export type PlayerAiUsage = typeof playerAiUsage.$inferSelect;
 
+// ==================== SESSION AI BRIEFS ====================
+
+// Pre-session AI coaching brief — generated 30 minutes before the session starts
+export const sessionAiBriefs = pgTable("session_ai_briefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => sessions.id),
+  coachId: varchar("coach_id").notNull(),
+  briefText: text("brief_text").notNull(),
+  playerSummaries: jsonb("player_summaries").notNull().default(sql`'[]'::jsonb`),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+}, (table) => [
+  unique("session_ai_briefs_session_uniq").on(table.sessionId),
+  index("session_ai_briefs_session_idx").on(table.sessionId),
+  index("session_ai_briefs_coach_idx").on(table.coachId),
+]);
+
+export const insertSessionAiBriefSchema = createInsertSchema(sessionAiBriefs).omit({ id: true, generatedAt: true });
+export type InsertSessionAiBrief = z.infer<typeof insertSessionAiBriefSchema>;
+export type SessionAiBrief = typeof sessionAiBriefs.$inferSelect;
+
 // Player Session Reflections — Glow Mirror Layer 1
 export const playerSessionReflections = pgTable("player_session_reflections", {
   id: varchar("id")

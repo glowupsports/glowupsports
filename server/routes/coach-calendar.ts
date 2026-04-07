@@ -48,6 +48,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
     deepAssessmentPillarSummaries,
     glowSkills, levelSkills, playerSkillScores,
+    sessionAiBriefs,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -1865,5 +1866,40 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       }
     },
   );
+
+// GET /api/coach/sessions/:sessionId/brief — returns AI coaching brief for a session
+router.get(
+  "/api/coach/sessions/:sessionId/brief",
+  authMiddleware,
+  requireAcademy,
+  requireRole(["coach", "assistant", "academy_owner", "platform_owner"]),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const academyId = req.user!.academyId;
+
+      // Verify the requester belongs to the same academy as the session
+      const { valid } = await validateSessionOwnership(sessionId, academyId, storage);
+      if (!valid) {
+        return res.status(403).json({ error: "Not authorized to view this session brief" });
+      }
+
+      const [brief] = await db
+        .select()
+        .from(sessionAiBriefs)
+        .where(eq(sessionAiBriefs.sessionId, sessionId))
+        .limit(1);
+
+      if (!brief) {
+        return res.status(404).json({ error: "No brief available for this session" });
+      }
+
+      return res.json(brief);
+    } catch (error) {
+      console.error("[API] Error fetching session brief:", error);
+      return res.status(500).json({ error: "Failed to fetch session brief" });
+    }
+  }
+);
 
 export default router;

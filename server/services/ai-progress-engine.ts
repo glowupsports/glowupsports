@@ -13,6 +13,7 @@ import {
   glowSkills,
   levelSkills,
   sessionAiSummaries,
+  sessionAiBriefs,
   playerAiInsights,
   playerBaselineSkillScores,
   coaches,
@@ -2638,6 +2639,226 @@ All text must be specific, actionable, and based on the data above. Never use em
     };
   } catch (error) {
     console.error("[AIEngine] Error building match readiness score:", error);
+    return null;
+  }
+}
+
+// ==================== PRE-SESSION AI COACHING BRIEF ====================
+
+export interface SessionBriefPlayerSummary {
+  playerId: string;
+  playerName: string;
+  bullets: string[];
+}
+
+export interface SessionBriefResult {
+  briefText: string;
+  playerSummaries: SessionBriefPlayerSummary[];
+}
+
+export async function generateSessionBrief(sessionId: string): Promise<SessionBriefResult | null> {
+  try {
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    if (!session || !session.coachId) return null;
+
+    // Fetch enrolled players for this session
+    let enrolled = await db
+      .select({ playerId: sessionPlayers.playerId })
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.sessionId, sessionId));
+
+    // Fallback: check series players if session has a seriesId
+    if (enrolled.length === 0 && session.seriesId) {
+      const { seriesPlayers } = await import("@shared/schema");
+      const sp = await db
+        .select({ playerId: seriesPlayers.playerId })
+        .from(seriesPlayers)
+        .where(eq(seriesPlayers.seriesId, session.seriesId));
+      enrolled = sp;
+    }
+
+    if (enrolled.length === 0) {
+      console.log(`[SessionBrief] No players enrolled in session ${sessionId}, skipping brief`);
+      return null;
+    }
+
+    const playerIds = enrolled.map((e) => e.playerId).filter(Boolean) as string[];
+
+    const playerSummaries: SessionBriefPlayerSummary[] = [];
+
+    for (const playerId of playerIds) {
+      const [player] = await db.select().from(players).where(eq(players.id, playerId));
+      if (!player) continue;
+
+      const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      // Glow Mirror Layer 1 — recent session check-ins (last 3)
+      const recentReflections = await db
+        .select({
+          aiSummary: playerSessionReflections.aiSummary,
+          energyLevel: playerSessionReflections.energyLevel,
+          overallFeeling: playerSessionReflections.overallFeeling,
+          hardestPart: playerSessionReflections.hardestPart,
+          keyLearning: playerSessionReflections.keyLearning,
+          nextFocus: playerSessionReflections.nextFocus,
+        })
+        .from(playerSessionReflections)
+        .where(eq(playerSessionReflections.playerId, playerId))
+        .orderBy(desc(playerSessionReflections.createdAt))
+        .limit(3);
+
+      // Glow Mirror Layer 2 — latest completed monthly assessment
+      const [latestAssessment] = await db
+        .select({
+          monthYear: playerMonthlyAssessments.monthYear,
+          aiSummary: playerMonthlyAssessments.aiSummary,
+          strengthsAnswer: playerMonthlyAssessments.strengthsAnswer,
+          challengesAnswer: playerMonthlyAssessments.challengesAnswer,
+          mindsetAnswer: playerMonthlyAssessments.mindsetAnswer,
+          pillarSelfRatings: playerMonthlyAssessments.pillarSelfRatings,
+        })
+        .from(playerMonthlyAssessments)
+        .where(
+          and(
+            eq(playerMonthlyAssessments.playerId, playerId),
+            eq(playerMonthlyAssessments.status, "completed")
+          )
+        )
+        .orderBy(desc(playerMonthlyAssessments.createdAt))
+        .limit(1);
+
+      // Recent skill scores for pillar averages (for perception gap)
+      const recentSkillScores = await db
+        .select({
+          pillar: glowSkills.pillar,
+          score: playerSkillScores.score,
+          movingAverage: playerSkillScores.movingAverage,
+        })
+        .from(playerSkillScores)
+        .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+        .where(eq(playerSkillScores.playerId, playerId))
+        .orderBy(desc(playerSkillScores.createdAt))
+        .limit(50);
+
+      // Compute perception gaps
+      const perceptionGaps: { pillar: string; selfRating: number; coachScore: number; gap: number }[] = [];
+      if (latestAssessment?.pillarSelfRatings && recentSkillScores.length > 0) {
+        const selfRatings = latestAssessment.pillarSelfRatings as Record<string, number>;
+        const pillarSums: Record<string, { total: number; count: number }> = {};
+        for (const s of recentSkillScores) {
+          const pillar = s.pillar.toLowerCase();
+          if (!pillarSums[pillar]) pillarSums[pillar] = { total: 0, count: 0 };
+          const scoreVal = s.movingAverage !== null ? s.movingAverage : s.score;
+          pillarSums[pillar].total += (scoreVal / 2) * 10;
+          pillarSums[pillar].count += 1;
+        }
+        for (const [pillar, selfRating] of Object.entries(selfRatings)) {
+          const pillarKey = pillar.toLowerCase();
+          if (pillarSums[pillarKey]) {
+            const coachScore = Math.round((pillarSums[pillarKey].total / pillarSums[pillarKey].count) * 10) / 10;
+            const gap = Math.round((selfRating - coachScore) * 10) / 10;
+            perceptionGaps.push({ pillar, selfRating, coachScore, gap });
+          }
+        }
+        perceptionGaps.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+      }
+
+      // Recent coach feedback notes (last 5)
+      const recentFeedback = await db
+        .select({ feedbackType: inSessionFeedback.feedbackType, message: inSessionFeedback.message })
+        .from(inSessionFeedback)
+        .where(and(eq(inSessionFeedback.playerId, playerId), gte(inSessionFeedback.createdAt, since30)))
+        .orderBy(desc(inSessionFeedback.createdAt))
+        .limit(5);
+
+      // Skip one-off private sessions with no prior data (per task out-of-scope spec)
+      const hasAnyPriorData =
+        recentReflections.length > 0 ||
+        latestAssessment !== undefined ||
+        recentSkillScores.length > 0 ||
+        recentFeedback.length > 0;
+
+      if (!hasAnyPriorData && session.sessionType === "private" && !session.seriesId) {
+        console.log(`[SessionBrief] Skipping one-off private session player ${playerId} — no prior data`);
+        continue;
+      }
+
+      // Build context strings
+      const reflectionLines = recentReflections.map((r) => {
+        const parts: string[] = [];
+        if (r.aiSummary) parts.push(`Check-in summary: "${r.aiSummary}"`);
+        else {
+          if (r.energyLevel) parts.push(`Energy: ${r.energyLevel}/5`);
+          if (r.hardestPart) parts.push(`Hardest part: "${r.hardestPart}"`);
+          if (r.keyLearning) parts.push(`Key learning: "${r.keyLearning}"`);
+          if (r.nextFocus) parts.push(`Next focus: "${r.nextFocus}"`);
+        }
+        return parts.join("; ");
+      }).filter(Boolean).join(" | ");
+
+      const assessmentLines = latestAssessment
+        ? [
+            latestAssessment.aiSummary ? `Monthly summary (${latestAssessment.monthYear}): "${latestAssessment.aiSummary}"` : null,
+            latestAssessment.strengthsAnswer ? `Self-reported strengths: "${latestAssessment.strengthsAnswer}"` : null,
+            latestAssessment.challengesAnswer ? `Self-reported challenges: "${latestAssessment.challengesAnswer}"` : null,
+            latestAssessment.mindsetAnswer ? `Mindset note: "${latestAssessment.mindsetAnswer}"` : null,
+          ].filter(Boolean).join("; ")
+        : "No monthly assessment yet";
+
+      const perceptionGapLines = perceptionGaps.length > 0
+        ? perceptionGaps.slice(0, 3).map((g) =>
+            `${g.pillar}: self-rates ${g.selfRating}/10 vs coach data ${g.coachScore}/10 (gap ${g.gap > 0 ? "+" : ""}${g.gap})`
+          ).join("; ")
+        : "No perception gap data";
+
+      const feedbackLines = recentFeedback.length > 0
+        ? recentFeedback.map((f) => `${f.feedbackType}: ${f.message}`).join("; ")
+        : "No recent coach notes";
+
+      const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, level ${player.ballLevel || "unknown"}
+
+Recent session check-ins (Glow Mirror):
+${reflectionLines || "No check-ins yet"}
+
+Monthly self-assessment:
+${assessmentLines}
+
+Perception gaps (self vs coach data):
+${perceptionGapLines}
+
+Recent coach feedback notes:
+${feedbackLines}
+
+Generate 2-3 concise coaching bullet points for the coach to focus on in today's session with this player. Each bullet must be directly actionable and specific. If there is a significant perception gap (absolute gap > 1.5), flag it. If the player mentioned a specific focus in their check-in, address it. Start each bullet with a dash (-). Never use emojis. Keep total response under 150 words.`;
+
+      const systemPrompt = "You are an expert tennis/padel/pickleball coaching assistant. Generate pre-session coaching briefs to help coaches prepare. Be specific, data-driven, and concise. Never use emojis.";
+
+      const bulletText = await callOpenAI(prompt, systemPrompt, 250, { featureType: "report" });
+      if (!bulletText) continue;
+
+      const bullets = bulletText
+        .split("\n")
+        .map((l) => l.replace(/^[-•*]\s*/, "").trim())
+        .filter(Boolean);
+
+      playerSummaries.push({ playerId, playerName: player.name, bullets });
+    }
+
+    if (playerSummaries.length === 0) return null;
+
+    // Generate overall session focus
+    const overallPrompt = `You are preparing a coach for an upcoming session. Here are the per-player briefs:
+
+${playerSummaries.map((ps) => `${ps.playerName}:\n${ps.bullets.map((b) => `- ${b}`).join("\n")}`).join("\n\n")}
+
+Write 1-2 sentences summarising the overall coaching focus for this session. Be concise and actionable. Never use emojis.`;
+
+    const overallText = await callOpenAI(overallPrompt, "You are an expert coaching assistant. Write brief, actionable session overviews. Never use emojis.", 150, { featureType: "report" });
+    const briefText = overallText?.trim() || `Pre-session brief for ${playerSummaries.length} player${playerSummaries.length > 1 ? "s" : ""}. Review individual player notes below.`;
+
+    return { briefText, playerSummaries };
+  } catch (error) {
+    console.error("[AIEngine] Error generating session brief:", error);
     return null;
   }
 }

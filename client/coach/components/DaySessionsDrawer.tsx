@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
 
 interface Player {
@@ -89,6 +90,20 @@ const formatTime = (date: string) => {
     hour12: false,
   });
 };
+
+function SessionBriefIndicator({ sessionId }: { sessionId: string }) {
+  const { data } = useQuery<{ id: string }>({
+    queryKey: [`/api/coach/sessions/${sessionId}/brief`],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+  if (!data?.id) return null;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginLeft: 6 }}>
+      <Ionicons name="sparkles" size={12} color="#A78BFA" />
+    </View>
+  );
+}
 
 export default function DaySessionsDrawer({ visible, sessions, dateLabel, onClose, onSelectSession }: DaySessionsDrawerProps) {
   const insets = useSafeAreaInsets();
@@ -172,6 +187,7 @@ export default function DaySessionsDrawer({ visible, sessions, dateLabel, onClos
                       <Text style={styles.timeText}>
                         {formatTime(session.startTime)} - {formatTime(session.endTime)}
                       </Text>
+                      <SessionBriefIndicator sessionId={session.id} />
                     </View>
                     <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}>
                       <Ionicons name={statusInfo.icon} size={12} color={statusInfo.color} />

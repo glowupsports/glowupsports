@@ -248,6 +248,28 @@ export default function SessionDetailDrawer({
     enabled: visible && isGroupSession && !!session?.id,
   });
 
+  interface SessionBriefPlayerSummary {
+    playerId: string;
+    playerName: string;
+    bullets: string[];
+  }
+  interface SessionBrief {
+    id: string;
+    sessionId: string;
+    coachId: string;
+    briefText: string;
+    playerSummaries: SessionBriefPlayerSummary[];
+    generatedAt: string;
+  }
+
+  const { data: sessionBrief } = useQuery<SessionBrief>({
+    queryKey: [`/api/coach/sessions/${session?.id}/brief`],
+    enabled: visible && !!session?.id,
+    retry: false,
+  });
+
+  const [briefExpanded, setBriefExpanded] = useState(true);
+
   const existingPlayerIds = liveSession?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
   
@@ -1000,6 +1022,45 @@ export default function SessionDetailDrawer({
           <Pressable onPress={handleDismissIntro} style={styles.introCardDismiss}>
             <Text style={styles.introCardDismissText}>Don't show again</Text>
           </Pressable>
+        </View>
+      ) : null}
+
+      {sessionBrief ? (
+        <View style={styles.briefCard}>
+          <Pressable
+            style={styles.briefCardHeader}
+            onPress={() => setBriefExpanded(!briefExpanded)}
+          >
+            <View style={styles.briefCardIconWrap}>
+              <Ionicons name="sparkles" size={16} color="#A78BFA" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.briefCardTitle}>AI Coaching Brief</Text>
+              <Text style={styles.briefCardSubtitle} numberOfLines={briefExpanded ? undefined : 1}>
+                {sessionBrief.briefText}
+              </Text>
+            </View>
+            <Ionicons
+              name={briefExpanded ? "chevron-up" : "chevron-down"}
+              size={16}
+              color="#A78BFA"
+            />
+          </Pressable>
+          {briefExpanded ? (
+            <View style={styles.briefCardBody}>
+              {Array.isArray(sessionBrief.playerSummaries) && sessionBrief.playerSummaries.map((ps) => (
+                <View key={ps.playerId} style={styles.briefPlayerBlock}>
+                  <Text style={styles.briefPlayerName}>{ps.playerName}</Text>
+                  {ps.bullets.map((bullet, idx) => (
+                    <View key={idx} style={styles.briefBulletRow}>
+                      <Text style={styles.briefBulletDot}>{"\u2022"}</Text>
+                      <Text style={styles.briefBulletText}>{bullet}</Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -3023,6 +3084,73 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  briefCard: {
+    backgroundColor: "rgba(167, 139, 250, 0.08)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(167, 139, 250, 0.25)",
+  },
+  briefCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  briefCardIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(167, 139, 250, 0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  briefCardTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#A78BFA",
+    marginBottom: 2,
+  },
+  briefCardSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 17,
+  },
+  briefCardBody: {
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  briefPlayerBlock: {
+    gap: 4,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(167, 139, 250, 0.15)",
+  },
+  briefPlayerName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#A78BFA",
+    marginBottom: 2,
+  },
+  briefBulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  briefBulletDot: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 18,
+    marginTop: 0,
+  },
+  briefBulletText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    lineHeight: 18,
+    flex: 1,
   },
   playersGrid: {
     gap: Spacing.sm,

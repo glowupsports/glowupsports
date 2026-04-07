@@ -1971,8 +1971,103 @@ export function startReminderScheduler(): void {
       await processExpiredWaitlistSpots();
       await processDepartureAlerts();
       await processPostSessionReflectionReminders();
+      await processSessionAiBriefs();
     } catch (e) { console.error("[Scheduler] Interval error:", e); }
   }, 5 * 60 * 1000);
+}
+
+async function processSessionAiBriefs(): Promise<void> {
+  const now = new Date();
+  // Window: sessions starting in 25–35 minutes from now
+  const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + 35 * 60 * 1000);
+
+  try {
+    const { sessionAiBriefs } = await import("@shared/schema");
+    const { generateSessionBrief } = await import("./services/ai-progress-engine");
+
+    const nowUtc = now.toISOString();
+    const startUtc = windowStart.toISOString();
+    const endUtc = windowEnd.toISOString();
+
+    const rawResult = await pool.query(
+      `SELECT s.id, s.coach_id, s.session_type, s.start_time
+       FROM sessions s
+       WHERE (s.start_time AT TIME ZONE 'UTC') >= $1::timestamptz
+         AND (s.start_time AT TIME ZONE 'UTC') <= $2::timestamptz
+         AND s.status = 'scheduled'
+         AND s.coach_id IS NOT NULL`,
+      [startUtc, endUtc]
+    );
+
+    const upcomingSessions = rawResult.rows;
+    if (upcomingSessions.length === 0) return;
+
+    console.log(`[SessionBrief] Found ${upcomingSessions.length} sessions in 25-35 min window`);
+
+    for (const raw of upcomingSessions) {
+      const sessionId = raw.id;
+      const coachId = raw.coach_id;
+
+      // Check if brief already exists
+      const existing = await db
+        .select({ id: sessionAiBriefs.id })
+        .from(sessionAiBriefs)
+        .where(eq(sessionAiBriefs.sessionId, sessionId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        console.log(`[SessionBrief] Brief already exists for session ${sessionId}, skipping`);
+        continue;
+      }
+
+      console.log(`[SessionBrief] Generating brief for session ${sessionId}`);
+
+      const result = await generateSessionBrief(sessionId);
+      if (!result) {
+        console.log(`[SessionBrief] No brief generated for session ${sessionId} (no players or data)`);
+        continue;
+      }
+
+      await db.insert(sessionAiBriefs).values({
+        sessionId,
+        coachId,
+        briefText: result.briefText,
+        playerSummaries: result.playerSummaries,
+      }).onConflictDoNothing();
+
+      console.log(`[SessionBrief] Brief stored for session ${sessionId}`);
+
+      // Send push notification to coach
+      const sessionTime = new Date(raw.start_time);
+      const timeStr = sessionTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+      const tokens = await getCoachPushTokens(coachId);
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "Pre-Session Brief Ready",
+          `Your ${timeStr} session brief is ready. Tap to review player insights.`,
+          { type: "session_brief_ready", sessionId, coachId }
+        );
+      }
+
+      // Store in-app coach notification
+      try {
+        await db.insert(coachNotifications).values({
+          coachId,
+          type: "session_brief",
+          title: "Pre-Session Brief Ready",
+          message: `Your ${timeStr} session brief is ready. Tap to review player insights.`,
+          priority: "high",
+          metadata: { sessionId },
+        });
+      } catch (err) {
+        console.error("[SessionBrief] Failed to create in-app notification:", err);
+      }
+    }
+  } catch (error) {
+    console.error("[SessionBrief] Error processing session AI briefs:", error);
+  }
 }
 
 export function stopReminderScheduler(): void {
