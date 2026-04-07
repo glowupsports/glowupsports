@@ -2565,7 +2565,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     playerId: string
   ): Promise<{ coachId: string; userId: string } | null> {
     const coachId = req.user!.coachId || "";
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const academyId = req.user!.academyId || "";
     const userRole = req.user!.role;
 
@@ -2654,7 +2654,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           });
           reply = response.choices?.[0]?.message?.content || null;
           logAiCall({
-            userId: req.user!.id,
+            userId: req.user!.userId,
             featureType: "chat",
             model: "gpt-4o-mini",
             promptTokens: response.usage?.prompt_tokens ?? 0,
@@ -2715,7 +2715,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             await db.insert(inSessionFeedback).values({
               sessionId,
               playerId,
-              coachId: req.user!.id,
+              coachId: req.user!.userId,
               feedbackType: "ai_session_note",
               message: structured.sessionNote,
               visibility: "private",
@@ -2908,7 +2908,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const usage = completion.usage;
 
         logAiCall({
-          userId: req.user!.id,
+          userId: req.user!.userId,
           featureType: "chat",
           model: "gpt-4o-mini",
           promptTokens: usage?.prompt_tokens ?? 0,
