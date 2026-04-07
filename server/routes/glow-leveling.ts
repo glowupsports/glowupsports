@@ -507,17 +507,81 @@ router.get("/api/glow/players/:playerId/pillars", authMiddleware, requireAcademy
       .from(playerPillarProgress)
       .where(eq(playerPillarProgress.playerId, playerId));
     
+    // Compute curriculum mastery per pillar from the player's current level
+    const curriculumPillarMap = new Map<string, { achievedCount: number; skillCount: number }>();
+    try {
+      const [playerLevel] = await db
+        .select({ levelId: playerBallLevels.levelId })
+        .from(playerBallLevels)
+        .where(and(
+          eq(playerBallLevels.playerId, playerId),
+          sql`${playerBallLevels.status} IN ('active', 'trial')`
+        ))
+        .limit(1);
+      
+      if (playerLevel) {
+        const levelSkillsData = await db
+          .select({
+            skillId: levelSkills.skillId,
+            targetScore: levelSkills.targetScore,
+            pillar: glowSkills.pillar,
+          })
+          .from(levelSkills)
+          .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
+          .where(eq(levelSkills.levelId, playerLevel.levelId));
+        
+        const skillIds = levelSkillsData.map(s => s.skillId);
+        const latestScores = new Map<string, number>();
+        if (skillIds.length > 0) {
+          const scoreRows = await db
+            .select({ skillId: playerSkillScores.skillId, movingAverage: playerSkillScores.movingAverage, score: playerSkillScores.score })
+            .from(playerSkillScores)
+            .where(and(eq(playerSkillScores.playerId, playerId), inArray(playerSkillScores.skillId, skillIds)))
+            .orderBy(desc(playerSkillScores.scoredAt));
+          for (const row of scoreRows) {
+            if (!latestScores.has(row.skillId)) {
+              latestScores.set(row.skillId, Number(row.movingAverage ?? row.score ?? 0));
+            }
+          }
+        }
+        
+        for (const ls of levelSkillsData) {
+          const entry = curriculumPillarMap.get(ls.pillar) ?? { achievedCount: 0, skillCount: 0 };
+          entry.skillCount += 1;
+          const movingAvg = latestScores.get(ls.skillId) ?? 0;
+          if (movingAvg >= (ls.targetScore ?? 2)) {
+            entry.achievedCount += 1;
+          }
+          curriculumPillarMap.set(ls.pillar, entry);
+        }
+      }
+    } catch (masteryErr) {
+      console.error("[PillarProgress] Curriculum mastery computation failed (non-critical):", masteryErr);
+    }
+    
     // Ensure all 6 pillars are represented
-    const pillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
+    const PILLAR_NAMES = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
     const pillarMap: Record<string, any> = {};
     
-    for (const pillar of pillars) {
+    for (const pillar of PILLAR_NAMES) {
       const existing = progress.find(p => p.pillar === pillar);
-      pillarMap[pillar] = existing || {
-        pillar,
-        currentScore: 0,
-        trend: "stable",
-        lastSessionDelta: null,
+      const curriculum = curriculumPillarMap.get(pillar);
+      const skillsTotal = curriculum?.skillCount ?? 0;
+      const skillsMastered = curriculum?.achievedCount ?? 0;
+      const masteryPct = skillsTotal > 0
+        ? Math.round((skillsMastered / skillsTotal) * 100)
+        : 0;
+      
+      pillarMap[pillar] = {
+        ...(existing || {
+          pillar,
+          currentScore: 0,
+          trend: "stable",
+          lastSessionDelta: null,
+        }),
+        skillsTotal,
+        skillsMastered,
+        masteryPct,
       };
     }
     

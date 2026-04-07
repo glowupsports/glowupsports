@@ -7454,16 +7454,12 @@ export const storage = {
       };
     });
     
-    // Overall readiness: average mastery % across pillars that have skills defined
-    const pillarsWithSkills = pillars.filter(p => p.skillsTotal > 0);
-    const overallReadiness = pillarsWithSkills.length > 0
-      ? Math.round(pillarsWithSkills.reduce((sum, p) => sum + p.masteryPct, 0) / pillarsWithSkills.length)
-      : Math.min(100, Math.round((pillars.reduce((sum, p) => sum + p.score, 0) / pillars.length / 2) * 100));
+    // Calculate overall readiness (average of pillar scores, max is 2)
+    const avgScore = pillars.reduce((sum, p) => sum + p.score, 0) / pillars.length;
+    const overallReadiness = Math.min(100, Math.round((avgScore / 2) * 100));
     
-    // Trial gate ready if overall curriculum mastery is >= 50% (or EMA-based fallback)
-    const trialGateReady = pillarsWithSkills.length > 0
-      ? pillarsWithSkills.every(p => p.masteryPct >= 50)
-      : pillars.every(p => p.score >= 1.5);
+    // Trial gate ready if all pillars have score >= 1.5 (75% of max)
+    const trialGateReady = pillars.every(p => p.score >= 1.5);
     
     return {
       pillars,

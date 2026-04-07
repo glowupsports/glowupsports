@@ -1957,7 +1957,7 @@ export default function PlayerProgressScreen() {
                       ? pillarEntry!.masteryPct
                       : Math.round(pillarEntry!.score * 50);
                     const subtitle = hasCurriculum
-                      ? `${pillarEntry!.skillsMeetsOrAbove} of ${pillarEntry!.skillsTotal} skills`
+                      ? `${pillarEntry!.skillsMeetsOrAbove} of ${pillarEntry!.skillsTotal} skills mastered`
                       : undefined;
                     return [key, {
                       pillar: key,
