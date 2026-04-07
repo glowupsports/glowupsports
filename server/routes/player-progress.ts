@@ -2700,7 +2700,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             mentalPillar?: number;
             socialPillar?: number;
             matchPillar?: number;
-            skillRatings: { skillName: string; score: number }[];
+            skillRatings: { skillId?: string; skillName?: string; score: number }[];
             levelUpFlag: boolean;
             levelUpMessage: string;
           };
@@ -2775,33 +2775,111 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           },
         });
 
-        // 4. Write individual playerSkillScores for each skill rating
+        // 4. Write individual playerSkillScores (EMA upsert — accumulates over sessions)
         if (structured.skillRatings && structured.skillRatings.length > 0) {
+          const alpha = 0.3;
           for (const sr of structured.skillRatings) {
-            const [skill] = await db
-              .select({ id: glowSkills.id })
-              .from(glowSkills)
-              .where(eq(glowSkills.name, sr.skillName))
+            // Resolve skillId: prefer direct ID field, fall back to case-insensitive name match
+            let resolvedSkillId: string | null = null;
+            if (sr.skillId) {
+              resolvedSkillId = sr.skillId;
+            } else if (sr.skillName) {
+              const [byName] = await db
+                .select({ id: glowSkills.id })
+                .from(glowSkills)
+                .where(ilike(glowSkills.name, sr.skillName))
+                .limit(1);
+              resolvedSkillId = byName?.id ?? null;
+            }
+            if (!resolvedSkillId) continue;
+
+            const newScore = Math.min(2, Math.max(0, sr.score));
+
+            const [existing] = await db
+              .select({ id: playerSkillScores.id, movingAverage: playerSkillScores.movingAverage, score: playerSkillScores.score, observationCount: playerSkillScores.observationCount })
+              .from(playerSkillScores)
+              .where(and(eq(playerSkillScores.playerId, playerId), eq(playerSkillScores.skillId, resolvedSkillId)))
+              .orderBy(desc(playerSkillScores.createdAt))
               .limit(1);
-            if (skill) {
+
+            if (existing) {
+              const oldAvg = Number(existing.movingAverage ?? existing.score ?? newScore);
+              const newAvg = alpha * newScore + (1 - alpha) * oldAvg;
+              const wasFirstMastery = oldAvg < 2 && newScore >= 2;
+              await db.update(playerSkillScores)
+                .set({
+                  score: newScore,
+                  movingAverage: newAvg.toFixed(2),
+                  observationCount: (existing.observationCount ?? 1) + 1,
+                  sessionId,
+                  coachId,
+                })
+                .where(eq(playerSkillScores.id, existing.id));
+              if (wasFirstMastery) {
+                await awardXP(playerId, "skill_validation", "skill", resolvedSkillId);
+              }
+            } else {
               await db.insert(playerSkillScores).values({
                 playerId,
-                skillId: skill.id,
-                score: Math.min(2, Math.max(0, sr.score)),
+                skillId: resolvedSkillId,
+                score: newScore,
                 sessionId,
                 coachId,
-                movingAverage: String(sr.score),
+                movingAverage: String(newScore),
+                observationCount: 1,
               });
+              if (newScore >= 2) {
+                await awardXP(playerId, "skill_validation", "skill", resolvedSkillId);
+              }
             }
           }
         }
 
-        // 5. Log level-up readiness (full level-up system managed separately)
-        if (structured.levelUpFlag) {
-          console.log(`[AIChat] Level-up readiness flagged for player ${playerId}: ${structured.levelUpMessage}`);
+        // 5. Update pillar progress bars via EMA
+        try {
+          const { updatePillarProgress } = await import("../utils/pillarProgress");
+          await updatePillarProgress(playerId, sessionId, {
+            effort: clamp(structured.effort),
+            execution: clamp(structured.execution),
+            understanding: clamp(structured.understanding),
+            overall: overallValue,
+            pillarRatings: {
+              TECHNIQUE: structured.techniquePillar !== undefined ? clamp(structured.techniquePillar) : undefined,
+              TACTICAL:  structured.tacticalPillar  !== undefined ? clamp(structured.tacticalPillar)  : undefined,
+              PHYSICAL:  structured.physicalPillar  !== undefined ? clamp(structured.physicalPillar)  : undefined,
+              MENTAL:    structured.mentalPillar    !== undefined ? clamp(structured.mentalPillar)    : undefined,
+              SOCIAL:    structured.socialPillar    !== undefined ? clamp(structured.socialPillar)    : undefined,
+              MATCH:     structured.matchPillar     !== undefined ? clamp(structured.matchPillar)     : undefined,
+            },
+          });
+        } catch (pillarErr) {
+          console.error("[AIChat] Pillar progress update failed (non-critical):", pillarErr);
         }
 
-        // 6. Trigger session digest (fire-and-forget)
+        // 6. Trigger level readiness when AI flags it
+        let levelReadiness = null;
+        if (structured.levelUpFlag) {
+          try {
+            const [playerRow] = await db
+              .select({ ballLevel: players.ballLevel })
+              .from(players)
+              .where(eq(players.id, playerId))
+              .limit(1);
+            if (playerRow?.ballLevel) {
+              const [levelRow] = await db
+                .select({ promotionToLevelId: ballLevels.promotionToLevelId })
+                .from(ballLevels)
+                .where(eq(ballLevels.id, playerRow.ballLevel))
+                .limit(1);
+              const targetLevel = levelRow?.promotionToLevelId ?? playerRow.ballLevel;
+              levelReadiness = await storage.calculatePlayerLevelReadiness(playerId, targetLevel);
+            }
+          } catch (err) {
+            console.error("[AIChat] Level readiness check failed (non-critical):", err);
+          }
+        }
+
+        // 7. Trigger session digest (fire-and-forget)
         const _sid = sessionId;
         const _pid = playerId;
         setImmediate(async () => {
@@ -2811,7 +2889,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           } catch { /* non-critical */ }
         });
 
-        res.json({ success: true, levelUpFlag: structured.levelUpFlag });
+        res.json({ success: true, levelUpFlag: structured.levelUpFlag, levelReadiness });
       } catch (error) {
         console.error("[AIChat] Error committing chat:", error);
         res.status(500).json({ error: "Failed to commit session" });

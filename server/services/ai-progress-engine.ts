@@ -520,7 +520,7 @@ export interface PlayerAIContext {
   ageGroup: "young_child" | "child" | "teen" | "adult";
   attendanceStatus: string;
   // Curriculum skills for current level
-  requiredSkills: { skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
+  requiredSkills: { skillId: string; skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
   // Session summaries (up to 30)
   recentDigests: string[];
   // Coach Memory Hub notes (all — no cap)
@@ -639,6 +639,7 @@ export async function buildPlayerAIContext(
           .orderBy(desc(playerSkillScores.createdAt)).limit(1);
 
         requiredSkills.push({
+          skillId: skill.skillId,
           skillName: skill.skillName,
           pillar: skill.pillar || "Technical",
           targetScore: skill.targetScore || 2,
@@ -785,9 +786,9 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     return parts.length > 0 ? `${p.pillar} — ${parts.join("; ")}` : null;
   }).filter(Boolean).join(" | ");
 
-  // Current curriculum skills needing work
+  // Current curriculum skills needing work — include skillId so AI can output it in skillRatings
   const skillsNeeded = requiredSkills.length > 0
-    ? `Current ${ballLevel} curriculum: ${requiredSkills.map((s) => `${s.skillName} (${s.pillar}, ${s.currentScore !== null ? s.currentScore + "/2" : "unscored"}, target ${s.targetScore}/2${s.required ? ", required" : ""})`).join("; ")}.`
+    ? `Current ${ballLevel} curriculum: ${requiredSkills.map((s) => `${s.skillId} "${s.skillName}" (${s.pillar}, ${s.currentScore !== null ? s.currentScore + "/2" : "unscored"}, target ${s.targetScore}/2${s.required ? ", required" : ""})`).join("; ")}.`
     : "";
 
   // Coach Memory Hub notes (all — no cap)
@@ -824,12 +825,12 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
   "mentalPillar": 2,
   "socialPillar": 1,
   "matchPillar": 0,
-  "skillRatings": [{"skillName": "...", "score": 1}],
+  "skillRatings": [{"skillId": "FH_CONTACT", "score": 1}],
   "levelUpFlag": false,
   "levelUpMessage": ""
 }
 \`\`\`
-Values: overall = improved/stable/declined. All numeric fields = 0 (needs attention), 1 (developing), 2 (good). Include a skillRating for each curriculum skill that was worked on. levelUpFlag = true only if 3+ required skills hit target score this session.`;
+Values: overall = improved/stable/declined. All numeric fields = 0 (needs attention), 1 (developing), 2 (good). For skillRatings: use ONLY the skill IDs from the curriculum list above (e.g. "FH_CONTACT", "RALLY_8_PLUS"). Score 0 = needs attention, 1 = developing, 2 = mastered this session. Include only skills actually worked on. levelUpFlag = true only if 3+ required skills hit target score this session.`;
 
   return `You are an expert sports development AI assistant helping coach ${ctx.coachName} log a session for ${playerName}.
 
