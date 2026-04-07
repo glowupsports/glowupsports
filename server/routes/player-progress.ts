@@ -55,6 +55,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     playerMonthlyAssessments,
     matchReflections,
     matches,
+    aiCoachConversations,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -2633,11 +2634,34 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           (m) => m.role === "user" || m.role === "assistant"
         );
 
+        // Fetch last 10 exchanges for this coach-player pair for context injection
+        const historyRows = await db
+          .select({ role: aiCoachConversations.role, content: aiCoachConversations.content })
+          .from(aiCoachConversations)
+          .where(
+            and(
+              eq(aiCoachConversations.coachId, auth.coachId),
+              eq(aiCoachConversations.playerId, playerId),
+              eq(aiCoachConversations.contextType, "coach_session")
+            )
+          )
+          .orderBy(desc(aiCoachConversations.createdAt))
+          .limit(10);
+        const history = historyRows.reverse();
+
         const { buildPlayerAIContext, buildCoachingSystemPrompt } = await import("../services/ai-progress-engine");
         const ctx = await buildPlayerAIContext(playerId, sessionId, auth.coachId);
         if (!ctx) return res.status(404).json({ error: "Player or session not found" });
 
-        const systemPrompt = buildCoachingSystemPrompt(ctx);
+        let systemPrompt = buildCoachingSystemPrompt(ctx);
+
+        // Inject previous conversation history into the system prompt
+        if (history.length > 0) {
+          const historyBlock = history
+            .map((m) => `${m.role === "user" ? "Coach" : "AI"}: ${m.content}`)
+            .join("\n");
+          systemPrompt = `${systemPrompt}\n\nPrevious coaching exchanges (for context — reference these naturally when relevant):\n${historyBlock}`;
+        }
 
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({
@@ -2668,6 +2692,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }).catch(() => {});
         } catch (err) {
           console.error("[AIChat] OpenAI call failed:", err);
+        }
+
+        // Persist this exchange to conversation memory
+        if (reply) {
+          const lastUserMsg = safeMessages.filter((m) => m.role === "user").pop();
+          if (lastUserMsg) {
+            await db.insert(aiCoachConversations).values([
+              { coachId: auth.coachId, playerId, role: "user", content: lastUserMsg.content, contextType: "coach_session" },
+              { coachId: auth.coachId, playerId, role: "assistant", content: reply, contextType: "coach_session" },
+            ]).catch((err) => console.error("[AIChat] Failed to persist conversation:", err));
+          }
         }
 
         res.json({ reply: reply ?? null });
@@ -2934,7 +2969,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const { buildPlayerSelfAIContext } = await import("../services/ai-progress-engine");
         const ctx = await buildPlayerSelfAIContext(playerId);
         if (!ctx) return res.status(404).json({ error: "Player not found" });
-        res.json({ dataMaturity: ctx.dataMaturity, glowMirrorLayers: ctx.glowMirrorLayers });
+
+        // Check if this player has any prior conversation history
+        const historyCount = await db
+          .select({ count: count() })
+          .from(aiCoachConversations)
+          .where(
+            and(
+              eq(aiCoachConversations.playerId, playerId),
+              eq(aiCoachConversations.contextType, "player_self")
+            )
+          );
+        const hasHistory = (historyCount[0]?.count ?? 0) > 0;
+
+        res.json({ dataMaturity: ctx.dataMaturity, glowMirrorLayers: ctx.glowMirrorLayers, hasHistory });
       } catch (error) {
         console.error("[PlayerAICoach] Error fetching context:", error);
         res.status(500).json({ error: "Failed to fetch context" });
@@ -2982,13 +3030,35 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           (m) => m.role === "user" || m.role === "assistant"
         );
 
+        // Fetch last 10 exchanges for this player's self-coaching history
+        const historyRows = await db
+          .select({ role: aiCoachConversations.role, content: aiCoachConversations.content })
+          .from(aiCoachConversations)
+          .where(
+            and(
+              eq(aiCoachConversations.playerId, playerId),
+              eq(aiCoachConversations.contextType, "player_self")
+            )
+          )
+          .orderBy(desc(aiCoachConversations.createdAt))
+          .limit(10);
+        const history = historyRows.reverse();
+
         const { buildPlayerSelfAIContext, buildPlayerSelfSystemPrompt } = await import(
           "../services/ai-progress-engine"
         );
         const ctx = await buildPlayerSelfAIContext(playerId);
         if (!ctx) return res.status(404).json({ error: "Player not found" });
 
-        const systemPrompt = buildPlayerSelfSystemPrompt(ctx);
+        let systemPrompt = buildPlayerSelfSystemPrompt(ctx);
+
+        // Inject previous conversation history into the system prompt
+        if (history.length > 0) {
+          const historyBlock = history
+            .map((m) => `${m.role === "user" ? "Player" : "AI Coach"}: ${m.content}`)
+            .join("\n");
+          systemPrompt = `${systemPrompt}\n\nPrevious coaching exchanges (for context — reference these naturally when relevant, e.g. "Last time we talked about..."):\n${historyBlock}`;
+        }
 
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({
@@ -3018,6 +3088,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           totalTokens: usage?.total_tokens ?? 0,
           academyId: req.user!.academyId ?? null,
         }).catch(() => {});
+
+        // Persist this exchange to conversation memory
+        if (reply) {
+          const lastUserMsg = safeMessages.filter((m) => m.role === "user").pop();
+          if (lastUserMsg) {
+            await db.insert(aiCoachConversations).values([
+              { coachId: null, playerId, role: "user", content: lastUserMsg.content, contextType: "player_self" },
+              { coachId: null, playerId, role: "assistant", content: reply, contextType: "player_self" },
+            ]).catch((err) => console.error("[PlayerAICoach] Failed to persist conversation:", err));
+          }
+        }
 
         return res.json({ reply });
       } catch (error) {

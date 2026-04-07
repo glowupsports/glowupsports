@@ -552,7 +552,7 @@ export default function PlayerAICoachScreen() {
   const [introChecked, setIntroChecked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const { data: contextData } = useQuery<{ dataMaturity: DataMaturity; glowMirrorLayers?: GlowMirrorLayers }>({
+  const { data: contextData } = useQuery<{ dataMaturity: DataMaturity; glowMirrorLayers?: GlowMirrorLayers; hasHistory: boolean }>({
     queryKey: ["/api/player/me/ai-coach/context"],
     staleTime: 60 * 1000,
   });
@@ -569,6 +569,7 @@ export default function PlayerAICoachScreen() {
   });
 
   const dataMaturity = contextData?.dataMaturity;
+  const hasHistory = contextData?.hasHistory ?? false;
   const sessionCount = dataMaturity?.sessionCount ?? null;
   const maturityLevel = dataMaturity?.maturityLevel ?? null;
 
@@ -825,6 +826,12 @@ export default function PlayerAICoachScreen() {
                 <Text style={styles.emptyDesc}>
                   I know your game from every session your coach has logged. Ask me anything.
                 </Text>
+                {hasHistory ? (
+                  <View style={styles.continuingBanner}>
+                    <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
+                    <Text style={styles.continuingBannerText}>Continuing from where we left off...</Text>
+                  </View>
+                ) : null}
                 <TypingIndicator />
               </View>
             ) : messages.length === 0 ? (
@@ -1299,6 +1306,23 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: 12,
     fontWeight: "500",
+  },
+  continuingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary + "14",
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "35",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  continuingBannerText: {
+    color: Colors.dark.primary,
+    fontSize: 13,
+    fontWeight: "600",
   },
   lockedBar: {
     paddingHorizontal: Spacing.md,

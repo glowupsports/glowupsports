@@ -6853,6 +6853,25 @@ export const insertSessionAiChatSchema = createInsertSchema(sessionAiChats).omit
 export type InsertSessionAiChat = z.infer<typeof insertSessionAiChatSchema>;
 export type SessionAiChat = typeof sessionAiChats.$inferSelect;
 
+// AI Coach Conversations — persistent cross-session conversation memory
+export const aiCoachConversations = pgTable("ai_coach_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  role: text("role").notNull().$type<"user" | "assistant">(),
+  content: text("content").notNull(),
+  contextType: text("context_type").notNull().$type<"coach_session" | "player_self">(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("ai_coach_conversations_player_idx").on(table.playerId),
+  index("ai_coach_conversations_coach_player_idx").on(table.coachId, table.playerId),
+  index("ai_coach_conversations_context_type_idx").on(table.playerId, table.contextType, table.createdAt),
+]);
+
+export const insertAiCoachConversationSchema = createInsertSchema(aiCoachConversations).omit({ id: true, createdAt: true });
+export type InsertAiCoachConversation = z.infer<typeof insertAiCoachConversationSchema>;
+export type AiCoachConversation = typeof aiCoachConversations.$inferSelect;
+
 // ==================== AI USAGE TRACKING ====================
 
 export const AI_FEATURE_TYPES = ["chat", "session-plan", "report", "quest", "notification", "other"] as const;
