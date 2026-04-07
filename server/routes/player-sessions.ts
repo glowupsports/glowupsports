@@ -3707,7 +3707,7 @@ import fs from "fs";
         );
 
         const trainingHistory = sessions
-          .filter((s) => s.attended === "present")
+          .filter((s) => s.attendanceStatus === "present" || s.attendanceStatus === "late" || s.attendanceStatus === null)
           .map((s) => {
             return {
               id: s.id,

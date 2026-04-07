@@ -77,6 +77,27 @@ interface WeeklyDigest {
   createdAt: string;
 }
 
+interface WeeklyPlanFocusArea {
+  title: string;
+  description: string;
+  drillSuggestion: string;
+  timeTarget: string;
+  pillar: string;
+  rationale: string;
+}
+
+interface WeeklyPlan {
+  id: string;
+  weekStartDate: string;
+  status: string;
+  coachNotes: string | null;
+  planJson: {
+    focusAreas: WeeklyPlanFocusArea[];
+    overallRationale: string;
+  } | null;
+  generatedAt: string;
+}
+
 interface MonthlyAssessmentEntry {
   id: string;
   status: "pending" | "completed";
@@ -713,7 +734,7 @@ function MyMirrorTab({
           <View style={mirrorTabStyles.emptyCard}>
             <Ionicons name="calendar-outline" size={28} color={Colors.dark.textMuted} />
             <Text style={mirrorTabStyles.emptyText}>No sessions yet</Text>
-            <Text style={mirrorTabStyles.emptySubtext}>Your recent sessions will appear here once your coach logs them</Text>
+            <Text style={mirrorTabStyles.emptySubtext}>Your recent sessions will appear here after you attend a session</Text>
           </View>
         ) : (
           <View style={mirrorTabStyles.sessionsList}>
@@ -1021,11 +1042,73 @@ const mirrorTabStyles = StyleSheet.create({
   },
 });
 
+interface PlayerSession {
+  id: string;
+  sessionId: string;
+  attendanceStatus: string;
+  coachName: string | null;
+  session: {
+    id: string;
+    startTime: string;
+    endTime: string;
+    sessionType: string | null;
+    title: string;
+    courtName: string | null;
+    locationName: string | null;
+  };
+}
+
 function GlowPlanTab({ digest }: { digest: WeeklyDigest | null }) {
   const hasFocus = digest && digest.data?.focusArea;
   const focusArea = digest?.data?.focusArea;
   const keepDoing = digest?.data?.keepDoing || digest?.data?.drillTip;
   const improve = digest?.data?.improve || digest?.data?.motivation;
+
+  const { data: weeklyPlan, isLoading: planLoading } = useQuery<WeeklyPlan | null>({
+    queryKey: ["/api/player/me/weekly-plan"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: allSessions } = useQuery<PlayerSession[]>({
+    queryKey: ["/api/player/me/sessions"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const now = new Date();
+  const nextSession = (allSessions || [])
+    .filter((s) => new Date(s.session.startTime) > now && s.attendanceStatus !== "absent")
+    .sort((a, b) => new Date(a.session.startTime).getTime() - new Date(b.session.startTime).getTime())[0] || null;
+
+  const currentWeekStartDate = (() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+    return monday.toISOString().split("T")[0];
+  })();
+
+  const isCurrentWeekPlan = weeklyPlan?.weekStartDate === currentWeekStartDate;
+  const focusAreas = weeklyPlan?.planJson?.focusAreas || [];
+  const hasPlan = focusAreas.length > 0 && isCurrentWeekPlan;
+
+  const pillarColors: Record<string, string> = {
+    technical: "#8B5CF6",
+    tactical: "#3B82F6",
+    physical: "#10B981",
+    mental: "#F59E0B",
+    social: "#EC4899",
+  };
+
+  const formatSessionDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  };
+
+  const formatSessionTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  };
 
   return (
     <ScrollView
@@ -1093,47 +1176,146 @@ function GlowPlanTab({ digest }: { digest: WeeklyDigest | null }) {
         </View>
       </View>
 
-      {/* Pre-Session Brief Placeholder */}
+      {/* Pre-Session Brief */}
       <View style={planTabStyles.section}>
         <Text style={planTabStyles.sectionTitle}>PRE-SESSION BRIEF</Text>
-        <View style={[planTabStyles.card, planTabStyles.cardComingSoon]}>
+        <View style={[planTabStyles.card, nextSession ? planTabStyles.cardActive : planTabStyles.cardEmpty]}>
           <View style={planTabStyles.cardHeader}>
             <View style={[planTabStyles.cardIconWrap, { backgroundColor: Colors.dark.primary + "20" }]}>
               <Ionicons name="flash" size={18} color={Colors.dark.primary} />
             </View>
             <View style={planTabStyles.cardHeaderText}>
               <Text style={planTabStyles.cardTitle}>Pre-Session Brief</Text>
-              <Text style={planTabStyles.cardSubtitle}>Coming this week</Text>
-            </View>
-            <View style={planTabStyles.comingSoonBadge}>
-              <Text style={planTabStyles.comingSoonText}>SOON</Text>
+              <Text style={planTabStyles.cardSubtitle}>
+                {nextSession ? nextSession.session.title : "Prepared before each session"}
+              </Text>
             </View>
           </View>
-          <Text style={planTabStyles.placeholderText}>
-            Before each session, your AI coach will prepare a personalised brief — what to focus on, warm-up tips, and mental cues for today.
-          </Text>
+          {nextSession ? (
+            <View style={planTabStyles.bulletList}>
+              <View style={planTabStyles.bulletRow}>
+                <View style={planTabStyles.bulletIconWrap}>
+                  <Ionicons name="calendar-outline" size={13} color={Colors.dark.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[planTabStyles.bulletLabel, { color: Colors.dark.primary }]}>NEXT SESSION</Text>
+                  <Text style={planTabStyles.bulletText}>{formatSessionDate(nextSession.session.startTime)}</Text>
+                  <Text style={[planTabStyles.bulletText, { color: Colors.dark.textMuted }]}>
+                    {formatSessionTime(nextSession.session.startTime)}
+                    {nextSession.session.locationName ? " · " + nextSession.session.locationName : ""}
+                  </Text>
+                </View>
+              </View>
+              {nextSession.coachName ? (
+                <View style={planTabStyles.bulletRow}>
+                  <View style={planTabStyles.bulletIconWrap}>
+                    <Ionicons name="person-outline" size={13} color={Colors.dark.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[planTabStyles.bulletLabel, { color: Colors.dark.textMuted }]}>COACH</Text>
+                    <Text style={planTabStyles.bulletText}>{nextSession.coachName}</Text>
+                  </View>
+                </View>
+              ) : null}
+              <View style={planTabStyles.bulletRow}>
+                <View style={planTabStyles.bulletIconWrap}>
+                  <Ionicons name="information-circle-outline" size={13} color={Colors.dark.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[planTabStyles.bulletLabel, { color: Colors.dark.textMuted }]}>BRIEF</Text>
+                  <Text style={planTabStyles.bulletText}>
+                    Your coach will generate a personalised brief before this session — focus areas, warm-up tips, and mental cues.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={planTabStyles.placeholderRow}>
+              <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={planTabStyles.placeholderText}>
+                No session scheduled yet. Once your coach books your next session, your pre-session brief will appear here.
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Glow Plans Placeholder */}
+      {/* Weekly Glow Plan */}
       <View style={planTabStyles.section}>
         <Text style={planTabStyles.sectionTitle}>GLOW PLAN</Text>
-        <View style={[planTabStyles.card, planTabStyles.cardComingSoon]}>
+        <View style={[planTabStyles.card, hasPlan ? planTabStyles.cardActive : planTabStyles.cardEmpty]}>
           <View style={planTabStyles.cardHeader}>
-            <View style={[planTabStyles.cardIconWrap, { backgroundColor: "#E040FB" + "20" }]}>
+            <View style={[planTabStyles.cardIconWrap, { backgroundColor: "#E040FB20" }]}>
               <Ionicons name="calendar" size={18} color="#E040FB" />
             </View>
             <View style={planTabStyles.cardHeaderText}>
               <Text style={planTabStyles.cardTitle}>Weekly Glow Plan</Text>
-              <Text style={planTabStyles.cardSubtitle}>Your weekly plan drops every Monday</Text>
-            </View>
-            <View style={[planTabStyles.comingSoonBadge, { backgroundColor: "#E040FB" + "18", borderColor: "#E040FB" + "40" }]}>
-              <Text style={[planTabStyles.comingSoonText, { color: "#E040FB" }]}>SOON</Text>
+              {hasPlan ? (
+                <Text style={planTabStyles.cardSubtitle}>
+                  {"Week of " + currentWeekStartDate}
+                </Text>
+              ) : (
+                <Text style={planTabStyles.cardSubtitle}>Your weekly plan drops every Monday</Text>
+              )}
             </View>
           </View>
-          <Text style={planTabStyles.placeholderText}>
-            A full weekly training plan tailored to your level, schedule and goals — generated every Monday by your AI coach.
-          </Text>
+          {planLoading ? (
+            <ActivityIndicator size="small" color="#E040FB" style={{ marginTop: 8 }} />
+          ) : hasPlan ? (
+            <View style={planTabStyles.bulletList}>
+              {weeklyPlan?.planJson?.overallRationale ? (
+                <View style={planTabStyles.bulletRow}>
+                  <View style={planTabStyles.bulletIconWrap}>
+                    <Ionicons name="information-circle" size={13} color="#E040FB" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[planTabStyles.bulletLabel, { color: "#E040FB" }]}>THIS WEEK</Text>
+                    <Text style={planTabStyles.bulletText}>{weeklyPlan.planJson!.overallRationale}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {focusAreas.map((area, idx) => {
+                const color = pillarColors[area.pillar?.toLowerCase()] || "#8B5CF6";
+                return (
+                  <View key={idx} style={planTabStyles.bulletRow}>
+                    <View style={planTabStyles.bulletIconWrap}>
+                      <Ionicons name="checkmark-circle" size={13} color={color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[planTabStyles.bulletLabel, { color }]}>{area.pillar?.toUpperCase() || "FOCUS"}</Text>
+                      <Text style={planTabStyles.bulletText}>{area.title}</Text>
+                      {area.description ? (
+                        <Text style={[planTabStyles.bulletText, { color: Colors.dark.textMuted, marginTop: 2 }]}>{area.description}</Text>
+                      ) : null}
+                      {area.drillSuggestion ? (
+                        <Text style={[planTabStyles.bulletText, { color: Colors.dark.textMuted, fontStyle: "italic", marginTop: 2 }]}>
+                          {"Drill: " + area.drillSuggestion}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+              {weeklyPlan?.coachNotes ? (
+                <View style={[planTabStyles.bulletRow, { marginTop: 4 }]}>
+                  <View style={planTabStyles.bulletIconWrap}>
+                    <Ionicons name="chatbubble-ellipses" size={13} color={Colors.dark.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[planTabStyles.bulletLabel, { color: Colors.dark.textMuted }]}>COACH NOTES</Text>
+                    <Text style={planTabStyles.bulletText}>{weeklyPlan.coachNotes}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View style={planTabStyles.placeholderRow}>
+              <Ionicons name="time-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={planTabStyles.placeholderText}>
+                A full weekly training plan tailored to your level, schedule and goals — generated every Monday by your AI coach.
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </ScrollView>
