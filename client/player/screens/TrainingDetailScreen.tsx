@@ -150,9 +150,27 @@ function GlowMirrorCard({
             <Ionicons name="mic" size={18} color={MIRROR_ACCENT} />
           </View>
           <Text style={mirrorStyles.title}>Your Reflection</Text>
-          <View style={mirrorStyles.savedBadge}>
-            <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
-            <Text style={mirrorStyles.savedText}>Saved</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={mirrorStyles.savedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
+              <Text style={mirrorStyles.savedText}>Saved</Text>
+            </View>
+            <Pressable
+              onPress={() => setSaved(false)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: MIRROR_ACCENT + "60",
+              }}
+            >
+              <Ionicons name="pencil" size={12} color={MIRROR_ACCENT} />
+              <Text style={{ fontSize: 12, color: MIRROR_ACCENT }}>Edit</Text>
+            </Pressable>
           </View>
         </View>
         {existingReflection.aiSummary ? (

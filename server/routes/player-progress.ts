@@ -52,6 +52,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     sessionAiSummaries, playerAiInsights,
     glowSkills, playerSkillScores,
     playerSessionReflections,
+    matchReflections,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -3301,6 +3302,133 @@ router.patch(
     } catch (error) {
       console.error("[ParentReport] Toggle error:", error);
       res.status(500).json({ error: "Failed to update parent reporting settings" });
+    }
+  }
+);
+
+// ==================== GLOW MIRROR — MATCH REFLECTIONS (AUTH-PROTECTED) ====================
+
+// GET match reflection for authenticated player
+router.get(
+  "/api/player/me/matches/:matchId/reflection",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { matchId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const [reflection] = await db
+        .select()
+        .from(matchReflections)
+        .where(
+          and(
+            eq(matchReflections.matchId, matchId),
+            eq(matchReflections.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      res.json(reflection || null);
+    } catch (error) {
+      console.error("[MatchReflection] GET error:", error);
+      res.status(500).json({ error: "Failed to fetch match reflection" });
+    }
+  }
+);
+
+// POST match reflection for authenticated player (upsert pre/post match data)
+router.post(
+  "/api/player/me/matches/:matchId/reflection",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { matchId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const {
+        preMatchMood,
+        preMatchConfidence,
+        preMatchGoal,
+        whatWorked,
+        whatDidntWork,
+        biggestChallenge,
+        postMatchEnergy,
+        postMatchMood,
+        postMatchConfidence,
+        keyTakeaway,
+      } = req.body;
+
+      // Check if reflection already exists
+      const [existing] = await db
+        .select()
+        .from(matchReflections)
+        .where(
+          and(
+            eq(matchReflections.matchId, matchId),
+            eq(matchReflections.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      let reflection;
+      if (existing) {
+        // Update existing reflection
+        const updates: Record<string, unknown> = {};
+        if (preMatchMood !== undefined) updates.preMatchMood = preMatchMood;
+        if (preMatchConfidence !== undefined) updates.preMatchConfidence = preMatchConfidence;
+        if (preMatchGoal !== undefined) updates.preMatchGoal = preMatchGoal?.slice(0, 80) || null;
+        if (whatWorked !== undefined) updates.whatWorked = whatWorked;
+        if (whatDidntWork !== undefined) updates.whatDidntWork = whatDidntWork;
+        if (biggestChallenge !== undefined) updates.biggestChallenge = biggestChallenge;
+        if (postMatchEnergy !== undefined) updates.postMatchEnergy = postMatchEnergy;
+        if (postMatchMood !== undefined) updates.postMatchMood = postMatchMood;
+        if (postMatchConfidence !== undefined) updates.postMatchConfidence = postMatchConfidence;
+        if (keyTakeaway !== undefined) updates.keyTakeaway = keyTakeaway?.slice(0, 100);
+
+        [reflection] = await db
+          .update(matchReflections)
+          .set(updates)
+          .where(
+            and(
+              eq(matchReflections.matchId, matchId),
+              eq(matchReflections.playerId, playerId)
+            )
+          )
+          .returning();
+      } else {
+        // Insert new reflection
+        [reflection] = await db
+          .insert(matchReflections)
+          .values({
+            matchId,
+            playerId,
+            preMatchMood: preMatchMood || null,
+            preMatchConfidence: preMatchConfidence || null,
+            preMatchGoal: preMatchGoal?.slice(0, 80) || null,
+            whatWorked: whatWorked || [],
+            whatDidntWork: whatDidntWork || [],
+            biggestChallenge: biggestChallenge || null,
+            postMatchEnergy: postMatchEnergy || null,
+            postMatchMood: postMatchMood || null,
+            postMatchConfidence: postMatchConfidence || null,
+            keyTakeaway: keyTakeaway?.slice(0, 100) || null,
+          })
+          .returning();
+
+        // Award XP for first-time match reflection
+        try {
+          await awardXP(playerId, "match_reflection", "match", matchId);
+        } catch (xpErr) {
+          console.error("[MatchReflection] XP award failed (non-fatal):", xpErr);
+        }
+      }
+
+      res.status(existing ? 200 : 201).json(reflection);
+    } catch (error) {
+      console.error("[MatchReflection] POST error:", error);
+      res.status(500).json({ error: "Failed to save match reflection" });
     }
   }
 );
