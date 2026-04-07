@@ -1503,6 +1503,7 @@ export default function PlayerProgressScreen() {
     trend: string;
     skillsTotal: number;
     skillsMeetsOrAbove: number;
+    masteryPct: number;
     lastUpdated: string | null;
   }
   interface PillarProgressSummary {
@@ -1510,6 +1511,7 @@ export default function PlayerProgressScreen() {
     overallReadiness: number;
     trialGateReady: boolean;
     recentFeedbackCount: number;
+    glowScore: number;
   }
   const { data: pillarProgressData } = useQuery<PillarProgressSummary>({
     queryKey: ["/api/player/me/pillar-progress"],
@@ -1950,10 +1952,18 @@ export default function PlayerProgressScreen() {
                   const pillarEntry = pillarMap.get(key);
                   const hasRealFeedback = pillarEntry && pillarEntry.lastUpdated !== null;
                   if (hasRealFeedback) {
+                    const hasCurriculum = pillarEntry!.skillsTotal > 0;
+                    const score = hasCurriculum
+                      ? pillarEntry!.masteryPct
+                      : Math.round(pillarEntry!.score * 50);
+                    const subtitle = hasCurriculum
+                      ? `${pillarEntry!.skillsMeetsOrAbove} of ${pillarEntry!.skillsTotal} skills`
+                      : undefined;
                     return [key, {
                       pillar: key,
-                      currentScore: Math.round(pillarEntry!.score * 50),
+                      currentScore: score,
                       trend: (pillarEntry!.trend === "improving" ? "improving" : pillarEntry!.trend === "declining" ? "declining" : "stable") as "improving" | "stable" | "declining",
+                      subtitle,
                     }];
                   }
                   const domain = domainMap.get(key);

@@ -2861,7 +2861,22 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           console.error("[AIChat] Pillar progress update failed (non-critical):", pillarErr);
         }
 
-        // 6. Trigger level readiness when AI flags it
+        // 6. Persist Glow Score to players table (non-critical, fire-and-forget)
+        setImmediate(async () => {
+          try {
+            const { calculateGlowRank } = await import("../services/glow-rank-engine");
+            const rank = await calculateGlowRank(playerId);
+            if (rank && rank.glowScore !== undefined) {
+              await db.update(players)
+                .set({ glowScore: rank.glowScore })
+                .where(eq(players.id, playerId));
+            }
+          } catch (glowErr) {
+            console.error("[AIChat] Glow Score persistence failed (non-critical):", glowErr);
+          }
+        });
+
+        // 7. Trigger level readiness when AI flags it
         let levelReadiness = null;
         if (structured.levelUpFlag) {
           try {
@@ -2884,7 +2899,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // 7. Trigger session digest (fire-and-forget)
+        // 8. Trigger session digest (fire-and-forget)
         const _sid = sessionId;
         const _pid = playerId;
         setImmediate(async () => {

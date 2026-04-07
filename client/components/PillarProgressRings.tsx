@@ -13,6 +13,7 @@ interface PillarData {
   currentScore: number;
   trend: "improving" | "stable" | "declining";
   lastSessionDelta?: number | null;
+  subtitle?: string;
 }
 
 interface PillarProgressRingsProps {
@@ -155,6 +156,9 @@ function PillarCard({
             <Text style={[styles.scoreValue, { color: config.color }]}>
               {Math.round(data.currentScore)}%
             </Text>
+            {data.subtitle ? (
+              <Text style={styles.scoreSubtitle}>{data.subtitle}</Text>
+            ) : null}
           </View>
           
           <ProgressBar progress={data.currentScore} color={config.color} />
@@ -259,14 +263,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   scoreSection: {
-    flexDirection: "row",
-    alignItems: "baseline",
+    flexDirection: "column",
+    alignItems: "flex-start",
     marginBottom: Spacing.sm,
   },
   scoreValue: {
     fontSize: 24,
     fontWeight: "800",
     letterSpacing: -0.5,
+  },
+  scoreSubtitle: {
+    fontSize: 10,
+    color: TextColors.disabled,
+    marginTop: 1,
   },
   tapHint: {
     position: "absolute",
