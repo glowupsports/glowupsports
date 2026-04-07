@@ -206,6 +206,9 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
   const [whatDidntWork, setWhatDidntWork] = useState<string[]>([]);
   const [biggestChallenge, setBiggestChallenge] = useState<string>("");
   const [keyTakeaway, setKeyTakeaway] = useState<string>("");
+  const [postMatchEnergy, setPostMatchEnergy] = useState<string>("");
+  const [postMatchMood, setPostMatchMood] = useState<string>("");
+  const [postMatchConfidence, setPostMatchConfidence] = useState<number>(0);
 
   const initForm = (r: MatchReflectionData) => {
     setPreMatchMood(r.preMatchMood || "");
@@ -215,6 +218,9 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
     setWhatDidntWork(r.whatDidntWork || []);
     setBiggestChallenge(r.biggestChallenge || "");
     setKeyTakeaway(r.keyTakeaway || "");
+    setPostMatchEnergy(r.postMatchEnergy || "");
+    setPostMatchMood(r.postMatchMood || "");
+    setPostMatchConfidence(r.postMatchConfidence || 0);
     setEditing(true);
   };
 
@@ -228,6 +234,9 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
         whatDidntWork,
         biggestChallenge: biggestChallenge || null,
         keyTakeaway: keyTakeaway.trim() || null,
+        postMatchEnergy: postMatchEnergy || null,
+        postMatchMood: postMatchMood || null,
+        postMatchConfidence: postMatchConfidence || null,
       });
     },
     onSuccess: () => {
@@ -306,6 +315,27 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
 
         <View style={mirrorStyles.section}>
           <Text style={mirrorStyles.sectionLabel}>After the match</Text>
+          {reflection.postMatchEnergy ? (
+            <View style={mirrorStyles.dataRow}>
+              <Ionicons name="flash-outline" size={14} color={Colors.dark?.xpCyan || "#00D4FF"} />
+              <Text style={mirrorStyles.dataLabel}>Energy:</Text>
+              <Text style={mirrorStyles.dataValue}>{reflection.postMatchEnergy}</Text>
+            </View>
+          ) : null}
+          {reflection.postMatchMood ? (
+            <View style={mirrorStyles.dataRow}>
+              <Ionicons name="happy-outline" size={14} color={MIRROR_ACCENT} />
+              <Text style={mirrorStyles.dataLabel}>Mood:</Text>
+              <Text style={mirrorStyles.dataValue}>{reflection.postMatchMood}</Text>
+            </View>
+          ) : null}
+          {reflection.postMatchConfidence ? (
+            <View style={mirrorStyles.dataRow}>
+              <Ionicons name="trending-up-outline" size={14} color={MIRROR_ACCENT} />
+              <Text style={mirrorStyles.dataLabel}>Confidence:</Text>
+              <Text style={mirrorStyles.dataValue}>{reflection.postMatchConfidence}/10</Text>
+            </View>
+          ) : null}
           {reflection.whatWorked && reflection.whatWorked.length > 0 ? (
             <View style={mirrorStyles.dataRow}>
               <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
@@ -418,6 +448,47 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
         single
         color={Colors.warning || "#F59E0B"}
       />
+
+      <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>Post-match energy</Text>
+      <ChipSelector
+        options={["exhausted", "tired", "ok", "good", "great"]}
+        selected={postMatchEnergy ? [postMatchEnergy] : []}
+        onToggle={(v) => setPostMatchEnergy(postMatchEnergy === v ? "" : v)}
+        single
+        color={Colors.dark?.xpCyan || "#00D4FF"}
+      />
+
+      <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>Post-match mood</Text>
+      <ChipSelector
+        options={["frustrated", "disappointed", "neutral", "satisfied", "happy"]}
+        selected={postMatchMood ? [postMatchMood] : []}
+        onToggle={(v) => setPostMatchMood(postMatchMood === v ? "" : v)}
+        single
+        color={MIRROR_ACCENT}
+      />
+
+      <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>
+        Post-match confidence (1-10): {postMatchConfidence > 0 ? postMatchConfidence : "–"}
+      </Text>
+      <View style={mirrorStyles.confidenceRow}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+          <Pressable
+            key={n}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPostMatchConfidence(n);
+            }}
+            style={[
+              mirrorStyles.confidenceBtn,
+              postMatchConfidence >= n && { backgroundColor: MIRROR_ACCENT },
+            ]}
+          >
+            <Text style={[mirrorStyles.confidenceBtnText, postMatchConfidence >= n && { color: "#000" }]}>
+              {n}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>Key takeaway (optional)</Text>
       <TextInput

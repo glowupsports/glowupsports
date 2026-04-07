@@ -843,17 +843,30 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     ? `Recent matches: ${recentMatches.map((m) => `${m.result} (${m.format}${m.opponentLevel ? ", vs " + m.opponentLevel : ""})`).join(", ")}.`
     : "";
 
-  // Glow Mirror — Player self-reflections
+  // Glow Mirror — Player self-reflections (most recent prominently surfaced)
   const reflectionContext = recentSessionReflections && recentSessionReflections.length > 0
-    ? `PLAYER VOICE (self-reported after sessions, most recent first):\n${recentSessionReflections.slice(0, 3).map((r, i) => {
-        const parts: string[] = [];
-        if (r.energyLevel) parts.push(`Energy ${r.energyLevel}/5`);
-        if (r.overallFeeling) parts.push(`Feeling ${r.overallFeeling}/5`);
-        if (r.hardestPart) parts.push(`Hardest: "${r.hardestPart}"`);
-        if (r.keyLearning) parts.push(`Learned: "${r.keyLearning}"`);
-        if (r.nextFocus) parts.push(`Wants to focus: "${r.nextFocus}"`);
-        return `${i + 1}. ${parts.join(", ")}`;
-      }).join("\n")}`
+    ? (() => {
+        const latest = recentSessionReflections[0];
+        const latestParts: string[] = [];
+        if (latest.energyLevel) latestParts.push(`Energy ${latest.energyLevel}/5`);
+        if (latest.overallFeeling) latestParts.push(`Feeling ${latest.overallFeeling}/5`);
+        if (latest.hardestPart) latestParts.push(`Hardest: "${latest.hardestPart}"`);
+        if (latest.keyLearning) latestParts.push(`Learned: "${latest.keyLearning}"`);
+        if (latest.nextFocus) latestParts.push(`Next focus: "${latest.nextFocus}"`);
+        const latestSummary = latest.aiSummary || latestParts.join(", ");
+
+        const olderLines = recentSessionReflections.slice(1, 3).map((r, i) => {
+          const parts: string[] = [];
+          if (r.energyLevel) parts.push(`Energy ${r.energyLevel}/5`);
+          if (r.overallFeeling) parts.push(`Feeling ${r.overallFeeling}/5`);
+          if (r.hardestPart) parts.push(`Hardest: "${r.hardestPart}"`);
+          if (r.keyLearning) parts.push(`Learned: "${r.keyLearning}"`);
+          if (r.nextFocus) parts.push(`Focus: "${r.nextFocus}"`);
+          return `  ${i + 2}. ${parts.join(", ")}`;
+        });
+
+        return `PLAYER VOICE — Most recent self-reflection: ${latestSummary}${olderLines.length > 0 ? "\nPrevious reflections:\n" + olderLines.join("\n") : ""}`;
+      })()
     : "";
 
   const summaryInstruction = `After 4-8 coach exchanges covering all six pillars (Technical, Tactical, Physical, Mental, Social, Match), say "Here is what I'll save" and propose a JSON summary inside a code block:
