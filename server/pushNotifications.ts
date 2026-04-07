@@ -3845,3 +3845,145 @@ export async function processPostSessionReflectionReminders(): Promise<void> {
     console.error("[ReflectionReminder] Error processing post-session reflection reminders:", error);
   }
 }
+
+// ==================== GLOW PLANS — WEEKLY TRAINING PLAN SCHEDULER ====================
+
+let glowPlansSchedulerInterval: ReturnType<typeof setInterval> | null = null;
+const glowPlansProcessedTimezones = new Set<string>();
+
+async function processGlowPlansForTimezone(timezone: string): Promise<void> {
+  try {
+    // Get current Monday's date for this timezone
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+    const weekStartDate = monday.toISOString().split("T")[0];
+
+    console.log(`[GlowPlans] Processing timezone ${timezone} for week ${weekStartDate}`);
+
+    // Find all active players in academies with this timezone
+    const academyRows = await pool.query(
+      `SELECT id FROM academies WHERE timezone = $1`,
+      [timezone]
+    );
+    if (academyRows.rows.length === 0) return;
+
+    const academyIds = academyRows.rows.map((r: { id: string }) => r.id);
+    const academyIdList = academyIds.map((_: string, i: number) => `$${i + 1}`).join(",");
+
+    const playerRows = await pool.query(
+      `SELECT p.id as player_id, p.coach_id, p.academy_id
+       FROM players p
+       WHERE p.academy_id IN (${academyIdList})
+         AND p.status = 'active'`,
+      academyIds
+    );
+
+    if (playerRows.rows.length === 0) {
+      console.log(`[GlowPlans] No active players for timezone ${timezone}`);
+      return;
+    }
+
+    const { generateWeeklyTrainingPlan } = await import("./services/ai-progress-engine");
+    const { db: localDb } = await import("./db");
+    const { playerAiTrainingPlans } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+
+    let generated = 0;
+    let skipped = 0;
+
+    for (const row of playerRows.rows) {
+      const playerId = row.player_id as string;
+      try {
+        // Check if plan already exists for this week
+        const existing = await localDb
+          .select({ id: playerAiTrainingPlans.id })
+          .from(playerAiTrainingPlans)
+          .where(and(
+            eq(playerAiTrainingPlans.playerId, playerId),
+            eq(playerAiTrainingPlans.weekStartDate, weekStartDate)
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        const plan = await generateWeeklyTrainingPlan(playerId, weekStartDate);
+        if (!plan) {
+          console.warn(`[GlowPlans] No plan generated for player ${playerId}`);
+          continue;
+        }
+
+        await localDb.insert(playerAiTrainingPlans).values({
+          playerId,
+          coachId: row.coach_id || null,
+          academyId: row.academy_id || null,
+          weekStartDate,
+          planJson: plan,
+          status: "draft",
+        });
+
+        generated++;
+      } catch (err) {
+        console.error(`[GlowPlans] Error for player ${playerId}:`, err);
+      }
+    }
+
+    console.log(`[GlowPlans] Done for ${timezone}: generated=${generated}, skipped=${skipped}`);
+  } catch (error) {
+    console.error(`[GlowPlans] Error processing timezone ${timezone}:`, error);
+  }
+}
+
+export function startGlowPlansScheduler(): void {
+  if (glowPlansSchedulerInterval) {
+    console.log("[GlowPlans] Scheduler already running");
+    return;
+  }
+
+  console.log("[GlowPlans] Starting Glow Plans scheduler (checks every 15 minutes, fires Monday 6:00-6:15 AM academy-local time)");
+
+  glowPlansSchedulerInterval = setInterval(async () => {
+    try {
+      const now = new Date();
+      const todayKey = now.toISOString().split("T")[0];
+
+      const result = await pool.query(`SELECT DISTINCT timezone FROM academies WHERE timezone IS NOT NULL`);
+
+      for (const row of result.rows) {
+        const tz = row.timezone || "UTC";
+        const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+        const localDay = localNow.getDay(); // 0=Sun, 1=Mon
+        const localHour = localNow.getHours();
+        const localMinute = localNow.getMinutes();
+        const tzWeekKey = `${tz}-${todayKey}`;
+
+        if (localDay === 1 && localHour === 6 && localMinute < 15 && !glowPlansProcessedTimezones.has(tzWeekKey)) {
+          glowPlansProcessedTimezones.add(tzWeekKey);
+          processGlowPlansForTimezone(tz).catch(err => console.error("[GlowPlans] Async error:", err));
+        }
+      }
+
+      // Clean up old keys
+      for (const key of glowPlansProcessedTimezones) {
+        if (!key.includes(todayKey)) {
+          glowPlansProcessedTimezones.delete(key);
+        }
+      }
+    } catch (err) {
+      console.error("[GlowPlans] Scheduler check error:", err);
+    }
+  }, 15 * 60 * 1000);
+}
+
+export function stopGlowPlansScheduler(): void {
+  if (glowPlansSchedulerInterval) {
+    clearInterval(glowPlansSchedulerInterval);
+    glowPlansSchedulerInterval = null;
+    console.log("[GlowPlans] Scheduler stopped");
+  }
+}

@@ -56,6 +56,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     matchReflections,
     matches,
     aiCoachConversations,
+    playerAiTrainingPlans,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -4085,6 +4086,212 @@ router.get(
     } catch (error) {
       console.error("[MonthlyAssessment] GET history error:", error);
       res.status(500).json({ error: "Failed to fetch history" });
+    }
+  }
+);
+
+// ==================== GLOW PLANS — WEEKLY TRAINING PLANS ====================
+
+// GET /api/player/me/weekly-plan — current week's active plan for the player
+router.get(
+  "/api/player/me/weekly-plan",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      // Get current Monday
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      const weekStartDate = monday.toISOString().split("T")[0];
+
+      const [plan] = await db
+        .select()
+        .from(playerAiTrainingPlans)
+        .where(and(
+          eq(playerAiTrainingPlans.playerId, playerId),
+          eq(playerAiTrainingPlans.weekStartDate, weekStartDate)
+        ))
+        .limit(1);
+
+      if (!plan) {
+        // Also try to get the most recent plan if this week has none yet
+        const [latestPlan] = await db
+          .select()
+          .from(playerAiTrainingPlans)
+          .where(eq(playerAiTrainingPlans.playerId, playerId))
+          .orderBy(desc(playerAiTrainingPlans.weekStartDate))
+          .limit(1);
+        return res.json(latestPlan || null);
+      }
+
+      return res.json(plan);
+    } catch (error) {
+      console.error("[GlowPlans] GET player weekly-plan error:", error);
+      res.status(500).json({ error: "Failed to fetch weekly plan" });
+    }
+  }
+);
+
+// GET /api/coach/players/weekly-plans — all players' plans for the current week (coach view)
+router.get(
+  "/api/coach/players/weekly-plans",
+  authMiddleware,
+  requireRole("coach", "assistant", "academy_owner", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) return res.status(403).json({ error: "Coach only" });
+
+      // Get current Monday
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      const weekStartDate = monday.toISOString().split("T")[0];
+
+      const plans = await db
+        .select({
+          id: playerAiTrainingPlans.id,
+          playerId: playerAiTrainingPlans.playerId,
+          playerName: players.name,
+          coachId: playerAiTrainingPlans.coachId,
+          academyId: playerAiTrainingPlans.academyId,
+          weekStartDate: playerAiTrainingPlans.weekStartDate,
+          planJson: playerAiTrainingPlans.planJson,
+          status: playerAiTrainingPlans.status,
+          coachNotes: playerAiTrainingPlans.coachNotes,
+          generatedAt: playerAiTrainingPlans.generatedAt,
+          approvedAt: playerAiTrainingPlans.approvedAt,
+        })
+        .from(playerAiTrainingPlans)
+        .innerJoin(players, eq(players.id, playerAiTrainingPlans.playerId))
+        .where(and(
+          eq(playerAiTrainingPlans.coachId, coachId),
+          eq(playerAiTrainingPlans.weekStartDate, weekStartDate)
+        ))
+        .orderBy(desc(playerAiTrainingPlans.generatedAt));
+
+      return res.json(plans);
+    } catch (error) {
+      console.error("[GlowPlans] GET coach weekly-plans error:", error);
+      res.status(500).json({ error: "Failed to fetch weekly plans" });
+    }
+  }
+);
+
+// PATCH /api/coach/players/:id/weekly-plan — approve or update plan (coach)
+router.patch(
+  "/api/coach/players/:id/weekly-plan",
+  authMiddleware,
+  requireRole("coach", "assistant", "academy_owner", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) return res.status(403).json({ error: "Coach only" });
+
+      const planId = req.params.id;
+      const { status, coachNotes, planJson } = req.body;
+
+      // Verify the coach owns this plan
+      const [existing] = await db
+        .select({ id: playerAiTrainingPlans.id, coachId: playerAiTrainingPlans.coachId })
+        .from(playerAiTrainingPlans)
+        .where(eq(playerAiTrainingPlans.id, planId))
+        .limit(1);
+
+      if (!existing) return res.status(404).json({ error: "Plan not found" });
+      if (existing.coachId !== coachId) return res.status(403).json({ error: "Not your plan" });
+
+      const updateData: Record<string, unknown> = {};
+      if (status !== undefined) updateData.status = status;
+      if (coachNotes !== undefined) updateData.coachNotes = coachNotes;
+      if (planJson !== undefined) updateData.planJson = planJson;
+      if (status === "active") updateData.approvedAt = new Date();
+
+      await db
+        .update(playerAiTrainingPlans)
+        .set(updateData)
+        .where(eq(playerAiTrainingPlans.id, planId));
+
+      const [updated] = await db
+        .select()
+        .from(playerAiTrainingPlans)
+        .where(eq(playerAiTrainingPlans.id, planId))
+        .limit(1);
+
+      return res.json(updated);
+    } catch (error) {
+      console.error("[GlowPlans] PATCH coach weekly-plan error:", error);
+      res.status(500).json({ error: "Failed to update plan" });
+    }
+  }
+);
+
+// POST /api/coach/players/:playerId/weekly-plan/generate — manually trigger generation for a player
+router.post(
+  "/api/coach/players/:playerId/weekly-plan/generate",
+  authMiddleware,
+  requireRole("coach", "assistant", "academy_owner", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) return res.status(403).json({ error: "Coach only" });
+
+      const { playerId } = req.params;
+
+      // Get current Monday
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      const weekStartDate = monday.toISOString().split("T")[0];
+
+      // Check if plan already exists
+      const [existing] = await db
+        .select({ id: playerAiTrainingPlans.id })
+        .from(playerAiTrainingPlans)
+        .where(and(
+          eq(playerAiTrainingPlans.playerId, playerId),
+          eq(playerAiTrainingPlans.weekStartDate, weekStartDate)
+        ))
+        .limit(1);
+
+      if (existing) {
+        return res.status(409).json({ error: "Plan already exists for this week", planId: existing.id });
+      }
+
+      const { generateWeeklyTrainingPlan } = await import("../services/ai-progress-engine");
+      const plan = await generateWeeklyTrainingPlan(playerId, weekStartDate);
+
+      if (!plan) {
+        return res.status(500).json({ error: "Failed to generate plan — not enough player data" });
+      }
+
+      const [playerRow] = await db.select({ academyId: players.academyId }).from(players).where(eq(players.id, playerId)).limit(1);
+
+      const [inserted] = await db
+        .insert(playerAiTrainingPlans)
+        .values({
+          playerId,
+          coachId,
+          academyId: playerRow?.academyId || null,
+          weekStartDate,
+          planJson: plan,
+          status: "draft",
+        })
+        .returning();
+
+      return res.json(inserted);
+    } catch (error) {
+      console.error("[GlowPlans] POST generate weekly-plan error:", error);
+      res.status(500).json({ error: "Failed to generate plan" });
     }
   }
 );

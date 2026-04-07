@@ -1452,6 +1452,35 @@ export default function PlayerProgressScreen() {
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
+  const [showGlowPlanExpanded, setShowGlowPlanExpanded] = useState(false);
+
+  const { data: weeklyPlanData } = useQuery<{
+    id: string;
+    playerId: string;
+    weekStartDate: string;
+    planJson: {
+      focusAreas: {
+        title: string;
+        description: string;
+        drillSuggestion: string;
+        timeTarget: string;
+        pillar: string;
+        rationale: string;
+      }[];
+      overallRationale: string;
+    } | null;
+    status: string;
+    coachNotes: string | null;
+  } | null>({
+    queryKey: ["/api/player/me/weekly-plan"],
+    enabled: !isGuest,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/weekly-plan", getApiUrl());
+      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+  });
 
   const { data: monthlyAssessmentData } = useQuery<{
     assessment: any;
@@ -1992,6 +2021,93 @@ export default function PlayerProgressScreen() {
               }
             />
           </Pressable>
+        )}
+
+        {/* Glow Plan — This Week's Focus Card */}
+        {!isGuest && weeklyPlanData && weeklyPlanData.planJson && weeklyPlanData.planJson.focusAreas?.length > 0 && (
+          <View style={styles.glowPlanCard}>
+            <Pressable
+              style={styles.glowPlanHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowGlowPlanExpanded(v => !v);
+              }}
+            >
+              <View style={styles.glowPlanIconWrap}>
+                <Ionicons name="flash" size={18} color="#C8FF3D" />
+              </View>
+              <View style={styles.glowPlanHeaderContent}>
+                <Text style={styles.glowPlanTitle}>This Week's Focus</Text>
+                <Text style={styles.glowPlanSubtitle}>
+                  {weeklyPlanData.planJson.focusAreas.length} focus area{weeklyPlanData.planJson.focusAreas.length !== 1 ? "s" : ""} from your coach
+                  {weeklyPlanData.status === "active" ? " — approved" : ""}
+                </Text>
+              </View>
+              <Ionicons
+                name={showGlowPlanExpanded ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={Colors.dark.textMuted}
+              />
+            </Pressable>
+
+            {showGlowPlanExpanded ? (
+              <View style={styles.glowPlanBody}>
+                {weeklyPlanData.planJson.focusAreas.map((area, idx) => {
+                  const pillarColorMap: Record<string, string> = {
+                    TECHNIQUE: "#10B981",
+                    TACTICAL: "#F59E0B",
+                    PHYSICAL: "#EF4444",
+                    MENTAL: "#8B5CF6",
+                    SOCIAL: "#EC4899",
+                    MATCH: "#3B82F6",
+                  };
+                  const pillarColor = pillarColorMap[area.pillar?.toUpperCase()] || Colors.dark.primary;
+                  return (
+                    <View key={idx} style={[styles.glowPlanFocusItem, { borderLeftColor: pillarColor }]}>
+                      <View style={styles.glowPlanFocusHeader}>
+                        <View style={[styles.glowPlanPillarBadge, { backgroundColor: pillarColor + "20" }]}>
+                          <Text style={[styles.glowPlanPillarText, { color: pillarColor }]}>{area.pillar}</Text>
+                        </View>
+                        <Text style={styles.glowPlanTimeTarget}>{area.timeTarget}</Text>
+                      </View>
+                      <Text style={styles.glowPlanFocusTitle}>{area.title}</Text>
+                      <Text style={styles.glowPlanFocusDesc}>{area.description}</Text>
+                      <View style={styles.glowPlanDrillRow}>
+                        <Ionicons name="barbell-outline" size={13} color={Colors.dark.textMuted} />
+                        <Text style={styles.glowPlanDrillText}>{area.drillSuggestion}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+                {weeklyPlanData.coachNotes ? (
+                  <View style={styles.glowPlanCoachNote}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.dark.primary} />
+                    <Text style={styles.glowPlanCoachNoteText}>{weeklyPlanData.coachNotes}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.glowPlanPreview}>
+                {weeklyPlanData.planJson.focusAreas.slice(0, 3).map((area, idx) => {
+                  const pillarColorMap: Record<string, string> = {
+                    TECHNIQUE: "#10B981",
+                    TACTICAL: "#F59E0B",
+                    PHYSICAL: "#EF4444",
+                    MENTAL: "#8B5CF6",
+                    SOCIAL: "#EC4899",
+                    MATCH: "#3B82F6",
+                  };
+                  const pillarColor = pillarColorMap[area.pillar?.toUpperCase()] || Colors.dark.primary;
+                  return (
+                    <View key={idx} style={styles.glowPlanPreviewItem}>
+                      <View style={[styles.glowPlanPreviewDot, { backgroundColor: pillarColor }]} />
+                      <Text style={styles.glowPlanPreviewText} numberOfLines={1}>{area.title}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
         )}
 
         {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
@@ -3810,5 +3926,131 @@ const modalStyles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
     lineHeight: 15,
+  },
+  glowPlanCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    backgroundColor: "rgba(200, 255, 61, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.25)",
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  glowPlanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+  },
+  glowPlanIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glowPlanHeaderContent: {
+    flex: 1,
+    gap: 2,
+  },
+  glowPlanTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  glowPlanSubtitle: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 15,
+  },
+  glowPlanPreview: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  glowPlanPreviewItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  glowPlanPreviewDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  glowPlanPreviewText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  glowPlanBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  glowPlanFocusItem: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderLeftWidth: 3,
+    gap: Spacing.xs,
+  },
+  glowPlanFocusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  glowPlanPillarBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  glowPlanPillarText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  glowPlanTimeTarget: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
+  glowPlanFocusTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  glowPlanFocusDesc: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 17,
+  },
+  glowPlanDrillRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
+    marginTop: 4,
+  },
+  glowPlanDrillText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    flex: 1,
+    fontStyle: "italic",
+    lineHeight: 16,
+  },
+  glowPlanCoachNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: "rgba(0, 212, 255, 0.08)",
+    borderRadius: BorderRadius.md,
+  },
+  glowPlanCoachNoteText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    flex: 1,
+    lineHeight: 17,
   },
 });

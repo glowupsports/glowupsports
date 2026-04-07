@@ -7034,3 +7034,38 @@ export const playerMatchReadiness = pgTable("player_match_readiness", {
 export const insertPlayerMatchReadinessSchema = createInsertSchema(playerMatchReadiness).omit({ id: true, createdAt: true });
 export type InsertPlayerMatchReadiness = z.infer<typeof insertPlayerMatchReadinessSchema>;
 export type PlayerMatchReadiness = typeof playerMatchReadiness.$inferSelect;
+
+// ==================== GLOW PLANS — AI WEEKLY TRAINING PLANS ====================
+
+export const playerAiTrainingPlans = pgTable("player_ai_training_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  academyId: varchar("academy_id").references(() => academies.id),
+  // ISO date string "YYYY-MM-DD" of the Monday that starts this week
+  weekStartDate: date("week_start_date").notNull(),
+  // JSONB: { focusAreas: [{ title, description, drillSuggestion, timeTarget, pillar, rationale }], overallRationale }
+  planJson: jsonb("plan_json").$type<{
+    focusAreas: {
+      title: string;
+      description: string;
+      drillSuggestion: string;
+      timeTarget: string;
+      pillar: string;
+      rationale: string;
+    }[];
+    overallRationale: string;
+  }>(),
+  status: text("status").notNull().default("draft"), // draft | active | archived
+  coachNotes: text("coach_notes"), // coach can add/edit notes
+  generatedAt: timestamp("generated_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+}, (table) => [
+  index("player_ai_training_plans_player_idx").on(table.playerId),
+  index("player_ai_training_plans_week_idx").on(table.weekStartDate),
+  unique("player_ai_training_plans_player_week_uniq").on(table.playerId, table.weekStartDate),
+]);
+
+export const insertPlayerAiTrainingPlanSchema = createInsertSchema(playerAiTrainingPlans).omit({ id: true, generatedAt: true });
+export type InsertPlayerAiTrainingPlan = z.infer<typeof insertPlayerAiTrainingPlanSchema>;
+export type PlayerAiTrainingPlan = typeof playerAiTrainingPlans.$inferSelect;

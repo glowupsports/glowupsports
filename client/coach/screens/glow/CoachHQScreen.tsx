@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from "react-native";
+import { View, StyleSheet, ScrollView, RefreshControl, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -12,6 +12,7 @@ import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import BallLevelBadge from "@/components/BallLevelBadge";
 import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
+import { getApiUrl, getAuthHeaders, apiRequest } from "@/lib/query-client";
 
 interface TodaySession {
   id: string;
@@ -36,6 +37,38 @@ interface QuickStat {
   color: string;
 }
 
+interface GlowPlanFocusArea {
+  title: string;
+  description: string;
+  drillSuggestion: string;
+  timeTarget: string;
+  pillar: string;
+  rationale: string;
+}
+
+interface GlowPlan {
+  id: string;
+  playerId: string;
+  playerName: string;
+  weekStartDate: string;
+  planJson: {
+    focusAreas: GlowPlanFocusArea[];
+    overallRationale: string;
+  } | null;
+  status: string;
+  coachNotes: string | null;
+  generatedAt: string;
+  approvedAt: string | null;
+}
+
+const PILLAR_COLORS: Record<string, string> = {
+  TECHNIQUE: "#10B981",
+  TACTICAL: "#F59E0B",
+  PHYSICAL: "#EF4444",
+  MENTAL: "#8B5CF6",
+  SOCIAL: "#EC4899",
+  MATCH: "#3B82F6",
+};
 
 export default function CoachHQScreen() {
   const insets = useSafeAreaInsets();
@@ -43,9 +76,31 @@ export default function CoachHQScreen() {
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: todaySessions = [], refetch } = useQuery<TodaySession[]>({
     queryKey: ["/api/coach/sessions/today"],
+  });
+
+  const { data: glowPlans = [], refetch: refetchPlans } = useQuery<GlowPlan[]>({
+    queryKey: ["/api/coach/players/weekly-plans"],
+    queryFn: async () => {
+      const url = new URL("/api/coach/players/weekly-plans", getApiUrl());
+      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+  });
+
+  const approvePlanMutation = useMutation({
+    mutationFn: async ({ planId, status, coachNotes }: { planId: string; status: string; coachNotes?: string }) => {
+      return apiRequest("PATCH", `/api/coach/players/${planId}/weekly-plan`, { status, coachNotes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/players/weekly-plans"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
   });
 
   const sessionLocations = useMemo(() => {
@@ -79,9 +134,9 @@ export default function CoachHQScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refetchPlans()]);
     setRefreshing(false);
-  }, [refetch]);
+  }, [refetch, refetchPlans]);
 
   const handleSessionPress = (session: TodaySession) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -254,6 +309,109 @@ export default function CoachHQScreen() {
       )}
 
       <RosterInsightsCard />
+
+      {/* Glow Plans — Weekly AI Training Plans */}
+      <View style={styles.glowPlansSection}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.glowPlansTitleRow}>
+            <Ionicons name="flash" size={18} color="#C8FF3D" />
+            <ThemedText style={styles.sectionTitle}>Glow Plans</ThemedText>
+          </View>
+          <ThemedText style={styles.glowPlansSubtitle}>Weekly AI training plans</ThemedText>
+        </View>
+
+        {glowPlans.length === 0 ? (
+          <Card style={styles.glowPlansEmptyCard}>
+            <Ionicons name="flash-outline" size={32} color={Colors.dark.disabled} />
+            <ThemedText style={styles.glowPlansEmptyText}>No plans yet for this week</ThemedText>
+            <ThemedText style={styles.glowPlansEmptySubtext}>Plans are auto-generated Monday morning. You can also generate them manually from a player's profile.</ThemedText>
+          </Card>
+        ) : (
+          glowPlans.map((plan) => {
+            const isExpanded = expandedPlanId === plan.id;
+            const isDraft = plan.status === "draft";
+            const focusAreas = plan.planJson?.focusAreas ?? [];
+            return (
+              <Card key={plan.id} style={styles.glowPlanCard}>
+                <Pressable
+                  style={styles.glowPlanCardHeader}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setExpandedPlanId(isExpanded ? null : plan.id);
+                  }}
+                >
+                  <View style={styles.glowPlanPlayerInfo}>
+                    <ThemedText style={styles.glowPlanPlayerName}>{plan.playerName}</ThemedText>
+                    <View style={[styles.glowPlanStatusBadge, { backgroundColor: isDraft ? Colors.dark.orange + "20" : Colors.dark.successNeon + "20" }]}>
+                      <ThemedText style={[styles.glowPlanStatusText, { color: isDraft ? Colors.dark.orange : Colors.dark.successNeon }]}>
+                        {isDraft ? "Pending Review" : "Approved"}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={Colors.dark.disabled} />
+                </Pressable>
+
+                <View style={styles.glowPlanFocusPreview}>
+                  {focusAreas.slice(0, isExpanded ? focusAreas.length : 2).map((area, idx) => {
+                    const pillarColor = PILLAR_COLORS[area.pillar?.toUpperCase()] || Colors.dark.primary;
+                    return (
+                      <View key={idx} style={[styles.glowPlanFocusRow, { borderLeftColor: pillarColor }]}>
+                        <View style={styles.glowPlanFocusRowHeader}>
+                          <View style={[styles.glowPlanPillarChip, { backgroundColor: pillarColor + "20" }]}>
+                            <ThemedText style={[styles.glowPlanPillarChipText, { color: pillarColor }]}>{area.pillar}</ThemedText>
+                          </View>
+                          <ThemedText style={styles.glowPlanTimeTarget}>{area.timeTarget}</ThemedText>
+                        </View>
+                        <ThemedText style={styles.glowPlanFocusTitle}>{area.title}</ThemedText>
+                        {isExpanded ? (
+                          <>
+                            <ThemedText style={styles.glowPlanFocusDesc}>{area.description}</ThemedText>
+                            <View style={styles.glowPlanDrillRow}>
+                              <Ionicons name="barbell-outline" size={12} color={Colors.dark.disabled} />
+                              <ThemedText style={styles.glowPlanDrillText}>{area.drillSuggestion}</ThemedText>
+                            </View>
+                          </>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                  {!isExpanded && focusAreas.length > 2 ? (
+                    <ThemedText style={styles.glowPlanMoreText}>+{focusAreas.length - 2} more focus area{focusAreas.length - 2 !== 1 ? "s" : ""}</ThemedText>
+                  ) : null}
+                </View>
+
+                {isDraft ? (
+                  <View style={styles.glowPlanActions}>
+                    <Pressable
+                      style={[styles.glowPlanActionBtn, { backgroundColor: Colors.dark.successNeon + "20" }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        approvePlanMutation.mutate({ planId: plan.id, status: "active" });
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={16} color={Colors.dark.successNeon} />
+                      <ThemedText style={[styles.glowPlanActionText, { color: Colors.dark.successNeon }]}>Approve</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.glowPlanActionBtn, { backgroundColor: Colors.dark.disabled + "20" }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        Alert.alert("Archive Plan", "Archive this plan and mark it inactive?", [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Archive", style: "destructive", onPress: () => approvePlanMutation.mutate({ planId: plan.id, status: "archived" }) },
+                        ]);
+                      }}
+                    >
+                      <Ionicons name="archive-outline" size={16} color={Colors.dark.disabled} />
+                      <ThemedText style={[styles.glowPlanActionText, { color: Colors.dark.disabled }]}>Archive</ThemedText>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </Card>
+            );
+          })
+        )}
+      </View>
 
       <View style={styles.quickActions}>
         <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
@@ -518,5 +676,148 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  glowPlansSection: {
+    marginTop: Spacing.xl,
+  },
+  glowPlansTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  glowPlansSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.disabled,
+  },
+  glowPlansEmptyCard: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  glowPlansEmptyText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    opacity: 0.7,
+    fontWeight: "600",
+  },
+  glowPlansEmptySubtext: {
+    fontSize: 12,
+    color: Colors.dark.disabled,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  glowPlanCard: {
+    marginBottom: Spacing.md,
+    padding: 0,
+    overflow: "hidden",
+  },
+  glowPlanCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+  },
+  glowPlanPlayerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  glowPlanPlayerName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  glowPlanStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  glowPlanStatusText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  glowPlanFocusPreview: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  glowPlanFocusRow: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    borderLeftWidth: 3,
+    gap: 4,
+  },
+  glowPlanFocusRowHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  glowPlanPillarChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  glowPlanPillarChipText: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  glowPlanTimeTarget: {
+    fontSize: 10,
+    color: Colors.dark.disabled,
+  },
+  glowPlanFocusTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  glowPlanFocusDesc: {
+    fontSize: 12,
+    color: Colors.dark.disabled,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  glowPlanDrillRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
+    marginTop: 4,
+  },
+  glowPlanDrillText: {
+    fontSize: 11,
+    color: Colors.dark.disabled,
+    flex: 1,
+    fontStyle: "italic",
+    lineHeight: 15,
+  },
+  glowPlanMoreText: {
+    fontSize: 11,
+    color: Colors.dark.disabled,
+    textAlign: "center",
+    paddingVertical: Spacing.xs,
+  },
+  glowPlanActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  glowPlanActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  glowPlanActionText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

@@ -27,6 +27,7 @@ import {
   playerMonthlyAssessments,
   playerPillarProgress,
   playerBaselines,
+  playerAiTrainingPlans,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
@@ -2917,6 +2918,159 @@ Write 1-2 sentences summarising the overall coaching focus for this session. Be 
     return { briefText, playerSummaries };
   } catch (error) {
     console.error("[AIEngine] Error generating session brief:", error);
+    return null;
+  }
+}
+
+// ==================== GLOW PLANS — WEEKLY TRAINING PLAN GENERATION ====================
+
+/**
+ * Generates an AI weekly training plan for a player based on:
+ * - Pillar progress gaps
+ * - Latest monthly Glow Mirror assessment
+ * - Last 3 session digests
+ * - Perceived weaknesses from coach notes
+ */
+export async function generateWeeklyTrainingPlan(
+  playerId: string,
+  weekStartDate: string
+): Promise<{
+  focusAreas: {
+    title: string;
+    description: string;
+    drillSuggestion: string;
+    timeTarget: string;
+    pillar: string;
+    rationale: string;
+  }[];
+  overallRationale: string;
+} | null> {
+  try {
+    // 1. Player info
+    const [player] = await db
+      .select({ id: players.id, name: players.name, academyId: players.academyId, coachId: players.coachId })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+    if (!player) return null;
+
+    // 2. Current ball level
+    const [ballLevelRow] = await db
+      .select({ levelId: playerBallLevels.levelId })
+      .from(playerBallLevels)
+      .where(eq(playerBallLevels.playerId, playerId))
+      .limit(1);
+    const ballLevel = ballLevelRow?.levelId || "beginner";
+
+    // 3. Pillar progress (gaps)
+    const pillarRows = await db
+      .select({ pillar: playerPillarProgress.pillar, currentScore: playerPillarProgress.currentScore, trend: playerPillarProgress.trend })
+      .from(playerPillarProgress)
+      .where(eq(playerPillarProgress.playerId, playerId));
+    const pillarLines = pillarRows.map(p => `${p.pillar}: score=${p.currentScore}, trend=${p.trend}`).join("; ");
+
+    // 4. Latest monthly assessment (self-ratings + answers)
+    const [latestAssessment] = await db
+      .select({
+        pillarSelfRatings: playerMonthlyAssessments.pillarSelfRatings,
+        strengthsAnswer: playerMonthlyAssessments.strengthsAnswer,
+        challengesAnswer: playerMonthlyAssessments.challengesAnswer,
+        nextFocusAnswer: playerMonthlyAssessments.nextFocusAnswer,
+      })
+      .from(playerMonthlyAssessments)
+      .where(and(eq(playerMonthlyAssessments.playerId, playerId), eq(playerMonthlyAssessments.status, "completed")))
+      .orderBy(desc(playerMonthlyAssessments.completedAt))
+      .limit(1);
+
+    const selfRatingsText = latestAssessment?.pillarSelfRatings
+      ? JSON.stringify(latestAssessment.pillarSelfRatings)
+      : "no self-ratings";
+    const assessmentContext = latestAssessment
+      ? `Strengths: ${latestAssessment.strengthsAnswer || "n/a"}. Challenges: ${latestAssessment.challengesAnswer || "n/a"}. Next focus: ${latestAssessment.nextFocusAnswer || "n/a"}`
+      : "no monthly assessment";
+
+    // 5. Last 3 session digests
+    const recentDigests = await db
+      .select({ summaryText: sessionAiSummaries.summaryText })
+      .from(sessionAiSummaries)
+      .where(eq(sessionAiSummaries.playerId, playerId))
+      .orderBy(desc(sessionAiSummaries.generatedAt))
+      .limit(3);
+    const digestsText = recentDigests.map(d => d.summaryText).join(" | ") || "no recent session summaries";
+
+    // 6. Recent coach notes (perceived weaknesses)
+    const recentNotes = await db
+      .select({ content: playerNotes.content })
+      .from(playerNotes)
+      .where(eq(playerNotes.playerId, playerId))
+      .orderBy(desc(playerNotes.createdAt))
+      .limit(3);
+    const coachNotesText = recentNotes.map(n => n.content).join(" | ") || "no recent coach notes";
+
+    const prompt = `Player: ${player.name}, level: ${ballLevel}
+Week starting: ${weekStartDate}
+
+Pillar progress (0-2 scale, lower = needs work):
+${pillarLines || "no pillar data"}
+
+Monthly self-assessment:
+Self-ratings: ${selfRatingsText}
+${assessmentContext}
+
+Recent session summaries (last 3):
+${digestsText}
+
+Recent coach notes:
+${coachNotesText}
+
+Generate a Glow Plan — a personalised weekly training plan for this player with 3 to 5 focus areas.
+Each focus area should target a specific skill or pillar gap, include a concrete drill suggestion, and a realistic time target.
+The plan should be written in plain English for a player to read and act on.
+Prioritise the pillars with the lowest scores and declining trends.
+
+Return ONLY valid JSON (no markdown), exactly:
+{
+  "focusAreas": [
+    {
+      "title": "<short focus title, e.g. Cross-court backhand consistency>",
+      "description": "<1-2 sentences describing what to work on and why>",
+      "drillSuggestion": "<specific drill description, e.g. 15-min basket drill: alternate cross-court backhands>",
+      "timeTarget": "<e.g. 15 min per session, 3x this week>",
+      "pillar": "<TECHNIQUE | TACTICAL | PHYSICAL | MENTAL | SOCIAL | MATCH>",
+      "rationale": "<one sentence explaining why this is a priority this week>"
+    }
+  ],
+  "overallRationale": "<2-3 sentence summary of the week's training priorities>"
+}
+Return 3–5 focus areas. Never use emojis. Be specific and actionable.`;
+
+    const systemPrompt =
+      "You are an expert sports coaching AI specialising in player development. Generate structured, personalised weekly training plans based on player data. Return only valid JSON without markdown. Never use emojis.";
+
+    const response = await callOpenAI(prompt, systemPrompt, 1000, {
+      userId: player.coachId ?? null,
+      featureType: "glow_plan",
+      academyId: player.academyId ?? null,
+    });
+
+    if (!response) return null;
+
+    try {
+      const cleaned = response.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed.focusAreas) && parsed.focusAreas.length > 0 && parsed.overallRationale) {
+        return {
+          focusAreas: parsed.focusAreas.slice(0, 5),
+          overallRationale: parsed.overallRationale,
+        };
+      }
+    } catch {
+      // fallback
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[AIEngine] Error generating weekly training plan:", error);
     return null;
   }
 }
