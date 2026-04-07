@@ -2214,8 +2214,7 @@ export default function SessionDetailDrawer({
              renderMainContent()}
           </ScrollView>
         </View>
-      </Modal>
-      
+
       {/* Past Sessions Confirmation Modal */}
       {showPastSessionsConfirm ? (
         <Modal visible={!!showPastSessionsConfirm} animationType="fade" transparent>
@@ -2425,6 +2424,7 @@ export default function SessionDetailDrawer({
           </Modal>
         );
       })()}
+      </Modal>
     </>
   );
 }
