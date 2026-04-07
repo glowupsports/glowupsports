@@ -2934,7 +2934,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const { buildPlayerSelfAIContext } = await import("../services/ai-progress-engine");
         const ctx = await buildPlayerSelfAIContext(playerId);
         if (!ctx) return res.status(404).json({ error: "Player not found" });
-        res.json({ dataMaturity: ctx.dataMaturity });
+        res.json({ dataMaturity: ctx.dataMaturity, glowMirrorLayers: ctx.glowMirrorLayers });
       } catch (error) {
         console.error("[PlayerAICoach] Error fetching context:", error);
         res.status(500).json({ error: "Failed to fetch context" });

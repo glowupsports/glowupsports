@@ -1024,6 +1024,32 @@ export interface DataMaturity {
   nextMilestone: string;
 }
 
+export interface GlowMirrorSessionCheckin {
+  energyLevel: number | null;
+  overallFeeling: number | null;
+  hardestPart: string | null;
+  keyLearning: string | null;
+  nextFocus: string | null;
+}
+
+export interface GlowMirrorMonthlyAssessment {
+  monthYear: string;
+  strengthsAnswer: string | null;
+  challengesAnswer: string | null;
+  progressFeelAnswer: string | null;
+  mindsetAnswer: string | null;
+  nextFocusAnswer: string | null;
+  pillarSelfRatings: Record<string, number> | null;
+  aiSummary: string | null;
+}
+
+export interface GlowMirrorPerceptionGap {
+  pillar: string;
+  selfRating: number;
+  coachScore: number;
+  gap: number;
+}
+
 export interface PlayerSelfAIContext {
   playerName: string;
   playerAge: number | null;
@@ -1046,6 +1072,11 @@ export interface PlayerSelfAIContext {
   avgExecution: number | null;
   recentStrokes: string[];
   dataMaturity: DataMaturity;
+  // Glow Mirror layers
+  recentSessionCheckins: GlowMirrorSessionCheckin[];
+  latestMonthlyAssessment: GlowMirrorMonthlyAssessment | null;
+  perceptionGaps: GlowMirrorPerceptionGap[];
+  glowMirrorLayers: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
 }
 
 export function computeDataMaturity(sessionCount: number): DataMaturity {
@@ -1151,6 +1182,88 @@ export async function buildPlayerSelfAIContext(
       .limit(5);
     const sessionDigests = digestRows.map((d) => d.summaryText);
 
+    // Glow Mirror Layer 1 — last 5 session check-ins (player reflections)
+    const checkinRows = await db
+      .select({
+        energyLevel: playerSessionReflections.energyLevel,
+        overallFeeling: playerSessionReflections.overallFeeling,
+        hardestPart: playerSessionReflections.hardestPart,
+        keyLearning: playerSessionReflections.keyLearning,
+        nextFocus: playerSessionReflections.nextFocus,
+      })
+      .from(playerSessionReflections)
+      .where(eq(playerSessionReflections.playerId, playerId))
+      .orderBy(desc(playerSessionReflections.createdAt))
+      .limit(5);
+    const recentSessionCheckins: GlowMirrorSessionCheckin[] = checkinRows.map((r) => ({
+      energyLevel: r.energyLevel ?? null,
+      overallFeeling: r.overallFeeling ?? null,
+      hardestPart: r.hardestPart ?? null,
+      keyLearning: r.keyLearning ?? null,
+      nextFocus: r.nextFocus ?? null,
+    }));
+
+    // Glow Mirror Layer 2 — latest completed monthly self-assessment
+    const [assessmentRow] = await db
+      .select({
+        monthYear: playerMonthlyAssessments.monthYear,
+        strengthsAnswer: playerMonthlyAssessments.strengthsAnswer,
+        challengesAnswer: playerMonthlyAssessments.challengesAnswer,
+        progressFeelAnswer: playerMonthlyAssessments.progressFeelAnswer,
+        mindsetAnswer: playerMonthlyAssessments.mindsetAnswer,
+        nextFocusAnswer: playerMonthlyAssessments.nextFocusAnswer,
+        pillarSelfRatings: playerMonthlyAssessments.pillarSelfRatings,
+        aiSummary: playerMonthlyAssessments.aiSummary,
+      })
+      .from(playerMonthlyAssessments)
+      .where(
+        and(
+          eq(playerMonthlyAssessments.playerId, playerId),
+          eq(playerMonthlyAssessments.status, "completed")
+        )
+      )
+      .orderBy(desc(playerMonthlyAssessments.createdAt))
+      .limit(1);
+
+    const latestMonthlyAssessment: GlowMirrorMonthlyAssessment | null = assessmentRow
+      ? {
+          monthYear: assessmentRow.monthYear,
+          strengthsAnswer: assessmentRow.strengthsAnswer ?? null,
+          challengesAnswer: assessmentRow.challengesAnswer ?? null,
+          progressFeelAnswer: assessmentRow.progressFeelAnswer ?? null,
+          mindsetAnswer: assessmentRow.mindsetAnswer ?? null,
+          nextFocusAnswer: assessmentRow.nextFocusAnswer ?? null,
+          pillarSelfRatings: (assessmentRow.pillarSelfRatings as Record<string, number>) ?? null,
+          aiSummary: assessmentRow.aiSummary ?? null,
+        }
+      : null;
+
+    // Glow Mirror Layer 3 — perception gaps (self-ratings vs coach pillar scores)
+    const perceptionGaps: GlowMirrorPerceptionGap[] = [];
+    if (latestMonthlyAssessment?.pillarSelfRatings && skillScores.length > 0) {
+      const selfRatings = latestMonthlyAssessment.pillarSelfRatings;
+      // Compute average coach score per pillar from skill scores (scores are 0-2, normalise to 0-10)
+      const pillarSums: Record<string, { total: number; count: number }> = {};
+      for (const s of skillScores) {
+        const pillar = s.pillar.toLowerCase();
+        if (!pillarSums[pillar]) pillarSums[pillar] = { total: 0, count: 0 };
+        const scoreVal = s.movingAverage !== null ? s.movingAverage : s.score;
+        // Convert 0-2 scale to 0-10 scale
+        pillarSums[pillar].total += (scoreVal / 2) * 10;
+        pillarSums[pillar].count += 1;
+      }
+      for (const [pillar, selfRating] of Object.entries(selfRatings)) {
+        const pillarKey = pillar.toLowerCase();
+        if (pillarSums[pillarKey]) {
+          const coachScore = Math.round((pillarSums[pillarKey].total / pillarSums[pillarKey].count) * 10) / 10;
+          const gap = Math.round((selfRating - coachScore) * 10) / 10;
+          perceptionGaps.push({ pillar, selfRating, coachScore, gap });
+        }
+      }
+      // Sort by absolute gap descending
+      perceptionGaps.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+    }
+
     // Attendance: count total sessions and attended in last 90 days
     const attendanceRows = await db
       .select({ attendanceStatus: sessionPlayers.attendanceStatus })
@@ -1225,6 +1338,14 @@ export async function buildPlayerSelfAIContext(
       avgExecution,
       recentStrokes: [...recentStrokes],
       dataMaturity: computeDataMaturity(attendedSessions),
+      recentSessionCheckins,
+      latestMonthlyAssessment,
+      perceptionGaps,
+      glowMirrorLayers: {
+        sessionCheckins: recentSessionCheckins.length > 0,
+        monthlyVoice: latestMonthlyAssessment !== null,
+        perceptionGaps: perceptionGaps.length > 0,
+      },
     };
   } catch (error) {
     console.error("[AIEngine] Error building player self context:", error);
@@ -1238,7 +1359,7 @@ export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
     shortTermGoal, longTermDream, playStyle, dominantHand,
     skillScores, publicFeedback, privateFeedback, coachNotes, sessionDigests,
     attendanceRate, totalSessions, avgEffort, avgExecution, recentStrokes,
-    dataMaturity,
+    dataMaturity, recentSessionCheckins, latestMonthlyAssessment, perceptionGaps,
   } = ctx;
 
   const skillLines = skillScores.length > 0
@@ -1293,6 +1414,49 @@ export function buildPlayerSelfSystemPrompt(ctx: PlayerSelfAIContext): string {
     ? `DATA MATURITY — TRENDS (${dataMaturity.sessionCount} sessions): You have enough data to identify patterns. Reference specific data but note where you'd like more history for stronger conclusions.`
     : `DATA MATURITY — FULL (${dataMaturity.sessionCount} sessions): You have rich coaching history. Speak with full confidence referencing trends, patterns, and specific data points.`;
 
+  // Glow Mirror Layer 1 — session check-in lines
+  const checkinLines = recentSessionCheckins.length > 0
+    ? recentSessionCheckins.map((c, i) => {
+        const parts: string[] = [];
+        if (c.overallFeeling !== null) parts.push(`feeling ${c.overallFeeling}/5`);
+        if (c.energyLevel !== null) parts.push(`energy ${c.energyLevel}/5`);
+        if (c.hardestPart) parts.push(`hardest: "${c.hardestPart}"`);
+        if (c.keyLearning) parts.push(`key learning: "${c.keyLearning}"`);
+        if (c.nextFocus) parts.push(`next focus: "${c.nextFocus}"`);
+        return `Check-in ${i + 1}: ${parts.join(", ")}`;
+      }).join(" | ")
+    : "no session check-ins recorded yet";
+
+  // Glow Mirror Layer 2 — monthly assessment
+  let monthlyAssessmentLines = "no monthly self-assessment completed yet";
+  if (latestMonthlyAssessment) {
+    const ma = latestMonthlyAssessment;
+    const parts: string[] = [`Month: ${ma.monthYear}`];
+    if (ma.strengthsAnswer) parts.push(`Strengths (their words): "${ma.strengthsAnswer}"`);
+    if (ma.challengesAnswer) parts.push(`Challenges (their words): "${ma.challengesAnswer}"`);
+    if (ma.progressFeelAnswer) parts.push(`Progress feeling: "${ma.progressFeelAnswer}"`);
+    if (ma.mindsetAnswer) parts.push(`Mindset: "${ma.mindsetAnswer}"`);
+    if (ma.nextFocusAnswer) parts.push(`Next focus goal: "${ma.nextFocusAnswer}"`);
+    if (ma.pillarSelfRatings) {
+      const ratingStr = Object.entries(ma.pillarSelfRatings)
+        .map(([p, v]) => `${p}: ${v}/10`)
+        .join(", ");
+      parts.push(`Self-ratings: ${ratingStr}`);
+    }
+    if (ma.aiSummary) parts.push(`AI summary: "${ma.aiSummary}"`);
+    monthlyAssessmentLines = parts.join("\n");
+  }
+
+  // Glow Mirror Layer 3 — perception gaps
+  let perceptionGapLines = "no perception gap data available yet";
+  if (perceptionGaps.length > 0) {
+    perceptionGapLines = perceptionGaps.map((g) => {
+      const direction = g.gap > 1 ? "overestimates themselves" : g.gap < -1 ? "underestimates themselves" : "aligned with coach";
+      const absGap = Math.abs(g.gap).toFixed(1);
+      return `${g.pillar}: self ${g.selfRating}/10 vs coach ${g.coachScore}/10 (gap: ${absGap} — player ${direction})`;
+    }).join("; ");
+  }
+
   return `You are a personal AI tennis coach speaking directly to ${playerName}${playerAge ? `, age ${playerAge}` : ""}.
 
 PLAYER DATA:
@@ -1318,20 +1482,35 @@ ${noteLines}
 RECENT SESSION SUMMARIES:
 ${digestLines}
 
+GLOW MIRROR — SESSION CHECK-INS (player's own feelings after sessions):
+${checkinLines}
+
+GLOW MIRROR — MONTHLY SELF-ASSESSMENT (player's own voice — use their exact words thoughtfully):
+${monthlyAssessmentLines}
+
+GLOW MIRROR — PERCEPTION GAPS (self-rating vs coach data, on a 0-10 scale):
+${perceptionGapLines}
+
 ${maturityGuidance}
+
+GLOW MIRROR COACHING GUIDANCE:
+- Use session check-ins to understand the player's emotional and physical state trends. If they frequently rate energy or feeling low, gently explore what's behind it.
+- When referencing the monthly assessment, quote or paraphrase the player's own words (strengths, challenges, goals) to show you truly know them. E.g. "You mentioned that your biggest challenge is..."
+- For perception gaps: if the player overestimates a pillar (gap > 1), gently guide them toward the coach's view using curiosity and questions rather than contradiction. If they underestimate (gap < -1), encourage and validate the coach data to build confidence. If aligned (gap near 0), affirm their self-awareness. E.g. "Your coach sees your technique a little differently than you do — want to explore that?"
+- Do not quote raw numbers from the perception gap data directly in conversation — translate them into qualitative coaching language ("there's a gap in how you rate your technique vs how your coach sees it" instead of "you rated yourself 7/10 but the coach data shows 4.2/10").
 
 GREETING INSTRUCTION:
 When the user's first message is exactly "__greeting__", respond with a warm, personalised opening message that:
 1. Greets ${playerName} by first name
 2. Mentions their current ball level or XP level
-3. Calls out 1-2 specific recent focus areas drawn from coach feedback, notes, or strokes worked on (use real data); if there is no data yet, acknowledge this warmly and explain that the coach learns from every session logged
+3. If Glow Mirror data is available, reference one specific insight: a feeling they expressed in a check-in, something from their monthly assessment, or a perception gap worth exploring. If no Glow Mirror data exists, calls out 1-2 specific recent focus areas from coach feedback or notes.
 4. Invites them to ask anything about their game
 Keep the greeting to 3-4 sentences — warm, specific, and motivating.
 
 RULES FOR YOUR RESPONSES:
 - Speak directly to ${playerName} in second person ("You", "Your")
 - Be encouraging, specific, and action-oriented
-- Reference real data from above (skill scores, feedback, notes, goals) in your answers
+- Reference real data from above (skill scores, feedback, notes, goals, Glow Mirror) in your answers
 - Never make up skill scores or feedback that is not listed above
 - Never quote coach internal session notes verbatim — weave insights from them naturally into your coaching advice
 - If data is missing for a question, acknowledge it and give helpful general tennis advice

@@ -37,6 +37,12 @@ interface DataMaturity {
   nextMilestone: string;
 }
 
+interface GlowMirrorLayers {
+  sessionCheckins: boolean;
+  monthlyVoice: boolean;
+  perceptionGaps: boolean;
+}
+
 const AI_LABEL = "AI Coach";
 const ACCENT = Colors.dark.primary;
 
@@ -95,11 +101,59 @@ const FEATURE_HIGHLIGHTS = [
   { icon: "sparkles-outline" as const, label: "Gets smarter over time", desc: "The more you train, the more data your coach has to work with" },
 ];
 
-function FeatureIntroModal({ visible, isPro, callCount, limit, onStart, onUpgrade }: {
+const GLOW_MIRROR_LAYER_LABELS = [
+  { key: "sessionCheckins" as const, label: "Session check-ins", icon: "journal-outline" as const, desc: "Your feelings and reflections after each session" },
+  { key: "monthlyVoice" as const, label: "Monthly voice", icon: "mic-outline" as const, desc: "Your self-assessment answers and self-ratings" },
+  { key: "perceptionGaps" as const, label: "Perception gaps", icon: "eye-outline" as const, desc: "How your view of your game compares to your coach's" },
+];
+
+function GlowMirrorStatusCard({ layers }: { layers: GlowMirrorLayers | null }) {
+  const anyConnected = layers && (layers.sessionCheckins || layers.monthlyVoice || layers.perceptionGaps);
+  const connectedCount = layers ? [layers.sessionCheckins, layers.monthlyVoice, layers.perceptionGaps].filter(Boolean).length : 0;
+  return (
+    <View style={introStyles.glowMirrorCard}>
+      <View style={introStyles.glowMirrorHeader}>
+        <View style={introStyles.glowMirrorHeaderLeft}>
+          <View style={[introStyles.glowMirrorDot, { backgroundColor: anyConnected ? Colors.dark.primary : Colors.dark.textMuted }]} />
+          <Text style={introStyles.glowMirrorTitle}>Glow Mirror</Text>
+        </View>
+        <View style={[introStyles.glowMirrorBadge, anyConnected ? introStyles.glowMirrorBadgeActive : introStyles.glowMirrorBadgeInactive]}>
+          <Text style={[introStyles.glowMirrorBadgeText, anyConnected ? { color: Colors.dark.primary } : { color: Colors.dark.textMuted }]}>
+            {anyConnected ? `${connectedCount}/3 connected` : "Not yet connected"}
+          </Text>
+        </View>
+      </View>
+      <View style={introStyles.glowMirrorLayers}>
+        {GLOW_MIRROR_LAYER_LABELS.map((l) => {
+          const active = layers ? layers[l.key] : false;
+          return (
+            <View key={l.key} style={introStyles.glowMirrorLayerRow}>
+              <View style={[introStyles.glowMirrorLayerIcon, active ? introStyles.glowMirrorLayerIconActive : introStyles.glowMirrorLayerIconInactive]}>
+                <Ionicons name={l.icon} size={13} color={active ? Colors.dark.primary : Colors.dark.textMuted} />
+              </View>
+              <View style={introStyles.glowMirrorLayerText}>
+                <Text style={[introStyles.glowMirrorLayerLabel, !active && { color: Colors.dark.textMuted }]}>{l.label}</Text>
+                <Text style={introStyles.glowMirrorLayerDesc}>{l.desc}</Text>
+              </View>
+              <Ionicons
+                name={active ? "checkmark-circle" : "ellipse-outline"}
+                size={16}
+                color={active ? Colors.dark.primary : Colors.dark.textMuted}
+              />
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function FeatureIntroModal({ visible, isPro, callCount, limit, glowMirrorLayers, onStart, onUpgrade }: {
   visible: boolean;
   isPro: boolean;
   callCount: number;
   limit: number;
+  glowMirrorLayers: GlowMirrorLayers | null;
   onStart: () => void;
   onUpgrade: () => void;
 }) {
@@ -130,6 +184,8 @@ function FeatureIntroModal({ visible, isPro, callCount, limit, onStart, onUpgrad
               </View>
             ))}
           </View>
+
+          <GlowMirrorStatusCard layers={glowMirrorLayers} />
 
           <View style={introStyles.costNote}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.dark.textMuted} />
@@ -311,6 +367,92 @@ const introStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  glowMirrorCard: {
+    width: "100%",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  glowMirrorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  glowMirrorHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  glowMirrorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  glowMirrorTitle: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  glowMirrorBadge: {
+    borderRadius: BorderRadius.full ?? 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  glowMirrorBadgeActive: {
+    backgroundColor: Colors.dark.primary + "18",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  glowMirrorBadgeInactive: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  glowMirrorBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  glowMirrorLayers: {
+    gap: Spacing.xs,
+  },
+  glowMirrorLayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 4,
+  },
+  glowMirrorLayerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  glowMirrorLayerIconActive: {
+    backgroundColor: Colors.dark.primary + "18",
+  },
+  glowMirrorLayerIconInactive: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  glowMirrorLayerText: {
+    flex: 1,
+    gap: 1,
+  },
+  glowMirrorLayerLabel: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  glowMirrorLayerDesc: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
 });
 
 function OnboardingSplash({ onStart }: { onStart: () => void }) {
@@ -410,7 +552,7 @@ export default function PlayerAICoachScreen() {
   const [introChecked, setIntroChecked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const { data: contextData } = useQuery<{ dataMaturity: DataMaturity }>({
+  const { data: contextData } = useQuery<{ dataMaturity: DataMaturity; glowMirrorLayers?: GlowMirrorLayers }>({
     queryKey: ["/api/player/me/ai-coach/context"],
     staleTime: 60 * 1000,
   });
@@ -795,6 +937,7 @@ export default function PlayerAICoachScreen() {
         isPro={aiStatus?.isPro ?? false}
         callCount={aiStatus?.callCount ?? 0}
         limit={aiStatus?.limit ?? 5}
+        glowMirrorLayers={contextData?.glowMirrorLayers ?? null}
         onStart={handleIntroStart}
         onUpgrade={() => {
           handleIntroStart();
