@@ -2658,72 +2658,36 @@ export function stopAutoSessionCompletionScheduler(): void {
 let monthlyReportInterval: ReturnType<typeof setInterval> | null = null;
 
 async function processMonthlyReports(): Promise<void> {
-  console.log("[MonthlyReports] Running monthly report check at", new Date().toISOString());
+  console.log("[MonthlyReports] Running monthly report generation at", new Date().toISOString());
   
   try {
-    const { players, users, playerCreditPackages } = await import("@shared/schema");
-    
-    // Get all active players with emails
-    const activePlayers = await db
-      .select({
-        playerId: players.id,
-        userId: players.userId,
-        displayName: players.displayName,
-        email: users.email,
-      })
-      .from(players)
-      .innerJoin(users, eq(players.userId, users.id))
-      .where(
-        and(
-          isNotNull(users.email),
-          eq(players.isActive, true)
-        )
-      );
-    
-    console.log(`[MonthlyReports] Found ${activePlayers.length} active players with emails`);
-    
-    // Get the previous month
+    const { academies } = await import("@shared/schema");
+    const { generateMonthlyReportsForAcademy } = await import("./services/monthly-parent-reports");
+
+    // Generate for previous month (reports run on 1st of month, covering previous month)
     const now = new Date();
-    const previousMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-    const previousYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    
-    let reportsSent = 0;
-    let reportsSkipped = 0;
-    
-    for (const player of activePlayers) {
-      try {
-        // Make API call to send report
-        const response = await fetch(`http://localhost:5000/api/player/${player.playerId}/monthly-report`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Use internal service auth header
-            'X-Internal-Service': 'monthly-report-scheduler',
-          },
-          body: JSON.stringify({
-            month: previousMonth,
-            year: previousYear,
-          }),
-        });
-        
-        if (response.ok) {
-          reportsSent++;
-          console.log(`[MonthlyReports] Sent report to ${player.displayName}`);
-        } else {
-          reportsSkipped++;
-          const error = await response.text();
-          console.log(`[MonthlyReports] Skipped ${player.displayName}: ${error}`);
-        }
-      } catch (err) {
-        reportsSkipped++;
-        console.error(`[MonthlyReports] Error sending report:`, err);
-      }
-      
-      // Add a small delay between emails to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+    const prevMonth = now.getMonth() === 0
+      ? new Date(now.getFullYear() - 1, 11, 1)
+      : new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const monthYear = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`;
+
+    const allAcademies = await db
+      .select({ id: academies.id, name: academies.name })
+      .from(academies);
+
+    let totalGenerated = 0;
+    let totalSkipped = 0;
+
+    for (const academy of allAcademies) {
+      const { generated, skipped } = await generateMonthlyReportsForAcademy(academy.id, monthYear);
+      totalGenerated += generated;
+      totalSkipped += skipped;
+      console.log(`[MonthlyReports] Academy "${academy.name}": ${generated} generated, ${skipped} skipped`);
+      // Throttle between academies to avoid OpenAI rate limits
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
-    
-    console.log(`[MonthlyReports] Completed: ${reportsSent} sent, ${reportsSkipped} skipped`);
+
+    console.log(`[MonthlyReports] Completed: ${totalGenerated} generated, ${totalSkipped} skipped for ${monthYear}`);
 
     // ---- Parent Progress Letters ----
     await processParentProgressLetters();

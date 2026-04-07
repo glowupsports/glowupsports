@@ -48,6 +48,7 @@ import { PlayerAttendanceSection } from "./PlayerAttendanceSection";
 import { PlayerStrokeFeedbackSection } from "./PlayerStrokeFeedbackSection";
 import { PlayerNotesSection } from "./PlayerNotesSection";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { PlayerMonthlyReportsSection } from "./PlayerMonthlyReportsSection";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
@@ -1306,6 +1307,10 @@ export function PlayerDetailView({
 
         <CollapsibleSection title="Coach Notes" icon="document-text-outline" iconColor={Colors.dark.primary}>
           <PlayerNotesSection playerId={player.id} coachId={coach?.id} hideHeader />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Monthly Reports" icon="mail-unread-outline" iconColor="#a855f7">
+          <PlayerMonthlyReportsSection playerId={player.id} playerName={localPlayer.name} />
         </CollapsibleSection>
 
       </ScrollView>

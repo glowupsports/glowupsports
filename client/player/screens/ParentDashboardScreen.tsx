@@ -55,6 +55,12 @@ export default function ParentDashboardScreen() {
     }
   };
 
+  const navigateToReports = () => {
+    if (playerId) {
+      (navigation as any).navigate("ParentReports", { playerId, childName: dashboardData?.player?.name });
+    }
+  };
+
   if (!playerId) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
@@ -253,6 +259,14 @@ export default function ParentDashboardScreen() {
                 >
                   <Ionicons name="cart-outline" size={24} color={Colors.dark.gold} />
                   <Text style={[styles.actionButtonText, { color: Colors.dark.gold }]}>Buy Credits</Text>
+                </Pressable>
+                <Pressable 
+                  style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
+                  onPress={navigateToReports}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                >
+                  <Ionicons name="mail-unread-outline" size={24} color="#a855f7" />
+                  <Text style={[styles.actionButtonText, { color: "#a855f7" }]}>Reports</Text>
                 </Pressable>
               </View>
             </View>

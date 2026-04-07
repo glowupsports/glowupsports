@@ -7069,3 +7069,50 @@ export const playerAiTrainingPlans = pgTable("player_ai_training_plans", {
 export const insertPlayerAiTrainingPlanSchema = createInsertSchema(playerAiTrainingPlans).omit({ id: true, generatedAt: true });
 export type InsertPlayerAiTrainingPlan = z.infer<typeof insertPlayerAiTrainingPlanSchema>;
 export type PlayerAiTrainingPlan = typeof playerAiTrainingPlans.$inferSelect;
+
+// ==================== AI MONTHLY PARENT REPORTS ====================
+
+export const playerMonthlyReports = pgTable("player_monthly_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  // "YYYY-MM" — one per player per month
+  monthYear: varchar("month_year", { length: 7 }).notNull(),
+
+  // Attendance summary
+  sessionsAttended: integer("sessions_attended").notNull().default(0),
+  sessionsTotal: integer("sessions_total").notNull().default(0),
+
+  // Pillar progress highlights — top performing pillars this month
+  pillarHighlights: jsonb("pillar_highlights").$type<{ pillar: string; score: number; trend: string }[]>().default([]),
+
+  // AI-synthesised 2-3 sentence progress summary from coach notes
+  aiProgressSummary: text("ai_progress_summary"),
+
+  // Player's next Glow milestone (next ball level / next required skill)
+  nextMilestone: text("next_milestone"),
+
+  // Optional personal note added by the coach before finalising
+  coachNote: text("coach_note"),
+
+  // Coach who added the note (optional)
+  coachId: varchar("coach_id").references(() => coaches.id),
+
+  // Report lifecycle
+  status: varchar("status", { length: 20 }).notNull().default("draft"), // draft | finalised
+
+  // Reference to generated PDF (stored as base64 or URL)
+  pdfUrl: text("pdf_url"),
+
+  generatedAt: timestamp("generated_at").defaultNow(),
+  finalisedAt: timestamp("finalised_at"),
+}, (table) => [
+  unique("player_monthly_reports_player_month_uniq").on(table.playerId, table.monthYear),
+  index("player_monthly_reports_player_idx").on(table.playerId),
+  index("player_monthly_reports_academy_idx").on(table.academyId),
+  index("player_monthly_reports_status_idx").on(table.status),
+]);
+
+export const insertPlayerMonthlyReportSchema = createInsertSchema(playerMonthlyReports).omit({ id: true, generatedAt: true });
+export type InsertPlayerMonthlyReport = z.infer<typeof insertPlayerMonthlyReportSchema>;
+export type PlayerMonthlyReport = typeof playerMonthlyReports.$inferSelect;

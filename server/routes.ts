@@ -216,6 +216,7 @@ import skillEvidenceRoutes from "./routes/skill-evidence";
 import levelUpEventsRoutes from "./routes/level-up-events";
 import coachCalibrationRoutes from "./routes/coach-calibration";
 import parentDashboardRoutes from "./routes/parent-dashboard";
+import monthlyReportsRoutes from "./routes/monthly-reports";
 import adultGlowRankRoutes from "./routes/adult-glow-rank";
 import lessonGroupsRoutes from "./routes/lesson-groups";
 import matchIntelligenceRoutes from "./routes/match-intelligence";
@@ -535,6 +536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(levelUpEventsRoutes);
   app.use("/api/coach/calibration", coachCalibrationRoutes);
   app.use(parentDashboardRoutes);
+  app.use(monthlyReportsRoutes);
   app.use("/api/lesson-groups", lessonGroupsRoutes);
   app.use("/api/match-intelligence", matchIntelligenceRoutes);
   app.use("/api/players", playerMatchReadinessRoutes);
