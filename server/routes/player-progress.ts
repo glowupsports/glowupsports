@@ -51,6 +51,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     submitReviewSchema,
     sessionAiSummaries, playerAiInsights,
     glowSkills, playerSkillScores,
+    playerSessionReflections,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -3300,6 +3301,99 @@ router.patch(
     } catch (error) {
       console.error("[ParentReport] Toggle error:", error);
       res.status(500).json({ error: "Failed to update parent reporting settings" });
+    }
+  }
+);
+
+// ==================== GLOW MIRROR — SESSION REFLECTIONS ====================
+
+// GET reflection for a specific session (player's own)
+router.get(
+  "/api/player/sessions/:sessionId/reflection",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const [reflection] = await db
+        .select()
+        .from(playerSessionReflections)
+        .where(
+          and(
+            eq(playerSessionReflections.sessionId, sessionId),
+            eq(playerSessionReflections.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      res.json(reflection || null);
+    } catch (error) {
+      console.error("[SessionReflection] GET error:", error);
+      res.status(500).json({ error: "Failed to fetch reflection" });
+    }
+  }
+);
+
+// POST / UPSERT reflection for a session (player's own)
+router.post(
+  "/api/player/sessions/:sessionId/reflection",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const playerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const { energyLevel, hardestPart, keyLearning, nextFocus, overallFeeling } = req.body;
+
+      // Build AI summary from raw answers
+      const parts: string[] = [];
+      if (energyLevel) parts.push(`Energy: ${energyLevel}/5`);
+      if (overallFeeling) parts.push(`Overall feeling: ${overallFeeling}/5`);
+      if (hardestPart) parts.push(`Hardest part: ${hardestPart}`);
+      if (keyLearning) parts.push(`Key learning: ${keyLearning}`);
+      if (nextFocus) parts.push(`Next focus: ${nextFocus}`);
+      const aiSummary = parts.join(". ");
+
+      // Upsert — delete existing then insert (psql unique index ensures one per player/session)
+      await db
+        .delete(playerSessionReflections)
+        .where(
+          and(
+            eq(playerSessionReflections.sessionId, sessionId),
+            eq(playerSessionReflections.playerId, playerId)
+          )
+        );
+
+      const [reflection] = await db
+        .insert(playerSessionReflections)
+        .values({
+          playerId,
+          sessionId,
+          academyId: academyId || null,
+          energyLevel: energyLevel ?? null,
+          hardestPart: hardestPart || null,
+          keyLearning: keyLearning || null,
+          nextFocus: nextFocus || null,
+          overallFeeling: overallFeeling ?? null,
+          aiSummary,
+        })
+        .returning();
+
+      // Award XP for first-time session reflection
+      try {
+        await awardXP(playerId, "session_reflection", "session", sessionId);
+      } catch (xpErr) {
+        console.error("[SessionReflection] XP award failed (non-fatal):", xpErr);
+      }
+
+      res.status(201).json(reflection);
+    } catch (error) {
+      console.error("[SessionReflection] POST error:", error);
+      res.status(500).json({ error: "Failed to save reflection" });
     }
   }
 );

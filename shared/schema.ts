@@ -5645,6 +5645,11 @@ export const matchReflections = pgTable("match_reflections", {
   postMatchMood: text("post_match_mood"), // frustrated, disappointed, neutral, satisfied, happy
   postMatchConfidence: integer("post_match_confidence"), // 1-10
   
+  // Pre-match reflection
+  preMatchMood: text("pre_match_mood"), // nervous, focused, flat, confident, excited
+  preMatchConfidence: integer("pre_match_confidence"), // 1-10
+  preMatchGoal: text("pre_match_goal"), // brief intention (max 80 chars)
+  
   // Free text (optional, limited)
   keyTakeaway: text("key_takeaway"), // Max 100 chars
   
@@ -6891,3 +6896,41 @@ export const playerAiUsage = pgTable("player_ai_usage", {
 export const insertPlayerAiUsageSchema = createInsertSchema(playerAiUsage).omit({ id: true, updatedAt: true });
 export type InsertPlayerAiUsage = z.infer<typeof insertPlayerAiUsageSchema>;
 export type PlayerAiUsage = typeof playerAiUsage.$inferSelect;
+
+// Player Session Reflections — Glow Mirror Layer 1
+export const playerSessionReflections = pgTable("player_session_reflections", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // How did the session feel overall (1-5)
+  energyLevel: integer("energy_level"),
+  
+  // What was hardest (free text, optional)
+  hardestPart: text("hardest_part"),
+  
+  // Key learning from this session (free text)
+  keyLearning: text("key_learning"),
+  
+  // What to focus on next (free text)
+  nextFocus: text("next_focus"),
+  
+  // Overall feeling (1-5)
+  overallFeeling: integer("overall_feeling"),
+  
+  // AI-generated short summary from the answers
+  aiSummary: text("ai_summary"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_session_reflections_player_idx").on(table.playerId),
+  index("player_session_reflections_session_idx").on(table.sessionId),
+]);
+
+export const insertPlayerSessionReflectionSchema = createInsertSchema(playerSessionReflections).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlayerSessionReflection = z.infer<typeof insertPlayerSessionReflectionSchema>;
+export type PlayerSessionReflection = typeof playerSessionReflections.$inferSelect;

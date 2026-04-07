@@ -49,6 +49,11 @@ interface MatchDetail {
     energyFocus?: string;
   };
   reflection?: {
+    // Pre-match (Glow Mirror)
+    preMatchMood?: string;
+    preMatchConfidence?: number;
+    preMatchGoal?: string;
+    // Post-match
     whatWorked?: string[];
     whatDidntWork?: string[];
     biggestChallenge?: string;
@@ -274,6 +279,38 @@ export default function MatchDetailScreen() {
         {match.reflection && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Reflection</Text>
+            {/* Pre-match Glow Mirror section */}
+            {(match.reflection.preMatchMood || match.reflection.preMatchGoal || match.reflection.preMatchConfidence) ? (
+              <View style={[styles.reflectionCard, styles.preMatchCard]}>
+                <View style={styles.preMatchHeader}>
+                  <Ionicons name="mic" size={16} color="#A78BFA" />
+                  <Text style={styles.preMatchTitle}>Before the Match</Text>
+                </View>
+                {match.reflection.preMatchMood ? (
+                  <View style={styles.reflectionRow}>
+                    <Ionicons name="happy-outline" size={16} color="#A78BFA" />
+                    <Text style={styles.reflectionLabel}>Mood:</Text>
+                    <Text style={styles.reflectionText}>
+                      {match.reflection.preMatchMood.charAt(0).toUpperCase() + match.reflection.preMatchMood.slice(1)}
+                    </Text>
+                  </View>
+                ) : null}
+                {match.reflection.preMatchConfidence ? (
+                  <View style={styles.reflectionRow}>
+                    <Ionicons name="flash-outline" size={16} color="#A78BFA" />
+                    <Text style={styles.reflectionLabel}>Confidence:</Text>
+                    <Text style={styles.reflectionText}>{match.reflection.preMatchConfidence}/10</Text>
+                  </View>
+                ) : null}
+                {match.reflection.preMatchGoal ? (
+                  <View style={styles.reflectionRow}>
+                    <Ionicons name="flag-outline" size={16} color="#A78BFA" />
+                    <Text style={styles.reflectionLabel}>Goal:</Text>
+                    <Text style={styles.reflectionText}>{match.reflection.preMatchGoal}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
             <View style={styles.reflectionCard}>
               {match.reflection.whatWorked && match.reflection.whatWorked.length > 0 && (
                 <View style={styles.reflectionRow}>
@@ -555,6 +592,24 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  preMatchCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#A78BFA",
+  },
+  preMatchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  preMatchTitle: {
+    ...Typography.caption,
+    color: "#A78BFA",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   reflectionRow: {
     flexDirection: "row",

@@ -430,6 +430,10 @@ router.post("/matches/:id/reflection", async (req: Request, res: Response) => {
       postMatchMood,
       postMatchConfidence,
       keyTakeaway,
+      // Glow Mirror pre-match fields
+      preMatchMood,
+      preMatchConfidence,
+      preMatchGoal,
     } = req.body;
 
     if (!playerId) {
@@ -448,6 +452,9 @@ router.post("/matches/:id/reflection", async (req: Request, res: Response) => {
         postMatchMood,
         postMatchConfidence,
         keyTakeaway: keyTakeaway?.slice(0, 100),
+        preMatchMood: preMatchMood || null,
+        preMatchConfidence: preMatchConfidence || null,
+        preMatchGoal: preMatchGoal?.slice(0, 80) || null,
       })
       .returning();
 

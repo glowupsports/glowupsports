@@ -1,10 +1,21 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  TextInput,
+  Alert,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 
 type RouteParams = {
   TrainingDetail: {
@@ -35,6 +46,16 @@ interface TrainingDetail {
   focusArea?: string;
 }
 
+interface SessionReflection {
+  id: string;
+  energyLevel: number | null;
+  overallFeeling: number | null;
+  hardestPart: string | null;
+  keyLearning: string | null;
+  nextFocus: string | null;
+  aiSummary: string | null;
+}
+
 const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   technical: { icon: "construct", color: Colors.dark.primary, label: "Technical" },
   mental: { icon: "brain", color: "#9B59B6", label: "Mental" },
@@ -43,14 +64,355 @@ const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string
   social: { icon: "people", color: Colors.dark.xpCyan, label: "Social" },
 };
 
+const ENERGY_LABELS = ["", "Low", "Tired", "Okay", "Good", "Great"];
+const FEELING_LABELS = ["", "Tough", "Okay-ish", "Solid", "Strong", "Excellent"];
+const MIRROR_ACCENT = "#A78BFA"; // purple for Glow Mirror
+
+function StarPicker({
+  value,
+  onChange,
+  color = MIRROR_ACCENT,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  color?: string;
+}) {
+  return (
+    <View style={starPickerStyles.row}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Pressable
+          key={i}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onChange(i);
+          }}
+          style={starPickerStyles.star}
+        >
+          <Ionicons
+            name={i <= value ? "star" : "star-outline"}
+            size={32}
+            color={i <= value ? color : Colors.dark.backgroundTertiary}
+          />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const starPickerStyles = StyleSheet.create({
+  row: { flexDirection: "row", gap: 8, justifyContent: "center" },
+  star: { padding: 4 },
+});
+
+function GlowMirrorCard({
+  sessionId,
+  existingReflection,
+  onSaved,
+}: {
+  sessionId: string;
+  existingReflection: SessionReflection | null;
+  onSaved: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [energyLevel, setEnergyLevel] = useState(existingReflection?.energyLevel ?? 0);
+  const [overallFeeling, setOverallFeeling] = useState(existingReflection?.overallFeeling ?? 0);
+  const [hardestPart, setHardestPart] = useState(existingReflection?.hardestPart ?? "");
+  const [keyLearning, setKeyLearning] = useState(existingReflection?.keyLearning ?? "");
+  const [nextFocus, setNextFocus] = useState(existingReflection?.nextFocus ?? "");
+  const [saved, setSaved] = useState(!!existingReflection);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/player/sessions/${sessionId}/reflection`, {
+        energyLevel: energyLevel || null,
+        overallFeeling: overallFeeling || null,
+        hardestPart: hardestPart.trim() || null,
+        keyLearning: keyLearning.trim() || null,
+        nextFocus: nextFocus.trim() || null,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/player/sessions/${sessionId}/reflection`] });
+      setSaved(true);
+      onSaved();
+    },
+    onError: () => {
+      Alert.alert("Could not save", "Please try again in a moment.");
+    },
+  });
+
+  if (saved && existingReflection) {
+    return (
+      <View style={mirrorStyles.card}>
+        <View style={mirrorStyles.header}>
+          <View style={[mirrorStyles.iconBg, { backgroundColor: MIRROR_ACCENT + "20" }]}>
+            <Ionicons name="mic" size={18} color={MIRROR_ACCENT} />
+          </View>
+          <Text style={mirrorStyles.title}>Your Reflection</Text>
+          <View style={mirrorStyles.savedBadge}>
+            <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
+            <Text style={mirrorStyles.savedText}>Saved</Text>
+          </View>
+        </View>
+        {existingReflection.aiSummary ? (
+          <Text style={mirrorStyles.summaryText}>{existingReflection.aiSummary}</Text>
+        ) : null}
+        <View style={mirrorStyles.savedRows}>
+          {existingReflection.energyLevel ? (
+            <View style={mirrorStyles.savedRow}>
+              <Ionicons name="flash-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={mirrorStyles.savedRowLabel}>Energy</Text>
+              <Text style={mirrorStyles.savedRowValue}>{ENERGY_LABELS[existingReflection.energyLevel]}</Text>
+            </View>
+          ) : null}
+          {existingReflection.overallFeeling ? (
+            <View style={mirrorStyles.savedRow}>
+              <Ionicons name="happy-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={mirrorStyles.savedRowLabel}>Overall</Text>
+              <Text style={mirrorStyles.savedRowValue}>{FEELING_LABELS[existingReflection.overallFeeling]}</Text>
+            </View>
+          ) : null}
+          {existingReflection.hardestPart ? (
+            <View style={mirrorStyles.savedRow}>
+              <Ionicons name="flame-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={mirrorStyles.savedRowLabel}>Hardest</Text>
+              <Text style={mirrorStyles.savedRowValue}>{existingReflection.hardestPart}</Text>
+            </View>
+          ) : null}
+          {existingReflection.keyLearning ? (
+            <View style={mirrorStyles.savedRow}>
+              <Ionicons name="bulb-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={mirrorStyles.savedRowLabel}>Learned</Text>
+              <Text style={mirrorStyles.savedRowValue}>{existingReflection.keyLearning}</Text>
+            </View>
+          ) : null}
+          {existingReflection.nextFocus ? (
+            <View style={mirrorStyles.savedRow}>
+              <Ionicons name="flag-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={mirrorStyles.savedRowLabel}>Next focus</Text>
+              <Text style={mirrorStyles.savedRowValue}>{existingReflection.nextFocus}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={mirrorStyles.card}>
+      <View style={mirrorStyles.header}>
+        <View style={[mirrorStyles.iconBg, { backgroundColor: MIRROR_ACCENT + "20" }]}>
+          <Ionicons name="mic" size={18} color={MIRROR_ACCENT} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={mirrorStyles.title}>Your Reflection</Text>
+          <Text style={mirrorStyles.subtitle}>How did this session feel? Your coach uses this to personalise future training.</Text>
+        </View>
+      </View>
+
+      <Text style={mirrorStyles.sectionLabel}>Energy during session</Text>
+      <StarPicker value={energyLevel} onChange={setEnergyLevel} color="#F59E0B" />
+      {energyLevel > 0 ? (
+        <Text style={mirrorStyles.ratingLabel}>{ENERGY_LABELS[energyLevel]}</Text>
+      ) : null}
+
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.lg }]}>Overall feeling</Text>
+      <StarPicker value={overallFeeling} onChange={setOverallFeeling} color={MIRROR_ACCENT} />
+      {overallFeeling > 0 ? (
+        <Text style={mirrorStyles.ratingLabel}>{FEELING_LABELS[overallFeeling]}</Text>
+      ) : null}
+
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.lg }]}>What was hardest? <Text style={mirrorStyles.optionalLabel}>(optional)</Text></Text>
+      <TextInput
+        style={mirrorStyles.textInput}
+        value={hardestPart}
+        onChangeText={setHardestPart}
+        placeholder="e.g. staying focused after making errors"
+        placeholderTextColor={Colors.dark.textMuted}
+        maxLength={120}
+        multiline
+      />
+
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.md }]}>Key learning from today <Text style={mirrorStyles.optionalLabel}>(optional)</Text></Text>
+      <TextInput
+        style={mirrorStyles.textInput}
+        value={keyLearning}
+        onChangeText={setKeyLearning}
+        placeholder="e.g. short backswing on volleys"
+        placeholderTextColor={Colors.dark.textMuted}
+        maxLength={120}
+        multiline
+      />
+
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.md }]}>What will you focus on next? <Text style={mirrorStyles.optionalLabel}>(optional)</Text></Text>
+      <TextInput
+        style={mirrorStyles.textInput}
+        value={nextFocus}
+        onChangeText={setNextFocus}
+        placeholder="e.g. serve consistency in the warm-up"
+        placeholderTextColor={Colors.dark.textMuted}
+        maxLength={120}
+        multiline
+      />
+
+      <Pressable
+        style={[
+          mirrorStyles.saveButton,
+          saveMutation.isPending && mirrorStyles.saveButtonDisabled,
+        ]}
+        onPress={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending}
+      >
+        {saveMutation.isPending ? (
+          <ActivityIndicator size="small" color={Colors.dark.background} />
+        ) : (
+          <>
+            <Ionicons name="checkmark-circle" size={18} color={Colors.dark.background} />
+            <Text style={mirrorStyles.saveButtonText}>Save Reflection</Text>
+          </>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+const mirrorStyles = StyleSheet.create({
+  card: {
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: MIRROR_ACCENT,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  iconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    flex: 1,
+  },
+  subtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+    lineHeight: 18,
+    flex: 1,
+  },
+  savedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  savedText: {
+    ...Typography.caption,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  summaryText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    marginBottom: Spacing.md,
+    lineHeight: 18,
+  },
+  savedRows: {
+    gap: 8,
+  },
+  savedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  savedRowLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    width: 70,
+  },
+  savedRowValue: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "500",
+    flex: 1,
+  },
+  sectionLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  optionalLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "none",
+    fontStyle: "italic",
+  },
+  ratingLabel: {
+    ...Typography.small,
+    color: MIRROR_ACCENT,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  textInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Typography.small,
+    color: Colors.dark.text,
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+  saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    ...Typography.body,
+    color: Colors.dark.background,
+    fontWeight: "700",
+  },
+});
+
 export default function TrainingDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RouteParams, "TrainingDetail">>();
   const sessionId = route.params?.sessionId;
+  const [reflectionSaved, setReflectionSaved] = useState(false);
 
   const { data: training, isLoading } = useQuery<TrainingDetail>({
     queryKey: ["/api/player/training", sessionId],
+    enabled: !!sessionId,
+  });
+
+  const { data: existingReflection, isLoading: reflectionLoading } = useQuery<SessionReflection | null>({
+    queryKey: [`/api/player/sessions/${sessionId}/reflection`],
     enabled: !!sessionId,
   });
 
@@ -102,12 +464,13 @@ export default function TrainingDetailScreen() {
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.sessionHeader}>
           <View style={styles.sessionInfo}>
             <Text style={styles.sessionDate}>{dateStr}</Text>
             <Text style={styles.sessionType}>
-              {data.type === "private" ? "Private Session" : 
+              {data.type === "private" ? "Private Session" :
                data.type === "group" ? "Group Training" : "Training Session"}
             </Text>
           </View>
@@ -223,7 +586,7 @@ export default function TrainingDetailScreen() {
           <View style={styles.xpBreakdown}>
             {data.domainImpacts.map((impact) => {
               const config = DOMAIN_CONFIG[impact.domain] || DOMAIN_CONFIG.technical;
-              const percentage = Math.round((impact.xp / data.xpEarned) * 100);
+              const percentage = data.xpEarned > 0 ? Math.round((impact.xp / data.xpEarned) * 100) : 0;
               return (
                 <View key={impact.domain} style={styles.xpBreakdownRow}>
                   <View style={styles.xpBreakdownLabel}>
@@ -231,11 +594,11 @@ export default function TrainingDetailScreen() {
                     <Text style={styles.xpBreakdownDomain}>{config.label}</Text>
                   </View>
                   <View style={styles.xpBreakdownBar}>
-                    <View 
+                    <View
                       style={[
-                        styles.xpBreakdownFill, 
+                        styles.xpBreakdownFill,
                         { width: `${percentage}%`, backgroundColor: config.color }
-                      ]} 
+                      ]}
                     />
                   </View>
                   <Text style={styles.xpBreakdownValue}>+{impact.xp}</Text>
@@ -248,6 +611,19 @@ export default function TrainingDetailScreen() {
             <Text style={styles.totalValue}>+{data.xpEarned} XP</Text>
           </View>
         </View>
+
+        {/* Glow Mirror — Player Voice Check-in */}
+        {!reflectionLoading ? (
+          <GlowMirrorCard
+            sessionId={sessionId}
+            existingReflection={existingReflection ?? null}
+            onSaved={() => setReflectionSaved(true)}
+          />
+        ) : (
+          <View style={styles.sectionCard}>
+            <ActivityIndicator size="small" color={MIRROR_ACCENT} />
+          </View>
+        )}
       </ScrollView>
     </View>
   );

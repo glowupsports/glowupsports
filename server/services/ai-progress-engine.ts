@@ -22,6 +22,7 @@ import {
   questTemplates,
   playerQuests as playerQuestsTable,
   tournamentMatches,
+  playerSessionReflections,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
@@ -547,6 +548,15 @@ export interface PlayerAIContext {
   recentFeedbackNotes: { feedbackType: string; message: string }[];
   // Number of attended sessions (for data maturity)
   sessionCount: number;
+  // Glow Mirror — Player session self-reflections (last 5)
+  recentSessionReflections: {
+    aiSummary: string | null;
+    energyLevel: number | null;
+    overallFeeling: number | null;
+    hardestPart: string | null;
+    keyLearning: string | null;
+    nextFocus: string | null;
+  }[];
 }
 
 export async function buildPlayerAIContext(
@@ -575,6 +585,7 @@ export async function buildPlayerAIContext(
       latestXpEvent,
       recentMatchRows,
       recentFeedbackRows,
+      recentSessionReflections,
     ] = await Promise.all([
       db.select({ name: coaches.name }).from(coaches).where(eq(coaches.id, coachId)).limit(1),
       db.select({ levelId: playerBallLevels.levelId }).from(playerBallLevels)
@@ -612,6 +623,19 @@ export async function buildPlayerAIContext(
         .from(inSessionFeedback)
         .where(eq(inSessionFeedback.playerId, playerId))
         .orderBy(desc(inSessionFeedback.createdAt)).limit(10),
+      // Recent session reflections (Glow Mirror Layer 1)
+      db.select({
+        aiSummary: playerSessionReflections.aiSummary,
+        energyLevel: playerSessionReflections.energyLevel,
+        overallFeeling: playerSessionReflections.overallFeeling,
+        hardestPart: playerSessionReflections.hardestPart,
+        keyLearning: playerSessionReflections.keyLearning,
+        nextFocus: playerSessionReflections.nextFocus,
+        createdAt: playerSessionReflections.createdAt,
+      })
+        .from(playerSessionReflections)
+        .where(eq(playerSessionReflections.playerId, playerId))
+        .orderBy(desc(playerSessionReflections.createdAt)).limit(5),
     ]);
 
     const ballLevel = playerLevelRow[0]?.levelId || player.ballLevel || "unknown";
@@ -738,6 +762,14 @@ export async function buildPlayerAIContext(
       recentMatches: recentMatchRows.map((m) => ({ result: m.result, format: m.matchFormat, opponentLevel: m.opponentLevel })),
       recentFeedbackNotes: recentFeedbackRows.map((f) => ({ feedbackType: f.feedbackType, message: f.message })),
       sessionCount: attended,
+      recentSessionReflections: recentSessionReflections.map((r) => ({
+        aiSummary: r.aiSummary,
+        energyLevel: r.energyLevel,
+        overallFeeling: r.overallFeeling,
+        hardestPart: r.hardestPart,
+        keyLearning: r.keyLearning,
+        nextFocus: r.nextFocus,
+      })),
     };
   } catch (error) {
     console.error("[AIEngine] Error building player AI context:", error);
@@ -750,7 +782,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     playerName, playerAge, ballLevel, sessionType, ageGroup,
     requiredSkills, recentDigests, coachNotes, skillsByPillar, pillarAverages,
     shortTermGoal, longTermDream, playStyle, xpLevel, attendanceRate, totalSessions,
-    promotionReadiness, recentMatches, recentFeedbackNotes,
+    promotionReadiness, recentMatches, recentFeedbackNotes, recentSessionReflections,
   } = ctx;
 
   const ageInstruction =
@@ -811,6 +843,19 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     ? `Recent matches: ${recentMatches.map((m) => `${m.result} (${m.format}${m.opponentLevel ? ", vs " + m.opponentLevel : ""})`).join(", ")}.`
     : "";
 
+  // Glow Mirror — Player self-reflections
+  const reflectionContext = recentSessionReflections && recentSessionReflections.length > 0
+    ? `PLAYER VOICE (self-reported after sessions, most recent first):\n${recentSessionReflections.slice(0, 3).map((r, i) => {
+        const parts: string[] = [];
+        if (r.energyLevel) parts.push(`Energy ${r.energyLevel}/5`);
+        if (r.overallFeeling) parts.push(`Feeling ${r.overallFeeling}/5`);
+        if (r.hardestPart) parts.push(`Hardest: "${r.hardestPart}"`);
+        if (r.keyLearning) parts.push(`Learned: "${r.keyLearning}"`);
+        if (r.nextFocus) parts.push(`Wants to focus: "${r.nextFocus}"`);
+        return `${i + 1}. ${parts.join(", ")}`;
+      }).join("\n")}`
+    : "";
+
   const summaryInstruction = `After 4-8 coach exchanges covering all six pillars (Technical, Tactical, Physical, Mental, Social, Match), say "Here is what I'll save" and propose a JSON summary inside a code block:
 \`\`\`json
 {
@@ -843,6 +888,7 @@ ${notesSection}
 ${digestContext}
 ${feedbackContext}
 ${matchContext}
+${reflectionContext}
 
 LANGUAGE RULE: ${ageInstruction}
 
