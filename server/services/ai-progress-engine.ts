@@ -23,6 +23,7 @@ import {
   playerQuests as playerQuestsTable,
   tournamentMatches,
   playerSessionReflections,
+  playerMonthlyAssessments,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
@@ -557,6 +558,17 @@ export interface PlayerAIContext {
     keyLearning: string | null;
     nextFocus: string | null;
   }[];
+  // Glow Mirror Layer 2 — Latest monthly self-assessment
+  latestMonthlyAssessment?: {
+    monthYear: string;
+    aiSummary: string | null;
+    strengthsAnswer: string | null;
+    challengesAnswer: string | null;
+    progressFeelAnswer: string | null;
+    mindsetAnswer: string | null;
+    nextFocusAnswer: string | null;
+    pillarSelfRatings: Record<string, number> | null;
+  } | null;
 }
 
 export async function buildPlayerAIContext(
@@ -586,6 +598,7 @@ export async function buildPlayerAIContext(
       recentMatchRows,
       recentFeedbackRows,
       recentSessionReflections,
+      latestMonthlyAssessmentRows,
     ] = await Promise.all([
       db.select({ name: coaches.name }).from(coaches).where(eq(coaches.id, coachId)).limit(1),
       db.select({ levelId: playerBallLevels.levelId }).from(playerBallLevels)
@@ -636,6 +649,25 @@ export async function buildPlayerAIContext(
         .from(playerSessionReflections)
         .where(eq(playerSessionReflections.playerId, playerId))
         .orderBy(desc(playerSessionReflections.createdAt)).limit(5),
+      // Glow Mirror Layer 2 — Latest completed monthly self-assessment
+      db.select({
+        monthYear: playerMonthlyAssessments.monthYear,
+        aiSummary: playerMonthlyAssessments.aiSummary,
+        strengthsAnswer: playerMonthlyAssessments.strengthsAnswer,
+        challengesAnswer: playerMonthlyAssessments.challengesAnswer,
+        progressFeelAnswer: playerMonthlyAssessments.progressFeelAnswer,
+        mindsetAnswer: playerMonthlyAssessments.mindsetAnswer,
+        nextFocusAnswer: playerMonthlyAssessments.nextFocusAnswer,
+        pillarSelfRatings: playerMonthlyAssessments.pillarSelfRatings,
+      })
+        .from(playerMonthlyAssessments)
+        .where(
+          and(
+            eq(playerMonthlyAssessments.playerId, playerId),
+            eq(playerMonthlyAssessments.status, "completed")
+          )
+        )
+        .orderBy(desc(playerMonthlyAssessments.createdAt)).limit(1),
     ]);
 
     const ballLevel = playerLevelRow[0]?.levelId || player.ballLevel || "unknown";
@@ -770,6 +802,18 @@ export async function buildPlayerAIContext(
         keyLearning: r.keyLearning,
         nextFocus: r.nextFocus,
       })),
+      latestMonthlyAssessment: latestMonthlyAssessmentRows[0]
+        ? {
+            monthYear: latestMonthlyAssessmentRows[0].monthYear,
+            aiSummary: latestMonthlyAssessmentRows[0].aiSummary,
+            strengthsAnswer: latestMonthlyAssessmentRows[0].strengthsAnswer,
+            challengesAnswer: latestMonthlyAssessmentRows[0].challengesAnswer,
+            progressFeelAnswer: latestMonthlyAssessmentRows[0].progressFeelAnswer,
+            mindsetAnswer: latestMonthlyAssessmentRows[0].mindsetAnswer,
+            nextFocusAnswer: latestMonthlyAssessmentRows[0].nextFocusAnswer,
+            pillarSelfRatings: (latestMonthlyAssessmentRows[0].pillarSelfRatings as Record<string, number>) ?? null,
+          }
+        : null,
     };
   } catch (error) {
     console.error("[AIEngine] Error building player AI context:", error);
@@ -783,6 +827,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     requiredSkills, recentDigests, coachNotes, skillsByPillar, pillarAverages,
     shortTermGoal, longTermDream, playStyle, xpLevel, attendanceRate, totalSessions,
     promotionReadiness, recentMatches, recentFeedbackNotes, recentSessionReflections,
+    latestMonthlyAssessment,
   } = ctx;
 
   const ageInstruction =
@@ -869,6 +914,53 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
       })()
     : "";
 
+  // Glow Mirror Layer 2 — Monthly self-assessment voice + perception gap
+  const monthlyVoiceContext = latestMonthlyAssessment
+    ? (() => {
+        const m = latestMonthlyAssessment;
+        const lines: string[] = [];
+        if (m.aiSummary) {
+          lines.push(`PLAYER MONTHLY VOICE (${m.monthYear}): ${m.aiSummary}`);
+        } else {
+          if (m.strengthsAnswer) lines.push(`  What's going well: "${m.strengthsAnswer}"`);
+          if (m.challengesAnswer) lines.push(`  Biggest challenge: "${m.challengesAnswer}"`);
+          if (m.progressFeelAnswer) lines.push(`  Feels about progress: "${m.progressFeelAnswer}"`);
+          if (m.mindsetAnswer) lines.push(`  Mindset/motivation: "${m.mindsetAnswer}"`);
+          if (m.nextFocusAnswer) lines.push(`  Wants to focus on: "${m.nextFocusAnswer}"`);
+        }
+
+        // Perception gap — compare player self-ratings vs coach pillar averages
+        if (m.pillarSelfRatings && pillarAverages) {
+          const PILLAR_MAP: Record<string, string> = {
+            technical: "Technical",
+            physical: "Physical",
+            tactical: "Tactical",
+            mental: "Mental",
+            matchplay: "Match",
+          };
+          const gaps: string[] = [];
+          for (const [key, label] of Object.entries(PILLAR_MAP)) {
+            const selfRating = m.pillarSelfRatings[key];
+            const coachAvg = (pillarAverages as Record<string, number>)[label];
+            if (selfRating !== undefined && coachAvg !== undefined && coachAvg > 0) {
+              // Self-rating is 1-10, coach avg is 0-2 → scale coach to 1-10 (×5)
+              const coachScaled = Math.round(coachAvg * 5);
+              const gap = selfRating - coachScaled;
+              if (Math.abs(gap) >= 2) {
+                const direction = gap > 0 ? "overestimates" : "underestimates";
+                gaps.push(`${label}: player rates ${selfRating}/10 vs coach's ${coachScaled}/10 (player ${direction})`);
+              }
+            }
+          }
+          if (gaps.length > 0) {
+            lines.push(`PERCEPTION GAP (use to guide conversation, do not share raw numbers):\n  ${gaps.join("\n  ")}`);
+          }
+        }
+
+        return lines.join("\n");
+      })()
+    : "";
+
   const summaryInstruction = `After 4-8 coach exchanges covering all six pillars (Technical, Tactical, Physical, Mental, Social, Match), say "Here is what I'll save" and propose a JSON summary inside a code block:
 \`\`\`json
 {
@@ -902,6 +994,7 @@ ${digestContext}
 ${feedbackContext}
 ${matchContext}
 ${reflectionContext}
+${monthlyVoiceContext}
 
 LANGUAGE RULE: ${ageInstruction}
 

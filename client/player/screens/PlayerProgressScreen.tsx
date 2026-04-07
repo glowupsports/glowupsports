@@ -19,6 +19,7 @@ import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { CoachReviewModal } from "@/player/components/CoachReviewModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
+import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -1450,6 +1451,22 @@ export default function PlayerProgressScreen() {
   const [showPillarModal, setShowPillarModal] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false);
+
+  const { data: monthlyAssessmentData } = useQuery<{
+    assessment: any;
+    monthYear: string;
+    available: boolean;
+  }>({
+    queryKey: ["/api/player/me/monthly-assessment/current"],
+    enabled: !isGuest,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/monthly-assessment/current", getApiUrl());
+      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+  });
 
   const makeSportUrl = (path: string) => {
     const url = new URL(path, getApiUrl());
@@ -1929,6 +1946,53 @@ export default function PlayerProgressScreen() {
           </Pressable>
         ) : null}
 
+        {/* Glow Mirror Layer 2 — Monthly Check-In Card */}
+        {!isGuest && monthlyAssessmentData && (
+          <Pressable
+            style={[
+              styles.monthlyMirrorCard,
+              monthlyAssessmentData.assessment?.status === "completed"
+                ? styles.monthlyMirrorCardDone
+                : styles.monthlyMirrorCardPending,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowMonthlyModal(true);
+            }}
+          >
+            <View style={styles.monthlyMirrorIcon}>
+              <Ionicons name="mic" size={18} color="#A78BFA" />
+            </View>
+            <View style={styles.monthlyMirrorContent}>
+              <Text style={styles.monthlyMirrorTitle}>
+                {monthlyAssessmentData.assessment?.status === "completed"
+                  ? "Monthly Voice Captured"
+                  : "Monthly Check-In Ready"}
+              </Text>
+              <Text style={styles.monthlyMirrorSub}>
+                {monthlyAssessmentData.assessment?.status === "completed"
+                  ? monthlyAssessmentData.assessment?.aiSummary
+                    ? monthlyAssessmentData.assessment.aiSummary.slice(0, 80) + "..."
+                    : `${monthlyAssessmentData.monthYear} — your voice is with your coach`
+                  : "Share how you feel about your game this month"}
+              </Text>
+            </View>
+            <Ionicons
+              name={
+                monthlyAssessmentData.assessment?.status === "completed"
+                  ? "checkmark-circle"
+                  : "chevron-forward"
+              }
+              size={18}
+              color={
+                monthlyAssessmentData.assessment?.status === "completed"
+                  ? "#A78BFA"
+                  : "#A78BFA"
+              }
+            />
+          </Pressable>
+        )}
+
         {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
         <View style={styles.pillarRingsSection}>
           <View style={styles.pillarHeaderRow}>
@@ -2364,6 +2428,11 @@ export default function PlayerProgressScreen() {
         onClose={() => setShowReviewModal(false)}
         coach={assignedCoach}
         onSuccess={() => setShowReviewModal(false)}
+      />
+      <MonthlyAssessmentModal
+        visible={showMonthlyModal}
+        onClose={() => setShowMonthlyModal(false)}
+        existingAssessment={monthlyAssessmentData?.assessment}
       />
     </View>
   );
@@ -3686,5 +3755,46 @@ const modalStyles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     flex: 1,
+  },
+  // Glow Mirror Layer 2 — Monthly Check-In Card
+  monthlyMirrorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+  },
+  monthlyMirrorCardPending: {
+    backgroundColor: "rgba(167, 139, 250, 0.08)",
+    borderColor: "rgba(167, 139, 250, 0.4)",
+  },
+  monthlyMirrorCardDone: {
+    backgroundColor: "rgba(167, 139, 250, 0.04)",
+    borderColor: "rgba(167, 139, 250, 0.15)",
+  },
+  monthlyMirrorIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(167, 139, 250, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  monthlyMirrorContent: {
+    flex: 1,
+    gap: 2,
+  },
+  monthlyMirrorTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  monthlyMirrorSub: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 15,
   },
 });

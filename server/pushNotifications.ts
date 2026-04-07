@@ -1,6 +1,6 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections } from "@shared/schema";
 import { storage, ensureCreditProcessed } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
@@ -1970,6 +1970,7 @@ export function startReminderScheduler(): void {
       await processAutoAttendance();
       await processExpiredWaitlistSpots();
       await processDepartureAlerts();
+      await processPostSessionReflectionReminders();
     } catch (e) { console.error("[Scheduler] Interval error:", e); }
   }, 5 * 60 * 1000);
 }
@@ -3580,4 +3581,99 @@ export function startMatchPrepNotificationScheduler(): void {
       processMatchPrepNotifications().catch(console.error);
     }
   }, 60 * 60 * 1000);
+}
+
+// ==================== POST-SESSION REFLECTION REMINDER ====================
+
+/**
+ * Runs every 5 min with the main scheduler.
+ * Finds sessions that ended 25–65 min ago where:
+ *  - Player hasn't submitted a session reflection
+ *  - The reflection_reminder_sent flag is false
+ * Sends one push notification per eligible player, then marks the flag.
+ */
+export async function processPostSessionReflectionReminders(): Promise<void> {
+  try {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 65 * 60 * 1000);
+    const windowEnd   = new Date(now.getTime() - 25 * 60 * 1000);
+
+    // Find recently-ended sessions that haven't had their reflection reminder sent
+    const recentSessions = await pool.query(
+      `SELECT s.id, s.end_time, s.academy_id, s.coach_id
+       FROM sessions s
+       WHERE s.status = 'completed'
+         AND s.end_time IS NOT NULL
+         AND (s.end_time AT TIME ZONE 'UTC') >= $1::timestamptz
+         AND (s.end_time AT TIME ZONE 'UTC') <= $2::timestamptz
+         AND COALESCE(s.reflection_reminder_sent, false) = false`,
+      [windowStart.toISOString(), windowEnd.toISOString()]
+    );
+
+    if (recentSessions.rows.length === 0) return;
+
+    console.log(`[ReflectionReminder] Found ${recentSessions.rows.length} session(s) in 25–65 min post-window`);
+
+    for (const session of recentSessions.rows) {
+      // Get enrolled players for this session
+      const enrolled = await db
+        .select({ playerId: sessionPlayers.playerId })
+        .from(sessionPlayers)
+        .where(
+          and(
+            eq(sessionPlayers.sessionId, session.id),
+            ne(sessionPlayers.attendanceStatus, "absent")
+          )
+        );
+
+      let notifiedCount = 0;
+
+      for (const sp of enrolled) {
+        if (!sp.playerId) continue;
+
+        // Skip if player already submitted a reflection for this session
+        const existing = await db
+          .select({ id: playerSessionReflections.id })
+          .from(playerSessionReflections)
+          .where(
+            and(
+              eq(playerSessionReflections.playerId, sp.playerId),
+              eq(playerSessionReflections.sessionId, session.id)
+            )
+          )
+          .limit(1);
+
+        if (existing.length > 0) continue;
+
+        const tokens = await getPlayerPushTokens(sp.playerId);
+        if (tokens.length === 0) continue;
+
+        await sendPushNotification(
+          tokens,
+          "How did training go?",
+          "Take 30 seconds to log your session reflection in Glow Mirror.",
+          {
+            type: "session_reflection_reminder",
+            sessionId: session.id,
+            screen: "TrainingDetail",
+          },
+          sp.playerId
+        );
+
+        notifiedCount++;
+      }
+
+      // Mark reminder as sent for this session
+      await pool.query(
+        `UPDATE sessions SET reflection_reminder_sent = true WHERE id = $1`,
+        [session.id]
+      );
+
+      if (notifiedCount > 0) {
+        console.log(`[ReflectionReminder] Session ${session.id}: notified ${notifiedCount} player(s)`);
+      }
+    }
+  } catch (error) {
+    console.error("[ReflectionReminder] Error processing post-session reflection reminders:", error);
+  }
 }

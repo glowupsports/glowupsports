@@ -52,6 +52,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     sessionAiSummaries, playerAiInsights,
     glowSkills, playerSkillScores,
     playerSessionReflections,
+    playerMonthlyAssessments,
     matchReflections,
     matches,
   } from "@shared/schema";
@@ -3753,6 +3754,191 @@ router.post(
     } catch (error) {
       console.error("[SessionReflection] POST (body) error:", error);
       res.status(500).json({ error: "Failed to save reflection" });
+    }
+  }
+);
+
+// ==================== GLOW MIRROR LAYER 2 — MONTHLY SELF-ASSESSMENT ====================
+
+function getCurrentMonthYear(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// GET /api/player/me/monthly-assessment/current — get this month's assessment (or null if not started)
+router.get(
+  "/api/player/me/monthly-assessment/current",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const monthYear = getCurrentMonthYear();
+
+      const [assessment] = await db
+        .select()
+        .from(playerMonthlyAssessments)
+        .where(
+          and(
+            eq(playerMonthlyAssessments.playerId, playerId),
+            eq(playerMonthlyAssessments.monthYear, monthYear)
+          )
+        )
+        .limit(1);
+
+      return res.json({
+        assessment: assessment ?? null,
+        monthYear,
+        available: true,
+      });
+    } catch (error) {
+      console.error("[MonthlyAssessment] GET current error:", error);
+      res.status(500).json({ error: "Failed to fetch monthly assessment" });
+    }
+  }
+);
+
+// POST /api/player/me/monthly-assessment — create or update (partial save or complete)
+router.post(
+  "/api/player/me/monthly-assessment",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const {
+        strengthsAnswer,
+        challengesAnswer,
+        progressFeelAnswer,
+        mindsetAnswer,
+        nextFocusAnswer,
+        pillarSelfRatings,
+        complete,
+      } = req.body;
+
+      const monthYear = getCurrentMonthYear();
+      const academyId = req.user!.academyId ?? null;
+
+      // Check if one already exists
+      const [existing] = await db
+        .select()
+        .from(playerMonthlyAssessments)
+        .where(
+          and(
+            eq(playerMonthlyAssessments.playerId, playerId),
+            eq(playerMonthlyAssessments.monthYear, monthYear)
+          )
+        )
+        .limit(1);
+
+      const updates: Partial<typeof playerMonthlyAssessments.$inferInsert> = {};
+      if (strengthsAnswer !== undefined) updates.strengthsAnswer = strengthsAnswer;
+      if (challengesAnswer !== undefined) updates.challengesAnswer = challengesAnswer;
+      if (progressFeelAnswer !== undefined) updates.progressFeelAnswer = progressFeelAnswer;
+      if (mindsetAnswer !== undefined) updates.mindsetAnswer = mindsetAnswer;
+      if (nextFocusAnswer !== undefined) updates.nextFocusAnswer = nextFocusAnswer;
+      if (pillarSelfRatings !== undefined) updates.pillarSelfRatings = pillarSelfRatings;
+
+      let aiSummary: string | null = null;
+
+      // Generate AI summary when completing
+      if (complete) {
+        const answersForAI = {
+          strengths: strengthsAnswer || existing?.strengthsAnswer,
+          challenges: challengesAnswer || existing?.challengesAnswer,
+          progressFeel: progressFeelAnswer || existing?.progressFeelAnswer,
+          mindset: mindsetAnswer || existing?.mindsetAnswer,
+          nextFocus: nextFocusAnswer || existing?.nextFocusAnswer,
+          pillars: pillarSelfRatings || existing?.pillarSelfRatings,
+        };
+
+        try {
+          const { generateObject } = await import("ai");
+          const { openai } = await import("@ai-sdk/openai");
+          const { z } = await import("zod");
+
+          const result = await generateObject({
+            model: openai("gpt-4o-mini"),
+            schema: z.object({ summary: z.string() }),
+            prompt: `You are summarizing a tennis player's monthly self-assessment for their coach.
+Player answers:
+- What's going well: "${answersForAI.strengths || "not answered"}"
+- Biggest challenge: "${answersForAI.challenges || "not answered"}"
+- How they feel about progress: "${answersForAI.progressFeel || "not answered"}"
+- Mindset / motivation: "${answersForAI.mindset || "not answered"}"
+- Focus for next month: "${answersForAI.nextFocus || "not answered"}"
+${answersForAI.pillars ? `- Pillar self-ratings (1–10): ${JSON.stringify(answersForAI.pillars)}` : ""}
+
+Write a 2–3 sentence neutral summary that captures the player's self-perception and key focus area. Use third-person ("The player..."). Be concise and factual.`,
+          });
+
+          aiSummary = result.object.summary;
+          updates.aiSummary = aiSummary;
+        } catch (aiErr) {
+          console.error("[MonthlyAssessment] AI summary generation failed (non-critical):", aiErr);
+        }
+
+        updates.status = "completed";
+        updates.completedAt = new Date();
+      }
+
+      let assessment;
+      if (existing) {
+        [assessment] = await db
+          .update(playerMonthlyAssessments)
+          .set(updates)
+          .where(eq(playerMonthlyAssessments.id, existing.id))
+          .returning();
+      } else {
+        [assessment] = await db
+          .insert(playerMonthlyAssessments)
+          .values({
+            playerId,
+            academyId,
+            monthYear,
+            status: complete ? "completed" : "in_progress",
+            strengthsAnswer: strengthsAnswer ?? null,
+            challengesAnswer: challengesAnswer ?? null,
+            progressFeelAnswer: progressFeelAnswer ?? null,
+            mindsetAnswer: mindsetAnswer ?? null,
+            nextFocusAnswer: nextFocusAnswer ?? null,
+            pillarSelfRatings: pillarSelfRatings ?? null,
+            aiSummary: aiSummary ?? null,
+            completedAt: complete ? new Date() : null,
+          })
+          .returning();
+      }
+
+      return res.json({ assessment });
+    } catch (error) {
+      console.error("[MonthlyAssessment] POST error:", error);
+      res.status(500).json({ error: "Failed to save monthly assessment" });
+    }
+  }
+);
+
+// GET /api/player/me/monthly-assessment/history — past assessments (last 6 months)
+router.get(
+  "/api/player/me/monthly-assessment/history",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const history = await db
+        .select()
+        .from(playerMonthlyAssessments)
+        .where(eq(playerMonthlyAssessments.playerId, playerId))
+        .orderBy(desc(playerMonthlyAssessments.createdAt))
+        .limit(6);
+
+      return res.json(history);
+    } catch (error) {
+      console.error("[MonthlyAssessment] GET history error:", error);
+      res.status(500).json({ error: "Failed to fetch history" });
     }
   }
 );

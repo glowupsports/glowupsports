@@ -1587,6 +1587,7 @@ export const sessions = pgTable("sessions", {
   
   reminder1hSent: boolean("reminder_1h_sent").default(false),
   reminder30mSent: boolean("reminder_30m_sent").default(false),
+  reflectionReminderSent: boolean("reflection_reminder_sent").default(false),
   
   // Multi-sport support
   sport: text("sport").default("tennis"), // tennis | padel | pickleball
@@ -6934,3 +6935,33 @@ export const playerSessionReflections = pgTable("player_session_reflections", {
 export const insertPlayerSessionReflectionSchema = createInsertSchema(playerSessionReflections).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPlayerSessionReflection = z.infer<typeof insertPlayerSessionReflectionSchema>;
 export type PlayerSessionReflection = typeof playerSessionReflections.$inferSelect;
+
+// ==================== GLOW MIRROR LAYER 2 — MONTHLY SELF-ASSESSMENT ====================
+
+export const playerMonthlyAssessments = pgTable("player_monthly_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  // "YYYY-MM" — one per player per month
+  monthYear: varchar("month_year", { length: 7 }).notNull(),
+  status: varchar("status", { length: 20 }).default("in_progress"), // in_progress | completed
+  // 5 guided questions
+  strengthsAnswer: text("strengths_answer"),
+  challengesAnswer: text("challenges_answer"),
+  progressFeelAnswer: text("progress_feel_answer"),
+  mindsetAnswer: text("mindset_answer"),
+  nextFocusAnswer: text("next_focus_answer"),
+  // Player self-rating per pillar: { technical: 7, physical: 5, tactical: 6, mental: 8, matchplay: 5 }
+  pillarSelfRatings: jsonb("pillar_self_ratings"),
+  // AI-generated 3-sentence summary
+  aiSummary: text("ai_summary"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  unique("player_monthly_assessments_player_month_uniq").on(table.playerId, table.monthYear),
+  index("player_monthly_assessments_player_idx").on(table.playerId),
+]);
+
+export const insertPlayerMonthlyAssessmentSchema = createInsertSchema(playerMonthlyAssessments).omit({ id: true, createdAt: true });
+export type InsertPlayerMonthlyAssessment = z.infer<typeof insertPlayerMonthlyAssessmentSchema>;
+export type PlayerMonthlyAssessment = typeof playerMonthlyAssessments.$inferSelect;

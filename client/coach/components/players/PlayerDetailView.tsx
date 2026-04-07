@@ -743,6 +743,9 @@ export function PlayerDetailView({
     overallReadiness: number;
     trialGateReady: boolean;
     recentFeedbackCount: number;
+    playerSelfRatings: Record<string, number> | null;
+    latestAssessmentMonth: string | null;
+    latestAssessmentSummary: string | null;
   }
   const { data: pillarProgress } = useQuery<PillarProgressData>({
     queryKey: [`/api/players/${player.id}/pillar-progress`],
@@ -1067,6 +1070,99 @@ export function PlayerDetailView({
               })}
             </View>
             
+            {/* Player Voice — Perception Gap Section */}
+            {pillarProgress.playerSelfRatings ? (() => {
+              const SELF_KEY_MAP: Record<string, string> = {
+                TECHNIQUE: "technical",
+                TACTICAL: "tactical",
+                PHYSICAL: "physical",
+                MENTAL: "mental",
+                MATCH: "matchplay",
+              };
+              const MIRROR_PURPLE = "#A78BFA";
+              const gapPillars = pillarProgress.pillars
+                .filter(p => SELF_KEY_MAP[p.name] && pillarProgress.playerSelfRatings![SELF_KEY_MAP[p.name]] != null)
+                .map(p => {
+                  const selfKey = SELF_KEY_MAP[p.name];
+                  const selfRating = pillarProgress.playerSelfRatings![selfKey]; // 1–10
+                  const selfPct = Math.round(selfRating * 10); // 0–100
+                  const coachPct = Math.round((p.score / 2) * 100); // 0–100
+                  const gap = selfPct - coachPct;
+                  return { name: p.name, selfPct, coachPct, gap };
+                });
+
+              if (gapPillars.length === 0) return null;
+
+              return (
+                <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: MIRROR_PURPLE + "20", paddingTop: 10 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 6 }}>
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: MIRROR_PURPLE + "25", alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="mic" size={11} color={MIRROR_PURPLE} />
+                    </View>
+                    <Text style={{ color: MIRROR_PURPLE, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" }}>
+                      Player Self-Perception
+                    </Text>
+                    {pillarProgress.latestAssessmentMonth ? (
+                      <View style={{ backgroundColor: MIRROR_PURPLE + "20", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ color: MIRROR_PURPLE, fontSize: 10 }}>{pillarProgress.latestAssessmentMonth}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {gapPillars.map(({ name, selfPct, coachPct, gap }) => {
+                    const absGap = Math.abs(gap);
+                    const gapColor = gap > 15 ? "#FBBF24" : gap < -15 ? "#F87171" : Colors.dark.tabIconDefault;
+                    const pillarLabel = name.charAt(0) + name.slice(1).toLowerCase();
+                    return (
+                      <View key={name} style={{ marginBottom: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                          <Text style={{ color: Colors.dark.textMuted, fontSize: 11 }}>{pillarLabel}</Text>
+                          {absGap > 10 ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                              <Ionicons
+                                name={gap > 0 ? "arrow-up" : "arrow-down"}
+                                size={10}
+                                color={gapColor}
+                              />
+                              <Text style={{ color: gapColor, fontSize: 10, fontWeight: "600" }}>
+                                {gap > 0 ? "Player rates higher" : "Player rates lower"}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={{ color: Colors.dark.tabIconDefault, fontSize: 10 }}>Aligned</Text>
+                          )}
+                        </View>
+                        {/* Coach bar */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                          <Text style={{ color: Colors.dark.tabIconDefault, fontSize: 9, width: 42 }}>Coach</Text>
+                          <View style={{ flex: 1, height: 4, backgroundColor: Colors.dark.surfaceElevated, borderRadius: 2 }}>
+                            <View style={{ width: `${coachPct}%`, height: 4, backgroundColor: Colors.dark.primary, borderRadius: 2 }} />
+                          </View>
+                          <Text style={{ color: Colors.dark.primary, fontSize: 10, width: 30, textAlign: "right" }}>{coachPct}%</Text>
+                        </View>
+                        {/* Player self-rating bar */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ color: Colors.dark.tabIconDefault, fontSize: 9, width: 42 }}>Player</Text>
+                          <View style={{ flex: 1, height: 4, backgroundColor: Colors.dark.surfaceElevated, borderRadius: 2 }}>
+                            <View style={{ width: `${selfPct}%`, height: 4, backgroundColor: MIRROR_PURPLE, borderRadius: 2 }} />
+                          </View>
+                          <Text style={{ color: MIRROR_PURPLE, fontSize: 10, width: 30, textAlign: "right" }}>{selfPct}%</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {pillarProgress.latestAssessmentSummary ? (
+                    <View style={{ backgroundColor: MIRROR_PURPLE + "12", borderRadius: 8, padding: 8, marginTop: 4 }}>
+                      <Text style={{ color: Colors.dark.textMuted, fontSize: 11, lineHeight: 16 }} numberOfLines={3}>
+                        {pillarProgress.latestAssessmentSummary}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })() : null}
+
             {pillarProgress.recentFeedbackCount > 0 ? (
               <View style={styles.feedbackSummaryRow}>
                 <Ionicons name="chatbubble-outline" size={12} color={Colors.dark.tabIconDefault} />

@@ -45,6 +45,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     badges as badgesTable, playerBadges as playerBadgesTable,
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
+    playerMonthlyAssessments,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -161,7 +162,31 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const pillarProgress =
           await storage.getPlayerPillarProgressSummary(playerId);
-        res.json(pillarProgress);
+
+        // Fetch latest monthly self-assessment for perception gap display
+        const latestAssessmentRows = await db
+          .select({
+            monthYear: playerMonthlyAssessments.monthYear,
+            pillarSelfRatings: playerMonthlyAssessments.pillarSelfRatings,
+            aiSummary: playerMonthlyAssessments.aiSummary,
+          })
+          .from(playerMonthlyAssessments)
+          .where(
+            and(
+              eq(playerMonthlyAssessments.playerId, playerId),
+              eq(playerMonthlyAssessments.status, "completed"),
+            ),
+          )
+          .orderBy(desc(playerMonthlyAssessments.completedAt))
+          .limit(1);
+
+        const latestAssessment = latestAssessmentRows[0] ?? null;
+        res.json({
+          ...pillarProgress,
+          playerSelfRatings: (latestAssessment?.pillarSelfRatings as Record<string, number>) ?? null,
+          latestAssessmentMonth: latestAssessment?.monthYear ?? null,
+          latestAssessmentSummary: latestAssessment?.aiSummary ?? null,
+        });
       } catch (error) {
         console.error("Error fetching pillar progress:", error);
         res.status(500).json({ error: "Failed to fetch pillar progress" });
