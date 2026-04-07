@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, LayoutAnimation } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -265,58 +266,101 @@ function AICoachEntryCard() {
     retry: false,
   });
 
-  const usageLabel = aiStatus && !aiStatus.isCoach && aiStatus.limit > 0
-    ? `${aiStatus.callCount} / ${aiStatus.limit} used`
-    : null;
+  const { data: aiCoachContext } = useQuery<{
+    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
+  }>({
+    queryKey: ["/api/player/me/ai-coach/context"],
+    staleTime: 60 * 1000,
+  });
 
+  const { data: weeklyDigest } = useQuery<{
+    data: { focusArea?: string } | null;
+  } | null>({
+    queryKey: ["/api/player/me/weekly-digest"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const layers = aiCoachContext?.glowMirrorLayers;
+  const activeCount = layers
+    ? [layers.sessionCheckins, layers.monthlyVoice, layers.perceptionGaps].filter(Boolean).length
+    : 0;
+  const focusPreview = weeklyDigest?.data?.focusArea;
   const isNearLimit = aiStatus && aiStatus.limit > 0 && aiStatus.callCount / aiStatus.limit >= 0.9;
 
   return (
     <Pressable
-      style={aiCardStyles.card}
+      style={aiCardStyles.wrapper}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         navigation.navigate("PlayerAICoach");
       }}
     >
-      <View style={aiCardStyles.left}>
-        <View style={aiCardStyles.iconWrap}>
-          <Ionicons name="sparkles" size={18} color={Colors.dark.backgroundRoot} />
-        </View>
-        <View style={aiCardStyles.textWrap}>
-          <Text style={aiCardStyles.title}>AI Coach</Text>
-          <Text style={aiCardStyles.sub}>Ask about your game, progress and strategy</Text>
-        </View>
-      </View>
-      <View style={aiCardStyles.right}>
-        {usageLabel ? (
-          <View style={[aiCardStyles.usageBadge, isNearLimit ? aiCardStyles.usageBadgeWarn : null]}>
-            {aiStatus?.isPro ? (
-              <Ionicons name="sparkles" size={9} color={isNearLimit ? Colors.dark.error : Colors.dark.primary} />
-            ) : null}
-            <Text style={[aiCardStyles.usageText, isNearLimit ? aiCardStyles.usageTextWarn : null]}>
-              {usageLabel}
-            </Text>
+      <LinearGradient
+        colors={["rgba(200,255,61,0.12)", "rgba(167,139,250,0.08)", "rgba(0,229,255,0.06)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={aiCardStyles.gradientBorder}
+      >
+        <View style={aiCardStyles.card}>
+          <View style={aiCardStyles.topRow}>
+            <View style={aiCardStyles.left}>
+              <View style={aiCardStyles.iconWrap}>
+                <Ionicons name="sparkles" size={18} color={Colors.dark.backgroundRoot} />
+              </View>
+              <View style={aiCardStyles.textWrap}>
+                <Text style={aiCardStyles.title}>AI Coach</Text>
+                <Text style={aiCardStyles.sub}>Ask about your game, progress and strategy</Text>
+              </View>
+            </View>
+            <View style={aiCardStyles.right}>
+              <View style={aiCardStyles.layersBadge}>
+                <View style={[aiCardStyles.layersDot, { backgroundColor: activeCount > 0 ? GlowColors.primary : Colors.dark.textMuted }]} />
+                <Text style={aiCardStyles.layersBadgeText}>{activeCount}/3 active</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+            </View>
           </View>
-        ) : null}
-        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-      </View>
+          {focusPreview ? (
+            <View style={aiCardStyles.focusRow}>
+              <Ionicons name="flag" size={11} color="#8B5CF6" />
+              <Text style={aiCardStyles.focusText} numberOfLines={1}>{focusPreview}</Text>
+            </View>
+          ) : null}
+          {isNearLimit && aiStatus ? (
+            <View style={aiCardStyles.limitRow}>
+              <Ionicons name="warning-outline" size={11} color={Colors.dark.error} />
+              <Text style={aiCardStyles.limitText}>
+                {Math.max(aiStatus.limit - aiStatus.callCount, 0)} messages left this month
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </LinearGradient>
     </Pressable>
   );
 }
 
 const aiCardStyles = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg + 1,
+    overflow: "hidden",
+  },
+  gradientBorder: {
+    padding: 1.5,
+    borderRadius: BorderRadius.lg + 1,
+  },
   card: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.xs,
+  },
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.dark.primary + "0F",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
-    borderRadius: BorderRadius.lg,
-    marginHorizontal: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
     gap: Spacing.sm,
   },
   left: {
@@ -326,10 +370,10 @@ const aiCardStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.primary,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: GlowColors.primary,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -338,7 +382,7 @@ const aiCardStyles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: Colors.dark.text,
   },
@@ -353,28 +397,51 @@ const aiCardStyles = StyleSheet.create({
     gap: Spacing.xs,
     flexShrink: 0,
   },
-  usageBadge: {
+  layersBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  usageBadgeWarn: {
-    borderColor: Colors.dark.error + "50",
-    backgroundColor: Colors.dark.error + "12",
+  layersDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  usageText: {
+  layersBadgeText: {
     fontSize: 10,
-    color: Colors.dark.textMuted,
     fontWeight: "600",
+    color: Colors.dark.textMuted,
   },
-  usageTextWarn: {
+  focusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(139,92,246,0.1)",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+  },
+  focusText: {
+    flex: 1,
+    fontSize: 11,
+    color: Colors.dark.textSubtle,
+    fontStyle: "italic",
+  },
+  limitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  limitText: {
+    fontSize: 11,
     color: Colors.dark.error,
+    fontWeight: "600",
   },
 });
 

@@ -20,6 +20,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
+import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AI_COACH_INTRO_SEEN_KEY = "ai_coach_intro_seen";
@@ -43,8 +44,56 @@ interface GlowMirrorLayers {
   perceptionGaps: boolean;
 }
 
+interface TrainingSession {
+  id: string;
+  date: string;
+  type: string;
+  duration: number;
+  coachName: string;
+  attended: boolean;
+  xpEarned: number;
+  hasReflection?: boolean;
+  domains?: { domain: string; xp: number }[];
+  feedback?: {
+    focus: number;
+    effort: number;
+    message?: string;
+  };
+}
+
+interface WeeklyDigest {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  data: {
+    focusArea?: string;
+    keepDoing?: string;
+    improve?: string;
+    reason?: string;
+    drillTip?: string;
+    motivation?: string;
+  } | null;
+  createdAt: string;
+}
+
+interface MonthlyAssessmentEntry {
+  id: string;
+  status: "pending" | "completed";
+  monthYear: string;
+  aiSummary?: string | null;
+}
+
+interface MonthlyAssessmentResponse {
+  monthYear: string;
+  assessment: MonthlyAssessmentEntry | null;
+}
+
 const AI_LABEL = "AI Coach";
 const ACCENT = Colors.dark.primary;
+const MIRROR_ACCENT = "#A78BFA";
+
+type TabKey = "chat" | "mirror" | "plan";
 
 function TypingIndicator() {
   const [dots, setDots] = useState(".");
@@ -536,10 +585,682 @@ function MaturityBanner({ dataMaturity, onDismiss }: { dataMaturity: DataMaturit
   );
 }
 
+function MyMirrorTab({
+  glowMirrorLayers,
+  monthlyAssessmentData,
+  onOpenMonthlyModal,
+}: {
+  glowMirrorLayers: GlowMirrorLayers | null;
+  monthlyAssessmentData: MonthlyAssessmentResponse | undefined;
+  onOpenMonthlyModal: () => void;
+}) {
+  const navigation = useNavigation();
+  const connectedCount = glowMirrorLayers
+    ? [glowMirrorLayers.sessionCheckins, glowMirrorLayers.monthlyVoice, glowMirrorLayers.perceptionGaps].filter(Boolean).length
+    : 0;
+
+  const { data: sessions } = useQuery<TrainingSession[]>({
+    queryKey: ["/api/player/training-history"],
+  });
+
+  const recentSessions = (sessions || []).slice(0, 5);
+
+  const handleSessionPress = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.getParent()?.navigate("TrainingDetail", { sessionId });
+  };
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={mirrorTabStyles.scroll}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Glow Mirror Layer Health Grid */}
+      <View style={mirrorTabStyles.section}>
+        <Text style={mirrorTabStyles.sectionTitle}>GLOW MIRROR LAYERS</Text>
+        <View style={mirrorTabStyles.layersCard}>
+          <View style={mirrorTabStyles.layersHeader}>
+            <View style={mirrorTabStyles.layersHeaderLeft}>
+              <View style={[mirrorTabStyles.layersDot, { backgroundColor: connectedCount > 0 ? MIRROR_ACCENT : Colors.dark.textMuted }]} />
+              <Text style={mirrorTabStyles.layersTitle}>Your Coaching Picture</Text>
+            </View>
+            <View style={[
+              mirrorTabStyles.layersBadge,
+              connectedCount > 0 ? mirrorTabStyles.layersBadgeActive : mirrorTabStyles.layersBadgeInactive,
+            ]}>
+              <Text style={[
+                mirrorTabStyles.layersBadgeText,
+                { color: connectedCount > 0 ? MIRROR_ACCENT : Colors.dark.textMuted },
+              ]}>
+                {connectedCount}/3 active
+              </Text>
+            </View>
+          </View>
+          {GLOW_MIRROR_LAYER_LABELS.map((l) => {
+            const active = glowMirrorLayers ? glowMirrorLayers[l.key] : false;
+            return (
+              <View key={l.key} style={mirrorTabStyles.layerRow}>
+                <View style={[mirrorTabStyles.layerIcon, active ? mirrorTabStyles.layerIconActive : mirrorTabStyles.layerIconInactive]}>
+                  <Ionicons name={l.icon} size={14} color={active ? MIRROR_ACCENT : Colors.dark.textMuted} />
+                </View>
+                <View style={mirrorTabStyles.layerText}>
+                  <Text style={[mirrorTabStyles.layerLabel, !active && { color: Colors.dark.textMuted }]}>{l.label}</Text>
+                  <Text style={mirrorTabStyles.layerDesc}>{l.desc}</Text>
+                </View>
+                <Ionicons
+                  name={active ? "checkmark-circle" : "ellipse-outline"}
+                  size={18}
+                  color={active ? MIRROR_ACCENT : Colors.dark.textMuted}
+                />
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Monthly Check-In Card */}
+      {monthlyAssessmentData ? (
+        <View style={mirrorTabStyles.section}>
+          <Text style={mirrorTabStyles.sectionTitle}>MONTHLY CHECK-IN</Text>
+          <Pressable
+            style={[
+              mirrorTabStyles.monthlyCard,
+              monthlyAssessmentData.assessment?.status === "completed"
+                ? mirrorTabStyles.monthlyCardDone
+                : mirrorTabStyles.monthlyCardPending,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onOpenMonthlyModal();
+            }}
+          >
+            <View style={mirrorTabStyles.monthlyCardLeft}>
+              <View style={mirrorTabStyles.monthlyIcon}>
+                <Ionicons name="mic" size={22} color={MIRROR_ACCENT} />
+              </View>
+              <View style={mirrorTabStyles.monthlyInfo}>
+                <Text style={mirrorTabStyles.monthlyTitle}>
+                  {monthlyAssessmentData.assessment?.status === "completed"
+                    ? "Monthly Voice Captured"
+                    : "Monthly Check-In Ready"}
+                </Text>
+                <Text style={mirrorTabStyles.monthlySub}>
+                  {monthlyAssessmentData.assessment?.status === "completed"
+                    ? monthlyAssessmentData.assessment?.aiSummary
+                      ? monthlyAssessmentData.assessment.aiSummary.slice(0, 80) + "..."
+                      : `${monthlyAssessmentData.monthYear} — your voice is with your coach`
+                    : "Share how you feel about your game this month"}
+                </Text>
+              </View>
+            </View>
+            <Ionicons
+              name={monthlyAssessmentData.assessment?.status === "completed" ? "checkmark-circle" : "chevron-forward"}
+              size={22}
+              color={MIRROR_ACCENT}
+            />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Recent Sessions */}
+      <View style={mirrorTabStyles.section}>
+        <View style={mirrorTabStyles.sectionHeaderRow}>
+          <Text style={mirrorTabStyles.sectionTitle}>RECENT SESSIONS</Text>
+          <Text style={mirrorTabStyles.sectionSubtitle}>Tap to add or view reflection</Text>
+        </View>
+        {recentSessions.length === 0 ? (
+          <View style={mirrorTabStyles.emptyCard}>
+            <Ionicons name="calendar-outline" size={28} color={Colors.dark.textMuted} />
+            <Text style={mirrorTabStyles.emptyText}>No sessions yet</Text>
+            <Text style={mirrorTabStyles.emptySubtext}>Your recent sessions will appear here once your coach logs them</Text>
+          </View>
+        ) : (
+          <View style={mirrorTabStyles.sessionsList}>
+            {recentSessions.map((session) => {
+              const date = new Date(session.date);
+              const dateStr = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+              const typeLabel = session.type === "private" ? "Private" : session.type === "group" ? "Group" : session.type === "physical" ? "Physical" : "Training";
+              const hasReflection = session.hasReflection ?? false;
+
+              return (
+                <Pressable
+                  key={session.id}
+                  style={mirrorTabStyles.sessionRow}
+                  onPress={() => handleSessionPress(session.id)}
+                >
+                  <View style={mirrorTabStyles.sessionLeft}>
+                    <View style={[mirrorTabStyles.sessionDot, { backgroundColor: hasReflection ? MIRROR_ACCENT + "30" : "rgba(255,255,255,0.06)" }]}>
+                      <Ionicons
+                        name={hasReflection ? "mic" : "mic-outline"}
+                        size={14}
+                        color={hasReflection ? MIRROR_ACCENT : Colors.dark.textMuted}
+                      />
+                    </View>
+                    <View style={mirrorTabStyles.sessionInfo}>
+                      <Text style={mirrorTabStyles.sessionDate}>{dateStr}</Text>
+                      <Text style={mirrorTabStyles.sessionType}>{typeLabel} · {session.duration} min</Text>
+                    </View>
+                  </View>
+                  <View style={mirrorTabStyles.sessionRight}>
+                    {hasReflection ? (
+                      <View style={mirrorTabStyles.reflectionBadge}>
+                        <Ionicons name="checkmark-circle" size={12} color={MIRROR_ACCENT} />
+                        <Text style={mirrorTabStyles.reflectionBadgeText}>Reflected</Text>
+                      </View>
+                    ) : (
+                      <View style={mirrorTabStyles.addReflectionBadge}>
+                        <Ionicons name="add" size={12} color={Colors.dark.primary} />
+                        <Text style={mirrorTabStyles.addReflectionText}>Add</Text>
+                      </View>
+                    )}
+                    <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+const mirrorTabStyles = StyleSheet.create({
+  scroll: {
+    paddingBottom: 40,
+    gap: 0,
+  },
+  section: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: Colors.dark.textMuted,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  layersCard: {
+    backgroundColor: "rgba(167,139,250,0.06)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: MIRROR_ACCENT + "25",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  layersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  layersHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  layersDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  layersTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  layersBadge: {
+    borderRadius: BorderRadius.full ?? 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  layersBadgeActive: {
+    backgroundColor: MIRROR_ACCENT + "15",
+    borderWidth: 1,
+    borderColor: MIRROR_ACCENT + "40",
+  },
+  layersBadgeInactive: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  layersBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  layerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 4,
+  },
+  layerIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  layerIconActive: {
+    backgroundColor: MIRROR_ACCENT + "18",
+  },
+  layerIconInactive: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  layerText: {
+    flex: 1,
+    gap: 1,
+  },
+  layerLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  layerDesc: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 15,
+  },
+  monthlyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  monthlyCardDone: {
+    backgroundColor: MIRROR_ACCENT + "10",
+    borderColor: MIRROR_ACCENT + "40",
+  },
+  monthlyCardPending: {
+    backgroundColor: MIRROR_ACCENT + "08",
+    borderColor: MIRROR_ACCENT + "30",
+  },
+  monthlyCardLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  monthlyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: MIRROR_ACCENT + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  monthlyInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  monthlyTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  monthlySub: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 17,
+  },
+  emptyCard: {
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    padding: Spacing.xl,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 17,
+  },
+  sessionsList: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    overflow: "hidden",
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  sessionLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sessionDot: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  sessionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  sessionDate: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  sessionType: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  sessionRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  reflectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: MIRROR_ACCENT + "18",
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+    borderColor: MIRROR_ACCENT + "40",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  reflectionBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: MIRROR_ACCENT,
+  },
+  addReflectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  addReflectionText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+});
+
+function GlowPlanTab({ digest }: { digest: WeeklyDigest | null }) {
+  const hasFocus = digest && digest.data?.focusArea;
+  const focusArea = digest?.data?.focusArea;
+  const keepDoing = digest?.data?.keepDoing || digest?.data?.drillTip;
+  const improve = digest?.data?.improve || digest?.data?.motivation;
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={planTabStyles.scroll}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Weekly AI Focus Card */}
+      <View style={planTabStyles.section}>
+        <Text style={planTabStyles.sectionTitle}>YOUR FOCUS THIS WEEK</Text>
+        <View style={[planTabStyles.card, hasFocus ? planTabStyles.cardActive : planTabStyles.cardEmpty]}>
+          <View style={planTabStyles.cardHeader}>
+            <View style={planTabStyles.cardIconWrap}>
+              <Ionicons name="sparkles" size={18} color="#8B5CF6" />
+            </View>
+            <View style={planTabStyles.cardHeaderText}>
+              <Text style={planTabStyles.cardTitle}>Weekly AI Focus</Text>
+              {hasFocus ? (
+                <Text style={planTabStyles.cardSubtitle}>Personalised for your game</Text>
+              ) : (
+                <Text style={planTabStyles.cardSubtitle}>Generated after your coach logs sessions</Text>
+              )}
+            </View>
+          </View>
+          {hasFocus ? (
+            <View style={planTabStyles.bulletList}>
+              <View style={planTabStyles.bulletRow}>
+                <View style={planTabStyles.bulletIconWrap}>
+                  <Ionicons name="flag" size={13} color="#8B5CF6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[planTabStyles.bulletLabel, { color: "#8B5CF6" }]}>FOCUS THIS WEEK</Text>
+                  <Text style={planTabStyles.bulletText}>{focusArea}</Text>
+                </View>
+              </View>
+              {keepDoing ? (
+                <View style={planTabStyles.bulletRow}>
+                  <View style={planTabStyles.bulletIconWrap}>
+                    <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[planTabStyles.bulletLabel, { color: "#10B981" }]}>KEEP DOING</Text>
+                    <Text style={planTabStyles.bulletText}>{keepDoing}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {improve ? (
+                <View style={planTabStyles.bulletRow}>
+                  <View style={planTabStyles.bulletIconWrap}>
+                    <Ionicons name="trending-up" size={13} color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[planTabStyles.bulletLabel, { color: "#F59E0B" }]}>ONE THING TO IMPROVE</Text>
+                    <Text style={planTabStyles.bulletText}>{improve}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View style={planTabStyles.placeholderRow}>
+              <Ionicons name="time-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={planTabStyles.placeholderText}>Your weekly AI focus drops after sessions are logged by your coach</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Pre-Session Brief Placeholder */}
+      <View style={planTabStyles.section}>
+        <Text style={planTabStyles.sectionTitle}>PRE-SESSION BRIEF</Text>
+        <View style={[planTabStyles.card, planTabStyles.cardComingSoon]}>
+          <View style={planTabStyles.cardHeader}>
+            <View style={[planTabStyles.cardIconWrap, { backgroundColor: Colors.dark.primary + "20" }]}>
+              <Ionicons name="flash" size={18} color={Colors.dark.primary} />
+            </View>
+            <View style={planTabStyles.cardHeaderText}>
+              <Text style={planTabStyles.cardTitle}>Pre-Session Brief</Text>
+              <Text style={planTabStyles.cardSubtitle}>Coming this week</Text>
+            </View>
+            <View style={planTabStyles.comingSoonBadge}>
+              <Text style={planTabStyles.comingSoonText}>SOON</Text>
+            </View>
+          </View>
+          <Text style={planTabStyles.placeholderText}>
+            Before each session, your AI coach will prepare a personalised brief — what to focus on, warm-up tips, and mental cues for today.
+          </Text>
+        </View>
+      </View>
+
+      {/* Glow Plans Placeholder */}
+      <View style={planTabStyles.section}>
+        <Text style={planTabStyles.sectionTitle}>GLOW PLAN</Text>
+        <View style={[planTabStyles.card, planTabStyles.cardComingSoon]}>
+          <View style={planTabStyles.cardHeader}>
+            <View style={[planTabStyles.cardIconWrap, { backgroundColor: "#E040FB" + "20" }]}>
+              <Ionicons name="calendar" size={18} color="#E040FB" />
+            </View>
+            <View style={planTabStyles.cardHeaderText}>
+              <Text style={planTabStyles.cardTitle}>Weekly Glow Plan</Text>
+              <Text style={planTabStyles.cardSubtitle}>Your weekly plan drops every Monday</Text>
+            </View>
+            <View style={[planTabStyles.comingSoonBadge, { backgroundColor: "#E040FB" + "18", borderColor: "#E040FB" + "40" }]}>
+              <Text style={[planTabStyles.comingSoonText, { color: "#E040FB" }]}>SOON</Text>
+            </View>
+          </View>
+          <Text style={planTabStyles.placeholderText}>
+            A full weekly training plan tailored to your level, schedule and goals — generated every Monday by your AI coach.
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+const planTabStyles = StyleSheet.create({
+  scroll: {
+    paddingBottom: 40,
+    gap: 0,
+  },
+  section: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: Colors.dark.textMuted,
+  },
+  card: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  cardActive: {
+    backgroundColor: "rgba(139,92,246,0.08)",
+    borderColor: "rgba(139,92,246,0.25)",
+  },
+  cardEmpty: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  cardComingSoon: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: "rgba(255,255,255,0.07)",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  cardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(139,92,246,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  cardHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  cardSubtitle: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  comingSoonBadge: {
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexShrink: 0,
+  },
+  comingSoonText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: Colors.dark.primary,
+  },
+  bulletList: {
+    gap: Spacing.sm,
+  },
+  bulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  bulletIconWrap: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+    flexShrink: 0,
+  },
+  bulletLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+  bulletText: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    lineHeight: 19,
+  },
+  placeholderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  placeholderText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    lineHeight: 19,
+  },
+});
+
 export default function PlayerAICoachScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<TabKey>("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -550,6 +1271,7 @@ export default function PlayerAICoachScreen() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [introChecked, setIntroChecked] = useState(false);
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const { data: contextData } = useQuery<{ dataMaturity: DataMaturity; glowMirrorLayers?: GlowMirrorLayers; hasHistory: boolean }>({
@@ -568,10 +1290,21 @@ export default function PlayerAICoachScreen() {
     retry: false,
   });
 
+  const { data: monthlyAssessmentData } = useQuery<MonthlyAssessmentResponse | null>({
+    queryKey: ["/api/player/me/monthly-assessment/current"],
+    staleTime: 60 * 1000,
+  });
+
+  const { data: digest } = useQuery<WeeklyDigest | null>({
+    queryKey: ["/api/player/me/weekly-digest"],
+    staleTime: 5 * 60 * 1000,
+  });
+
   const dataMaturity = contextData?.dataMaturity;
   const hasHistory = contextData?.hasHistory ?? false;
   const sessionCount = dataMaturity?.sessionCount ?? null;
   const maturityLevel = dataMaturity?.maturityLevel ?? null;
+  const glowMirrorLayers = contextData?.glowMirrorLayers ?? null;
 
   const showOnboarding = sessionCount === 0 && !onboardingDone;
   const showBanner = !bannerDismissed && sessionCount !== null && sessionCount > 0 && sessionCount < 8;
@@ -753,8 +1486,15 @@ export default function PlayerAICoachScreen() {
     "Am I ready to move up a level?",
   ];
 
+  const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: "chat", label: "Chat", icon: "chatbubble-ellipses" },
+    { key: "mirror", label: "My Mirror", icon: "mic" },
+    { key: "plan", label: "Glow Plan", icon: "sparkles" },
+  ];
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
@@ -764,7 +1504,7 @@ export default function PlayerAICoachScreen() {
             <Ionicons name="sparkles" size={16} color={Colors.dark.backgroundRoot} />
           </View>
           <View>
-            <Text style={styles.headerTitle}>My AI Coach</Text>
+            <Text style={styles.headerTitle}>AI Coach Hub</Text>
             <Text style={styles.headerSub}>Powered by your coaching data</Text>
           </View>
         </View>
@@ -793,140 +1533,177 @@ export default function PlayerAICoachScreen() {
         </View>
       </View>
 
-      {showOnboarding ? (
-        <ScrollView
-          contentContainerStyle={[styles.onboardingScroll, { paddingBottom: insets.bottom + Spacing.xl }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <OnboardingSplash onStart={handleOnboardingStart} />
-        </ScrollView>
-      ) : (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={0}
-        >
-          {showBanner && dataMaturity ? (
-            <MaturityBanner dataMaturity={dataMaturity} onDismiss={() => setBannerDismissed(true)} />
-          ) : null}
-
-          <ScrollView
-            ref={scrollRef}
-            style={styles.messageList}
-            contentContainerStyle={styles.messageListContent}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={scrollToBottom}
-          >
-            {messages.length === 0 && isLoading ? (
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIcon}>
-                  <Ionicons name="sparkles" size={32} color={ACCENT} />
-                </View>
-                <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
-                <Text style={styles.emptyDesc}>
-                  I know your game from every session your coach has logged. Ask me anything.
-                </Text>
-                {hasHistory ? (
-                  <View style={styles.continuingBanner}>
-                    <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
-                    <Text style={styles.continuingBannerText}>Continuing from where we left off...</Text>
-                  </View>
-                ) : null}
-                <TypingIndicator />
-              </View>
-            ) : messages.length === 0 ? (
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIcon}>
-                  <Ionicons name="sparkles" size={32} color={ACCENT} />
-                </View>
-                <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
-                <Text style={styles.emptyDesc}>
-                  I know your game from every session your coach has logged. Ask me anything.
-                </Text>
-                <View style={styles.quickQuestions}>
-                  {QUICK_QUESTIONS.map((q) => (
-                    <Pressable
-                      key={q}
-                      style={styles.quickChip}
-                      onPress={() => sendMessage(q)}
-                    >
-                      <Text style={styles.quickChipText}>{q}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ) : (
-              <>
-                {messages.map((msg, i) => (
-                  <MessageBubble key={i} message={msg} />
-                ))}
-                {isLoading && messages[messages.length - 1]?.role === "user" ? (
-                  <TypingIndicator />
-                ) : null}
-                {!isLoading && remaining !== null && remaining > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? (
-                  <View style={styles.remainingBanner}>
-                    <Ionicons
-                      name="chatbubble-ellipses-outline"
-                      size={13}
-                      color={remaining <= 1 ? Colors.dark.error : remaining <= 2 ? "#F59E0B" : Colors.dark.textMuted}
-                    />
-                    <Text style={[
-                      styles.remainingBannerText,
-                      remaining <= 1 && { color: Colors.dark.error },
-                      remaining === 2 && { color: "#F59E0B" },
-                    ]}>
-                      {remaining} message{remaining !== 1 ? "s" : ""} left this month
-                    </Text>
-                  </View>
-                ) : null}
-              </>
-            )}
-          </ScrollView>
-
-          {isOutOfMessages ? (
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
             <Pressable
-              style={[styles.lockedBar, { paddingBottom: insets.bottom + Spacing.sm }]}
-              onPress={openUpgradeModal}
+              key={tab.key}
+              style={[styles.tabItem, isActive && styles.tabItemActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab(tab.key);
+              }}
             >
-              <View style={styles.lockedBarInner}>
-                <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
-                <Text style={styles.lockedBarText}>No messages left — upgrade to continue</Text>
-                <View style={styles.lockedUpgradeBtn}>
-                  <Text style={styles.lockedUpgradeBtnText}>Upgrade</Text>
-                </View>
-              </View>
-            </Pressable>
-          ) : (
-            <View style={[styles.inputRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
-              <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Ask your coach anything..."
-                placeholderTextColor={Colors.dark.textMuted}
-                multiline
-                maxLength={500}
-                showsVerticalScrollIndicator={false}
-                onSubmitEditing={() => sendMessage()}
-                blurOnSubmit={false}
+              <Ionicons
+                name={tab.icon}
+                size={14}
+                color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
               />
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Tab Content */}
+      {activeTab === "chat" ? (
+        showOnboarding ? (
+          <ScrollView
+            contentContainerStyle={[styles.onboardingScroll, { paddingBottom: insets.bottom + Spacing.xl }]}
+            showsVerticalScrollIndicator={false}
+          >
+            <OnboardingSplash onStart={handleOnboardingStart} />
+          </ScrollView>
+        ) : (
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={0}
+          >
+            {showBanner && dataMaturity ? (
+              <MaturityBanner dataMaturity={dataMaturity} onDismiss={() => setBannerDismissed(true)} />
+            ) : null}
+
+            <ScrollView
+              ref={scrollRef}
+              style={styles.messageList}
+              contentContainerStyle={styles.messageListContent}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={scrollToBottom}
+            >
+              {messages.length === 0 && isLoading ? (
+                <View style={styles.emptyState}>
+                  <View style={styles.emptyIcon}>
+                    <Ionicons name="sparkles" size={32} color={ACCENT} />
+                  </View>
+                  <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
+                  <Text style={styles.emptyDesc}>
+                    I know your game from every session your coach has logged. Ask me anything.
+                  </Text>
+                  {hasHistory ? (
+                    <View style={styles.continuingBanner}>
+                      <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
+                      <Text style={styles.continuingBannerText}>Continuing from where we left off...</Text>
+                    </View>
+                  ) : null}
+                  <TypingIndicator />
+                </View>
+              ) : messages.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <View style={styles.emptyIcon}>
+                    <Ionicons name="sparkles" size={32} color={ACCENT} />
+                  </View>
+                  <Text style={styles.emptyTitle}>Your Personal AI Coach</Text>
+                  <Text style={styles.emptyDesc}>
+                    I know your game from every session your coach has logged. Ask me anything.
+                  </Text>
+                  <View style={styles.quickQuestions}>
+                    {QUICK_QUESTIONS.map((q) => (
+                      <Pressable
+                        key={q}
+                        style={styles.quickChip}
+                        onPress={() => sendMessage(q)}
+                      >
+                        <Text style={styles.quickChipText}>{q}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <>
+                  {messages.map((msg, i) => (
+                    <MessageBubble key={i} message={msg} />
+                  ))}
+                  {isLoading && messages[messages.length - 1]?.role === "user" ? (
+                    <TypingIndicator />
+                  ) : null}
+                  {!isLoading && remaining !== null && remaining > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? (
+                    <View style={styles.remainingBanner}>
+                      <Ionicons
+                        name="chatbubble-ellipses-outline"
+                        size={13}
+                        color={remaining <= 1 ? Colors.dark.error : remaining <= 2 ? "#F59E0B" : Colors.dark.textMuted}
+                      />
+                      <Text style={[
+                        styles.remainingBannerText,
+                        remaining <= 1 && { color: Colors.dark.error },
+                        remaining === 2 && { color: "#F59E0B" },
+                      ]}>
+                        {remaining} message{remaining !== 1 ? "s" : ""} left this month
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
+            </ScrollView>
+
+            {isOutOfMessages ? (
               <Pressable
-                onPress={() => sendMessage()}
-                disabled={!inputText.trim() || isLoading}
-                style={[
-                  styles.sendBtn,
-                  { opacity: !inputText.trim() || isLoading ? 0.4 : 1 },
-                ]}
+                style={[styles.lockedBar, { paddingBottom: insets.bottom + Spacing.sm }]}
+                onPress={openUpgradeModal}
               >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                ) : (
-                  <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
-                )}
+                <View style={styles.lockedBarInner}>
+                  <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
+                  <Text style={styles.lockedBarText}>No messages left — upgrade to continue</Text>
+                  <View style={styles.lockedUpgradeBtn}>
+                    <Text style={styles.lockedUpgradeBtnText}>Upgrade</Text>
+                  </View>
+                </View>
               </Pressable>
-            </View>
-          )}
-        </KeyboardAvoidingView>
+            ) : (
+              <View style={[styles.inputRow, { paddingBottom: insets.bottom + Spacing.sm }]}>
+                <TextInput
+                  style={styles.input}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Ask your coach anything..."
+                  placeholderTextColor={Colors.dark.textMuted}
+                  multiline
+                  maxLength={500}
+                  showsVerticalScrollIndicator={false}
+                  onSubmitEditing={() => sendMessage()}
+                  blurOnSubmit={false}
+                />
+                <Pressable
+                  onPress={() => sendMessage()}
+                  disabled={!inputText.trim() || isLoading}
+                  style={[
+                    styles.sendBtn,
+                    { opacity: !inputText.trim() || isLoading ? 0.4 : 1 },
+                  ]}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  ) : (
+                    <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+                  )}
+                </Pressable>
+              </View>
+            )}
+          </KeyboardAvoidingView>
+        )
+      ) : activeTab === "mirror" ? (
+        <MyMirrorTab
+          glowMirrorLayers={glowMirrorLayers}
+          monthlyAssessmentData={monthlyAssessmentData}
+          onOpenMonthlyModal={() => setShowMonthlyModal(true)}
+        />
+      ) : (
+        <GlowPlanTab digest={digest ?? null} />
       )}
 
       <AiProUpgradeModal
@@ -955,6 +1732,12 @@ export default function PlayerAICoachScreen() {
           });
           setShowUpgradeModal(true);
         }}
+      />
+
+      <MonthlyAssessmentModal
+        visible={showMonthlyModal}
+        onClose={() => setShowMonthlyModal(false)}
+        existingAssessment={monthlyAssessmentData?.assessment}
       />
     </View>
   );
@@ -1025,6 +1808,33 @@ const styles = StyleSheet.create({
   },
   usagePillTextFull: {
     color: Colors.dark.error,
+  },
+  tabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  tabItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: Spacing.sm + 2,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  tabItemActive: {
+    borderBottomColor: Colors.dark.primary,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  tabLabelActive: {
+    color: Colors.dark.primary,
   },
   onboardingScroll: {
     flexGrow: 1,
@@ -1175,18 +1985,18 @@ const styles = StyleSheet.create({
   },
   maturityProgressTrack: {
     height: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    flexDirection: "row",
     borderRadius: 2,
     overflow: "hidden",
-    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.07)",
   },
   maturityProgressFill: {
-    height: 3,
     borderRadius: 2,
   },
   maturityBannerSub: {
     color: Colors.dark.textMuted,
     fontSize: 11,
+    lineHeight: 15,
   },
   messageList: {
     flex: 1,
@@ -1194,27 +2004,27 @@ const styles = StyleSheet.create({
   messageListContent: {
     padding: Spacing.md,
     gap: Spacing.sm,
+    paddingBottom: Spacing.xl,
   },
   emptyState: {
-    flex: 1,
     alignItems: "center",
-    paddingTop: Spacing["2xl"],
-    gap: Spacing.sm,
+    gap: Spacing.md,
+    paddingTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
   emptyIcon: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.dark.primary + "20",
+    backgroundColor: ACCENT + "18",
+    borderWidth: 1.5,
+    borderColor: ACCENT + "40",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: Colors.dark.primary + "40",
-    marginBottom: Spacing.xs,
   },
   emptyTitle: {
     color: Colors.dark.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
   },
@@ -1223,112 +2033,141 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
-    paddingHorizontal: Spacing.lg,
+  },
+  continuingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+  },
+  continuingBannerText: {
+    color: Colors.dark.primary,
+    fontSize: 12,
+    fontWeight: "600",
   },
   quickQuestions: {
     width: "100%",
     gap: Spacing.xs,
-    marginTop: Spacing.md,
   },
   quickChip: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.1)",
+    padding: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
   },
   quickChipText: {
-    color: Colors.dark.text,
-    fontSize: 14,
-  },
-  aiBubbleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  userBubbleRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginBottom: Spacing.xs,
-  },
-  aiAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  bubble: {
-    maxWidth: "78%",
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
-  },
-  aiBubble: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-  userBubble: {
-    backgroundColor: Colors.dark.primary + "25",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "50",
-  },
-  aiLabel: {
-    color: Colors.dark.primary,
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 3,
-  },
-  bubbleText: {
-    color: Colors.dark.text,
+    color: Colors.dark.textSubtle,
     fontSize: 14,
     lineHeight: 20,
-  },
-  userBubbleText: {
-    color: Colors.dark.text,
   },
   remainingBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
+    paddingVertical: Spacing.xs,
     marginTop: Spacing.xs,
-    marginBottom: Spacing.xs,
   },
   remainingBannerText: {
     color: Colors.dark.textMuted,
     fontSize: 12,
     fontWeight: "500",
   },
-  continuingBanner: {
+  aiBubbleRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.primary + "14",
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "35",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    marginTop: Spacing.sm,
+    maxWidth: "88%",
+    alignSelf: "flex-start",
   },
-  continuingBannerText: {
-    color: Colors.dark.primary,
-    fontSize: 13,
-    fontWeight: "600",
+  userBubbleRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    maxWidth: "88%",
+    alignSelf: "flex-end",
+  },
+  aiAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    marginBottom: 2,
+  },
+  bubble: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    maxWidth: "100%",
+  },
+  aiBubble: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    flex: 1,
+  },
+  userBubble: {
+    backgroundColor: Colors.dark.primary,
+  },
+  aiLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: ACCENT,
+    marginBottom: 3,
+    letterSpacing: 0.3,
+  },
+  bubbleText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    lineHeight: 20,
+  },
+  userBubbleText: {
+    color: Colors.dark.backgroundRoot,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.07)",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    color: Colors.dark.text,
+    fontSize: 15,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    maxHeight: 120,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   lockedBar: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: "rgba(255,255,255,0.07)",
     backgroundColor: Colors.dark.backgroundRoot,
   },
   lockedBarInner: {
@@ -1338,14 +2177,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    borderColor: "rgba(255,255,255,0.08)",
+    padding: Spacing.md,
   },
   lockedBarText: {
     flex: 1,
     color: Colors.dark.textMuted,
-    fontSize: 14,
+    fontSize: 13,
   },
   lockedUpgradeBtn: {
     backgroundColor: Colors.dark.primary,
@@ -1357,36 +2195,5 @@ const styles = StyleSheet.create({
     color: Colors.dark.backgroundRoot,
     fontSize: 13,
     fontWeight: "700",
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    color: Colors.dark.text,
-    fontSize: 14,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    maxHeight: 120,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

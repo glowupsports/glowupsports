@@ -1497,6 +1497,25 @@ export default function PlayerProgressScreen() {
     },
   });
 
+  const { data: aiCoachContext } = useQuery<{
+    dataMaturity: { sessionCount: number; maturityLevel: string; nextMilestone: string };
+    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
+    hasHistory: boolean;
+  }>({
+    queryKey: ["/api/player/me/ai-coach/context"],
+    enabled: !isGuest,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: weeklyDigest } = useQuery<{
+    id: string;
+    data: { focusArea?: string; keepDoing?: string; improve?: string; drillTip?: string; motivation?: string } | null;
+  } | null>({
+    queryKey: ["/api/player/me/weekly-digest"],
+    enabled: !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const makeSportUrl = (path: string) => {
     const url = new URL(path, getApiUrl());
     url.searchParams.set("sport", activeSport);
@@ -1976,51 +1995,109 @@ export default function PlayerProgressScreen() {
           </Pressable>
         ) : null}
 
-        {/* Glow Mirror Layer 2 — Monthly Check-In Card */}
-        {!isGuest && monthlyAssessmentData && (
-          <Pressable
-            style={[
-              styles.monthlyMirrorCard,
-              monthlyAssessmentData.assessment?.status === "completed"
-                ? styles.monthlyMirrorCardDone
-                : styles.monthlyMirrorCardPending,
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowMonthlyModal(true);
-            }}
-          >
-            <View style={styles.monthlyMirrorIcon}>
-              <Ionicons name="mic" size={18} color="#A78BFA" />
-            </View>
-            <View style={styles.monthlyMirrorContent}>
-              <Text style={styles.monthlyMirrorTitle}>
-                {monthlyAssessmentData.assessment?.status === "completed"
-                  ? "Monthly Voice Captured"
-                  : "Monthly Check-In Ready"}
-              </Text>
-              <Text style={styles.monthlyMirrorSub}>
-                {monthlyAssessmentData.assessment?.status === "completed"
-                  ? monthlyAssessmentData.assessment?.aiSummary
-                    ? monthlyAssessmentData.assessment.aiSummary.slice(0, 80) + "..."
-                    : `${monthlyAssessmentData.monthYear} — your voice is with your coach`
-                  : "Share how you feel about your game this month"}
-              </Text>
-            </View>
-            <Ionicons
-              name={
-                monthlyAssessmentData.assessment?.status === "completed"
-                  ? "checkmark-circle"
-                  : "chevron-forward"
-              }
-              size={18}
-              color={
-                monthlyAssessmentData.assessment?.status === "completed"
-                  ? "#A78BFA"
-                  : "#A78BFA"
-              }
-            />
-          </Pressable>
+        {/* AI COACH HERO SECTION */}
+        {!isGuest && (
+          <View style={styles.aiCoachHeroSection}>
+            <LinearGradient
+              colors={["rgba(200,255,61,0.06)", "rgba(167,139,250,0.08)", "rgba(0,229,255,0.04)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.aiCoachHeroCard}
+            >
+              {/* Hero Header */}
+              <View style={styles.aiCoachHeroHeader}>
+                <View style={styles.aiCoachHeroIcon}>
+                  <Ionicons name="sparkles" size={20} color={Colors.dark.backgroundRoot} />
+                </View>
+                <View style={styles.aiCoachHeroTitleWrap}>
+                  <Text style={styles.aiCoachHeroLabel}>YOUR AI COACH</Text>
+                  <Text style={styles.aiCoachHeroSubtitle}>Personalised to your game</Text>
+                </View>
+              </View>
+
+              {/* Glow Mirror Layer Indicators */}
+              <View style={styles.aiCoachLayersRow}>
+                {[
+                  { key: "sessionCheckins" as const, label: "Sessions", icon: "journal-outline" as const },
+                  { key: "monthlyVoice" as const, label: "Monthly", icon: "mic-outline" as const },
+                  { key: "perceptionGaps" as const, label: "Perception", icon: "eye-outline" as const },
+                ].map((l) => {
+                  const active = aiCoachContext?.glowMirrorLayers ? aiCoachContext.glowMirrorLayers[l.key] : false;
+                  return (
+                    <View key={l.key} style={styles.aiCoachLayerItem}>
+                      <View style={[styles.aiCoachLayerDot, { backgroundColor: active ? GlowColors.primary : "rgba(255,255,255,0.15)" }]} />
+                      <Text style={[styles.aiCoachLayerLabel, !active && { color: Colors.dark.textMuted }]}>
+                        {l.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Weekly Focus Preview */}
+              {weeklyDigest?.data?.focusArea ? (
+                <View style={styles.aiCoachFocusPreview}>
+                  <Ionicons name="flag" size={12} color="#8B5CF6" />
+                  <Text style={styles.aiCoachFocusText} numberOfLines={2}>
+                    {weeklyDigest.data.focusArea}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Monthly Check-In Card */}
+              {monthlyAssessmentData ? (
+                <Pressable
+                  style={[
+                    styles.aiCoachMonthlyCard,
+                    monthlyAssessmentData.assessment?.status === "completed"
+                      ? styles.aiCoachMonthlyCardDone
+                      : styles.aiCoachMonthlyCardPending,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowMonthlyModal(true);
+                  }}
+                >
+                  <View style={styles.aiCoachMonthlyIcon}>
+                    <Ionicons name="mic" size={18} color="#A78BFA" />
+                  </View>
+                  <View style={styles.aiCoachMonthlyContent}>
+                    <Text style={styles.aiCoachMonthlyTitle}>
+                      {monthlyAssessmentData.assessment?.status === "completed"
+                        ? "Monthly Voice Captured"
+                        : "Monthly Check-In Ready"}
+                    </Text>
+                    <Text style={styles.aiCoachMonthlySub}>
+                      {monthlyAssessmentData.assessment?.status === "completed"
+                        ? monthlyAssessmentData.assessment?.aiSummary
+                          ? monthlyAssessmentData.assessment.aiSummary.slice(0, 70) + "..."
+                          : `${monthlyAssessmentData.monthYear} — captured`
+                        : "Share how you feel this month"}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={monthlyAssessmentData.assessment?.status === "completed" ? "checkmark-circle" : "chevron-forward"}
+                    size={18}
+                    color="#A78BFA"
+                  />
+                </Pressable>
+              ) : null}
+
+              {/* Open AI Coach CTA */}
+              <Pressable
+                style={styles.aiCoachOpenBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  track("progress:open_ai_coach");
+                  navigation.navigate("PlayerAICoach");
+                }}
+              >
+                <Ionicons name="sparkles" size={14} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.aiCoachOpenBtnText}>Open AI Coach</Text>
+                <Ionicons name="arrow-forward" size={14} color={Colors.dark.backgroundRoot} />
+              </Pressable>
+            </LinearGradient>
+          </View>
         )}
 
         {/* Glow Plan — This Week's Focus Card */}
@@ -3735,6 +3812,144 @@ const styles = StyleSheet.create({
     color: GlowColors.primary,
     textAlign: "right",
   },
+  // AI Coach Hero Section (Progress screen)
+  aiCoachHeroSection: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  aiCoachHeroCard: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: "rgba(200,255,61,0.2)",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    overflow: "hidden",
+  },
+  aiCoachHeroHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  aiCoachHeroIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: GlowColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  aiCoachHeroTitleWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  aiCoachHeroLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: GlowColors.primary,
+  },
+  aiCoachHeroSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+  },
+  aiCoachLayersRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  aiCoachLayerItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+  },
+  aiCoachLayerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  aiCoachLayerLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  aiCoachFocusPreview: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(139,92,246,0.1)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.2)",
+    padding: Spacing.sm,
+  },
+  aiCoachFocusText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textSubtle,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
+  aiCoachMonthlyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.sm + 2,
+  },
+  aiCoachMonthlyCardPending: {
+    backgroundColor: "rgba(167,139,250,0.08)",
+    borderColor: "rgba(167,139,250,0.35)",
+  },
+  aiCoachMonthlyCardDone: {
+    backgroundColor: "rgba(167,139,250,0.04)",
+    borderColor: "rgba(167,139,250,0.15)",
+  },
+  aiCoachMonthlyIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(167,139,250,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  aiCoachMonthlyContent: {
+    flex: 1,
+    gap: 2,
+  },
+  aiCoachMonthlyTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  aiCoachMonthlySub: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 15,
+  },
+  aiCoachOpenBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+  },
+  aiCoachOpenBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
 });
 
 const modalStyles = StyleSheet.create({
@@ -4052,5 +4267,142 @@ const modalStyles = StyleSheet.create({
     color: Colors.dark.textMuted,
     flex: 1,
     lineHeight: 17,
+  },
+  aiCoachHeroSection: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  aiCoachHeroCard: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: "rgba(200,255,61,0.2)",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    overflow: "hidden",
+  },
+  aiCoachHeroHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  aiCoachHeroIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: GlowColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  aiCoachHeroTitleWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  aiCoachHeroLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: GlowColors.primary,
+  },
+  aiCoachHeroSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+  },
+  aiCoachLayersRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  aiCoachLayerItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+  },
+  aiCoachLayerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  aiCoachLayerLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  aiCoachFocusPreview: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(139,92,246,0.1)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.2)",
+    padding: Spacing.sm,
+  },
+  aiCoachFocusText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textSubtle,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
+  aiCoachMonthlyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.sm + 2,
+  },
+  aiCoachMonthlyCardPending: {
+    backgroundColor: "rgba(167,139,250,0.08)",
+    borderColor: "rgba(167,139,250,0.35)",
+  },
+  aiCoachMonthlyCardDone: {
+    backgroundColor: "rgba(167,139,250,0.04)",
+    borderColor: "rgba(167,139,250,0.15)",
+  },
+  aiCoachMonthlyIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(167,139,250,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  aiCoachMonthlyContent: {
+    flex: 1,
+    gap: 2,
+  },
+  aiCoachMonthlyTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  aiCoachMonthlySub: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 15,
+  },
+  aiCoachOpenBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+  },
+  aiCoachOpenBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });
