@@ -3348,6 +3348,24 @@ router.get(
   }
 );
 
+const preReflectionSchema = z.object({
+  preMatchMood: z.string().max(50).nullable().optional(),
+  preMatchConfidence: z.number().int().min(1).max(10).nullable().optional(),
+  preMatchGoal: z.string().max(80).nullable().optional(),
+});
+
+const postReflectionSchema = z.object({
+  whatWorked: z.array(z.string().max(100)).max(20).optional(),
+  whatDidntWork: z.array(z.string().max(100)).max(20).optional(),
+  biggestChallenge: z.string().max(100).nullable().optional(),
+  postMatchEnergy: z.string().max(50).nullable().optional(),
+  postMatchMood: z.string().max(50).nullable().optional(),
+  postMatchConfidence: z.number().int().min(1).max(10).nullable().optional(),
+  keyTakeaway: z.string().max(100).nullable().optional(),
+});
+
+const combinedReflectionSchema = preReflectionSchema.merge(postReflectionSchema);
+
 // POST pre-match reflection (capture mindset before a match)
 router.post(
   "/api/player/me/matches/:matchId/pre-reflection",
@@ -3361,7 +3379,9 @@ router.post(
       const isOwner = await verifyMatchOwnership(matchId, playerId);
       if (!isOwner) return res.status(403).json({ error: "Match not found or not yours" });
 
-      const { preMatchMood, preMatchConfidence, preMatchGoal } = req.body;
+      const parsed = preReflectionSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: fromZodError(parsed.error).message });
+      const { preMatchMood, preMatchConfidence, preMatchGoal } = parsed.data;
 
       const [existing] = await db
         .select({ id: matchReflections.id, preMatchMood: matchReflections.preMatchMood, preMatchConfidence: matchReflections.preMatchConfidence, preMatchGoal: matchReflections.preMatchGoal })
@@ -3414,7 +3434,9 @@ router.put(
       const isOwner = await verifyMatchOwnership(matchId, playerId);
       if (!isOwner) return res.status(403).json({ error: "Match not found or not yours" });
 
-      const { whatWorked, whatDidntWork, biggestChallenge, postMatchEnergy, postMatchMood, postMatchConfidence, keyTakeaway } = req.body;
+      const parsedPost = postReflectionSchema.safeParse(req.body);
+      if (!parsedPost.success) return res.status(400).json({ error: fromZodError(parsedPost.error).message });
+      const { whatWorked, whatDidntWork, biggestChallenge, postMatchEnergy, postMatchMood, postMatchConfidence, keyTakeaway } = parsedPost.data;
 
       const [existing] = await db
         .select({ id: matchReflections.id })
@@ -3483,11 +3505,13 @@ router.post(
       const isOwner = await verifyMatchOwnership(matchId, playerId);
       if (!isOwner) return res.status(403).json({ error: "Match not found or not yours" });
 
+      const parsedCombined = combinedReflectionSchema.safeParse(req.body);
+      if (!parsedCombined.success) return res.status(400).json({ error: fromZodError(parsedCombined.error).message });
       const {
         preMatchMood, preMatchConfidence, preMatchGoal,
         whatWorked, whatDidntWork, biggestChallenge,
         postMatchEnergy, postMatchMood, postMatchConfidence, keyTakeaway,
-      } = req.body;
+      } = parsedCombined.data;
 
       const [existing] = await db
         .select({ id: matchReflections.id })
@@ -3549,7 +3573,91 @@ router.post(
 
 // ==================== GLOW MIRROR — SESSION REFLECTIONS ====================
 
-// GET reflection for a specific session (player's own)
+// Shared validation schema for session reflection body
+const sessionReflectionSchema = z.object({
+  energyLevel: z.number().int().min(1).max(5).nullable().optional(),
+  overallFeeling: z.number().int().min(1).max(5).nullable().optional(),
+  hardestPart: z.string().max(200).nullable().optional(),
+  keyLearning: z.string().max(200).nullable().optional(),
+  nextFocus: z.string().max(200).nullable().optional(),
+});
+
+// Shared handler for saving a session reflection (upsert)
+async function saveSessionReflection(
+  playerId: string,
+  academyId: string | null | undefined,
+  sessionId: string,
+  body: unknown,
+  res: Response
+) {
+  // Validate input
+  const parsed = sessionReflectionSchema.safeParse(body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: fromZodError(parsed.error).message });
+  }
+  const { energyLevel, hardestPart, keyLearning, nextFocus, overallFeeling } = parsed.data;
+
+  // Verify the player is part of this session
+  const sessionPlayerRecord = await db
+    .select({ id: sessionPlayers.id })
+    .from(sessionPlayers)
+    .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.playerId, playerId)))
+    .limit(1);
+
+  if (sessionPlayerRecord.length === 0) {
+    return res.status(403).json({ error: "Player is not part of this session" });
+  }
+
+  // Build AI summary
+  const parts: string[] = [];
+  if (energyLevel) parts.push(`Energy: ${energyLevel}/5`);
+  if (overallFeeling) parts.push(`Overall feeling: ${overallFeeling}/5`);
+  if (hardestPart) parts.push(`Hardest part: ${hardestPart}`);
+  if (keyLearning) parts.push(`Key learning: ${keyLearning}`);
+  if (nextFocus) parts.push(`Next focus: ${nextFocus}`);
+  const aiSummary = parts.join(". ");
+
+  // Check first-time for XP eligibility
+  const [existing] = await db
+    .select({ id: playerSessionReflections.id })
+    .from(playerSessionReflections)
+    .where(and(eq(playerSessionReflections.sessionId, sessionId), eq(playerSessionReflections.playerId, playerId)))
+    .limit(1);
+
+  const isFirstReflection = !existing;
+
+  // Upsert: delete then insert (unique index on player+session)
+  await db
+    .delete(playerSessionReflections)
+    .where(and(eq(playerSessionReflections.sessionId, sessionId), eq(playerSessionReflections.playerId, playerId)));
+
+  const [reflection] = await db
+    .insert(playerSessionReflections)
+    .values({
+      playerId,
+      sessionId,
+      academyId: academyId || null,
+      energyLevel: energyLevel ?? null,
+      hardestPart: hardestPart || null,
+      keyLearning: keyLearning || null,
+      nextFocus: nextFocus || null,
+      overallFeeling: overallFeeling ?? null,
+      aiSummary,
+    })
+    .returning();
+
+  if (isFirstReflection) {
+    try {
+      await awardXP(playerId, "session_reflection", "session", sessionId);
+    } catch (xpErr) {
+      console.error("[SessionReflection] XP award failed (non-fatal):", xpErr);
+    }
+  }
+
+  return res.status(isFirstReflection ? 201 : 200).json(reflection);
+}
+
+// GET /api/player/sessions/:sessionId/reflection — fetch session reflection
 router.get(
   "/api/player/sessions/:sessionId/reflection",
   authMiddleware,
@@ -3562,12 +3670,7 @@ router.get(
       const [reflection] = await db
         .select()
         .from(playerSessionReflections)
-        .where(
-          and(
-            eq(playerSessionReflections.sessionId, sessionId),
-            eq(playerSessionReflections.playerId, playerId)
-          )
-        )
+        .where(and(eq(playerSessionReflections.sessionId, sessionId), eq(playerSessionReflections.playerId, playerId)))
         .limit(1);
 
       res.json(reflection || null);
@@ -3578,93 +3681,15 @@ router.get(
   }
 );
 
-// POST / UPSERT reflection for a session (player's own)
+// POST /api/player/sessions/:sessionId/reflection — save session reflection
 router.post(
   "/api/player/sessions/:sessionId/reflection",
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { sessionId } = req.params;
       const playerId = req.user!.playerId;
-      const academyId = req.user!.academyId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
-
-      // Verify the player is actually part of this session
-      const sessionPlayerRecord = await db
-        .select({ id: sessionPlayers.id })
-        .from(sessionPlayers)
-        .where(
-          and(
-            eq(sessionPlayers.sessionId, sessionId),
-            eq(sessionPlayers.playerId, playerId)
-          )
-        )
-        .limit(1);
-
-      if (sessionPlayerRecord.length === 0) {
-        return res.status(403).json({ error: "Player is not part of this session" });
-      }
-
-      const { energyLevel, hardestPart, keyLearning, nextFocus, overallFeeling } = req.body;
-
-      // Build AI summary from raw answers
-      const parts: string[] = [];
-      if (energyLevel) parts.push(`Energy: ${energyLevel}/5`);
-      if (overallFeeling) parts.push(`Overall feeling: ${overallFeeling}/5`);
-      if (hardestPart) parts.push(`Hardest part: ${hardestPart}`);
-      if (keyLearning) parts.push(`Key learning: ${keyLearning}`);
-      if (nextFocus) parts.push(`Next focus: ${nextFocus}`);
-      const aiSummary = parts.join(". ");
-
-      // Check if a reflection already exists — used to determine XP eligibility
-      const [existing] = await db
-        .select({ id: playerSessionReflections.id })
-        .from(playerSessionReflections)
-        .where(
-          and(
-            eq(playerSessionReflections.sessionId, sessionId),
-            eq(playerSessionReflections.playerId, playerId)
-          )
-        )
-        .limit(1);
-
-      const isFirstReflection = !existing;
-
-      // Upsert — delete existing then insert (psql unique index ensures one per player/session)
-      await db
-        .delete(playerSessionReflections)
-        .where(
-          and(
-            eq(playerSessionReflections.sessionId, sessionId),
-            eq(playerSessionReflections.playerId, playerId)
-          )
-        );
-
-      const [reflection] = await db
-        .insert(playerSessionReflections)
-        .values({
-          playerId,
-          sessionId,
-          academyId: academyId || null,
-          energyLevel: energyLevel ?? null,
-          hardestPart: hardestPart || null,
-          keyLearning: keyLearning || null,
-          nextFocus: nextFocus || null,
-          overallFeeling: overallFeeling ?? null,
-          aiSummary,
-        })
-        .returning();
-
-      // Award XP only for first-time session reflection (not on edits)
-      if (isFirstReflection) {
-        try {
-          await awardXP(playerId, "session_reflection", "session", sessionId);
-        } catch (xpErr) {
-          console.error("[SessionReflection] XP award failed (non-fatal):", xpErr);
-        }
-      }
-
-      res.status(isFirstReflection ? 201 : 200).json(reflection);
+      await saveSessionReflection(playerId, req.user!.academyId, req.params.sessionId, req.body, res);
     } catch (error) {
       console.error("[SessionReflection] POST error:", error);
       res.status(500).json({ error: "Failed to save reflection" });
@@ -3672,9 +3697,7 @@ router.post(
   }
 );
 
-// ==================== GLOW MIRROR — SESSION REFLECTION ALIASES ====================
-// Alias routes at /api/player/me/session-reflection/:sessionId for spec compatibility
-
+// GET /api/player/me/session-reflection/:sessionId — alias (path-based sessionId)
 router.get(
   "/api/player/me/session-reflection/:sessionId",
   authMiddleware,
@@ -3697,72 +3720,38 @@ router.get(
   }
 );
 
+// POST /api/player/me/session-reflection/:sessionId — alias (path-based sessionId)
 router.post(
   "/api/player/me/session-reflection/:sessionId",
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
-    // Delegate to the existing handler logic via internal redirect equivalent
-    req.params.sessionId = req.params.sessionId; // already set
-    const { sessionId } = req.params;
-    const playerId = req.user!.playerId;
-    const academyId = req.user!.academyId;
-    if (!playerId) return res.status(403).json({ error: "Player only" });
-
     try {
-      const sessionPlayerRecord = await db
-        .select({ id: sessionPlayers.id })
-        .from(sessionPlayers)
-        .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.playerId, playerId)))
-        .limit(1);
-
-      if (sessionPlayerRecord.length === 0) {
-        return res.status(403).json({ error: "Player is not part of this session" });
-      }
-
-      const { energyLevel, hardestPart, keyLearning, nextFocus, overallFeeling } = req.body;
-
-      const parts: string[] = [];
-      if (energyLevel) parts.push(`Energy: ${energyLevel}/5`);
-      if (overallFeeling) parts.push(`Overall feeling: ${overallFeeling}/5`);
-      if (hardestPart) parts.push(`Hardest part: ${hardestPart}`);
-      if (keyLearning) parts.push(`Key learning: ${keyLearning}`);
-      if (nextFocus) parts.push(`Next focus: ${nextFocus}`);
-      const aiSummary = parts.join(". ");
-
-      const [existing] = await db
-        .select({ id: playerSessionReflections.id })
-        .from(playerSessionReflections)
-        .where(and(eq(playerSessionReflections.sessionId, sessionId), eq(playerSessionReflections.playerId, playerId)))
-        .limit(1);
-
-      const isFirstReflection = !existing;
-
-      await db
-        .delete(playerSessionReflections)
-        .where(and(eq(playerSessionReflections.sessionId, sessionId), eq(playerSessionReflections.playerId, playerId)));
-
-      const [reflection] = await db
-        .insert(playerSessionReflections)
-        .values({
-          playerId, sessionId,
-          academyId: academyId || null,
-          energyLevel: energyLevel ?? null,
-          hardestPart: hardestPart || null,
-          keyLearning: keyLearning || null,
-          nextFocus: nextFocus || null,
-          overallFeeling: overallFeeling ?? null,
-          aiSummary,
-        })
-        .returning();
-
-      if (isFirstReflection) {
-        try {
-          await awardXP(playerId, "session_reflection", "session", sessionId);
-        } catch (_) {}
-      }
-
-      res.status(isFirstReflection ? 201 : 200).json(reflection);
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+      await saveSessionReflection(playerId, req.user!.academyId, req.params.sessionId, req.body, res);
     } catch (error) {
+      res.status(500).json({ error: "Failed to save reflection" });
+    }
+  }
+);
+
+// POST /api/player/me/session-reflection — body-based sessionId (required by spec)
+router.post(
+  "/api/player/me/session-reflection",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const { sessionId } = req.body;
+      if (!sessionId || typeof sessionId !== "string") {
+        return res.status(400).json({ error: "sessionId is required in request body" });
+      }
+
+      await saveSessionReflection(playerId, req.user!.academyId, sessionId, req.body, res);
+    } catch (error) {
+      console.error("[SessionReflection] POST (body) error:", error);
       res.status(500).json({ error: "Failed to save reflection" });
     }
   }

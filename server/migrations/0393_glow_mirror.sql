@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS player_session_reflections (
   player_id VARCHAR NOT NULL REFERENCES players(id),
   session_id VARCHAR NOT NULL REFERENCES sessions(id),
   academy_id VARCHAR REFERENCES academies(id),
-  energy_level INTEGER,           -- 1-5 stars
-  overall_feeling INTEGER,        -- 1-5 stars
+  energy_level INTEGER CHECK (energy_level BETWEEN 1 AND 5),
+  overall_feeling INTEGER CHECK (overall_feeling BETWEEN 1 AND 5),
   hardest_part TEXT,
   key_learning TEXT,
   next_focus TEXT,
@@ -25,7 +25,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS player_session_reflections_unique
 -- 2. Add pre-match fields to match_reflections
 ALTER TABLE match_reflections
   ADD COLUMN IF NOT EXISTS pre_match_mood TEXT,
-  ADD COLUMN IF NOT EXISTS pre_match_confidence INTEGER,
+  ADD COLUMN IF NOT EXISTS pre_match_confidence INTEGER CHECK (pre_match_confidence BETWEEN 1 AND 10),
   ADD COLUMN IF NOT EXISTS pre_match_goal TEXT;
 
 -- Comments for documentation
