@@ -729,12 +729,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             seriesId: seriesPlayers.seriesId,
             joinedAt: seriesPlayers.joinedAt,
             createdAt: seriesPlayers.createdAt,
+            leftAt: seriesPlayers.leftAt,
           })
           .from(seriesPlayers)
           .where(
             and(
               eq(seriesPlayers.playerId, playerId),
-              eq(seriesPlayers.status, "active"),
+              inArray(seriesPlayers.status, ["active", "paused", "left"]),
             ),
           );
 
@@ -743,6 +744,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .filter(Boolean) as string[];
         const seriesJoinDates = new Map(
           playerSeriesData.map((s) => [s.seriesId, s.joinedAt ?? s.createdAt]),
+        );
+        const seriesLeftDates = new Map(
+          playerSeriesData.map((s) => [s.seriesId, s.leftAt]),
         );
         const existingSessionIds = new Set(
           sessionPlayerRecords.map((r) => r.sessionId),
@@ -777,7 +781,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 ? seriesJoinDates.get(s.seriesId)
                 : null;
               if (joinDate && s.startTime) {
-                return new Date(s.startTime) >= new Date(joinDate);
+                const sessionTime = new Date(s.startTime);
+                if (sessionTime < new Date(joinDate)) return false;
+                const leftDate = s.seriesId ? seriesLeftDates.get(s.seriesId) : null;
+                const upperBound = leftDate ? new Date(leftDate) : new Date();
+                if (sessionTime > upperBound) return false;
+                return true;
               }
               return false;
             })
@@ -1015,18 +1024,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .where(eq(sessionPlayers.playerId, playerId));
 
         // Step 1.5: Find orphaned completed sessions (in player's series but no sessionPlayers record)
-        // CRITICAL: Only include sessions that happened AFTER the player joined the series
+        // CRITICAL: Only include sessions that happened AFTER the player joined the series (and before they left)
         const playerSeriesForHistory = await db
           .select({
             seriesId: seriesPlayers.seriesId,
             joinedAt: seriesPlayers.joinedAt,
             createdAt: seriesPlayers.createdAt,
+            leftAt: seriesPlayers.leftAt,
           })
           .from(seriesPlayers)
           .where(
             and(
               eq(seriesPlayers.playerId, playerId),
-              eq(seriesPlayers.status, "active"),
+              inArray(seriesPlayers.status, ["active", "paused", "left"]),
             ),
           );
         const seriesIdsForHistory = playerSeriesForHistory
@@ -1034,6 +1044,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .filter(Boolean) as string[];
         const seriesJoinDatesForHistory = new Map(
           playerSeriesForHistory.map((s) => [s.seriesId, s.joinedAt ?? s.createdAt]),
+        );
+        const seriesLeftDatesForHistory = new Map(
+          playerSeriesForHistory.map((s) => [s.seriesId, s.leftAt]),
         );
         const existingSessionIdsForHistory = new Set(
           playerRecords.map((r) => r.sessionId),
@@ -1060,7 +1073,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               ? seriesJoinDatesForHistory.get(s.seriesId)
               : null;
             if (joinDate && s.startTime) {
-              return new Date(s.startTime) >= new Date(joinDate);
+              const sessionTime = new Date(s.startTime);
+              if (sessionTime < new Date(joinDate)) return false;
+              const leftDate = s.seriesId ? seriesLeftDatesForHistory.get(s.seriesId) : null;
+              const upperBound = leftDate ? new Date(leftDate) : new Date();
+              if (sessionTime > upperBound) return false;
+              return true;
             }
             return false;
           });
@@ -1073,7 +1091,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
           if (orphaned.length > 0) {
             console.log(
-              `[AttendanceHistory] Found ${orphaned.length} orphaned completed sessions for player ${playerId} (filtered by join date)`,
+              `[AttendanceHistory] Found ${orphaned.length} orphaned completed sessions for player ${playerId} (filtered by join/left date window)`,
             );
           }
         }
