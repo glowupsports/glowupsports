@@ -1,6 +1,6 @@
 -- Task #393: Glow Mirror Layer 1 — Player Voice DB migrations
 -- Applied via: psql "$SUPABASE_DATABASE_URL" -c "..."
--- Status: APPLIED to production Supabase PostgreSQL
+-- Note: verify applied state before re-running
 
 -- 1. Create player_session_reflections table
 CREATE TABLE IF NOT EXISTS player_session_reflections (
