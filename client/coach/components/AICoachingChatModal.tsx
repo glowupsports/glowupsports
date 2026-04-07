@@ -133,6 +133,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
   const [isDraftHydrated, setIsDraftHydrated] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const slideAnim = useRef(new Animated.Value(1)).current; // 0 = visible, 1 = off-screen below
+  const isWrappingUpRef = useRef(false);
 
   // Load player context
   const { data: ctx, isLoading: ctxLoading } = useQuery<PlayerContext>({
@@ -232,37 +233,52 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
   // Chat turn mutation
   const chatMutation = useMutation({
     mutationFn: async (userMessage: string) => {
-      const updatedMessages: Message[] = [
+      const isHidden = isWrappingUpRef.current;
+      // For the wrap-up system prompt, don't show it as a visible user bubble —
+      // only the AI's structured response should appear in the chat.
+      const messagesForServer: Message[] = [
         ...messages,
         { role: "user", content: userMessage },
       ];
-      setMessages(updatedMessages);
+      if (!isHidden) {
+        setMessages(messagesForServer);
+      }
       const res = await apiRequest("POST", `/api/sessions/${sessionId}/players/${playerId}/ai-chat`, {
-        messages: updatedMessages,
+        messages: messagesForServer,
       });
       if (res.status === 429) {
         const data = await res.json() as { error: string; message: string };
         throw Object.assign(new Error(data.message || "Quota exceeded"), { isQuota: true, serverMessage: data.message });
       }
       const data = await res.json() as { reply: string | null };
-      return { reply: data.reply, userMessages: updatedMessages };
+      return { reply: data.reply, userMessages: messagesForServer, isHidden };
     },
-    onSuccess: ({ reply, userMessages }) => {
+    onSuccess: ({ reply, userMessages, isHidden }) => {
+      isWrappingUpRef.current = false;
       const replyText = reply ?? "AI coaching is unavailable right now.";
-      const withReply: Message[] = [...userMessages, { role: "assistant", content: replyText }];
+      // For wrap-up: don't include the hidden system prompt in visible messages,
+      // only append the AI assistant reply to the existing messages (drop the last
+      // item which is the hidden WRAP_UP_PROMPT user message).
+      const visibleMessages = isHidden ? userMessages.slice(0, -1) : userMessages;
+      const withReply: Message[] = [...visibleMessages, { role: "assistant", content: replyText }];
       setMessages(withReply);
       const summary = parseStructuredSummary(replyText);
       if (summary) setPendingSummary(summary);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     },
     onError: (err: any) => {
+      const wasWrappingUp = isWrappingUpRef.current;
+      isWrappingUpRef.current = false;
       if (err.isQuota) {
         Alert.alert(
           "AI-limiet bereikt",
           err.serverMessage || "Je AI-limiet voor vandaag is bereikt — probeer het morgen opnieuw.",
           [{ text: "OK" }]
         );
-        setMessages((prev) => prev.slice(0, -1));
+        // Only remove the last visible message if we actually added one (not during wrap-up)
+        if (!wasWrappingUp) {
+          setMessages((prev) => prev.slice(0, -1));
+        }
       }
     },
   });
@@ -306,6 +322,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
   const handleWrapUp = () => {
     if (chatMutation.isPending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    isWrappingUpRef.current = true;
     chatMutation.mutate(WRAP_UP_PROMPT);
   };
 
