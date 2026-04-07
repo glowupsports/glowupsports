@@ -9,9 +9,10 @@ import {
   coachMatchReviews,
   pressureMoments,
   matchTrainingSuggestions,
-  players 
+  players,
+  tournamentMatches,
 } from "../../shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, or } from "drizzle-orm";
 import { awardXP } from "../services/xp-service";
 import { updatePillarProgressFromMatch } from "../services/match-pillar-update";
 

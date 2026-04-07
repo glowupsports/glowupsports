@@ -2520,6 +2520,14 @@ export async function buildMatchReadinessScore(
       skillLines = deduped.map((s) => `${s.skillName} (${s.pillar}): ${s.score.toFixed(1)}/2`).join(", ");
     }
 
+    // Data availability gate: require at least 1 skill assessment OR at least 3 attended sessions
+    // to produce a meaningful readiness card (returns null for players with no assessments and
+    // very low attendance — prevents empty/meaningless cards for brand-new inactive players)
+    const hasEnoughData = deduped.length >= 1 || attendedSessions >= 3;
+    if (!hasEnoughData) {
+      return null;
+    }
+
     // 3. Skill trend: compare most recent vs earlier scores per skill (improving/stable/declining)
     // latestSkillScores is ordered newest-first; build history groups BEFORE dedup
     let skillTrendScore = 0; // -1 = declining, 0 = stable, +1 = improving

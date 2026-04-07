@@ -7010,3 +7010,27 @@ export const playerMonthlyAssessments = pgTable("player_monthly_assessments", {
 export const insertPlayerMonthlyAssessmentSchema = createInsertSchema(playerMonthlyAssessments).omit({ id: true, createdAt: true });
 export type InsertPlayerMonthlyAssessment = z.infer<typeof insertPlayerMonthlyAssessmentSchema>;
 export type PlayerMonthlyAssessment = typeof playerMonthlyAssessments.$inferSelect;
+
+// ==================== MATCH READINESS ====================
+
+export const playerMatchReadiness = pgTable("player_match_readiness", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  tournamentMatchId: varchar("tournament_match_id").references(() => tournamentMatches.id),
+  matchDate: date("match_date").notNull(),
+  readinessScore: integer("readiness_score").notNull(),
+  topStrength: text("top_strength").notNull(),
+  biggestGap: text("biggest_gap").notNull(),
+  tacticalTips: jsonb("tactical_tips").$type<string[]>().notNull().default([]),
+  dismissed: boolean("dismissed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("pmr_player_idx").on(table.playerId),
+  index("pmr_match_date_idx").on(table.matchDate),
+  uniqueIndex("pmr_player_matchdate_unique").on(table.playerId, table.matchDate),
+]);
+
+export const insertPlayerMatchReadinessSchema = createInsertSchema(playerMatchReadiness).omit({ id: true, createdAt: true });
+export type InsertPlayerMatchReadiness = z.infer<typeof insertPlayerMatchReadinessSchema>;
+export type PlayerMatchReadiness = typeof playerMatchReadiness.$inferSelect;

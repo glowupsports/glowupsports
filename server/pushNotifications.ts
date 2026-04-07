@@ -1,6 +1,7 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections, playerMatchReadiness } from "@shared/schema";
+import { buildMatchReadinessScore } from "./services/ai-progress-engine";
 import { storage, ensureCreditProcessed } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
@@ -3645,10 +3646,70 @@ async function processMatchPrepNotifications(): Promise<void> {
         const tokens = await getPlayerPushTokens(playerId);
         if (tokens.length === 0) continue;
 
+        // Fetch the player name for a personalized notification
+        const [playerRow] = await db
+          .select({ name: players.name })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
+        const playerName = playerRow?.name?.split(" ")[0] || "Player";
+
+        // Generate and cache readiness score for this player
+        const matchDateStr = match.scheduledTime
+          ? match.scheduledTime.toISOString().split("T")[0]
+          : tomorrow.toISOString().split("T")[0];
+
+        let readinessScore: number | null = null;
+        try {
+          // Check if any readiness card already exists for this match date (including dismissed)
+          const [existingCard] = await db
+            .select({ id: playerMatchReadiness.id, readinessScore: playerMatchReadiness.readinessScore, dismissed: playerMatchReadiness.dismissed })
+            .from(playerMatchReadiness)
+            .where(
+              and(
+                eq(playerMatchReadiness.playerId, playerId),
+                eq(playerMatchReadiness.matchDate, matchDateStr)
+              )
+            )
+            .limit(1);
+
+          if (existingCard) {
+            // Use existing score for notification (even if dismissed — notification is still valid)
+            readinessScore = existingCard.readinessScore;
+          } else {
+            const result = await buildMatchReadinessScore(playerId);
+            if (result) {
+              readinessScore = result.readinessScore;
+              const expiresAt = new Date(
+                match.scheduledTime
+                  ? match.scheduledTime.getTime() + 4 * 60 * 60 * 1000
+                  : tomorrow.getTime() + 28 * 60 * 60 * 1000
+              );
+              await db.insert(playerMatchReadiness).values({
+                playerId,
+                tournamentMatchId: match.matchId,
+                matchDate: matchDateStr,
+                readinessScore: result.readinessScore,
+                topStrength: result.topStrength,
+                biggestGap: result.biggestGap,
+                tacticalTips: result.tacticalTips,
+                dismissed: false,
+                expiresAt,
+              });
+            }
+          }
+        } catch (readinessErr) {
+          console.error(`[MatchPrep] Failed to generate readiness for player ${playerId}:`, readinessErr);
+        }
+
+        const notifBody = readinessScore !== null
+          ? `${playerName}, you're ${readinessScore}% match-ready for tomorrow's ${tournamentName}. Check your prep card for tactical tips.`
+          : `${playerName}, your match in ${tournamentName} is tomorrow. View your AI match prep card.`;
+
         await sendPushNotification(
           tokens,
-          "Your match is tomorrow",
-          `See your AI match prep for ${tournamentName}. Check your readiness score and tactical tips.`,
+          "Match Day Tomorrow",
+          notifBody,
           {
             type: "match_prep_ready",
             tournamentId: match.tournamentId,
@@ -3657,7 +3718,7 @@ async function processMatchPrepNotifications(): Promise<void> {
           playerId
         );
 
-        console.log(`[MatchPrep] Notified player ${playerId} for tomorrow's match in tournament ${match.tournamentId}`);
+        console.log(`[MatchPrep] Notified player ${playerId} (score: ${readinessScore ?? "n/a"}) for tomorrow's match in ${match.tournamentId}`);
       }
     }
 
@@ -3683,8 +3744,8 @@ export function startMatchPrepNotificationScheduler(): void {
       now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "Asia/Dubai" })
     );
 
-    // Send notifications at 6 PM Dubai time (day before match)
-    if (hour === 18) {
+    // Send notifications at 8 AM Dubai time (morning before match day)
+    if (hour === 8) {
       processMatchPrepNotifications().catch(console.error);
     }
   }, 60 * 60 * 1000);

@@ -30,6 +30,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
+import { MatchReadinessCard } from "@/player/components/MatchReadinessCard";
 
 interface VacationData {
   active: boolean;
@@ -1346,6 +1347,9 @@ export default function PlayerHomeScreen() {
             </View>
           </View>
         </View>
+
+        {/* Match Readiness Card - shows when tournament match is within 24h */}
+        {player?.id ? <MatchReadinessCard playerId={player.id} /> : null}
 
         {/* C) Daily Quests - Always show with empty state */}
         <QuestTrackerCard 
