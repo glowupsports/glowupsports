@@ -3276,7 +3276,6 @@ async function processWeeklyAIDigest(timezone: string): Promise<void> {
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
 
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     // Monday of current week (used for idempotency check)
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
@@ -3288,13 +3287,12 @@ async function processWeeklyAIDigest(timezone: string): Promise<void> {
     const activePlayers = await pool.query(`
       SELECT DISTINCT p.id, p.name, p.academy_id
       FROM players p
-      JOIN session_players sp ON sp.player_id = p.id
-      JOIN sessions s ON s.id = sp.session_id
       JOIN academies a ON a.id = p.academy_id
+      JOIN users u ON u.player_id = p.id
       WHERE a.timezone = $1
-        AND s.start_time >= $2
-        AND sp.attendance_status IN ('present', 'late')
-    `, [timezone, fourteenDaysAgo.toISOString()]);
+        AND u.deleted = false
+        AND u.status = 'active'
+    `, [timezone]);
 
     if (activePlayers.rows.length === 0) {
       console.log(`[WeeklyDigest] No active players found for timezone ${timezone}`);
@@ -3338,7 +3336,20 @@ async function processWeeklyAIDigest(timezone: string): Promise<void> {
           ctx.longTermDream ? `Long-term dream: ${ctx.longTermDream}` : "",
         ].filter(Boolean).join(". ") || "none set";
 
-        const userPrompt = `Player: ${ctx.playerName}, level ${ctx.ballLevel}, XP level ${ctx.xpLevel}
+        const hasData = ctx.sessionDigests.length > 0 || ctx.skillScores.length > 0 || ctx.coachNotes.length > 0;
+
+        let digestData: { focusArea: string; keepDoing: string; improve: string; pushTitle: string; pushBody: string };
+
+        if (!hasData) {
+          digestData = {
+            focusArea: "Show up this week and give your best effort in every session.",
+            keepDoing: "Stay consistent with your training schedule.",
+            improve: "Ask your coach for feedback to identify your top development area.",
+            pushTitle: "Your weekly focus is ready",
+            pushBody: "Start the week strong. Open the app to see your focus for this week.",
+          };
+        } else {
+          const userPrompt = `Player: ${ctx.playerName}, level ${ctx.ballLevel}, XP level ${ctx.xpLevel}
 Recent session digests: ${digestsText}
 Skill scores: ${skillsText}
 Coach notes: ${coachNotesText}
@@ -3347,74 +3358,75 @@ Attendance: ${ctx.attendanceRate !== null ? ctx.attendanceRate + "% over " + ctx
 ${ctx.avgEffort !== null ? `Avg effort: ${ctx.avgEffort}/2, execution: ${ctx.avgExecution}/2` : ""}
 ${ctx.recentStrokes.length > 0 ? `Recently trained strokes: ${ctx.recentStrokes.join(", ")}` : ""}
 
-Generate a Monday morning AI weekly focus digest in 3 parts:
+Generate a Monday morning AI weekly digest with exactly 3 bullet points plus a push notification:
 1. focusArea: The single most important area to focus on this week (1 short sentence, specific skill or tactic)
-2. reason: Why this is the top focus — draw from coach notes or recent session data (1-2 sentences)
-3. drillTip: One concrete drill or practice tip for this week (1 sentence)
-4. motivation: An encouraging motivational sentence drawn from the player's coaching journey (1 sentence)
-5. pushTitle: A short, punchy push notification title (max 10 words, no emojis)
-6. pushBody: Push notification body that teases the focus area (max 20 words, no emojis)
+2. keepDoing: One thing the player should keep doing because it is working well (1 sentence, draw from positive coach notes or strong skill scores)
+3. improve: One specific thing to improve this week (1 sentence, draw from coach notes or weaker skill areas)
+4. pushTitle: A short, punchy push notification title (max 10 words, no emojis)
+5. pushBody: Push notification body that teases the focus area (max 20 words, no emojis)
 
 Return ONLY valid JSON, no markdown:
-{"focusArea":"...","reason":"...","drillTip":"...","motivation":"...","pushTitle":"...","pushBody":"..."}`;
+{"focusArea":"...","keepDoing":"...","improve":"...","pushTitle":"...","pushBody":"..."}`;
 
-        const systemPrompt = "You are an expert tennis/sports AI coach generating concise, personalised weekly focus digests for players. Be specific, data-driven, and encouraging. Never use emojis. Return only valid JSON.";
+          const systemPrompt = "You are an expert tennis/sports AI coach generating concise, personalised weekly focus digests for players. Be specific, data-driven, and encouraging. Never use emojis. Return only valid JSON.";
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 400,
-          temperature: 0.7,
-        });
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            max_tokens: 400,
+            temperature: 0.7,
+          });
 
-        const { logAiCall } = await import("./middleware/aiQuotaMiddleware");
-        logAiCall({
-          userId: null,
-          featureType: "notification",
-          model: "gpt-4o-mini",
-          promptTokens: response.usage?.prompt_tokens ?? 0,
-          completionTokens: response.usage?.completion_tokens ?? 0,
-          totalTokens: response.usage?.total_tokens ?? 0,
-        }).catch(() => {});
+          const { logAiCall } = await import("./middleware/aiQuotaMiddleware");
+          logAiCall({
+            userId: null,
+            featureType: "notification",
+            model: "gpt-4o-mini",
+            promptTokens: response.usage?.prompt_tokens ?? 0,
+            completionTokens: response.usage?.completion_tokens ?? 0,
+            totalTokens: response.usage?.total_tokens ?? 0,
+          }).catch(() => {});
 
-        const rawContent = response.choices?.[0]?.message?.content || null;
-        if (!rawContent) continue;
+          const rawContent = response.choices?.[0]?.message?.content || null;
+          if (!rawContent) continue;
 
-        let parsed: { focusArea: string; reason: string; drillTip: string; motivation: string; pushTitle: string; pushBody: string } | null = null;
-        try {
-          const cleaned = rawContent.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
-          parsed = JSON.parse(cleaned);
-        } catch {
-          console.error(`[WeeklyDigest] Failed to parse AI response for player ${playerId}`);
-          continue;
+          let parsed: { focusArea: string; keepDoing: string; improve: string; pushTitle: string; pushBody: string } | null = null;
+          try {
+            const cleaned = rawContent.trim().replace(/^```json\s*/, "").replace(/```$/, "").trim();
+            parsed = JSON.parse(cleaned);
+          } catch {
+            console.error(`[WeeklyDigest] Failed to parse AI response for player ${playerId}`);
+            continue;
+          }
+
+          if (!parsed?.focusArea || !parsed?.pushTitle || !parsed?.pushBody) continue;
+
+          digestData = {
+            focusArea: parsed.focusArea,
+            keepDoing: parsed.keepDoing || "Keep showing up and giving your best effort.",
+            improve: parsed.improve || "Focus on your weakest skill area this week.",
+            pushTitle: parsed.pushTitle,
+            pushBody: parsed.pushBody,
+          };
         }
-
-        if (!parsed?.focusArea || !parsed?.pushTitle || !parsed?.pushBody) continue;
-
-        const digestData = {
-          focusArea: parsed.focusArea,
-          reason: parsed.reason,
-          drillTip: parsed.drillTip,
-          motivation: parsed.motivation,
-        };
 
         await db.insert(playerNotifications).values({
           playerId,
-          title: parsed.pushTitle,
-          body: parsed.pushBody,
+          title: digestData.pushTitle,
+          body: digestData.pushBody,
           type: "ai_weekly_digest",
-          data: digestData,
+          data: { focusArea: digestData.focusArea, keepDoing: digestData.keepDoing, improve: digestData.improve },
         });
 
         const tokens = await getPlayerPushTokens(playerId);
         if (tokens.length > 0) {
           await sendPushNotification(
             tokens,
-            parsed.pushTitle,
-            parsed.pushBody,
+            digestData.pushTitle,
+            digestData.pushBody,
             { type: "ai_weekly_digest", playerId, screen: "PlayerHome" },
           );
         }

@@ -97,6 +97,8 @@ interface WeeklyDigestNotification {
   type: string;
   data: {
     focusArea?: string;
+    keepDoing?: string;
+    improve?: string;
     reason?: string;
     drillTip?: string;
     motivation?: string;
@@ -129,7 +131,9 @@ function WeeklyAIFocusCard({ playerId }: { playerId: string }) {
     AsyncStorage.setItem(WEEKLY_DIGEST_DISMISSED_KEY, digest.id);
   };
 
-  const { focusArea, reason, drillTip, motivation } = digest.data;
+  const { focusArea, keepDoing, improve, drillTip, motivation } = digest.data;
+  const keepDoingText = keepDoing || drillTip;
+  const improveText = improve || motivation;
 
   return (
     <View style={wStyles.card}>
@@ -138,31 +142,44 @@ function WeeklyAIFocusCard({ playerId }: { playerId: string }) {
           <View style={wStyles.iconWrap}>
             <Ionicons name="sparkles" size={16} color="#8B5CF6" />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={wStyles.badge}>THIS WEEK'S AI FOCUS</Text>
-            <Text style={wStyles.focusArea} numberOfLines={2}>{focusArea}</Text>
-          </View>
+          <Text style={wStyles.badge}>THIS WEEK'S AI FOCUS</Text>
         </View>
         <Pressable onPress={handleDismiss} hitSlop={10} style={wStyles.dismissBtn}>
           <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
         </Pressable>
       </View>
 
-      {reason ? (
-        <Text style={wStyles.reason}>{reason}</Text>
-      ) : null}
+      <View style={wStyles.bulletRow}>
+        <View style={wStyles.bulletIconWrap}>
+          <Ionicons name="flag" size={13} color="#8B5CF6" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={wStyles.bulletLabel}>FOCUS THIS WEEK</Text>
+          <Text style={wStyles.bulletText} numberOfLines={3}>{focusArea}</Text>
+        </View>
+      </View>
 
-      {drillTip ? (
-        <View style={wStyles.drillRow}>
-          <Ionicons name="fitness" size={13} color="#8B5CF6" />
-          <Text style={wStyles.drillTip} numberOfLines={3}>{drillTip}</Text>
+      {keepDoingText ? (
+        <View style={wStyles.bulletRow}>
+          <View style={wStyles.bulletIconWrap}>
+            <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[wStyles.bulletLabel, { color: "#10B981" }]}>KEEP DOING</Text>
+            <Text style={wStyles.bulletText} numberOfLines={3}>{keepDoingText}</Text>
+          </View>
         </View>
       ) : null}
 
-      {motivation ? (
-        <View style={wStyles.motivationRow}>
-          <Ionicons name="flame" size={13} color="#F59E0B" />
-          <Text style={wStyles.motivation} numberOfLines={2}>{motivation}</Text>
+      {improveText ? (
+        <View style={wStyles.bulletRow}>
+          <View style={wStyles.bulletIconWrap}>
+            <Ionicons name="trending-up" size={13} color="#F59E0B" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[wStyles.bulletLabel, { color: "#F59E0B" }]}>ONE THING TO IMPROVE</Text>
+            <Text style={wStyles.bulletText} numberOfLines={3}>{improveText}</Text>
+          </View>
         </View>
       ) : null}
     </View>
@@ -181,69 +198,56 @@ const wStyles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: Spacing.sm,
   },
   headerLeft: {
     flex: 1,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: Spacing.sm,
   },
   iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "rgba(139, 92, 246, 0.15)",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
   },
   badge: {
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 1.5,
     color: "#8B5CF6",
-    marginBottom: 2,
-  },
-  focusArea: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.text,
   },
   dismissBtn: {
     padding: 4,
   },
-  reason: {
+  bulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingTop: 2,
+  },
+  bulletIconWrap: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  bulletLabel: {
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    color: "#8B5CF6",
+    marginBottom: 2,
+  },
+  bulletText: {
     fontSize: 13,
-    color: Colors.dark.textSubtle,
-    lineHeight: 18,
-  },
-  drillRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-    backgroundColor: "rgba(139, 92, 246, 0.06)",
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.sm,
-  },
-  drillTip: {
-    flex: 1,
-    fontSize: 12,
     color: Colors.dark.text,
-    lineHeight: 17,
-  },
-  motivationRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-  },
-  motivation: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    fontStyle: "italic",
-    lineHeight: 17,
+    lineHeight: 18,
   },
 });
 

@@ -4000,6 +4000,57 @@ Write a 2–3 sentence neutral summary that captures the player's self-perceptio
   }
 );
 
+// GET /api/players/:playerId/weekly-digest — latest ai_weekly_digest for a player (accessible by coach or the player themselves)
+router.get(
+  "/api/players/:playerId/weekly-digest",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const userRole = req.user!.role;
+      const userPlayerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+
+      const isPlatformOwner = userRole === "platform_owner";
+      const isScopedCoach = ["coach", "assistant", "academy_owner"].includes(userRole);
+      const isOwnPlayer = userPlayerId === playerId;
+
+      if (!isPlatformOwner && !isScopedCoach && !isOwnPlayer) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (isScopedCoach) {
+        if (!academyId) {
+          return res.status(403).json({ error: "Academy scope required" });
+        }
+        const [player] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq(players.id, playerId)).limit(1);
+        if (!player || player.academyId !== academyId) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+      }
+
+      const [digest] = await db
+        .select()
+        .from(playerNotifications)
+        .where(
+          and(
+            eq(playerNotifications.playerId, playerId),
+            eq(playerNotifications.type, "ai_weekly_digest"),
+          ),
+        )
+        .orderBy(desc(playerNotifications.createdAt))
+        .limit(1);
+
+      if (!digest) return res.json(null);
+
+      return res.json(digest);
+    } catch (error) {
+      console.error("Error fetching player weekly digest:", error);
+      res.status(500).json({ error: "Failed to fetch weekly digest" });
+    }
+  },
+);
+
 // GET /api/player/me/monthly-assessment/history — past assessments (last 6 months)
 router.get(
   "/api/player/me/monthly-assessment/history",
