@@ -4963,6 +4963,9 @@ export const playerPillarProgress = pgTable("player_pillar_progress", {
   lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
   lastSessionId: varchar("last_session_id").references(() => sessions.id),
   
+  // Attribution: tracks what drove the most recent EMA update
+  lastChangeSource: text("last_change_source"), // "coach_assessment" | "match" | "coach_verified_match"
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

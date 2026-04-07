@@ -1522,6 +1522,7 @@ export default function PlayerProgressScreen() {
     skillsMeetsOrAbove: number;
     masteryPct: number;
     lastUpdated: string | null;
+    lastChangeSource: "coach_assessment" | "match" | "coach_verified_match" | null;
   }
   interface PillarProgressSummary {
     pillars: PillarProgressEntry[];
@@ -2020,8 +2021,21 @@ export default function PlayerProgressScreen() {
                     const score = hasCurriculum
                       ? pillarEntry!.masteryPct
                       : Math.round(pillarEntry!.score * 50);
-                    const subtitle = hasCurriculum
+                    const changeSource = pillarEntry!.lastChangeSource;
+                    const sourceLabel = changeSource === "coach_verified_match"
+                      ? "via verified match"
+                      : changeSource === "match"
+                      ? "via match"
+                      : null;
+                    const curriculumLabel = hasCurriculum
                       ? `${pillarEntry!.skillsMeetsOrAbove} of ${pillarEntry!.skillsTotal} skills mastered`
+                      : null;
+                    const subtitle = sourceLabel && !curriculumLabel
+                      ? sourceLabel
+                      : curriculumLabel
+                      ? sourceLabel
+                        ? `${curriculumLabel} \u00b7 ${sourceLabel}`
+                        : curriculumLabel
                       : undefined;
                     return [key, {
                       pillar: key,

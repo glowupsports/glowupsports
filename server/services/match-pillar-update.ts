@@ -21,6 +21,7 @@
 import { db } from "../db";
 import { players, playerBallLevels, playerPillarProgress } from "../../shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+import type { PillarChangeSource } from "./glow-rank-engine";
 
 const GLOW_DATA_DRIVEN_MAX_RANK = 5;
 const BASE_ALPHA = 0.3;
@@ -78,12 +79,14 @@ function clamp(value: number, min: number, max: number): number {
  * Apply an EMA update to a pillar using a caller-supplied alpha.
  * Coach-verified uses alpha=0.45 (1.5× the base 0.30), giving the observation
  * 50% more influence without altering score magnitude.
+ * The source field records what drove this update for UI attribution.
  */
 async function applyPillarEMA(
   playerId: string,
   pillar: string,
   newScore: number,
   alpha: number,
+  source: PillarChangeSource,
 ): Promise<void> {
   const [existing] = await db
     .select()
@@ -108,6 +111,7 @@ async function applyPillarEMA(
         lastSessionDelta: diff.toFixed(2),
         lastUpdatedAt: new Date(),
         updatedAt: new Date(),
+        lastChangeSource: source,
       })
       .where(eq(playerPillarProgress.id, existing.id));
   } else {
@@ -120,6 +124,7 @@ async function applyPillarEMA(
         trend: "stable",
         lastSessionDelta: "0.00",
         lastUpdatedAt: new Date(),
+        lastChangeSource: source,
       });
   }
 }
@@ -143,6 +148,7 @@ export async function updatePillarProgressFromMatch(input: MatchPillarInput): Pr
   if (!isDataDriven) return;
 
   const alpha = coachVerified ? VERIFIED_ALPHA : BASE_ALPHA;
+  const source: PillarChangeSource = coachVerified ? "coach_verified_match" : "match";
 
   const isWin = result === "win" || result === "won";
 
@@ -202,15 +208,15 @@ export async function updatePillarProgressFromMatch(input: MatchPillarInput): Pr
   }
 
   // ─── Apply EMA updates with appropriate alpha ──────────────────────────────
-  await applyPillarEMA(playerId, "MATCH", matchScore, alpha);
-  await applyPillarEMA(playerId, "TACTICAL", tacticalScore, alpha);
-  await applyPillarEMA(playerId, "MENTAL", mentalScore, alpha);
+  await applyPillarEMA(playerId, "MATCH", matchScore, alpha, source);
+  await applyPillarEMA(playerId, "TACTICAL", tacticalScore, alpha, source);
+  await applyPillarEMA(playerId, "MENTAL", mentalScore, alpha, source);
 
   if (techniqueScore !== null) {
-    await applyPillarEMA(playerId, "TECHNIQUE", techniqueScore, alpha);
+    await applyPillarEMA(playerId, "TECHNIQUE", techniqueScore, alpha, source);
   }
 
   if (physicalScore !== null) {
-    await applyPillarEMA(playerId, "PHYSICAL", physicalScore, alpha);
+    await applyPillarEMA(playerId, "PHYSICAL", physicalScore, alpha, source);
   }
 }

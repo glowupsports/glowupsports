@@ -228,10 +228,13 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
   };
 }
 
+export type PillarChangeSource = "coach_assessment" | "match" | "coach_verified_match";
+
 export async function updatePillarProgressWithEMA(
   playerId: string,
   pillar: string,
-  newScore: number
+  newScore: number,
+  source: PillarChangeSource = "coach_assessment"
 ): Promise<void> {
   const [existing] = await db
     .select()
@@ -263,6 +266,7 @@ export async function updatePillarProgressWithEMA(
         lastSessionDelta: diff.toFixed(2),
         lastUpdatedAt: new Date(),
         updatedAt: new Date(),
+        lastChangeSource: source,
       })
       .where(eq(playerPillarProgress.id, existing.id));
   } else {
@@ -275,6 +279,7 @@ export async function updatePillarProgressWithEMA(
         trend: "stable",
         lastSessionDelta: "0.00",
         lastUpdatedAt: new Date(),
+        lastChangeSource: source,
       });
   }
 }

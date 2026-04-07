@@ -7394,6 +7394,7 @@ export const storage = {
       skillsMeetsOrAbove: number;
       masteryPct: number; // curriculum mastery % (achievedSkills / totalSkills * 100)
       lastUpdated: string | null;
+      lastChangeSource: "coach_assessment" | "match" | "coach_verified_match" | null;
     }>;
     overallReadiness: number; // 0-100%
     trialGateReady: boolean;
@@ -7451,6 +7452,7 @@ export const storage = {
         skillsMeetsOrAbove,
         masteryPct,
         lastUpdated: pillarData?.lastUpdatedAt?.toISOString() || null,
+        lastChangeSource: pillarData?.lastChangeSource || null,
       };
     });
     
