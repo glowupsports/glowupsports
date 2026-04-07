@@ -2779,10 +2779,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         if (structured.skillRatings && structured.skillRatings.length > 0) {
           const alpha = 0.3;
           for (const sr of structured.skillRatings) {
-            // Resolve skillId: prefer direct ID field, fall back to case-insensitive name match
+            // Resolve skillId: prefer direct ID field (validated against DB), fall back to case-insensitive name match
             let resolvedSkillId: string | null = null;
             if (sr.skillId) {
-              resolvedSkillId = sr.skillId;
+              const [validated] = await db
+                .select({ id: glowSkills.id })
+                .from(glowSkills)
+                .where(eq(glowSkills.id, sr.skillId))
+                .limit(1);
+              resolvedSkillId = validated?.id ?? null;
             } else if (sr.skillName) {
               const [byName] = await db
                 .select({ id: glowSkills.id })
