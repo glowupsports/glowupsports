@@ -1927,74 +1927,6 @@ export default function PlayerProgressScreen() {
           </View>
         </View>
 
-        {/* New Player Getting Started Section */}
-        {isNewPlayer && (
-          <View style={styles.gettingStartedSection}>
-            <LinearGradient
-              colors={["rgba(200, 255, 61, 0.1)", "rgba(0, 229, 255, 0.05)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.gettingStartedCard}
-            >
-              <View style={styles.gettingStartedHeader}>
-                <View style={styles.gettingStartedIconWrap}>
-                  <Ionicons name="rocket" size={24} color="#C8FF3D" />
-                </View>
-                <View style={styles.gettingStartedInfo}>
-                  <Text style={styles.gettingStartedTitle}>START YOUR JOURNEY</Text>
-                  <Text style={styles.gettingStartedSubtitle}>Here's how to level up</Text>
-                </View>
-              </View>
-              <View style={styles.gettingStartedSteps}>
-                <View style={styles.gettingStartedStep}>
-                  <View style={[styles.stepNumber, { backgroundColor: "rgba(200, 255, 61, 0.2)" }]}>
-                    <Text style={[styles.stepNumberText, { color: "#C8FF3D" }]}>1</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Attend Training Sessions</Text>
-                    <Text style={styles.stepDesc}>Your coach will observe and track your skills</Text>
-                  </View>
-                </View>
-                <View style={styles.gettingStartedStep}>
-                  <View style={[styles.stepNumber, { backgroundColor: "rgba(0, 229, 255, 0.2)" }]}>
-                    <Text style={[styles.stepNumberText, { color: "#00E5FF" }]}>2</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Earn XP & Badges</Text>
-                    <Text style={styles.stepDesc}>Get rewarded for effort and improvement</Text>
-                  </View>
-                </View>
-                <View style={styles.gettingStartedStep}>
-                  <View style={[styles.stepNumber, { backgroundColor: "rgba(224, 64, 251, 0.2)" }]}>
-                    <Text style={[styles.stepNumberText, { color: "#E040FB" }]}>3</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Level Up Your Skills</Text>
-                    <Text style={styles.stepDesc}>Progress through the 6 skill pillars</Text>
-                  </View>
-                </View>
-              </View>
-              <Pressable 
-                style={styles.gettingStartedCta}
-                onPress={() => navigation.navigate("Schedule")}
-              >
-                <Text style={styles.gettingStartedCtaText}>Book Your First Session</Text>
-                <Ionicons name="arrow-forward" size={16} color="#0B0D10" />
-              </Pressable>
-            </LinearGradient>
-          </View>
-        )}
-
-        {data.levelReadiness && !isNewPlayer ? (
-          <Pressable onPress={() => track("progress:level_readiness")}>
-            <LevelReadinessSection 
-              readiness={data.levelReadiness} 
-              currentLevel={data.ballLevel}
-              nextLevel={data.nextBallLevel}
-            />
-          </Pressable>
-        ) : null}
-
         {/* AI COACH HERO SECTION */}
         {!isGuest && (
           <View style={styles.aiCoachHeroSection}>
@@ -2186,6 +2118,74 @@ export default function PlayerProgressScreen() {
             )}
           </View>
         )}
+
+        {/* New Player Getting Started Section */}
+        {isNewPlayer && (
+          <View style={styles.gettingStartedSection}>
+            <LinearGradient
+              colors={["rgba(200, 255, 61, 0.1)", "rgba(0, 229, 255, 0.05)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gettingStartedCard}
+            >
+              <View style={styles.gettingStartedHeader}>
+                <View style={styles.gettingStartedIconWrap}>
+                  <Ionicons name="rocket" size={24} color="#C8FF3D" />
+                </View>
+                <View style={styles.gettingStartedInfo}>
+                  <Text style={styles.gettingStartedTitle}>START YOUR JOURNEY</Text>
+                  <Text style={styles.gettingStartedSubtitle}>Here's how to level up</Text>
+                </View>
+              </View>
+              <View style={styles.gettingStartedSteps}>
+                <View style={styles.gettingStartedStep}>
+                  <View style={[styles.stepNumber, { backgroundColor: "rgba(200, 255, 61, 0.2)" }]}>
+                    <Text style={[styles.stepNumberText, { color: "#C8FF3D" }]}>1</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Attend Training Sessions</Text>
+                    <Text style={styles.stepDesc}>Your coach will observe and track your skills</Text>
+                  </View>
+                </View>
+                <View style={styles.gettingStartedStep}>
+                  <View style={[styles.stepNumber, { backgroundColor: "rgba(0, 229, 255, 0.2)" }]}>
+                    <Text style={[styles.stepNumberText, { color: "#00E5FF" }]}>2</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Earn XP & Badges</Text>
+                    <Text style={styles.stepDesc}>Get rewarded for effort and improvement</Text>
+                  </View>
+                </View>
+                <View style={styles.gettingStartedStep}>
+                  <View style={[styles.stepNumber, { backgroundColor: "rgba(224, 64, 251, 0.2)" }]}>
+                    <Text style={[styles.stepNumberText, { color: "#E040FB" }]}>3</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Level Up Your Skills</Text>
+                    <Text style={styles.stepDesc}>Progress through the 6 skill pillars</Text>
+                  </View>
+                </View>
+              </View>
+              <Pressable 
+                style={styles.gettingStartedCta}
+                onPress={() => navigation.navigate("Schedule")}
+              >
+                <Text style={styles.gettingStartedCtaText}>Book Your First Session</Text>
+                <Ionicons name="arrow-forward" size={16} color="#0B0D10" />
+              </Pressable>
+            </LinearGradient>
+          </View>
+        )}
+
+        {data.levelReadiness && !isNewPlayer ? (
+          <Pressable onPress={() => track("progress:level_readiness")}>
+            <LevelReadinessSection 
+              readiness={data.levelReadiness} 
+              currentLevel={data.ballLevel}
+              nextLevel={data.nextBallLevel}
+            />
+          </Pressable>
+        ) : null}
 
         {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
         <View style={styles.pillarRingsSection}>

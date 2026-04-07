@@ -1452,7 +1452,7 @@ import fs from "fs";
 
         res.json({
           classes: classes.sort((a, b) =>
-            a.dayOfWeek.localeCompare(b.dayOfWeek),
+            (a.dayOfWeek ?? "").localeCompare(b.dayOfWeek ?? ""),
           ),
           summary: {
             totalPresent,
