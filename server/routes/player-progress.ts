@@ -3433,6 +3433,67 @@ router.post(
   }
 );
 
+// POST pre-match reflection only (separate route for pre-match intent capture)
+router.post(
+  "/api/player/me/matches/:matchId/pre-reflection",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { matchId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player only" });
+
+      const { preMatchMood, preMatchConfidence, preMatchGoal } = req.body;
+
+      // Check if reflection already exists
+      const [existing] = await db
+        .select()
+        .from(matchReflections)
+        .where(
+          and(
+            eq(matchReflections.matchId, matchId),
+            eq(matchReflections.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      let reflection;
+      if (existing) {
+        [reflection] = await db
+          .update(matchReflections)
+          .set({
+            preMatchMood: preMatchMood ?? existing.preMatchMood,
+            preMatchConfidence: preMatchConfidence ?? existing.preMatchConfidence,
+            preMatchGoal: preMatchGoal !== undefined ? (preMatchGoal?.slice(0, 80) || null) : existing.preMatchGoal,
+          })
+          .where(
+            and(
+              eq(matchReflections.matchId, matchId),
+              eq(matchReflections.playerId, playerId)
+            )
+          )
+          .returning();
+      } else {
+        [reflection] = await db
+          .insert(matchReflections)
+          .values({
+            matchId,
+            playerId,
+            preMatchMood: preMatchMood || null,
+            preMatchConfidence: preMatchConfidence || null,
+            preMatchGoal: preMatchGoal?.slice(0, 80) || null,
+          })
+          .returning();
+      }
+
+      res.status(existing ? 200 : 201).json(reflection);
+    } catch (error) {
+      console.error("[MatchPreReflection] POST error:", error);
+      res.status(500).json({ error: "Failed to save pre-match reflection" });
+    }
+  }
+);
+
 // ==================== GLOW MIRROR — SESSION REFLECTIONS ====================
 
 // GET reflection for a specific session (player's own)
@@ -3475,6 +3536,22 @@ router.post(
       const academyId = req.user!.academyId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
 
+      // Verify the player is actually part of this session
+      const sessionPlayerRecord = await db
+        .select({ id: sessionPlayers.id })
+        .from(sessionPlayers)
+        .where(
+          and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      if (sessionPlayerRecord.length === 0) {
+        return res.status(403).json({ error: "Player is not part of this session" });
+      }
+
       const { energyLevel, hardestPart, keyLearning, nextFocus, overallFeeling } = req.body;
 
       // Build AI summary from raw answers
@@ -3485,6 +3562,20 @@ router.post(
       if (keyLearning) parts.push(`Key learning: ${keyLearning}`);
       if (nextFocus) parts.push(`Next focus: ${nextFocus}`);
       const aiSummary = parts.join(". ");
+
+      // Check if a reflection already exists — used to determine XP eligibility
+      const [existing] = await db
+        .select({ id: playerSessionReflections.id })
+        .from(playerSessionReflections)
+        .where(
+          and(
+            eq(playerSessionReflections.sessionId, sessionId),
+            eq(playerSessionReflections.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      const isFirstReflection = !existing;
 
       // Upsert — delete existing then insert (psql unique index ensures one per player/session)
       await db
@@ -3511,14 +3602,16 @@ router.post(
         })
         .returning();
 
-      // Award XP for first-time session reflection
-      try {
-        await awardXP(playerId, "session_reflection", "session", sessionId);
-      } catch (xpErr) {
-        console.error("[SessionReflection] XP award failed (non-fatal):", xpErr);
+      // Award XP only for first-time session reflection (not on edits)
+      if (isFirstReflection) {
+        try {
+          await awardXP(playerId, "session_reflection", "session", sessionId);
+        } catch (xpErr) {
+          console.error("[SessionReflection] XP award failed (non-fatal):", xpErr);
+        }
       }
 
-      res.status(201).json(reflection);
+      res.status(isFirstReflection ? 201 : 200).json(reflection);
     } catch (error) {
       console.error("[SessionReflection] POST error:", error);
       res.status(500).json({ error: "Failed to save reflection" });

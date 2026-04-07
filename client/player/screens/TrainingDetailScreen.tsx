@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -106,20 +106,36 @@ const starPickerStyles = StyleSheet.create({
 
 function GlowMirrorCard({
   sessionId,
-  existingReflection,
   onSaved,
 }: {
   sessionId: string;
-  existingReflection: SessionReflection | null;
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [energyLevel, setEnergyLevel] = useState(existingReflection?.energyLevel ?? 0);
-  const [overallFeeling, setOverallFeeling] = useState(existingReflection?.overallFeeling ?? 0);
-  const [hardestPart, setHardestPart] = useState(existingReflection?.hardestPart ?? "");
-  const [keyLearning, setKeyLearning] = useState(existingReflection?.keyLearning ?? "");
-  const [nextFocus, setNextFocus] = useState(existingReflection?.nextFocus ?? "");
-  const [saved, setSaved] = useState(!!existingReflection);
+
+  const { data: existingReflection, isLoading: reflectionLoading } = useQuery<SessionReflection | null>({
+    queryKey: [`/api/player/sessions/${sessionId}/reflection`],
+    enabled: !!sessionId,
+  });
+
+  const [energyLevel, setEnergyLevel] = useState(0);
+  const [overallFeeling, setOverallFeeling] = useState(0);
+  const [hardestPart, setHardestPart] = useState("");
+  const [keyLearning, setKeyLearning] = useState("");
+  const [nextFocus, setNextFocus] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  // Sync state when fetched reflection arrives
+  useEffect(() => {
+    if (existingReflection) {
+      setEnergyLevel(existingReflection.energyLevel ?? 0);
+      setOverallFeeling(existingReflection.overallFeeling ?? 0);
+      setHardestPart(existingReflection.hardestPart ?? "");
+      setKeyLearning(existingReflection.keyLearning ?? "");
+      setNextFocus(existingReflection.nextFocus ?? "");
+      setSaved(true);
+    }
+  }, [existingReflection?.id]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -141,6 +157,14 @@ function GlowMirrorCard({
       Alert.alert("Could not save", "Please try again in a moment.");
     },
   });
+
+  if (reflectionLoading) {
+    return (
+      <View style={mirrorStyles.card}>
+        <ActivityIndicator size="small" color={MIRROR_ACCENT} />
+      </View>
+    );
+  }
 
   if (saved && existingReflection) {
     return (
@@ -422,15 +446,8 @@ export default function TrainingDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RouteParams, "TrainingDetail">>();
   const sessionId = route.params?.sessionId;
-  const [reflectionSaved, setReflectionSaved] = useState(false);
-
   const { data: training, isLoading } = useQuery<TrainingDetail>({
     queryKey: ["/api/player/training", sessionId],
-    enabled: !!sessionId,
-  });
-
-  const { data: existingReflection, isLoading: reflectionLoading } = useQuery<SessionReflection | null>({
-    queryKey: [`/api/player/sessions/${sessionId}/reflection`],
     enabled: !!sessionId,
   });
 
@@ -631,17 +648,10 @@ export default function TrainingDetailScreen() {
         </View>
 
         {/* Glow Mirror — Player Voice Check-in */}
-        {!reflectionLoading ? (
-          <GlowMirrorCard
-            sessionId={sessionId}
-            existingReflection={existingReflection ?? null}
-            onSaved={() => setReflectionSaved(true)}
-          />
-        ) : (
-          <View style={styles.sectionCard}>
-            <ActivityIndicator size="small" color={MIRROR_ACCENT} />
-          </View>
-        )}
+        <GlowMirrorCard
+          sessionId={sessionId}
+          onSaved={() => {}}
+        />
       </ScrollView>
     </View>
   );
