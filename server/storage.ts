@@ -2808,6 +2808,48 @@ export const storage = {
           (typeof debtTransaction.metadata === 'string' ? JSON.parse(debtTransaction.metadata) : debtTransaction.metadata) : {};
         
         if (meta.settled && meta.settledByPackage) {
+          // Guard: Only refund if the player did NOT actually attend the session.
+          // If the session is completed and the player has a session_players record,
+          // the debt was legitimately consumed — do NOT restore the credit.
+          const sessionRecord = await db.select({
+            status: sessions.status,
+          }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+          const sessionStatus = sessionRecord[0]?.status;
+
+          const spRecord = await db.select({
+            id: sessionPlayers.id,
+            creditDeductedAt: sessionPlayers.creditDeductedAt,
+          }).from(sessionPlayers)
+            .where(and(
+              eq(sessionPlayers.sessionId, sessionId),
+              eq(sessionPlayers.playerId, playerId)
+            ))
+            .limit(1);
+          // A player "attended" if and only if their session_players record
+          // has creditDeductedAt set (the authoritative marker that a credit
+          // was actually consumed for this session). We do NOT use session.status
+          // because a completed session can still have unattended players.
+          const playerAttended = spRecord.length > 0 && spRecord[0].creditDeductedAt !== null;
+
+          if (playerAttended) {
+            console.log(`[Refund] Skipping credit restore for player ${playerId} in session ${sessionId} — player attended (session status: ${sessionStatus}, creditDeductedAt: ${spRecord[0]?.creditDeductedAt})`);
+            // Mark the debt as cancelled (session is being removed) but do NOT restore the package credit
+            await db.update(creditTransactions)
+              .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_cancelled_attended_no_refund" } })
+              .where(eq(creditTransactions.id, debtTransaction.id));
+            await db.update(sessionPlayers)
+              .set({ creditDeductedAt: null, creditTransactionId: null })
+              .where(and(
+                eq(sessionPlayers.sessionId, sessionId),
+                eq(sessionPlayers.playerId, playerId)
+              ));
+            return {
+              success: true,
+              creditType: debtTransaction.creditType || "group",
+              debtRemoved: true,
+            };
+          }
+
           // This debt was already settled by a package purchase - need to refund the package credit
           const pkg = await this.getPackage(meta.settledByPackage);
           if (pkg) {
@@ -11274,7 +11316,11 @@ export const storage = {
         }
         const correctRemaining = Number(pkg.totalCredits) - totalDebited;
         
-        if (correctRemaining !== Number(pkg.remainingCredits)) {
+        // Only decrease remaining_credits (ghost credit correction), never increase it.
+        // Increasing would create phantom credits when there are unlinked debits
+        // (e.g. legacy session_booking transactions with no packageId).
+        // Inflation is handled by reconcilePackageCredits which accounts for all debit types.
+        if (correctRemaining < Number(pkg.remainingCredits)) {
           details.push(`Package ${pkg.id}: ${pkg.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg.totalCredits})`);
           await db.update(packages).set({
             remainingCredits: correctRemaining,
@@ -12339,20 +12385,28 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
       GROUP BY metadata->>'settledByPackage'
     ) settled ON settled.package_id = p.id
     WHERE p.status = 'active'
-      AND ABS(
-        p.remaining_credits::numeric - (
-          p.total_credits::numeric
-          - COALESCE(pkg_debits.deducted, 0)
-          - COALESCE(settled.settled_amount, 0)
-        )
-      ) > 0.01
+      AND p.remaining_credits::numeric > (
+        p.total_credits::numeric
+        - COALESCE(pkg_debits.deducted, 0)
+        - COALESCE(settled.settled_amount, 0)
+      ) + 0.01
   `);
 
   result.checked = drifted.rows.length;
   console.log(`[CreditReconcile] Found ${drifted.rows.length} packages with drifted remaining_credits`);
 
+  interface ReconcileRow {
+    id: string;
+    player_id: string;
+    total: string;
+    current_remaining: string;
+    deducted_from_package: string;
+    settled_debts: string;
+    expected_remaining: string;
+  }
+
   for (const row of drifted.rows) {
-    const r = row as any;
+    const r = row as ReconcileRow;
     const expected = Math.max(0, Number(r.expected_remaining));
     const current = Number(r.current_remaining);
 
@@ -12365,9 +12419,10 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
       `);
       console.log(`[CreditReconcile] Fixed package ${r.id} (player ${r.player_id}): ${current} -> ${expected} (total: ${r.total}, from_pkg: ${r.deducted_from_package}, settled: ${r.settled_debts})`);
       result.fixed++;
-    } catch (err: any) {
-      result.errors.push(`${r.id}: ${err.message}`);
-      console.error(`[CreditReconcile] Error fixing package ${r.id}:`, err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      result.errors.push(`${r.id}: ${message}`);
+      console.error(`[CreditReconcile] Error fixing package ${r.id}:`, message);
     }
   }
 

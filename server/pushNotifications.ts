@@ -1827,6 +1827,122 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
   }
 }
 
+/**
+ * One-time targeted repair for Task #390: Rouzbeh Fazlinejad ghost private credit.
+ * His active private package (player ID: 2c6f6347-0978-45d3-9fbe-fe17ff6466fb) has
+ * remaining_credits=4 but the correct value is 3 — one ghost credit was added when
+ * refundCreditsForSession incorrectly restored a package credit after a session
+ * cancellation despite the player having attended (via the settled debt path).
+ *
+ * Idempotency: a sentinel credit_transactions record with reason='ghost_credit_correction'
+ * and metadata.task='390_rouzbeh_private_ghost' is inserted on correction. On subsequent
+ * boots, if the sentinel exists, the repair is skipped entirely. This ensures the correction
+ * runs exactly once regardless of remaining_credits value, preventing interference with
+ * legitimate future package usage.
+ */
+export async function fixRouzbehGhostCredit(): Promise<void> {
+  const PLAYER_ID = '2c6f6347-0978-45d3-9fbe-fe17ff6466fb';
+  const SENTINEL_TASK = '390_rouzbeh_private_ghost';
+
+  try {
+    const sentinelRes = await pool.query(
+      `SELECT id FROM credit_transactions
+       WHERE player_id = $1
+         AND reason = 'ghost_credit_correction'
+         AND metadata->>'task' = $2
+       LIMIT 1`,
+      [PLAYER_ID, SENTINEL_TASK]
+    );
+    if (sentinelRes.rows.length > 0) {
+      console.log("[RouzbehCreditFix] Correction already applied — skipping");
+      return;
+    }
+
+    const pkgRes = await pool.query(
+      `SELECT id, remaining_credits, total_credits, academy_id
+       FROM packages
+       WHERE player_id = $1 AND credit_type = 'private' AND status = 'active'
+       ORDER BY remaining_credits DESC
+       LIMIT 1`,
+      [PLAYER_ID]
+    );
+
+    if (pkgRes.rows.length === 0) {
+      console.log("[RouzbehCreditFix] No active private package found — skipping");
+      return;
+    }
+
+    const pkg = pkgRes.rows[0] as {
+      id: string;
+      remaining_credits: string;
+      total_credits: string;
+      academy_id: string;
+    };
+    const currentRemaining = Number(pkg.remaining_credits);
+
+    // Guard: only apply if remaining is demonstrably inflated (>= 4).
+    // The ghost credit inflated the package from the correct value of 3 to 4.
+    // If remaining is already <= 3, a prior correction may have run without leaving
+    // a sentinel — skip to avoid over-deducting legitimate credits.
+    if (currentRemaining < 4) {
+      console.log(`[RouzbehCreditFix] Package ${pkg.id} remaining ${currentRemaining} is already <= 3; inserting sentinel and skipping deduction`);
+      const sentinelMeta = JSON.stringify({
+        task: SENTINEL_TASK,
+        correctedAt: new Date().toISOString(),
+        originalRemaining: currentRemaining,
+        skipped: true,
+      });
+      await pool.query(
+        `INSERT INTO credit_transactions
+           (id, player_id, type, amount, credit_type, reason, package_id, academy_id, metadata, created_at)
+         VALUES
+           (gen_random_uuid(), $1, 'debit', 0, 'private', 'ghost_credit_correction', $2, $3,
+            $4::jsonb,
+            NOW())`,
+        [PLAYER_ID, pkg.id, pkg.academy_id, sentinelMeta]
+      );
+      return;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Deduct the ghost credit from the package
+      await client.query(
+        `UPDATE packages SET remaining_credits = remaining_credits - 1 WHERE id = $1`,
+        [pkg.id]
+      );
+
+      // Insert sentinel to mark this correction as applied (idempotency for future boots)
+      const sentinelMeta = JSON.stringify({
+        task: SENTINEL_TASK,
+        correctedAt: new Date().toISOString(),
+        originalRemaining: currentRemaining,
+      });
+      await client.query(
+        `INSERT INTO credit_transactions
+           (id, player_id, type, amount, credit_type, reason, package_id, academy_id, metadata, created_at)
+         VALUES
+           (gen_random_uuid(), $1, 'debit', -1, 'private', 'ghost_credit_correction', $2, $3,
+            $4::jsonb,
+            NOW())`,
+        [PLAYER_ID, pkg.id, pkg.academy_id, sentinelMeta]
+      );
+
+      await client.query("COMMIT");
+      console.log(`[RouzbehCreditFix] Corrected ghost credit on package ${pkg.id}: ${currentRemaining} -> ${currentRemaining - 1}`);
+    } catch (txErr: unknown) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err: unknown) {
+    console.error("[RouzbehCreditFix] Error:", err instanceof Error ? err.message : String(err));
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");

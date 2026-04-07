@@ -44,7 +44,7 @@ import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -1020,8 +1020,8 @@ function setupErrorHandler(app: express.Application) {
           } else {
             log("[GhostDebtCleanup] Orphaned debt already removed — no action needed");
           }
-        } catch (ghostErr: any) {
-          console.error("[GhostDebtCleanup] Error:", ghostErr.message);
+        } catch (ghostErr: unknown) {
+          console.error("[GhostDebtCleanup] Error:", ghostErr instanceof Error ? ghostErr.message : String(ghostErr));
         }
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
@@ -1030,6 +1030,13 @@ function setupErrorHandler(app: express.Application) {
         log("[CreditReconcile] Reconciling package remaining_credits against transaction history...");
         const reconcileResult = await reconcilePackageCredits();
         log(`[CreditReconcile] Done: ${reconcileResult.checked} drifted, ${reconcileResult.fixed} fixed, ${reconcileResult.errors.length} errors`);
+
+        // One-time repair: fix ghost private credit for Rouzbeh Fazlinejad (Task #390)
+        // Runs AFTER CreditReconcile because reconcile's formula computes expected=4 for this
+        // package (it counts only 6 settled active debts, not the 7th that was wrongly cancelled).
+        // Running last ensures the ghost credit deduction is not overwritten by reconcile.
+        // See fixRouzbehGhostCredit() in pushNotifications.ts for full context.
+        await fixRouzbehGhostCredit();
         
         // SAFETY: Debts must NEVER be auto-cancelled — they track what players owe until a package is purchased
       } catch (error) {
