@@ -1,0 +1,26 @@
+Brainstormed But Not Yet Tasked
+These were all planned and fleshed out in detail, just never assigned a task number:
+
+1. AI Match Prep + Tournament Readiness Score
+The day before a tournament match, the player gets a "73% ready" card with their top strength, biggest gap, and 2–3 tactical tips. A push notification fires the morning before. We had this planned down to the endpoint.
+
+2. AI Weekly Player Digest
+Every Monday at 8am, each player gets a push saying what their AI coach thinks they should focus on that week — drawn from coach notes, skill trends, and attendance. A dismissable card on the home screen shows it.
+
+3. Coach Roster Intelligence ("Pattern Insights")
+The coach sees a card on their dashboard: "7 of your 12 players are struggling with the same area." Group patterns surfaced from individual data. Cache 24 hours per coach. Each insight has a "view affected players" link.
+
+4. Smart Quest Generation
+Instead of random quests, AI ranks existing quest templates by the player's actual weak areas. Players with 3+ skill assessments get personalised quests with a small "For you" badge. No AI-generated quest text — just smart selection from existing templates.
+
+5. Match Data → Pillar Scores (Glow 1–5)
+For advanced players (Glow levels 1–5), pillar progress should be driven by match results — not just coach skill checks. Win/loss + reflection answers feed into the EMA system. Coach-verified matches carry 1.5× weight. Right now these players' stats never move.
+
+6. AI Parent Reports
+Monthly auto-generated report for parents of junior players: attendance, progress summary, coach notes, next milestone. Exportable as PDF. No parent ever has to chase the coach.
+
+7. AI Rate Limiting + Cost Control
+We discussed setting per-academy monthly token budgets. When a limit is hit, graceful degradation (shorter prompts, cached responses). Usage dashboard for platform owner to see cost per academy.
+
+8. Daily Briefing Splash Cards (task #50 — still open)
+A cinematic story-style daily opener when the player opens the app — shows today's session, their streak, a motivational message, and the weather at their court. We started this but it's still sitting as proposed.
