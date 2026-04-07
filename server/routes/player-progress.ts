@@ -2669,6 +2669,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
         });
 
+        const coachAcademyId = req.user!.academyId ?? null;
+        const { getAcademyBudgetState } = await import("../services/aiBudgetService");
+        const budgetState = coachAcademyId ? await getAcademyBudgetState(coachAcademyId) : null;
+        if (budgetState === "exhausted") {
+          return res.status(200).json({ reply: "AI coaching is temporarily paused while your academy's monthly usage is being reviewed. Your coach will be in touch shortly." });
+        }
+
         let reply: string | null = null;
         try {
           const response = await openai.chat.completions.create({
@@ -2677,7 +2684,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               { role: "system", content: systemPrompt },
               ...safeMessages,
             ],
-            max_tokens: 600,
+            max_tokens: budgetState === "warning" ? 400 : 600,
             temperature: 0.6,
           });
           reply = response.choices?.[0]?.message?.content || null;
@@ -2688,7 +2695,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             promptTokens: response.usage?.prompt_tokens ?? 0,
             completionTokens: response.usage?.completion_tokens ?? 0,
             totalTokens: response.usage?.total_tokens ?? 0,
-            academyId: req.user!.academyId ?? null,
+            academyId: coachAcademyId,
           }).catch(() => {});
         } catch (err) {
           console.error("[AIChat] OpenAI call failed:", err);
@@ -3060,6 +3067,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           systemPrompt = `${systemPrompt}\n\nPrevious coaching exchanges (for context — reference these naturally when relevant, e.g. "Last time we talked about..."):\n${historyBlock}`;
         }
 
+        const playerAcademyId = req.user!.academyId ?? null;
+        const { getAcademyBudgetState: getPlayerBudgetState } = await import("../services/aiBudgetService");
+        const playerBudgetState = playerAcademyId ? await getPlayerBudgetState(playerAcademyId) : null;
+        if (playerBudgetState === "exhausted") {
+          return res.status(200).json({ reply: "AI coaching is temporarily paused for your academy this month. Please check back soon." });
+        }
+
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({
           apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -3072,7 +3086,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             { role: "system", content: systemPrompt },
             ...safeMessages,
           ],
-          max_tokens: 400,
+          max_tokens: playerBudgetState === "warning" ? 280 : 400,
           temperature: 0.7,
         });
 
@@ -3086,7 +3100,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           promptTokens: usage?.prompt_tokens ?? 0,
           completionTokens: usage?.completion_tokens ?? 0,
           totalTokens: usage?.total_tokens ?? 0,
-          academyId: req.user!.academyId ?? null,
+          academyId: playerAcademyId,
         }).catch(() => {});
 
         // Persist this exchange to conversation memory

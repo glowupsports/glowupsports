@@ -30,26 +30,57 @@ import {
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
+import { getAcademyBudgetState } from "./aiBudgetService";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-async function callOpenAI(
+export const BUDGET_EXHAUSTED_MESSAGE =
+  "AI coaching is paused until next month — your academy has reached its monthly AI token budget. Please contact your academy administrator.";
+
+interface CallOpenAIResult {
+  content: string | null;
+  budgetExhausted: boolean;
+}
+
+async function callOpenAIWithBudget(
   userPrompt: string,
   systemPrompt: string,
   maxTokens: number = 600,
   context?: { userId?: string | null; featureType?: string; academyId?: string | null }
-): Promise<string | null> {
+): Promise<CallOpenAIResult> {
   try {
+    let actualMaxTokens = maxTokens;
+    let actualSystemPrompt = systemPrompt;
+    let actualUserPrompt = userPrompt;
+    let budgetExhausted = false;
+
+    if (context?.academyId) {
+      const budgetState = await getAcademyBudgetState(context.academyId).catch(() => null);
+      if (budgetState) {
+        if (budgetState.status === "exhausted") {
+          budgetExhausted = true;
+        } else if (budgetState.status === "warning") {
+          actualMaxTokens = Math.min(maxTokens, 200);
+          actualSystemPrompt = systemPrompt + " Be extremely concise. Keep response under 150 words.";
+          actualUserPrompt = userPrompt.length > 500 ? userPrompt.substring(0, 500) + "\n[Truncated for budget]" : userPrompt;
+        }
+      }
+    }
+
+    if (budgetExhausted) {
+      return { content: null, budgetExhausted: true };
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "system", content: actualSystemPrompt },
+        { role: "user", content: actualUserPrompt },
       ],
-      max_tokens: maxTokens,
+      max_tokens: actualMaxTokens,
       temperature: 0.7,
     });
 
@@ -65,11 +96,21 @@ async function callOpenAI(
       }).catch(() => {});
     }
 
-    return response.choices?.[0]?.message?.content || null;
+    return { content: response.choices?.[0]?.message?.content || null, budgetExhausted: false };
   } catch (err) {
     console.error("[AIEngine] OpenAI call failed:", err);
-    return null;
+    return { content: null, budgetExhausted: false };
   }
+}
+
+async function callOpenAI(
+  userPrompt: string,
+  systemPrompt: string,
+  maxTokens: number = 600,
+  context?: { userId?: string | null; featureType?: string; academyId?: string | null }
+): Promise<string | null> {
+  const result = await callOpenAIWithBudget(userPrompt, systemPrompt, maxTokens, context);
+  return result.content;
 }
 
 export async function generateSessionDigest(
@@ -239,7 +280,7 @@ Write a 2-3 sentence session digest for this player. Write it in third person (e
     const systemPrompt =
       "You are an expert tennis/padel/pickleball coaching assistant. Generate concise, encouraging, data-driven session digests for player development records. Never use emojis.";
 
-    const summary = await callOpenAI(prompt, systemPrompt, 300, { featureType: "report" });
+    const summary = await callOpenAI(prompt, systemPrompt, 300, { featureType: "report", academyId: session.academyId ?? null });
     if (!summary) return;
 
     await db.insert(sessionAiSummaries).values({
@@ -258,7 +299,7 @@ Write a 2-3 sentence session digest for this player. Write it in third person (e
 
 export async function generateProgressNarrative(
   playerId: string,
-  _academyId: string,
+  academyId: string,
   days: number = 30
 ): Promise<{ narrative: string; focusAreas: string[] } | null> {
   try {
@@ -484,7 +525,7 @@ Return ONLY valid JSON (no markdown, no code block), like:
     const systemPrompt =
       "You are an expert tennis/sports development assistant for a multi-academy coaching platform. Generate data-driven, encouraging progress narratives. Return only valid JSON without markdown formatting. Never use emojis.";
 
-    const response = await callOpenAI(prompt, systemPrompt, 700, { featureType: "report" });
+    const response = await callOpenAI(prompt, systemPrompt, 700, { featureType: "report", academyId: academyId ?? null });
     if (!response) return null;
 
     try {
@@ -1539,6 +1580,7 @@ export interface GroupSessionPlayerProfile {
 
 export interface GroupSessionAIContext {
   sessionId: string;
+  academyId: string | null;
   sessionType: string;
   sessionDate: string;
   durationMinutes: number;
@@ -1692,6 +1734,7 @@ export async function buildGroupSessionAIContext(
 
     return {
       sessionId,
+      academyId: session.academyId ?? null,
       sessionType: session.sessionType,
       sessionDate: session.startTime.toISOString().split("T")[0],
       durationMinutes: session.duration ?? 60,
@@ -1741,7 +1784,7 @@ Return a JSON object with exactly this structure:
   "flags": ["any group-level observations or concerns (1-3 items)"]
 }`;
 
-  const raw = await callOpenAI(userPrompt, systemPrompt, 800, { featureType: "session-plan" });
+  const raw = await callOpenAI(userPrompt, systemPrompt, 800, { featureType: "session-plan", academyId: ctx.academyId });
   if (!raw) return null;
 
   try {
@@ -2013,7 +2056,7 @@ Tone: warm, parent-friendly, positive but honest. No scores or numbers from the 
 
     const systemPrompt = "You are a friendly sports academy communicator writing monthly progress letters to parents of junior tennis players. Your letters are warm, jargon-free, positive, and give parents clear, actionable ways to support their child at home. Never use emojis. Never mention internal scores or numbers.";
 
-    const letter = await callOpenAI(userPrompt, systemPrompt, 700, { featureType: "report" });
+    const letter = await callOpenAI(userPrompt, systemPrompt, 700, { featureType: "report", academyId: player.academyId ?? null });
     return letter?.trim() || null;
   } catch (error) {
     console.error("[AIEngine] Error generating parent progress letter:", error);
@@ -2265,6 +2308,13 @@ export async function buildRosterInsightsContext(coachId: string): Promise<Roste
 
 export async function generateRosterInsights(coachId: string): Promise<{ insights: { text: string; playerIds: string[] }[]; generatedAt: string } | null> {
   try {
+    const [coachRow] = await db
+      .select({ academyId: coaches.academyId })
+      .from(coaches)
+      .where(eq(coaches.id, coachId))
+      .limit(1);
+    const rosterAcademyId = coachRow?.academyId ?? null;
+
     const context = await buildRosterInsightsContext(coachId);
     if (!context || context.totalPlayers === 0) return null;
 
@@ -2354,7 +2404,7 @@ Return ONLY valid JSON (no markdown), like:
     const systemPrompt =
       "You are an expert sports analytics AI for a coaching platform. Generate concise, data-driven roster insights. Return only valid JSON without markdown formatting. Never use emojis.";
 
-    const response = await callOpenAI(prompt, systemPrompt, 600);
+    const response = await callOpenAI(prompt, systemPrompt, 600, { featureType: "report", academyId: rosterAcademyId });
     if (!response) return null;
 
     const cleaned = response.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/, "").trim();
@@ -2592,7 +2642,7 @@ All text must be specific, actionable, and based on the data above. Never use em
     const systemPrompt =
       "You are an expert sports coaching AI. Generate accurate, data-driven match readiness assessments for players preparing for tournament matches. Return only valid JSON without markdown. Never use emojis.";
 
-    const response = await callOpenAI(prompt, systemPrompt, 500);
+    const response = await callOpenAI(prompt, systemPrompt, 500, { featureType: "report", academyId: player.academyId ?? null });
     if (!response) {
       return {
         readinessScore: baseScore,
@@ -2833,7 +2883,7 @@ Generate 2-3 concise coaching bullet points for the coach to focus on in today's
 
       const systemPrompt = "You are an expert tennis/padel/pickleball coaching assistant. Generate pre-session coaching briefs to help coaches prepare. Be specific, data-driven, and concise. Never use emojis.";
 
-      const bulletText = await callOpenAI(prompt, systemPrompt, 250, { featureType: "report" });
+      const bulletText = await callOpenAI(prompt, systemPrompt, 250, { featureType: "report", academyId: session.academyId ?? null });
       if (!bulletText) continue;
 
       const bullets = bulletText
@@ -2853,7 +2903,7 @@ ${playerSummaries.map((ps) => `${ps.playerName}:\n${ps.bullets.map((b) => `- ${b
 
 Write 1-2 sentences summarising the overall coaching focus for this session. Be concise and actionable. Never use emojis.`;
 
-    const overallText = await callOpenAI(overallPrompt, "You are an expert coaching assistant. Write brief, actionable session overviews. Never use emojis.", 150, { featureType: "report" });
+    const overallText = await callOpenAI(overallPrompt, "You are an expert coaching assistant. Write brief, actionable session overviews. Never use emojis.", 150, { featureType: "report", academyId: session.academyId ?? null });
     const briefText = overallText?.trim() || `Pre-session brief for ${playerSummaries.length} player${playerSummaries.length > 1 ? "s" : ""}. Review individual player notes below.`;
 
     return { briefText, playerSummaries };

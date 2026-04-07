@@ -202,6 +202,9 @@ export const academies = pgTable("academies", {
   // Multi-sport support: list of sports this academy offers (e.g., ["tennis", "padel"])
   sports: jsonb("sports").$type<string[]>().default(["tennis"]),
   
+  // AI Budget Control (platform owner configurable)
+  monthlyTokenBudget: integer("monthly_token_budget"), // null = unlimited
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

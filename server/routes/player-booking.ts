@@ -706,28 +706,39 @@ Return only the JSON array, nothing else.`;
       });
 
       let suggestions: string[] = [];
+      const bookingAcademyId = (req as any).user?.academyId ?? null;
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 200,
-          temperature: 0.7,
-        });
-        const content = response.choices?.[0]?.message?.content?.trim() || "[]";
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed)) {
-          suggestions = parsed.slice(0, 3);
+        const { getAcademyBudgetState } = await import("../services/aiBudgetService");
+        let budgetExhausted = false;
+        if (bookingAcademyId) {
+          const budgetState = await getAcademyBudgetState(bookingAcademyId).catch(() => null);
+          if (budgetState?.status === "exhausted") {
+            budgetExhausted = true;
+          }
         }
-        const { logAiCall } = await import("../middleware/aiQuotaMiddleware");
-        logAiCall({
-          userId: (req as any).user?.id ?? null,
-          featureType: "other",
-          model: "gpt-4o-mini",
-          promptTokens: response.usage?.prompt_tokens ?? 0,
-          completionTokens: response.usage?.completion_tokens ?? 0,
-          totalTokens: response.usage?.total_tokens ?? 0,
-          academyId: (req as any).user?.academyId ?? null,
-        }).catch(() => {});
+        if (!budgetExhausted) {
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 200,
+            temperature: 0.7,
+          });
+          const content = response.choices?.[0]?.message?.content?.trim() || "[]";
+          const parsed = JSON.parse(content);
+          if (Array.isArray(parsed)) {
+            suggestions = parsed.slice(0, 3);
+          }
+          const { logAiCall } = await import("../middleware/aiQuotaMiddleware");
+          logAiCall({
+            userId: (req as any).user?.id ?? null,
+            featureType: "other",
+            model: "gpt-4o-mini",
+            promptTokens: response.usage?.prompt_tokens ?? 0,
+            completionTokens: response.usage?.completion_tokens ?? 0,
+            totalTokens: response.usage?.total_tokens ?? 0,
+            academyId: bookingAcademyId,
+          }).catch(() => {});
+        }
       } catch {
         suggestions = [];
       }

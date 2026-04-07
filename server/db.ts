@@ -584,6 +584,12 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] americano_standings migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE academies ADD COLUMN IF NOT EXISTS monthly_token_budget INTEGER`);
+    console.log('[Database] academies monthly_token_budget column migration successful');
+  } catch (e: any) {
+    console.log('[Database] academies monthly_token_budget migration skipped:', e.message);
+  }
   // Startup repair: mark all sessions with status='scheduled' but end_time < NOW() as 'completed'.
   // These are sessions that were missed due to server downtime (the 24hr auto-complete window lapsed).
   // processAutoAttendance will create session_player records for sessions within 7 days.
