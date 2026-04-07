@@ -4214,6 +4214,14 @@ export const storage = {
         // Refund credits for this session
         await this.refundCreditsForSession(playerId, sessionId, academyId);
 
+        // Nullify FK references in credit_transactions before deleting the session_player row
+        // to avoid FK constraint violation (credit_transactions_session_player_id_fkey)
+        const sessionPlayerId = enrollment[0].id;
+        await db
+          .update(creditTransactions)
+          .set({ sessionPlayerId: null })
+          .where(eq(creditTransactions.sessionPlayerId, sessionPlayerId));
+
         // Remove from session_players
         await db
           .delete(sessionPlayers)
