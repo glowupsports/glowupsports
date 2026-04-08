@@ -90,8 +90,8 @@ function StarPicker({
         >
           <Ionicons
             name={i <= value ? "star" : "star-outline"}
-            size={32}
-            color={i <= value ? color : Colors.dark.backgroundTertiary}
+            size={i <= value ? 36 : 32}
+            color={i <= value ? color : "rgba(255,255,255,0.35)"}
           />
         </Pressable>
       ))}
@@ -102,6 +102,117 @@ function StarPicker({
 const starPickerStyles = StyleSheet.create({
   row: { flexDirection: "row", gap: 8, justifyContent: "center" },
   star: { padding: 4 },
+});
+
+const ENERGY_CHIPS = [
+  { label: "Low", color: "#EF4444" },
+  { label: "Tired", color: "#F97316" },
+  { label: "Okay", color: "#F59E0B" },
+  { label: "Good", color: "#84CC16" },
+  { label: "Great", color: "#F59E0B" },
+];
+
+const FEELING_CHIPS = [
+  { label: "Tough", color: "#6366F1" },
+  { label: "Okay-ish", color: "#8B5CF6" },
+  { label: "Solid", color: "#A78BFA" },
+  { label: "Strong", color: "#C084FC" },
+  { label: "Excellent", color: "#A78BFA" },
+];
+
+function MoodChips({
+  chips,
+  value,
+  onChange,
+}: {
+  chips: { label: string; color: string }[];
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <View style={moodChipStyles.row}>
+      {chips.map((chip, idx) => {
+        const selected = value === idx + 1;
+        return (
+          <Pressable
+            key={chip.label}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onChange(idx + 1);
+            }}
+            style={[
+              moodChipStyles.chip,
+              { borderColor: chip.color },
+              selected ? { backgroundColor: chip.color } : null,
+            ]}
+          >
+            <Text style={[moodChipStyles.chipText, { color: selected ? "#fff" : chip.color }]}>
+              {chip.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const moodChipStyles = StyleSheet.create({
+  row: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 8 },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  chipText: { fontSize: 11, fontWeight: "600" },
+});
+
+const SUGGESTION_CHIPS: Record<string, string[]> = {
+  hardest: ["Staying focused", "Footwork", "Consistency", "Mental reset", "Pressure points"],
+  learning: ["Backswing", "Positioning", "Stay patient", "Court coverage", "Net approach"],
+  next: ["Footwork drills", "Serve warm-up", "Mental reset", "Backhand follow-through"],
+};
+
+function SuggestionChips({
+  fieldKey,
+  value,
+  onChange,
+}: {
+  fieldKey: keyof typeof SUGGESTION_CHIPS;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const chips = SUGGESTION_CHIPS[fieldKey].slice(0, 3);
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={suggestionStyles.scroll} contentContainerStyle={suggestionStyles.row}>
+      {chips.map((chip) => (
+        <Pressable
+          key={chip}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            const trimmed = value.trim();
+            onChange(trimmed ? `${trimmed}, ${chip}` : chip);
+          }}
+          style={suggestionStyles.chip}
+        >
+          <Text style={suggestionStyles.chipText}>{chip}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+const suggestionStyles = StyleSheet.create({
+  scroll: { marginTop: 6 },
+  row: { gap: 6, paddingBottom: 2 },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.45)",
+  },
+  chipText: { fontSize: 11, color: MIRROR_ACCENT, fontWeight: "500" },
 });
 
 function GlowMirrorCard({
@@ -198,41 +309,52 @@ function GlowMirrorCard({
           </View>
         </View>
         {existingReflection.aiSummary ? (
-          <Text style={mirrorStyles.summaryText}>{existingReflection.aiSummary}</Text>
+          <View style={mirrorStyles.aiSummaryBlock}>
+            <Ionicons name="sparkles-outline" size={14} color={MIRROR_ACCENT} />
+            <Text style={mirrorStyles.summaryText}>{existingReflection.aiSummary}</Text>
+          </View>
         ) : null}
         <View style={mirrorStyles.savedRows}>
           {existingReflection.energyLevel ? (
-            <View style={mirrorStyles.savedRow}>
-              <Ionicons name="flash-outline" size={14} color={Colors.dark.textMuted} />
+            <View style={[mirrorStyles.savedRow, mirrorStyles.savedRowBordered, { borderLeftColor: "#F59E0B" }]}>
               <Text style={mirrorStyles.savedRowLabel}>Energy</Text>
+              <View style={{ flexDirection: "row", gap: 2 }}>
+                {[1,2,3,4,5].map((s) => (
+                  <Ionicons key={s} name="star" size={14} color={s <= (existingReflection.energyLevel ?? 0) ? "#F59E0B" : "rgba(255,255,255,0.2)"} />
+                ))}
+              </View>
               <Text style={mirrorStyles.savedRowValue}>{ENERGY_LABELS[existingReflection.energyLevel]}</Text>
             </View>
           ) : null}
           {existingReflection.overallFeeling ? (
-            <View style={mirrorStyles.savedRow}>
-              <Ionicons name="happy-outline" size={14} color={Colors.dark.textMuted} />
+            <View style={[mirrorStyles.savedRow, mirrorStyles.savedRowBordered, { borderLeftColor: MIRROR_ACCENT }]}>
               <Text style={mirrorStyles.savedRowLabel}>Overall</Text>
+              <View style={{ flexDirection: "row", gap: 2 }}>
+                {[1,2,3,4,5].map((s) => (
+                  <Ionicons key={s} name="star" size={14} color={s <= (existingReflection.overallFeeling ?? 0) ? MIRROR_ACCENT : "rgba(255,255,255,0.2)"} />
+                ))}
+              </View>
               <Text style={mirrorStyles.savedRowValue}>{FEELING_LABELS[existingReflection.overallFeeling]}</Text>
             </View>
           ) : null}
           {existingReflection.hardestPart ? (
-            <View style={mirrorStyles.savedRow}>
-              <Ionicons name="flame-outline" size={14} color={Colors.dark.textMuted} />
+            <View style={[mirrorStyles.savedRow, mirrorStyles.savedRowBordered, { borderLeftColor: "#EF4444" }]}>
+              <Ionicons name="flame-outline" size={14} color="#EF4444" />
               <Text style={mirrorStyles.savedRowLabel}>Hardest</Text>
               <Text style={mirrorStyles.savedRowValue}>{existingReflection.hardestPart}</Text>
             </View>
           ) : null}
           {existingReflection.keyLearning ? (
-            <View style={mirrorStyles.savedRow}>
-              <Ionicons name="bulb-outline" size={14} color={Colors.dark.textMuted} />
+            <View style={[mirrorStyles.savedRow, mirrorStyles.savedRowBordered, { borderLeftColor: "#22C55E" }]}>
+              <Ionicons name="bulb-outline" size={14} color="#22C55E" />
               <Text style={mirrorStyles.savedRowLabel}>Learned</Text>
               <Text style={mirrorStyles.savedRowValue}>{existingReflection.keyLearning}</Text>
             </View>
           ) : null}
           {existingReflection.nextFocus ? (
-            <View style={mirrorStyles.savedRow}>
-              <Ionicons name="flag-outline" size={14} color={Colors.dark.textMuted} />
-              <Text style={mirrorStyles.savedRowLabel}>Next focus</Text>
+            <View style={[mirrorStyles.savedRow, mirrorStyles.savedRowBordered, { borderLeftColor: GlowColors.primary }]}>
+              <Ionicons name="flag-outline" size={14} color={GlowColors.primary} />
+              <Text style={mirrorStyles.savedRowLabel}>Next</Text>
               <Text style={mirrorStyles.savedRowValue}>{existingReflection.nextFocus}</Text>
             </View>
           ) : null}
@@ -253,50 +375,64 @@ function GlowMirrorCard({
         </View>
       </View>
 
-      <Text style={mirrorStyles.sectionLabel}>Energy during session</Text>
+      <Text style={mirrorStyles.sectionLabel}>
+        <Text style={{ color: "#F59E0B" }}>&#9889; </Text>
+        {"ENERGY DURING SESSION"}
+      </Text>
       <StarPicker value={energyLevel} onChange={setEnergyLevel} color="#F59E0B" />
-      {energyLevel > 0 ? (
-        <Text style={mirrorStyles.ratingLabel}>{ENERGY_LABELS[energyLevel]}</Text>
-      ) : null}
+      <MoodChips chips={ENERGY_CHIPS} value={energyLevel} onChange={setEnergyLevel} />
 
-      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.lg }]}>Overall feeling</Text>
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.lg }]}>
+        <Text style={{ color: MIRROR_ACCENT }}>&#9679; </Text>
+        {"OVERALL FEELING"}
+      </Text>
       <StarPicker value={overallFeeling} onChange={setOverallFeeling} color={MIRROR_ACCENT} />
-      {overallFeeling > 0 ? (
-        <Text style={mirrorStyles.ratingLabel}>{FEELING_LABELS[overallFeeling]}</Text>
-      ) : null}
+      <MoodChips chips={FEELING_CHIPS} value={overallFeeling} onChange={setOverallFeeling} />
 
-      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.lg }]}>What was hardest? <Text style={mirrorStyles.optionalLabel}>(optional)</Text></Text>
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.lg }]}>
+        {"WHAT WAS HARDEST? "}
+        <Text style={mirrorStyles.optionalLabel}>(optional)</Text>
+      </Text>
       <TextInput
         style={mirrorStyles.textInput}
         value={hardestPart}
         onChangeText={setHardestPart}
         placeholder="e.g. staying focused after making errors"
-        placeholderTextColor={Colors.dark.textMuted}
+        placeholderTextColor="rgba(255,255,255,0.4)"
         maxLength={120}
         multiline
       />
+      <SuggestionChips fieldKey="hardest" value={hardestPart} onChange={setHardestPart} />
 
-      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.md }]}>Key learning from today <Text style={mirrorStyles.optionalLabel}>(optional)</Text></Text>
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.md }]}>
+        {"KEY LEARNING FROM TODAY "}
+        <Text style={mirrorStyles.optionalLabel}>(optional)</Text>
+      </Text>
       <TextInput
         style={mirrorStyles.textInput}
         value={keyLearning}
         onChangeText={setKeyLearning}
         placeholder="e.g. short backswing on volleys"
-        placeholderTextColor={Colors.dark.textMuted}
+        placeholderTextColor="rgba(255,255,255,0.4)"
         maxLength={120}
         multiline
       />
+      <SuggestionChips fieldKey="learning" value={keyLearning} onChange={setKeyLearning} />
 
-      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.md }]}>What will you focus on next? <Text style={mirrorStyles.optionalLabel}>(optional)</Text></Text>
+      <Text style={[mirrorStyles.sectionLabel, { marginTop: Spacing.md }]}>
+        {"WHAT WILL YOU FOCUS ON NEXT? "}
+        <Text style={mirrorStyles.optionalLabel}>(optional)</Text>
+      </Text>
       <TextInput
         style={mirrorStyles.textInput}
         value={nextFocus}
         onChangeText={setNextFocus}
         placeholder="e.g. serve consistency in the warm-up"
-        placeholderTextColor={Colors.dark.textMuted}
+        placeholderTextColor="rgba(255,255,255,0.4)"
         maxLength={120}
         multiline
       />
+      <SuggestionChips fieldKey="next" value={nextFocus} onChange={setNextFocus} />
 
       <Pressable
         style={[
@@ -366,12 +502,23 @@ const mirrorStyles = StyleSheet.create({
     color: GlowColors.primary,
     fontWeight: "600",
   },
+  aiSummaryBlock: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: MIRROR_ACCENT + "10",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderLeftWidth: 2,
+    borderLeftColor: MIRROR_ACCENT,
+  },
   summaryText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
-    marginBottom: Spacing.md,
     lineHeight: 18,
+    flex: 1,
   },
   savedRows: {
     gap: 8,
@@ -381,10 +528,17 @@ const mirrorStyles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  savedRowBordered: {
+    borderLeftWidth: 2,
+    paddingLeft: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
   savedRowLabel: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
-    width: 70,
+    width: 60,
   },
   savedRowValue: {
     ...Typography.caption,
@@ -394,9 +548,11 @@ const mirrorStyles = StyleSheet.create({
   },
   sectionLabel: {
     ...Typography.caption,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    fontSize: 12,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
     marginBottom: Spacing.sm,
   },
   optionalLabel: {
@@ -420,6 +576,8 @@ const mirrorStyles = StyleSheet.create({
     color: Colors.dark.text,
     minHeight: 60,
     textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   saveButton: {
     flexDirection: "row",
