@@ -94,6 +94,9 @@ export interface Group {
   memberCount: number;
   imageUrl?: string;
   isJoined?: boolean;
+  isMember?: boolean;
+  isPrivate?: boolean;
+  role?: string | null;
 }
 
 export interface Achievement {

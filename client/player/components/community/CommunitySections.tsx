@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
   FlatList,
+  ScrollView,
   Pressable,
   RefreshControl,
   ActivityIndicator,
@@ -708,9 +709,10 @@ export function GroupsSection() {
   const [newGroupDescription, setNewGroupDescription] = useState("");
   const [newGroupType, setNewGroupType] = useState<"social" | "friends">("social");
   const [previewGroup, setPreviewGroup] = useState<SheetGroup | null>(null);
+  const [joiningGroupIds, setJoiningGroupIds] = useState<Set<string>>(new Set());
 
-  const { data: groupsData, isLoading } = useQuery<Group[]>({
-    queryKey: ["/api/social/groups"],
+  const { data: groupsResponse, isLoading, refetch } = useQuery<{ myGroups: Group[]; discover: Group[] }>({
+    queryKey: ["/api/player/groups"],
   });
 
   const createGroupMutation = useMutation({
@@ -718,7 +720,7 @@ export function GroupsSection() {
       return apiRequest("POST", "/api/player/groups", data);
     },
     onSuccess: async (_result: unknown) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
       setShowCreateModal(false);
       const groupName = newGroupName.trim();
       setNewGroupName("");
@@ -733,6 +735,21 @@ export function GroupsSection() {
     },
   });
 
+  const joinGroupMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      setJoiningGroupIds(prev => new Set(prev).add(groupId));
+      return apiRequest("POST", `/api/player/groups/${groupId}/join`, {});
+    },
+    onSuccess: (_result: unknown, groupId: string) => {
+      setJoiningGroupIds(prev => { const s = new Set(prev); s.delete(groupId); return s; });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (_err: unknown, groupId: string) => {
+      setJoiningGroupIds(prev => { const s = new Set(prev); s.delete(groupId); return s; });
+    },
+  });
+
   const handleCreateGroup = () => {
     if (!newGroupName.trim() || newGroupName.length < 2) return;
     createGroupMutation.mutate({
@@ -742,15 +759,19 @@ export function GroupsSection() {
     });
   };
 
-  const allGroups = groupsData || [];
-
-  const groups = useMemo(() => {
-    if (groupFilter === "all") return allGroups;
+  const applyGroupFilter = (groups: Group[]) => {
+    if (groupFilter === "all") return groups;
     if (groupFilter === "training") {
-      return allGroups.filter(g => g.type === "training" || g.type === "skill_level" || g.type === "tournament");
+      return groups.filter(g => g.type === "training" || g.type === "skill_level" || g.type === "tournament");
     }
-    return allGroups.filter(g => g.type === "social" || g.type === "age_group");
-  }, [allGroups, groupFilter]);
+    return groups.filter(g => g.type === "social" || g.type === "age_group" || g.type === "friends");
+  };
+
+  const allMyGroups = groupsResponse?.myGroups || [];
+  const allDiscoverGroups = groupsResponse?.discover || [];
+
+  const myGroups = useMemo(() => applyGroupFilter(allMyGroups), [allMyGroups, groupFilter]);
+  const discoverGroups = useMemo(() => applyGroupFilter(allDiscoverGroups), [allDiscoverGroups, groupFilter]);
 
   const getGroupIcon = (type: string) => {
     switch (type) {
@@ -758,6 +779,7 @@ export function GroupsSection() {
       case "age_group": return "people";
       case "tournament": return "ribbon";
       case "social": return "tennisball";
+      case "friends": return "heart";
       default: return "grid";
     }
   };
@@ -770,43 +792,69 @@ export function GroupsSection() {
       description: group.description,
       type: group.type,
       memberCount: group.memberCount,
-      isJoined: group.isJoined,
+      isJoined: group.isMember ?? group.isJoined,
     });
   };
 
-  const renderGroupCard = (group: Group) => (
-    <Animated.View key={group.id} entering={FadeInDown.delay(100).springify()}>
-      <Pressable style={groupStyles.groupCard} onPress={() => handleGroupPress(group)}>
-        <View style={groupStyles.groupIconContainer}>
-          <LinearGradient
-            colors={[Colors.dark.primary + "30", Colors.dark.backgroundSecondary]}
-            style={groupStyles.groupSectionIconBg}
-          >
-            <Ionicons name={getGroupIcon(group.type) as any} size={28} color={Colors.dark.primary} />
-          </LinearGradient>
-        </View>
+  const renderGroupCard = (group: Group, isDiscoverable = false) => {
+    const isJoining = joiningGroupIds.has(group.id);
+    const isMember = group.isMember ?? (group.isJoined !== false);
 
-        <View style={groupStyles.groupSectionInfo}>
-          <ThemedText style={groupStyles.groupSectionName}>{group.name}</ThemedText>
-          <ThemedText style={groupStyles.groupSectionMeta}>
-            <Ionicons name="people" size={12} color={Colors.dark.textSecondary} /> {group.memberCount} members
-          </ThemedText>
-          {group.description ? (
-            <ThemedText style={groupStyles.groupSectionDescription} numberOfLines={2}>{group.description}</ThemedText>
-          ) : null}
-        </View>
+    return (
+      <Animated.View key={group.id} entering={FadeInDown.delay(100).springify()}>
+        <Pressable style={groupStyles.groupCard} onPress={() => !isDiscoverable && handleGroupPress(group)}>
+          <View style={groupStyles.groupIconContainer}>
+            <LinearGradient
+              colors={isDiscoverable
+                ? ["#A78BFA30", Colors.dark.backgroundSecondary]
+                : [Colors.dark.primary + "30", Colors.dark.backgroundSecondary]}
+              style={groupStyles.groupSectionIconBg}
+            >
+              <Ionicons
+                name={getGroupIcon(group.type) as any}
+                size={28}
+                color={isDiscoverable ? "#A78BFA" : Colors.dark.primary}
+              />
+            </LinearGradient>
+          </View>
 
-        <Pressable
-          style={[groupStyles.joinBtn, group.isJoined !== false && groupStyles.joinedBtn]}
-          onPress={(e) => { e.stopPropagation(); handleGroupPress(group); }}
-        >
-          <ThemedText style={[groupStyles.joinBtnText, group.isJoined !== false && groupStyles.joinedBtnText]}>
-            {group.isJoined !== false ? "Joined" : "Join"}
-          </ThemedText>
+          <View style={groupStyles.groupSectionInfo}>
+            <ThemedText style={groupStyles.groupSectionName}>{group.name}</ThemedText>
+            <ThemedText style={groupStyles.groupSectionMeta}>
+              <Ionicons name="people" size={12} color={Colors.dark.textSecondary} /> {group.memberCount} members
+            </ThemedText>
+            {group.description ? (
+              <ThemedText style={groupStyles.groupSectionDescription} numberOfLines={2}>{group.description}</ThemedText>
+            ) : null}
+          </View>
+
+          {isDiscoverable ? (
+            <Pressable
+              style={[groupStyles.joinBtn, isJoining && { opacity: 0.6 }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (!isJoining) joinGroupMutation.mutate(group.id);
+              }}
+              disabled={isJoining}
+            >
+              {isJoining ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} />
+              ) : (
+                <ThemedText style={groupStyles.joinBtnText}>Join</ThemedText>
+              )}
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[groupStyles.joinBtn, groupStyles.joinedBtn]}
+              onPress={(e) => { e.stopPropagation(); handleGroupPress(group); }}
+            >
+              <ThemedText style={[groupStyles.joinBtnText, groupStyles.joinedBtnText]}>Joined</ThemedText>
+            </Pressable>
+          )}
         </Pressable>
-      </Pressable>
-    </Animated.View>
-  );
+      </Animated.View>
+    );
+  };
 
   const renderFilterTabs = () => (
     <View style={groupStyles.groupFilterContainer}>
@@ -848,18 +896,20 @@ export function GroupsSection() {
           <ActivityIndicator size="large" color={Colors.dark.primary} />
         </View>
       ) : (
-        <FlatList
-          data={groups}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => renderGroupCard(item)}
+        <ScrollView
           contentContainerStyle={{ paddingBottom: tabBarHeight + 100, paddingHorizontal: Spacing.md }}
-          ListEmptyComponent={
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={Colors.dark.primary} />
+          }
+        >
+          {myGroups.length === 0 && discoverGroups.length === 0 ? (
             <View style={groupStyles.emptyState}>
               <View style={groupStyles.emptyIcon}>
                 <Ionicons name="people-circle" size={56} color={Colors.dark.primary} />
               </View>
               <ThemedText style={groupStyles.emptyTitle}>
-                {groupFilter === "all" ? "Create your first group" : `No ${groupFilter} groups yet`}
+                {groupFilter === "training" ? "No training groups yet" : "No groups yet"}
               </ThemedText>
               <ThemedText style={groupStyles.emptySubtitle}>
                 {groupFilter === "training"
@@ -887,9 +937,33 @@ export function GroupsSection() {
                 </Pressable>
               ) : null}
             </View>
-          }
-          showsVerticalScrollIndicator={false}
-        />
+          ) : null}
+
+          {myGroups.length > 0 ? (
+            <>
+              <View style={groupStyles.discoverSectionHeader}>
+                <Ionicons name="people" size={15} color={Colors.dark.primary} />
+                <ThemedText style={groupStyles.discoverSectionTitle}>My Groups</ThemedText>
+                <ThemedText style={groupStyles.discoverSectionCount}>{myGroups.length}</ThemedText>
+              </View>
+              {myGroups.map(g => renderGroupCard(g, false))}
+            </>
+          ) : null}
+
+          {discoverGroups.length > 0 ? (
+            <>
+              <View style={[groupStyles.discoverSectionHeader, myGroups.length > 0 && { marginTop: Spacing.lg }]}>
+                <Ionicons name="compass" size={15} color="#A78BFA" />
+                <ThemedText style={[groupStyles.discoverSectionTitle, { color: "#A78BFA" }]}>Discover</ThemedText>
+                <ThemedText style={groupStyles.discoverSectionCount}>{discoverGroups.length}</ThemedText>
+              </View>
+              <ThemedText style={groupStyles.discoverSectionSubtitle}>
+                Public groups you can join
+              </ThemedText>
+              {discoverGroups.map(g => renderGroupCard(g, true))}
+            </>
+          ) : null}
+        </ScrollView>
       )}
 
       {groupFilter !== "training" ? (
@@ -1862,5 +1936,36 @@ const groupStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.buttonText,
+  },
+  discoverSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+    marginTop: Spacing.sm,
+    paddingHorizontal: 2,
+  },
+  discoverSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  discoverSectionCount: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  discoverSectionSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: 2,
   },
 });
