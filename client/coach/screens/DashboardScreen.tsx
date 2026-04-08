@@ -97,6 +97,15 @@ interface Alert {
   priority: "high" | "medium" | "low";
 }
 
+interface PendingAttendanceSession {
+  sessionId: string;
+  startTime: string;
+  endTime: string;
+  sessionType: string;
+  seriesTitle: string;
+  pendingPlayers: Array<{ id: string; name: string }>;
+}
+
 interface WeeklyCalendarData {
   ownSessions: Session[];
   blockedSessions: any[];
@@ -174,6 +183,173 @@ const travelBannerStyles = StyleSheet.create({
   },
 });
 
+function PendingAttendanceCard({
+  sessions,
+  onSessionTap,
+}: {
+  sessions: PendingAttendanceSession[];
+  onSessionTap: (session: PendingAttendanceSession) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? sessions : sessions.slice(0, 5);
+  const hidden = sessions.length - 5;
+
+  function formatSessionDate(startTime: string): string {
+    const d = new Date(startTime);
+    const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${day} · ${time}`;
+  }
+
+  return (
+    <View style={attendanceCardStyles.card}>
+      <View style={attendanceCardStyles.headerRow}>
+        <Ionicons name="alert-circle" size={18} color="#FF6B35" />
+        <Text style={attendanceCardStyles.headerTitle}>Attendance Needed</Text>
+        <View style={attendanceCardStyles.badge}>
+          <Text style={attendanceCardStyles.badgeText}>{sessions.length}</Text>
+        </View>
+      </View>
+      <Text style={attendanceCardStyles.subLabel}>
+        {sessions.length} {sessions.length === 1 ? "session needs" : "sessions need"} attendance — credits cannot be processed until resolved
+      </Text>
+      {displayed.map((sess) => (
+        <Pressable
+          key={sess.sessionId}
+          style={attendanceCardStyles.sessionRow}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onSessionTap(sess);
+          }}
+        >
+          <View style={attendanceCardStyles.dotAndInfo}>
+            <View style={attendanceCardStyles.dot} />
+            <View style={attendanceCardStyles.sessionInfo}>
+              <Text style={attendanceCardStyles.dateText}>{formatSessionDate(sess.startTime)}</Text>
+              <Text style={attendanceCardStyles.playersText} numberOfLines={1}>
+                {sess.pendingPlayers.map((p) => p.name).join(", ")}
+              </Text>
+            </View>
+          </View>
+          <View style={attendanceCardStyles.rightRow}>
+            <View style={attendanceCardStyles.typeBadge}>
+              <Text style={attendanceCardStyles.typeText}>{sess.sessionType === "private" ? "Private" : "Group"}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#FF6B35" />
+          </View>
+        </Pressable>
+      ))}
+      {!showAll && hidden > 0 && (
+        <Pressable onPress={() => setShowAll(true)} style={attendanceCardStyles.showMoreBtn}>
+          <Text style={attendanceCardStyles.showMoreText}>See {hidden} more</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const attendanceCardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#1A0A0A",
+    borderRadius: BorderRadius.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: "#FF6B35",
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+    flex: 1,
+  },
+  badge: {
+    backgroundColor: "#FF6B35",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  subLabel: {
+    color: "#FF9B70",
+    fontSize: 12,
+    marginBottom: Spacing.sm,
+    lineHeight: 17,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,107,53,0.15)",
+  },
+  dotAndInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF6B35",
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  dateText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  playersText: {
+    color: "#B0B8C4",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  rightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  typeBadge: {
+    backgroundColor: "rgba(255,107,53,0.15)",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  typeText: {
+    color: "#FF9B70",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  showMoreBtn: {
+    paddingTop: 10,
+    alignItems: "center",
+  },
+  showMoreText: {
+    color: "#FF9B70",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+});
+
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -234,6 +410,7 @@ export default function DashboardScreen() {
     onSessionUpdate: useCallback(() => {
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/me/pending-attendance"] });
       if (refetchCalendar) refetchCalendar();
       refetchWeeklyCalendar();
     }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
@@ -618,6 +795,12 @@ export default function DashboardScreen() {
     queryKey: ["/api/coach/my-reviews"],
     enabled: !!coach?.id,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: pendingAttendanceSessions = [] } = useQuery<PendingAttendanceSession[]>({
+    queryKey: ["/api/coach/me/pending-attendance"],
+    enabled: !!coach?.id,
+    staleTime: 30_000,
   });
 
   const pendingFeedbackCount = useMemo(() => {
@@ -1085,6 +1268,29 @@ export default function DashboardScreen() {
 
         {/* === BIRTHDAY OVERVIEW === */}
         <BirthdayOverviewCard />
+
+        {/* === PENDING ATTENDANCE ALERT === */}
+        {pendingAttendanceSessions.length > 0 && (
+          <PendingAttendanceCard
+            sessions={pendingAttendanceSessions}
+            onSessionTap={(sess) => {
+              const sessionObj: Session = {
+                id: sess.sessionId,
+                coachId: coach?.id ?? null,
+                courtId: null,
+                startTime: sess.startTime,
+                endTime: sess.endTime,
+                duration: Math.round(
+                  (new Date(sess.endTime).getTime() - new Date(sess.startTime).getTime()) / 60000
+                ),
+                sessionType: sess.sessionType,
+                status: "completed",
+              };
+              setDetailInitialAction("attendance");
+              setSelectedSessionForDetail(sessionObj);
+            }}
+          />
+        )}
 
         {/* === ACTION NEEDED - Primary CTA === */}
         {(pendingFeedbackCount > 0 || alerts.length > 0) && (
@@ -1945,6 +2151,7 @@ export default function DashboardScreen() {
         onClose={() => setSelectedSessionForAttendance(null)}
         onSave={() => {
           setSelectedSessionForAttendance(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/pending-attendance"] });
         }}
       />
 

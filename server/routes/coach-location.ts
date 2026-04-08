@@ -1,8 +1,8 @@
 import { Router } from "express";
 import type { Response } from "express";
 import { db } from "../db";
-import { coaches, sessions, locations, locationTravelTimes } from "@shared/schema";
-import { eq, and, gte, lte, isNotNull, asc, inArray } from "drizzle-orm";
+import { coaches, sessions, locations, locationTravelTimes, sessionPlayers, coachingSeries, players } from "@shared/schema";
+import { eq, and, gte, lte, isNotNull, asc, inArray, isNull, or, lt, desc } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, requireRole } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
 
@@ -295,6 +295,98 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
+
+// GET /api/coach/me/pending-attendance
+// Returns completed sessions (last 60 days) that have at least one player with NULL attendance_status
+router.get(
+  "/api/coach/me/pending-attendance",
+  authMiddleware,
+  requireRole("coach", "assistant", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      if (!coachId) return res.status(403).json({ error: "Coach only" });
+
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+
+      // Step 1: Find all session IDs for this coach that have pending attendance
+      const pendingSessionRows = await db
+        .selectDistinct({ sessionId: sessionPlayers.sessionId })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+        .where(
+          and(
+            eq(sessions.coachId, coachId),
+            or(
+              eq(sessions.status, "completed"),
+              and(lt(sessions.endTime, now), isNull(sessions.status))
+            ),
+            gte(sessions.startTime, sixtyDaysAgo),
+            isNull(sessionPlayers.attendanceStatus)
+          )
+        )
+        .limit(20);
+
+      if (pendingSessionRows.length === 0) {
+        return res.json([]);
+      }
+
+      const sessionIds = pendingSessionRows.map((r) => r.sessionId).filter(Boolean) as string[];
+
+      // Step 2: Get session details + series title for each session
+      const sessionDetails = await db
+        .select({
+          sessionId: sessions.id,
+          startTime: sessions.startTime,
+          endTime: sessions.endTime,
+          sessionType: sessions.sessionType,
+          seriesId: sessions.seriesId,
+          seriesTitle: coachingSeries.title,
+        })
+        .from(sessions)
+        .leftJoin(coachingSeries, eq(coachingSeries.id, sessions.seriesId))
+        .where(inArray(sessions.id, sessionIds))
+        .orderBy(desc(sessions.startTime));
+
+      // Step 3: Get pending players for each session
+      const pendingPlayers = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          playerId: sessionPlayers.playerId,
+          playerName: players.name,
+        })
+        .from(sessionPlayers)
+        .innerJoin(players, eq(players.id, sessionPlayers.playerId))
+        .where(
+          and(
+            inArray(sessionPlayers.sessionId, sessionIds),
+            isNull(sessionPlayers.attendanceStatus)
+          )
+        );
+
+      // Step 4: Merge
+      const result = sessionDetails.map((sess) => ({
+        sessionId: sess.sessionId,
+        startTime: sess.startTime,
+        endTime: sess.endTime,
+        sessionType: sess.sessionType,
+        seriesTitle: sess.seriesTitle ?? "Session",
+        pendingPlayers: pendingPlayers
+          .filter((p) => p.sessionId === sess.sessionId)
+          .map((p) => ({ id: p.playerId, name: p.playerName })),
+      }));
+
+      // Filter out any session where pending players list is empty (already resolved race condition)
+      const filtered = result.filter((r) => r.pendingPlayers.length > 0);
+
+      res.json(filtered);
+    } catch (err) {
+      console.error("[pending-attendance] error:", err);
+      res.status(500).json({ error: "Failed to fetch pending attendance" });
+    }
+  }
+);
 
 export { fetchDistanceMatrixMinutes, haversineKm, SAME_LOCATION_KM, LOCATION_FRESHNESS_MINUTES };
 
