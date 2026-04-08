@@ -225,6 +225,7 @@ function PendingAttendanceCard({
           <View style={attendanceCardStyles.dotAndInfo}>
             <View style={attendanceCardStyles.dot} />
             <View style={attendanceCardStyles.sessionInfo}>
+              <Text style={attendanceCardStyles.seriesTitle} numberOfLines={1}>{sess.seriesTitle}</Text>
               <Text style={attendanceCardStyles.dateText}>{formatSessionDate(sess.startTime)}</Text>
               <Text style={attendanceCardStyles.playersText} numberOfLines={1}>
                 {sess.pendingPlayers.map((p) => p.name).join(", ")}
@@ -312,6 +313,14 @@ const attendanceCardStyles = StyleSheet.create({
   },
   sessionInfo: {
     flex: 1,
+  },
+  seriesTitle: {
+    color: "#FF9B70",
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   dateText: {
     color: "#FFFFFF",

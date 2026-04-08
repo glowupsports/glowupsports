@@ -307,12 +307,13 @@ router.get(
       const coachId = req.user?.coachId;
       if (!coachId) return res.status(403).json({ error: "Coach only" });
 
-      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
       const now = new Date();
 
-      // Step 1: Find all session IDs for this coach that have pending attendance
+      // Step 1: Find the 20 most-recent session IDs for this coach where at least one
+      // session_player has NULL or 'pending' attendance_status.
+      // Sessions must be completed (status='completed') or past end_time with no status set.
       const pendingSessionRows = await db
-        .selectDistinct({ sessionId: sessionPlayers.sessionId })
+        .selectDistinct({ sessionId: sessionPlayers.sessionId, startTime: sessions.startTime })
         .from(sessionPlayers)
         .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
         .where(
@@ -322,10 +323,13 @@ router.get(
               eq(sessions.status, "completed"),
               and(lt(sessions.endTime, now), isNull(sessions.status))
             ),
-            gte(sessions.startTime, sixtyDaysAgo),
-            isNull(sessionPlayers.attendanceStatus)
+            or(
+              isNull(sessionPlayers.attendanceStatus),
+              eq(sessionPlayers.attendanceStatus, "pending")
+            )
           )
         )
+        .orderBy(desc(sessions.startTime))
         .limit(20);
 
       if (pendingSessionRows.length === 0) {
@@ -349,7 +353,7 @@ router.get(
         .where(inArray(sessions.id, sessionIds))
         .orderBy(desc(sessions.startTime));
 
-      // Step 3: Get pending players for each session
+      // Step 3: Get pending players (NULL or 'pending' attendance) for each session
       const pendingPlayers = await db
         .select({
           sessionId: sessionPlayers.sessionId,
@@ -361,7 +365,10 @@ router.get(
         .where(
           and(
             inArray(sessionPlayers.sessionId, sessionIds),
-            isNull(sessionPlayers.attendanceStatus)
+            or(
+              isNull(sessionPlayers.attendanceStatus),
+              eq(sessionPlayers.attendanceStatus, "pending")
+            )
           )
         );
 
