@@ -1121,6 +1121,8 @@ ${intakeSection}
 
 LANGUAGE RULE: ${ageInstruction}
 
+PRONOUN RULE: You are speaking TO the coach, not to the player. "You" and "your" always refer to the COACH. When asking about the player's performance, always use the player's name ("${playerName}") or "the player" — never "you" or "your" to mean the player. WRONG: "How did this translate into your composure under pressure?" RIGHT: "How did this translate into ${playerName}'s composure under pressure?"
+
 YOUR JOB:
 ${intakeContext ? "1. Since intake context is provided, acknowledge what was trained and dive directly into follow-up questions — do NOT re-ask what the session focus was." : "1. Ask what the main focus of today's session was."}
 2. Ask 1-2 targeted follow-up questions per turn. Each question MUST reference what the coach just said (e.g. if they said "backhand was lazy", ask "You mentioned the backhand was lazy — was that consistency or technique?"). Do NOT ask a generic question the coach just answered. Cover all six pillars before wrapping up:

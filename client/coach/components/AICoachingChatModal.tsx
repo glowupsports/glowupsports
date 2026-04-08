@@ -27,6 +27,15 @@ interface Message {
   content: string;
 }
 
+interface IntakeContext {
+  trainedSkills: string[];
+  intensity: string | null;
+  groupDynamics: Record<string, string> | null;
+  playerPillarRating: Record<string, string> | null;
+  playerTags: string[] | null;
+  highlight?: string;
+}
+
 interface PlayerContext {
   playerName: string;
   playerAge: number | null;
@@ -34,6 +43,7 @@ interface PlayerContext {
   sessionType: string;
   requiredSkills: { skillId: string; skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
   sessionCount: number;
+  intakeContext?: IntakeContext;
 }
 
 interface StructuredSummary {
@@ -212,7 +222,35 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
         requiredList.length > 0
           ? ` Key curriculum skills to cover: ${requiredList.map((s) => s.skillName).join(", ")}.`
           : "";
-      const greeting = `You just finished a ${ctx.sessionType} session with ${ctx.playerName}${ctx.playerAge ? ` (age ${ctx.playerAge})` : ""} at ${ctx.ballLevel} ball level.${skillHint} What was the main focus of today's session?`;
+
+      const intake = ctx.intakeContext;
+      const hasMeaningfulIntake =
+        intake &&
+        ((intake.trainedSkills && intake.trainedSkills.length > 0) ||
+          intake.highlight ||
+          (intake.playerTags && intake.playerTags.length > 0));
+
+      let greeting: string;
+      if (hasMeaningfulIntake && intake) {
+        const parts: string[] = [];
+        if (intake.trainedSkills && intake.trainedSkills.length > 0) {
+          parts.push(`trained on ${intake.trainedSkills.join(", ")}`);
+        }
+        if (intake.highlight) {
+          parts.push(`highlight: ${intake.highlight.replace(/_/g, " ")}`);
+        }
+        if (intake.intensity) {
+          parts.push(`${intake.intensity} intensity`);
+        }
+        if (intake.playerTags && intake.playerTags.length > 0) {
+          parts.push(`player notes: ${intake.playerTags.map((t) => t.replace(/_/g, " ")).join(", ")}`);
+        }
+        const sessionDesc = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+        greeting = `You just finished a ${ctx.sessionType} session with ${ctx.playerName}${ctx.playerAge ? ` (age ${ctx.playerAge})` : ""} at ${ctx.ballLevel} ball level${sessionDesc}.${skillHint} I can see the session was already logged in the intake. How did ${ctx.playerName} respond overall — and was there anything that stood out beyond what was planned?`;
+      } else {
+        greeting = `You just finished a ${ctx.sessionType} session with ${ctx.playerName}${ctx.playerAge ? ` (age ${ctx.playerAge})` : ""} at ${ctx.ballLevel} ball level.${skillHint} What was the main focus of today's session?`;
+      }
+
       setMessages([{ role: "assistant", content: greeting }]);
     }
   }, [ctx, isDraftHydrated, messages.length, resumedDraft]);
