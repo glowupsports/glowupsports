@@ -302,6 +302,7 @@ interface DashboardData {
     isLive?: boolean;
     coachName?: string;
     duration?: number | null;
+    playerCheckedIn?: boolean;
   } | null;
 }
 

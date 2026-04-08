@@ -242,6 +242,18 @@ export function SessionHeroCard({
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
 
+  const { data: dashboardData } = useQuery<{ nextSession?: { playerCheckedIn?: boolean } | null }>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: !!user?.playerId,
+  });
+  const [hasCheckedIn, setHasCheckedIn] = useState<boolean>(
+    () => dashboardData?.nextSession?.playerCheckedIn ?? false
+  );
+
+  useEffect(() => {
+    setHasCheckedIn(dashboardData?.nextSession?.playerCheckedIn ?? false);
+  }, [sessionId, dashboardData?.nextSession?.playerCheckedIn]);
+
   interface ChallengeData {
     id: string;
     challengerId: string;
@@ -420,6 +432,7 @@ export function SessionHeroCard({
       return apiRequest("POST", `/api/player/me/sessions/${sessionId}/check-in`, {});
     },
     onSuccess: (response: any) => {
+      setHasCheckedIn(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       const xpMsg = response?.xpAwarded ? `\n+${response.xpAwarded} XP` : "";
@@ -2255,26 +2268,33 @@ export function SessionHeroCard({
           </View>
 
           {isSoon ? (
-            <SwipeBlocker>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cleanPrimaryButton,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={handleCheckIn}
-                disabled={checkInMutation.isPending}
-              >
-                <LinearGradient
-                  colors={[GlowColors.primary, GlowColors.soft]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.cleanPrimaryGradient, checkInMutation.isPending ? { opacity: 0.7 } : undefined]}
+            hasCheckedIn ? (
+              <View style={styles.checkedInIndicator}>
+                <Feather name="check-circle" size={18} color={Colors.success} />
+                <Text style={styles.checkedInText}>{t("player.home.checkedIn")}</Text>
+              </View>
+            ) : (
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.cleanPrimaryButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={handleCheckIn}
+                  disabled={checkInMutation.isPending}
                 >
-                  <Feather name="check-circle" size={18} color={Backgrounds.root} />
-                  <Text style={styles.cleanPrimaryButtonText}>{checkInMutation.isPending ? t("player.home.checkingIn") : t("player.home.checkInEarly")}</Text>
-                </LinearGradient>
-              </Pressable>
-            </SwipeBlocker>
+                  <LinearGradient
+                    colors={[GlowColors.primary, GlowColors.soft]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.cleanPrimaryGradient, checkInMutation.isPending ? { opacity: 0.7 } : undefined]}
+                  >
+                    <Feather name="check-circle" size={18} color={Backgrounds.root} />
+                    <Text style={styles.cleanPrimaryButtonText}>{checkInMutation.isPending ? t("player.home.checkingIn") : t("player.home.checkInEarly")}</Text>
+                  </LinearGradient>
+                </Pressable>
+              </SwipeBlocker>
+            )
           ) : null}
 
           <View style={styles.cleanTextButtonRow}>
@@ -3609,6 +3629,20 @@ const styles = StyleSheet.create({
   cleanActionsContainer: {
     gap: Spacing.md,
     width: "100%",
+  },
+  checkedInIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
+  },
+  checkedInText: {
+    color: Colors.success,
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
   cleanPrimaryButton: {
     width: "100%",

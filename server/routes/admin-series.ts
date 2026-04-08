@@ -3266,6 +3266,10 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         const durationMinutes = session.startTime && session.endTime
           ? Math.round((new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60))
           : null;
+        const sessionPlayerRecord = await storage.getSessionPlayer(session.id, playerId);
+        const playerCheckedIn = sessionPlayerRecord
+          ? (!!(sessionPlayerRecord as any).checkedInAt || sessionPlayerRecord.attendanceStatus === "present" || sessionPlayerRecord.attendanceStatus === "late")
+          : false;
         nextSession = {
           id: session.id,
           date: session.startTime,
@@ -3275,6 +3279,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           coachName: sessionCoach?.name || null,
           isLive: session.isActive,
           duration: durationMinutes,
+          playerCheckedIn,
         };
       }
       
