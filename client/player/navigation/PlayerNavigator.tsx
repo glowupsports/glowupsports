@@ -110,7 +110,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider, useFamily } from "@/player/context/FamilyContext";
-import { getApiUrl, apiFetch } from "@/lib/query-client";
+import { getApiUrl } from "@/lib/query-client";
 
 import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
 import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
@@ -642,15 +642,6 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   const navigation = useNavigation<any>();
   const track = useTrackFeature();
   const isMountedRef = useRef(false);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        apiFetch("/api/player/me/credits").catch(() => {});
-      }
-    });
-    return () => subscription.remove();
-  }, []);
 
   const playerTabs: TabConfig[] = useMemo(() => [
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },

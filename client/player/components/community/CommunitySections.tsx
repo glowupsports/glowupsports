@@ -740,13 +740,35 @@ export function GroupsSection() {
       setJoiningGroupIds(prev => new Set(prev).add(groupId));
       return apiRequest("POST", `/api/player/groups/${groupId}/join`, {});
     },
+    onMutate: async (groupId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/player/groups"] });
+      const previous = queryClient.getQueryData<{ myGroups: Group[]; discover: Group[] }>(["/api/player/groups"]);
+      queryClient.setQueryData<{ myGroups: Group[]; discover: Group[] }>(
+        ["/api/player/groups"],
+        (old) => {
+          if (!old) return old;
+          const joining = old.discover.find(g => g.id === groupId);
+          if (!joining) return old;
+          return {
+            myGroups: [...old.myGroups, { ...joining, isMember: true }],
+            discover: old.discover.filter(g => g.id !== groupId),
+          };
+        }
+      );
+      return { previous };
+    },
     onSuccess: (_result: unknown, groupId: string) => {
       setJoiningGroupIds(prev => { const s = new Set(prev); s.delete(groupId); return s; });
-      queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (_err: unknown, groupId: string) => {
+    onError: (_err: unknown, groupId: string, context: any) => {
       setJoiningGroupIds(prev => { const s = new Set(prev); s.delete(groupId); return s; });
+      if (context?.previous) {
+        queryClient.setQueryData(["/api/player/groups"], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
     },
   });
 

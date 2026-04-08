@@ -1024,6 +1024,17 @@ Return only the JSON array, nothing else.`;
           not(inArray(players.id, HIDDEN_PLAYER_IDS))
         ));
 
+      // Bulk-fetch last_login_at for all active players to avoid N+1
+      const playerIds = activePlayers.map(p => p.id);
+      const userLoginRows = playerIds.length > 0
+        ? await db
+            .select({ playerId: users.playerId, lastLoginAt: users.lastLoginAt })
+            .from(users)
+            .where(inArray(users.playerId, playerIds))
+        : [];
+      const lastLoginByPlayerId: Record<string, Date | null> = Object.fromEntries(
+        userLoginRows.map(u => [u.playerId!, u.lastLoginAt ?? null])
+      );
 
       // Build enriched players with mutual session counts and openToPlay status
       const enrichedPlayers = await Promise.all(activePlayers.map(async (player) => {
@@ -1077,7 +1088,7 @@ Return only the JSON array, nothing else.`;
           hasHomeAddress: !!(player.homeAddress && player.homeLat != null && player.homeLng != null),
           lastLatitude: player.lastLatitude ?? null,
           lastLongitude: player.lastLongitude ?? null,
-          lastOnlineAt: player.lastActiveAt?.toISOString() ?? null,
+          lastOnlineAt: lastLoginByPlayerId[player.id]?.toISOString() ?? null,
         };
       }));
 
