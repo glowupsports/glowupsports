@@ -240,7 +240,7 @@ function PendingAttendanceCard({
               <Text style={attendanceCardStyles.seriesTitle} numberOfLines={1}>{sess.seriesTitle}</Text>
               <Text style={attendanceCardStyles.dateText}>{formatSessionDate(sess.startTime)}</Text>
               <Text style={attendanceCardStyles.playersText} numberOfLines={1}>
-                {sess.players.length} player{sess.players.length !== 1 ? 's' : ''} · tap to review
+                {(sess.players ?? []).length} player{(sess.players ?? []).length !== 1 ? 's' : ''} · tap to review
               </Text>
             </View>
           </View>
