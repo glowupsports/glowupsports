@@ -420,7 +420,7 @@ export default function SeriesDetailDrawer({
 
   // Mutation to update max players
   const updateMaxPlayersMutation = useMutation({
-    mutationFn: async (payload: { maxPlayers: number; sessionType?: string }) => {
+    mutationFn: async (payload: { maxPlayers?: number; sessionType?: string; confirmTypeChange?: boolean }) => {
       return apiRequest("PATCH", `/api/coach/series/${seriesId}`, payload);
     },
     onSuccess: () => {
@@ -428,6 +428,33 @@ export default function SeriesDetailDrawer({
       setEditingMaxPlayers(false);
       setNewMaxPlayers("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: any) => {
+      // Handle server guard: coach tried to change away from group without confirmation.
+      // apiRequest throws Error with message "409: {json-body}".
+      const msg: string = err?.message || "";
+      if (msg.startsWith("409:")) {
+        try {
+          const body = JSON.parse(msg.slice(4).trim());
+          if (body?.code === "CONFIRM_GROUP_TYPE_CHANGE" && body?.requiresConfirmation) {
+            const activePlayerCount: number = body.activePlayerCount ?? 0;
+            Alert.alert(
+              "Change Session Type?",
+              `This is a Group session with ${activePlayerCount} active player(s). Changing the type is permanent and affects all future sessions. Continue?`,
+              [
+                { text: "Keep as Group", style: "cancel" },
+                {
+                  text: "Yes, Change Type",
+                  style: "destructive",
+                  onPress: () => updateMaxPlayersMutation.mutate({ confirmTypeChange: true }),
+                },
+              ]
+            );
+          }
+        } catch {
+          // non-JSON 409 — ignore, generic error handling covers it
+        }
+      }
     },
   });
 
@@ -529,18 +556,31 @@ export default function SeriesDetailDrawer({
       setShowRemoveModal(false);
 
       // Low-count warning: if this is a group series and only 1 active player remains,
-      // alert the coach — group sessions stay group regardless of player count.
+      // offer the coach a choice: keep as group or downgrade to semi-private.
       if (series?.sessionType === 'group') {
         const removedId = removePlayerId;
         const remainingActive = (series?.players || []).filter(
-          p => p.status !== 'left' && p.id !== removedId
+          p => p.status === 'active' && p.id !== removedId
         ).length;
         if (remainingActive === 1) {
           setTimeout(() => {
             Alert.alert(
               "1 Player Remaining",
-              "This group session now has only 1 player. It will continue as a Group lesson — group sessions stay group regardless of player count.",
-              [{ text: "OK", style: "default" }]
+              "This group session now has only 1 active player. Would you like to keep it as a Group lesson, or change it to Semi-Private?",
+              [
+                { text: "Keep as Group", style: "cancel" },
+                {
+                  text: "Change to Semi-Private",
+                  style: "destructive",
+                  onPress: () => {
+                    updateMaxPlayersMutation.mutate({
+                      sessionType: "semi_private",
+                      maxPlayers: 2,
+                      confirmTypeChange: true,
+                    });
+                  },
+                },
+              ]
             );
           }, 400);
         }
