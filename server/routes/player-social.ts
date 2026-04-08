@@ -145,6 +145,7 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
       
       const today = new Date().toISOString().split('T')[0];
       
+      const now = new Date();
       const activeQuests = await db.select({
         quest: playerQuestsTable,
         template: questTemplatesTable,
@@ -153,7 +154,11 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
       .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
       .where(and(
         eq(playerQuestsTable.playerId, playerId),
-        inArray(playerQuestsTable.status, ["active", "completed", "claimed"])
+        inArray(playerQuestsTable.status, ["active", "completed", "claimed"]),
+        or(
+          isNull(playerQuestsTable.expiresAt),
+          gte(playerQuestsTable.expiresAt, now)
+        )
       ))
       .orderBy(asc(questTemplatesTable.order));
       

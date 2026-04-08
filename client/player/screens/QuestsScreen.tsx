@@ -741,10 +741,15 @@ export default function QuestsScreen() {
     totalDaysActive: 0,
   };
 
+  const sortQuests = (quests: Quest[]) => {
+    const order = { completed: 0, active: 1, claimed: 2 };
+    return [...quests].sort((a, b) => (order[a.status as keyof typeof order] ?? 1) - (order[b.status as keyof typeof order] ?? 1));
+  };
+
   const questsByTab: Record<QuestType, Quest[]> = {
-    daily: dailyQuests,
-    weekly: weeklyQuests,
-    monthly: monthlyQuests,
+    daily: sortQuests(dailyQuests),
+    weekly: sortQuests(weeklyQuests),
+    monthly: sortQuests(monthlyQuests),
   };
 
   const activeQuests = questsByTab[activeTab];
@@ -901,17 +906,75 @@ export default function QuestsScreen() {
           <EmptyState type={activeTab} />
         ) : (
           <View style={styles.questList}>
-            {activeQuests.map((quest, index) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                index={index}
-                onClaim={() => handleClaim(quest.id)}
-                isClaiming={claimingQuestId === quest.id}
-                multiplier={streak.multiplier}
-                onPress={() => handleQuestTap(quest)}
-              />
-            ))}
+            {(() => {
+              const readyToClaim = activeQuests.filter(q => q.status === "completed");
+              const inProgress = activeQuests.filter(q => q.status === "active");
+              const claimed = activeQuests.filter(q => q.status === "claimed");
+              return (
+                <>
+                  {readyToClaim.length > 0 && (
+                    <>
+                      <View style={styles.sectionHeader}>
+                        <View style={styles.sectionDot} />
+                        <ThemedText style={styles.sectionLabel}>Claim Now</ThemedText>
+                        <View style={styles.sectionBadge}>
+                          <ThemedText style={styles.sectionBadgeText}>{readyToClaim.length}</ThemedText>
+                        </View>
+                      </View>
+                      {readyToClaim.map((quest, index) => (
+                        <QuestCard
+                          key={quest.id}
+                          quest={quest}
+                          index={index}
+                          onClaim={() => handleClaim(quest.id)}
+                          isClaiming={claimingQuestId === quest.id}
+                          multiplier={streak.multiplier}
+                          onPress={() => handleQuestTap(quest)}
+                        />
+                      ))}
+                    </>
+                  )}
+                  {inProgress.length > 0 && (
+                    <>
+                      <View style={styles.sectionHeader}>
+                        <View style={[styles.sectionDot, { backgroundColor: Colors.dark.textSecondary }]} />
+                        <ThemedText style={styles.sectionLabel}>In Progress</ThemedText>
+                      </View>
+                      {inProgress.map((quest, index) => (
+                        <QuestCard
+                          key={quest.id}
+                          quest={quest}
+                          index={readyToClaim.length + index}
+                          onClaim={() => handleClaim(quest.id)}
+                          isClaiming={claimingQuestId === quest.id}
+                          multiplier={streak.multiplier}
+                          onPress={() => handleQuestTap(quest)}
+                        />
+                      ))}
+                    </>
+                  )}
+                  {claimed.length > 0 && (
+                    <>
+                      <View style={styles.sectionHeader}>
+                        <View style={[styles.sectionDot, { backgroundColor: "#4CAF50" }]} />
+                        <ThemedText style={styles.sectionLabel}>Done</ThemedText>
+                      </View>
+                      {claimed.map((quest, index) => (
+                        <QuestCard
+                          key={quest.id}
+                          quest={quest}
+                          index={readyToClaim.length + inProgress.length + index}
+                          onClaim={() => handleClaim(quest.id)}
+                          isClaiming={claimingQuestId === quest.id}
+                          multiplier={streak.multiplier}
+                          onPress={() => handleQuestTap(quest)}
+                        />
+                      ))}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </View>
         )}
       </ScrollView>
@@ -1194,6 +1257,39 @@ const styles = StyleSheet.create({
 
   questList: {
     gap: Spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    marginBottom: 2,
+    paddingHorizontal: 2,
+  },
+  sectionDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.primary,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  sectionBadge: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  sectionBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#000",
   },
   questCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
