@@ -21,10 +21,7 @@ import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
 import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
 import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
-import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 
 export type OwnerTabParamList = {
@@ -70,7 +67,6 @@ function OwnerTabs() {
       tabs={OWNER_TABS}
       primaryColor={Colors.dark.gold}
       secondaryColor={Colors.dark.orange}
-      renderOverlay={() => <OwnerQuickActionsFAB />}
     />
   );
 }
@@ -98,62 +94,6 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
   );
 }
 
-function OwnerQuickActionsFAB() {
-  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
-
-  const ownerActions: QuickAction[] = [
-    {
-      id: "invite-coach",
-      label: "Invite Coach",
-      icon: "person-add-outline",
-      color: Colors.dark.primary,
-      onPress: () => navigation.navigate("InviteManagement", { role: "coach" }),
-    },
-    {
-      id: "pricing",
-      label: "Pricing",
-      icon: "pricetag-outline",
-      color: Colors.dark.gold,
-      onPress: () => navigation.navigate("Pricing"),
-    },
-    {
-      id: "courts",
-      label: "Courts",
-      icon: "tennisball-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("CourtsManagement"),
-    },
-    {
-      id: "credit-packages",
-      label: "Packages",
-      icon: "gift-outline",
-      color: Colors.dark.orange,
-      onPress: () => navigation.navigate("CreditPackages"),
-    },
-    {
-      id: "shop",
-      label: "Shop",
-      icon: "storefront-outline",
-      color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("ShopManagement"),
-    },
-    {
-      id: "profile",
-      label: "Profile",
-      icon: "person-circle-outline",
-      color: Colors.dark.ballGlow,
-      onPress: () => navigation.navigate("OwnerProfile"),
-    },
-  ];
-
-  return (
-    <QuickActionsFAB
-      actions={ownerActions}
-      primaryColor={Colors.dark.gold}
-      secondaryColor={Colors.dark.orange}
-    />
-  );
-}
 
 interface AcademyInfo {
   academy: {

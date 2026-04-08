@@ -38,14 +38,11 @@ import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import TournamentManagementScreen from "@/coach/screens/TournamentManagementScreen";
 import AiUsageScreen from "@/coach/screens/AiUsageScreen";
 import OfflineBanner from "@/components/OfflineBanner";
-import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useCoach } from "@/coach/context/CoachContext";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
-import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
+import { ChatStateProvider } from "@/coach/context/ChatStateContext";
 import { useTranslation } from "react-i18next";
 import { DesktopShell } from "@/components/DesktopShell";
 
@@ -104,9 +101,7 @@ const Stack = createNativeStackNavigator<CoachStackParamList>();
 function CoachTabs() {
   const { t } = useTranslation();
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
-  const [currentTabKey, setCurrentTabKey] = useState("Dashboard");
   const queryClient = useQueryClient();
-  const { isChatExpanded } = useChatState();
   const { coach, academy } = useCoach();
   const { width } = useWindowDimensions();
 
@@ -125,23 +120,11 @@ function CoachTabs() {
     label: TAB_LABELS[tab.key] || tab.key,
   }));
 
-  const handlePageChange = useCallback((index: number, key: string) => {
-    setCurrentTabKey(key);
-  }, []);
-
-  const renderOverlay = useCallback((tabKey: string) => {
-    const shouldShowFAB = tabKey !== "Calendar" && tabKey !== "Players";
-    if (!shouldShowFAB || isChatExpanded) return null;
-    return <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />;
-  }, [isChatExpanded]);
-
   const tabBar = (
     <SwipeableTabBar
       tabs={COACH_TABS}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.xpCyan}
-      onPageChange={handlePageChange}
-      renderOverlay={isDesktop ? undefined : renderOverlay}
       hideTabBar={isDesktop}
     />
   );
@@ -445,69 +428,6 @@ export default function CoachNavigator() {
   );
 }
 
-function CoachQuickActionsFAB({ onAddPlayer }: { onAddPlayer: () => void }) {
-  const navigation = useNavigation<any>();
-
-  const coachActions: QuickAction[] = [
-    {
-      id: "new-session",
-      label: "New Session",
-      icon: "add-circle-outline",
-      color: Colors.dark.primary,
-      onPress: () => navigation.navigate("CoachTabs", { screen: "Calendar", params: { openWizard: true } }),
-    },
-    {
-      id: "quick-feedback",
-      label: "Quick Feedback",
-      icon: "chatbubble-ellipses-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("CoachTabs", { screen: "Coaching" }),
-    },
-    {
-      id: "add-player",
-      label: "Add Player",
-      icon: "person-add-outline",
-      color: Colors.dark.orange,
-      onPress: onAddPlayer,
-    },
-    {
-      id: "log-match",
-      label: "Log Match",
-      icon: "trophy-outline",
-      color: Colors.dark.gold,
-      onPress: () => navigation.navigate("CoachHQ"),
-    },
-    {
-      id: "chat",
-      label: "Messages",
-      icon: "mail-outline",
-      color: Colors.dark.ballGlow,
-      onPress: () => navigation.navigate("ChatInbox"),
-    },
-    {
-      id: "level-cards",
-      label: "Level Cards",
-      icon: "ribbon-outline",
-      color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("LevelCards"),
-    },
-    {
-      id: "video-feedback",
-      label: "Video Feedback",
-      icon: "videocam-outline",
-      color: "#4DA3FF",
-      onPress: () => navigation.navigate("VideoFeedback"),
-    },
-  ];
-
-  return (
-    <QuickActionsFAB
-      actions={coachActions}
-      primaryColor={Colors.dark.xpCyan}
-      secondaryColor={Colors.dark.primary}
-    />
-  );
-}
 
 const styles = StyleSheet.create({
   container: {

@@ -22,10 +22,7 @@ import ProviderInviteManagementScreen from "@/platform/screens/ProviderInviteMan
 import PlayerActivityScreen from "@/platform/screens/PlayerActivityScreen";
 import TierManagementScreen from "@/platform/screens/TierManagementScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
-import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 
 export type PlatformTabParamList = {
@@ -74,7 +71,6 @@ function PlatformTabs() {
       tabs={PLATFORM_TABS}
       primaryColor={PLATFORM_COLOR}
       secondaryColor={Colors.dark.xpCyan}
-      renderOverlay={(currentTabKey: string) => currentTabKey === "CommandCenter" ? <PlatformQuickActionsFAB /> : null}
     />
   );
 }
@@ -101,69 +97,6 @@ function PlatformStackNavigator() {
   );
 }
 
-function PlatformQuickActionsFAB() {
-  const navigation = useNavigation<NativeStackNavigationProp<PlatformStackParamList>>();
-
-  const platformActions: QuickAction[] = [
-    {
-      id: "xp-config",
-      label: "XP Config",
-      icon: "star-outline",
-      color: Colors.dark.gold,
-      onPress: () => navigation.navigate("XPMultipliers"),
-    },
-    {
-      id: "billing",
-      label: "Billing",
-      icon: "card-outline",
-      color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("BillingConfig"),
-    },
-    {
-      id: "diagnostics",
-      label: "Diagnostics",
-      icon: "pulse-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("Diagnostics"),
-    },
-    {
-      id: "audit-logs",
-      label: "Audit Logs",
-      icon: "document-text-outline",
-      color: Colors.dark.ballGlow,
-      onPress: () => navigation.navigate("AuditLogs"),
-    },
-    {
-      id: "notifications",
-      label: "Templates",
-      icon: "notifications-outline",
-      color: Colors.dark.orange,
-      onPress: () => navigation.navigate("NotificationTemplates"),
-    },
-    {
-      id: "feature-unlocks",
-      label: "Features",
-      icon: "key-outline",
-      color: PLATFORM_COLOR,
-      onPress: () => navigation.navigate("FeatureUnlocks"),
-    },
-    {
-      id: "tier-management",
-      label: "Tiers",
-      icon: "layers-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("TierManagement"),
-    },
-  ];
-
-  return (
-    <QuickActionsFAB
-      actions={platformActions}
-      primaryColor={PLATFORM_COLOR}
-      secondaryColor={Colors.dark.xpCyan}
-    />
-  );
-}
 
 export default function PlatformNavigator() {
   return (

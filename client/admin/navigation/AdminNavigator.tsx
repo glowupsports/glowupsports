@@ -16,10 +16,7 @@ import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsSc
 import AdminEquipmentScreen from "@/admin/screens/AdminEquipmentScreen";
 import AdminCorporateAccountsScreen from "@/admin/screens/AdminCorporateAccountsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
-import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 
 export type AdminTabParamList = {
@@ -69,7 +66,6 @@ function AdminTabs() {
       tabs={ADMIN_TABS}
       primaryColor={Colors.dark.orange}
       secondaryColor={Colors.dark.gold}
-      renderOverlay={() => <AdminQuickActionsFAB />}
     />
   );
 }
@@ -89,76 +85,6 @@ function AdminStackNavigator() {
   );
 }
 
-function AdminQuickActionsFAB() {
-  const navigation = useNavigation<NativeStackNavigationProp<AdminStackParamList>>();
-
-  const adminActions: QuickAction[] = [
-    {
-      id: "add-coach",
-      label: "Add Coach",
-      icon: "person-add-outline",
-      color: Colors.dark.primary,
-      onPress: () => navigation.navigate("AdminCoaches"),
-    },
-    {
-      id: "add-player",
-      label: "Add Player",
-      icon: "people-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("AdminPlayers"),
-    },
-    {
-      id: "new-class",
-      label: "New Class",
-      icon: "albums-outline",
-      color: Colors.dark.gold,
-      onPress: () => navigation.navigate("AdminClasses"),
-    },
-    {
-      id: "payments",
-      label: "Payments",
-      icon: "card-outline",
-      color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("AdminPayments"),
-    },
-    {
-      id: "reports",
-      label: "Reports",
-      icon: "bar-chart-outline",
-      color: Colors.dark.ballGlow,
-      onPress: () => navigation.navigate("AdminReports"),
-    },
-    {
-      id: "courts",
-      label: "Courts",
-      icon: "tennisball-outline",
-      color: Colors.dark.orange,
-      onPress: () => navigation.navigate("AdminCourts"),
-    },
-    {
-      id: "equipment",
-      label: "Equipment",
-      icon: "bag-outline",
-      color: Colors.dark.xpCyan ?? Colors.dark.primary,
-      onPress: () => navigation.navigate("AdminEquipment"),
-    },
-    {
-      id: "corporate",
-      label: "Corporate",
-      icon: "business-outline",
-      color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("AdminCorporateAccounts"),
-    },
-  ];
-
-  return (
-    <QuickActionsFAB
-      actions={adminActions}
-      primaryColor={Colors.dark.orange}
-      secondaryColor={Colors.dark.gold}
-    />
-  );
-}
 
 export default function AdminNavigator() {
   return (
