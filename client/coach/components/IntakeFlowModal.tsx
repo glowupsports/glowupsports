@@ -6,8 +6,7 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Animated,
-  Dimensions,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -375,8 +374,6 @@ export function IntakeFlowModal({
     saveMutation.mutate({ data: result, saveOnly });
   };
 
-  if (!visible) return null;
-
   const renderStep = () => {
     if (!currentStep) return null;
 
@@ -528,77 +525,90 @@ export function IntakeFlowModal({
   };
 
   const isLastStep = stepIndex === totalSteps - 1;
-  const screenH = Dimensions.get("window").height;
 
   return (
-    <View style={[StyleSheet.absoluteFillObject, styles.overlay]}>
-      <View style={[styles.sheet, { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.md }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8}>
-            <Ionicons name="close" size={22} color={Colors.dark.textSecondary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Pre-Session Intake</Text>
-          <View style={{ width: 38 }} />
-        </View>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.md }]}>
+          {/* Drag handle */}
+          <View style={styles.dragHandle} />
 
-        <StepIndicator current={stepIndex} total={totalSteps} />
-
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {renderStep()}
-          <View style={{ height: 80 }} />
-        </ScrollView>
-
-        {/* Footer nav */}
-        <View style={[styles.footer]}>
-          {stepIndex > 0 ? (
-            <Pressable style={styles.backBtn} onPress={handleBack}>
-              <Ionicons name="arrow-back" size={18} color={Colors.dark.textSecondary} />
-              <Text style={styles.backBtnText}>Back</Text>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8}>
+              <Ionicons name="close" size={22} color={Colors.dark.textSecondary} />
             </Pressable>
-          ) : (
-            <View style={{ flex: 1 }} />
-          )}
+            <Text style={styles.headerTitle}>Pre-Session Intake</Text>
+            <View style={{ width: 38 }} />
+          </View>
 
-          <Pressable
-            style={styles.saveOnlyBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleFinish(true);
-            }}
-            disabled={saveMutation.isPending}
-          >
-            <Text style={styles.saveOnlyBtnText}>Skip AI — Save Only</Text>
-          </Pressable>
+          <StepIndicator current={stepIndex} total={totalSteps} />
 
-          <Pressable
-            style={[styles.nextBtn, !canProceed() && styles.nextBtnDisabled]}
-            onPress={() => handleNext(false)}
-            disabled={!canProceed() || saveMutation.isPending}
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            {renderStep()}
+            <View style={{ height: 80 }} />
+          </ScrollView>
+
+          {/* Footer nav */}
+          <View style={styles.footer}>
+            {stepIndex > 0 ? (
+              <Pressable style={styles.backBtn} onPress={handleBack}>
+                <Ionicons name="arrow-back" size={18} color={Colors.dark.textSecondary} />
+                <Text style={styles.backBtnText}>Back</Text>
+              </Pressable>
             ) : (
-              <>
-                <Text style={styles.nextBtnText}>
-                  {isLastStep ? "Start AI Chat" : "Next"}
-                </Text>
-                <Ionicons
-                  name={isLastStep ? "chatbubble-ellipses-outline" : "arrow-forward"}
-                  size={16}
-                  color={Colors.dark.backgroundRoot}
-                />
-              </>
+              <View style={{ flex: 1 }} />
             )}
-          </Pressable>
+
+            <View style={styles.footerRight}>
+              <Pressable
+                style={styles.saveOnlyBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleFinish(true);
+                }}
+                disabled={saveMutation.isPending}
+              >
+                <Text style={styles.saveOnlyBtnText}>Skip AI</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.nextBtn, !canProceed() && styles.nextBtnDisabled]}
+                onPress={() => handleNext(false)}
+                disabled={!canProceed() || saveMutation.isPending}
+              >
+                {saveMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Text style={styles.nextBtnText}>
+                      {isLastStep ? "Start AI Chat" : "Next"}
+                    </Text>
+                    <Ionicons
+                      name={isLastStep ? "chatbubble-ellipses-outline" : "arrow-forward"}
+                      size={16}
+                      color="#fff"
+                    />
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
       </View>
-    </View>
+    </Modal>
   );
 }
 
@@ -606,9 +616,12 @@ export function IntakeFlowModal({
 
 const styles = StyleSheet.create({
   overlay: {
-    backgroundColor: "rgba(0,0,0,0.7)",
-    zIndex: 200,
+    flex: 1,
     justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.72)",
   },
   sheet: {
     backgroundColor: Colors.dark.backgroundCard,
@@ -616,12 +629,21 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "92%",
     minHeight: "60%",
+    paddingTop: Spacing.sm,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.border,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   headerTitle: {
     flex: 1,
@@ -689,7 +711,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   chipSelected: {
-    backgroundColor: Colors.dark.primary + "25",
+    backgroundColor: Colors.dark.primary + "38",
     borderColor: Colors.dark.primary,
   },
   chipText: {
@@ -698,7 +720,7 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: Colors.dark.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   intensityRow: {
     flexDirection: "row",
@@ -708,16 +730,16 @@ const styles = StyleSheet.create({
   intensityCard: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.dark.border,
     backgroundColor: Colors.dark.backgroundRoot,
-    gap: 4,
+    gap: 8,
   },
   intensityCardSelected: {
     borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "18",
+    backgroundColor: Colors.dark.primary + "22",
   },
   intensityLabel: {
     fontSize: 13,
@@ -772,9 +794,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
     gap: 12,
+  },
+  footerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   backBtn: {
     flex: 1,
@@ -788,14 +816,15 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   nextBtn: {
-    flex: 2,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.dark.primary,
     paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     gap: 6,
+    minWidth: 120,
   },
   nextBtnDisabled: {
     opacity: 0.4,
@@ -803,20 +832,17 @@ const styles = StyleSheet.create({
   nextBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: "#fff",
   },
   saveOnlyBtn: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
     alignItems: "center",
     justifyContent: "center",
   },
   saveOnlyBtnText: {
     fontSize: 13,
-    color: Colors.dark.textSecondary,
-    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
 });
