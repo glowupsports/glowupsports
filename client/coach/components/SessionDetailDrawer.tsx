@@ -46,7 +46,7 @@ import PlayerFeedbackHistorySheet from "./PlayerFeedbackHistorySheet";
 import StrokeFeedbackModal from "./StrokeFeedbackModal";
 import QuickBaselineDrawer from "./QuickBaselineDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
-import { AICoachingChatModal } from "./AICoachingChatModal";
+import { useAIModal } from "@/coach/context/AIModalContext";
 import { AISessionPlanModal } from "./AISessionPlanModal";
 
 interface Player {
@@ -126,7 +126,7 @@ export default function SessionDetailDrawer({
   const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
   const [deepAssessPlayer, setDeepAssessPlayer] = useState<Player | null>(null);
   const [feedbackPickerMode, setFeedbackPickerMode] = useState<"evidence" | "baseline" | "deep" | "ai" | null>(null);
-  const [aiChatPlayer, setAiChatPlayer] = useState<{ id: string; name: string } | null>(null);
+  const { openAIChat } = useAIModal();
   const [showAISessionPlan, setShowAISessionPlan] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -1591,11 +1591,17 @@ export default function SessionDetailDrawer({
           }
         };
 
-        const openAIChat = () => {
+        const openAIChatForPlayer = () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           if (nonGuestPlayers.length === 1) {
             const p = nonGuestPlayers[0];
-            setAiChatPlayer({ id: p.id, name: p.name });
+            openAIChat({
+              sessionId: session.id,
+              playerId: p.id,
+              playerName: p.name,
+              sessionType: session.sessionType,
+              remainingPlayers: [],
+            });
           } else if (nonGuestPlayers.length > 1) {
             setFeedbackPickerMode("ai");
           }
@@ -1657,7 +1663,7 @@ export default function SessionDetailDrawer({
             icon: "sparkles" as const,
             color: GlowColors.primary,
             xp: false,
-            onPress: () => openAIChat(),
+            onPress: () => openAIChatForPlayer(),
             disabled: nonGuestPlayers.length === 0,
           },
         ];
@@ -2470,17 +2476,6 @@ export default function SessionDetailDrawer({
         onClose={() => setDeepAssessPlayer(null)}
       />
 
-      {/* AI Coaching Chat Modal */}
-      {aiChatPlayer ? (
-        <AICoachingChatModal
-          visible={!!aiChatPlayer}
-          onClose={() => setAiChatPlayer(null)}
-          sessionId={session.id}
-          playerId={aiChatPlayer.id}
-          playerName={aiChatPlayer.name}
-        />
-      ) : null}
-
       <AISessionPlanModal
         visible={showAISessionPlan}
         onClose={() => setShowAISessionPlan(false)}
@@ -2532,7 +2527,13 @@ export default function SessionDetailDrawer({
                           } else if (mode === "baseline") {
                             setBaselinePlayer(p);
                           } else if (mode === "ai") {
-                            setAiChatPlayer({ id: p.id, name: p.name });
+                            openAIChat({
+                              sessionId: session.id,
+                              playerId: p.id,
+                              playerName: p.name,
+                              sessionType: session.sessionType,
+                              remainingPlayers: [],
+                            });
                           } else {
                             setDeepAssessPlayer(p);
                           }

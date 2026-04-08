@@ -51,7 +51,7 @@ import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
 import { IntakeResult } from "@/coach/components/IntakeFlowModal";
 import { useIntakeModal } from "@/coach/context/IntakeModalContext";
-import { AICoachingChatModal } from "@/coach/components/AICoachingChatModal";
+import { useAIModal } from "@/coach/context/AIModalContext";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
@@ -731,7 +731,7 @@ export default function DashboardScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   // Pending feedback flow: intake → AI chat (runs from dashboard, not SessionDetailDrawer)
   const { openIntake } = useIntakeModal();
-  const [pendingAIChatPlayer, setPendingAIChatPlayer] = useState<{ sessionId: string; playerId: string; playerName: string; sessionType: string; remainingPlayers: PendingFeedbackSession["players"] } | null>(null);
+  const { openAIChat } = useAIModal();
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [showDaySessions, setShowDaySessions] = useState(false);
@@ -2154,7 +2154,7 @@ export default function DashboardScreen() {
                   if (sess.players.length > 0) {
                     const [first, ...rest] = sess.players;
                     setTimeout(() => {
-                      setPendingAIChatPlayer({
+                      openAIChat({
                         sessionId: sess.sessionId,
                         playerId: first.id,
                         playerName: first.name,
@@ -2558,35 +2558,6 @@ export default function DashboardScreen() {
         }}
       />
 
-
-      {/* Pending Feedback → AI Chat (opened after intake completes, one player at a time) */}
-      {pendingAIChatPlayer ? (
-        <AICoachingChatModal
-          visible={!!pendingAIChatPlayer}
-          onClose={() => {
-            const remaining = pendingAIChatPlayer.remainingPlayers;
-            if (remaining.length > 0) {
-              // Advance to next player
-              const [next, ...rest] = remaining;
-              setTimeout(() => {
-                setPendingAIChatPlayer({
-                  sessionId: pendingAIChatPlayer.sessionId,
-                  playerId: next.id,
-                  playerName: next.name,
-                  sessionType: pendingAIChatPlayer.sessionType,
-                  remainingPlayers: rest,
-                });
-              }, 200);
-            } else {
-              setPendingAIChatPlayer(null);
-              queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
-            }
-          }}
-          sessionId={pendingAIChatPlayer.sessionId}
-          playerId={pendingAIChatPlayer.playerId}
-          playerName={pendingAIChatPlayer.playerName}
-        />
-      ) : null}
 
       <DaySessionsDrawer
         visible={showDaySessions}

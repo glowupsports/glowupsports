@@ -48,6 +48,8 @@ import { useTranslation } from "react-i18next";
 import { DesktopShell } from "@/components/DesktopShell";
 import { IntakeModalProvider, useIntakeModal } from "@/coach/context/IntakeModalContext";
 import { IntakeFlowModal } from "@/coach/components/IntakeFlowModal";
+import { AIModalProvider, useAIModal } from "@/coach/context/AIModalContext";
+import { AICoachingChatModal } from "@/coach/components/AICoachingChatModal";
 
 const WEB_DESKTOP_BREAKPOINT = 1024;
 
@@ -119,6 +121,42 @@ function CoachIntakeOverlay() {
   );
 }
 
+function AICoachingOverlay() {
+  const { state, closeAIChat, openAIChat } = useAIModal();
+  const queryClient = useQueryClient();
+
+  if (!state) return null;
+
+  const handleClose = () => {
+    const remaining = state.remainingPlayers;
+    if (remaining.length > 0) {
+      const [next, ...rest] = remaining;
+      setTimeout(() => {
+        openAIChat({
+          sessionId: state.sessionId,
+          playerId: next.id,
+          playerName: next.name,
+          sessionType: state.sessionType,
+          remainingPlayers: rest,
+        });
+      }, 200);
+    } else {
+      closeAIChat();
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
+    }
+  };
+
+  return (
+    <AICoachingChatModal
+      visible
+      onClose={handleClose}
+      sessionId={state.sessionId}
+      playerId={state.playerId}
+      playerName={state.playerName}
+    />
+  );
+}
+
 // Custom animated tab bar item
 function CoachTabs() {
   const { t } = useTranslation();
@@ -126,8 +164,10 @@ function CoachTabs() {
   const queryClient = useQueryClient();
   const { coach, academy } = useCoach();
   const { width } = useWindowDimensions();
+  const { state: aiState } = useAIModal();
 
   const isDesktop = Platform.OS === "web" && width >= WEB_DESKTOP_BREAKPOINT;
+  const aiChatVisible = !!aiState;
 
   const TAB_LABELS: Record<string, string> = useMemo(() => ({
     Dashboard: t("nav.home"),
@@ -143,10 +183,11 @@ function CoachTabs() {
   })), [TAB_LABELS]);
 
   const renderOverlay = useCallback((tabKey: string) => {
+    if (aiChatVisible) return null;
     const shouldShowChat = tabKey === "Dashboard";
     if (!shouldShowChat) return null;
     return <CoachChatFooter />;
-  }, []);
+  }, [aiChatVisible]);
 
   const tabBar = (
     <SwipeableTabBar
@@ -174,6 +215,7 @@ function CoachTabs() {
         }}
       />
       <CoachIntakeOverlay />
+      <AICoachingOverlay />
     </>
   );
 }
@@ -447,16 +489,18 @@ export default function CoachNavigator() {
   }
 
   return (
-    <IntakeModalProvider>
-      <ChatStateProvider>
-        <TabNavigationProvider>
-          <View style={styles.container}>
-            <OfflineBanner />
-            <CoachStackNavigator />
-          </View>
-        </TabNavigationProvider>
-      </ChatStateProvider>
-    </IntakeModalProvider>
+    <AIModalProvider>
+      <IntakeModalProvider>
+        <ChatStateProvider>
+          <TabNavigationProvider>
+            <View style={styles.container}>
+              <OfflineBanner />
+              <CoachStackNavigator />
+            </View>
+          </TabNavigationProvider>
+        </ChatStateProvider>
+      </IntakeModalProvider>
+    </AIModalProvider>
   );
 }
 
