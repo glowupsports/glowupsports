@@ -168,7 +168,8 @@ export function useClaimQuestReward() {
   
   return useMutation<ClaimRewardResult, Error, string>({
     mutationFn: async (questId: string) => {
-      return apiRequest("POST", `/api/quests/${questId}/claim`);
+      const res = await apiRequest("POST", `/api/quests/${questId}/claim`);
+      return res.json() as Promise<ClaimRewardResult>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
@@ -183,7 +184,8 @@ export function useClaimChainBonus() {
 
   return useMutation<ClaimChainBonusResult, Error, { type: "daily" | "weekly" | "monthly" }>({
     mutationFn: async ({ type }) => {
-      return apiRequest("POST", "/api/quests/claim-chain-bonus", { type });
+      const res = await apiRequest("POST", "/api/quests/claim-chain-bonus", { type });
+      return res.json() as Promise<ClaimChainBonusResult>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
