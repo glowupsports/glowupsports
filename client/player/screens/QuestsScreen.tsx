@@ -18,10 +18,11 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import {
   useQuests,
   useClaimQuestReward,
@@ -403,12 +404,14 @@ function QuestCard({
   onClaim,
   isClaiming,
   multiplier,
+  onPress,
 }: {
   quest: Quest;
   index: number;
   onClaim: () => void;
   isClaiming: boolean;
   multiplier: number;
+  onPress?: () => void;
 }) {
   const isComplete = quest.status === "completed";
   const isClaimed = quest.status === "claimed";
@@ -464,11 +467,21 @@ function QuestCard({
     onClaim();
   };
 
+  const handleCardPress = () => {
+    if (!isClaimed && !isComplete && onPress) {
+      onPress();
+    }
+  };
+
   return (
     <Animated.View
       entering={FadeInDown.delay(index * 70).springify()}
       style={animatedScale}
     >
+      <Pressable
+        onPress={handleCardPress}
+        disabled={isClaimed || isComplete || !onPress}
+      >
       <View style={[
         styles.questCard,
         isClaimed && styles.questCardClaimed,
@@ -603,9 +616,55 @@ function QuestCard({
           </ThemedText>
         </View>
       </View>
+      </Pressable>
     </Animated.View>
   );
 }
+
+function InfoToast({ message, onHide }: { message: string; onHide: () => void }) {
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const timer = setTimeout(onHide, 3000);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  return (
+    <Animated.View
+      entering={FadeInDown.springify()}
+      style={[
+        infoToastStyles.container,
+        { bottom: insets.bottom + 100 },
+      ]}
+    >
+      <Ionicons name="information-circle" size={18} color="#fff" />
+      <ThemedText style={infoToastStyles.text}>{message}</ThemedText>
+    </Animated.View>
+  );
+}
+
+const infoToastStyles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    left: Spacing.lg,
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    zIndex: 9999,
+  },
+  text: {
+    flex: 1,
+    fontSize: 13,
+    color: "#fff",
+  },
+});
 
 function EmptyState({ type }: { type: QuestType }) {
   const icons: Record<QuestType, string> = {
@@ -644,10 +703,14 @@ export default function QuestsScreen() {
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
   const track = useTrackFeature();
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const [activeTab, setActiveTab] = useState<QuestType>("daily");
   const [claimResult, setClaimResult] = useState<ClaimRewardResult | null>(null);
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [showChainCelebration, setShowChainCelebration] = useState(false);
+  const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
+  const [infoToast, setInfoToast] = useState<string | null>(null);
   const prevAllDoneRef = useRef<Record<QuestType, boolean>>({ daily: false, weekly: false, monthly: false });
 
   const { data: questsData, isLoading } = useQuests();
@@ -703,9 +766,12 @@ export default function QuestsScreen() {
   }, [activeQuests, activeTab]);
 
   const handleClaim = (questId: string) => {
+    if (claimingQuestId === questId) return;
     track("quests:claim");
+    setClaimingQuestId(questId);
     claimReward.mutate(questId, {
       onSuccess: (data) => {
+        setClaimingQuestId(null);
         setClaimResult(data);
         setShowClaimModal(true);
 
@@ -728,7 +794,29 @@ export default function QuestsScreen() {
           }
         }
       },
+      onError: () => {
+        setClaimingQuestId(null);
+      },
     });
+  };
+
+  const handleQuestTap = (quest: Quest) => {
+    const action = quest.targetAction;
+    const category = quest.category;
+
+    if (action === "mood_check" || category === "mental") {
+      navigation.navigate("PlayerAICoach");
+    } else if (action === "give_reaction" || action === "post_moment" || action === "post_comment") {
+      navigateToTab("Community");
+    } else if (action === "send_connection") {
+      navigation.navigate("FriendsList");
+    } else if (action === "read_coach_feedback") {
+      navigateToTab("Progress", { screen: "FeedbackCenter" });
+    } else if (action === "log_match" || action === "win_match") {
+      navigateToTab("PlayStack");
+    } else if (action === "daily_login" || action === "complete_session") {
+      setInfoToast("Keep using the app — this quest will complete automatically");
+    }
   };
 
   return (
@@ -819,8 +907,9 @@ export default function QuestsScreen() {
                 quest={quest}
                 index={index}
                 onClaim={() => handleClaim(quest.id)}
-                isClaiming={claimReward.isPending}
+                isClaiming={claimingQuestId === quest.id}
                 multiplier={streak.multiplier}
+                onPress={() => handleQuestTap(quest)}
               />
             ))}
           </View>
@@ -837,6 +926,9 @@ export default function QuestsScreen() {
           setClaimResult(null);
         }}
       />
+      {infoToast !== null ? (
+        <InfoToast message={infoToast} onHide={() => setInfoToast(null)} />
+      ) : null}
     </View>
   );
 }

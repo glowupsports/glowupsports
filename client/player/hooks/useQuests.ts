@@ -19,6 +19,7 @@ export interface Quest {
   evidenceType?: string;
   personalisedBy?: string | null;
   aiReason?: string | null;
+  targetAction?: string;
 }
 
 export interface StreakData {

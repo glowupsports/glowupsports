@@ -43,6 +43,7 @@ import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
 import BrowseGroupLessonsScreen from "@/player/screens/BrowseGroupLessonsScreen";
 import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
+import FriendsListScreen from "@/player/screens/FriendsListScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
 import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
@@ -921,6 +922,18 @@ function PlayerStackNavigator() {
         component={PlayerFinderScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="FriendsList" 
+        component={FriendsListScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Friends",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.text,
+          headerBackTitle: "Back",
         }}
       />
       <Stack.Screen 

@@ -201,6 +201,7 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
         evidenceType: q.quest.evidenceType,
         personalisedBy: q.quest.personalisedBy || null,
         aiReason: q.quest.aiReason || null,
+        targetAction: q.template.targetAction || null,
       });
       
       const currentStreak = streak?.currentStreak || 0;
