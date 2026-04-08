@@ -957,7 +957,7 @@ export default function LoginScreen() {
           if (error.message.includes("Username already taken")) {
             errorMessage = "Username already taken. Please choose a different one.";
           } else if (error.message.includes("Invalid invite")) {
-            errorMessage = "This invite link is invalid or has expired.";
+            errorMessage = "This invite code is not valid or has expired.";
           } else if (error.message.includes("Missing required")) {
             errorMessage = "Please fill in all required fields.";
           }
@@ -1445,7 +1445,7 @@ export default function LoginScreen() {
         </View>
         <Text style={styles.infoTitle}>How to Join as Coach</Text>
         <Text style={styles.infoText}>
-          Coaches are invited by their academy. Ask your academy owner to send you an invite link.
+          Coaches are invited by their academy. Ask your academy owner to send you an invite code.
         </Text>
       </View>
 
