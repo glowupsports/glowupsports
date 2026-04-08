@@ -3223,11 +3223,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       
       let nextSession = null;
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      // All session startTime/endTime values are stored as UTC in the database.
+      // new Date() returns UTC epoch milliseconds, so comparisons are timezone-consistent.
+      const now = dateParam ? new Date(dateParam) : new Date();
       const upcomingSessions = await storage.getPlayerSessionsWithDetails(playerId, threeHoursAgo, future);
       
       // Find the most relevant session: either currently active, or next upcoming
       // Sort by: 1) currently active sessions first, 2) then by start time
+      // Both s.startTime and s.endTime are UTC Date objects from PostgreSQL; now is also UTC.
       const sortedSessions = upcomingSessions
         .map(s => ({
           ...s,
@@ -3272,7 +3275,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const pastSessions = await storage.getPlayerSessionsWithDetails(playerId, thirtyDaysAgo, now);
-      const attendedSessions = pastSessions.filter(s => s.attended === "present");
+      const attendedSessions = pastSessions.filter(s => s.attendanceStatus === "present");
       const streak = attendedSessions.length;
       
       // Get player credits by type
@@ -3494,7 +3497,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       }
       
       // Add player to session
-      await storage.addPlayerToSession(sessionId, playerId);
+      await storage.addPlayerToSession({ sessionId, playerId });
       
       // Deduct 1 group credit
       await storage.deductPlayerCredit(playerId, "group", 1, session.academyId || undefined);

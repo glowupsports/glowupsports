@@ -172,16 +172,15 @@ function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUnt
   const diffMs = sessionDate.getTime() - now.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   
-  // Check if server already marked this as live
+  // Check if server already marked this as live (server uses UTC-consistent comparison)
   if (nextSession.isLive) {
-    // Calculate remaining time using endTime
     const endTime = nextSession.endTime ? new Date(nextSession.endTime) : null;
     const remainingMs = endTime ? endTime.getTime() - now.getTime() : 0;
     const remainingMinutes = Math.max(0, Math.floor(remainingMs / (1000 * 60)));
     return { status: "live", minutesUntil: 0, minutesRemaining: remainingMinutes };
   }
   
-  // Check using endTime if available
+  // Use endTime for precise live/ended detection when available
   if (nextSession.endTime) {
     const endTime = new Date(nextSession.endTime);
     if (sessionDate <= now && endTime > now) {
@@ -192,13 +191,19 @@ function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUnt
     if (endTime <= now) {
       return { status: "ended", minutesUntil: null, minutesRemaining: null };
     }
+    // Session is in the future (endTime > now and startTime > now):
+    // classify by how soon it starts — card is today-focused so >24h means "none"
+    if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
+    if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
+    return { status: "none", minutesUntil: diffMinutes, minutesRemaining: null };
   }
   
-  // Fallback to original logic
+  // Fallback when no endTime: use start-time relative logic
   if (diffMinutes < -60) return { status: "ended", minutesUntil: null, minutesRemaining: null };
-  if (diffMinutes <= 0) return { status: "live", minutesUntil: 0, minutesRemaining: 60 }; // Assume 60 min session
+  if (diffMinutes <= 0) return { status: "live", minutesUntil: 0, minutesRemaining: 60 };
   if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
   if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
+  // Card is today-focused: sessions more than 24h away show "No Sessions Today"
   return { status: "none", minutesUntil: diffMinutes, minutesRemaining: null };
 }
 
