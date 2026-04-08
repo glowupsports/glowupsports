@@ -1857,13 +1857,42 @@ const CATEGORY_TO_PILLARS: Record<string, string[]> = {
  * No AI is used — selection is purely data-driven.
  * Falls back to the first topN templates if data is insufficient.
  */
+const PILLAR_DISPLAY: Record<string, string> = {
+  TECHNIQUE: "technique",
+  PHYSICAL: "physical fitness",
+  MENTAL: "mental game",
+  TACTICAL: "tactical awareness",
+  MATCH: "match performance",
+  SOCIAL: "social engagement",
+};
+
+function buildQuestReason(
+  category: string,
+  weakPillar: string | null,
+  pillarScore: number | null
+): string {
+  if (!weakPillar || pillarScore === null) {
+    const GENERIC: Record<string, string> = {
+      training: "Regular court time builds the muscle memory that drives improvement.",
+      social: "Staying connected with your academy keeps motivation high.",
+      performance: "Match experience is the fastest path to competitive growth.",
+      consistency: "Daily discipline is the habit that compounds into lasting skill.",
+      mental: "Mental resilience separates great players from good ones.",
+    };
+    return GENERIC[category] ?? "A great way to keep developing your game.";
+  }
+  const displayPillar = PILLAR_DISPLAY[weakPillar] ?? weakPillar.toLowerCase();
+  const scoreLabel = pillarScore < 40 ? "needs work" : pillarScore < 65 ? "has room to grow" : "is developing";
+  return `Chosen because your ${displayPillar} ${scoreLabel} — this quest targets that area directly.`;
+}
+
 export async function pickPersonalisedQuests(
   playerId: string,
   templates: QuestTemplate[],
   topN: number = 3
-): Promise<{ templates: QuestTemplate[]; personalisedBy: "weak_areas" | null }> {
+): Promise<{ templates: QuestTemplate[]; reasons: Record<string, string>; personalisedBy: "weak_areas" | null }> {
   if (templates.length <= topN) {
-    return { templates, personalisedBy: null };
+    return { templates, reasons: {}, personalisedBy: null };
   }
 
   try {
@@ -1905,7 +1934,7 @@ export async function pickPersonalisedQuests(
     }
 
     if (Object.keys(pillarScores).length === 0) {
-      return { templates: templates.slice(0, topN), personalisedBy: null };
+      return { templates: templates.slice(0, topN), reasons: {}, personalisedBy: null };
     }
 
     // 2. Rank templates by how well their category targets the player's weakest pillars
@@ -1916,34 +1945,57 @@ export async function pickPersonalisedQuests(
       const targetPillars = CATEGORY_TO_PILLARS[template.category ?? "training"] ?? [];
       let relevanceScore = 0;
       let pillarMatches = 0;
+      let weakestPillar: string | null = null;
+      let weakestScore: number = Infinity;
 
       for (const pillar of targetPillars) {
         if (pillar in pillarScores) {
+          const score = pillarScores[pillar];
           // Invert score: weaker pillar → higher relevance
-          relevanceScore += maxScore - pillarScores[pillar];
+          relevanceScore += maxScore - score;
           pillarMatches++;
+          if (score < weakestScore) {
+            weakestScore = score;
+            weakestPillar = pillar;
+          }
         }
       }
 
       // Normalise by number of matched pillars; templates with no matching pillar data get neutral score
       const finalScore = pillarMatches > 0 ? relevanceScore / pillarMatches : maxScore / 2;
 
-      return { template, finalScore };
+      return {
+        template,
+        finalScore,
+        weakestPillar,
+        weakestScore: weakestPillar ? weakestScore : null,
+      };
     });
 
     // Sort descending by relevance score (highest → most relevant to weak areas)
     scored.sort((a, b) => b.finalScore - a.finalScore);
 
-    const picked = scored.slice(0, topN).map((s) => s.template);
+    const pickedWithReasons = scored.slice(0, topN);
+    const picked = pickedWithReasons.map((s) => s.template);
+
+    // Build per-template reason strings grounded in actual pillar data
+    const reasons: Record<string, string> = {};
+    for (const { template, weakestPillar, weakestScore } of pickedWithReasons) {
+      reasons[template.id] = buildQuestReason(
+        template.category ?? "training",
+        weakestPillar,
+        weakestScore
+      );
+    }
 
     console.log(
       `[QuestEngine] Personalised quests (weak-area) selected for player ${playerId}:`,
       picked.map((t) => t.name)
     );
-    return { templates: picked, personalisedBy: "weak_areas" };
+    return { templates: picked, reasons, personalisedBy: "weak_areas" };
   } catch (error) {
     console.error("[QuestEngine] Error picking personalised quests:", error);
-    return { templates: templates.slice(0, topN), personalisedBy: null };
+    return { templates: templates.slice(0, topN), reasons: {}, personalisedBy: null };
   }
 }
 

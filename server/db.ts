@@ -456,6 +456,43 @@ pool.query('SELECT 1').then(async () => {
     console.warn('[Database] players/player_quests columns migration skipped:', e.message);
   }
   try {
+    await pool.query(`ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS ai_reason TEXT`);
+    console.log('[Database] player_quests ai_reason column migration applied');
+  } catch (e: any) {
+    console.warn('[Database] player_quests ai_reason migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS glow_coins INTEGER NOT NULL DEFAULT 0`);
+    console.log('[Database] players glow_coins column migration applied');
+  } catch (e: any) {
+    console.warn('[Database] players glow_coins migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`ALTER TABLE daily_quest_slots ADD COLUMN IF NOT EXISTS bonus_claimed BOOLEAN NOT NULL DEFAULT FALSE`);
+    console.log('[Database] daily_quest_slots bonus_claimed column migration applied');
+  } catch (e: any) {
+    console.warn('[Database] daily_quest_slots bonus_claimed migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS quest_chain_bonus_claims (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR NOT NULL REFERENCES players(id),
+        quest_type TEXT NOT NULL,
+        period_key TEXT NOT NULL,
+        xp_awarded INTEGER NOT NULL DEFAULT 50,
+        claimed_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS quest_chain_bonus_claims_unique_idx
+      ON quest_chain_bonus_claims (player_id, quest_type, period_key)
+    `);
+    console.log('[Database] quest_chain_bonus_claims table migration applied');
+  } catch (e: any) {
+    console.warn('[Database] quest_chain_bonus_claims migration skipped:', e.message);
+  }
+  try {
     // Partial unique index: only one AI session note per (session, player).
     // Non-AI feedback types (technique, praise, etc.) are unconstrained and
     // continue to support multiple entries per session/player.

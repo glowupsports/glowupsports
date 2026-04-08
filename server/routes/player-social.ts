@@ -1,7 +1,4 @@
 import { Router, Request, Response, NextFunction } from "express";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
 import rateLimit from "express-rate-limit";
 import { db } from "../db";
 import { storage } from "../storage";
@@ -37,6 +34,7 @@ import {
   academies,
   contentReports as contentReportsTable,
   playerBlocks as playerBlocksTable,
+  questChainBonusClaims as questChainBonusClaimsTable,
 } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
@@ -53,6 +51,53 @@ import { qualifiesForPersonalisedQuests, pickPersonalisedQuests } from "../servi
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { adminRepairLimiter } from "../rateLimiter";
+
+const CATEGORY_REASONS: Record<string, string[]> = {
+  training: [
+    "Your training attendance has room to grow — consistent sessions build lasting skill.",
+    "Regular court time is the fastest path to improvement at your stage.",
+    "Building session consistency now will compound into major gains over the season.",
+  ],
+  social: [
+    "Engaging with the community accelerates your motivation and accountability.",
+    "Connecting with fellow players keeps your love for the game strong.",
+    "Social activity in the academy reinforces your competitive mindset.",
+  ],
+  performance: [
+    "Match experience is your next frontier — every game teaches something new.",
+    "Your game data shows you're ready to test yourself in competitive play.",
+    "Logging match results helps your coach tailor training to your real game.",
+  ],
+  consistency: [
+    "Daily check-ins build the habit loop that champions rely on.",
+    "Showing up consistently is the one habit that predicts long-term success.",
+    "Your consistency streak is a key predictor of skill progression speed.",
+  ],
+  mental: [
+    "Mental resilience is the pillar that ties all your other skills together.",
+    "Strengthening your mental game will unlock the next level of your performance.",
+    "Focus and composure on court separate good players from great ones.",
+  ],
+};
+
+function getQuestReason(category: string): string {
+  const reasons = CATEGORY_REASONS[category] ?? CATEGORY_REASONS.training;
+  return reasons[Math.floor(Math.random() * reasons.length)];
+}
+
+function getChainBonusPeriodKey(type: "daily" | "weekly" | "monthly"): string {
+  const now = new Date();
+  if (type === "daily") {
+    return now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+  }
+  if (type === "monthly") {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // "YYYY-MM"
+  }
+  // Weekly: ISO week number
+  const jan1 = new Date(now.getFullYear(), 0, 1);
+  const weekNumber = Math.ceil(((now.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${now.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`; // "YYYY-WNN"
+}
 
 const router = Router();
 
@@ -118,6 +163,17 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
           eq(dailyQuestSlotsTable.playerId, playerId),
           eq(dailyQuestSlotsTable.slotDate, today)
         ));
+
+      // Fetch any chain bonus claims for the current period across all types
+      const weeklyPeriodKey = getChainBonusPeriodKey("weekly");
+      const monthlyPeriodKey = getChainBonusPeriodKey("monthly");
+      const chainBonusClaims = await db.select()
+        .from(questChainBonusClaimsTable)
+        .where(and(
+          eq(questChainBonusClaimsTable.playerId, playerId),
+          inArray(questChainBonusClaimsTable.periodKey, [today, weeklyPeriodKey, monthlyPeriodKey])
+        ));
+      const claimedTypes = new Set(chainBonusClaims.map(c => c.questType));
       
       const [streak] = await db.select()
         .from(playerStreaksTable)
@@ -144,6 +200,7 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
         evidenceUrl: q.quest.evidenceUrl,
         evidenceType: q.quest.evidenceType,
         personalisedBy: q.quest.personalisedBy || null,
+        aiReason: q.quest.aiReason || null,
       });
       
       const currentStreak = streak?.currentStreak || 0;
@@ -169,7 +226,13 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
           completedCount: dailySlot.completedCount,
           allCompleted: dailySlot.allCompleted,
           bonusUnlocked: dailySlot.bonusUnlocked,
+          bonusClaimed: dailySlot.bonusClaimed || claimedTypes.has("daily"),
         } : null,
+        chainBonusClaimed: {
+          daily: claimedTypes.has("daily"),
+          weekly: claimedTypes.has("weekly"),
+          monthly: claimedTypes.has("monthly"),
+        },
       });
     } catch (error) {
       console.error("Error fetching quests:", error);
@@ -220,13 +283,15 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
 
       let templates = shuffled.slice(0, 3);
       let personalisedBy: string | null = null;
+      let pillarReasons: Record<string, string> = {};
 
       if (shuffled.length > 3) {
         const qualifies = await qualifiesForPersonalisedQuests(playerId).catch(() => false);
         if (qualifies) {
-          const result = await pickPersonalisedQuests(playerId, shuffled, 3).catch(() => ({ templates: shuffled.slice(0, 3), personalisedBy: null as null }));
+          const result = await pickPersonalisedQuests(playerId, shuffled, 3).catch(() => ({ templates: shuffled.slice(0, 3), reasons: {} as Record<string, string>, personalisedBy: null as null }));
           templates = result.templates;
           personalisedBy = result.personalisedBy;
+          pillarReasons = result.reasons;
         }
       }
 
@@ -237,6 +302,7 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
       // Create player quests
       const createdQuests = [];
       for (const template of templates) {
+        const aiReason = pillarReasons[template.id] ?? getQuestReason(template.category ?? "training");
         const [quest] = await db.insert(playerQuestsTable).values({
           playerId,
           questTemplateId: template.id,
@@ -245,6 +311,7 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
           currencyReward: template.currencyReward,
           expiresAt: endOfDay,
           personalisedBy,
+          aiReason,
         }).returning();
         createdQuests.push(quest);
       }
@@ -323,15 +390,29 @@ router.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthRequest
         .orderBy(asc(questTemplatesTable.order));
       
       const shuffledWeekly = allWeeklyTemplates.sort(() => Math.random() - 0.5);
-      const templates = shuffledWeekly.slice(0, 3);
-      
-      if (templates.length === 0) {
+
+      let weeklyTemplates = shuffledWeekly.slice(0, 3);
+      let weeklyPersonalisedBy: string | null = null;
+      let weeklyPillarReasons: Record<string, string> = {};
+
+      if (shuffledWeekly.length > 3) {
+        const qualifies = await qualifiesForPersonalisedQuests(playerId).catch(() => false);
+        if (qualifies) {
+          const result = await pickPersonalisedQuests(playerId, shuffledWeekly, 3).catch(() => ({ templates: shuffledWeekly.slice(0, 3), reasons: {} as Record<string, string>, personalisedBy: null as null }));
+          weeklyTemplates = result.templates;
+          weeklyPersonalisedBy = result.personalisedBy;
+          weeklyPillarReasons = result.reasons;
+        }
+      }
+
+      if (weeklyTemplates.length === 0) {
         return res.json({ message: "No weekly quest templates available", quests: [] });
       }
       
       // Create player quests
       const createdQuests = [];
-      for (const template of templates) {
+      for (const template of weeklyTemplates) {
+        const aiReason = weeklyPillarReasons[template.id] ?? getQuestReason(template.category ?? "training");
         const [quest] = await db.insert(playerQuestsTable).values({
           playerId,
           questTemplateId: template.id,
@@ -339,6 +420,8 @@ router.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthRequest
           xpReward: template.xpReward,
           currencyReward: template.currencyReward,
           expiresAt: endOfWeek,
+          personalisedBy: weeklyPersonalisedBy,
+          aiReason,
         }).returning();
         createdQuests.push(quest);
       }
@@ -393,14 +476,28 @@ router.post("/api/quests/assign-monthly", authMiddleware, async (req: AuthReques
         .orderBy(asc(questTemplatesTable.order));
       
       const shuffledMonthly = allMonthlyTemplates.sort(() => Math.random() - 0.5);
-      const templates = shuffledMonthly.slice(0, 3);
-      
-      if (templates.length === 0) {
+
+      let monthlyTemplates = shuffledMonthly.slice(0, 3);
+      let monthlyPersonalisedBy: string | null = null;
+      let monthlyPillarReasons: Record<string, string> = {};
+
+      if (shuffledMonthly.length > 3) {
+        const qualifies = await qualifiesForPersonalisedQuests(playerId).catch(() => false);
+        if (qualifies) {
+          const result = await pickPersonalisedQuests(playerId, shuffledMonthly, 3).catch(() => ({ templates: shuffledMonthly.slice(0, 3), reasons: {} as Record<string, string>, personalisedBy: null as null }));
+          monthlyTemplates = result.templates;
+          monthlyPersonalisedBy = result.personalisedBy;
+          monthlyPillarReasons = result.reasons;
+        }
+      }
+
+      if (monthlyTemplates.length === 0) {
         return res.json({ message: "No monthly quest templates available", quests: [] });
       }
       
       const createdQuests = [];
-      for (const template of templates) {
+      for (const template of monthlyTemplates) {
+        const aiReason = monthlyPillarReasons[template.id] ?? getQuestReason(template.category ?? "training");
         const [quest] = await db.insert(playerQuestsTable).values({
           playerId,
           questTemplateId: template.id,
@@ -408,6 +505,8 @@ router.post("/api/quests/assign-monthly", authMiddleware, async (req: AuthReques
           xpReward: template.xpReward,
           currencyReward: template.currencyReward,
           expiresAt: monthEnd,
+          personalisedBy: monthlyPersonalisedBy,
+          aiReason,
         }).returning();
         createdQuests.push(quest);
       }
@@ -555,9 +654,13 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
       
       const baseXp = quest.quest.xpReward || quest.template.xpReward || 0;
       const xpReward = Math.round(baseXp * multiplier);
-      if (xpReward > 0) {
+      const coinsAwarded = quest.quest.currencyReward || quest.template.currencyReward || 0;
+      if (xpReward > 0 || coinsAwarded > 0) {
         await db.update(players)
-          .set({ xp: sql`COALESCE(xp, 0) + ${xpReward}` })
+          .set({
+            totalXp: sql`COALESCE(total_xp, 0) + ${xpReward}`,
+            glowCoins: sql`COALESCE(glow_coins, 0) + ${coinsAwarded}`,
+          })
           .where(eq(players.id, playerId));
       }
       
@@ -605,12 +708,18 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
         });
       }
       
+      const [updatedPlayer] = await db.select({ totalXp: players.totalXp, glowCoins: players.glowCoins })
+        .from(players)
+        .where(eq(players.id, playerId));
+
       res.json({
         success: true,
         xpAwarded: xpReward,
+        coinsAwarded,
         baseXp,
         multiplier,
-        currencyAwarded: quest.quest.currencyReward || quest.template.currencyReward || 0,
+        newTotalXp: updatedPlayer?.totalXp || 0,
+        newGlowCoins: updatedPlayer?.glowCoins || 0,
       });
     } catch (error) {
       console.error("Error claiming quest reward:", error);
@@ -618,82 +727,110 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
     }
   });
 
-  // Upload quest evidence (photo/video proof)
-  const evidenceDir = path.join(process.cwd(), "uploads", "quest-evidence");
-  if (!fs.existsSync(evidenceDir)) {
-    fs.mkdirSync(evidenceDir, { recursive: true });
-  }
-  const evidenceUpload = multer({
-    storage: multer.diskStorage({
-      destination: evidenceDir,
-      filename: (_req, file, cb) => {
-        const ext = path.extname(file.originalname);
-        cb(null, `evidence-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-      },
-    }),
-    limits: { fileSize: 25 * 1024 * 1024 },
-  });
-
-router.post("/api/quests/:id/evidence", authMiddleware, evidenceUpload.single("file"), async (req: AuthRequest, res: Response) => {
+  // Claim chain bonus XP (awarded once per period when all quests for a given type are claimed)
+  // type: "daily" | "weekly" | "monthly"
+  // Idempotency: quest_chain_bonus_claims table enforces one claim per (player, type, periodKey)
+router.post("/api/quests/claim-chain-bonus", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
       const playerId = req.user!.playerId;
-      
+      const questType = req.body?.type as "daily" | "weekly" | "monthly" | undefined;
+
       if (!playerId) {
         return res.status(400).json({ error: "Player context required" });
       }
-      
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+
+      if (!questType || !["daily", "weekly", "monthly"].includes(questType)) {
+        return res.status(400).json({ error: "Invalid quest type — must be daily, weekly, or monthly" });
       }
-      
-      const [quest] = await db.select({
-        quest: playerQuestsTable,
-        template: questTemplatesTable,
-      })
-      .from(playerQuestsTable)
-      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      .where(and(
-        eq(playerQuestsTable.id, id),
-        eq(playerQuestsTable.playerId, playerId)
-      ));
-      
-      if (!quest) {
-        return res.status(404).json({ error: "Quest not found" });
+
+      const CHAIN_BONUS_XP = 50;
+      const periodKey = getChainBonusPeriodKey(questType);
+
+      // Check persistent idempotency guard first (applies to ALL types)
+      const [existingClaim] = await db.select()
+        .from(questChainBonusClaimsTable)
+        .where(and(
+          eq(questChainBonusClaimsTable.playerId, playerId),
+          eq(questChainBonusClaimsTable.questType, questType),
+          eq(questChainBonusClaimsTable.periodKey, periodKey)
+        ));
+
+      if (existingClaim) {
+        return res.status(400).json({ error: `${questType} chain bonus already claimed for this period` });
       }
-      
-      const evidenceUrl = `/uploads/quest-evidence/${req.file.filename}`;
-      const evidenceType = req.file.mimetype.startsWith("video") ? "video" : "image";
-      
-      await db.update(playerQuestsTable)
-        .set({ evidenceUrl, evidenceType })
-        .where(eq(playerQuestsTable.id, id));
-      
-      try {
-        const userId = req.user!.userId;
-        const academyId = req.user!.academyId;
-        if (userId && academyId) {
-          await db.insert(postsTable).values({
-            authorId: userId,
-            academyId,
-            contextType: "achievement",
-            caption: `Quest Proof: ${quest.template.name}`,
-            mediaUrls: [evidenceUrl],
-            mediaTypes: [evidenceType],
-          });
+
+      // Verify eligibility before awarding
+      if (questType === "daily") {
+        const today = periodKey;
+        const [slot] = await db.select()
+          .from(dailyQuestSlotsTable)
+          .where(and(
+            eq(dailyQuestSlotsTable.playerId, playerId),
+            eq(dailyQuestSlotsTable.slotDate, today)
+          ));
+
+        if (!slot) {
+          return res.status(404).json({ error: "No daily quest slot found for today" });
         }
-      } catch (postErr) {
-        console.error("Failed to create social post for quest evidence:", postErr);
+        if (!slot.bonusUnlocked) {
+          return res.status(400).json({ error: "Complete all daily quests first to unlock the chain bonus" });
+        }
+
+        // Mark bonus_claimed on the daily slot for quick UI look-up
+        await db.update(dailyQuestSlotsTable)
+          .set({ bonusClaimed: true })
+          .where(eq(dailyQuestSlotsTable.id, slot.id));
+      } else {
+        // Weekly / Monthly: verify all active quests for this period are in "claimed" status
+        const now = new Date();
+        const activeQuests = await db.select({ quest: playerQuestsTable })
+          .from(playerQuestsTable)
+          .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+          .where(and(
+            eq(playerQuestsTable.playerId, playerId),
+            eq(questTemplatesTable.questType, questType),
+            gte(playerQuestsTable.expiresAt, now)
+          ));
+
+        if (activeQuests.length === 0) {
+          return res.status(404).json({ error: `No active ${questType} quests found` });
+        }
+        if (!activeQuests.every(q => q.quest.status === "claimed")) {
+          return res.status(400).json({ error: `Claim all ${questType} quest rewards first to unlock the chain bonus` });
+        }
       }
-      
+
+      // Atomically record the claim and award XP.
+      // The UNIQUE INDEX on (player_id, quest_type, period_key) prevents duplicate inserts
+      // even under concurrent requests — a second insert will throw and roll back.
+      await db.insert(questChainBonusClaimsTable).values({
+        playerId,
+        questType,
+        periodKey,
+        xpAwarded: CHAIN_BONUS_XP,
+      });
+
+      await db.update(players)
+        .set({ totalXp: sql`COALESCE(total_xp, 0) + ${CHAIN_BONUS_XP}` })
+        .where(eq(players.id, playerId));
+
+      const [updatedPlayer] = await db.select({ totalXp: players.totalXp, glowCoins: players.glowCoins })
+        .from(players)
+        .where(eq(players.id, playerId));
+
       res.json({
         success: true,
-        evidenceUrl,
-        evidenceType,
+        bonusXpAwarded: CHAIN_BONUS_XP,
+        newTotalXp: updatedPlayer?.totalXp || 0,
+        newGlowCoins: updatedPlayer?.glowCoins || 0,
       });
-    } catch (error) {
-      console.error("Error uploading quest evidence:", error);
-      res.status(500).json({ error: "Failed to upload evidence" });
+    } catch (error: any) {
+      // Unique constraint violation means concurrent duplicate request — treat as already-claimed
+      if (error?.code === "23505") {
+        return res.status(400).json({ error: "Chain bonus already claimed for this period" });
+      }
+      console.error("Error claiming chain bonus:", error);
+      res.status(500).json({ error: "Failed to claim chain bonus" });
     }
   });
 

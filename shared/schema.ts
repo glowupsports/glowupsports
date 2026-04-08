@@ -979,6 +979,7 @@ export const players = pgTable("players", {
   totalXp: integer("total_xp").default(0),
   level: integer("level").default(1),
   glowScore: integer("glow_score").default(0),
+  glowCoins: integer("glow_coins").default(0), // In-app currency awarded from quest rewards
   streak: integer("streak").default(0),
   
   // 3-Tier Progression System
@@ -4091,6 +4092,9 @@ export const playerQuests = pgTable("player_quests", {
 
   // Personalisation flag
   personalisedBy: text("personalised_by"), // 'weak_areas' | null
+
+  // AI-generated reason why this quest was chosen for this player (1 sentence)
+  aiReason: text("ai_reason"),
 }, (table) => [
   index("player_quests_player_idx").on(table.playerId),
   index("player_quests_status_idx").on(table.playerId, table.status),
@@ -4118,6 +4122,7 @@ export const dailyQuestSlots = pgTable("daily_quest_slots", {
   // Bonus quest (unlocked by completing all 3)
   bonusQuestId: varchar("bonus_quest_id").references(() => playerQuests.id),
   bonusUnlocked: boolean("bonus_unlocked").default(false),
+  bonusClaimed: boolean("bonus_claimed").default(false), // True once chain bonus XP has been awarded
   
   // Completion tracking
   completedCount: integer("completed_count").default(0),
@@ -4131,6 +4136,21 @@ export const dailyQuestSlots = pgTable("daily_quest_slots", {
 export const insertDailyQuestSlotSchema = createInsertSchema(dailyQuestSlots).omit({ id: true, createdAt: true });
 export type InsertDailyQuestSlot = z.infer<typeof insertDailyQuestSlotSchema>;
 export type DailyQuestSlot = typeof dailyQuestSlots.$inferSelect;
+
+// Quest Chain Bonus Claims - Persistent idempotency record for chain bonus XP awards
+// One row per player + questType + periodKey (YYYY-WW for weekly, YYYY-MM for monthly, YYYY-MM-DD for daily)
+export const questChainBonusClaims = pgTable("quest_chain_bonus_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  questType: text("quest_type").notNull(), // "daily" | "weekly" | "monthly"
+  periodKey: text("period_key").notNull(), // e.g. "2026-04-08" or "2026-W15" or "2026-04"
+  xpAwarded: integer("xp_awarded").notNull().default(50),
+  claimedAt: timestamp("claimed_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("quest_chain_bonus_claims_unique_idx").on(table.playerId, table.questType, table.periodKey),
+]);
+
+export type QuestChainBonusClaim = typeof questChainBonusClaims.$inferSelect;
 
 // Player Streaks - Track daily quest completion streaks
 export const playerStreaks = pgTable("player_streaks", {

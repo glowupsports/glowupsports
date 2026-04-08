@@ -1,8 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { getAuthToken } from "@/lib/auth";
-import { Platform, Alert } from "react-native";
-import { File } from "expo-file-system";
+import { apiRequest } from "@/lib/query-client";
 
 export interface Quest {
   id: string;
@@ -21,6 +18,7 @@ export interface Quest {
   evidenceUrl?: string;
   evidenceType?: string;
   personalisedBy?: string | null;
+  aiReason?: string | null;
 }
 
 export interface StreakData {
@@ -41,7 +39,13 @@ export interface QuestsData {
     completedCount: number;
     allCompleted: boolean;
     bonusUnlocked: boolean;
+    bonusClaimed: boolean;
   } | null;
+  chainBonusClaimed: {
+    daily: boolean;
+    weekly: boolean;
+    monthly: boolean;
+  };
 }
 
 export interface MissionControlData {
@@ -69,6 +73,23 @@ export interface MissionControlData {
     newMoments: number;
     openToPlay: number;
   };
+}
+
+export interface ClaimRewardResult {
+  success: boolean;
+  xpAwarded: number;
+  coinsAwarded: number;
+  baseXp: number;
+  multiplier: number;
+  newTotalXp: number;
+  newGlowCoins: number;
+}
+
+export interface ClaimChainBonusResult {
+  success: boolean;
+  bonusXpAwarded: number;
+  newTotalXp: number;
+  newGlowCoins: number;
 }
 
 export function useQuests(enabled: boolean = true) {
@@ -144,7 +165,7 @@ export function useUpdateQuestProgress() {
 export function useClaimQuestReward() {
   const queryClient = useQueryClient();
   
-  return useMutation({
+  return useMutation<ClaimRewardResult, Error, string>({
     mutationFn: async (questId: string) => {
       return apiRequest("POST", `/api/quests/${questId}/claim`);
     },
@@ -156,45 +177,17 @@ export function useClaimQuestReward() {
   });
 }
 
-export function useUploadQuestEvidence() {
+export function useClaimChainBonus() {
   const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ questId, fileUri, fileName, mimeType }: { 
-      questId: string; 
-      fileUri: string; 
-      fileName: string;
-      mimeType: string;
-    }) => {
-      const formData = new FormData();
-      
-      if (Platform.OS === "web") {
-        const response = await fetch(fileUri);
-        const blob = await response.blob();
-        formData.append("file", blob, fileName);
-      } else {
-        formData.append("file", new File(fileUri, fileName, { type: mimeType }));
-      }
-      
-      const url = new URL(`/api/quests/${questId}/evidence`, getApiUrl());
-      const fetchResponse = await fetch(url.toString(), {
-        method: "POST",
-        body: formData,
-        headers: {
-          "Authorization": `Bearer ${getAuthToken() || ""}`,
-        },
-      });
-      
-      if (!fetchResponse.ok) {
-        throw new Error("Failed to upload evidence");
-      }
-      return fetchResponse.json();
+
+  return useMutation<ClaimChainBonusResult, Error, { type: "daily" | "weekly" | "monthly" }>({
+    mutationFn: async ({ type }) => {
+      return apiRequest("POST", "/api/quests/claim-chain-bonus", { type });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
-    },
-    onError: () => {
-      Alert.alert("Upload Failed", "Could not upload your evidence. Please try again.");
+      queryClient.invalidateQueries({ queryKey: ["/api/player/mission-control"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
     },
   });
 }
