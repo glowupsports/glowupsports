@@ -319,9 +319,9 @@ router.get(
         .where(
           and(
             eq(sessions.coachId, coachId),
-            or(
+            and(
               eq(sessions.status, "completed"),
-              and(lt(sessions.endTime, now), isNull(sessions.status))
+              lt(sessions.endTime, now)
             ),
             or(
               isNull(sessionPlayers.attendanceStatus),

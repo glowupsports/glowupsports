@@ -1278,29 +1278,6 @@ export default function DashboardScreen() {
         {/* === BIRTHDAY OVERVIEW === */}
         <BirthdayOverviewCard />
 
-        {/* === PENDING ATTENDANCE ALERT === */}
-        {pendingAttendanceSessions.length > 0 && (
-          <PendingAttendanceCard
-            sessions={pendingAttendanceSessions}
-            onSessionTap={(sess) => {
-              const sessionObj: Session = {
-                id: sess.sessionId,
-                coachId: coach?.id ?? null,
-                courtId: null,
-                startTime: sess.startTime,
-                endTime: sess.endTime,
-                duration: Math.round(
-                  (new Date(sess.endTime).getTime() - new Date(sess.startTime).getTime()) / 60000
-                ),
-                sessionType: sess.sessionType,
-                status: "completed",
-              };
-              setDetailInitialAction("attendance");
-              setSelectedSessionForDetail(sessionObj);
-            }}
-          />
-        )}
-
         {/* === ACTION NEEDED - Primary CTA === */}
         {(pendingFeedbackCount > 0 || alerts.length > 0) && (
           <View style={styles.actionNeededSection}>
@@ -1777,7 +1754,28 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
-        
+
+        {/* === PENDING ATTENDANCE ALERT === */}
+        {pendingAttendanceSessions.length > 0 && (
+          <PendingAttendanceCard
+            sessions={pendingAttendanceSessions}
+            onSessionTap={(sess) => {
+              const sessionObj: Session = {
+                id: sess.sessionId,
+                coachId: coach?.id ?? null,
+                courtId: null,
+                startTime: sess.startTime,
+                endTime: sess.endTime,
+                duration: Math.round(
+                  (new Date(sess.endTime).getTime() - new Date(sess.startTime).getTime()) / 60000
+                ),
+                sessionType: sess.sessionType,
+                status: "completed",
+              };
+              setSelectedSessionForAttendance(sessionObj);
+            }}
+          />
+        )}
 
         {/* === POWER GAUGE - Gaming Energy HUD === */}
         <View style={styles.gamingCard}>
