@@ -1404,6 +1404,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        // Guard: changing session_type AWAY from 'group' requires explicit coach confirmation.
+        // Group sessions should never be silently reclassified.
+        if (
+          updates.sessionType &&
+          existing.sessionType === "group" &&
+          updates.sessionType !== "group"
+        ) {
+          const activeCountResult = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(seriesPlayers)
+            .where(
+              and(
+                eq(seriesPlayers.seriesId, id),
+                eq(seriesPlayers.status, "active")
+              )
+            );
+          const activeCount = activeCountResult[0]?.count ?? 0;
+          console.warn(
+            `[SeriesUpdate] WARN: series ${id} session_type changing from group → ${updates.sessionType} with ${activeCount} active player(s)`
+          );
+          if (!req.body.confirmTypeChange) {
+            return res.status(409).json({
+              error:
+                "Changing session type away from Group requires explicit confirmation",
+              requiresConfirmation: true,
+              activePlayerCount: activeCount,
+              code: "CONFIRM_GROUP_TYPE_CHANGE",
+            });
+          }
+        }
+
         const updated = await storage.updateCoachingSeries(id, updates);
 
         if (updates.courtId) {

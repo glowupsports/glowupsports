@@ -527,6 +527,25 @@ export default function SeriesDetailDrawer({
       setRemovingPlayerId(null);
       setPlayerActionMenuId(null);
       setShowRemoveModal(false);
+
+      // Low-count warning: if this is a group series and only 1 active player remains,
+      // alert the coach — group sessions stay group regardless of player count.
+      if (series?.sessionType === 'group') {
+        const removedId = removePlayerId;
+        const remainingActive = (series?.players || []).filter(
+          p => p.status !== 'left' && p.id !== removedId
+        ).length;
+        if (remainingActive === 1) {
+          setTimeout(() => {
+            Alert.alert(
+              "1 Player Remaining",
+              "This group session now has only 1 player. It will continue as a Group lesson — group sessions stay group regardless of player count.",
+              [{ text: "OK", style: "default" }]
+            );
+          }, 400);
+        }
+      }
+
       setRemovePlayerId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
