@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,8 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Modal,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -260,6 +261,19 @@ export function IntakeFlowModal({
 }: Props) {
   const insets = useSafeAreaInsets();
   const isGroup = sessionType === "group" || sessionType === "semi_private";
+  const slideAnim = useRef(new Animated.Value(1)).current; // 0 = visible, 1 = off-screen below
+
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(1);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
 
   // Calculate steps dynamically
   // Step 0: What was trained + intensity
@@ -526,89 +540,100 @@ export function IntakeFlowModal({
 
   const isLastStep = stepIndex === totalSteps - 1;
 
+  if (!visible) return null;
+
+  const screenHeight = Dimensions.get("window").height;
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.md }]}>
-          {/* Drag handle */}
-          <View style={styles.dragHandle} />
+    <View style={styles.overlay}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <Animated.View
+        style={[
+          styles.sheet,
+          { paddingBottom: insets.bottom + Spacing.md },
+          {
+            transform: [
+              {
+                translateY: slideAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, screenHeight],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {/* Drag handle */}
+        <View style={styles.dragHandle} />
 
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8}>
-              <Ionicons name="close" size={22} color={Colors.dark.textSecondary} />
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8}>
+            <Ionicons name="close" size={22} color={Colors.dark.textSecondary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Pre-Session Intake</Text>
+          <View style={{ width: 38 }} />
+        </View>
+
+        <StepIndicator current={stepIndex} total={totalSteps} />
+
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {renderStep()}
+          <View style={{ height: 80 }} />
+        </ScrollView>
+
+        {/* Footer nav */}
+        <View style={styles.footer}>
+          {stepIndex > 0 ? (
+            <Pressable style={styles.backBtn} onPress={handleBack}>
+              <Ionicons name="arrow-back" size={18} color={Colors.dark.textSecondary} />
+              <Text style={styles.backBtnText}>Back</Text>
             </Pressable>
-            <Text style={styles.headerTitle}>Pre-Session Intake</Text>
-            <View style={{ width: 38 }} />
-          </View>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
 
-          <StepIndicator current={stepIndex} total={totalSteps} />
+          <View style={styles.footerRight}>
+            <Pressable
+              style={styles.saveOnlyBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleFinish(true);
+              }}
+              disabled={saveMutation.isPending}
+            >
+              <Text style={styles.saveOnlyBtnText}>Skip AI</Text>
+            </Pressable>
 
-          <ScrollView
-            style={styles.content}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {renderStep()}
-            <View style={{ height: 80 }} />
-          </ScrollView>
-
-          {/* Footer nav */}
-          <View style={styles.footer}>
-            {stepIndex > 0 ? (
-              <Pressable style={styles.backBtn} onPress={handleBack}>
-                <Ionicons name="arrow-back" size={18} color={Colors.dark.textSecondary} />
-                <Text style={styles.backBtnText}>Back</Text>
-              </Pressable>
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
-
-            <View style={styles.footerRight}>
-              <Pressable
-                style={styles.saveOnlyBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleFinish(true);
-                }}
-                disabled={saveMutation.isPending}
-              >
-                <Text style={styles.saveOnlyBtnText}>Skip AI</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.nextBtn, !canProceed() && styles.nextBtnDisabled]}
-                onPress={() => handleNext(false)}
-                disabled={!canProceed() || saveMutation.isPending}
-              >
-                {saveMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Text style={styles.nextBtnText}>
-                      {isLastStep ? "Start AI Chat" : "Next"}
-                    </Text>
-                    <Ionicons
-                      name={isLastStep ? "chatbubble-ellipses-outline" : "arrow-forward"}
-                      size={16}
-                      color="#fff"
-                    />
-                  </>
-                )}
-              </Pressable>
-            </View>
+            <Pressable
+              style={[styles.nextBtn, !canProceed() && styles.nextBtnDisabled]}
+              onPress={() => handleNext(false)}
+              disabled={!canProceed() || saveMutation.isPending}
+            >
+              {saveMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.nextBtnText}>
+                    {isLastStep ? "Start AI Chat" : "Next"}
+                  </Text>
+                  <Ionicons
+                    name={isLastStep ? "chatbubble-ellipses-outline" : "arrow-forward"}
+                    size={16}
+                    color="#fff"
+                  />
+                </>
+              )}
+            </Pressable>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -616,8 +641,9 @@ export function IntakeFlowModal({
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
+    zIndex: 999,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

@@ -49,7 +49,8 @@ import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
-import { IntakeFlowModal, IntakeResult } from "@/coach/components/IntakeFlowModal";
+import { IntakeResult } from "@/coach/components/IntakeFlowModal";
+import { useIntakeModal } from "@/coach/context/IntakeModalContext";
 import { AICoachingChatModal } from "@/coach/components/AICoachingChatModal";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
@@ -729,7 +730,7 @@ export default function DashboardScreen() {
   const [detailInitialAction, setDetailInitialAction] = useState<"attendance" | "detail" | "extend" | "end" | undefined>(undefined);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   // Pending feedback flow: intake → AI chat (runs from dashboard, not SessionDetailDrawer)
-  const [pendingIntakeSession, setPendingIntakeSession] = useState<PendingFeedbackSession | null>(null);
+  const { openIntake } = useIntakeModal();
   const [pendingAIChatPlayer, setPendingAIChatPlayer] = useState<{ sessionId: string; playerId: string; playerName: string; sessionType: string; remainingPlayers: PendingFeedbackSession["players"] } | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
@@ -2145,8 +2146,25 @@ export default function DashboardScreen() {
             sessions={pendingFeedbackSessions}
             onSessionTap={(sess) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              // Open intake flow directly from dashboard (not via SessionDetailDrawer)
-              setPendingIntakeSession(sess);
+              openIntake(sess, {
+                onSaveOnly: () => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
+                },
+                onComplete: (_result: IntakeResult) => {
+                  if (sess.players.length > 0) {
+                    const [first, ...rest] = sess.players;
+                    setTimeout(() => {
+                      setPendingAIChatPlayer({
+                        sessionId: sess.sessionId,
+                        playerId: first.id,
+                        playerName: first.name,
+                        sessionType: sess.sessionType,
+                        remainingPlayers: rest,
+                      });
+                    }, 200);
+                  }
+                },
+              });
             }}
           />
         )}
@@ -2540,36 +2558,6 @@ export default function DashboardScreen() {
         }}
       />
 
-      {/* Pending Feedback → Intake Flow (opened from dashboard pending feedback cards) */}
-      {pendingIntakeSession ? (
-        <IntakeFlowModal
-          visible={!!pendingIntakeSession}
-          onClose={() => setPendingIntakeSession(null)}
-          onSaveOnly={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
-          }}
-          onComplete={(_result: IntakeResult) => {
-            const sess = pendingIntakeSession;
-            setPendingIntakeSession(null);
-            if (sess.players.length > 0) {
-              // Open AI chat for first player; remaining players queued for sequential coaching
-              const [first, ...rest] = sess.players;
-              setTimeout(() => {
-                setPendingAIChatPlayer({
-                  sessionId: sess.sessionId,
-                  playerId: first.id,
-                  playerName: first.name,
-                  sessionType: sess.sessionType,
-                  remainingPlayers: rest,
-                });
-              }, 200);
-            }
-          }}
-          sessionId={pendingIntakeSession.sessionId}
-          sessionType={pendingIntakeSession.sessionType}
-          players={pendingIntakeSession.players}
-        />
-      ) : null}
 
       {/* Pending Feedback → AI Chat (opened after intake completes, one player at a time) */}
       {pendingAIChatPlayer ? (

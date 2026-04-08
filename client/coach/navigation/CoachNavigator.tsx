@@ -46,6 +46,8 @@ import { Colors } from "@/constants/theme";
 import { ChatStateProvider } from "@/coach/context/ChatStateContext";
 import { useTranslation } from "react-i18next";
 import { DesktopShell } from "@/components/DesktopShell";
+import { IntakeModalProvider, useIntakeModal } from "@/coach/context/IntakeModalContext";
+import { IntakeFlowModal } from "@/coach/components/IntakeFlowModal";
 
 const WEB_DESKTOP_BREAKPOINT = 1024;
 
@@ -97,6 +99,25 @@ export type CoachStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
+
+function CoachIntakeOverlay() {
+  const { pendingIntakeSession, intakeCallbacks, closeIntake } = useIntakeModal();
+  if (!pendingIntakeSession || !intakeCallbacks) return null;
+  return (
+    <IntakeFlowModal
+      visible
+      onClose={closeIntake}
+      onComplete={(result) => {
+        closeIntake();
+        intakeCallbacks.onComplete(result);
+      }}
+      onSaveOnly={intakeCallbacks.onSaveOnly}
+      sessionId={pendingIntakeSession.sessionId}
+      sessionType={pendingIntakeSession.sessionType}
+      players={pendingIntakeSession.players}
+    />
+  );
+}
 
 // Custom animated tab bar item
 function CoachTabs() {
@@ -152,6 +173,7 @@ function CoachTabs() {
           queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
         }}
       />
+      <CoachIntakeOverlay />
     </>
   );
 }
@@ -425,14 +447,16 @@ export default function CoachNavigator() {
   }
 
   return (
-    <ChatStateProvider>
-      <TabNavigationProvider>
-        <View style={styles.container}>
-          <OfflineBanner />
-          <CoachStackNavigator />
-        </View>
-      </TabNavigationProvider>
-    </ChatStateProvider>
+    <IntakeModalProvider>
+      <ChatStateProvider>
+        <TabNavigationProvider>
+          <View style={styles.container}>
+            <OfflineBanner />
+            <CoachStackNavigator />
+          </View>
+        </TabNavigationProvider>
+      </ChatStateProvider>
+    </IntakeModalProvider>
   );
 }
 
