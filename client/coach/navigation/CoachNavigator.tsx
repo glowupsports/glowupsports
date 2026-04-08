@@ -165,9 +165,11 @@ function CoachTabs() {
   const { coach, academy } = useCoach();
   const { width } = useWindowDimensions();
   const { state: aiState } = useAIModal();
+  const { pendingIntakeSession } = useIntakeModal();
 
   const isDesktop = Platform.OS === "web" && width >= WEB_DESKTOP_BREAKPOINT;
   const aiChatVisible = !!aiState;
+  const intakeVisible = !!pendingIntakeSession;
 
   const TAB_LABELS: Record<string, string> = useMemo(() => ({
     Dashboard: t("nav.home"),
@@ -184,10 +186,11 @@ function CoachTabs() {
 
   const renderOverlay = useCallback((tabKey: string) => {
     if (aiChatVisible) return null;
+    if (intakeVisible) return null;
     const shouldShowChat = tabKey === "Dashboard";
     if (!shouldShowChat) return null;
     return <CoachChatFooter />;
-  }, [aiChatVisible]);
+  }, [aiChatVisible, intakeVisible]);
 
   const tabBar = (
     <SwipeableTabBar

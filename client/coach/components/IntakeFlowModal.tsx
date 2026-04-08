@@ -546,7 +546,6 @@ export function IntakeFlowModal({
 
   return (
     <View style={styles.overlay}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
       <Animated.View
         style={[
           styles.sheet,
@@ -642,19 +641,15 @@ export function IntakeFlowModal({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.dark.backgroundRoot,
     justifyContent: "flex-end",
     zIndex: 999,
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.72)",
-  },
   sheet: {
-    backgroundColor: Colors.dark.backgroundCard,
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
-    maxHeight: "92%",
-    minHeight: "60%",
     paddingTop: Spacing.sm,
   },
   dragHandle: {
