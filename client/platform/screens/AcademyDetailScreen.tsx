@@ -531,7 +531,7 @@ export default function AcademyDetailScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Invite Links</Text>
+          <Text style={styles.sectionTitle}>Invite Codes</Text>
           <View style={[styles.card, CardStyles.elevated]}>
             <View style={styles.inviteRoleSelector}>
               <Pressable
@@ -570,7 +570,7 @@ export default function AcademyDetailScreen() {
               ) : (
                 <>
                   <Ionicons name="add-circle-outline" size={20} color={Colors.dark.text} />
-                  <Text style={styles.createInviteButtonText}>Create Invite Link</Text>
+                  <Text style={styles.createInviteButtonText}>Create Invite Code</Text>
                 </>
               )}
             </Pressable>
@@ -624,7 +624,7 @@ export default function AcademyDetailScreen() {
                 })}
               </View>
             ) : (
-              <Text style={[styles.emptyText, { marginTop: Spacing.md }]}>No invite links created yet</Text>
+              <Text style={[styles.emptyText, { marginTop: Spacing.md }]}>No invite codes created yet</Text>
             )}
           </View>
         </View>
