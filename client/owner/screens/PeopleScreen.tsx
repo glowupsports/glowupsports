@@ -438,7 +438,7 @@ export default function PeopleScreen() {
             <Ionicons 
               name="tennisball" 
               size={18} 
-              color={activeTab === "coaches" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
+              color={activeTab === "coaches" ? Colors.dark.buttonText : Colors.dark.textMuted} 
             />
             <Text style={[styles.tabText, activeTab === "coaches" && styles.tabTextActive]}>
               Coaches ({coaches.length})
@@ -451,7 +451,7 @@ export default function PeopleScreen() {
             <Ionicons 
               name="people" 
               size={18} 
-              color={activeTab === "players" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
+              color={activeTab === "players" ? Colors.dark.buttonText : Colors.dark.textMuted} 
             />
             <Text style={[styles.tabText, activeTab === "players" && styles.tabTextActive]}>
               Players ({players.length})
@@ -464,7 +464,7 @@ export default function PeopleScreen() {
             <Ionicons 
               name="shield" 
               size={18} 
-              color={activeTab === "admins" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
+              color={activeTab === "admins" ? Colors.dark.buttonText : Colors.dark.textMuted} 
             />
             <Text style={[styles.tabText, activeTab === "admins" && styles.tabTextActive]}>
               Admins ({admins.length})
@@ -777,7 +777,7 @@ export default function PeopleScreen() {
                       onPress={handleReassignAndDelete}
                       disabled={!selectedTargetCoach}
                     >
-                      <Ionicons name="swap-horizontal" size={20} color={Colors.dark.backgroundRoot} />
+                      <Ionicons name="swap-horizontal" size={20} color={Colors.dark.buttonText} />
                       <Text style={styles.primaryButtonText}>Reassign & Delete Coach</Text>
                     </Pressable>
                   </View>
@@ -833,7 +833,7 @@ export default function PeopleScreen() {
                       style={styles.primaryButton}
                       onPress={() => coachToRemove && fetchCoachSessions(coachToRemove.id)}
                     >
-                      <Ionicons name="refresh" size={20} color={Colors.dark.backgroundRoot} />
+                      <Ionicons name="refresh" size={20} color={Colors.dark.buttonText} />
                       <Text style={styles.primaryButtonText}>Retry</Text>
                     </Pressable>
                   </View>
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   header: {
@@ -917,7 +917,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   tabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   scrollView: {
     flex: 1,
@@ -1330,7 +1330,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   dangerButton: {

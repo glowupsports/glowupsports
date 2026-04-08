@@ -308,7 +308,7 @@ function TemplateCard({ template, index }: { template: LessonTemplate; index: nu
                 <DrillBlockCard key={block.id} block={block} index={idx} color={config.color} />
               ))}
               <Pressable style={[styles.useButton, { backgroundColor: config.color }]} onPress={handleUseTemplate}>
-                <Ionicons name="play" size={18} color="#000" />
+                <Ionicons name="play" size={18} color={Colors.dark.buttonText} />
                 <ThemedText style={styles.useButtonText}>Use This Template</ThemedText>
               </Pressable>
             </>
@@ -822,6 +822,6 @@ const styles = StyleSheet.create({
   useButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

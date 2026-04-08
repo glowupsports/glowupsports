@@ -467,7 +467,7 @@ export default function PlayerPublicProfileScreen() {
           <View style={styles.heroActions}>
             {profile.isOwnProfile ? (
               <Pressable style={styles.findMatchBtn} onPress={handleFindMatch} testID="button-find-match">
-                <Ionicons name="tennisball" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
                 <Text style={styles.findMatchBtnText}>Find Match</Text>
               </Pressable>
             ) : (
@@ -754,7 +754,7 @@ export default function PlayerPublicProfileScreen() {
                 style={styles.findMatchCta}
                 onPress={() => navigation.navigate("FindMatch" as never)}
               >
-                <Ionicons name="tennisball" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
                 <Text style={styles.findMatchCtaText}>Find a Match</Text>
               </Pressable>
             </View>
@@ -807,7 +807,7 @@ export default function PlayerPublicProfileScreen() {
                 style={[styles.findMatchCta, { backgroundColor: Colors.dark.xpCyan }]}
                 onPress={() => navigation.navigate("FindMatch" as never)}
               >
-                <Ionicons name="people-outline" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="people-outline" size={18} color={Colors.dark.buttonText} />
                 <Text style={styles.findMatchCtaText}>Find Players</Text>
               </Pressable>
             </View>
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   retryButtonText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   scrollView: {
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
   findMatchBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   challengeBtn: {
     flexDirection: "row",
@@ -1388,7 +1388,7 @@ const styles = StyleSheet.create({
   matchLevelBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   matchName: {
     fontSize: 15,
@@ -1476,7 +1476,7 @@ const styles = StyleSheet.create({
   connectionMoreText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   noConnectionsText: {
     fontSize: 14,
@@ -1535,7 +1535,7 @@ const styles = StyleSheet.create({
   findMatchCtaText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   
   emptyConnectionsCard: {

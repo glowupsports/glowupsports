@@ -271,7 +271,7 @@ export default function MyGamesScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.postBtnGradient}
             >
-              <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
               <Text style={styles.postBtnText}>Post a Game</Text>
             </LinearGradient>
           </Pressable>
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   postBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   list: {
     padding: Spacing.md,

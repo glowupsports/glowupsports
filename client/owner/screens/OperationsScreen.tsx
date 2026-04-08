@@ -223,7 +223,7 @@ export default function OperationsScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.fabGradient}
           >
-            <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
           </LinearGradient>
         </Pressable>
       
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   header: {
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   viewButtonTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   scrollView: {
     flex: 1,

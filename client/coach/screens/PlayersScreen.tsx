@@ -567,7 +567,7 @@ export default function PlayersScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.headerAddButtonGradient}
               >
-                <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.headerAddButtonText}>Add Player</Text>
               </LinearGradient>
             </Pressable>
@@ -597,14 +597,14 @@ export default function PlayersScreen() {
                 <Ionicons
                   name={tabIcon}
                   size={13}
-                  color={isActive ? Colors.dark.backgroundRoot : tab === "pending_payment" ? "#f59e0b" : Colors.dark.tabIconDefault}
+                  color={isActive ? Colors.dark.buttonText : tab === "pending_payment" ? "#f59e0b" : Colors.dark.tabIconDefault}
                 />
                 <Text style={[styles.rosterTabText, isActive && styles.rosterTabTextActive]}>
                   {tabLabel}
                 </Text>
                 {tab === "pending_payment" && pendingCount > 0 ? (
                   <View style={{ backgroundColor: isActive ? "rgba(0,0,0,0.3)" : "#f59e0b", borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, minWidth: 18, alignItems: "center" }}>
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: isActive ? Colors.dark.backgroundRoot : Colors.dark.backgroundRoot }}>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: Colors.dark.buttonText }}>
                       {pendingCount}
                     </Text>
                   </View>
@@ -1192,7 +1192,7 @@ export default function PlayersScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.copyButtonGradient}
                 >
-                  <Ionicons name="copy-outline" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="copy-outline" size={20} color={Colors.dark.buttonText} />
                   <Text style={[styles.copyButtonText, { fontSize: 18 }]}>Copy Code</Text>
                 </LinearGradient>
               </Pressable>

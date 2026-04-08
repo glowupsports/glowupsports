@@ -74,7 +74,7 @@ function RatingSlider({ rating, onChange }: { rating: ReviewRating; onChange: (v
           >
             <ThemedText style={[
               styles.scoreButtonText,
-              rating.value === score && { color: Colors.dark.backgroundRoot, fontWeight: "700" }
+              rating.value === score && { color: Colors.dark.buttonText, fontWeight: "700" }
             ]}>
               {score}
             </ThemedText>
@@ -223,7 +223,7 @@ export function CoachReviewModal({ visible, onClose, coach, onSuccess }: CoachRe
                   style={({ pressed }) => [styles.continueButton, { opacity: pressed ? 0.8 : 1 }]}
                 >
                   <ThemedText style={styles.continueButtonText}>Continue</ThemedText>
-                  <Feather name="arrow-right" size={18} color={Colors.dark.backgroundRoot} />
+                  <Feather name="arrow-right" size={18} color={Colors.dark.buttonText} />
                 </Pressable>
               </View>
             </>
@@ -300,10 +300,10 @@ export function CoachReviewModal({ visible, onClose, coach, onSuccess }: CoachRe
                   ]}
                 >
                   {submitMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
-                      <Feather name="send" size={18} color={Colors.dark.backgroundRoot} />
+                      <Feather name="send" size={18} color={Colors.dark.buttonText} />
                       <ThemedText style={styles.submitButtonText}>Submit Review</ThemedText>
                     </>
                   )}
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   title: {
     fontSize: 18,
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   submitButton: {
     flex: 2,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   textInputSection: {
     flex: 1,

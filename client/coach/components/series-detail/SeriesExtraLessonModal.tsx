@@ -163,7 +163,7 @@ export function SeriesExtraLessonModal({
                     style={styles.extendConfirmGradient}
                   >
                     <Text style={styles.extendConfirmButtonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
                   </LinearGradient>
                 </Pressable>
               </View>
@@ -221,7 +221,7 @@ export function SeriesExtraLessonModal({
                     style={styles.extendConfirmGradient}
                   >
                     <Text style={styles.extendConfirmButtonText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
                   </LinearGradient>
                 </Pressable>
               </View>
@@ -361,7 +361,7 @@ export function SeriesExtraLessonModal({
                     end={{ x: 1, y: 0 }}
                     style={styles.extendConfirmGradient}
                   >
-                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
                     <Text style={styles.extendConfirmButtonText}>Add Lesson</Text>
                   </LinearGradient>
                 </Pressable>

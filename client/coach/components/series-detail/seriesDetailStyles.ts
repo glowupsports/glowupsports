@@ -740,7 +740,7 @@ export const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   backfillSubtitle: {
     fontSize: Typography.body.fontSize,
@@ -962,7 +962,7 @@ export const styles = StyleSheet.create({
   assignPackageButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   templateSection: {
     marginTop: Spacing.lg,
@@ -1048,7 +1048,7 @@ export const styles = StyleSheet.create({
   formSaveButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   timelineContentClickable: {
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1134,7 +1134,7 @@ export const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   attendanceToggleTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   attendanceActions: {
     marginTop: Spacing.xl,
@@ -1755,7 +1755,7 @@ export const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   confirmButtonDisabled: {
     opacity: 0.5,
@@ -2005,7 +2005,7 @@ export const styles = StyleSheet.create({
   extendConfirmButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   guestBadge: {
     backgroundColor: Colors.dark.orange + "25",

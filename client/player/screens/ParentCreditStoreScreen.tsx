@@ -363,7 +363,7 @@ export default function ParentCreditStoreScreen() {
                   disabled={purchaseMutation.isPending || pin.length < 4}
                 >
                   {purchaseMutation.isPending && selectedPaymentMethod === "cash" ? (
-                    <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="cash-outline" size={24} color={Colors.dark.gold} />
@@ -380,7 +380,7 @@ export default function ParentCreditStoreScreen() {
                   disabled={purchaseMutation.isPending || pin.length < 4}
                 >
                   {purchaseMutation.isPending && selectedPaymentMethod === "bank_transfer" ? (
-                    <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
   },
   doneButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

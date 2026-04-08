@@ -1717,7 +1717,7 @@ export default function PlayerProgressScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.guestCtaGradient}
           >
-            <Ionicons name="person-add-outline" size={20} color="#000" />
+            <Ionicons name="person-add-outline" size={20} color={Colors.dark.buttonText} />
             <Text style={styles.guestCtaText}>Create Account / Sign In</Text>
           </LinearGradient>
         </Pressable>
@@ -1939,7 +1939,7 @@ export default function PlayerProgressScreen() {
               {/* Hero Header */}
               <View style={styles.aiCoachHeroHeader}>
                 <View style={styles.aiCoachHeroIcon}>
-                  <Ionicons name="sparkles" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="sparkles" size={20} color={Colors.dark.buttonText} />
                 </View>
                 <View style={styles.aiCoachHeroTitleWrap}>
                   <Text style={styles.aiCoachHeroLabel}>YOUR AI COACH</Text>
@@ -2024,9 +2024,9 @@ export default function PlayerProgressScreen() {
                   navigation.navigate("PlayerAICoach");
                 }}
               >
-                <Ionicons name="sparkles" size={14} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="sparkles" size={14} color={Colors.dark.buttonText} />
                 <Text style={styles.aiCoachOpenBtnText}>Open AI Coach</Text>
-                <Ionicons name="arrow-forward" size={14} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="arrow-forward" size={14} color={Colors.dark.buttonText} />
               </Pressable>
             </LinearGradient>
           </View>
@@ -2583,7 +2583,7 @@ export default function PlayerProgressScreen() {
                   setShowReviewModal(true);
                 }}
               >
-                <Ionicons name="star" size={14} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="star" size={14} color={Colors.dark.buttonText} />
                 <Text style={styles.rateCoachButtonText}>Write a review</Text>
               </Pressable>
             </View>
@@ -2733,7 +2733,7 @@ const styles = StyleSheet.create({
   guestCtaText: {
     fontSize: 16,
     fontWeight: "700" as const,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   scrollView: {
     flex: 1,
@@ -3541,7 +3541,7 @@ const styles = StyleSheet.create({
   },
   rateCoachButtonText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   strokeFeedbackRow: {
@@ -3948,7 +3948,7 @@ const styles = StyleSheet.create({
   aiCoachOpenBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });
 
@@ -4403,6 +4403,6 @@ const modalStyles = StyleSheet.create({
   aiCoachOpenBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

@@ -302,7 +302,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
                   end={{ x: 1, y: 0 }}
                   style={styles.nominateGradient}
                 >
-                  <Ionicons name="star" size={16} color="#000" />
+                  <Ionicons name="star" size={16} color={Colors.dark.buttonText} />
                   <Text style={styles.nominateText}>Nominate a Player</Text>
                 </LinearGradient>
               </Pressable>
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   nominateText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   votedButton: {
     flex: 1,

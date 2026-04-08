@@ -313,10 +313,10 @@ export default function AcademyProfileScreen() {
             disabled={joinMutation.isPending}
           >
             {joinMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.joinButtonText}>Request to Join</Text>
               </>
             )}
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   },
   joinButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   buttonDisabled: {

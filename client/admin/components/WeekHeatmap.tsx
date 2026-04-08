@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   dayNumberLight: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   todayNumber: {
     color: Colors.dark.primary,

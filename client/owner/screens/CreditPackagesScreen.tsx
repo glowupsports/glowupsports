@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   setupButtonText: {
     ...Typography.small,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   errorState: {
     alignItems: "center",

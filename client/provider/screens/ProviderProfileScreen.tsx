@@ -248,7 +248,7 @@ function EditSpecializationsModal({
               >
                 {isSelected ? (
                   <View style={modalStyles.checkBadge}>
-                    <Ionicons name="checkmark" size={10} color="#000" />
+                    <Ionicons name="checkmark" size={10} color={Colors.dark.buttonText} />
                   </View>
                 ) : null}
                 <View style={[modalStyles.iconCircle, { backgroundColor: spec.color + "20" }]}>
@@ -673,7 +673,7 @@ function ServiceMenuSection() {
                     ]}
                     onPress={() => setSvcIcon(icon)}
                   >
-                    <Ionicons name={icon} size={20} color={svcIcon === icon ? "#000" : Colors.dark.textSecondary} />
+                    <Ionicons name={icon} size={20} color={svcIcon === icon ? Colors.dark.buttonText : Colors.dark.textSecondary} />
                   </Pressable>
                 ))}
               </View>
@@ -1108,7 +1108,7 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
   },
-  saveBtnText: { fontSize: 15, fontWeight: "800", color: "#000" },
+  saveBtnText: { fontSize: 15, fontWeight: "800", color: Colors.dark.buttonText },
 });
 
 const styles = StyleSheet.create({

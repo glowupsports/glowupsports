@@ -359,7 +359,7 @@ export default function ParentInvoicesScreen() {
                       ]} 
                       onPress={() => handlePayNow(selectedInvoice)}
                     >
-                      <Ionicons name="card-outline" size={20} color={Colors.dark.backgroundRoot} />
+                      <Ionicons name="card-outline" size={20} color={Colors.dark.buttonText} />
                       <Text style={styles.payNowButtonText}>Pay Now</Text>
                     </Pressable>
                   ) : null}
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   },
   payNowButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   paymentAmountCard: {

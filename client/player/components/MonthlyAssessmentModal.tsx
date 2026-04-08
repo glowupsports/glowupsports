@@ -314,7 +314,7 @@ export function MonthlyAssessmentModal({
                   disabled={!canProceed || mutation.isPending}
                 >
                   {mutation.isPending ? (
-                    <ActivityIndicator size="small" color="#000" />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Text style={styles.nextButtonText}>
@@ -323,7 +323,7 @@ export function MonthlyAssessmentModal({
                       <Ionicons
                         name={isLastStep ? "checkmark" : "chevron-forward"}
                         size={16}
-                        color="#000"
+                        color={Colors.dark.buttonText}
                       />
                     </>
                   )}
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 14,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   completedContainer: {
@@ -535,6 +535,6 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

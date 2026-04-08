@@ -112,7 +112,7 @@ function AreaCard({ area, index }: { area: SettingsArea; index: number }) {
             style={styles.actionButton}
           >
             <Text style={styles.actionButtonText}>{area.actionLabel}</Text>
-            <Ionicons name="arrow-forward" size={14} color={"#000"} />
+            <Ionicons name="arrow-forward" size={14} color={Colors.dark.buttonText} />
           </Pressable>
         ) : (
           <View style={styles.configuredBadge}>
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.small,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   configuredBadge: {
     flexDirection: "row",

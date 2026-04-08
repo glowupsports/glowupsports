@@ -192,7 +192,7 @@ export const styles = StyleSheet.create({
   todayBadgeText: {
     fontSize: 9,
     fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 1,
   },
   viewToggle: {
@@ -228,7 +228,7 @@ export const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   viewButtonTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   viewToggleGaming: {
@@ -405,7 +405,7 @@ export const styles = StyleSheet.create({
   headerBookButtonText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 0.5,
   },
   compactDateRow: {
@@ -1471,7 +1471,7 @@ export const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   weekPlannerDateNumToday: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   weekPlannerSessionCount: {
     fontSize: 10,
@@ -2648,6 +2648,6 @@ export const dragModalStyles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

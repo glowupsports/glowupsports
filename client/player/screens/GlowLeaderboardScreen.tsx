@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   scopeTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   categoryTabs: {
     flexDirection: "row",
@@ -554,6 +554,6 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   unreadBadgeText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   markAllButton: {
     borderRadius: BorderRadius.sm,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
   markAllText: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   loadingContainer: {

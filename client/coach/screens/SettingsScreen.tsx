@@ -165,8 +165,8 @@ function GradientButton({ onPress, title, label, icon }: { onPress: () => void; 
         end={{ x: 1, y: 0 }}
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, gap: 8 }}
       >
-        {icon ? <Ionicons name={icon as any} size={18} color={Colors.dark.backgroundRoot} /> : null}
-        <Text style={{ color: Colors.dark.backgroundRoot, fontSize: 14, fontWeight: '700' }}>{displayText}</Text>
+        {icon ? <Ionicons name={icon as any} size={18} color={Colors.dark.buttonText} /> : null}
+        <Text style={{ color: Colors.dark.buttonText, fontSize: 14, fontWeight: '700' }}>{displayText}</Text>
       </LinearGradient>
     </Pressable>
   );
@@ -647,7 +647,7 @@ export default function SettingsScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.addCourtButtonGradient}
               >
-                <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
               </LinearGradient>
             </Pressable>
           </Pressable>
@@ -668,7 +668,7 @@ export default function SettingsScreen() {
                     <View style={styles.courtCardContent}>
                       <View style={styles.courtInfo}>
                         <View style={[styles.courtColorDot, { backgroundColor: Colors.dark.gold }]}>
-                          <Ionicons name="location" size={14} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="location" size={14} color={Colors.dark.buttonText} />
                         </View>
                         <View>
                           <Text style={styles.courtName}>{location.name}</Text>
@@ -731,7 +731,7 @@ export default function SettingsScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.addCourtButtonGradient}
               >
-                <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
               </LinearGradient>
             </Pressable>
           </Pressable>
@@ -1503,7 +1503,7 @@ export default function SettingsScreen() {
                   }}
                 >
                   {newCourtColor === color ? (
-                    <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                   ) : null}
                 </Pressable>
               ))}
@@ -1755,7 +1755,7 @@ export default function SettingsScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.drawerSaveGradient}
                 >
-                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="add-circle" size={20} color={Colors.dark.buttonText} />
                   <Text style={styles.drawerSaveText}>Add Travel Time</Text>
                 </LinearGradient>
               </Pressable>
@@ -2259,7 +2259,7 @@ const styles = StyleSheet.create({
   gradientButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   infoCard: {
     backgroundColor: Backgrounds.card,
@@ -2464,7 +2464,7 @@ const styles = StyleSheet.create({
   },
   modalSaveText: {
     fontSize: Typography.body.fontSize,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   sectionDescription: {
@@ -2897,7 +2897,7 @@ const styles = StyleSheet.create({
   drawerSaveText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   languageTextContainer: {
     flex: 1,

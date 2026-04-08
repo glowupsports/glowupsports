@@ -103,7 +103,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
                 colors={gradient}
                 style={achievementStyles.iconContainer}
               >
-                <Ionicons name={item.icon as any} size={24} color="#000" />
+                <Ionicons name={item.icon as any} size={24} color={Colors.dark.buttonText} />
               </LinearGradient>
               <View style={achievementStyles.headerText}>
                 <ThemedText style={[achievementStyles.title, { color: gradient[0] }]}>
@@ -131,7 +131,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
                 end={{ x: 1, y: 0 }}
                 style={achievementStyles.shareGradient}
               >
-                <Ionicons name="share-social" size={16} color="#000" />
+                <Ionicons name="share-social" size={16} color={Colors.dark.buttonText} />
                 <ThemedText style={achievementStyles.shareText}>Share to Story</ThemedText>
               </LinearGradient>
             </View>
@@ -163,7 +163,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
             colors={["#C8FF3D", "#7CFC00"]}
             style={achievementStyles.headerIconBg}
           >
-            <Ionicons name="trophy" size={28} color="#000" />
+            <Ionicons name="trophy" size={28} color={Colors.dark.buttonText} />
           </LinearGradient>
           <ThemedText style={achievementStyles.headerTitle}>{t('player.profile.achievements')}</ThemedText>
           <ThemedText style={achievementStyles.headerSubtitle}>
@@ -456,7 +456,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
               colors={[Colors.dark.primary, Colors.dark.primaryGlow || "#9AE66E"]}
               style={friendStyles.friendChallengeBtnGradient}
             >
-              <Ionicons name="flash" size={14} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="flash" size={14} color={Colors.dark.buttonText} />
               <ThemedText style={friendStyles.friendChallengeText}>Challenge</ThemedText>
             </LinearGradient>
           </Pressable>
@@ -490,7 +490,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
             <Ionicons name="close" size={20} color={Colors.dark.error} />
           </Pressable>
           <Pressable style={friendStyles.acceptBtn} onPress={() => handleAcceptRequest(request.id)}>
-            <Ionicons name="checkmark" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         </View>
       </View>
@@ -660,7 +660,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
                   end={{ x: 1, y: 0 }}
                   style={friendStyles.inviteBtnGradient}
                 >
-                  <Ionicons name="share-social" size={18} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="share-social" size={18} color={Colors.dark.buttonText} />
                   <ThemedText style={friendStyles.inviteBtnText}>Invite tennis friends</ThemedText>
                 </LinearGradient>
               </Pressable>
@@ -669,7 +669,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
                 onPress={() => navigation.navigate("PlayerFinder" as never)}
               >
                 <ThemedText style={friendStyles.findPlayersBtnText}>{t('player.community.findPlayers')}</ThemedText>
-                <Ionicons name="arrow-forward" size={16} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="arrow-forward" size={16} color={Colors.dark.buttonText} />
               </Pressable>
             </View>
           }
@@ -953,7 +953,7 @@ export function GroupsSection() {
                     end={{ x: 1, y: 0 }}
                     style={groupStyles.squadBtnGradient}
                   >
-                    <Ionicons name="people" size={20} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="people" size={20} color={Colors.dark.buttonText} />
                     <ThemedText style={groupStyles.squadBtnText}>Create Squad</ThemedText>
                   </LinearGradient>
                 </Pressable>
@@ -1156,7 +1156,7 @@ const achievementStyles = StyleSheet.create({
   valueText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   description: {
     fontSize: 14,
@@ -1178,7 +1178,7 @@ const achievementStyles = StyleSheet.create({
   shareText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   empty: {
     alignItems: "center",
@@ -1448,7 +1448,7 @@ const friendStyles = StyleSheet.create({
   friendLevelText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   friendStatus: {
     fontSize: 11,
@@ -1483,7 +1483,7 @@ const friendStyles = StyleSheet.create({
   friendChallengeText: {
     fontSize: 11,
     fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 0.3,
   },
   requestCard: {
@@ -1539,7 +1539,7 @@ const friendStyles = StyleSheet.create({
   inviteBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   findPlayersBtn: {
     flexDirection: "row",
@@ -1622,7 +1622,7 @@ const friendStyles = StyleSheet.create({
   activityLevelText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   activityMetaRow: {
     flexDirection: "row",
@@ -1778,7 +1778,7 @@ const groupStyles = StyleSheet.create({
   joinBtnText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   joinedBtnText: {
     color: Colors.dark.textSecondary,
@@ -1847,7 +1847,7 @@ const groupStyles = StyleSheet.create({
   squadBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   createGroupFab: {
     position: "absolute",

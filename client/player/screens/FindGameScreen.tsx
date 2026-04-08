@@ -287,10 +287,10 @@ export default function FindGameScreen() {
             onPress={() => !isJoining && handleJoin(item.id)}
           >
             {isJoining ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="enter-outline" size={15} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="enter-outline" size={15} color={Colors.dark.buttonText} />
                 <Text style={styles.joinBtnText}>Join Game</Text>
               </>
             )}
@@ -354,7 +354,7 @@ export default function FindGameScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.postBtnGradient}
             >
-              <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
               <Text style={styles.postBtnText}>Post a Game</Text>
             </LinearGradient>
           </Pressable>
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   sportChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   center: {
     flex: 1,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   postBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   list: {
     padding: Spacing.md,
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   joinBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   leaveBtn: {
     flexDirection: "row",

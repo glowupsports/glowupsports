@@ -111,7 +111,7 @@ function PlayerCard({ player, index }: { player: Player; index: number }) {
           </LinearGradient>
         )}
         <View style={[styles.levelBadge, { backgroundColor: levelColor }]}>
-          <Ionicons name="tennisball" size={10} color="#000" />
+          <Ionicons name="tennisball" size={10} color={Colors.dark.buttonText} />
         </View>
       </View>
       <Text style={styles.playerName} numberOfLines={1}>
@@ -272,7 +272,7 @@ export default function MeetYourSquad({
               <Text style={styles.continueText}>
                 {ageGroup === "kid" ? "Let's Go!" : "Continue"}
               </Text>
-              <Ionicons name="arrow-forward" size={20} color="#000" />
+              <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
             </LinearGradient>
           </Pressable>
         </Animated.View>
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   playerInitial: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontSize: 28,
     fontWeight: "bold",
   },
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   continueText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontSize: 18,
     fontWeight: "bold",
   },

@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 40,
     fontWeight: "bold",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   coachName: {
     fontSize: 24,

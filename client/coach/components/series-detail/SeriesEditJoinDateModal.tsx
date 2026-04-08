@@ -80,7 +80,7 @@ export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEdi
               disabled={savingJoinDate}
             >
               {savingJoinDate ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.confirmButtonText}>Save</Text>
               )}

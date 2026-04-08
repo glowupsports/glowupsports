@@ -182,13 +182,13 @@ function FamilySwitchBackBanner() {
       onPress={handleSwitchBack}
       disabled={loading}
     >
-      <Ionicons name="people" size={14} color="#000" />
+      <Ionicons name="people" size={14} color={Colors.dark.buttonText} />
       <Text style={styles.switchBannerText} numberOfLines={1}>
         Viewing as {switchInfo.switchedPlayerName}
       </Text>
       <View style={styles.switchBannerChip}>
         {loading
-          ? <ActivityIndicator size="small" color="#000" />
+          ? <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           : <Text style={styles.switchBannerChipText}>Switch Back</Text>
         }
       </View>
@@ -1461,7 +1461,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSizes.xs,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   switchBannerChip: {
     backgroundColor: "rgba(0,0,0,0.15)",
@@ -1474,7 +1474,7 @@ const styles = StyleSheet.create({
   switchBannerChipText: {
     fontSize: FontSizes.xs,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   tabsContainer: {
     flex: 1,

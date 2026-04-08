@@ -681,7 +681,7 @@ export default function AcademyDetailScreen() {
                 <Ionicons 
                   name={modalCopied ? "checkmark" : "copy-outline"} 
                   size={20} 
-                  color={Colors.dark.backgroundRoot} 
+                  color={Colors.dark.buttonText} 
                 />
                 <Text style={styles.copyButtonText}>
                   {modalCopied ? "Copied!" : "Copy Code"}
@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
   },
   copyButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   shareButton: {

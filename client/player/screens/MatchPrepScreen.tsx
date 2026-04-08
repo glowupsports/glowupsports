@@ -508,10 +508,10 @@ export default function MatchPrepScreen() {
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#000" />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Ionicons name="checkmark-circle" size={20} color="#000" />
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.saveBtnText}>Save Game Plan</Text>
             </>
           )}
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

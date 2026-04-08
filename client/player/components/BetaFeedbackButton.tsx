@@ -104,7 +104,7 @@ export function BetaFeedbackButton({
         accessibilityLabel="Open beta feedback"
         accessibilityRole="button"
       >
-        <Ionicons name="chatbubble-ellipses-outline" size={16} color="#000" />
+        <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.dark.buttonText} />
         <Text style={styles.pillText}>Feedback</Text>
       </Pressable>
 
@@ -216,10 +216,10 @@ export function BetaFeedbackButton({
                     disabled={!canSubmit}
                   >
                     {isSubmitting ? (
-                      <ActivityIndicator size="small" color="#000" />
+                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <>
-                        <Ionicons name="send" size={16} color="#000" />
+                        <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
                         <Text style={styles.submitBtnText}>Submit</Text>
                       </>
                     )}
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
     letterSpacing: 0.3,
   },
   overlay: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   successContainer: {
     alignItems: "center",

@@ -328,7 +328,7 @@ function WelcomeStep({ onNext }: StepProps) {
           }}
         >
           <Text style={styles.primaryButtonText}>Let's Go!</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </Animated.View>
 
@@ -444,7 +444,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
             }}
           >
             <Text style={styles.primaryButtonText}>Next</Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -861,7 +861,7 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
           }}
         >
           <Text style={styles.primaryButtonText}>Let's Go!</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </Animated.View>
     </ScrollView>
@@ -947,7 +947,7 @@ function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
           }}
         >
           <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </Animated.View>
     </ScrollView>
@@ -1013,7 +1013,7 @@ function WhyTennisStep({ data, setData, onNext, ageGroup }: StepProps) {
               </Text>
               {isSelected ? (
                 <View style={styles.checkIcon}>
-                  <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                 </View>
               ) : null}
             </Pressable>
@@ -1031,7 +1031,7 @@ function WhyTennisStep({ data, setData, onNext, ageGroup }: StepProps) {
             }}
           >
             <Text style={styles.primaryButtonText}>Next</Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -1101,7 +1101,7 @@ function ExperienceStep({ data, setData, onNext, age }: StepProps & { age?: numb
             }}
           >
             <Text style={styles.primaryButtonText}>Next</Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -1321,7 +1321,7 @@ function PlayStyleStep({ data, setData, onNext }: StepProps) {
                 <Text style={styles.archetypeTagline} numberOfLines={2}>{archetype.tagline}</Text>
                 {isSelected ? (
                   <View style={[styles.archetypeCheck, { backgroundColor: archetype.color }]}>
-                    <Ionicons name="checkmark" size={12} color="#000" />
+                    <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
                   </View>
                 ) : null}
               </Pressable>
@@ -1340,7 +1340,7 @@ function PlayStyleStep({ data, setData, onNext }: StepProps) {
             }}
           >
             <Text style={styles.primaryButtonText}>Lock In My Style</Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -1586,7 +1586,7 @@ function AvailabilityStep({ data, setData, onNext }: StepProps) {
               <Text style={[styles.selectableCardText, isSelected ? styles.selectableCardTextActive : null]}>{option.label}</Text>
               {isSelected ? (
                 <View style={styles.checkIcon}>
-                  <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                 </View>
               ) : null}
             </Pressable>
@@ -1753,7 +1753,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
               </View>
               {data.academyId === academy.id ? (
                 <View style={styles.checkIcon}>
-                  <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                 </View>
               ) : (
                 <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -1871,7 +1871,7 @@ function SportSelectionStep({ data, setData, onNext }: StepProps) {
               <Text style={styles.sportCardDesc}>{sport.description}</Text>
               {isSelected ? (
                 <View style={[styles.sportCheckmark, { backgroundColor: sport.color }]}>
-                  <Ionicons name="checkmark" size={12} color="#000" />
+                  <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
                 </View>
               ) : null}
             </Pressable>
@@ -2206,7 +2206,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
               } catch {}
             }}
           >
-            <Ionicons name="share-social" size={16} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="share-social" size={16} color={Colors.dark.buttonText} />
             <Text style={styles.inviteNudgeBtnText}>Nodig uit</Text>
           </Pressable>
         </Animated.View>
@@ -2221,7 +2221,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
           }}
         >
           <Text style={styles.completionButtonText}>ENTER THE ARENA</Text>
-          <Ionicons name="rocket-outline" size={22} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="rocket-outline" size={22} color={Colors.dark.buttonText} />
         </Pressable>
       </Animated.View>
     </View>
@@ -2519,7 +2519,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
               disabled={!canProceed()}
             >
               <Text style={styles.nextButtonText}>Next</Text>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.buttonText} />
             </Pressable>
           ) : null}
         </View>
@@ -2638,7 +2638,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...Typography.body,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   primaryButtonTextSecondary: {
     color: Colors.dark.text,
@@ -2737,7 +2737,7 @@ const styles = StyleSheet.create({
   ageBadgeText: {
     ...Typography.small,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   ageGroupCard: {
     flexDirection: "row",
@@ -2840,7 +2840,7 @@ const styles = StyleSheet.create({
   datePickerConfirmText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   photoUploadContainer: {
     alignItems: "center",
@@ -3336,7 +3336,7 @@ const styles = StyleSheet.create({
   completionButtonText: {
     fontSize: 16,
     fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 2,
     textTransform: "uppercase",
   },
@@ -3419,7 +3419,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   sportGrid: {
@@ -3700,6 +3700,6 @@ const styles = StyleSheet.create({
   inviteNudgeBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

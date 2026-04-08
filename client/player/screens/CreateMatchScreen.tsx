@@ -562,7 +562,7 @@ export default function CreateMatchScreen() {
               style={styles.nextButtonGradient}
             >
               <Text style={styles.nextButtonText}>Next</Text>
-              <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
             </LinearGradient>
           </Pressable>
         </View>
@@ -644,7 +644,7 @@ export default function CreateMatchScreen() {
             style={styles.nextButtonGradient}
           >
             <Text style={styles.nextButtonText}>Next</Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
           </LinearGradient>
         </Pressable>
       </View>
@@ -746,7 +746,7 @@ export default function CreateMatchScreen() {
             style={styles.nextButtonGradient}
           >
             <Text style={styles.nextButtonText}>Next</Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
           </LinearGradient>
         </Pressable>
       </View>
@@ -820,10 +820,10 @@ export default function CreateMatchScreen() {
             style={styles.nextButtonGradient}
           >
             {createMatchMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="rocket" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="rocket" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.nextButtonText}>Publish Match</Text>
               </>
             )}
@@ -843,7 +843,7 @@ export default function CreateMatchScreen() {
           colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
           style={styles.celebrationGradient}
         >
-          <Ionicons name="checkmark" size={80} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="checkmark" size={80} color={Colors.dark.buttonText} />
         </LinearGradient>
       </Animated.View>
 
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   typeCardTitleSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   typeCardDesc: {
     ...Typography.caption,
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   levelSliderContainer: {
@@ -1349,7 +1349,7 @@ const styles = StyleSheet.create({
   },
   doneButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   viewMatchesButton: {

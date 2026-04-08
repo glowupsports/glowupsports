@@ -84,7 +84,7 @@ export default function ProviderOnboardingScreen() {
               >
                 {isSelected ? (
                   <View style={styles.checkBadge}>
-                    <Ionicons name="checkmark" size={12} color="#000" />
+                    <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
                   </View>
                 ) : null}
                 <View
@@ -129,7 +129,7 @@ export default function ProviderOnboardingScreen() {
           disabled={selected.length === 0 || saving}
         >
           {saving ? (
-            <ActivityIndicator color="#000" size="small" />
+            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
           ) : (
             <Text style={styles.ctaText}>Let's Go</Text>
           )}
@@ -253,6 +253,6 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

@@ -145,7 +145,7 @@ function PillChips({
             <Text
               style={[
                 styles.pillText,
-                isSelected && { color: isLightAccent ? "#000" : (accentColor === Colors.dark.primary ? "#000" : "#fff") },
+                isSelected && { color: isLightAccent ? Colors.dark.buttonText : (accentColor === Colors.dark.primary ? Colors.dark.buttonText : "#fff") },
               ]}
             >
               {opt.label}
@@ -182,7 +182,7 @@ function MultiPillChips({
             <Text
               style={[
                 styles.pillText,
-                isSelected && { color: "#000" },
+                isSelected && { color: Colors.dark.buttonText },
               ]}
             >
               {opt.label}
@@ -487,9 +487,9 @@ export default function PlayerEditProfileScreen() {
             )}
             <View style={styles.photoBadge}>
               {photoUploading ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
-                <Ionicons name="camera" size={15} color="#000" />
+                <Ionicons name="camera" size={15} color={Colors.dark.buttonText} />
               )}
             </View>
           </Pressable>

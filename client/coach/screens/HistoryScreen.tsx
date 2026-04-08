@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   loadingContainer: {

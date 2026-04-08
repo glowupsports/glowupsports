@@ -189,7 +189,7 @@ export default function LessonRatingModal({
                 disabled={rating === 0 || submitMutation.isPending}
               >
                 {submitMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <ThemedText
                     style={[
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   submitTextEnabled: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   submitTextDisabled: {
     color: Colors.dark.tabIconDefault,

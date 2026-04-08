@@ -129,7 +129,7 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
               </View>
             )}
             <View style={[styles.ballBadge, { backgroundColor: getBallColor(member.ballLevel) }]}>
-              <Ionicons name="tennisball" size={12} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="tennisball" size={12} color={Colors.dark.buttonText} />
             </View>
             {lastActiveText === "Online now" ? (
               <View style={styles.onlineIndicator} />
@@ -503,10 +503,10 @@ export default function FamilyLobbyScreen() {
                 </View>
                 <View style={styles.payAllButton}>
                   {payAllMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                    <ActivityIndicator color={Colors.dark.buttonText} size="small" />
                   ) : (
                     <>
-                      <Ionicons name="card" size={20} color={Colors.dark.backgroundRoot} />
+                      <Ionicons name="card" size={20} color={Colors.dark.buttonText} />
                       <Text style={styles.payAllButtonText}>Pay All</Text>
                     </>
                   )}
@@ -561,7 +561,7 @@ export default function FamilyLobbyScreen() {
             accessibilityRole="button"
             accessibilityLabel="Create a new player profile for a family member"
           >
-            <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="person-add" size={20} color={Colors.dark.buttonText} />
             <Text style={styles.addChildStickyText}>Add New Player</Text>
           </Pressable>
         </Animated.View>
@@ -676,7 +676,7 @@ export default function FamilyLobbyScreen() {
                   accessibilityLabel="Add member by email"
                 >
                   {addChildMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                    <ActivityIndicator color={Colors.dark.buttonText} size="small" />
                   ) : (
                     <Text style={styles.addButtonText}>Add to Family</Text>
                   )}
@@ -809,7 +809,7 @@ const styles = StyleSheet.create({
   payAllButtonText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   scrollView: {
     flex: 1,
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
   addChildStickyText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   addMemberSecondaryText: {
     color: Colors.dark.textSecondary,
@@ -1203,7 +1203,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   codeBox: {
     backgroundColor: Colors.dark.backgroundSecondary,

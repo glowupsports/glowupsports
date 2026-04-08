@@ -175,10 +175,10 @@ export default function ParentReportsScreen() {
           disabled={loadingPdf}
         >
           {loadingPdf ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Ionicons name="share-outline" size={20} color="#fff" />
+              <Ionicons name="share-outline" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.exportBtnText}>Export PDF</Text>
             </>
           )}
@@ -300,10 +300,10 @@ export default function ParentReportsScreen() {
             disabled={loadingPdf}
           >
             {loadingPdf ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Ionicons name="share-outline" size={18} color={Colors.dark.buttonText} />
                 <Text style={styles.shareBtnText}>Export PDF</Text>
               </>
             )}
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   shareBtnText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
+    color: Colors.dark.buttonText,
   },
   pdfContainer: {
     flex: 1,
@@ -718,6 +718,6 @@ const styles = StyleSheet.create({
   exportBtnText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
+    color: Colors.dark.buttonText,
   },
 });

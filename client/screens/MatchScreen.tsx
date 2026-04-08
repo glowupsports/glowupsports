@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   resultText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   matchDetails: {
     flexDirection: "row",

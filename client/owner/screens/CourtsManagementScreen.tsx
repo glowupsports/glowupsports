@@ -180,7 +180,7 @@ export default function CourtsManagementScreen() {
             <Text style={styles.emptyText}>No courts yet</Text>
             <Text style={styles.emptySubtext}>Add your first court to get started</Text>
             <Pressable style={styles.emptyButton} onPress={handleAdd}>
-              <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.emptyButtonText}>Add Court</Text>
             </Pressable>
           </View>
@@ -319,7 +319,7 @@ export default function CourtsManagementScreen() {
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {(createMutation.isPending || updateMutation.isPending) ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.saveButtonText}>
                   {editingCourt ? "Update Court" : "Add Court"}
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   list: {
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   surfaceOptionTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   toggleRow: {
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });

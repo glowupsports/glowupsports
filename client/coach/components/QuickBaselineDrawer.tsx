@@ -1198,11 +1198,11 @@ export default function QuickBaselineDrawer({
               disabled={suggestMutation.isPending}
             >
               {suggestMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>Next</Text>
-                  <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
                 </>
               )}
             </Pressable>
@@ -1216,10 +1216,10 @@ export default function QuickBaselineDrawer({
               disabled={saveMutation.isPending || !confirmedLevel}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
                   <Text style={styles.saveButtonText}>Confirm Baseline</Text>
                 </>
               )}
@@ -1813,7 +1813,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: FontSizes.md,
     fontWeight: 600,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   saveButton: {
     flex: 1,
@@ -1828,7 +1828,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: FontSizes.md,
     fontWeight: 600,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   buttonDisabled: {
     opacity: 0.6,

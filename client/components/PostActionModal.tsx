@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   secondaryButtonText: {
     ...Typography.body,

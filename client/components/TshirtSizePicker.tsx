@@ -169,6 +169,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sizeTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

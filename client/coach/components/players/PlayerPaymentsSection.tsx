@@ -119,7 +119,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
               setShowRecordPaymentModal(true);
             }}
           >
-            <Ionicons name="card-outline" size={16} color="#000" />
+            <Ionicons name="card-outline" size={16} color={Colors.dark.buttonText} />
             <Text style={styles.paymentsRecordText}>Record Payment</Text>
           </Pressable>
           <Pressable
@@ -302,7 +302,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                           }
                         }}
                       >
-                        <Ionicons name="checkmark" size={18} color="#000" />
+                        <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
                         <Text style={styles.markPaidBtnText}>Mark Paid</Text>
                       </Pressable>
                     </View>

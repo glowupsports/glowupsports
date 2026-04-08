@@ -47,7 +47,7 @@ function QuestItem({ quest, onPress, onClaim }: { quest: Quest; onPress?: () => 
         />
         {isComplete && !isClaimed ? (
           <View style={styles.checkBadge}>
-            <Ionicons name="checkmark" size={10} color="#000" />
+            <Ionicons name="checkmark" size={10} color={Colors.dark.buttonText} />
           </View>
         ) : null}
       </View>
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   claimButtonText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   emptyState: {
     alignItems: "center",

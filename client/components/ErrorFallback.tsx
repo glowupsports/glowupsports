@@ -166,13 +166,13 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             ]}
           >
             {isSending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="send-outline" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />
                 <ThemedText
                   type="body"
-                  style={[styles.buttonText, { color: Colors.dark.backgroundRoot }]}
+                  style={[styles.buttonText, { color: Colors.dark.buttonText }]}
                 >
                   Send Diagnostics
                 </ThemedText>

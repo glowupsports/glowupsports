@@ -64,7 +64,7 @@ export function PlayerAvatar({
           end={{ x: 1, y: 1 }}
           style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
         >
-          <Ionicons name={iconName} size={size * 0.5} color={Colors.dark.backgroundRoot} />
+          <Ionicons name={iconName} size={size * 0.5} color={Colors.dark.buttonText} />
         </LinearGradient>
       )}
       {showLevel && level !== undefined ? (
@@ -114,6 +114,6 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

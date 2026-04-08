@@ -213,7 +213,7 @@ export default function WelcomeVideoPlayer({
                   <Ionicons
                     name={isPlaying ? "pause" : hasEnded ? "refresh" : "play"}
                     size={40}
-                    color="#000"
+                    color={Colors.dark.buttonText}
                     style={isPlaying || hasEnded ? {} : { marginLeft: 4 }}
                   />
                 </LinearGradient>
@@ -275,7 +275,7 @@ export default function WelcomeVideoPlayer({
                 end={{ x: 1, y: 1 }}
               >
                 <Text style={styles.continueText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={20} color="#000" />
+                <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   continueText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontSize: 18,
     fontWeight: "bold",
   },

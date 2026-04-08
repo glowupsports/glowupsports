@@ -211,7 +211,7 @@ function SelectableCard({
       </Text>
       {selected ? (
         <View style={styles.checkIcon}>
-          <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
         </View>
       ) : null}
     </Pressable>
@@ -335,7 +335,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
             {isLookingUp ? (
               <Text style={styles.lookupButtonText}>...</Text>
             ) : (
-              <Ionicons name="search" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="search" size={20} color={Colors.dark.buttonText} />
             )}
           </Pressable>
         </View>
@@ -369,7 +369,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
               style={styles.joinFoundAcademyButton}
               onPress={() => handleSelectAcademy(foundAcademy)}
             >
-              <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
               <Text style={styles.joinFoundAcademyText}>Join {foundAcademy.name}</Text>
             </Pressable>
           </Animated.View>
@@ -408,7 +408,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
                 }}
                 disabled={isFetching}
               >
-                <Ionicons name="refresh-outline" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="refresh-outline" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.retryButtonText}>
                   {isFetching ? "Retrying..." : "Try Again"}
                 </Text>
@@ -452,7 +452,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
                 </View>
                 {data.academyId === academy.id ? (
                   <View style={styles.checkIcon}>
-                    <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                   </View>
                 ) : (
                   <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -1012,7 +1012,7 @@ function BaselineStep({ data, setData, onNext }: StepProps) {
               data.selfConfidenceFlags.includes(option.id) ? styles.checkboxActive : null,
             ]}>
               {data.selfConfidenceFlags.includes(option.id) ? (
-                <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
               ) : null}
             </View>
             <Text style={[
@@ -1166,7 +1166,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
             <Text style={styles.nextButtonText}>
               {saveMutation.isPending ? "Saving..." : "Let's Go!"}
             </Text>
-            <Ionicons name="rocket-outline" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="rocket-outline" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         ) : currentStep === 0 || currentStep === 1 ? null : (
           <Pressable
@@ -1175,7 +1175,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
             disabled={!canProceed()}
           >
             <Text style={styles.nextButtonText}>Next</Text>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         )}
       </View>
@@ -1521,7 +1521,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   profileScrollView: {
@@ -1560,7 +1560,7 @@ const styles = StyleSheet.create({
   },
   ageBadgeText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -1647,7 +1647,7 @@ const styles = StyleSheet.create({
   },
   datePickerConfirmText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   loadingContainer: {
@@ -1729,7 +1729,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   joinCodeSection: {
@@ -1767,7 +1767,7 @@ const styles = StyleSheet.create({
   },
   lookupButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   joinCodeError: {
@@ -1811,7 +1811,7 @@ const styles = StyleSheet.create({
   },
   joinFoundAcademyText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   dividerRow: {

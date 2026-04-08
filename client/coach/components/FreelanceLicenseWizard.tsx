@@ -440,7 +440,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
                 disabled={!canProceed() || activateMutation.isPending}
               >
                 {activateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Text style={[
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
   },
   activateButtonText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 
   introContainer: {

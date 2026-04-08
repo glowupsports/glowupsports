@@ -642,7 +642,7 @@ const ccStyles = StyleSheet.create({
   rateButtonText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   ratedBadge: {
     flexDirection: "row",

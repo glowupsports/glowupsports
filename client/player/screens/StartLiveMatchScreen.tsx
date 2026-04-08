@@ -181,10 +181,10 @@ export default function StartLiveMatchScreen() {
           disabled={createMatch.isPending}
         >
           {createMatch.isPending ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Feather name="play-circle" size={20} color="#000" />
+              <Feather name="play-circle" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.startButtonText}>Start Live Match</Text>
             </>
           )}
@@ -308,6 +308,6 @@ const styles = StyleSheet.create({
   startButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

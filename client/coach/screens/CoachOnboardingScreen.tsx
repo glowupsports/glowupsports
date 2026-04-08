@@ -137,7 +137,7 @@ function GamingButton({
       >
         <Text style={styles.gamingButtonText}>{title}</Text>
         {icon ? (
-          <Ionicons name={icon as any} size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name={icon as any} size={20} color={Colors.dark.buttonText} />
         ) : null}
       </LinearGradient>
     </AnimatedPressable>
@@ -226,7 +226,7 @@ function CheckboxItem({
   return (
     <Pressable style={styles.checkboxRow} onPress={onToggle}>
       <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-        {checked ? <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} /> : null}
+        {checked ? <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} /> : null}
       </View>
       <Text style={styles.checkboxLabel}>{label}</Text>
     </Pressable>
@@ -1274,7 +1274,7 @@ const styles = StyleSheet.create({
   },
   gamingButtonText: {
     ...Typography.h4,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 1,
   },
 });

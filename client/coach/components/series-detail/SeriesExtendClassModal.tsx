@@ -77,7 +77,7 @@ export function SeriesExtendClassModal({ visible, onClose, weeksToExtend, setWee
                 end={{ x: 1, y: 0 }}
                 style={styles.extendConfirmGradient}
               >
-                <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="add-circle" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.extendConfirmButtonText}>
                   Add {weeksToExtend} Weeks
                 </Text>

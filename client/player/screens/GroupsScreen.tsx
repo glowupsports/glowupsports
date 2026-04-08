@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   tabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   tabBadge: {
     marginLeft: Spacing.xs,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   emptyState: {
     flex: 1,
@@ -763,6 +763,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

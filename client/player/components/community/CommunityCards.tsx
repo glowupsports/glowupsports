@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   filterPillTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   xpSpark: {

@@ -217,7 +217,7 @@ export function SeriesAddPlayerModal({
                 disabled={addPlayerIsPending}
               >
                 {addPlayerIsPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.saveButtonText}>
                     Save ({Object.values(selectedAttendance).filter(Boolean).length} sessions attended)
@@ -298,7 +298,7 @@ export function SeriesAddPlayerModal({
                       disabled={!newPackageName.trim() || !newPackageCredits || !newPackagePricePerCredit || createPackageIsPending}
                     >
                       {createPackageIsPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <Text style={styles.formSaveButtonText}>Create Package</Text>
                       )}

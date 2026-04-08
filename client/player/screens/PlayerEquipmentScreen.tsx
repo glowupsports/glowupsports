@@ -656,7 +656,7 @@ export default function PlayerEquipmentScreen() {
                 disabled={!reservedFrom || !reservedUntil || rentMutation.isPending}
               >
                 {rentMutation.isPending ? (
-                  <ActivityIndicator color="#000" />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.ctaBtnText}>Confirm Reservation</Text>
                 )}
@@ -754,7 +754,7 @@ export default function PlayerEquipmentScreen() {
                 disabled={purchaseMutation.isPending}
               >
                 {purchaseMutation.isPending ? (
-                  <ActivityIndicator color="#000" />
+                  <ActivityIndicator color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.ctaBtnText}>Confirm Purchase</Text>
                 )}
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tabBadgeText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   ctaBtnText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: FontSizes.md,
   },

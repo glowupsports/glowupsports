@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 36,
     fontWeight: "bold",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   appName: {
     fontSize: FontSizes["2xl"],

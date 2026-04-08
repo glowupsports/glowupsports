@@ -74,7 +74,7 @@ export function AdminRecordPaymentModal({ visible, onClose, packages, selectedPl
                       <Text style={styles.unpaidPackagePrice}>AED {Number(pkg.price || 0).toLocaleString()}</Text>
                     </View>
                     <Pressable style={styles.markPaidButtonFilled} onPress={() => handleMarkPaid(pkg)}>
-                      <Ionicons name="checkmark" size={18} color="#000" />
+                      <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
                       <Text style={styles.markPaidButtonFilledText}>Mark Paid</Text>
                     </Pressable>
                   </View>

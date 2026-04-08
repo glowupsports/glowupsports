@@ -395,7 +395,7 @@ export default function ProviderDashboardScreen() {
               style={styles.errorButton}
               onPress={() => setMode(getDefaultModeForRole("platform_owner"))}
             >
-              <Ionicons name="grid-outline" size={16} color="#000" />
+              <Ionicons name="grid-outline" size={16} color={Colors.dark.buttonText} />
               <Text style={styles.errorButtonText}>Switch to Platform Mode</Text>
             </Pressable>
           ) : (
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  urgentBadgeText: { fontSize: 10, fontWeight: "800", color: "#000" },
+  urgentBadgeText: { fontSize: 10, fontWeight: "800", color: Colors.dark.buttonText },
   actionCardsScroll: {
     gap: Spacing.sm,
     paddingRight: Spacing.lg,
@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     alignItems: "center",
   },
-  levelBadgeText: { fontSize: 9, fontWeight: "800", color: "#000" },
+  levelBadgeText: { fontSize: 9, fontWeight: "800", color: Colors.dark.buttonText },
   actionCardInfo: { flex: 1, gap: 2 },
   actionNameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   actionCardPlayer: { fontSize: 14, fontWeight: "700", color: Colors.dark.text, flex: 1 },
@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
   actionButtons: { flexDirection: "row", gap: Spacing.sm },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
   confirmBtn: { backgroundColor: Colors.dark.primary },
-  confirmBtnText: { fontSize: 13, fontWeight: "700", color: "#000" },
+  confirmBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.buttonText },
   declineBtn: {
     backgroundColor: Colors.dark.error + "15",
     borderWidth: 1,
@@ -1027,6 +1027,6 @@ const styles = StyleSheet.create({
   errorButtonText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   levelBadge: {
     position: "absolute",
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     fontSize: 28,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   playerModalName: {
     ...Typography.h2,

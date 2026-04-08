@@ -90,11 +90,11 @@ function GamingButton({
         style={styles.gamingButtonGradient}
       >
         {isLoading ? (
-          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
         ) : (
           <>
             {icon ? (
-              <Ionicons name={icon as any} size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name={icon as any} size={20} color={Colors.dark.buttonText} />
             ) : null}
             <Text style={styles.gamingButtonText}>{title}</Text>
           </>
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   },
   gamingButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
     letterSpacing: 0.5,
   },

@@ -492,7 +492,7 @@ export default function AdminSubscriptionsScreen() {
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Create</Text>
                 )}
@@ -621,7 +621,7 @@ export default function AdminSubscriptionsScreen() {
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Save Changes</Text>
                 )}
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   playerOptionTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   periodSelector: {
@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   periodOptionTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   playerDisplay: {
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   buttonDisabled: {

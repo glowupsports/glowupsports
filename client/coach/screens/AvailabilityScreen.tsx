@@ -418,7 +418,7 @@ export default function AvailabilityScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.dayToggleGradient}
                   >
-                    <Feather name="check" size={14} color={Colors.dark.backgroundRoot} />
+                    <Feather name="check" size={14} color={Colors.dark.buttonText} />
                   </LinearGradient>
                 ) : null}
               </Pressable>
@@ -626,7 +626,7 @@ export default function AvailabilityScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.addExceptionGradient}
               >
-                <Feather name="plus" size={14} color={Colors.dark.backgroundRoot} />
+                <Feather name="plus" size={14} color={Colors.dark.buttonText} />
                 <Text style={styles.addExceptionText}>Add</Text>
               </LinearGradient>
             </Pressable>
@@ -761,7 +761,7 @@ export default function AvailabilityScreen() {
                         <Feather
                           name={reason === "Holiday" ? "sun" : reason === "Sick" ? "thermometer" : reason === "Tournament" ? "award" : "user"}
                           size={16}
-                          color={Colors.dark.backgroundRoot}
+                          color={Colors.dark.buttonText}
                         />
                         <Text style={styles.reasonOptionTextActive}>{reason}</Text>
                       </LinearGradient>
@@ -1280,7 +1280,7 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   addExceptionButton: {
@@ -1296,7 +1296,7 @@ const styles = StyleSheet.create({
   },
   addExceptionText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   emptyExceptions: {
@@ -1391,7 +1391,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -1482,7 +1482,7 @@ const styles = StyleSheet.create({
   },
   reasonOptionTextActive: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   modalSaveButton: {
@@ -1497,7 +1497,7 @@ const styles = StyleSheet.create({
   },
   modalSaveButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   datePickerButton: {
@@ -1560,7 +1560,7 @@ const styles = StyleSheet.create({
   },
   timeGridTextSelected: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   calendarContent: {
@@ -1643,7 +1643,7 @@ const styles = StyleSheet.create({
   },
   calendarDayTextSelected: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });

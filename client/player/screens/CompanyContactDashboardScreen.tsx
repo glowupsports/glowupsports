@@ -233,7 +233,7 @@ export default function CompanyContactDashboardScreen() {
                             disabled={inviteMutation.isPending}
                           >
                             {inviteMutation.isPending ? (
-                              <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                              <ActivityIndicator color={Colors.dark.buttonText} size="small" />
                             ) : (
                               <Text style={styles.sendInviteBtnText}>Send</Text>
                             )}
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   },
   sendInviteBtnText: {
     ...Typography.bodySmall,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   emptyRowText: {

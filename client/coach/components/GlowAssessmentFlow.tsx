@@ -235,7 +235,7 @@ export function GlowAssessmentFlow({
               style={styles.nextButtonGradient}
             >
               <Text style={styles.nextButtonText}>Start Assessment</Text>
-              <Ionicons name="arrow-forward" size={18} color="#000" />
+              <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
             </LinearGradient>
           </Pressable>
         </View>
@@ -293,7 +293,7 @@ export function GlowAssessmentFlow({
               style={styles.nextButtonGradient}
             >
               <Text style={styles.nextButtonText}>Continue Anyway</Text>
-              <Ionicons name="arrow-forward" size={18} color="#000" />
+              <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
             </LinearGradient>
           </Pressable>
         </View>
@@ -504,11 +504,11 @@ export function GlowAssessmentFlow({
               style={styles.nextButtonGradient}
             >
               {saveAssessment.isPending ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>Save Assessment</Text>
-                  <Ionicons name="checkmark" size={18} color="#000" />
+                  <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
                 </>
               )}
             </LinearGradient>
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: FontSizes.md,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   disabledButton: {
     opacity: 0.5,

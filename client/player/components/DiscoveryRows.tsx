@@ -1938,7 +1938,7 @@ const styles = StyleSheet.create({
   matchJoinText: {
     fontSize: 12,
     fontWeight: "700",
-    color: ProTennisColors.midnightBlue,
+    color: Colors.dark.buttonText,
   },
   trainingCard: {
     width: 110,
@@ -2188,7 +2188,7 @@ const styles = StyleSheet.create({
   playCardJoinText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0B0D10",
+    color: Colors.dark.buttonText,
   },
   playCardCancelButton: {
     flexDirection: "row",

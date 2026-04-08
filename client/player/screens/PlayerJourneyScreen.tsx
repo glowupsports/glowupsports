@@ -123,7 +123,7 @@ function MilestoneCard({ milestone, isFirst, isExpanded, onToggle }: {
     >
       <View style={styles.timelineTrack}>
         <View style={[styles.timelineDot, { backgroundColor: milestone.color }]}>
-          <Ionicons name={milestone.icon as any} size={14} color={Colors.dark.backgroundRoot} />
+          <Ionicons name={milestone.icon as any} size={14} color={Colors.dark.buttonText} />
         </View>
         {!isFirst ? <View style={styles.timelineLine} /> : null}
       </View>

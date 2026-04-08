@@ -316,7 +316,7 @@ export default function AdminCorporateAccountsScreen() {
             />
             <Pressable style={styles.submitBtn} onPress={handleCreate} disabled={createMutation.isPending}>
               {createMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.submitBtnText}>Create Account</Text>
               )}
@@ -560,7 +560,7 @@ export default function AdminCorporateAccountsScreen() {
             />
             <Pressable style={styles.submitBtn} onPress={handleTopUp} disabled={topUpMutation.isPending}>
               {topUpMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.submitBtnText}>Add Credits</Text>
               )}
@@ -592,7 +592,7 @@ export default function AdminCorporateAccountsScreen() {
             <Text style={styles.inviteNote}>An email with an invite token will be sent to this address.</Text>
             <Pressable style={styles.submitBtn} onPress={handleInvite} disabled={inviteMutation.isPending}>
               {inviteMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.submitBtnText}>Send Invite</Text>
               )}

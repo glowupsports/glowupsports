@@ -1307,10 +1307,10 @@ export default function LoginScreen() {
               disabled={otpSending}
             >
               {otpSending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
+                  <Ionicons name="shield-checkmark-outline" size={18} color={Colors.dark.buttonText} />
                   <Text style={styles.sendOtpButtonText}>Send Verification Code</Text>
                 </>
               )}
@@ -1334,7 +1334,7 @@ export default function LoginScreen() {
                   disabled={otpSending || otpCode.length !== 6}
                 >
                   {otpSending ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.verifyOtpButtonText}>Verify</Text>
                   )}
@@ -2488,7 +2488,7 @@ const styles = StyleSheet.create({
   },
   sendOtpButtonText: {
     ...Typography.body,
-    color: "#fff",
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   verifyOtpButton: {
@@ -2503,7 +2503,7 @@ const styles = StyleSheet.create({
   },
   verifyOtpButtonText: {
     ...Typography.small,
-    color: "#fff",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   otpActionsRow: {

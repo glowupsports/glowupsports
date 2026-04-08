@@ -320,10 +320,10 @@ export default function ProviderInviteManagementScreen() {
               disabled={createInviteMutation.isPending}
             >
               {createInviteMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="link" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="link" size={16} color={Colors.dark.buttonText} />
                   <Text style={styles.submitBtnText}>Create Link</Text>
                 </>
               )}
@@ -370,10 +370,10 @@ export default function ProviderInviteManagementScreen() {
               disabled={createDirectMutation.isPending}
             >
               {createDirectMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="person-add" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="person-add" size={16} color={Colors.dark.buttonText} />
                   <Text style={styles.submitBtnText}>Create & Send</Text>
                 </>
               )}
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   btnDisabled: {

@@ -235,7 +235,7 @@ export default function ChallengePlayerScreen() {
             i === step && styles.progressDotActive,
           ]}>
             {i < step ? (
-              <Ionicons name="checkmark" size={12} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
             ) : (
               <Text style={[styles.progressDotText, i === step && styles.progressDotTextActive]}>{i + 1}</Text>
             )}
@@ -694,7 +694,7 @@ export default function ChallengePlayerScreen() {
         <View style={styles.successContainer}>
           <Animated.View entering={FadeInDown.duration(500)} style={styles.successContent}>
             <View style={styles.successIconCircle}>
-              <Ionicons name="checkmark" size={48} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="checkmark" size={48} color={Colors.dark.buttonText} />
             </View>
             <Text style={styles.successTitle}>Challenge Sent!</Text>
             <Text style={styles.successSubtitle}>
@@ -786,7 +786,7 @@ export default function ChallengePlayerScreen() {
               style={styles.nextButtonGradient}
             >
               {challengeMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                <ActivityIndicator color={Colors.dark.buttonText} size="small" />
               ) : (
                 <>
                   <Text style={[styles.nextButtonText, !canProceed() && styles.nextButtonTextDisabled]}>
@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
   suggestedVenuePillText: {
     fontSize: FontSizes.sm,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 
   dateScroll: {
@@ -1202,7 +1202,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   dateDayNameSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   dateDayNum: {
     fontSize: FontSizes.xl,
@@ -1210,7 +1210,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   dateDayNumSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   dateMonth: {
     fontSize: 10,
@@ -1292,7 +1292,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   timeChipTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   timeChipTextDisabled: {
     color: Colors.dark.textSubtle,
@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   nextButtonTextDisabled: {
     color: Colors.dark.textSubtle,
@@ -1517,6 +1517,6 @@ const styles = StyleSheet.create({
   successButtonText: {
     fontSize: FontSizes.lg,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

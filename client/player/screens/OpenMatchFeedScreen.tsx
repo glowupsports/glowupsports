@@ -400,13 +400,13 @@ function PremiumMatchCard({
                 style={styles.joinButtonGradient}
               >
                 {isJoining ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Ionicons 
                       name={isHost ? "settings-outline" : (isFull ? "close-circle" : "flash")} 
                       size={20} 
-                      color={isHost ? Colors.dark.backgroundRoot : (isFull ? Colors.dark.textMuted : Colors.dark.backgroundRoot)} 
+                      color={isHost ? Colors.dark.buttonText : (isFull ? Colors.dark.textMuted : Colors.dark.buttonText)} 
                     />
                     <Text style={[styles.joinButtonText, isFull && !isHost && styles.joinButtonTextDisabled]}>
                       {isHost ? "Manage" : (isFull ? "Full" : "Join Match")}
@@ -466,7 +466,7 @@ function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
           end={{ x: 1, y: 1 }}
           style={styles.createMatchGradient}
         >
-          <Ionicons name="add-circle" size={22} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="add-circle" size={22} color={Colors.dark.buttonText} />
           <Text style={styles.createMatchText}>Create Open Match</Text>
         </LinearGradient>
       </Pressable>
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
   freeBadgeText: {
     fontSize: FontSizes.xs,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   joinButtonLarge: {
     borderRadius: BorderRadius.md,
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   joinButtonTextDisabled: {
     color: Colors.dark.textMuted,
@@ -1020,6 +1020,6 @@ const styles = StyleSheet.create({
   createMatchText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

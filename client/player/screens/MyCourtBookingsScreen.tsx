@@ -434,7 +434,7 @@ export default function MyCourtBookingsScreen() {
         style={[styles.fab, { bottom: insets.bottom + 100 }]}
         onPress={() => navigation.navigate("Schedule", { screen: "CourtBooking" } as any)}
       >
-        <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+        <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
       </Pressable>
     </View>
   );
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   tabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   bookingsList: {
     flex: 1,
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   bookNewButtonText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   bookingCard: {

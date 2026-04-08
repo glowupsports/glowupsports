@@ -73,7 +73,7 @@ export function OwnerCard({
             <Ionicons name="person" size={24} color={OWNER_COLOR} />
           </View>
           <View style={styles.badge}>
-            <Ionicons name="shield-checkmark" size={12} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="shield-checkmark" size={12} color={Colors.dark.buttonText} />
           </View>
         </View>
         <View style={styles.headerInfo}>

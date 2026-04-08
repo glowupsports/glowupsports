@@ -434,7 +434,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
         <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
           <View style={styles.headerLeft}>
             <View style={styles.aiIcon}>
-              <Ionicons name="sparkles" size={16} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="sparkles" size={16} color={Colors.dark.buttonText} />
             </View>
             <View>
               <Text style={styles.headerTitle}>Coach with AI</Text>
@@ -548,7 +548,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                       disabled={verifyLoading}
                     >
                       {verifyLoading ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <Text style={styles.verifyBtnTextYes}>Yes, they showed it!</Text>
                       )}
@@ -691,9 +691,9 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                         disabled={commitMutation.isPending || verifyPending}
                       >
                         {commitMutation.isPending ? (
-                          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                         ) : (
-                          <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                         )}
                         <Text style={styles.saveButtonText}>
                           {commitMutation.isPending
@@ -728,7 +728,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                   onPress={sendMessage}
                   disabled={!inputText.trim() || chatMutation.isPending}
                 >
-                  <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
                 </Pressable>
               </View>
             ) : null}
@@ -1074,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   inputRow: {
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
   },
   verifyBtnTextYes: {
     fontSize: 13,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   verifyBtnTextNo: {

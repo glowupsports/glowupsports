@@ -169,7 +169,7 @@ export function SeriesPausePlayerModal({
                 disabled={isPending || isInvalid}
               >
                 {isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Pause Player</Text>
                 )}

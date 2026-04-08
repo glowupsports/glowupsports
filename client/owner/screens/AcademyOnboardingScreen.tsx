@@ -218,7 +218,7 @@ function Step1Welcome({ onNext, onLogout }: StepProps & { onLogout?: () => void 
       <View style={styles.bottomAction}>
         <Pressable style={styles.primaryButton} onPress={onNext}>
           <Text style={styles.primaryButtonText}>Start academy setup</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
     </View>
@@ -362,7 +362,7 @@ function Step2Identity({ data, setData, onNext, onBack, showCountryPicker, setSh
           disabled={!canContinue}
         >
           <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
       
@@ -553,7 +553,7 @@ function Step3Style({ data, setData, onNext, onBack }: StepProps) {
         </Pressable>
         <Pressable style={[styles.primaryButton, styles.primaryButtonFlex]} onPress={onNext}>
           <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
     </View>
@@ -632,7 +632,7 @@ function Step4Type({ data, setData, onNext, onBack }: StepProps) {
         </Pressable>
         <Pressable style={[styles.primaryButton, styles.primaryButtonFlex]} onPress={onNext}>
           <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
     </View>
@@ -670,7 +670,7 @@ function Step5Walkthrough({ data, setData, onNext, onBack }: StepProps) {
                   <Ionicons
                     name={step.icon as any}
                     size={24}
-                    color={activeStep === index ? Colors.dark.backgroundRoot : Colors.dark.textSecondary}
+                    color={activeStep === index ? Colors.dark.buttonText : Colors.dark.textSecondary}
                   />
                 </View>
                 <View style={styles.walkthroughText}>
@@ -697,7 +697,7 @@ function Step5Walkthrough({ data, setData, onNext, onBack }: StepProps) {
         </Pressable>
         <Pressable style={[styles.primaryButton, styles.primaryButtonFlex]} onPress={onNext}>
           <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
     </View>
@@ -762,7 +762,7 @@ function Step6Feedback({ data, setData, onNext, onBack }: StepProps) {
         </Pressable>
         <Pressable style={[styles.primaryButton, styles.primaryButtonFlex]} onPress={onNext}>
           <Text style={styles.primaryButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
     </View>
@@ -800,7 +800,7 @@ function Step7Finish({ data, onComplete, onBack }: StepProps & { onComplete: () 
       <View style={styles.bottomAction}>
         <Pressable style={styles.primaryButton} onPress={onComplete}>
           <Text style={styles.primaryButtonText}>Go to Academy Dashboard</Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </View>
     </View>
@@ -1315,7 +1315,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: "600" as const,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   dropdownButton: {
     flexDirection: "row",

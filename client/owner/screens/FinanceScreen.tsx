@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   scrollView: {

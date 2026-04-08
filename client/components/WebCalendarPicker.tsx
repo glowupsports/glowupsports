@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   dayTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   dayTextDisabled: {

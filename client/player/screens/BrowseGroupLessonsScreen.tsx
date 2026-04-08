@@ -293,7 +293,7 @@ export default function BrowseGroupLessonsScreen() {
                 );
               }}
             >
-              <Feather name="send" size={18} color="#000" />
+              <Feather name="send" size={18} color={Colors.dark.buttonText} />
               <Text style={styles.requestGroupButtonText}>Request Group Lesson</Text>
             </TouchableOpacity>
             
@@ -526,7 +526,7 @@ export default function BrowseGroupLessonsScreen() {
                       disabled={enrollingId === selectedSession.id}
                     >
                       {enrollingId === selectedSession.id ? (
-                        <ActivityIndicator size="small" color="#000" />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
                           <Text style={styles.enrollButtonText}>Join Session</Text>
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   requestGroupButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   inviteFriendsButton: {
     flexDirection: "row",
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   moreAvatarText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   detailModalOverlay: {
     flex: 1,
@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
   enrollButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   enrollCreditText: {
     fontSize: 12,

@@ -615,7 +615,7 @@ export function IntakeFlowModal({
               disabled={!canProceed() || saveMutation.isPending}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextBtnText}>
@@ -624,7 +624,7 @@ export function IntakeFlowModal({
                   <Ionicons
                     name={isLastStep ? "chatbubble-ellipses-outline" : "arrow-forward"}
                     size={16}
-                    color="#fff"
+                    color={Colors.dark.buttonText}
                   />
                 </>
               )}
@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
   nextBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#fff",
+    color: Colors.dark.buttonText,
   },
   saveOnlyBtn: {
     paddingHorizontal: Spacing.sm,

@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   },
   continueText: {
     ...Typography.h4,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });
 

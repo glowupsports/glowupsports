@@ -309,9 +309,9 @@ function CommentsSheet({
               onPress={() => addMutation.mutate()}
             >
               {addMutation.isPending ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
-                <Ionicons name="send" size={16} color="#000" />
+                <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
               )}
             </Pressable>
           </View>
@@ -589,7 +589,7 @@ function ComposePostModal({
               ]}
             >
               {postMutation.isPending || uploading ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.composePostBtnText}>Post</Text>
               )}
@@ -1121,7 +1121,7 @@ function CreateEventWizard({
               style={[styles.composePostBtn, { backgroundColor: canAdvance ? typeColor : typeColor + "50" }]}
             >
               {mutation.isPending && isLastStep ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.composePostBtnText}>{isLastStep ? (isMatchFlow ? "Challenge" : "Create") : "Next"}</Text>
               )}
@@ -1952,7 +1952,7 @@ function GroupEventsTab({
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
         >
-          <Ionicons name="add" size={28} color="#000" />
+          <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
         </LinearGradient>
       </Pressable>
       <CreateEventWizard
@@ -2144,7 +2144,7 @@ function GroupChatTab({
         <Text style={styles.emptySubtitle}>Check your connection and try again</Text>
         <Pressable onPress={initConversation} style={{ marginTop: 20, alignSelf: "center", borderRadius: 24, overflow: "hidden" }}>
           <LinearGradient colors={[typeColor, typeColor + "BB"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, paddingHorizontal: 28, paddingVertical: 13 }}>
-            <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>Try Again</Text>
+            <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Try Again</Text>
           </LinearGradient>
         </Pressable>
       </View>
@@ -2203,7 +2203,7 @@ function GroupChatTab({
             disabled={!inputText.trim() || sending}
             style={[chatStyles.sendBtn, { backgroundColor: inputText.trim() ? typeColor : typeColor + "40" }]}
           >
-            {sending ? <ActivityIndicator size="small" color="#000" /> : <Ionicons name="send" size={18} color="#000" />}
+            {sending ? <ActivityIndicator size="small" color={Colors.dark.buttonText} /> : <Ionicons name="send" size={18} color={Colors.dark.buttonText} />}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -2554,7 +2554,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             colors={[Colors.dark.primary, Colors.dark.primary + "CC"]}
             style={styles.fabGradient}
           >
-            <Ionicons name="add" size={26} color="#000" />
+            <Ionicons name="add" size={26} color={Colors.dark.buttonText} />
           </LinearGradient>
         </Pressable>
       ) : null}
@@ -2672,7 +2672,7 @@ const styles = StyleSheet.create({
   composeCancelText: { fontSize: 15, color: "#7A8EA0" },
   composeTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
   composePostBtn: { paddingVertical: 7, paddingHorizontal: 18, borderRadius: 20, minWidth: 60, alignItems: "center" },
-  composePostBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
+  composePostBtnText: { fontSize: 14, fontWeight: "700", color: Colors.dark.buttonText },
   composeInput: { color: "#FFFFFF", fontSize: 16, lineHeight: 24, padding: 16, minHeight: 100, textAlignVertical: "top" },
   composeThumbnailStrip: { maxHeight: 90 },
   composeThumbnailContent: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
@@ -2727,7 +2727,7 @@ const styles = StyleSheet.create({
   suggestionName: { flex: 1, fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
   addBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, minWidth: 56, alignItems: "center", justifyContent: "center" },
   addBtnDone: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
-  addBtnText: { fontSize: 13, fontWeight: "700", color: "#000" },
+  addBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.buttonText },
 });
 
 const evtStyles = StyleSheet.create({

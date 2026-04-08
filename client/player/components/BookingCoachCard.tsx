@@ -123,7 +123,7 @@ export default function BookingCoachCard({
               
               {isSelected && (
                 <View style={styles.selectedBadge}>
-                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                 </View>
               )}
             </View>

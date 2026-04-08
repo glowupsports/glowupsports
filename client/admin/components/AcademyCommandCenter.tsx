@@ -82,7 +82,7 @@ export function AcademyCommandCenter({
               colors={[Colors.dark.orange, Colors.dark.gold]}
               style={styles.logoGradient}
             >
-              <Ionicons name="tennisball" size={28} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="tennisball" size={28} color={Colors.dark.buttonText} />
             </LinearGradient>
           </View>
 

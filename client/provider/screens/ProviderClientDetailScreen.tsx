@@ -747,5 +747,5 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: "center",
   },
-  modalSaveText: { fontSize: 15, fontWeight: "700", color: "#000" },
+  modalSaveText: { fontSize: 15, fontWeight: "700", color: Colors.dark.buttonText },
 });

@@ -153,13 +153,13 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons 
                   name={showMessageInput ? "send" : "add-circle"} 
                   size={16} 
-                  color={Colors.dark.backgroundRoot} 
+                  color={Colors.dark.buttonText} 
                 />
                 <Text style={styles.joinButtonText}>
                   {showMessageInput ? "Send Request" : "Request to Join"}
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   joinButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   buttonDisabled: {

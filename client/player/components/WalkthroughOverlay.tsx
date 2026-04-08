@@ -72,7 +72,7 @@ export function WalkthroughOverlay() {
                 {isLastStep ? "Got it!" : "Next"}
               </Text>
               {!isLastStep ? (
-                <Ionicons name="chevron-forward" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="chevron-forward" size={18} color={Colors.dark.buttonText} />
               ) : null}
             </Pressable>
           </View>
@@ -176,6 +176,6 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     ...Typography.h4,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

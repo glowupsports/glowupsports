@@ -103,7 +103,7 @@ export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: Acade
 
           {!hasPendingRequests ? (
             <Pressable style={styles.browseButton} onPress={handleBrowsePress}>
-              <Ionicons name="search" size={18} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="search" size={18} color={Colors.dark.buttonText} />
               <Text style={styles.browseButtonText}>Browse Academies</Text>
             </Pressable>
           ) : (
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   browseButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   browseButtonSecondary: {

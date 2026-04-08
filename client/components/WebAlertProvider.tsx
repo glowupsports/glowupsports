@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   btnTextPrimary: {
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   btnTextCancel: {
     color: "#C8D0DC",

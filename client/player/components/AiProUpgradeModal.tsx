@@ -141,7 +141,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
           disabled={isPurchasing || !selectedPkg}
         >
           {isPurchasing ? (
-            <ActivityIndicator color="#000" size="small" />
+            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
           ) : (
             <Text style={styles.upgradeButtonText}>
               {selectedPkg ? `Subscribe — ${selectedPkg.product.priceString}` : "Subscribe to AI Pro"}
@@ -174,7 +174,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
 
           <View style={styles.iconRow}>
             <View style={styles.iconBadge}>
-              <Ionicons name="flash" size={28} color="#000" />
+              <Ionicons name="flash" size={28} color={Colors.dark.buttonText} />
             </View>
           </View>
 
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   bestValueText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   cancelButton: {
     alignItems: "center",

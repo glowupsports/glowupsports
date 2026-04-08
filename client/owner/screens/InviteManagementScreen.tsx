@@ -320,10 +320,10 @@ export default function InviteManagementScreen() {
               disabled={createInviteMutation.isPending}
             >
               {createInviteMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="send" size={16} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
                   <Text style={styles.createButtonText}>Create Invite</Text>
                 </>
               )}
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   buttonDisabled: {

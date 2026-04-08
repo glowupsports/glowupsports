@@ -755,7 +755,7 @@ export default function AdminEquipmentScreen() {
               disabled={!form.name.trim() || saveMutation.isPending}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.saveBtnText}>
                   {editingItem ? "Save Changes" : "Add Equipment"}
@@ -1140,7 +1140,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveBtnText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: FontSizes.md,
   },

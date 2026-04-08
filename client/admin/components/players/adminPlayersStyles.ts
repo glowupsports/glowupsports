@@ -780,7 +780,7 @@ export const styles = StyleSheet.create({
   },
   recordPaymentText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   createInvoiceButton: {
@@ -1034,7 +1034,7 @@ export const styles = StyleSheet.create({
   },
   addCreditsButtonText: {
     ...Typography.caption,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   creditsOverview: {
@@ -1612,7 +1612,7 @@ export const styles = StyleSheet.create({
   },
   markPaidButtonFilledText: {
     ...Typography.caption,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   recordPaymentModalDone: {
@@ -1624,7 +1624,7 @@ export const styles = StyleSheet.create({
   },
   recordPaymentModalDoneText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   attendanceSectionPremium: {
@@ -1678,7 +1678,7 @@ export const styles = StyleSheet.create({
   },
   downloadReportText: {
     ...Typography.caption,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   attendanceList: {

@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   levelBadge: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   coachName: {
     ...Typography.h2,

@@ -150,7 +150,7 @@ export function SessionSummaryModal({
           {/* Success Header */}
           <View style={styles.header}>
             <Animated.View style={[styles.checkCircle, checkStyle]}>
-              <Ionicons name="checkmark" size={32} color={"#000"} />
+              <Ionicons name="checkmark" size={32} color={Colors.dark.buttonText} />
             </Animated.View>
             <Text style={styles.title}>Great Work!</Text>
             <Text style={styles.subtitle}>Session Complete</Text>
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   continueText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   doneButton: {
     paddingVertical: Spacing.md,

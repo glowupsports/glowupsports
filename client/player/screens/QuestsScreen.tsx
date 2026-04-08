@@ -314,7 +314,7 @@ function ClaimCelebrationModal({
                 colors={[Colors.dark.primary, Colors.dark.xpCyan]}
                 style={styles.xpBurst}
               >
-                <Ionicons name="flash" size={36} color="#000" />
+                <Ionicons name="flash" size={36} color={Colors.dark.buttonText} />
               </LinearGradient>
             </Animated.View>
 
@@ -381,7 +381,7 @@ function ChainProgress({ quests, type }: { quests: Quest[]; type: QuestType }) {
                 <Ionicons
                   name={isDone ? "checkmark" : (CATEGORY_ICONS[q.category] as any || "ellipse-outline")}
                   size={15}
-                  color={isDone ? "#000" : catColor}
+                  color={isDone ? Colors.dark.buttonText : catColor}
                 />
               </Animated.View>
               {i < quests.length - 1 ? (
@@ -500,7 +500,7 @@ function QuestCard({
             />
             {isClaimed ? (
               <View style={styles.claimedOverlay}>
-                <Ionicons name="checkmark" size={14} color="#000" />
+                <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
               </View>
             ) : null}
             {isComplete && !isClaimed ? (
@@ -863,7 +863,7 @@ export default function QuestsScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.tabActiveGradient}
                   >
-                    <Ionicons name={tab.icon as any} size={15} color="#000" />
+                    <Ionicons name={tab.icon as any} size={15} color={Colors.dark.buttonText} />
                     <ThemedText style={styles.tabTextActive}>{tab.label}</ThemedText>
                     {total > 0 ? (
                       <View style={styles.tabBadgeActive}>
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
   tierBadgeText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
     letterSpacing: 1,
   },
   multiplierPill: {
@@ -1162,7 +1162,7 @@ const styles = StyleSheet.create({
   tabTextActive: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   tabBadge: {
     backgroundColor: Colors.dark.backgroundRoot + "80",
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
   tabBadgeTextActive: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 
   chainContainer: {
@@ -1289,7 +1289,7 @@ const styles = StyleSheet.create({
   sectionBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   questCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -1466,7 +1466,7 @@ const styles = StyleSheet.create({
   claimBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   claimedBadge: {
     padding: 6,
@@ -1616,6 +1616,6 @@ const styles = StyleSheet.create({
   claimModalCloseText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

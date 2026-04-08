@@ -290,7 +290,7 @@ export default function AdminRolesPermissionsScreen() {
           disabled={!hasChanges || saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <Text style={[styles.saveButtonText, !hasChanges && styles.saveButtonTextDisabled]}>
               Save
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 14,
     fontWeight: "600" as const,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   saveButtonTextDisabled: {
     color: Colors.dark.textSecondary,

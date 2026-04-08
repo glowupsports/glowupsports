@@ -35,9 +35,9 @@ export function SportSwitcherChips({ style }: SportSwitcherChipsProps) {
             <Ionicons
               name={sport.icon as keyof typeof Ionicons.glyphMap}
               size={14}
-              color={isActive ? Colors.dark.backgroundRoot : sport.color}
+              color={isActive ? Colors.dark.buttonText : sport.color}
             />
-            <Text style={[styles.chipText, isActive && { color: Colors.dark.backgroundRoot }]}>
+            <Text style={[styles.chipText, isActive && { color: Colors.dark.buttonText }]}>
               {sport.label}
             </Text>
           </Pressable>

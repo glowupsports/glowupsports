@@ -700,7 +700,7 @@ export default function PlayerProfileScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.guestCtaGradient}
           >
-            <Ionicons name="person-add-outline" size={20} color="#000" />
+            <Ionicons name="person-add-outline" size={20} color={Colors.dark.buttonText} />
             <Text style={styles.guestCtaText}>Create Account / Sign In</Text>
           </LinearGradient>
         </Pressable>
@@ -727,7 +727,7 @@ export default function PlayerProfileScreen() {
           style={({ pressed }) => [styles.retryButton, { opacity: pressed ? 0.8 : 1 }]}
           onPress={() => refetch()}
         >
-          <Ionicons name="refresh" size={18} color="#000" />
+          <Ionicons name="refresh" size={18} color={Colors.dark.buttonText} />
           <Text style={styles.retryButtonText}>Try Again</Text>
         </Pressable>
         <Pressable
@@ -1497,7 +1497,7 @@ export default function PlayerProfileScreen() {
                     </Text>
                     {isSelected ? (
                       <View style={[styles.playStylePickerCheck, { backgroundColor: meta.color }]}>
-                        <Ionicons name="checkmark" size={10} color="#000" />
+                        <Ionicons name="checkmark" size={10} color={Colors.dark.buttonText} />
                       </View>
                     ) : null}
                   </Pressable>
@@ -1551,7 +1551,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 16,
     fontWeight: "700" as const,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   signOutButton: {
     flexDirection: "row",
@@ -1626,7 +1626,7 @@ const styles = StyleSheet.create({
   guestCtaText: {
     fontSize: 16,
     fontWeight: "700" as const,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   scrollView: {
     flex: 1,
@@ -1747,7 +1747,7 @@ const styles = StyleSheet.create({
   },
   levelBadgeText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   playerName: {
@@ -1983,7 +1983,7 @@ const styles = StyleSheet.create({
   },
   tennisworldCoachAvatarText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   tennisworldCoachName: {
@@ -2209,7 +2209,7 @@ const styles = StyleSheet.create({
   },
   friendAvatarText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   friendInfo: {

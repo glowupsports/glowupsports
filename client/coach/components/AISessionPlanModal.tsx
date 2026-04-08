@@ -137,7 +137,7 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.aiIcon}>
-              <Ionicons name="sparkles" size={16} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="sparkles" size={16} color={Colors.dark.buttonText} />
             </View>
             <View>
               <Text style={styles.headerTitle}>Plan with AI</Text>
@@ -279,7 +279,7 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Ionicons
                   name={saved ? "checkmark-circle" : "bookmark-outline"}
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   scrollContent: {
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   saveNoteButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

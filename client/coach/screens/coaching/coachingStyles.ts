@@ -134,7 +134,7 @@ export const styles = StyleSheet.create({
   levelNumber: {
     fontSize: 20,
     fontWeight: '900',
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   levelLabelContainer: {
     marginTop: 2,
@@ -226,7 +226,7 @@ export const styles = StyleSheet.create({
   compactLevelText: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   compactTitle: {
     fontSize: 14,
@@ -1137,7 +1137,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   periodTabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   statusFilterRow: {
@@ -1232,7 +1232,7 @@ export const styles = StyleSheet.create({
   },
   xpRewardBadgeText: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   
@@ -1301,7 +1301,7 @@ export const styles = StyleSheet.create({
   },
   xpMissionButtonText: {
     fontSize: Typography.small.fontSize,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 

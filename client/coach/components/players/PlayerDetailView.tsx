@@ -301,7 +301,7 @@ function ProminentInviteCard({
           end={{ x: 1, y: 0 }}
           style={styles.prominentCopyButtonGradient}
         >
-          <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.backgroundRoot} />
+          <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.buttonText} />
           <Text style={styles.prominentCopyButtonText}>{copied ? "Copied!" : "Copy Code"}</Text>
         </LinearGradient>
       </Pressable>
@@ -1460,9 +1460,9 @@ export function PlayerDetailView({
                 disabled={updatePlayerMutation.isPending}
               >
                 {updatePlayerMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
-                  <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>Save</Text>
+                  <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Save</Text>
                 )}
               </Pressable>
             </View>
@@ -1599,11 +1599,11 @@ export function PlayerDetailView({
                     disabled={isSendingReport}
                   >
                     {isSendingReport ? (
-                      <ActivityIndicator size="small" color="#000" />
+                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                     ) : (
-                      <Ionicons name="send" size={16} color="#000" />
+                      <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
                     )}
-                    <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>
+                    <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>
                       {isSendingReport ? "Sending..." : `Send to ${localPlayer.parentEmail}`}
                     </Text>
                   </Pressable>

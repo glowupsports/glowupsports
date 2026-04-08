@@ -405,10 +405,10 @@ export default function OpponentProfileScreen() {
                 disabled={isSaving}
               >
                 {isSaving ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle" size={18} color="#000" />
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.buttonText} />
                     <Text style={styles.saveBtnText}>
                       {isNew ? "Save Opponent" : "Save Changes"}
                     </Text>
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

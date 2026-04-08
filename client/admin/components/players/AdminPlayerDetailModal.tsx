@@ -307,7 +307,7 @@ export function AdminPlayerDetailModal({
                       setShowRecordPaymentModal(true);
                     }}
                   >
-                    <Ionicons name="card-outline" size={16} color="#000" />
+                    <Ionicons name="card-outline" size={16} color={Colors.dark.buttonText} />
                     <Text style={styles.recordPaymentText}>Record Payment</Text>
                   </Pressable>
                   <Pressable 
@@ -438,7 +438,7 @@ export function AdminPlayerDetailModal({
                       setShowCreditStoreModal(true);
                     }}
                   >
-                    <Ionicons name="add" size={16} color="#000" />
+                    <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
                     <Text style={styles.addCreditsButtonText}>Add</Text>
                   </Pressable>
                 </View>
@@ -602,7 +602,7 @@ export function AdminPlayerDetailModal({
                       generateAttendanceReportPDF(stats, selectedPlayer);
                     }}
                   >
-                    <Ionicons name="download-outline" size={16} color="#000" />
+                    <Ionicons name="download-outline" size={16} color={Colors.dark.buttonText} />
                     <Text style={styles.downloadReportText}>Report</Text>
                   </Pressable>
                 </View>
@@ -788,8 +788,8 @@ export function AdminPlayerDetailModal({
                       end={{ x: 1, y: 0 }}
                       style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.md + 2, paddingHorizontal: Spacing.lg }}
                     >
-                      <Ionicons name={inviteCopied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.backgroundRoot} />
-                      <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.backgroundRoot }}>{inviteCopied ? "Copied!" : "Copy Code"}</Text>
+                      <Ionicons name={inviteCopied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.buttonText} />
+                      <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.buttonText }}>{inviteCopied ? "Copied!" : "Copy Code"}</Text>
                     </LinearGradient>
                   </Pressable>
                 </View>

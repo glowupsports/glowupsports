@@ -262,10 +262,10 @@ export default function CreateGameRequestScreen() {
             style={styles.submitGradient}
           >
             {mutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="megaphone-outline" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="megaphone-outline" size={18} color={Colors.dark.buttonText} />
                 <Text style={styles.submitText}>Post Game Request</Text>
               </>
             )}
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   sportChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   row: {
     flexDirection: "row",
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   numberChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   hint: {
     fontSize: 12,
@@ -434,6 +434,6 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

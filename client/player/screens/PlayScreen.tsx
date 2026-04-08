@@ -790,10 +790,10 @@ export default function PlayScreen() {
                           }}
                         >
                           {isJoining ? (
-                            <ActivityIndicator size="small" color="#000" />
+                            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                           ) : (
                             <>
-                              <Ionicons name="checkmark-circle-outline" size={16} color="#000" />
+                              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.dark.buttonText} />
                               <Text style={styles.epicClaimButtonText}>Claim Spot</Text>
                             </>
                           )}
@@ -838,10 +838,10 @@ export default function PlayScreen() {
                       }}
                     >
                       {isJoining ? (
-                        <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
-                          <Ionicons name="enter-outline" size={18} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="enter-outline" size={18} color={Colors.dark.buttonText} />
                           <Text style={styles.epicJoinButtonText}>Join Session</Text>
                         </>
                       )}
@@ -1354,7 +1354,7 @@ export default function PlayScreen() {
               navigation.navigate("ChallengePlayer", { opponentId: player.id, opponentName: player.name, opponentBallLevel: player.ballLevel, opponentLevel: player.level } as never);
             }}
           >
-            <Ionicons name="flash" size={12} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="flash" size={12} color={Colors.dark.buttonText} />
             <Text style={styles.compactChallengeText}>Challenge</Text>
           </Pressable>
         </View>
@@ -1410,7 +1410,7 @@ export default function PlayScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.findMatchGradient}
                 >
-                  <Ionicons name="flame" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="flame" size={20} color={Colors.dark.buttonText} />
                   <Text style={styles.findMatchText}>
                     {isMultiSport ? `Play ${getSportLabel(activeSport)}` : t("player.play.findMatch")}
                   </Text>
@@ -1430,7 +1430,7 @@ export default function PlayScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.findMatchGradient}
                 >
-                  <Ionicons name="tennisball" size={18} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
                   <Text style={styles.findMatchText}>{t("player.play.openMatches")}</Text>
                 </LinearGradient>
               </Pressable>
@@ -1502,12 +1502,12 @@ export default function PlayScreen() {
                           end={{ x: 1, y: 0 }}
                           style={styles.playModalOptionGradient}
                         >
-                          <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="flame" size={22} color={Colors.dark.buttonText} />
                           <View style={styles.playModalOptionText}>
                             <Text style={styles.playModalOptionTitle}>Find a Match</Text>
                             <Text style={styles.playModalOptionDesc}>Challenge a player to a 1v1 match</Text>
                           </View>
-                          <Ionicons name="chevron-forward" size={18} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="chevron-forward" size={18} color={Colors.dark.buttonText} />
                         </LinearGradient>
                       </Pressable>
                       <Pressable
@@ -1525,12 +1525,12 @@ export default function PlayScreen() {
                           end={{ x: 1, y: 0 }}
                           style={styles.playModalOptionGradient}
                         >
-                          <Ionicons name="people-circle-outline" size={22} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="people-circle-outline" size={22} color={Colors.dark.buttonText} />
                           <View style={styles.playModalOptionText}>
                             <Text style={styles.playModalOptionTitle}>Find a Game</Text>
                             <Text style={styles.playModalOptionDesc}>Join a group session or social game</Text>
                           </View>
-                          <Ionicons name="chevron-forward" size={18} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="chevron-forward" size={18} color={Colors.dark.buttonText} />
                         </LinearGradient>
                       </Pressable>
                     </>
@@ -2057,10 +2057,10 @@ export default function PlayScreen() {
                       }}
                     >
                       {sendFriendRequestMutation.isPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
-                          <Ionicons name="person-add" size={18} color={Colors.dark.backgroundRoot} />
+                          <Ionicons name="person-add" size={18} color={Colors.dark.buttonText} />
                           <Text style={styles.friendModalSendText}>Send Request</Text>
                         </>
                       )}
@@ -2145,7 +2145,7 @@ const styles = StyleSheet.create({
   },
   chatBadgeText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontSize: 10,
     fontWeight: "700",
   },
@@ -2206,7 +2206,7 @@ const styles = StyleSheet.create({
   },
   playModalOptionTitle: {
     ...Typography.h4,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   playModalOptionDesc: {
@@ -2245,7 +2245,7 @@ const styles = StyleSheet.create({
   },
   findMatchText: {
     ...Typography.h4,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   tabs: {
@@ -2590,7 +2590,7 @@ const styles = StyleSheet.create({
   },
   epicJoinButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   epicWaitlistButton: {
@@ -2667,7 +2667,7 @@ const styles = StyleSheet.create({
   },
   epicClaimButtonText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: 13,
   },
@@ -3048,7 +3048,7 @@ const styles = StyleSheet.create({
   compactChallengeText: {
     fontSize: 11,
     fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 0.3,
   },
   compactXpLevelBadge: {
@@ -3146,7 +3146,7 @@ const styles = StyleSheet.create({
   },
   friendModalDoneBtnText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   friendModalButtons: {
@@ -3180,7 +3180,7 @@ const styles = StyleSheet.create({
   },
   friendModalSendText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   emptyState: {
@@ -3247,7 +3247,7 @@ const styles = StyleSheet.create({
   invitesBadgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   bookingToolText: {
     ...Typography.caption,
@@ -3282,7 +3282,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   discoverChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   epicBadgeRow: {
     flexDirection: "row",
@@ -3477,7 +3477,7 @@ const styles = StyleSheet.create({
   nearbyCourtBookBtnText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   nearbyCourtDirectionsBtn: {
     flex: 1,
@@ -3588,7 +3588,7 @@ const styles = StyleSheet.create({
   courtsMapCalloutBookBtnText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 
   // Session Info Modal

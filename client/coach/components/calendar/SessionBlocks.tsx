@@ -128,7 +128,7 @@ export function DraggableSessionBlock({ session, top, height, isPast, isActive, 
                 <PulsingDot />
               </View>
             ) : null}
-            <Text style={{ color: '#000', fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height >= 50 ? 2 : 1}>
+            <Text style={{ color: Colors.dark.buttonText, fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height >= 50 ? 2 : 1}>
               {sessionLabel}
             </Text>
             {height > 30 ? (
@@ -222,7 +222,7 @@ export function WeekDraggableSessionBlock({ session, top, height, isPast, isActi
               <PulsingDot />
             </View>
           ) : null}
-          <Text style={{ color: '#000', fontSize: 8, fontWeight: '600' }} numberOfLines={1}>
+          <Text style={{ color: Colors.dark.buttonText, fontSize: 8, fontWeight: '600' }} numberOfLines={1}>
             {sessionLabel}
           </Text>
           {height > 24 ? (

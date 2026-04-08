@@ -502,7 +502,7 @@ export default function PlayerSettingsScreen() {
                     <Text style={styles.languageDescription}>{sport.description}</Text>
                   </View>
                   <View style={[styles.sportCheckbox, isActive && { backgroundColor: sport.color, borderColor: sport.color }]}>
-                    {isActive ? <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} /> : null}
+                    {isActive ? <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} /> : null}
                   </View>
                 </Pressable>
               );
@@ -552,7 +552,7 @@ export default function PlayerSettingsScreen() {
                       setShowUpgradeModal(true);
                     }}
                   >
-                    <Ionicons name="flash" size={14} color="#000" />
+                    <Ionicons name="flash" size={14} color={Colors.dark.buttonText} />
                     <Text style={styles.upgradeButtonSmallText}>Upgrade to AI Pro</Text>
                   </Pressable>
                 ) : null}
@@ -806,7 +806,7 @@ export default function PlayerSettingsScreen() {
               accessibilityLabel="Join family"
             >
               {joinLoading ? (
-                <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                <ActivityIndicator color={Colors.dark.buttonText} size="small" />
               ) : (
                 <Text style={styles.joinButtonText}>Join Family</Text>
               )}
@@ -1057,7 +1057,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   aiProBadge: {
     paddingHorizontal: 8,
@@ -1120,6 +1120,6 @@ const styles = StyleSheet.create({
   upgradeButtonSmallText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });

@@ -68,7 +68,7 @@ export default function QuestScreen() {
       >
         <View style={styles.questHeader}>
           <View style={[styles.iconContainer, { backgroundColor: isComplete ? Colors.dark.successNeon : Colors.dark.primary }]}>
-            <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={20} color={Colors.dark.buttonText} />
           </View>
           <View style={styles.questInfo}>
             <ThemedText style={styles.questTitle}>{item.title}</ThemedText>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   claimText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   progressContainer: {
     flexDirection: "row",

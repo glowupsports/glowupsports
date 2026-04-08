@@ -148,7 +148,7 @@ export default function ProviderInviteRegistrationScreen({
             {(inviteError as Error)?.message || "This invite link is invalid or has expired."}
           </Text>
           <Pressable style={styles.backButton} onPress={onCancel}>
-            <Ionicons name="arrow-back" size={20} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="arrow-back" size={20} color={Colors.dark.buttonText} />
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
         </View>
@@ -282,10 +282,10 @@ export default function ProviderInviteRegistrationScreen({
           disabled={registerMutation.isPending}
         >
           {registerMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.submitText}>JOIN AS PROVIDER</Text>
             </>
           )}
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   backButtonText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: 14,
   },
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "800",
     fontSize: 15,
   },

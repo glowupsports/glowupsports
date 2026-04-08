@@ -182,7 +182,7 @@ export default function MatchSummaryScreen() {
             handleShare();
           }}
         >
-          <Feather name="share-2" size={18} color="#000" />
+          <Feather name="share-2" size={18} color={Colors.dark.buttonText} />
           <Text style={styles.shareBtnText}>Share Result</Text>
         </Pressable>
 
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   shareBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   historyBtn: {
     flexDirection: "row",

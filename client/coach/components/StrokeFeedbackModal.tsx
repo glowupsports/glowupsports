@@ -436,16 +436,16 @@ export default function StrokeFeedbackModal({
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <ActivityIndicator size="small" color="#000" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Text style={styles.nextButtonText}>
                   {isLastPlayer ? "Opslaan" : "Volgende"}
                 </Text>
                 {isLastPlayer ? (
-                  <Ionicons name="checkmark" size={18} color="#000" />
+                  <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
                 ) : (
-                  <Ionicons name="chevron-forward" size={18} color="#000" />
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.buttonText} />
                 )}
               </>
             )}
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
     textTransform: "uppercase",
   },
   playerName: {
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   emptyState: {
     flex: 1,

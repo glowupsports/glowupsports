@@ -44,7 +44,7 @@ export function SessionPlanTab({ insets: _insets, tabBarHeight }: TabProps) {
           style={sessionPlanStyles.actionButton}
           onPress={() => navigation.navigate("Calendar")}
         >
-          <Ionicons name="calendar-outline" size={18} color="#000" />
+          <Ionicons name="calendar-outline" size={18} color={Colors.dark.buttonText} />
           <Text style={sessionPlanStyles.actionButtonText}>Go to Calendar</Text>
         </Pressable>
       </View>
@@ -63,9 +63,9 @@ const sessionPlanStyles = StyleSheet.create({
   infoText: { fontSize: 14, color: Colors.dark.disabled, textAlign: "center", marginBottom: Spacing.lg },
   stepsList: { width: "100%", marginBottom: Spacing.lg },
   step: { flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm },
-  stepNumber: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.dark.gold, color: "#000", textAlign: "center", lineHeight: 24, fontWeight: "700", fontSize: 12, marginRight: Spacing.md, overflow: "hidden" },
+  stepNumber: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.dark.gold, color: Colors.dark.buttonText, textAlign: "center", lineHeight: 24, fontWeight: "700", fontSize: 12, marginRight: Spacing.md, overflow: "hidden" },
   stepText: { fontSize: 14, color: Colors.dark.text },
   actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.gold, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.sm, gap: Spacing.sm },
-  actionButtonText: { color: "#000", fontWeight: "600", fontSize: 14 },
+  actionButtonText: { color: Colors.dark.buttonText, fontWeight: "600", fontSize: 14 },
 });
 

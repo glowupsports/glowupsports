@@ -229,7 +229,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
               style={styles.openButtonGradient}
             >
               <Text style={styles.openButtonText}>Open Group</Text>
-              <Ionicons name="arrow-forward" size={18} color="#000" />
+              <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
             </LinearGradient>
           </Pressable>
 
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   openButtonText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   leaveButton: {
     flexDirection: "row",

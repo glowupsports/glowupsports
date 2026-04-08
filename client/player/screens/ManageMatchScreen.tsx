@@ -397,7 +397,7 @@ export default function ManageMatchScreen() {
                       <ActivityIndicator color={Colors.dark.primary} size="small" />
                     ) : (
                       <View style={styles.inviteButton}>
-                        <Ionicons name="paper-plane" size={16} color={Colors.dark.backgroundRoot} />
+                        <Ionicons name="paper-plane" size={16} color={Colors.dark.buttonText} />
                         <Text style={styles.inviteButtonText}>Invite</Text>
                       </View>
                     )}
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   backButtonText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   matchCard: {
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   inviteButtonText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontSize: FontSizes.sm,
     fontWeight: "600",
   },

@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   buttonTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   compactContainer: {

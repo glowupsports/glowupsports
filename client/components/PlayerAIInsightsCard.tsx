@@ -335,9 +335,9 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
                   disabled={generateMutation.isPending}
                 >
                   {generateMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
-                    <Ionicons name="sparkles-outline" size={14} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="sparkles-outline" size={14} color={Colors.dark.buttonText} />
                   )}
                   <Text style={styles.generateButtonText}>
                     {generateMutation.isPending ? "Generating..." : "Generate First Insight"}
@@ -415,9 +415,9 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
               disabled={generateMutation.isPending}
             >
               {generateMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
-                <Ionicons name="refresh" size={14} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="refresh" size={14} color={Colors.dark.buttonText} />
               )}
               <Text style={styles.generateButtonText}>
                 {generateMutation.isPending ? "Generating..." : "Refresh Insights"}
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   },
   generateButtonText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

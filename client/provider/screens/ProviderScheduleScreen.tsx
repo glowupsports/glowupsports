@@ -444,7 +444,7 @@ function WeekView({
                   <View style={styles.bookingDot} />
                 ) : null}
                 {cnt > 0 && !isToday ? (
-                  <Text style={[styles.dayCntText, isSelected && { color: "#000" }]}>{cnt}</Text>
+                  <Text style={[styles.dayCntText, isSelected && { color: Colors.dark.buttonText }]}>{cnt}</Text>
                 ) : null}
               </Pressable>
             );
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   toggleBtnTextActive: {
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   navRow: {
     flexDirection: "row",
@@ -713,13 +713,13 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     textTransform: "uppercase",
   },
-  dayLabelSelected: { color: "#000" },
+  dayLabelSelected: { color: Colors.dark.buttonText },
   dayNum: {
     fontSize: 18,
     fontWeight: "700",
     color: Colors.dark.text,
   },
-  dayNumSelected: { color: "#000" },
+  dayNumSelected: { color: Colors.dark.buttonText },
   todayDot: {
     width: 5,
     height: 5,
@@ -911,7 +911,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   monthCellNumSelected: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "800",
   },
   monthCellNumToday: {

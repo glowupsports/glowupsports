@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
   },
   modalSaveText: {
     fontSize: 15,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 });

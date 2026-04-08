@@ -123,7 +123,7 @@ export default function CollapsibleModeSwitcher() {
                     <Ionicons
                       name="checkmark"
                       size={14}
-                      color={Colors.dark.backgroundRoot}
+                      color={Colors.dark.buttonText}
                     />
                   ) : null}
                 </Pressable>
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   modeLabelActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   toggleButton: {

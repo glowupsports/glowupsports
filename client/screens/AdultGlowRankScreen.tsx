@@ -225,7 +225,7 @@ export default function AdultGlowRankScreen() {
         >
           <View style={styles.actionContent}>
             <View style={[styles.actionIcon, { backgroundColor: Colors.dark.gold }]}>
-              <Ionicons name="list-outline" size={24} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="list-outline" size={24} color={Colors.dark.buttonText} />
             </View>
             <View style={styles.actionText}>
               <ThemedText style={styles.actionTitle}>View All Ranks</ThemedText>

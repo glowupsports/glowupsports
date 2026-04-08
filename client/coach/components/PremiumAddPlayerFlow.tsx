@@ -545,7 +545,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
               >
                 <Text style={[
                   styles.sublevelNumber,
-                  selectedSublevel === level && { color: (selectedBallLevel === "yellow" || selectedBallLevel === "green") ? "#000" : levelColor }
+                  selectedSublevel === level && { color: (selectedBallLevel === "yellow" || selectedBallLevel === "green") ? Colors.dark.buttonText : levelColor }
                 ]}>
                   {level}
                 </Text>
@@ -716,7 +716,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
           <View style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
               <View style={[styles.summaryAvatar, { backgroundColor: levelColor + "30" }]}>
-                <Text style={[styles.summaryInitial, { color: (selectedBallLevel === "yellow" || selectedBallLevel === "green") && playerType !== "adult" ? "#000" : levelColor }]}>
+                <Text style={[styles.summaryInitial, { color: (selectedBallLevel === "yellow" || selectedBallLevel === "green") && playerType !== "adult" ? Colors.dark.buttonText : levelColor }]}>
                   {name.charAt(0).toUpperCase()}
                 </Text>
               </View>
@@ -724,7 +724,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
                 <Text style={styles.summaryName}>{name}</Text>
                 <View style={[styles.summaryLevelBadge, { backgroundColor: levelColor + "20", borderColor: levelColor }]}>
                   <View style={[styles.summaryLevelDot, { backgroundColor: levelColor }]} />
-                  <Text style={[styles.summaryLevelText, { color: (selectedBallLevel === "yellow" || selectedBallLevel === "green") && playerType !== "adult" ? "#000" : levelColor }]}>{levelDisplay}</Text>
+                  <Text style={[styles.summaryLevelText, { color: (selectedBallLevel === "yellow" || selectedBallLevel === "green") && playerType !== "adult" ? Colors.dark.buttonText : levelColor }]}>{levelDisplay}</Text>
                 </View>
               </View>
             </View>

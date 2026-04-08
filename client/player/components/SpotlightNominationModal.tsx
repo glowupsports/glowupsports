@@ -278,10 +278,10 @@ export default function SpotlightNominationModal({ visible, onClose }: Spotlight
                     style={styles.submitGradient}
                   >
                     {nominateMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#000" />
+                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <>
-                        <Ionicons name="star" size={18} color="#000" />
+                        <Ionicons name="star" size={18} color={Colors.dark.buttonText} />
                         <Text style={styles.submitText}>Submit Nomination</Text>
                       </>
                     )}
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   errorText: {
     fontSize: 13,

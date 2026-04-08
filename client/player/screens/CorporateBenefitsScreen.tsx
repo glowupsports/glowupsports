@@ -189,7 +189,7 @@ export default function CorporateBenefitsScreen() {
                   disabled={acceptMutation.isPending}
                 >
                   {acceptMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.activateBtnText}>Activate Benefits</Text>
                   )}

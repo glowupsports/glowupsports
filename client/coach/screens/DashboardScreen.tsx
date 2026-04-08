@@ -363,7 +363,7 @@ const feedbackCardStyles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   subLabel: {
     fontSize: 13,
@@ -656,7 +656,7 @@ const matchReviewStyles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   reviewBadgeText: {
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -1759,7 +1759,7 @@ export default function DashboardScreen() {
                         }
                       }}
                     >
-                      <Ionicons name="checkmark" size={16} color="#FFF" />
+                      <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                     </Pressable>
                     <Pressable
                       style={[styles.bookingRequestBtn, styles.bookingRequestDeclineBtn]}
@@ -2684,7 +2684,7 @@ const styles = StyleSheet.create({
   bookingRequestsBadgeText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#FFF",
+    color: Colors.dark.buttonText,
   },
   bookingRequestCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -2941,7 +2941,7 @@ const styles = StyleSheet.create({
   levelEmblemText: {
     fontSize: 12,
     fontWeight: "900",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -3487,7 +3487,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   quickNavChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   quickNavBadge: {

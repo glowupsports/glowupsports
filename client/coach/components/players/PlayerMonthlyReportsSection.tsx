@@ -234,7 +234,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
                 }}
               >
                 {finaliseReportMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={previewStyles.finaliseBtnText}>Mark as Final</Text>
                 )}
@@ -388,7 +388,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
               }}
             >
               {saveNoteMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={noteStyles.saveBtnText}>Save Note</Text>
               )}
@@ -581,7 +581,7 @@ const previewStyles = {
   finaliseBtnText: {
     fontSize: 15,
     fontWeight: "700" as const,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 };
 
@@ -642,6 +642,6 @@ const noteStyles = {
   saveBtnText: {
     fontSize: 15,
     fontWeight: "700" as const,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 };

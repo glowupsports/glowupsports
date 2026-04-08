@@ -438,7 +438,7 @@ export default function ChatInboxScreen() {
               end={{ x: 1, y: 1 }}
               style={styles.sendButton}
             >
-              <Ionicons name="send-outline" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />
             </LinearGradient>
           </AnimatedPressable>
         </View>

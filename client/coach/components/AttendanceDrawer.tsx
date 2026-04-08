@@ -428,7 +428,7 @@ export default function AttendanceDrawer({
             disabled={saveMutation.isPending || isOffline}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color="#000" />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <Text style={styles.saveButtonText}>Save</Text>
             )}
@@ -488,7 +488,7 @@ export default function AttendanceDrawer({
                 disabled={selectedPlayerIds.length === 0 || addPlayersMutation.isPending}
               >
                 {addPlayersMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add ({selectedPlayerIds.length})</Text>
                 )}
@@ -535,7 +535,7 @@ export default function AttendanceDrawer({
                     </View>
                     <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
                       {isSelected ? (
-                        <Ionicons name="checkmark" size={16} color="#fff" />
+                        <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                       ) : null}
                     </View>
                   </Pressable>
@@ -560,7 +560,7 @@ export default function AttendanceDrawer({
                 setShowAddPlayers(true);
               }}
             >
-              <Ionicons name="person-add" size={20} color="#000" />
+              <Ionicons name="person-add" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.addPlayersButtonText}>Add Players</Text>
             </Pressable>
           </View>
@@ -574,7 +574,7 @@ export default function AttendanceDrawer({
                   setQuickMode(true);
                 }}
               >
-                <Ionicons name="flash" size={16} color={quickMode ? "#000" : Colors.dark.disabled} />
+                <Ionicons name="flash" size={16} color={quickMode ? Colors.dark.buttonText : Colors.dark.disabled} />
                 <Text style={[styles.modeToggleText, quickMode && styles.modeToggleTextActive]}>Quick</Text>
               </Pressable>
               <Pressable
@@ -584,7 +584,7 @@ export default function AttendanceDrawer({
                   setQuickMode(false);
                 }}
               >
-                <Ionicons name="list" size={16} color={!quickMode ? "#000" : Colors.dark.disabled} />
+                <Ionicons name="list" size={16} color={!quickMode ? Colors.dark.buttonText : Colors.dark.disabled} />
                 <Text style={[styles.modeToggleText, !quickMode && styles.modeToggleTextActive]}>Detailed</Text>
               </Pressable>
             </View>
@@ -618,7 +618,7 @@ export default function AttendanceDrawer({
                           ]}
                           onPress={() => setPlayerStatus(player.id, "present")}
                         >
-                          <Ionicons name="checkmark" size={24} color={isPresent ? "#fff" : Colors.dark.primary} />
+                          <Ionicons name="checkmark" size={24} color={isPresent ? Colors.dark.buttonText : Colors.dark.primary} />
                         </Pressable>
                         <Pressable
                           style={[
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   emptyState: {
     flex: 1,
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   noShowChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   holidayInfo: {
     flexDirection: "row",
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
   addPlayersButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   addPlayersContainer: {
     flex: 1,
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   searchContainer: {
     flexDirection: "row",
@@ -1364,7 +1364,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.disabled,
   },
   modeToggleTextActive: {
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   quickModeContainer: {
     paddingHorizontal: Spacing.lg,

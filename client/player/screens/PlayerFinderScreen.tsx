@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   discoverChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   searchContainer: {
     paddingHorizontal: Spacing.md,
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   filterTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   openToPlayFilter: {
@@ -656,6 +656,6 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

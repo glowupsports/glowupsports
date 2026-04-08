@@ -254,9 +254,9 @@ export function WelcomeIntroModal({
               {isLastSlide ? "Get Started" : "Next"}
             </Text>
             {!isLastSlide ? (
-              <Ionicons name="arrow-forward" size={18} color={"#000"} />
+              <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
             ) : (
-              <Ionicons name="checkmark-circle" size={18} color={"#000"} />
+              <Ionicons name="checkmark-circle" size={18} color={Colors.dark.buttonText} />
             )}
           </AnimatedPressable>
         </Animated.View>
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     ...Typography.h4,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });
 

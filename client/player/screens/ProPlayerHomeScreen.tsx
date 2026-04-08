@@ -305,7 +305,7 @@ function AICoachEntryCard() {
           <View style={aiCardStyles.topRow}>
             <View style={aiCardStyles.left}>
               <View style={aiCardStyles.iconWrap}>
-                <Ionicons name="sparkles" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="sparkles" size={18} color={Colors.dark.buttonText} />
               </View>
               <View style={aiCardStyles.textWrap}>
                 <Text style={aiCardStyles.title}>AI Coach</Text>

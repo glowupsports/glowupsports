@@ -1301,7 +1301,7 @@ export default function CalendarScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.headerBookButtonGradient}
               >
-                <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
                 <Text style={styles.headerBookButtonText}>Book</Text>
               </LinearGradient>
             </Pressable>
@@ -1762,7 +1762,7 @@ export default function CalendarScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <Text style={{ color: '#000', fontSize: 14, fontWeight: '800' }}>{playerInitial}</Text>
+                    <Text style={{ color: Colors.dark.buttonText, fontSize: 14, fontWeight: '800' }}>{playerInitial}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 }}>{playerName || 'No player'}</Text>

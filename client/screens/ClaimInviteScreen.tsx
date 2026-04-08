@@ -184,7 +184,7 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
             >
               <View style={styles.welcomeIconRow}>
                 <View style={styles.welcomeIconWrap}>
-                  <Ionicons name="tennisball" size={28} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="tennisball" size={28} color={Colors.dark.buttonText} />
                 </View>
               </View>
               <Text style={styles.welcomeTitle}>
@@ -285,10 +285,10 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                   style={styles.submitBtnGradient}
                 >
                   {submitting ? (
-                    <ActivityIndicator color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <>
-                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
                       <Text style={styles.submitBtnText}>Create My Account</Text>
                     </>
                   )}
@@ -460,6 +460,6 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 16,
     fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

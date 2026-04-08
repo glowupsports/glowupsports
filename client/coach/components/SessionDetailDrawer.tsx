@@ -1387,7 +1387,7 @@ export default function SessionDetailDrawer({
             disabled={convertGuestMutation.isPending}
           >
             {convertGuestMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <Text style={styles.convertBtnText}>Convert to Player</Text>
             )}
@@ -1432,7 +1432,7 @@ export default function SessionDetailDrawer({
                 disabled={addGuestMutation.isPending || addExistingGuestMutation.isPending}
               >
                 {(addGuestMutation.isPending || addExistingGuestMutation.isPending) ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.guestConfirmBtnText}>
                     {guestWeeks === 1 ? "Add Guest" : `Add for ${guestWeeks} Weeks`}
@@ -1485,7 +1485,7 @@ export default function SessionDetailDrawer({
                       !guestName.trim() && styles.guestAddBtnDisabled,
                     ]}
                   >
-                    <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
                   </Pressable>
                 </View>
               ) : (
@@ -2622,7 +2622,7 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   sessionTime: {
@@ -2700,7 +2700,7 @@ const styles = StyleSheet.create({
   },
   playerAvatarText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   playerName: {
@@ -2971,7 +2971,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   guestTabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   guestInputRow: {
     flexDirection: "row",
@@ -3069,7 +3069,7 @@ const styles = StyleSheet.create({
     textAlign: "center" as const,
   },
   weekOptionTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   guestConfirmBtn: {
     backgroundColor: GlowColors.primary,
@@ -3079,7 +3079,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   guestConfirmBtnText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontSize: 14,
     fontWeight: "700" as const,
   },
@@ -3811,7 +3811,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   calendarDayTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   calendarDayTextDisabled: {

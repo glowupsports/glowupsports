@@ -106,8 +106,8 @@ export function SeriesSmartFillModal({
                           onSelectSuggestion(suggestion.playerId, guestEnd);
                         }}
                       >
-                        <Ionicons name="add" size={16} color={Colors.dark.backgroundRoot} />
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.dark.backgroundRoot }}>Add as Guest</Text>
+                        <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.dark.buttonText }}>Add as Guest</Text>
                       </Pressable>
                     </View>
                   );

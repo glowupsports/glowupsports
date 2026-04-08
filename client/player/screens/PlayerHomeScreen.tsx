@@ -638,7 +638,7 @@ function NoMissionCard() {
       <Text style={missionStyles.noMissionTitle}>{message.title}</Text>
       <Text style={missionStyles.noMissionSubtitle}>{message.subtitle}</Text>
       <Pressable style={missionStyles.bookLessonButton} onPress={handleBookLesson}>
-        <Ionicons name="calendar-outline" size={18} color={Colors.dark.backgroundRoot} />
+        <Ionicons name="calendar-outline" size={18} color={Colors.dark.buttonText} />
         <Text style={missionStyles.bookLessonText}>Book a Lesson</Text>
       </Pressable>
     </View>
@@ -1339,7 +1339,7 @@ export default function PlayerHomeScreen() {
           exiting={FadeOut.duration(200)}
           style={styles.successBanner}
         >
-          <Ionicons name="checkmark-circle" size={18} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="checkmark-circle" size={18} color={Colors.dark.buttonText} />
           <Text style={styles.successBannerText}>{actionSuccess}</Text>
         </Animated.View>
       ) : null}
@@ -2528,7 +2528,7 @@ const styles = StyleSheet.create({
   },
   buyCreditsText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   feedbackCard: {
@@ -2678,7 +2678,7 @@ const styles = StyleSheet.create({
   },
   coachAvatarText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   coachLabel: {
@@ -2767,7 +2767,7 @@ const styles = StyleSheet.create({
   },
   successBannerText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
     flex: 1,
   },
@@ -2968,7 +2968,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmButtonText: {
     ...Typography.small,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   lateMinutesPicker: {
@@ -3282,7 +3282,7 @@ const ownerStyles = StyleSheet.create({
   },
   performerAvatarText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   performerInfo: {
@@ -3483,7 +3483,7 @@ const statusStyles = StyleSheet.create({
   },
   closeButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });
@@ -3819,7 +3819,7 @@ const missionStyles = StyleSheet.create({
   },
   bookLessonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });
@@ -4027,7 +4027,7 @@ const mentorStyles = StyleSheet.create({
   },
   avatarText: {
     ...Typography.h4,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   info: {

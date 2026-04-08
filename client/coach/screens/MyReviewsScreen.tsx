@@ -329,10 +329,10 @@ function ResponseModal({
               style={styles.submitButtonGradient}
             >
               {submitMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Feather name="send" size={16} color={Colors.dark.backgroundRoot} />
+                  <Feather name="send" size={16} color={Colors.dark.buttonText} />
                   <ThemedText style={styles.submitButtonText}>Send Reply</ThemedText>
                 </>
               )}
@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   errorBanner: {
     flexDirection: "row",

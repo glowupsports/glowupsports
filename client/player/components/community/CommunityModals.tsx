@@ -474,7 +474,7 @@ export function SharePreviewModal({ visible, achievement, onClose }: SharePrevie
                   colors={gradient as readonly [string, string, ...string[]]}
                   style={shareStyles.achievementIcon}
                 >
-                  <Ionicons name={achievement.icon as any} size={32} color="#000" />
+                  <Ionicons name={achievement.icon as any} size={32} color={Colors.dark.buttonText} />
                 </LinearGradient>
 
                 <ThemedText style={[shareStyles.achievementTitle, { color: gradient[0] }]}>
@@ -559,10 +559,10 @@ export function SharePreviewModal({ visible, achievement, onClose }: SharePrevie
               style={shareStyles.shareBtnGradient}
             >
               {isSharing ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="share-social" size={20} color="#000" />
+                  <Ionicons name="share-social" size={20} color={Colors.dark.buttonText} />
                   <ThemedText style={shareStyles.shareBtnText}>Share to Story</ThemedText>
                 </>
               )}
@@ -1549,7 +1549,7 @@ const shareStyles = StyleSheet.create({
   achievementValueText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   achievementDesc: {
     fontSize: 14,
@@ -1573,7 +1573,7 @@ const shareStyles = StyleSheet.create({
   userAvatarText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   userName: {
     fontSize: 14,
@@ -1652,7 +1652,7 @@ const shareStyles = StyleSheet.create({
   shareBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
 });
 
@@ -1704,7 +1704,7 @@ const postDetailStyles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   authorInfo: {
     flex: 1,
@@ -1728,7 +1728,7 @@ const postDetailStyles = StyleSheet.create({
   levelText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   contextRow: {
     flexDirection: "row",

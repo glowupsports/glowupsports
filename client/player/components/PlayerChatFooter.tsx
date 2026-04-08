@@ -352,7 +352,7 @@ export function PlayerChatFooter() {
       ))}
       {currentTab === "players" ? (
         <Pressable onPress={() => setShowNewPlayerChat(true)} style={styles.addButton}>
-          <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
         </Pressable>
       ) : null}
     </View>
@@ -588,9 +588,9 @@ export function PlayerChatFooter() {
                   style={[styles.sendButton, (!inputText.trim() || sendMessageMutation.isPending) && styles.sendButtonDisabled]}
                 >
                   {sendMessageMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
-                    <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
                   )}
                 </Pressable>
               </View>
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   unreadText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   headerTitle: {
     fontSize: 14,

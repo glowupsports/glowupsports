@@ -701,7 +701,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                                 
                                 {isSelected ? (
                                   <View style={[styles.selectedIndicator, { backgroundColor: typeColor }]}>
-                                    <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} />
+                                    <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                                   </View>
                                 ) : null}
                               </Pressable>
@@ -734,7 +734,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                     <Text style={styles.addBundleButtonText}>
                       {createMutation.isPending ? "Adding..." : "Add Credits"}
                     </Text>
-                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="arrow-forward" size={18} color={Colors.dark.buttonText} />
                   </Pressable>
                 </Animated.View>
               ) : null}
@@ -1464,7 +1464,7 @@ const styles = StyleSheet.create({
   },
   discountText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: 10,
   },
@@ -1531,7 +1531,7 @@ const styles = StyleSheet.create({
   },
   addBundleButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   creditStoreNote: {

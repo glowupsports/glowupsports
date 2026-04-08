@@ -830,7 +830,7 @@ export default function PlayerScheduleScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.guestCtaGradient}
           >
-            <Ionicons name="person-add-outline" size={20} color="#000" />
+            <Ionicons name="person-add-outline" size={20} color={Colors.dark.buttonText} />
             <Text style={styles.guestCtaText}>Create Account / Sign In</Text>
           </LinearGradient>
         </Pressable>
@@ -1593,7 +1593,7 @@ const styles = StyleSheet.create({
   guestCtaText: {
     fontSize: 16,
     fontWeight: "700" as const,
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   screenTitleRow: {
     flexDirection: "row",

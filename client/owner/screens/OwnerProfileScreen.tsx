@@ -380,10 +380,10 @@ export default function OwnerProfileScreen() {
           disabled={!canSave || saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Ionicons name="save-outline" size={20} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="save-outline" size={20} color={Colors.dark.buttonText} />
               <Text style={styles.saveButtonText}>Save Profile</Text>
             </>
           )}
@@ -549,6 +549,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 });

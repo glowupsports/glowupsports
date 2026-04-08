@@ -148,7 +148,7 @@ export default function MyLessonRequestsScreen() {
         <Text style={styles.emptyTitle}>No Requests Yet</Text>
         <Text style={styles.emptySubtitle}>Your lesson booking requests will appear here</Text>
         <Pressable style={styles.bookButton} onPress={() => navigation.navigate("LessonBooking")}>
-          <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
           <Text style={styles.bookButtonText}>Book a Lesson</Text>
         </Pressable>
       </View>
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   bookButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });

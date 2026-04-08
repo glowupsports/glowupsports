@@ -825,7 +825,7 @@ export function PremiumSessionWizard({
           onPress={() => setDontShowAgain(!dontShowAgain)}
         >
           <View style={[styles.skipCheckbox, dontShowAgain && styles.skipCheckboxChecked]}>
-            {dontShowAgain ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+            {dontShowAgain ? <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} /> : null}
           </View>
           <Text style={styles.skipIntroText}>Don't show this intro again</Text>
         </Pressable>

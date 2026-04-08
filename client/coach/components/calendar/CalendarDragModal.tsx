@@ -125,7 +125,7 @@ export function CalendarDragModal({ pendingDrag, onCancel, onConfirm, courts }: 
                   end={{ x: 1, y: 1 }}
                   style={dragModalStyles.confirmGradient}
                 >
-                  <Ionicons name="checkmark" size={20} color="#000" />
+                  <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
                   <Text style={dragModalStyles.confirmButtonText}>Confirm Move</Text>
                 </LinearGradient>
               </Pressable>

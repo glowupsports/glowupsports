@@ -79,7 +79,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel="Add family member"
               >
-                <Ionicons name="person-add" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="person-add" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.addBtnText}>Yes, add one</Text>
               </Pressable>
 
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: FontSizes.md,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   doneBtn: {
     flexDirection: "row",

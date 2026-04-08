@@ -98,7 +98,7 @@ export function SmartInsightsPanel({ insights }: SmartInsightsPanelProps) {
               colors={[Colors.dark.xpCyan, Colors.dark.primary]}
               style={styles.aiIcon}
             >
-              <Ionicons name="sparkles" size={14} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="sparkles" size={14} color={Colors.dark.buttonText} />
             </LinearGradient>
             <Text style={styles.title}>SMART INSIGHTS</Text>
           </View>

@@ -430,10 +430,10 @@ export default function MatchLiveScreen() {
             disabled={scoringPending}
           >
             {scoringPending ? (
-              <ActivityIndicator color="#000" size="small" />
+              <ActivityIndicator color={Colors.dark.buttonText} size="small" />
             ) : (
               <>
-                <Feather name="chevron-up" size={28} color="#000" />
+                <Feather name="chevron-up" size={28} color={Colors.dark.buttonText} />
                 <Text style={styles.pointButtonText}>You</Text>
               </>
             )}
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   pointButtonText: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#000",
+    color: Colors.dark.buttonText,
   },
   pointButtonTextOpponent: {
     fontSize: 16,

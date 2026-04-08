@@ -1513,13 +1513,13 @@ export default function CreateInvoiceModal({
                       onPress={() => { setDiscountType('flat'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                       style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: discountType === 'flat' ? Colors.dark.primary : 'transparent' }}
                     >
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'flat' ? '#000' : Colors.dark.textMuted }}>{currency}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'flat' ? Colors.dark.buttonText : Colors.dark.textMuted }}>{currency}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => { setDiscountType('percent'); if (discountInput > 100) setDiscountInput(0); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                       style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: discountType === 'percent' ? Colors.dark.primary : 'transparent' }}
                     >
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'percent' ? '#000' : Colors.dark.textMuted }}>%</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'percent' ? Colors.dark.buttonText : Colors.dark.textMuted }}>%</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -1629,10 +1629,10 @@ export default function CreateInvoiceModal({
             disabled={isGeneratingPDF}
           >
             {isGeneratingPDF ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons name="download-outline" size={20} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="download-outline" size={20} color={Colors.dark.buttonText} />
                 <Text style={styles.downloadButtonText}>Download PDF</Text>
               </>
             )}
@@ -1964,7 +1964,7 @@ const styles = StyleSheet.create({
   downloadButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   saveButton: {
     flex: 1,

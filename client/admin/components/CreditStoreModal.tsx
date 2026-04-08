@@ -212,10 +212,10 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
                 disabled={grantCreditsMutation.isPending}
               >
                 {grantCreditsMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                  <ActivityIndicator color={Colors.dark.buttonText} size="small" />
                 ) : (
                   <>
-                    <Ionicons name="add-circle" size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="add-circle" size={18} color={Colors.dark.buttonText} />
                     <Text style={styles.grantButtonText}>Grant Credits</Text>
                   </>
                 )}
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   grantButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   buttonDisabled: {

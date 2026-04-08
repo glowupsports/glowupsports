@@ -717,7 +717,7 @@ export default function AdminCalendarScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.fabGradient}
           >
-            <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
           </LinearGradient>
         </Pressable>
       

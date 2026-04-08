@@ -247,7 +247,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   gamingFilterTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   gamingLevelDot: {
     width: 6,
@@ -271,7 +271,7 @@ export const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
   },
   gamingFilterCountTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   subLevelFilterRow: {
     flexDirection: "row",
@@ -389,7 +389,7 @@ export const styles = StyleSheet.create({
   gamingAvatarText: {
     fontSize: 18,
     fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   gamingCardInfo: {
     flex: 1,
@@ -548,7 +548,7 @@ export const styles = StyleSheet.create({
   headerAddButtonText: {
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     letterSpacing: 0.5,
   },
 
@@ -1318,7 +1318,7 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
   },
   filterChipTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   levelDot: {
@@ -2172,7 +2172,7 @@ export const styles = StyleSheet.create({
   baselineActionButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   baselineResetButtonText: {
     color: Colors.dark.gold,
@@ -2243,7 +2243,7 @@ export const styles = StyleSheet.create({
   confirmModalConfirmText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   onboardingCard: {
     marginHorizontal: Spacing.lg,
@@ -2404,7 +2404,7 @@ export const styles = StyleSheet.create({
   copyButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   inviteShareButton: {
     flexDirection: "row",
@@ -2509,7 +2509,7 @@ export const styles = StyleSheet.create({
   prominentCopyButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   prominentShareButton: {
     flexDirection: "row",
@@ -3114,7 +3114,7 @@ export const styles = StyleSheet.create({
   },
   paymentsRecordText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   paymentsCreateInvoiceButton: {
@@ -3232,7 +3232,7 @@ export const styles = StyleSheet.create({
   },
   markPaidBtnText: {
     ...Typography.caption,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   recordPaymentDone: {
@@ -3244,7 +3244,7 @@ export const styles = StyleSheet.create({
   },
   recordPaymentDoneText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
 
@@ -3278,7 +3278,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   rosterTabTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
 
   // === ARCHIVE / RESTORE ACTION BUTTONS ===

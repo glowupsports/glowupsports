@@ -127,7 +127,7 @@ function TypingIndicator() {
   return (
     <View style={styles.aiBubbleRow}>
       <View style={styles.aiAvatar}>
-        <Ionicons name="sparkles" size={12} color={Colors.dark.backgroundRoot} />
+        <Ionicons name="sparkles" size={12} color={Colors.dark.buttonText} />
       </View>
       <View style={[styles.bubble, styles.aiBubble]}>
         <Text style={styles.aiLabel}>{AI_LABEL}</Text>
@@ -148,7 +148,7 @@ function MessageBubble({ message }: { message: Message }) {
   ) : (
     <View style={styles.aiBubbleRow}>
       <View style={styles.aiAvatar}>
-        <Ionicons name="sparkles" size={12} color={Colors.dark.backgroundRoot} />
+        <Ionicons name="sparkles" size={12} color={Colors.dark.buttonText} />
       </View>
       <View style={[styles.bubble, styles.aiBubble]}>
         <Text style={styles.aiLabel}>{AI_LABEL}</Text>
@@ -278,7 +278,7 @@ function FeatureIntroModal({ visible, isPro, callCount, limit, glowMirrorLayers,
           {!isPro ? (
             <>
               <Pressable style={introStyles.ctaBtn} onPress={onStart}>
-                <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundRoot} />
+                <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.buttonText} />
                 <Text style={introStyles.ctaBtnText}>Try Free ({remaining} message{remaining !== 1 ? "s" : ""})</Text>
               </Pressable>
               <Pressable style={introStyles.upgradeBtn} onPress={onUpgrade}>
@@ -288,7 +288,7 @@ function FeatureIntroModal({ visible, isPro, callCount, limit, glowMirrorLayers,
             </>
           ) : (
             <Pressable style={introStyles.ctaBtn} onPress={onStart}>
-              <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.buttonText} />
               <Text style={introStyles.ctaBtnText}>Start Chatting</Text>
             </Pressable>
           )}
@@ -416,7 +416,7 @@ const introStyles = StyleSheet.create({
     paddingVertical: Spacing.md + 2,
   },
   ctaBtnText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -557,7 +557,7 @@ function OnboardingSplash({ onStart }: { onStart: () => void }) {
         For now, the AI will give general tennis advice and get to know your goals. Chat away!
       </Text>
       <Pressable style={styles.onboardingCta} onPress={onStart}>
-        <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundRoot} />
+        <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.buttonText} />
         <Text style={styles.onboardingCtaText}>Start chatting</Text>
       </Pressable>
     </View>
@@ -1683,7 +1683,7 @@ export default function PlayerAICoachScreen() {
         </Pressable>
         <View style={styles.headerCenter}>
           <View style={styles.headerIcon}>
-            <Ionicons name="sparkles" size={16} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="sparkles" size={16} color={Colors.dark.buttonText} />
           </View>
           <View>
             <Text style={styles.headerTitle}>AI Coach Hub</Text>
@@ -1869,9 +1869,9 @@ export default function PlayerAICoachScreen() {
                   ]}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                   ) : (
-                    <Ionicons name="send" size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
                   )}
                 </Pressable>
               </View>
@@ -2129,7 +2129,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   onboardingCtaText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -2312,7 +2312,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   userBubbleText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   inputRow: {
     flexDirection: "row",
@@ -2374,7 +2374,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   lockedUpgradeBtnText: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontSize: 13,
     fontWeight: "700",
   },

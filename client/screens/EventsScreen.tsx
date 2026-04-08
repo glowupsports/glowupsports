@@ -52,7 +52,7 @@ export default function EventsScreen() {
     <Card style={styles.eventCard}>
       <View style={styles.eventHeader}>
         <View style={[styles.typeIcon, { backgroundColor: getTypeColor(item.type) }]}>
-          <Ionicons name={getTypeIcon(item.type)} size={20} color={Colors.dark.backgroundRoot} />
+          <Ionicons name={getTypeIcon(item.type)} size={20} color={Colors.dark.buttonText} />
         </View>
         <View style={styles.eventInfo}>
           <ThemedText style={styles.eventTitle}>{item.title}</ThemedText>

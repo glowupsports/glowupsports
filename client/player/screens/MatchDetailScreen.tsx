@@ -426,7 +426,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
               preMatchConfidence >= n && { backgroundColor: MIRROR_ACCENT },
             ]}
           >
-            <Text style={[mirrorStyles.confidenceBtnText, preMatchConfidence >= n && { color: "#000" }]}>
+            <Text style={[mirrorStyles.confidenceBtnText, preMatchConfidence >= n && { color: Colors.dark.buttonText }]}>
               {n}
             </Text>
           </Pressable>
@@ -505,7 +505,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
               postMatchConfidence >= n && { backgroundColor: MIRROR_ACCENT },
             ]}
           >
-            <Text style={[mirrorStyles.confidenceBtnText, postMatchConfidence >= n && { color: "#000" }]}>
+            <Text style={[mirrorStyles.confidenceBtnText, postMatchConfidence >= n && { color: Colors.dark.buttonText }]}>
               {n}
             </Text>
           </Pressable>
@@ -535,10 +535,10 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color="#000" />
+            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
-              <Ionicons name="checkmark-circle" size={16} color="#000" />
+              <Ionicons name="checkmark-circle" size={16} color={Colors.dark.buttonText} />
               <Text style={mirrorStyles.saveText}>Save Reflection</Text>
             </>
           )}
@@ -647,7 +647,7 @@ const mirrorStyles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
   },
-  saveText: { ...Typography.body, color: "#000", fontWeight: "700" },
+  saveText: { ...Typography.body, color: Colors.dark.buttonText, fontWeight: "700" },
 });
 
 const PILLAR_GUIDES: Record<string, string> = {
@@ -745,10 +745,10 @@ function PillarSelfRating({ matchId, playerId, playerPillarScores }: {
         disabled={saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          <ActivityIndicator size="small" color="#000" />
+          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
         ) : (
           <>
-            <Ionicons name="checkmark-circle" size={16} color="#000" />
+            <Ionicons name="checkmark-circle" size={16} color={Colors.dark.buttonText} />
             <Text style={deepStyles.saveBtnText}>Save Ratings</Text>
           </>
         )}
@@ -849,7 +849,7 @@ function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
         disabled={!goalAchieved || saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          <ActivityIndicator size="small" color="#000" />
+          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
         ) : (
           <Text style={deepStyles.saveBtnText}>Save</Text>
         )}
@@ -1039,7 +1039,7 @@ function PressureMomentLogger({ matchId, playerId, existingMoments }: {
                 disabled={!momentType || !outcome || saveMutation.isPending}
               >
                 {saveMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={deepStyles.saveBtnText}>Save Moment</Text>
                 )}
@@ -1253,7 +1253,7 @@ const deepStyles = StyleSheet.create({
   },
   saveBtnText: {
     ...Typography.body,
-    color: "#000",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   momentsRow: {

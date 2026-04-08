@@ -101,7 +101,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
         <View style={styles.sidebarTop}>
           <View style={styles.logoRow}>
             <View style={styles.logoMark}>
-              <Ionicons name="tennisball" size={18} color="#000" />
+              <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
             </View>
             <View>
               <Text style={styles.logoText}>Glow Up</Text>

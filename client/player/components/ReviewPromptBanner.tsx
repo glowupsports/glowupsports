@@ -76,7 +76,7 @@ export function ReviewPromptBanner() {
               onPress={() => handleReviewPress(prompt)}
               style={({ pressed }) => [styles.reviewButton, { opacity: pressed ? 0.8 : 1 }]}
             >
-              <Feather name="edit-3" size={14} color={Colors.dark.backgroundRoot} />
+              <Feather name="edit-3" size={14} color={Colors.dark.buttonText} />
               <ThemedText style={styles.reviewButtonText}>Write Review</ThemedText>
             </Pressable>
             <Pressable
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   reviewButtonText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
   },
   laterButton: {
     paddingHorizontal: Spacing.md,

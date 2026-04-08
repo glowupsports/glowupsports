@@ -288,7 +288,7 @@ export default function CourtPreferencesScreen() {
                   onPress={() => toggleCourt(court.id)}
                 >
                   {court.isSelected ? (
-                    <Feather name="check" size={14} color={Colors.dark.backgroundRoot} />
+                    <Feather name="check" size={14} color={Colors.dark.buttonText} />
                   ) : null}
                 </Pressable>
                 <View style={styles.courtInfo}>
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   },
   priorityText: {
     ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   moveButtons: {
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
   },
   optionButtonTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   toggleCard: {

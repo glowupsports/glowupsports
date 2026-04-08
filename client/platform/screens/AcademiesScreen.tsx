@@ -270,10 +270,10 @@ function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalP
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="add-circle" size={20} color={Colors.dark.buttonText} />
                   <Text style={styles.createButtonText}>Create Academy</Text>
                 </>
               )}
@@ -363,7 +363,7 @@ function InviteLinkModal({ visible, invite, onClose }: InviteLinkModalProps) {
               <Ionicons 
                 name={copied ? "checkmark" : "copy-outline"} 
                 size={20} 
-                color={Colors.dark.backgroundRoot} 
+                color={Colors.dark.buttonText} 
               />
               <Text style={styles.copyButtonText}>
                 {copied ? "Copied!" : "Copy Link"}
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   buttonDisabled: {
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
   },
   copyButtonText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   doneButton: {

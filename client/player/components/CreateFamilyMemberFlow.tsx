@@ -349,7 +349,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                   <Text style={[fStyles.selectCardText, data.motivationType === opt.id ? fStyles.selectCardTextActive : null]}>{opt.label}</Text>
                   {data.motivationType === opt.id ? (
                     <View style={fStyles.checkBadge}>
-                      <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} />
+                      <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
                     </View>
                   ) : null}
                 </Pressable>
@@ -509,11 +509,11 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                 disabled={!canProceed() || createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.backgroundRoot} size="small" />
+                  <ActivityIndicator color={Colors.dark.buttonText} size="small" />
                 ) : (
                   <>
                     <Text style={fStyles.nextBtnText}>{step === TOTAL_STEPS - 1 ? "Save" : "Next"}</Text>
-                    <Ionicons name={step === TOTAL_STEPS - 1 ? "checkmark" : "chevron-forward"} size={18} color={Colors.dark.backgroundRoot} />
+                    <Ionicons name={step === TOTAL_STEPS - 1 ? "checkmark" : "chevron-forward"} size={18} color={Colors.dark.buttonText} />
                   </>
                 )}
               </Pressable>
@@ -699,7 +699,7 @@ const fStyles = StyleSheet.create({
   },
   dobConfirmText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
   optionsList: {
@@ -864,7 +864,7 @@ const fStyles = StyleSheet.create({
   },
   nextBtnText: {
     ...Typography.body,
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.buttonText,
     fontWeight: "600",
   },
 });
