@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, gte, inArray, count } from "drizzle-orm";
+import { eq, and, desc, gte, inArray, count, isNull } from "drizzle-orm";
 import OpenAI from "openai";
 import {
   inSessionFeedback,
@@ -28,6 +28,7 @@ import {
   playerPillarProgress,
   playerBaselines,
   playerAiTrainingPlans,
+  sessionIntakeData,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
@@ -594,6 +595,15 @@ export interface PlayerAIContext {
   recentFeedbackNotes: { feedbackType: string; message: string }[];
   // Number of attended sessions (for data maturity)
   sessionCount: number;
+  // Pre-session intake context (from intake flow)
+  intakeContext?: {
+    trainedSkills: string[];
+    intensity: string | null;
+    groupDynamics: Record<string, string> | null;
+    playerPillarRating: Record<string, string> | null;
+    playerTags: string[] | null;
+    highlight: string | null;
+  } | null;
   // Glow Mirror — Player session self-reflections (last 5)
   recentSessionReflections: {
     aiSummary: string | null;
@@ -814,6 +824,37 @@ export async function buildPlayerAIContext(
     const mastered = required.filter((s) => s.currentScore !== null && s.currentScore >= s.targetScore);
     const promotionReadiness = required.length > 0 ? Math.round((mastered.length / required.length) * 100) : null;
 
+    // Fetch intake data for this session (most recent per player, and session-level group dynamics)
+    const [sessionLevelIntake, playerIntake] = await Promise.all([
+      db.select({
+        trainedSkills: sessionIntakeData.trainedSkills,
+        intensity: sessionIntakeData.intensity,
+        groupDynamics: sessionIntakeData.groupDynamics,
+      })
+        .from(sessionIntakeData)
+        .where(and(eq(sessionIntakeData.sessionId, sessionId), isNull(sessionIntakeData.playerId)))
+        .orderBy(desc(sessionIntakeData.createdAt))
+        .limit(1),
+      db.select({
+        playerTags: sessionIntakeData.playerTags,
+        pillarRatings: sessionIntakeData.pillarRatings,
+        highlight: sessionIntakeData.highlight,
+      })
+        .from(sessionIntakeData)
+        .where(and(eq(sessionIntakeData.sessionId, sessionId), eq(sessionIntakeData.playerId, playerId)))
+        .orderBy(desc(sessionIntakeData.createdAt))
+        .limit(1),
+    ]);
+
+    const intakeContext = (sessionLevelIntake.length > 0 || playerIntake.length > 0) ? {
+      trainedSkills: (sessionLevelIntake[0]?.trainedSkills as string[]) || [],
+      intensity: sessionLevelIntake[0]?.intensity || null,
+      groupDynamics: (sessionLevelIntake[0]?.groupDynamics as Record<string, string>) || null,
+      playerPillarRating: (playerIntake[0]?.pillarRatings as Record<string, string>) || null,
+      playerTags: (playerIntake[0]?.playerTags as string[]) || null,
+      highlight: playerIntake[0]?.highlight || null,
+    } : null;
+
     return {
       playerName: player.name,
       playerAge: age,
@@ -839,6 +880,7 @@ export async function buildPlayerAIContext(
       recentMatches: recentMatchRows.map((m) => ({ result: m.result, format: m.matchFormat, opponentLevel: m.opponentLevel })),
       recentFeedbackNotes: recentFeedbackRows.map((f) => ({ feedbackType: f.feedbackType, message: f.message })),
       sessionCount: attended,
+      intakeContext,
       recentSessionReflections: recentSessionReflections.map((r) => ({
         aiSummary: r.aiSummary,
         energyLevel: r.energyLevel,
@@ -872,7 +914,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
     requiredSkills, recentDigests, coachNotes, skillsByPillar, pillarAverages,
     shortTermGoal, longTermDream, playStyle, xpLevel, attendanceRate, totalSessions,
     promotionReadiness, recentMatches, recentFeedbackNotes, recentSessionReflections,
-    latestMonthlyAssessment,
+    latestMonthlyAssessment, intakeContext,
   } = ctx;
 
   const ageInstruction =
@@ -1006,6 +1048,41 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
       })()
     : "";
 
+  // Pre-session intake context section
+  const intakeSection = intakeContext
+    ? (() => {
+        const lines: string[] = ["PRE-SESSION INTAKE (coach recorded before this chat):"];
+        if (intakeContext.trainedSkills && intakeContext.trainedSkills.length > 0) {
+          lines.push(`  Skills trained: ${intakeContext.trainedSkills.join(", ")}`);
+        }
+        if (intakeContext.intensity) {
+          lines.push(`  Session intensity: ${intakeContext.intensity}`);
+        }
+        if (intakeContext.groupDynamics && Object.keys(intakeContext.groupDynamics).length > 0) {
+          const gd = intakeContext.groupDynamics;
+          const gdParts: string[] = [];
+          if (gd.overallFocus) gdParts.push(`focus level: ${gd.overallFocus}`);
+          if (gd.listeningCoachability) gdParts.push(`coachability: ${gd.listeningCoachability.replace("_", " ")}`);
+          if (gd.groupEnergy) gdParts.push(`energy: ${gd.groupEnergy}`);
+          if (gd.groupCohesion) gdParts.push(`cohesion: ${gd.groupCohesion}`);
+          if (gdParts.length > 0) lines.push(`  Group dynamics: ${gdParts.join(", ")}`);
+        }
+        if (intakeContext.playerTags && intakeContext.playerTags.length > 0) {
+          lines.push(`  Player observations: ${intakeContext.playerTags.map((t) => t.replace(/_/g, " ")).join(", ")}`);
+        }
+        if (intakeContext.playerPillarRating && Object.keys(intakeContext.playerPillarRating).length > 0) {
+          const pr = intakeContext.playerPillarRating;
+          const prParts = Object.entries(pr).map(([k, v]) => `${k}: ${v}`);
+          lines.push(`  Pillar quick-ratings: ${prParts.join(", ")}`);
+        }
+        if (intakeContext.highlight) {
+          lines.push(`  Session highlight: ${intakeContext.highlight.replace("_", " ")}`);
+        }
+        lines.push("  (Use intake context to skip re-asking obvious questions and dive deeper into specific pillars.)");
+        return lines.join("\n");
+      })()
+    : "";
+
   const summaryInstruction = `After 4-8 coach exchanges covering all six pillars (Technical, Tactical, Physical, Mental, Social, Match), say "Here is what I'll save" and propose a JSON summary inside a code block:
 \`\`\`json
 {
@@ -1040,11 +1117,12 @@ ${feedbackContext}
 ${matchContext}
 ${reflectionContext}
 ${monthlyVoiceContext}
+${intakeSection}
 
 LANGUAGE RULE: ${ageInstruction}
 
 YOUR JOB:
-1. Ask what the main focus of today's session was.
+${intakeContext ? "1. Since intake context is provided, acknowledge what was trained and dive directly into follow-up questions — do NOT re-ask what the session focus was." : "1. Ask what the main focus of today's session was."}
 2. Ask 1-2 targeted follow-up questions per turn. Each question MUST reference what the coach just said (e.g. if they said "backhand was lazy", ask "You mentioned the backhand was lazy — was that consistency or technique?"). Do NOT ask a generic question the coach just answered. Cover all six pillars before wrapping up:
    - TECHNICAL: stroke mechanics, consistency, shot quality
    - TACTICAL: decision-making, game strategy, patterns of play

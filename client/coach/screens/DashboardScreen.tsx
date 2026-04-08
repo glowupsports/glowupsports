@@ -49,6 +49,8 @@ import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
+import { IntakeFlowModal, IntakeResult } from "@/coach/components/IntakeFlowModal";
+import { AICoachingChatModal } from "@/coach/components/AICoachingChatModal";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
@@ -104,6 +106,16 @@ interface PendingAttendanceSession {
   sessionType: string;
   seriesTitle: string;
   players: Array<{ id: string; name: string }>;
+}
+
+interface PendingFeedbackSession {
+  sessionId: string;
+  startTime: string;
+  sessionType: string;
+  players: Array<{ id: string; name: string; attendanceStatus?: string }>;
+  playerCount: number;
+  needsGroupDynamics: boolean;
+  cardType: "private" | "semi_private" | "group";
 }
 
 interface WeeklyCalendarData {
@@ -248,6 +260,164 @@ function PendingAttendanceCard({
     </View>
   );
 }
+
+function PendingFeedbackCard({
+  sessions,
+  onSessionTap,
+}: {
+  sessions: PendingFeedbackSession[];
+  onSessionTap: (session: PendingFeedbackSession) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? sessions : sessions.slice(0, 3);
+  const hidden = sessions.length - 3;
+
+  function formatDate(startTime: string): string {
+    const d = new Date(startTime);
+    const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${day} · ${time}`;
+  }
+
+  return (
+    <View style={feedbackCardStyles.card}>
+      <View style={feedbackCardStyles.headerRow}>
+        <Ionicons name="sparkles" size={16} color={Colors.dark.primary} />
+        <Text style={feedbackCardStyles.headerTitle}>Coach with AI</Text>
+        <View style={feedbackCardStyles.badge}>
+          <Text style={feedbackCardStyles.badgeText}>{sessions.length}</Text>
+        </View>
+      </View>
+      <Text style={feedbackCardStyles.subLabel}>
+        {sessions.length === 1 ? "1 session" : `${sessions.length} sessions`} waiting for AI coaching notes
+      </Text>
+      {displayed.map((sess, idx) => {
+        const isGroupCard = sess.cardType === "group";
+        const key = isGroupCard ? sess.sessionId : `${sess.sessionId}:${sess.players[0]?.id ?? idx}`;
+        const playerLabel = isGroupCard
+          ? `${sess.players.slice(0, 3).map((p) => p.name).join(", ")}${sess.playerCount > 3 ? ` +${sess.playerCount - 3}` : ""}`
+          : sess.players[0]?.name ?? "";
+        const typeLabel = sess.sessionType === "private" ? "Private" : sess.sessionType === "group" ? "Group" : "Semi-Priv";
+        return (
+          <Pressable
+            key={key}
+            style={feedbackCardStyles.sessionRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onSessionTap(sess);
+            }}
+          >
+            <View style={feedbackCardStyles.sessionInfo}>
+              <Text style={feedbackCardStyles.dateText}>{formatDate(sess.startTime)}</Text>
+              <Text style={feedbackCardStyles.playersText} numberOfLines={1}>
+                {playerLabel}
+              </Text>
+            </View>
+            <View style={feedbackCardStyles.rightRow}>
+              <View style={feedbackCardStyles.typeBadge}>
+                <Text style={feedbackCardStyles.typeText}>{typeLabel}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.dark.primary} />
+            </View>
+          </Pressable>
+        );
+      })}
+      {!showAll && hidden > 0 && (
+        <Pressable onPress={() => setShowAll(true)} style={feedbackCardStyles.showMoreBtn}>
+          <Text style={feedbackCardStyles.showMoreText}>See {hidden} more</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const feedbackCardStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundCard,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  badge: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  subLabel: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    gap: 8,
+  },
+  sessionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  dateText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  playersText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+  },
+  rightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  typeBadge: {
+    backgroundColor: Colors.dark.primary + "18",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  typeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  showMoreBtn: {
+    paddingTop: Spacing.sm,
+    alignItems: "center",
+  },
+  showMoreText: {
+    fontSize: 12,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+});
 
 interface PendingReview {
   id: string;
@@ -558,6 +728,9 @@ export default function DashboardScreen() {
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
   const [detailInitialAction, setDetailInitialAction] = useState<"attendance" | "detail" | "extend" | "end" | undefined>(undefined);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
+  // Pending feedback flow: intake → AI chat (runs from dashboard, not SessionDetailDrawer)
+  const [pendingIntakeSession, setPendingIntakeSession] = useState<PendingFeedbackSession | null>(null);
+  const [pendingAIChatPlayer, setPendingAIChatPlayer] = useState<{ sessionId: string; playerId: string; playerName: string; sessionType: string; remainingPlayers: PendingFeedbackSession["players"] } | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [showDaySessions, setShowDaySessions] = useState(false);
@@ -991,6 +1164,12 @@ export default function DashboardScreen() {
     enabled: !!coach?.id,
     staleTime: 30_000,
     refetchInterval: 30_000,
+  });
+
+  const { data: pendingFeedbackSessions = [] } = useQuery<PendingFeedbackSession[]>({
+    queryKey: ["/api/coach/sessions/pending-feedback"],
+    enabled: !!coach?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   const pendingFeedbackCount = useMemo(() => {
@@ -1960,6 +2139,18 @@ export default function DashboardScreen() {
           />
         )}
 
+        {/* === PENDING FEEDBACK CARDS === */}
+        {pendingFeedbackSessions.length > 0 && (
+          <PendingFeedbackCard
+            sessions={pendingFeedbackSessions}
+            onSessionTap={(sess) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              // Open intake flow directly from dashboard (not via SessionDetailDrawer)
+              setPendingIntakeSession(sess);
+            }}
+          />
+        )}
+
         {/* === POWER GAUGE - Gaming Energy HUD === */}
         <View style={styles.gamingCard}>
           {/* Neon top accent */}
@@ -2348,6 +2539,66 @@ export default function DashboardScreen() {
           queryClient.invalidateQueries({ queryKey: ["/api/coach/me/pending-attendance"] });
         }}
       />
+
+      {/* Pending Feedback → Intake Flow (opened from dashboard pending feedback cards) */}
+      {pendingIntakeSession ? (
+        <IntakeFlowModal
+          visible={!!pendingIntakeSession}
+          onClose={() => setPendingIntakeSession(null)}
+          onSaveOnly={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
+          }}
+          onComplete={(_result: IntakeResult) => {
+            const sess = pendingIntakeSession;
+            setPendingIntakeSession(null);
+            if (sess.players.length > 0) {
+              // Open AI chat for first player; remaining players queued for sequential coaching
+              const [first, ...rest] = sess.players;
+              setTimeout(() => {
+                setPendingAIChatPlayer({
+                  sessionId: sess.sessionId,
+                  playerId: first.id,
+                  playerName: first.name,
+                  sessionType: sess.sessionType,
+                  remainingPlayers: rest,
+                });
+              }, 200);
+            }
+          }}
+          sessionId={pendingIntakeSession.sessionId}
+          sessionType={pendingIntakeSession.sessionType}
+          players={pendingIntakeSession.players}
+        />
+      ) : null}
+
+      {/* Pending Feedback → AI Chat (opened after intake completes, one player at a time) */}
+      {pendingAIChatPlayer ? (
+        <AICoachingChatModal
+          visible={!!pendingAIChatPlayer}
+          onClose={() => {
+            const remaining = pendingAIChatPlayer.remainingPlayers;
+            if (remaining.length > 0) {
+              // Advance to next player
+              const [next, ...rest] = remaining;
+              setTimeout(() => {
+                setPendingAIChatPlayer({
+                  sessionId: pendingAIChatPlayer.sessionId,
+                  playerId: next.id,
+                  playerName: next.name,
+                  sessionType: pendingAIChatPlayer.sessionType,
+                  remainingPlayers: rest,
+                });
+              }, 200);
+            } else {
+              setPendingAIChatPlayer(null);
+              queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
+            }
+          }}
+          sessionId={pendingAIChatPlayer.sessionId}
+          playerId={pendingAIChatPlayer.playerId}
+          playerName={pendingAIChatPlayer.playerName}
+        />
+      ) : null}
 
       <DaySessionsDrawer
         visible={showDaySessions}

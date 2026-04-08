@@ -32,7 +32,7 @@ interface PlayerContext {
   playerAge: number | null;
   ballLevel: string;
   sessionType: string;
-  requiredSkills: { skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
+  requiredSkills: { skillId: string; skillName: string; pillar: string; targetScore: number; currentScore: number | null; required: boolean }[];
   sessionCount: number;
 }
 
@@ -121,6 +121,32 @@ function ThinDataPill() {
   );
 }
 
+interface VerificationSkill {
+  skillId: string;
+  skillName: string;
+  pillar: string;
+  currentScore: number | null;
+  targetScore: number;
+  observableDescription?: string;
+}
+
+const SKILL_OBSERVATIONS: Record<string, string> = {
+  "forehand": "Consistent groundstroke with proper contact point and follow-through",
+  "backhand": "Controlled backhand with stable grip and shoulder rotation",
+  "serve": "Reliable first or second serve with consistent toss and swing path",
+  "return": "Ball returned in play with positioning and early preparation",
+  "net_play": "Effective volleys at the net with correct positioning",
+  "volley": "Short, punched volleys with minimal backswing",
+  "footwork": "Quick first step and recovery after each shot",
+  "rally_consistency": "Sustained rally of 5+ shots with directional control",
+  "match_play": "Applied tactical decisions in point play situations",
+  "movement_patterns": "Efficient court coverage and recovery to base position",
+  "tactics_patterns": "Used deliberate patterns (e.g., crosscourt/down-the-line) during points",
+  "serve_return": "Effective serve-and-return combination showing consistency",
+  "fitness_conditioning": "Maintained effort and movement quality throughout session",
+  "coordination_agility": "Smooth, coordinated movement with agility in direction changes",
+};
+
 export function AICoachingChatModal({ visible, onClose, sessionId, playerId, playerName }: Props) {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -131,6 +157,10 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
   // isDraftHydrated guards both greeting and persistence effects from running
   // before the AsyncStorage restore attempt has finished.
   const [isDraftHydrated, setIsDraftHydrated] = useState(false);
+  // Skill verification: queue of 2-3 skills shown one-at-a-time at wrap-up
+  const [verificationQueue, setVerificationQueue] = useState<VerificationSkill[]>([]);
+  const [verifyIndex, setVerifyIndex] = useState(0);
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const slideAnim = useRef(new Animated.Value(1)).current; // 0 = visible, 1 = off-screen below
   const isWrappingUpRef = useRef(false);
@@ -195,6 +225,26 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     AsyncStorage.setItem(key, JSON.stringify(messages)).catch(() => {});
   }, [messages, sessionId, playerId, visible, isDraftHydrated]);
 
+  // Load verification queue when pendingSummary appears for the first time
+  useEffect(() => {
+    if (!pendingSummary || verificationQueue.length > 0 || !ctx) return;
+    // Show 2-3 curriculum skills that score < 1.5 (Not Yet / Emerging), one-at-a-time
+    const candidates = ctx.requiredSkills
+      .filter((s) => s.currentScore === null || s.currentScore < 1.5)
+      .slice(0, 3);
+    if (candidates.length > 0) {
+      setVerificationQueue(candidates.map((s) => ({
+        skillId: s.skillId,
+        skillName: s.skillName,
+        pillar: s.pillar,
+        currentScore: s.currentScore,
+        targetScore: s.targetScore,
+        observableDescription: SKILL_OBSERVATIONS[s.skillId] ?? SKILL_OBSERVATIONS[s.skillId.replace(/-/g, "_")] ?? `Showed improvement in ${s.skillName}`,
+      })));
+      setVerifyIndex(0);
+    }
+  }, [pendingSummary]);
+
   // Reset on close
   useEffect(() => {
     if (!visible) {
@@ -204,6 +254,9 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       setLevelUpChoice(null);
       setResumedDraft(false);
       setIsDraftHydrated(false);
+      setVerificationQueue([]);
+      setVerifyIndex(0);
+      setVerifyLoading(false);
       slideAnim.setValue(1); // reset for next open
     }
   }, [visible]);
@@ -283,7 +336,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     },
   });
 
-  // Commit mutation
+  // Commit mutation - skills already submitted via verifySkill handler before this runs
   const commitMutation = useMutation({
     mutationFn: async () => {
       if (!pendingSummary) throw new Error("No summary");
@@ -324,6 +377,31 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     isWrappingUpRef.current = true;
     chatMutation.mutate(WRAP_UP_PROMPT);
+  };
+
+  // Handle one-at-a-time skill verification tap
+  const handleVerifySkill = async (verdict: boolean) => {
+    const skill = verificationQueue[verifyIndex];
+    if (!skill || verifyLoading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (verdict) {
+      // "Yes" → call feedback endpoint in skill-only mode with score 2
+      setVerifyLoading(true);
+      try {
+        await apiRequest(
+          "POST",
+          `/api/glow/sessions/${sessionId}/feedback`,
+          {
+            playerId,
+            skillRatings: { [skill.skillId]: 2 },
+            skillOnly: true,
+          },
+        );
+      } catch { /* non-fatal - proceed to next skill */ }
+      setVerifyLoading(false);
+    }
+    // Advance to next skill or done
+    setVerifyIndex((prev) => prev + 1);
   };
 
   if (!visible) return null;
@@ -448,6 +526,45 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
               ) : null}
             </ScrollView>
 
+            {/* Wrap-up Skill Verification — one-at-a-time */}
+            {pendingSummary && verificationQueue.length > 0 && verifyIndex < verificationQueue.length && !commitMutation.isSuccess ? (
+              <View style={styles.verificationPanel}>
+                <View style={styles.verificationHeader}>
+                  <Ionicons name="checkmark-circle-outline" size={14} color={Colors.dark.primary} />
+                  <Text style={styles.verificationTitle}>Quick Skill Check</Text>
+                  <Text style={styles.verificationCounter}>{verifyIndex + 1}/{verificationQueue.length}</Text>
+                </View>
+                <View style={styles.verificationCard}>
+                  <View style={styles.verificationSkillInfo}>
+                    <Text style={styles.verificationSkillName}>{verificationQueue[verifyIndex].skillName}</Text>
+                    <Text style={styles.verificationObservable}>
+                      {verificationQueue[verifyIndex].observableDescription ?? `Did ${playerName} show this skill today?`}
+                    </Text>
+                  </View>
+                  <View style={styles.verificationBtns}>
+                    <Pressable
+                      style={[styles.verifyBtn, styles.verifyBtnYes]}
+                      onPress={() => handleVerifySkill(true)}
+                      disabled={verifyLoading}
+                    >
+                      {verifyLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.verifyBtnTextYes}>Yes, they showed it!</Text>
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[styles.verifyBtn, styles.verifyBtnNo]}
+                      onPress={() => handleVerifySkill(false)}
+                      disabled={verifyLoading}
+                    >
+                      <Text style={styles.verifyBtnTextNo}>Not this session</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
             {/* Summary Approval Panel */}
             {pendingSummary && !commitMutation.isSuccess ? (
               <View style={styles.summaryPanel}>
@@ -559,23 +676,35 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                   >
                     <Text style={styles.continueButtonText}>Continue chat</Text>
                   </Pressable>
-                  <Pressable
-                    style={[styles.saveButton, commitMutation.isPending && { opacity: 0.6 }]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      commitMutation.mutate();
-                    }}
-                    disabled={commitMutation.isPending}
-                  >
-                    {commitMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                    ) : (
-                      <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
-                    )}
-                    <Text style={styles.saveButtonText}>
-                      {commitMutation.isPending ? "Saving..." : "Save & Close"}
-                    </Text>
-                  </Pressable>
+                  {(() => {
+                    const verifyPending = verificationQueue.length > 0 && verifyIndex < verificationQueue.length;
+                    return (
+                      <Pressable
+                        style={[
+                          styles.saveButton,
+                          (commitMutation.isPending || verifyPending) && { opacity: 0.4 },
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          commitMutation.mutate();
+                        }}
+                        disabled={commitMutation.isPending || verifyPending}
+                      >
+                        {commitMutation.isPending ? (
+                          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                        ) : (
+                          <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                        )}
+                        <Text style={styles.saveButtonText}>
+                          {commitMutation.isPending
+                            ? "Saving..."
+                            : verifyPending
+                            ? `Answer ${verificationQueue.length - verifyIndex} skill check${verificationQueue.length - verifyIndex > 1 ? "s" : ""}`
+                            : "Save & Close"}
+                        </Text>
+                      </Pressable>
+                    );
+                  })()}
                 </View>
               </View>
             ) : null}
@@ -978,5 +1107,82 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
+  },
+  verificationPanel: {
+    backgroundColor: Colors.dark.primary + "0E",
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.primary + "30",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  verificationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  verificationTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  verificationCounter: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginLeft: "auto",
+  },
+  verificationCard: {
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  verificationSkillInfo: {
+    flex: 1,
+  },
+  verificationSkillName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  verificationObservable: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    lineHeight: 16,
+  },
+  verificationBtns: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: Spacing.xs,
+  },
+  verifyBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 40,
+  },
+  verifyBtnYes: {
+    backgroundColor: Colors.dark.primary,
+  },
+  verifyBtnNo: {
+    backgroundColor: Colors.dark.backgroundCard,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  verifyBtnText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  verifyBtnTextYes: {
+    fontSize: 13,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  verifyBtnTextNo: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
   },
 });

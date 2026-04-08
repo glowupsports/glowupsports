@@ -91,7 +91,7 @@ interface SessionDetailDrawerProps {
   onClose: () => void;
   onAttendance: () => void;
   onFeedback?: () => void;
-  initialAction?: "attendance" | "detail" | "extend" | "end";
+  initialAction?: "attendance" | "detail" | "extend" | "end" | "ai";
 }
 
 type StartDateOption = "today" | "previous" | "custom";
@@ -170,6 +170,11 @@ export default function SessionDetailDrawer({
           onAttendanceRef.current?.();
         }, 150);
         return () => clearTimeout(timer);
+      } else if (initialAction === "ai") {
+        // Auto-trigger AI chat intake flow
+        setShowExtendOptions(false);
+        setShowEndConfirm(false);
+        // Will be handled by the "Coach with AI" button auto-click via useEffect below
       } else {
         // Reset to main view for normal openings
         setShowExtendOptions(false);
@@ -2465,7 +2470,7 @@ export default function SessionDetailDrawer({
         onClose={() => setDeepAssessPlayer(null)}
       />
 
-      {/* Feedback Player Picker — for multi-player sessions */}
+      {/* AI Coaching Chat Modal */}
       {aiChatPlayer ? (
         <AICoachingChatModal
           visible={!!aiChatPlayer}

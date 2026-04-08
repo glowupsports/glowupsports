@@ -7165,3 +7165,48 @@ export const sessionRatingInputSchema = z.object({
 export type InsertSessionRating = z.infer<typeof insertSessionRatingSchema>;
 export type SessionRating = typeof sessionRatings.$inferSelect;
 export type SessionRatingInput = z.infer<typeof sessionRatingInputSchema>;
+
+// ==================== SESSION INTAKE DATA ====================
+
+// Stores structured pre-chat intake data collected before an AI coaching session
+export const sessionIntakeData = pgTable("session_intake_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => sessions.id).notNull(),
+  // Null for group-level intake; set for per-player intake
+  playerId: varchar("player_id").references(() => players.id),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+
+  // Step 1: What was trained & intensity
+  trainedSkills: jsonb("trained_skills").$type<string[]>().default([]),
+  intensity: text("intensity"), // light | normal | intense
+
+  // Step 2: Group dynamics (group/semi-private only, stored at session level, playerId = null)
+  groupDynamics: jsonb("group_dynamics").$type<{
+    overallFocus?: string;       // low | medium | high
+    listeningCoachability?: string; // needs_work | ok | great
+    groupEnergy?: string;        // flat | normal | electric
+    groupCohesion?: string;      // fragmented | mixed | united
+  }>(),
+
+  // Step 2b: Player tags (group/semi-private; stored per player)
+  playerTags: jsonb("player_tags").$type<string[]>(), // led_group | distracted | helped_others | struggled | stood_out
+
+  // Step 3: Per-player pillar ratings
+  pillarRatings: jsonb("pillar_ratings").$type<{
+    effort?: string;    // needs_attention | developing | good
+    technique?: string;
+    tactical?: string;
+    physical?: string;
+    mental?: string;
+  }>(),
+  highlight: text("highlight"), // breakthrough | steady | tough_day
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("session_intake_data_session_idx").on(table.sessionId),
+  index("session_intake_data_player_idx").on(table.playerId),
+]);
+
+export const insertSessionIntakeDataSchema = createInsertSchema(sessionIntakeData).omit({ id: true, createdAt: true });
+export type InsertSessionIntakeData = z.infer<typeof insertSessionIntakeDataSchema>;
+export type SessionIntakeData = typeof sessionIntakeData.$inferSelect;

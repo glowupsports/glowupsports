@@ -12,9 +12,12 @@ import {
   levelTrials,
   sessionSkillFeedback,
   coachCalibration,
-  players
+  players,
+  sessions,
+  sessionPlayers,
+  sessionIntakeData,
 } from "../../shared/schema";
-import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, gte, isNull, notInArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
 import { awardXP } from "../services/xp-service";
 import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
@@ -714,8 +717,16 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
       playerNote,
     } = req.body;
     
-    if (!playerId || effort === undefined || execution === undefined || understanding === undefined || !overall) {
+    // "skillOnly" mode: only updates skill scores without requiring full feedback fields.
+    // Used by wrap-up skill verification cards in the AI coaching chat.
+    const skillOnly = req.body.skillOnly === true;
+
+    if (!skillOnly && (!playerId || effort === undefined || execution === undefined || understanding === undefined || !overall)) {
       return res.status(400).json({ error: "Missing required feedback fields" });
+    }
+
+    if (!playerId) {
+      return res.status(400).json({ error: "playerId is required" });
     }
     
     // Validate player ownership
@@ -723,6 +734,29 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
       return res.status(404).json({ error: "Player not found" });
     }
     
+    if (skillOnly) {
+      // Skill-only mode: just process skill scores and return.
+      // Validate session ownership and player membership before writing scores.
+      const [sessionOwner] = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(and(eq(sessions.id, sessionId), eq(sessions.coachId, coachId!)));
+      if (!sessionOwner) {
+        return res.status(403).json({ error: "Session not found or not owned by coach" });
+      }
+      const [playerInSession] = await db
+        .select({ playerId: sessionPlayers.playerId })
+        .from(sessionPlayers)
+        .where(and(eq(sessionPlayers.sessionId, sessionId), eq(sessionPlayers.playerId, playerId)));
+      if (!playerInSession) {
+        return res.status(403).json({ error: "Player does not belong to this session" });
+      }
+      if (skillRatings && Object.keys(skillRatings).length > 0) {
+        await processSkillScores(playerId, sessionId, coachId!, skillRatings);
+      }
+      return res.json({ ok: true, skillOnly: true });
+    }
+
     // Validate scores (0-2)
     if (effort < 0 || effort > 2 || execution < 0 || execution > 2 || understanding < 0 || understanding > 2) {
       return res.status(400).json({ error: "Scores must be 0, 1, or 2" });
@@ -820,6 +854,7 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
     res.status(500).json({ error: "Failed to submit feedback" });
   }
 });
+
 
 // Get feedback for a session
 router.get("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
@@ -2075,6 +2110,295 @@ router.get("/api/glow/blue-levels/:levelId/pillar/:pillar", async (req, res: Res
   } catch (error) {
     console.error("Error fetching blue pillar skills:", error);
     res.status(500).json({ error: "Failed to fetch blue pillar skills" });
+  }
+});
+
+// ==================== SESSION INTAKE ====================
+
+// GET /api/coach/sessions/pending-feedback
+// Returns completed sessions in last 7 days that have no session_skill_feedback for at least one present player
+router.get("/api/coach/sessions/pending-feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const coachId = req.user!.coachId;
+    const academyId = req.user!.academyId;
+    if (!coachId || !academyId) return res.status(403).json({ error: "Forbidden" });
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get completed sessions from last 7 days for this coach
+    const recentCompleted = await db
+      .select({
+        id: sessions.id,
+        startTime: sessions.startTime,
+        sessionType: sessions.sessionType,
+        status: sessions.status,
+      })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.coachId, coachId),
+          eq(sessions.status, "completed"),
+          gte(sessions.startTime, sevenDaysAgo)
+        )
+      )
+      .orderBy(desc(sessions.startTime));
+
+    if (recentCompleted.length === 0) {
+      return res.json([]);
+    }
+
+    const sessionIds = recentCompleted.map((s) => s.id);
+
+    // Get all present players for these sessions
+    const presentPlayers = await db
+      .select({
+        sessionId: sessionPlayers.sessionId,
+        playerId: sessionPlayers.playerId,
+        playerName: players.name,
+        attendanceStatus: sessionPlayers.attendanceStatus,
+      })
+      .from(sessionPlayers)
+      .innerJoin(players, eq(sessionPlayers.playerId, players.id))
+      .where(
+        and(
+          inArray(sessionPlayers.sessionId, sessionIds),
+          eq(sessionPlayers.attendanceStatus, "present")
+        )
+      );
+
+    // Get sessions that already have feedback for ALL present players
+    const existingFeedback = await db
+      .select({
+        sessionId: sessionSkillFeedback.sessionId,
+        playerId: sessionSkillFeedback.playerId,
+      })
+      .from(sessionSkillFeedback)
+      .where(inArray(sessionSkillFeedback.sessionId, sessionIds));
+
+    const feedbackSet = new Set(
+      existingFeedback.map((f) => `${f.sessionId}:${f.playerId}`)
+    );
+
+    // Build per-session player map
+    const playersBySession = new Map<string, { id: string; name: string; attendanceStatus: string }[]>();
+    for (const p of presentPlayers) {
+      if (!playersBySession.has(p.sessionId)) {
+        playersBySession.set(p.sessionId, []);
+      }
+      playersBySession.get(p.sessionId)!.push({ id: p.playerId, name: p.playerName, attendanceStatus: p.attendanceStatus ?? "present" });
+    }
+
+    const pending = [];
+    for (const session of recentCompleted) {
+      const sessionPlayerList = playersBySession.get(session.id) || [];
+      if (sessionPlayerList.length === 0) continue;
+
+      const isGroup = session.sessionType === "group";
+      const isSemiPrivate = session.sessionType === "semi_private";
+      const isPrivate = session.sessionType === "private";
+
+      if (isGroup) {
+        // Group: one card per session — show all players needing feedback
+        const missingPlayers = sessionPlayerList.filter(
+          (p) => !feedbackSet.has(`${session.id}:${p.id}`)
+        );
+        if (missingPlayers.length > 0) {
+          pending.push({
+            sessionId: session.id,
+            startTime: session.startTime,
+            sessionType: session.sessionType,
+            players: missingPlayers,
+            playerCount: missingPlayers.length,
+            needsGroupDynamics: true,
+            cardType: "group" as const,
+          });
+        }
+      } else {
+        // Private / semi-private: one card per player needing feedback
+        for (const p of sessionPlayerList) {
+          if (!feedbackSet.has(`${session.id}:${p.id}`)) {
+            pending.push({
+              sessionId: session.id,
+              startTime: session.startTime,
+              sessionType: session.sessionType,
+              players: [p],
+              playerCount: 1,
+              needsGroupDynamics: isSemiPrivate,
+              cardType: (isPrivate ? "private" : "semi_private") as "private" | "semi_private",
+            });
+          }
+        }
+      }
+    }
+
+    res.json(pending);
+  } catch (error) {
+    console.error("[PendingFeedback] Error:", error);
+    res.status(500).json({ error: "Failed to fetch pending feedback" });
+  }
+});
+
+// POST /api/coach/sessions/:sessionId/intake
+// Save intake data for a session. If saveOnly=true, also writes pillar ratings directly to skill feedback.
+router.post("/api/coach/sessions/:sessionId/intake", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const coachId = req.user!.coachId;
+    const academyId = req.user!.academyId;
+    if (!coachId || !academyId) return res.status(403).json({ error: "Forbidden" });
+
+    const {
+      trainedSkills,
+      intensity,
+      groupDynamics,
+      playerData, // array of { playerId, playerTags, pillarRatings, highlight }
+      saveOnly,
+    } = req.body as {
+      trainedSkills: string[];
+      intensity: string;
+      groupDynamics?: Record<string, string>;
+      playerData: Array<{
+        playerId: string;
+        playerTags?: string[];
+        pillarRatings?: Record<string, string>;
+        highlight?: string;
+      }>;
+      saveOnly?: boolean;
+    };
+
+    if (!Array.isArray(playerData) || playerData.length === 0) {
+      return res.status(400).json({ error: "playerData is required" });
+    }
+
+    // Verify session ownership
+    const [session] = await db
+      .select({ id: sessions.id, sessionType: sessions.sessionType })
+      .from(sessions)
+      .where(and(eq(sessions.id, sessionId), eq(sessions.coachId, coachId)));
+    if (!session) return res.status(404).json({ error: "Session not found" });
+
+    // Verify all submitted playerIds actually belong to this session
+    const submittedPlayerIds = playerData.map((pd) => pd.playerId);
+    const sessionPlayerRows = await db
+      .select({ playerId: sessionPlayers.playerId })
+      .from(sessionPlayers)
+      .where(and(
+        eq(sessionPlayers.sessionId, sessionId),
+        inArray(sessionPlayers.playerId, submittedPlayerIds),
+      ));
+    if (sessionPlayerRows.length !== submittedPlayerIds.length) {
+      return res.status(403).json({ error: "One or more players do not belong to this session" });
+    }
+
+    const isGroup = session.sessionType === "group" || session.sessionType === "semi_private";
+
+    // Store session-level intake row (playerId = null) for ALL session types so that
+    // trainedSkills/intensity can be read for AI context injection in private sessions too.
+    // Delete any existing session-level row first, then insert fresh.
+    await db
+      .delete(sessionIntakeData)
+      .where(and(
+        eq(sessionIntakeData.sessionId, sessionId),
+        isNull(sessionIntakeData.playerId),
+      ));
+    await db
+      .insert(sessionIntakeData)
+      .values({
+        sessionId,
+        playerId: null,
+        coachId,
+        trainedSkills: trainedSkills || [],
+        intensity: intensity || null,
+        groupDynamics: (isGroup && groupDynamics) ? groupDynamics : null,
+        playerTags: null,
+        pillarRatings: null,
+        highlight: null,
+      });
+
+    // Store per-player intake rows
+    for (const pd of playerData) {
+      await db
+        .insert(sessionIntakeData)
+        .values({
+          sessionId,
+          playerId: pd.playerId,
+          coachId,
+          trainedSkills: isGroup ? [] : (trainedSkills || []),
+          intensity: isGroup ? null : (intensity || null),
+          groupDynamics: null,
+          playerTags: pd.playerTags || null,
+          pillarRatings: pd.pillarRatings || null,
+          highlight: pd.highlight || null,
+        });
+    }
+
+    // If save-only mode, write pillar ratings directly to session_skill_feedback
+    if (saveOnly) {
+      const pillarToScore = (val: string | undefined): number => {
+        if (val === "good") return 2;
+        if (val === "developing") return 1;
+        return 0;
+      };
+
+      for (const pd of playerData) {
+        if (!pd.pillarRatings) continue;
+        const pr = pd.pillarRatings;
+
+        // Check for existing feedback (to avoid duplicate unique constraint)
+        const [existing] = await db
+          .select({ id: sessionSkillFeedback.id })
+          .from(sessionSkillFeedback)
+          .where(
+            and(
+              eq(sessionSkillFeedback.sessionId, sessionId),
+              eq(sessionSkillFeedback.playerId, pd.playerId)
+            )
+          );
+
+        if (existing) {
+          // Update with intake pillar ratings
+          await db
+            .update(sessionSkillFeedback)
+            .set({
+              techniquePillar: pillarToScore(pr.technique),
+              tacticalPillar: pillarToScore(pr.tactical),
+              physicalPillar: pillarToScore(pr.physical),
+              mentalPillar: pillarToScore(pr.mental),
+              lessonIntensity: intensity || null,
+            })
+            .where(eq(sessionSkillFeedback.id, existing.id));
+        } else {
+          const effortScore = pillarToScore(pr.effort);
+          await db.insert(sessionSkillFeedback).values({
+            sessionId,
+            playerId: pd.playerId,
+            coachId,
+            effort: effortScore,
+            execution: effortScore,
+            understanding: effortScore,
+            overall: pd.highlight === "breakthrough" ? "improved" : pd.highlight === "tough_day" ? "declined" : "stable",
+            techniquePillar: pillarToScore(pr.technique),
+            tacticalPillar: pillarToScore(pr.tactical),
+            physicalPillar: pillarToScore(pr.physical),
+            mentalPillar: pillarToScore(pr.mental),
+            lessonIntensity: intensity || null,
+          });
+        }
+
+        // Update pillar progress
+        await updatePillarProgress(pd.playerId, sessionId, {
+          effort: pillarToScore(pr.effort),
+          execution: pillarToScore(pr.technique ?? pr.effort),
+          understanding: pillarToScore(pr.tactical ?? pr.effort),
+          overall: pd.highlight === "breakthrough" ? "improved" : pd.highlight === "tough_day" ? "declined" : "stable",
+        });
+      }
+    }
+
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error("[Intake] Error saving intake data:", error);
+    res.status(500).json({ error: "Failed to save intake data" });
   }
 });
 

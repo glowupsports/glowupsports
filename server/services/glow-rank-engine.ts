@@ -139,7 +139,7 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
       score,
       movingAverage: movingAvg,
       observationCount: latestScore?.observationCount ?? 0,
-      achieved: movingAvg >= targetScore,
+      achieved: movingAvg >= 1.5,
     };
   });
 
