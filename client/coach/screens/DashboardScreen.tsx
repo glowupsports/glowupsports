@@ -2147,6 +2147,7 @@ export default function DashboardScreen() {
           if (selectedSessionForDetail) {
             const sess = selectedSessionForDetail;
             setSelectedSessionForDetail(null);
+            setDetailInitialAction(undefined);
             setTimeout(() => {
               setSelectedSessionForAttendance(sess);
             }, 300);
