@@ -1586,7 +1586,8 @@ export const sessions = pgTable("sessions", {
   isLastMinuteCancellation: boolean("is_last_minute_cancellation").default(false),
   cancellationCharged: boolean("cancellation_charged").default(false),
   cancellationChargeAmount: numeric("cancellation_charge_amount"),
-  
+  coachReviewedAt: timestamp("coach_reviewed_at"), // Set when coach manually saves attendance
+
   googleCalendarEventId: text("google_calendar_event_id"), // External Google Calendar event ID for sync
   
   reminder1hSent: boolean("reminder_1h_sent").default(false),

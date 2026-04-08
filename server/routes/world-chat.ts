@@ -2845,6 +2845,9 @@ async function autoCancel(
 
         const totalXpAwarded = (xpAwarded ? 25 : 0) + sessionCompletionXp;
         
+        // Mark session as reviewed by coach
+        await db.update(sessions).set({ coachReviewedAt: new Date() }).where(eq(sessions.id, id));
+
         // Invalidate server-side caches so next fetch gets fresh data
         if (coachId) {
           apiCache.invalidate(`series:${coachId}`);
@@ -2935,6 +2938,9 @@ async function autoCancel(
         const { rewardCoachForTimelyAttendance } = await import("../pushNotifications");
         xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
       }
+
+      // Mark session as reviewed by coach
+      await db.update(sessions).set({ coachReviewedAt: new Date() }).where(eq(sessions.id, id));
 
       // Invalidate server-side caches for single player attendance
       if (coachId) {

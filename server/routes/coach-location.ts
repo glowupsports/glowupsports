@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { db } from "../db";
 import { coaches, sessions, locations, locationTravelTimes, sessionPlayers, coachingSeries, players } from "@shared/schema";
-import { eq, and, gte, lte, isNotNull, asc, inArray, isNull, or, lt, desc } from "drizzle-orm";
+import { eq, and, gte, lte, isNotNull, asc, inArray, isNull, lt, desc } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, requireRole } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
 
@@ -297,7 +297,7 @@ function toRad(deg: number): number {
 }
 
 // GET /api/coach/me/pending-attendance
-// Returns completed sessions (last 60 days) that have at least one player with NULL attendance_status
+// Returns up to 20 completed sessions from the last 30 days that the coach hasn't personally reviewed
 router.get(
   "/api/coach/me/pending-attendance",
   authMiddleware,
@@ -308,25 +308,19 @@ router.get(
       if (!coachId) return res.status(403).json({ error: "Coach only" });
 
       const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      // Step 1: Find the 20 most-recent session IDs for this coach where at least one
-      // session_player has NULL or 'pending' attendance_status.
-      // Sessions must be completed (status='completed') or past end_time with no status set.
+      // Step 1: Sessions coach hasn't reviewed (last 30 days, completed, ended)
       const pendingSessionRows = await db
-        .selectDistinct({ sessionId: sessionPlayers.sessionId, startTime: sessions.startTime })
-        .from(sessionPlayers)
-        .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+        .select({ sessionId: sessions.id, startTime: sessions.startTime })
+        .from(sessions)
         .where(
           and(
             eq(sessions.coachId, coachId),
-            and(
-              eq(sessions.status, "completed"),
-              lt(sessions.endTime, now)
-            ),
-            or(
-              isNull(sessionPlayers.attendanceStatus),
-              eq(sessionPlayers.attendanceStatus, "pending")
-            )
+            eq(sessions.status, "completed"),
+            lt(sessions.endTime, now),
+            gte(sessions.startTime, thirtyDaysAgo),
+            isNull(sessions.coachReviewedAt)
           )
         )
         .orderBy(desc(sessions.startTime))
@@ -353,8 +347,8 @@ router.get(
         .where(inArray(sessions.id, sessionIds))
         .orderBy(desc(sessions.startTime));
 
-      // Step 3: Get pending players (NULL or 'pending' attendance) for each session
-      const pendingPlayers = await db
+      // Step 3: Get ALL players for each session (not filtered by attendance status)
+      const allPlayers = await db
         .select({
           sessionId: sessionPlayers.sessionId,
           playerId: sessionPlayers.playerId,
@@ -362,15 +356,7 @@ router.get(
         })
         .from(sessionPlayers)
         .innerJoin(players, eq(players.id, sessionPlayers.playerId))
-        .where(
-          and(
-            inArray(sessionPlayers.sessionId, sessionIds),
-            or(
-              isNull(sessionPlayers.attendanceStatus),
-              eq(sessionPlayers.attendanceStatus, "pending")
-            )
-          )
-        );
+        .where(inArray(sessionPlayers.sessionId, sessionIds));
 
       // Step 4: Merge
       const result = sessionDetails.map((sess) => ({
@@ -379,15 +365,12 @@ router.get(
         endTime: sess.endTime,
         sessionType: sess.sessionType,
         seriesTitle: sess.seriesTitle ?? "Session",
-        pendingPlayers: pendingPlayers
+        players: allPlayers
           .filter((p) => p.sessionId === sess.sessionId)
           .map((p) => ({ id: p.playerId, name: p.playerName })),
       }));
 
-      // Filter out any session where pending players list is empty (already resolved race condition)
-      const filtered = result.filter((r) => r.pendingPlayers.length > 0);
-
-      res.json(filtered);
+      res.json(result);
     } catch (err) {
       console.error("[pending-attendance] error:", err);
       res.status(500).json({ error: "Failed to fetch pending attendance" });

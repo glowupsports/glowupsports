@@ -697,6 +697,12 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[PlayerNameRepair] Skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS coach_reviewed_at TIMESTAMP`);
+    console.log('[Database] sessions coach_reviewed_at migration applied');
+  } catch (e: any) {
+    console.log('[Database] sessions coach_reviewed_at migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

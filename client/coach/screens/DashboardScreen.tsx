@@ -99,11 +99,11 @@ interface Alert {
 
 interface PendingAttendanceSession {
   sessionId: string;
-  startTime: string;
-  endTime: string;
+  startTime: string | Date;
+  endTime: string | Date;
   sessionType: string;
   seriesTitle: string;
-  pendingPlayers: Array<{ id: string; name: string }>;
+  players: Array<{ id: string; name: string }>;
 }
 
 interface WeeklyCalendarData {
@@ -194,7 +194,7 @@ function PendingAttendanceCard({
   const displayed = showAll ? sessions : sessions.slice(0, 5);
   const hidden = sessions.length - 5;
 
-  function formatSessionDate(startTime: string): string {
+  function formatSessionDate(startTime: string | Date): string {
     const d = new Date(startTime);
     const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
     const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
@@ -228,7 +228,7 @@ function PendingAttendanceCard({
               <Text style={attendanceCardStyles.seriesTitle} numberOfLines={1}>{sess.seriesTitle}</Text>
               <Text style={attendanceCardStyles.dateText}>{formatSessionDate(sess.startTime)}</Text>
               <Text style={attendanceCardStyles.playersText} numberOfLines={1}>
-                {sess.pendingPlayers.map((p) => p.name).join(", ")}
+                {sess.players.length} player{sess.players.length !== 1 ? 's' : ''} · tap to review
               </Text>
             </View>
           </View>
@@ -1952,7 +1952,7 @@ export default function DashboardScreen() {
                 ),
                 sessionType: sess.sessionType,
                 status: "completed",
-                players: sess.pendingPlayers.map((p) => ({ id: p.id, name: p.name })),
+                players: sess.players.map((p) => ({ id: p.id, name: p.name })),
               };
               setDetailInitialAction("attendance");
               setSelectedSessionForDetail(sessionObj);
