@@ -2,6 +2,21 @@ import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+// Throttle in-memory cache: track last time we updated last_active_at per playerId
+const lastActiveCache = new Map<string, number>();
+const LAST_ACTIVE_THROTTLE_MS = 5 * 60 * 1000; // update at most once per 5 min per player
+
+function touchPlayerLastActive(playerId: string): void {
+  const now = Date.now();
+  const last = lastActiveCache.get(playerId) || 0;
+  if (now - last < LAST_ACTIVE_THROTTLE_MS) return;
+  lastActiveCache.set(playerId, now);
+  // Fire and forget — never blocks the request
+  import("./db").then(({ pool }) => {
+    pool.query("UPDATE players SET last_active_at = NOW() WHERE id = $1", [playerId]).catch(() => {});
+  }).catch(() => {});
+}
+
 if (!process.env.SESSION_SECRET) {
   throw new Error("[FATAL] SESSION_SECRET environment variable is not set. Server cannot start without a secure JWT secret.");
 }
@@ -264,6 +279,11 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           playerId: effectivePlayerId,
           currentAcademyId: effectiveAcademyId,
         };
+
+        // Track last active time for player users (fire-and-forget, throttled to once per 5 min)
+        if (effectivePlayerId) {
+          touchPlayerLastActive(effectivePlayerId);
+        }
         
         // Check maintenance mode for non-platform_owner users
         if (freshUser.role !== "platform_owner") {
