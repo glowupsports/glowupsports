@@ -1,5 +1,6 @@
 import logger from "@/lib/logger";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
@@ -237,7 +238,7 @@ export function SessionHeroCard({
   const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const { state } = usePlayerState();
-  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId } = state;
+  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId, sessionDuration } = state;
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
 
@@ -304,6 +305,43 @@ export function SessionHeroCard({
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/notifications/unread-count"] });
     },
   });
+
+  const DISMISSED_REFLECTION_KEY = "@glow_dismissed_reflection_session";
+  const [reflectionDismissed, setReflectionDismissed] = useState(false);
+
+  const { data: reflectionData, isLoading: reflectionLoading } = useQuery<{ id: string } | null>({
+    queryKey: [`/api/player/sessions/${sessionId}/reflection`],
+    enabled: sessionStatus === "ended" && !!sessionId && !reflectionDismissed,
+  });
+
+  const reflectionAlreadyExists = !reflectionLoading && !!reflectionData?.id;
+
+  useEffect(() => {
+    if (sessionStatus !== "ended" || !sessionId) {
+      setReflectionDismissed(false);
+      return;
+    }
+    let cancelled = false;
+    AsyncStorage.getItem(DISMISSED_REFLECTION_KEY).then((dismissedId) => {
+      if (!cancelled) {
+        setReflectionDismissed(dismissedId === sessionId);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [sessionStatus, sessionId]);
+
+  const handleDismissReflection = useCallback(async () => {
+    if (!sessionId) return;
+    await AsyncStorage.setItem(DISMISSED_REFLECTION_KEY, sessionId);
+    setReflectionDismissed(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [sessionId]);
+
+  const handleReflectOnSession = useCallback(() => {
+    if (!sessionId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate("TrainingDetail", { sessionId });
+  }, [sessionId, navigation]);
 
   const pulseValue = useSharedValue(0);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -1488,6 +1526,101 @@ export function SessionHeroCard({
             </View>
           </Modal>
 
+        </View>
+      </View>
+    );
+  }
+
+  if (sessionStatus === "ended" && sessionId && !reflectionDismissed && reflectionLoading) {
+    return (
+      <View style={styles.coachStyleCard}>
+        <View style={[styles.coachCardAccentLine, { backgroundColor: "#A78BFA" }]} />
+        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={styles.commandIconWrap}>
+                <Feather name="calendar" size={14} color={GlowColors.primary} />
+              </View>
+              <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
+            </View>
+          </View>
+          <View style={styles.commandDisplay}>
+            <Text style={styles.commandPrimary}>{t("player.home.sessionComplete")}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (sessionStatus === "ended" && sessionId && !reflectionDismissed && !reflectionLoading && !reflectionAlreadyExists) {
+    const durationLabel = sessionDuration ? `${sessionDuration} min` : null;
+    const sessionSubtitle = [
+      coachName ? `with ${coachName}` : null,
+      durationLabel,
+    ].filter(Boolean).join(" · ");
+    return (
+      <View style={styles.coachStyleCard}>
+        <View style={[styles.coachCardAccentLine, { backgroundColor: "#A78BFA" }]} />
+        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={styles.commandIconWrap}>
+                <Feather name="calendar" size={14} color={GlowColors.primary} />
+              </View>
+              <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
+            </View>
+            <SwipeBlocker>
+              <Pressable
+                onPress={handleDismissReflection}
+                hitSlop={12}
+                style={{ padding: 4 }}
+              >
+                <Feather name="x" size={18} color="#8A8F9E" />
+              </Pressable>
+            </SwipeBlocker>
+          </View>
+
+          <View style={styles.commandDisplay}>
+            <Text style={styles.commandPrimary}>{t("player.home.sessionComplete")}</Text>
+            {sessionSubtitle ? (
+              <Text style={styles.commandSecondary}>{sessionSubtitle}</Text>
+            ) : null}
+          </View>
+
+          <View style={[styles.commandActions, { marginTop: Spacing.md }]}>
+            <SwipeBlocker>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cleanPrimaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleReflectOnSession}
+              >
+                <LinearGradient
+                  colors={["#7C3AED", "#A78BFA"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cleanPrimaryGradient}
+                >
+                  <Feather name="mic" size={18} color="#FFFFFF" />
+                  <Text style={[styles.cleanPrimaryButtonText, { color: "#FFFFFF" }]}>{t("player.home.reflectOnSession")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </SwipeBlocker>
+
+            <SwipeBlocker>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.commandOutlineButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleBookSession}
+              >
+                <Feather name="calendar" size={16} color={GlowColors.primary} />
+                <Text style={styles.commandOutlineButtonText}>{t("player.home.bookLesson")}</Text>
+              </Pressable>
+            </SwipeBlocker>
+          </View>
         </View>
       </View>
     );

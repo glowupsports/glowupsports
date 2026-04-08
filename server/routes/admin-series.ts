@@ -7,6 +7,7 @@ import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
 } from "@shared/schema";
+import { sendReflectionReminderForSession } from "../pushNotifications";
 import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -1068,7 +1069,19 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             console.error(`[XP] Error awarding XP to player ${presentPlayer.playerId}:`, xpError);
           }
         }
-        
+
+        // Send reflection reminder push notification to present/late players
+        // Use authoritative DB records (allSessionPlayers) rather than the request payload to avoid
+        // partial-update edge cases where some players may not be included in this request.
+        const eligiblePlayerIds = allSessionPlayers
+          .filter((sp) => sp.attendanceStatus === "present" || sp.attendanceStatus === "late")
+          .map((sp) => sp.playerId)
+          .filter(Boolean) as string[];
+        if (eligiblePlayerIds.length > 0) {
+          sendReflectionReminderForSession(id, eligiblePlayerIds).catch((err) =>
+            console.error(`[ReflectionReminder] Error sending reminders for session ${id}:`, err)
+          );
+        }
       }
 
       res.json({ success: true, updated: results.length });
@@ -3250,6 +3263,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         const session = sortedSessions.find(s => s.isActive) || sortedSessions.find(s => s.isUpcoming) || sortedSessions[0];
         const court = session.courtId ? await storage.getCourt(session.courtId) : null;
         const sessionCoach = session.coachId ? await storage.getCoach(session.coachId) : null;
+        const durationMinutes = session.startTime && session.endTime
+          ? Math.round((new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60))
+          : null;
         nextSession = {
           id: session.id,
           date: session.startTime,
@@ -3258,6 +3274,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           courtName: court?.name,
           coachName: sessionCoach?.name || null,
           isLive: session.isActive,
+          duration: durationMinutes,
         };
       }
       

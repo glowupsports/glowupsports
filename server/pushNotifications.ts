@@ -3718,6 +3718,56 @@ export function startMatchPrepNotificationScheduler(): void {
 // ==================== POST-SESSION REFLECTION REMINDER ====================
 
 /**
+ * Immediately sends a reflection reminder push notification to a specific player
+ * for a given session. Safe to call directly when a session is marked complete
+ * or attendance is recorded. Idempotent — skips if player already has a reflection.
+ */
+export async function sendReflectionReminderForSession(
+  sessionId: string,
+  playerIds: string[]
+): Promise<void> {
+  try {
+    for (const playerId of playerIds) {
+      const existing = await db
+        .select({ id: playerSessionReflections.id })
+        .from(playerSessionReflections)
+        .where(
+          and(
+            eq(playerSessionReflections.playerId, playerId),
+            eq(playerSessionReflections.sessionId, sessionId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) continue;
+
+      const tokens = await getPlayerPushTokens(playerId);
+      if (tokens.length === 0) continue;
+
+      await sendPushNotification(
+        tokens,
+        "How did training go?",
+        "Take 30 seconds to log your session reflection.",
+        {
+          type: "session_reflection_reminder",
+          sessionId,
+          screen: "TrainingDetail",
+        },
+        playerId
+      );
+    }
+
+    // Mark reminder sent so the periodic scheduler does not double-notify
+    await pool.query(
+      `UPDATE sessions SET reflection_reminder_sent = true WHERE id = $1`,
+      [sessionId]
+    );
+  } catch (err) {
+    console.error("[ReflectionReminder] Error in sendReflectionReminderForSession:", err);
+  }
+}
+
+/**
  * Runs every 5 min with the main scheduler.
  * Finds sessions that ended 25–65 min ago where:
  *  - Player hasn't submitted a session reflection

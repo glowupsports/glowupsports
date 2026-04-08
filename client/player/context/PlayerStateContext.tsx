@@ -100,6 +100,7 @@ interface PlayerState {
   sessionType: string | null;
   coachPhotoUrl: string | null;
   sessionId: string | null;
+  sessionDuration: number | null;
 }
 
 interface PlayerStateContextType {
@@ -138,6 +139,7 @@ const defaultState: PlayerState = {
   sessionType: null,
   coachPhotoUrl: null,
   sessionId: null,
+  sessionDuration: null,
 };
 
 const PlayerStateContext = createContext<PlayerStateContextType>({
@@ -299,6 +301,7 @@ interface DashboardData {
     endTime?: string;
     isLive?: boolean;
     coachName?: string;
+    duration?: number | null;
   } | null;
 }
 
@@ -456,6 +459,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       sessionType: nextSession?.type || null,
       coachPhotoUrl: buildPhotoUrl(dashboardData.coach?.photoUrl) || null,
       sessionId: nextSession?.id || null,
+      sessionDuration: nextSession?.duration ?? null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);
 
