@@ -106,7 +106,75 @@ router.get("/opponents/:id", async (req: Request, res: Response) => {
   }
 });
 
+router.put("/opponents/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { playerId, name, club, playstyleTags, strongerSide, weakerSide, typicalPatterns, playerNotes, coachNotes, rating } = req.body;
+
+    const [existing] = await db.select({ playerId: matchOpponents.playerId }).from(matchOpponents).where(eq(matchOpponents.id, id));
+    if (!existing) return res.status(404).json({ error: "Opponent not found" });
+    if (playerId && existing.playerId !== playerId) return res.status(403).json({ error: "Not authorized" });
+
+    const [updated] = await db
+      .update(matchOpponents)
+      .set({
+        ...(name !== undefined && { name }),
+        ...(club !== undefined && { club }),
+        ...(playstyleTags !== undefined && { playstyleTags }),
+        ...(strongerSide !== undefined && { strongerSide }),
+        ...(weakerSide !== undefined && { weakerSide }),
+        ...(typicalPatterns !== undefined && { typicalPatterns }),
+        ...(playerNotes !== undefined && { playerNotes }),
+        ...(coachNotes !== undefined && { coachNotes }),
+        ...(rating !== undefined && { rating }),
+        updatedAt: new Date(),
+      })
+      .where(eq(matchOpponents.id, id))
+      .returning();
+
+    if (!updated) {
+      return res.status(404).json({ error: "Opponent not found" });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating opponent:", error);
+    res.status(500).json({ error: "Failed to update opponent" });
+  }
+});
+
 // ==================== MATCH PLAN (PREPARE) ====================
+
+router.get("/plans/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const playerId = req.query.playerId as string;
+
+    const [plan] = await db
+      .select()
+      .from(matchPlans)
+      .where(eq(matchPlans.id, id));
+
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    if (playerId && plan.playerId !== playerId) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    let opponent = null;
+    if (plan.opponentId) {
+      const [opp] = await db.select().from(matchOpponents).where(eq(matchOpponents.id, plan.opponentId));
+      opponent = opp || null;
+    }
+
+    res.json({ ...plan, opponent });
+  } catch (error) {
+    console.error("Error fetching plan:", error);
+    res.status(500).json({ error: "Failed to fetch plan" });
+  }
+});
 
 router.get("/plans", async (req: Request, res: Response) => {
   try {
@@ -140,6 +208,9 @@ router.post("/plans", async (req: Request, res: Response) => {
       primaryTactic,
       mentalCue,
       energyFocus,
+      preMatchMood,
+      preMatchConfidence,
+      preMatchEnergy,
     } = req.body;
     
     if (!playerId) {
@@ -182,6 +253,9 @@ router.post("/plans", async (req: Request, res: Response) => {
         mentalCue,
         energyFocus,
         suggestedTactics,
+        preMatchMood: preMatchMood || null,
+        preMatchConfidence: preMatchConfidence || null,
+        preMatchEnergy: preMatchEnergy || null,
         status: "draft",
       })
       .returning();
@@ -190,6 +264,43 @@ router.post("/plans", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error creating plan:", error);
     res.status(500).json({ error: "Failed to create plan" });
+  }
+});
+
+router.put("/plans/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { playerId, primaryTactic, mentalCue, energyFocus, opponentId, scheduledDate, venue, preMatchEnergy, preMatchMood, preMatchConfidence } = req.body;
+
+    const [existingPlan] = await db.select({ playerId: matchPlans.playerId }).from(matchPlans).where(eq(matchPlans.id, id));
+    if (!existingPlan) return res.status(404).json({ error: "Plan not found" });
+    if (playerId && existingPlan.playerId !== playerId) return res.status(403).json({ error: "Not authorized" });
+
+    const [updated] = await db
+      .update(matchPlans)
+      .set({
+        ...(primaryTactic !== undefined && { primaryTactic }),
+        ...(mentalCue !== undefined && { mentalCue }),
+        ...(energyFocus !== undefined && { energyFocus }),
+        ...(opponentId !== undefined && { opponentId }),
+        ...(scheduledDate !== undefined && { scheduledDate }),
+        ...(venue !== undefined && { venue }),
+        ...(preMatchEnergy !== undefined && { preMatchEnergy }),
+        ...(preMatchMood !== undefined && { preMatchMood }),
+        ...(preMatchConfidence !== undefined && { preMatchConfidence }),
+        updatedAt: new Date(),
+      })
+      .where(eq(matchPlans.id, id))
+      .returning();
+
+    if (!updated) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating plan:", error);
+    res.status(500).json({ error: "Failed to update plan" });
   }
 });
 
@@ -363,10 +474,17 @@ router.get("/matches/:id", async (req: Request, res: Response) => {
       .from(matchReflections)
       .where(eq(matchReflections.matchId, id));
 
-    const [pillarScores] = await db
+    const allPillarScores = await db
       .select()
       .from(matchPillarScores)
       .where(eq(matchPillarScores.matchId, id));
+
+    const pillarScores = allPillarScores.find((s) => s.source === "auto") ||
+      allPillarScores.find((s) => s.source === "coach") ||
+      allPillarScores[0] ||
+      null;
+
+    const playerPillarScores = allPillarScores.find((s) => s.source === "player") || null;
 
     const [coachReview] = await db
       .select()
@@ -407,6 +525,7 @@ router.get("/matches/:id", async (req: Request, res: Response) => {
       plan,
       reflection,
       pillarScores,
+      playerPillarScores,
       coachReview,
       pressureMoments: moments,
       trainingSuggestions: suggestions,
@@ -414,6 +533,111 @@ router.get("/matches/:id", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error fetching match details:", error);
     res.status(500).json({ error: "Failed to fetch match details" });
+  }
+});
+
+// ==================== PLAYER SELF PILLAR SCORES ====================
+
+router.post("/matches/:id/self-pillar-scores", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { playerId, technicalScore, tacticalScore, physicalScore, mentalScore, socialScore, matchScore } = req.body;
+
+    if (!playerId) {
+      return res.status(400).json({ error: "playerId is required" });
+    }
+
+    const [match] = await db.select({ playerId: matches.playerId }).from(matches).where(eq(matches.id, id));
+    if (!match || match.playerId !== playerId) {
+      return res.status(403).json({ error: "Not authorized to rate this match" });
+    }
+
+    const getStatus = (score: number) => score >= 7 ? "good" : score >= 4 ? "warning" : "poor";
+
+    const normalize = (v?: number) => v !== undefined ? Math.round(v * 10) : undefined;
+
+    const existing = await db.select({ id: matchPillarScores.id }).from(matchPillarScores).where(
+      and(eq(matchPillarScores.matchId, id), sql`${matchPillarScores.source} = 'player'`)
+    );
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(matchPillarScores)
+        .set({
+          technicalScore: normalize(technicalScore),
+          tacticalScore: normalize(tacticalScore),
+          physicalScore: normalize(physicalScore),
+          mentalScore: normalize(mentalScore),
+          socialScore: normalize(socialScore),
+          matchScore: normalize(matchScore),
+          technicalStatus: technicalScore !== undefined ? getStatus(technicalScore) : undefined,
+          tacticalStatus: tacticalScore !== undefined ? getStatus(tacticalScore) : undefined,
+          physicalStatus: physicalScore !== undefined ? getStatus(physicalScore) : undefined,
+          mentalStatus: mentalScore !== undefined ? getStatus(mentalScore) : undefined,
+          socialStatus: socialScore !== undefined ? getStatus(socialScore) : undefined,
+          matchStatus: matchScore !== undefined ? getStatus(matchScore) : undefined,
+        })
+        .where(eq(matchPillarScores.id, existing[0].id))
+        .returning();
+      return res.json(updated);
+    }
+
+    const [scores] = await db
+      .insert(matchPillarScores)
+      .values({
+        matchId: id,
+        playerId,
+        technicalScore: normalize(technicalScore),
+        tacticalScore: normalize(tacticalScore),
+        physicalScore: normalize(physicalScore),
+        mentalScore: normalize(mentalScore),
+        socialScore: normalize(socialScore),
+        matchScore: normalize(matchScore),
+        technicalStatus: technicalScore !== undefined ? getStatus(technicalScore) : null,
+        tacticalStatus: tacticalScore !== undefined ? getStatus(tacticalScore) : null,
+        physicalStatus: physicalScore !== undefined ? getStatus(physicalScore) : null,
+        mentalStatus: mentalScore !== undefined ? getStatus(mentalScore) : null,
+        socialStatus: socialScore !== undefined ? getStatus(socialScore) : null,
+        matchStatus: matchScore !== undefined ? getStatus(matchScore) : null,
+        source: "player",
+      })
+      .returning();
+
+    res.status(201).json(scores);
+  } catch (error) {
+    console.error("Error saving self pillar scores:", error);
+    res.status(500).json({ error: "Failed to save self pillar scores" });
+  }
+});
+
+// ==================== PRESSURE MOMENTS ====================
+
+router.post("/matches/:id/pressure-moments", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { momentType, outcome, confidenceAtTime, errorSpike, score, setNumber } = req.body;
+
+    if (!momentType || !outcome) {
+      return res.status(400).json({ error: "momentType and outcome are required" });
+    }
+
+    const [moment] = await db
+      .insert(pressureMoments)
+      .values({
+        matchId: id,
+        momentType,
+        outcome,
+        confidenceLevel: confidenceAtTime ?? null,
+        errorIncrease: errorSpike ?? false,
+        gameScore: score ?? null,
+        setNumber: setNumber ?? null,
+      })
+      .returning();
+
+    res.status(201).json(moment);
+  } catch (error) {
+    console.error("Error creating pressure moment:", error);
+    res.status(500).json({ error: "Failed to create pressure moment" });
   }
 });
 

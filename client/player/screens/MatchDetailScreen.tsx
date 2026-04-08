@@ -8,15 +8,19 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Modal,
+  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
+import Slider from "@react-native-community/slider";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { usePlayer } from "@/player/context/PlayerContext";
 
 const MIRROR_ACCENT = "#A78BFA";
 
@@ -84,11 +88,29 @@ interface MatchDetail {
     socialInsight?: string;
     matchInsight?: string;
   };
+  playerPillarScores?: {
+    technicalScore?: number;
+    tacticalScore?: number;
+    physicalScore?: number;
+    mentalScore?: number;
+    socialScore?: number;
+    matchScore?: number;
+    source?: string;
+  } | null;
   trainingSuggestions?: Array<{
     focusArea: string;
     pillar: string;
     priority: number;
     suggestedWeeks: number;
+  }>;
+  pressureMoments?: Array<{
+    id: string;
+    momentType: string;
+    outcome: string;
+    confidenceLevel?: number;
+    errorIncrease?: boolean;
+    gameScore?: string;
+    setNumber?: number;
   }>;
   coachReview?: {
     technicalFeedback?: string;
@@ -628,6 +650,799 @@ const mirrorStyles = StyleSheet.create({
   saveText: { ...Typography.body, color: "#000", fontWeight: "700" },
 });
 
+const PILLAR_GUIDES: Record<string, string> = {
+  technical: "How clean was your technique?",
+  tactical: "Did your tactics work?",
+  physical: "How was your physical level?",
+  mental: "How focused and calm were you?",
+  social: "How was your communication and sportsmanship?",
+  match: "Overall match performance?",
+};
+
+function PillarSelfRating({ matchId, playerId, playerPillarScores }: {
+  matchId: string;
+  playerId: string;
+  playerPillarScores?: MatchDetail["playerPillarScores"];
+}) {
+  const queryClient = useQueryClient();
+  const hasSelfRated = !!(playerPillarScores?.technicalScore);
+  const [ratings, setRatings] = useState({
+    technical: playerPillarScores?.technicalScore ? Math.round(playerPillarScores.technicalScore / 10) : 5,
+    tactical: playerPillarScores?.tacticalScore ? Math.round(playerPillarScores.tacticalScore / 10) : 5,
+    physical: playerPillarScores?.physicalScore ? Math.round(playerPillarScores.physicalScore / 10) : 5,
+    mental: playerPillarScores?.mentalScore ? Math.round(playerPillarScores.mentalScore / 10) : 5,
+    social: playerPillarScores?.socialScore ? Math.round(playerPillarScores.socialScore / 10) : 5,
+    match: playerPillarScores?.matchScore ? Math.round(playerPillarScores.matchScore / 10) : 5,
+  });
+  const [saved, setSaved] = useState(hasSelfRated);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/match-intelligence/matches/${matchId}/self-pillar-scores`, {
+        playerId,
+        technicalScore: ratings.technical,
+        tacticalScore: ratings.tactical,
+        physicalScore: ratings.physical,
+        mentalScore: ratings.mental,
+        socialScore: ratings.social,
+        matchScore: ratings.match,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/match-intelligence/matches/${matchId}`] });
+      setSaved(true);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not save ratings. Please try again.");
+    },
+  });
+
+  if (saved && hasSelfRated) {
+    return null;
+  }
+
+  return (
+    <View style={deepStyles.pillarRatingCard}>
+      <View style={deepStyles.sectionHeader}>
+        <View style={[deepStyles.sectionIcon, { backgroundColor: MIRROR_ACCENT + "20" }]}>
+          <Ionicons name="stats-chart-outline" size={16} color={MIRROR_ACCENT} />
+        </View>
+        <Text style={deepStyles.sectionTitle}>Self-Rate Your Performance</Text>
+      </View>
+
+      {(["technical", "tactical", "physical", "mental", "social", "match"] as const).map((pillar) => (
+        <View key={pillar} style={deepStyles.pillarRow}>
+          <View style={[deepStyles.pillarDot, { backgroundColor: PILLAR_COLORS[pillar] }]} />
+          <View style={{ flex: 1 }}>
+            <View style={deepStyles.pillarLabelRow}>
+              <Text style={deepStyles.pillarLabel}>
+                {pillar.charAt(0).toUpperCase() + pillar.slice(1)}
+              </Text>
+              <Text style={[deepStyles.pillarScore, { color: PILLAR_COLORS[pillar] }]}>
+                {ratings[pillar]}/10
+              </Text>
+            </View>
+            <Text style={deepStyles.pillarGuide}>{PILLAR_GUIDES[pillar]}</Text>
+            <Slider
+              style={{ width: "100%", height: 36 }}
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              value={ratings[pillar]}
+              onValueChange={(v) => setRatings((prev) => ({ ...prev, [pillar]: Math.round(v) }))}
+              minimumTrackTintColor={PILLAR_COLORS[pillar]}
+              maximumTrackTintColor={Colors.dark?.backgroundTertiary || "#333"}
+              thumbTintColor={PILLAR_COLORS[pillar]}
+            />
+          </View>
+        </View>
+      ))}
+
+      <Pressable
+        style={[deepStyles.saveBtn, saveMutation.isPending && { opacity: 0.6 }]}
+        onPress={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending}
+      >
+        {saveMutation.isPending ? (
+          <ActivityIndicator size="small" color="#000" />
+        ) : (
+          <>
+            <Ionicons name="checkmark-circle" size={16} color="#000" />
+            <Text style={deepStyles.saveBtnText}>Save Ratings</Text>
+          </>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
+  matchId: string;
+  playerId: string;
+  preMatchGoal?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [goalAchieved, setGoalAchieved] = useState<"yes" | "partially" | "no" | null>(null);
+  const [whatHappened, setWhatHappened] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/match-intelligence/matches/${matchId}/reflection`, {
+        playerId,
+        keyTakeaway: goalAchieved === "yes"
+          ? `Goal achieved: ${whatHappened.trim() || "Yes"}`
+          : goalAchieved === "partially"
+          ? `Goal partially achieved: ${whatHappened.trim() || ""}`
+          : `Goal not achieved: ${whatHappened.trim() || ""}`,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSaved(true);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not save. Please try again.");
+    },
+  });
+
+  if (saved) return null;
+  if (!preMatchGoal) return null;
+
+  return (
+    <View style={[deepStyles.pillarRatingCard, { borderLeftColor: GlowColors.primary, borderLeftWidth: 3 }]}>
+      <View style={deepStyles.sectionHeader}>
+        <View style={[deepStyles.sectionIcon, { backgroundColor: GlowColors.primary + "20" }]}>
+          <Ionicons name="flag-outline" size={16} color={GlowColors.primary} />
+        </View>
+        <Text style={deepStyles.sectionTitle}>Goal vs Outcome</Text>
+      </View>
+
+      <View style={deepStyles.goalBox}>
+        <Text style={deepStyles.goalLabel}>Your goal was:</Text>
+        <Text style={deepStyles.goalText}>"{preMatchGoal}"</Text>
+      </View>
+
+      <Text style={deepStyles.fieldLabel}>Did you achieve your goal?</Text>
+      <View style={deepStyles.goalChipRow}>
+        {(["yes", "partially", "no"] as const).map((opt) => (
+          <Pressable
+            key={opt}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setGoalAchieved(goalAchieved === opt ? null : opt);
+            }}
+            style={[
+              deepStyles.goalChip,
+              goalAchieved === opt && {
+                backgroundColor: opt === "yes" ? Colors.success + "30" : opt === "partially" ? Colors.warning + "30" : Colors.error + "30",
+                borderColor: opt === "yes" ? Colors.success : opt === "partially" ? Colors.warning : Colors.error,
+              },
+            ]}
+          >
+            <Text style={[
+              deepStyles.goalChipText,
+              goalAchieved === opt && {
+                color: opt === "yes" ? Colors.success : opt === "partially" ? Colors.warning : Colors.error,
+              },
+            ]}>
+              {opt === "yes" ? "Yes" : opt === "partially" ? "Partially" : "No"}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={[deepStyles.fieldLabel, { marginTop: Spacing.md }]}>What happened? (optional)</Text>
+      <TextInput
+        style={deepStyles.textInput}
+        value={whatHappened}
+        onChangeText={setWhatHappened}
+        placeholder="Brief note about how it went..."
+        placeholderTextColor={Colors.dark?.textMuted || "#888"}
+        maxLength={120}
+      />
+
+      <Pressable
+        style={[deepStyles.saveBtn, (!goalAchieved || saveMutation.isPending) && { opacity: 0.5 }]}
+        onPress={() => saveMutation.mutate()}
+        disabled={!goalAchieved || saveMutation.isPending}
+      >
+        {saveMutation.isPending ? (
+          <ActivityIndicator size="small" color="#000" />
+        ) : (
+          <Text style={deepStyles.saveBtnText}>Save</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+function PressureMomentLogger({ matchId, playerId, existingMoments }: {
+  matchId: string;
+  playerId: string;
+  existingMoments?: MatchDetail["pressureMoments"];
+}) {
+  const queryClient = useQueryClient();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [momentType, setMomentType] = useState("");
+  const [outcome, setOutcome] = useState<"won" | "lost" | "">("");
+  const [confidence, setConfidence] = useState(3);
+  const [errorSpike, setErrorSpike] = useState(false);
+  const [moments, setMoments] = useState<MatchDetail["pressureMoments"]>(existingMoments || []);
+
+  const MOMENT_TYPES = ["Tiebreak", "Break point", "5th game 3rd set", "Comeback", "Other"];
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/match-intelligence/matches/${matchId}/pressure-moments`, {
+        momentType,
+        outcome,
+        confidenceAtTime: confidence,
+        errorSpike,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/match-intelligence/matches/${matchId}`] });
+      setMoments((prev) => [...(prev || []), { id: Date.now().toString(), momentType, outcome, confidenceLevel: confidence, errorIncrease: errorSpike }]);
+      setModalVisible(false);
+      setMomentType("");
+      setOutcome("");
+      setConfidence(3);
+      setErrorSpike(false);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not save pressure moment.");
+    },
+  });
+
+  return (
+    <View style={deepStyles.pressureCard}>
+      <View style={deepStyles.sectionHeader}>
+        <View style={[deepStyles.sectionIcon, { backgroundColor: Colors.dark?.orange + "20" || "#FF6B0020" }]}>
+          <Ionicons name="thunderstorm-outline" size={16} color={Colors.dark?.orange || "#FF6B00"} />
+        </View>
+        <Text style={deepStyles.sectionTitle}>Pressure Moments</Text>
+      </View>
+
+      {moments.length > 0 ? (
+        <View style={deepStyles.momentsRow}>
+          {moments.map((m, i) => (
+            <View key={i} style={[
+              deepStyles.momentChip,
+              { borderColor: m.outcome === "won" ? Colors.success + "60" : Colors.error + "60" },
+            ]}>
+              <Ionicons
+                name={m.outcome === "won" ? "checkmark-circle" : "close-circle"}
+                size={12}
+                color={m.outcome === "won" ? Colors.success : Colors.error}
+              />
+              <Text style={deepStyles.momentChipText}>{m.momentType}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <Pressable
+        style={deepStyles.addMomentBtn}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setModalVisible(true);
+        }}
+      >
+        <Ionicons name="add" size={16} color={Colors.dark?.orange || "#FF6B00"} />
+        <Text style={[deepStyles.addMomentText, { color: Colors.dark?.orange || "#FF6B00" }]}>
+          Add Pressure Moment
+        </Text>
+      </Pressable>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={deepStyles.modalOverlay}>
+          <View style={deepStyles.modalContent}>
+            <View style={deepStyles.modalHeader}>
+              <Text style={deepStyles.modalTitle}>Pressure Moment</Text>
+              <Pressable onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark?.text || "#FFF"} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={deepStyles.fieldLabel}>Moment type</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                {MOMENT_TYPES.map((t) => (
+                  <Pressable
+                    key={t}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setMomentType(momentType === t ? "" : t);
+                    }}
+                    style={[
+                      deepStyles.modalChip,
+                      momentType === t && { backgroundColor: Colors.dark?.orange + "30", borderColor: Colors.dark?.orange || "#FF6B00" },
+                    ]}
+                  >
+                    <Text style={[deepStyles.modalChipText, momentType === t && { color: Colors.dark?.orange || "#FF6B00" }]}>
+                      {t}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[deepStyles.fieldLabel, { marginTop: Spacing.md }]}>Outcome</Text>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
+                {(["won", "lost"] as const).map((o) => (
+                  <Pressable
+                    key={o}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setOutcome(outcome === o ? "" : o);
+                    }}
+                    style={[
+                      deepStyles.outcomeBtn,
+                      outcome === o && {
+                        backgroundColor: o === "won" ? Colors.success + "20" : Colors.error + "20",
+                        borderColor: o === "won" ? Colors.success : Colors.error,
+                      },
+                    ]}
+                  >
+                    <Text style={[
+                      deepStyles.outcomeBtnText,
+                      outcome === o && { color: o === "won" ? Colors.success : Colors.error, fontWeight: "700" },
+                    ]}>
+                      {o === "won" ? "Won it" : "Lost it"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[deepStyles.fieldLabel, { marginTop: Spacing.md }]}>
+                Confidence at that moment: {confidence}/5
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Pressable
+                    key={n}
+                    onPress={() => setConfidence(n)}
+                    style={[
+                      deepStyles.starBtn,
+                      n <= confidence && { backgroundColor: Colors.dark?.gold + "30" || "#FFD70030" },
+                    ]}
+                  >
+                    <Ionicons
+                      name={n <= confidence ? "star" : "star-outline"}
+                      size={24}
+                      color={Colors.dark?.gold || "#FFD700"}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={[deepStyles.toggleRow, { marginTop: Spacing.md }]}>
+                <Text style={deepStyles.fieldLabel}>I made more errors here</Text>
+                <Switch
+                  value={errorSpike}
+                  onValueChange={setErrorSpike}
+                  trackColor={{ false: Colors.dark?.backgroundTertiary || "#333", true: Colors.error + "60" }}
+                  thumbColor={errorSpike ? Colors.error : Colors.dark?.textMuted || "#888"}
+                />
+              </View>
+
+              <Pressable
+                style={[deepStyles.saveBtn, (!momentType || !outcome || saveMutation.isPending) && { opacity: 0.5 }, { marginTop: Spacing.lg }]}
+                onPress={() => saveMutation.mutate()}
+                disabled={!momentType || !outcome || saveMutation.isPending}
+              >
+                {saveMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text style={deepStyles.saveBtnText}>Save Moment</Text>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }: {
+  matchId: string;
+  preMatchGoal?: string;
+  result: string;
+  trainingSuggestions?: Array<{ focusArea: string; pillar: string; priority: number; suggestedWeeks: number }>;
+}) {
+  const [retryCount, setRetryCount] = useState(0);
+  const { data: freshMatch } = useQuery<MatchDetail>({
+    queryKey: [`/api/match-intelligence/matches/${matchId}`],
+    enabled: !!matchId && (!trainingSuggestions || trainingSuggestions.length === 0) && retryCount < 3,
+    refetchInterval: (!trainingSuggestions || trainingSuggestions.length === 0) ? 3000 : false,
+  });
+
+  const suggestions = trainingSuggestions || freshMatch?.trainingSuggestions || [];
+
+  if (suggestions.length === 0) {
+    return (
+      <View style={debriefStyles.card}>
+        <View style={debriefStyles.header}>
+          <View style={[debriefStyles.icon, { backgroundColor: Colors.dark?.xpCyan + "20" || "#00D4FF20" }]}>
+            <Ionicons name="sparkles-outline" size={18} color={Colors.dark?.xpCyan || "#00D4FF"} />
+          </View>
+          <Text style={debriefStyles.title}>Coach AI Debrief</Text>
+        </View>
+        <View style={debriefStyles.skeleton}>
+          <ActivityIndicator size="small" color={Colors.dark?.xpCyan || "#00D4FF"} />
+          <Text style={debriefStyles.skeletonText}>Generating debrief...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={debriefStyles.card}>
+      <View style={debriefStyles.header}>
+        <View style={[debriefStyles.icon, { backgroundColor: Colors.dark?.xpCyan + "20" || "#00D4FF20" }]}>
+          <Ionicons name="sparkles-outline" size={18} color={Colors.dark?.xpCyan || "#00D4FF"} />
+        </View>
+        <Text style={debriefStyles.title}>Coach AI Debrief</Text>
+      </View>
+
+      {preMatchGoal ? (
+        <View style={debriefStyles.insightBox}>
+          <Ionicons name="flag" size={14} color={GlowColors.primary} />
+          <Text style={debriefStyles.insightText}>
+            Goal: "{preMatchGoal}" — you {result === "win" ? "won" : "lost"} this match.
+            {result === "win"
+              ? " Great execution. Review what worked and build on it."
+              : " Use this as data. Your training priorities below will help."}
+          </Text>
+        </View>
+      ) : null}
+
+      <Text style={debriefStyles.prioritiesLabel}>Top Training Priorities</Text>
+      {suggestions.slice(0, 3).map((s, i) => (
+        <View key={i} style={debriefStyles.priorityCard}>
+          <View style={[debriefStyles.priorityBadge, { backgroundColor: PILLAR_COLORS[s.pillar] + "20" }]}>
+            <Text style={[debriefStyles.priorityNum, { color: PILLAR_COLORS[s.pillar] }]}>
+              #{i + 1}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={debriefStyles.priorityArea}>
+              {s.focusArea.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+            </Text>
+            <Text style={debriefStyles.priorityMeta}>
+              {s.pillar} — {s.suggestedWeeks} weeks
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const deepStyles = StyleSheet.create({
+  pillarRatingCard: {
+    backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  pressureCard: {
+    backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  sectionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionTitle: {
+    ...Typography.body,
+    color: Colors.dark?.text || "#FFF",
+    fontWeight: "700",
+  },
+  pillarRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  pillarDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 6,
+  },
+  pillarLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  pillarLabel: {
+    ...Typography.body,
+    color: Colors.dark?.text || "#FFF",
+    fontWeight: "600",
+  },
+  pillarScore: {
+    ...Typography.caption,
+    fontWeight: "700",
+  },
+  pillarGuide: {
+    ...Typography.small,
+    color: Colors.dark?.textMuted || "#888",
+    marginBottom: 2,
+  },
+  goalBox: {
+    backgroundColor: GlowColors.primary + "10",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "30",
+    marginBottom: Spacing.xs,
+  },
+  goalLabel: {
+    ...Typography.caption,
+    color: Colors.dark?.textMuted || "#888",
+    marginBottom: 4,
+  },
+  goalText: {
+    ...Typography.body,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  goalChipRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: 6,
+  },
+  goalChip: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark?.backgroundTertiary || "#333",
+    backgroundColor: Colors.dark?.backgroundTertiary || "#333",
+  },
+  goalChipText: {
+    ...Typography.body,
+    color: Colors.dark?.textMuted || "#888",
+    fontWeight: "600",
+  },
+  fieldLabel: {
+    ...Typography.caption,
+    color: Colors.dark?.textMuted || "#888",
+    marginTop: 4,
+  },
+  textInput: {
+    backgroundColor: Colors.dark?.backgroundTertiary || "#333",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Typography.small,
+    color: Colors.dark?.text || "#FFF",
+    minHeight: 44,
+    marginTop: 6,
+  },
+  saveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  saveBtnText: {
+    ...Typography.body,
+    color: "#000",
+    fontWeight: "700",
+  },
+  momentsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  momentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    backgroundColor: Colors.dark?.backgroundTertiary || "#333",
+  },
+  momentChipText: {
+    ...Typography.small,
+    color: Colors.dark?.textSecondary || "#AAA",
+  },
+  addMomentBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark?.orange + "60" || "#FF6B0060",
+    alignSelf: "flex-start",
+  },
+  addMomentText: {
+    ...Typography.caption,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    ...Typography.subtitle,
+    color: Colors.dark?.text || "#FFF",
+    fontWeight: "700",
+  },
+  modalChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.dark?.backgroundTertiary || "#333",
+    backgroundColor: Colors.dark?.backgroundTertiary || "#333",
+  },
+  modalChipText: {
+    ...Typography.small,
+    color: Colors.dark?.textMuted || "#888",
+  },
+  outcomeBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark?.backgroundTertiary || "#333",
+    backgroundColor: Colors.dark?.backgroundTertiary || "#333",
+  },
+  outcomeBtnText: {
+    ...Typography.body,
+    color: Colors.dark?.textMuted || "#888",
+  },
+  starBtn: {
+    padding: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+});
+
+const debriefStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark?.xpCyan + "30" || "#00D4FF30",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  icon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    ...Typography.body,
+    color: Colors.dark?.text || "#FFF",
+    fontWeight: "700",
+  },
+  insightBox: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    backgroundColor: GlowColors.primary + "10",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "30",
+  },
+  insightText: {
+    ...Typography.small,
+    color: Colors.dark?.text || "#FFF",
+    flex: 1,
+    lineHeight: 18,
+  },
+  prioritiesLabel: {
+    ...Typography.caption,
+    color: Colors.dark?.textMuted || "#888",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    fontWeight: "700",
+    marginTop: Spacing.xs,
+  },
+  priorityCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark?.backgroundTertiary || "#333",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  priorityBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  priorityNum: {
+    ...Typography.caption,
+    fontWeight: "700",
+  },
+  priorityArea: {
+    ...Typography.body,
+    color: Colors.dark?.text || "#FFF",
+    fontWeight: "600",
+  },
+  priorityMeta: {
+    ...Typography.small,
+    color: Colors.dark?.textMuted || "#888",
+    textTransform: "capitalize",
+  },
+  skeleton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  skeletonText: {
+    ...Typography.body,
+    color: Colors.dark?.textMuted || "#888",
+    fontStyle: "italic",
+  },
+});
+
 const renderPillarCard = (pillar: string, score?: number, status?: string, insight?: string) => {
   const statusInfo = status ? STATUS_ICONS[status] : null;
   return (
@@ -659,9 +1474,10 @@ const renderPillarCard = (pillar: string, score?: number, status?: string, insig
 
 export default function MatchDetailScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute();
   const { matchId } = route.params as { matchId: string };
+  const { player } = usePlayer();
 
   const { data: match, isLoading } = useQuery<MatchDetail>({
     queryKey: [`/api/match-intelligence/matches/${matchId}`],
@@ -711,7 +1527,16 @@ export default function MatchDetailScreen() {
           <Text style={styles.scoreText}>{match.score}</Text>
 
           {match.opponent ? (
-            <Text style={styles.opponentText}>vs {match.opponent.name}</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("OpponentProfile", { opponentId: match.opponent!.id });
+              }}
+            >
+              <Text style={[styles.opponentText, { textDecorationLine: "underline" }]}>
+                vs {match.opponent.name}
+              </Text>
+            </Pressable>
           ) : null}
 
           <View style={styles.matchMeta}>
@@ -849,6 +1674,40 @@ export default function MatchDetailScreen() {
         <View style={styles.section}>
           <GlowMirrorMatchCard matchId={matchId} matchDate={match.matchDate} />
         </View>
+
+        {/* ─── DEEP ANALYSIS SECTION ─── */}
+        {player?.id ? (
+          <>
+            {/* Self-Rate Pillars */}
+            <PillarSelfRating
+              matchId={matchId}
+              playerId={player.id}
+              playerPillarScores={match.playerPillarScores}
+            />
+
+            {/* Goal vs Outcome */}
+            <GoalOutcomeCheck
+              matchId={matchId}
+              playerId={player.id}
+              preMatchGoal={match.reflection?.preMatchGoal || undefined}
+            />
+
+            {/* Pressure Moments */}
+            <PressureMomentLogger
+              matchId={matchId}
+              playerId={player.id}
+              existingMoments={match.pressureMoments || []}
+            />
+
+            {/* AI Debrief */}
+            <MatchDebriefCard
+              matchId={matchId}
+              preMatchGoal={match.reflection?.preMatchGoal || undefined}
+              result={match.result}
+              trainingSuggestions={match.trainingSuggestions}
+            />
+          </>
+        ) : null}
 
         <View style={{ height: insets.bottom + Spacing.xl }} />
       </ScrollView>

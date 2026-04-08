@@ -206,8 +206,8 @@ function PendingAttendanceCard({
       <View style={attendanceCardStyles.headerRow}>
         <Ionicons name="alert-circle" size={18} color="#FF6B35" />
         <Text style={attendanceCardStyles.headerTitle}>Attendance Needed</Text>
-        <View style={attendanceCardStyles.badge}>
-          <Text style={attendanceCardStyles.badgeText}>{sessions.length}</Text>
+        <View style={attendanceCardStyles.attendanceBadge}>
+          <Text style={attendanceCardStyles.attendanceBadgeText}>{sessions.length}</Text>
         </View>
       </View>
       <Text style={attendanceCardStyles.subLabel}>
@@ -249,6 +249,91 @@ function PendingAttendanceCard({
   );
 }
 
+interface PendingReview {
+  id: string;
+  playerId: string;
+  matchDate?: string;
+  result?: string;
+  score?: string;
+  player?: { id: string; name?: string; firstName?: string; lastName?: string };
+}
+
+function CoachMatchReviewsCard({ coachId, navigation }: { coachId: string | null; navigation: any }) {
+  const { data: pending, isLoading } = useQuery<PendingReview[]>({
+    queryKey: [`/api/match-intelligence/coach/${coachId}/pending-reviews`],
+    enabled: !!coachId,
+    staleTime: 60000,
+  });
+
+  if (!coachId || isLoading) return null;
+  if (!pending || pending.length === 0) {
+    return (
+      <View style={[matchReviewStyles.card, { flexDirection: "row", alignItems: "center", gap: Spacing.sm }]}>
+        <View style={matchReviewStyles.iconWrap}>
+          <Ionicons name="tennisball-outline" size={18} color="#A78BFA" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={matchReviewStyles.title}>Match Reviews</Text>
+          <Text style={matchReviewStyles.meta}>No pending match reviews from your players.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={matchReviewStyles.card}>
+      <View style={matchReviewStyles.header}>
+        <View style={matchReviewStyles.iconWrap}>
+          <Ionicons name="tennisball-outline" size={18} color="#A78BFA" />
+        </View>
+        <Text style={matchReviewStyles.title}>Match Reviews Pending</Text>
+        <View style={matchReviewStyles.reviewBadge}>
+          <Text style={matchReviewStyles.reviewBadgeText}>{pending.length}</Text>
+        </View>
+      </View>
+
+      {pending.slice(0, 3).map((item) => (
+        <Pressable
+          key={item.id}
+          style={matchReviewStyles.row}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("MatchReview", { matchId: item.id });
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={matchReviewStyles.playerName}>
+              {item.player?.name || (item.player?.firstName && item.player?.lastName ? `${item.player.firstName} ${item.player.lastName}` : "Player")}
+            </Text>
+            <Text style={matchReviewStyles.meta}>
+              {item.result === "win" ? "Won" : item.result === "loss" ? "Lost" : "Result"}{item.score ? ` · ${item.score}` : ""}
+              {item.matchDate ? ` · ${new Date(item.matchDate).toLocaleDateString()}` : ""}
+            </Text>
+          </View>
+          <View style={matchReviewStyles.reviewChip}>
+            <Text style={matchReviewStyles.reviewChipText}>Review</Text>
+          </View>
+        </Pressable>
+      ))}
+
+      {pending.length > 3 ? (
+        <Pressable
+          style={matchReviewStyles.seeAllRow}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("MatchReview", { matchId: pending[0].id });
+          }}
+        >
+          <Text style={matchReviewStyles.seeAllText}>
+            +{pending.length - 3} more — see first pending
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color="#A78BFA" />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 const attendanceCardStyles = StyleSheet.create({
   card: {
     backgroundColor: "#1A0A0A",
@@ -271,7 +356,7 @@ const attendanceCardStyles = StyleSheet.create({
     fontWeight: "700",
     flex: 1,
   },
-  badge: {
+  attendanceBadge: {
     backgroundColor: "#FF6B35",
     borderRadius: 10,
     minWidth: 20,
@@ -280,7 +365,7 @@ const attendanceCardStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 6,
   },
-  badgeText: {
+  attendanceBadgeText: {
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "700",
@@ -355,6 +440,101 @@ const attendanceCardStyles = StyleSheet.create({
   showMoreText: {
     color: "#FF9B70",
     fontSize: 13,
+    fontWeight: "600",
+  },
+});
+
+const matchReviewStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "#A78BFA30",
+    gap: Spacing.sm,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#A78BFA20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    flex: 1,
+  },
+  reviewBadge: {
+    backgroundColor: "#A78BFA",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  reviewBadgeText: {
+    color: "#000",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  playerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  meta: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  reviewChip: {
+    backgroundColor: "#A78BFA20",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#A78BFA60",
+  },
+  reviewChipText: {
+    color: "#A78BFA",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  more: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    paddingTop: 2,
+  },
+  seeAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingTop: 4,
+  },
+  seeAllText: {
+    ...Typography.small,
+    color: "#A78BFA",
     fontWeight: "600",
   },
 });
@@ -2011,6 +2191,9 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
+
+        {/* === MATCH REVIEWS === */}
+        <CoachMatchReviewsCard coachId={coach?.id || null} navigation={navigation as any} />
 
         {/* === ROSTER INSIGHTS === */}
         <RosterInsightsCard />

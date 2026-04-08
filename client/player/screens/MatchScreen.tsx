@@ -162,7 +162,13 @@ export default function MatchScreen() {
         )}
 
         <View style={styles.cardActions}>
-          <Pressable style={styles.actionButton}>
+          <Pressable
+            style={styles.actionButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              (navigation as any).navigate("MatchPrep", { planId: plan.id });
+            }}
+          >
             <Ionicons name="create-outline" size={18} color={Colors.dark.primary} />
             <Text style={styles.actionText}>Edit Plan</Text>
           </Pressable>

@@ -69,6 +69,8 @@ import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingD
 import MyListingsScreen from "@/player/screens/MyListingsScreen";
 import MatchScreen from "@/player/screens/MatchScreen";
 import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
+import MatchPrepScreen from "@/player/screens/MatchPrepScreen";
+import OpponentProfileScreen from "@/player/screens/OpponentProfileScreen";
 import SkillEvidenceScreen from "@/player/screens/SkillEvidenceScreen";
 import TrialGatesScreen from "@/player/screens/TrialGatesScreen";
 import CollectionScreen from "@/player/screens/CollectionScreen";
@@ -230,6 +232,8 @@ export type ScheduleStackParamList = {
   QuickBook: undefined;
   Match: { opponentId?: string; initialTab?: "upcoming" | "history" } | undefined;
   MatchDetail: { matchId: string };
+  MatchPrep: { planId?: string; matchId?: string };
+  OpponentProfile: { opponentId: string | null };
 };
 
 export type ProgressStackParamList = {
@@ -482,6 +486,28 @@ function ScheduleStackNavigator() {
           headerTitle: "Match Details",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ScheduleStack.Screen
+        name="MatchPrep"
+        component={MatchPrepScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Match Preparation",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#C8FF3D',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ScheduleStack.Screen
+        name="OpponentProfile"
+        component={OpponentProfileScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Opponent Profile",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#A78BFA',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
