@@ -149,6 +149,10 @@ export default function SessionDetailDrawer({
     message: string;
   } | null>(null);
 
+  // Keep a stable ref to onAttendance so the attendance-auto-trigger effect doesn't go stale
+  const onAttendanceRef = useRef(onAttendance);
+  useEffect(() => { onAttendanceRef.current = onAttendance; }, [onAttendance]);
+
   // Handle initial action from deep linking and reset when drawer closes
   useEffect(() => {
     if (visible) {
@@ -158,6 +162,14 @@ export default function SessionDetailDrawer({
       } else if (initialAction === "end") {
         setShowEndConfirm(true);
         setShowExtendOptions(false);
+      } else if (initialAction === "attendance") {
+        // Auto-trigger attendance flow: close this drawer and open AttendanceDrawer
+        setShowExtendOptions(false);
+        setShowEndConfirm(false);
+        const timer = setTimeout(() => {
+          onAttendanceRef.current?.();
+        }, 150);
+        return () => clearTimeout(timer);
       } else {
         // Reset to main view for normal openings
         setShowExtendOptions(false);

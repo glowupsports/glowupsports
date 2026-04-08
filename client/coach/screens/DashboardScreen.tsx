@@ -1771,8 +1771,10 @@ export default function DashboardScreen() {
                 ),
                 sessionType: sess.sessionType,
                 status: "completed",
+                players: sess.pendingPlayers.map((p) => ({ id: p.id, name: p.name })),
               };
-              setSelectedSessionForAttendance(sessionObj);
+              setDetailInitialAction("attendance");
+              setSelectedSessionForDetail(sessionObj);
             }}
           />
         )}
