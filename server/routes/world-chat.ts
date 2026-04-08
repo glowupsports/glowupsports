@@ -37,6 +37,7 @@ import {
 } from "../auth";
 import { sanitizeMessage } from "../utils/sanitize";
 import { ensureResolvableLocalTime } from "../utils/timezone";
+import { awardXP } from "../services/xp-service";
 import { broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "../websocket";
 import {
   sendFeedbackNotification,
@@ -2679,7 +2680,7 @@ async function autoCancel(
         
         // If markCompleted flag is set, mark session as completed and consume credits
         let creditConsumptionResult = null;
-        const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
+        const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present" || a.status === "late");
         
         // BUSINESS RULE: Absent players ALWAYS get charged (they missed the lesson but it still counts)
         // Only vacation/holiday status skips credit deduction
@@ -2766,24 +2767,13 @@ async function autoCancel(
             console.error("[LowCredit] Error importing notification function:", notifErr);
           }
 
-          // Award XP ONLY to players marked as present (not absent, not vacation)
-          const xpPerSession = session.xpPerSession || 20;
+          // Award XP to players marked as present or late (not absent, not vacation)
+          // Uses canonical session_attendance XP rule (10 XP per session)
           for (const presentPlayer of presentPlayers) {
             try {
-              // Check if XP already awarded for this session to prevent duplicates
-              const existingXp = await storage.getPlayerXpTransactions(presentPlayer.playerId, 100, academyId);
-              const alreadyAwarded = existingXp.some(t => t.sessionId === id && t.source === "session");
-              
-              if (!alreadyAwarded) {
-                await storage.createXpTransaction({
-                  playerId: presentPlayer.playerId,
-                  sessionId: id,
-                  xpAmount: xpPerSession,
-                  source: "session",
-                  description: `Attended training session`,
-                  metadata: session.seriesId ? { seriesId: session.seriesId } : {},
-                });
-                console.log(`[XP] Awarded ${xpPerSession} XP to player ${presentPlayer.playerId} for session ${id}`);
+              const xpResult = await awardXP(presentPlayer.playerId, "session_attendance", "session", id);
+              if (xpResult.success) {
+                console.log(`[XP] Awarded ${xpResult.xpAwarded} XP to player ${presentPlayer.playerId} for session ${id} (session_attendance)`);
               }
             } catch (xpError) {
               console.error(`[XP] Error awarding XP to player ${presentPlayer.playerId}:`, xpError);

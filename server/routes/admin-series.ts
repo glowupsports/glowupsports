@@ -17,6 +17,7 @@ import {
   type AuthenticatedRequest,
 } from "../auth";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
+import { awardXP } from "../services/xp-service";
 import crypto from "crypto";
 
 const router = Router();
@@ -1054,24 +1055,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       if (allMarked && session.status === "scheduled") {
         await storage.updateSession(id, { status: "completed" });
         
-        // Award XP to present players
-        const xpPerSession = session.xpPerSession || 20;
-        const presentPlayers = attendance.filter((a: { status: string }) => a.status === "present");
+        // Award XP to players marked present or late via canonical session_attendance XP rule
+        const presentPlayers = attendance.filter((a: { status: string }) => a.status === "present" || a.status === "late");
         
         for (const presentPlayer of presentPlayers) {
           try {
-            const existingXp = await storage.getPlayerXpTransactions(presentPlayer.playerId, 100, academyId);
-            const alreadyAwarded = existingXp.some((t: any) => t.sessionId === id && t.source === "session");
-            
-            if (!alreadyAwarded) {
-              await storage.createXpTransaction({
-                playerId: presentPlayer.playerId,
-                sessionId: id,
-                xpAmount: xpPerSession,
-                source: "session",
-                description: `Attended training session`,
-                metadata: session.seriesId ? { seriesId: session.seriesId } : {},
-              });
+            const xpResult = await awardXP(presentPlayer.playerId, "session_attendance", "session", id);
+            if (xpResult.success) {
+              console.log(`[XP] Awarded ${xpResult.xpAwarded} XP to player ${presentPlayer.playerId} for session ${id} (session_attendance)`);
             }
           } catch (xpError) {
             console.error(`[XP] Error awarding XP to player ${presentPlayer.playerId}:`, xpError);

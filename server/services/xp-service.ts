@@ -198,6 +198,38 @@ export async function awardXP(
     };
   }
 
+  // Per-context deduplication: if a contextId is provided (e.g. sessionId), ensure XP
+  // has not already been awarded for this exact player + action + context combination.
+  if (contextId) {
+    const alreadyAwarded = await db
+      .select()
+      .from(playerXpEvents)
+      .where(and(
+        eq(playerXpEvents.playerId, playerId),
+        eq(playerXpEvents.actionSource, actionSource),
+        eq(playerXpEvents.contextId, contextId)
+      ))
+      .limit(1);
+
+    if (alreadyAwarded.length > 0) {
+      const [player] = await db.select().from(players).where(eq(players.id, playerId));
+      const currentLevel = player?.level || 1;
+      const xpNeeded = await getXpForNextLevel(currentLevel);
+      return {
+        success: false,
+        message: "XP already awarded for this context",
+        xpAwarded: 0,
+        newTotalXp: player?.totalXp || 0,
+        previousLevel: currentLevel,
+        newLevel: currentLevel,
+        leveledUp: false,
+        featuresUnlocked: [],
+        xpProgressInLevel: 0,
+        xpNeededForNextLevel: xpNeeded,
+      };
+    }
+  }
+
   const allowed = await checkAntiAbuse(playerId, actionSource, rule);
   if (!allowed) {
     const [player] = await db.select().from(players).where(eq(players.id, playerId));
