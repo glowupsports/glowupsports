@@ -810,6 +810,7 @@ export default function DashboardScreen() {
     queryKey: ["/api/coach/me/pending-attendance"],
     enabled: !!coach?.id,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const pendingFeedbackCount = useMemo(() => {
