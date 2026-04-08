@@ -17,12 +17,12 @@ import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { getEnv } from "@/lib/env";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 
 interface Invite {
   id: string;
   token: string;
+  shortCode: string | null;
   role: string;
   invitedEmail: string | null;
   expiresAt: string;
@@ -32,7 +32,7 @@ interface Invite {
 
 interface InviteCardProps {
   invite: Invite;
-  onCopy: (token: string) => void;
+  onCopy: (code: string) => void;
 }
 
 function InviteCard({ invite, onCopy }: InviteCardProps) {
@@ -103,11 +103,11 @@ function InviteCard({ invite, onCopy }: InviteCardProps) {
           style={styles.copyButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onCopy(invite.token);
+            onCopy(invite.shortCode ?? invite.token.slice(0, 6).toUpperCase());
           }}
         >
           <Ionicons name="copy-outline" size={16} color={Colors.dark.gold} />
-          <Text style={styles.copyButtonText}>Copy Invite Link</Text>
+          <Text style={styles.copyButtonText}>Copy Invite Code</Text>
         </Pressable>
       ) : null}
     </View>
@@ -151,27 +151,20 @@ export default function InviteManagementScreen() {
       setCoachRole("coach");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
-      const raw = EXPO_PUBLIC_DOMAIN || EXPO_PUBLIC_API_URL || "";
-      const domain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
-      const inviteUrl = `https://${domain}/join/${data.invite.token}`;
-      Clipboard.setStringAsync(inviteUrl);
-      Alert.alert("Invite Created", "The invite link has been copied to your clipboard.");
+      const code = data.invite?.shortCode ?? data.invite?.token?.slice(0, 6)?.toUpperCase() ?? "";
+      Clipboard.setStringAsync(code);
+      Alert.alert("Invite Created", `Invite code: ${code}\n\nIt has been copied to your clipboard.`);
     },
     onError: (error: any) => {
       Alert.alert("Error", error.message || "Failed to create invite");
     },
   });
 
-  const handleCopyLink = async (token: string) => {
+  const handleCopyLink = async (code: string) => {
     try {
-      const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
-      const raw = EXPO_PUBLIC_DOMAIN || EXPO_PUBLIC_API_URL || "";
-      const domain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
-      const inviteUrl = `https://${domain}/join/${token}`;
-      await Clipboard.setStringAsync(inviteUrl);
+      await Clipboard.setStringAsync(code);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Copied", `Invite link copied:\n${inviteUrl}`);
+      Alert.alert("Copied", `Invite code copied: ${code}`);
     } catch (error) {
       console.error("Clipboard error:", error);
       Alert.alert("Error", "Could not copy to clipboard. Please try again.");

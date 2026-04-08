@@ -1205,7 +1205,10 @@ export const storage = {
   },
 
   async getInviteByToken(token: string): Promise<Invite | undefined> {
-    const result = await db.select().from(invites).where(eq(invites.token, token));
+    const upper = token.toUpperCase();
+    const result = await db.select().from(invites)
+      .where(or(eq(invites.token, token), eq(invites.shortCode, upper)))
+      .limit(1);
     return result[0];
   },
 

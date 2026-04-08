@@ -20,6 +20,7 @@ import {
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
 import { awardXP } from "../services/xp-service";
 import crypto from "crypto";
+import { generateShortInviteCode } from "../utils/inviteCode";
 
 const router = Router();
 
@@ -2893,11 +2894,13 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       }
 
       const token = crypto.randomBytes(32).toString("hex");
+      const shortCode = generateShortInviteCode();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + validExpiry);
 
       const invite = await storage.createInvite({
         token,
+        shortCode,
         role,
         academyId,
         invitedEmail: email?.toLowerCase() || null,
@@ -2909,6 +2912,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         invite: {
           id: invite.id,
           token: invite.token,
+          shortCode: invite.shortCode,
           role: invite.role,
           invitedEmail: invite.invitedEmail,
           expiresAt: invite.expiresAt,

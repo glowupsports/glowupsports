@@ -281,6 +281,7 @@ export const invites = pgTable("invites", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   token: text("token").notNull().unique(),
+  shortCode: varchar("short_code", { length: 6 }),
   role: text("role").notNull().default("coach"), // coach | assistant
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
   invitedEmail: text("invited_email"), // optional pre-set email

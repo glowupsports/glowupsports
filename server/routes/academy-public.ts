@@ -95,13 +95,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "User ID is required" });
         }
 
-        // Generate secure token
+        // Generate secure token and short code
         const token = crypto.randomBytes(32).toString("hex");
+        const shortCode = generateShortInviteCode();
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
         const invite = await storage.createInvite({
           token,
+          shortCode,
           role,
           academyId,
           invitedEmail: email?.toLowerCase() || null,
@@ -113,6 +115,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           invite: {
             id: invite.id,
             token: invite.token,
+            shortCode: invite.shortCode,
             role: invite.role,
             invitedEmail: invite.invitedEmail,
             expiresAt: invite.expiresAt,

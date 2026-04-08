@@ -703,6 +703,14 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] sessions coach_reviewed_at migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE invites ADD COLUMN IF NOT EXISTS short_code VARCHAR(6)`);
+    await pool.query(`UPDATE invites SET short_code = upper(substring(token from 1 for 6)) WHERE short_code IS NULL`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS invites_short_code_unique ON invites(short_code) WHERE short_code IS NOT NULL`);
+    console.log('[Database] invites short_code migration applied');
+  } catch (e: any) {
+    console.log('[Database] invites short_code migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

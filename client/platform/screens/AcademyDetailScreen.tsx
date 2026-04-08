@@ -10,7 +10,6 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { getEnv } from "@/lib/env";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
@@ -33,6 +32,7 @@ interface AcademyDetails {
 interface Invite {
   id: string;
   token: string;
+  shortCode: string | null;
   role: string;
   invitedEmail: string | null;
   expiresAt: string;
@@ -56,7 +56,7 @@ export default function AcademyDetailScreen() {
   const [selectedInviteRole, setSelectedInviteRole] = useState<"academy_owner" | "coach">("academy_owner");
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [pendingInvite, setPendingInvite] = useState<{ token: string; role: string; url: string } | null>(null);
+  const [pendingInvite, setPendingInvite] = useState<{ token: string; role: string; shortCode: string } | null>(null);
   const [modalCopied, setModalCopied] = useState(false);
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -208,11 +208,11 @@ export default function AcademyDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       if (data.invite?.token) {
-        const inviteUrl = getInviteUrl(data.invite.token);
+        const code = data.invite.shortCode ?? data.invite.token.slice(0, 6).toUpperCase();
         setPendingInvite({
           token: data.invite.token,
           role: data.invite.role,
-          url: inviteUrl,
+          shortCode: code,
         });
         setModalCopied(false);
         setShowInviteModal(true);
@@ -229,17 +229,12 @@ export default function AcademyDetailScreen() {
     },
   });
 
-  const getInviteUrl = (token: string) => {
-    const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
-    const raw = EXPO_PUBLIC_DOMAIN || EXPO_PUBLIC_API_URL || "";
-    const domain = raw.replace(/^https?:\/\//, "").replace(/:\d+$/, "").replace(/\/$/, "");
-    return `https://${domain}/join/${token}`;
-  };
+  const getInviteCode = (invite: Invite): string =>
+    invite.shortCode ?? invite.token.slice(0, 6).toUpperCase();
 
   const handleCopyInviteLink = async (invite: Invite) => {
-    const url = getInviteUrl(invite.token);
     try {
-      await Clipboard.setStringAsync(url);
+      await Clipboard.setStringAsync(getInviteCode(invite));
       setCopiedInviteId(invite.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setCopiedInviteId(null), 2000);
@@ -249,12 +244,11 @@ export default function AcademyDetailScreen() {
   };
 
   const handleShareInviteLink = async (invite: Invite) => {
-    const url = getInviteUrl(invite.token);
+    const code = getInviteCode(invite);
     const roleLabel = invite.role === "academy_owner" ? "Academy Owner" : "Coach";
     try {
       await Share.share({
-        message: `Join ${academyName} as ${roleLabel}: ${url}`,
-        url: url,
+        message: `Join ${academyName} as ${roleLabel} — invite code: ${code}`,
       });
     } catch (error) {
       console.error("Failed to share:", error);
@@ -268,7 +262,7 @@ export default function AcademyDetailScreen() {
   const handleModalCopy = async () => {
     if (!pendingInvite) return;
     try {
-      await Clipboard.setStringAsync(pendingInvite.url);
+      await Clipboard.setStringAsync(pendingInvite.shortCode);
       setModalCopied(true);
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setModalCopied(false), 2000);
@@ -282,8 +276,7 @@ export default function AcademyDetailScreen() {
     const roleLabel = pendingInvite.role === "academy_owner" ? "Academy Owner" : "Coach";
     try {
       await Share.share({
-        message: `Join ${academyName} as ${roleLabel}: ${pendingInvite.url}`,
-        url: pendingInvite.url,
+        message: `Join ${academyName} as ${roleLabel} — invite code: ${pendingInvite.shortCode}`,
       });
     } catch (error) {
       console.error("Failed to share:", error);
@@ -596,7 +589,7 @@ export default function AcademyDetailScreen() {
                           <Text style={styles.inviteRoleText}>{roleLabel}</Text>
                         </View>
                         <Text style={styles.inviteToken} numberOfLines={1}>
-                          ...{invite.token.slice(-8)}
+                          {getInviteCode(invite)}
                         </Text>
                         {isExpired ? (
                           <Text style={styles.inviteExpired}>Expired</Text>
@@ -668,15 +661,15 @@ export default function AcademyDetailScreen() {
               <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
             </View>
             
-            <Text style={styles.inviteModalTitle}>Invite Link Created!</Text>
+            <Text style={styles.inviteModalTitle}>Invite Code Created!</Text>
             <Text style={styles.inviteModalSubtitle}>
-              Share this link to invite someone as {pendingInvite?.role === "academy_owner" ? "Academy Owner" : "Coach"}:
+              Share this code to invite someone as {pendingInvite?.role === "academy_owner" ? "Academy Owner" : "Coach"}:
             </Text>
 
             <View style={styles.inviteLinkBox}>
-              <Text style={styles.inviteLinkLabel}>Invite Link</Text>
-              <Text style={styles.inviteLinkText} numberOfLines={2} selectable>
-                {pendingInvite?.url}
+              <Text style={styles.inviteLinkLabel}>Invite Code</Text>
+              <Text style={[styles.inviteLinkText, { letterSpacing: 4, fontSize: 24, textAlign: "center" }]} selectable>
+                {pendingInvite?.shortCode}
               </Text>
             </View>
 
@@ -691,7 +684,7 @@ export default function AcademyDetailScreen() {
                   color={Colors.dark.backgroundRoot} 
                 />
                 <Text style={styles.copyButtonText}>
-                  {modalCopied ? "Copied!" : "Copy Link"}
+                  {modalCopied ? "Copied!" : "Copy Code"}
                 </Text>
               </Pressable>
               
