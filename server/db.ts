@@ -720,6 +720,28 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] invites short_code migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS session_intake_data (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id VARCHAR NOT NULL REFERENCES sessions(id),
+        player_id VARCHAR REFERENCES players(id),
+        coach_id VARCHAR NOT NULL REFERENCES coaches(id),
+        trained_skills JSONB DEFAULT '[]',
+        intensity TEXT,
+        group_dynamics JSONB,
+        player_tags JSONB,
+        pillar_ratings JSONB,
+        highlight TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS session_intake_data_session_idx ON session_intake_data(session_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS session_intake_data_player_idx ON session_intake_data(player_id)`);
+    console.log('[Database] session_intake_data migration applied');
+  } catch (e: any) {
+    console.log('[Database] session_intake_data migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
