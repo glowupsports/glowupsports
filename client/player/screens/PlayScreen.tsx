@@ -129,6 +129,11 @@ function formatLastSeen(iso?: string | null): string {
   return "this week+";
 }
 
+function isOnlineNow(iso?: string | null): boolean {
+  if (!iso) return false;
+  return Date.now() - new Date(iso).getTime() < 5 * 60 * 1000;
+}
+
 function getBallLevelColor(level: string): string {
   const l = level?.toLowerCase() || "";
   if (l.includes("blue")) return "#3B82F6";
@@ -1275,6 +1280,8 @@ export default function PlayScreen() {
     const ballColor = getBallLevelColor(player.ballLevel || "");
     const baseBallLabel = getBallLevelLabel(player.ballLevel || "");
     const ballLabel = player.skillLevel ? `${baseBallLabel} ${player.skillLevel}` : baseBallLabel;
+    const online = isOnlineNow(player.lastOnlineAt);
+    const lastSeenText = formatLastSeen(player.lastOnlineAt);
     
     return (
       <Pressable 
@@ -1282,7 +1289,7 @@ export default function PlayScreen() {
         style={styles.compactPlayerCard}
         onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
       >
-        <View style={[styles.compactAvatarRing, { borderColor: ballColor }]}>
+        <View style={[styles.compactAvatarRing, { borderColor: online ? "#22C55E" : ballColor }]}>
           {player.avatarUrl && !brokenAvatars.has(player.id) ? (
             <ExpoImage 
               source={{ uri: buildPhotoUrl(player.avatarUrl) ?? undefined }}
@@ -1297,8 +1304,8 @@ export default function PlayScreen() {
               </Text>
             </View>
           )}
-          {player.openToPlay ? (
-            <View style={styles.compactOnlineDot} />
+          {(online || player.openToPlay) ? (
+            <View style={[styles.compactOnlineDot, online ? styles.compactOnlineDotActive : null]} />
           ) : null}
         </View>
 
@@ -1308,10 +1315,17 @@ export default function PlayScreen() {
             <View style={[styles.compactLevelBadge, { backgroundColor: ballColor + "25" }]}>
               <Text style={[styles.compactLevelText, { color: ballColor }]}>{ballLabel}</Text>
             </View>
-            <View style={styles.compactLastSeenBadge}>
-              <Ionicons name="time-outline" size={10} color={Colors.dark.textSubtle} />
-              <Text style={styles.compactLastSeenText}>{formatLastSeen(player.lastOnlineAt)}</Text>
-            </View>
+            {online ? (
+              <View style={styles.compactOnlineBadge}>
+                <View style={styles.compactOnlinePulse} />
+                <Text style={styles.compactOnlineText}>Online</Text>
+              </View>
+            ) : (
+              <View style={styles.compactLastSeenBadge}>
+                <Ionicons name="time-outline" size={10} color={Colors.dark.textSubtle} />
+                <Text style={styles.compactLastSeenText}>{lastSeenText}</Text>
+              </View>
+            )}
             {player.hasHomeAddress ? (
               <View style={styles.homeAddressBadge}>
                 <Ionicons name="home" size={10} color={Colors.dark.xpCyan} />
@@ -2976,6 +2990,35 @@ const styles = StyleSheet.create({
   compactLastSeenText: {
     fontSize: 10,
     color: Colors.dark.textSubtle,
+  },
+  compactOnlineDotActive: {
+    backgroundColor: "#22C55E",
+    shadowColor: "#22C55E",
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  compactOnlineBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(34,197,94,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.35)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  compactOnlinePulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#22C55E",
+  },
+  compactOnlineText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#22C55E",
   },
   compactActions: {
     flexDirection: "row",

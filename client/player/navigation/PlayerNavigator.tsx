@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
-import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text, AppState } from "react-native";
 import { secureGet, secureDelete } from "@/lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
