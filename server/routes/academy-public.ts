@@ -56,16 +56,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { sendSessionConfirmedNotification } from "../pushNotifications";
   import { getCurrencyForCountry } from "@shared/countries";
   import crypto from "crypto";
+  import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
-  function generateShortInviteCode(): string {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 6; i++) {
-      const randomByte = crypto.randomInt(0, chars.length);
-      code += chars[randomByte];
-    }
-    return code;
-  }
     // ==================== COACH INVITES (Academy Owner/Admin) ====================
 
   // Create coach invite

@@ -99,6 +99,15 @@ function InviteCard({ invite, onCopy }: InviteCardProps) {
       </View>
 
       {status === "active" ? (
+        <View style={styles.codeRow}>
+          <Text style={styles.codeLabel}>Invite Code</Text>
+          <Text style={styles.codeValue}>
+            {invite.shortCode ?? invite.token.slice(0, 6).toUpperCase()}
+          </Text>
+        </View>
+      ) : null}
+
+      {status === "active" ? (
         <Pressable
           style={styles.copyButton}
           onPress={() => {
@@ -634,6 +643,25 @@ const styles = StyleSheet.create({
   expiryText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  codeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.sm,
+    paddingLeft: 52,
+    paddingRight: Spacing.xs,
+  },
+  codeLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  codeValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 3,
+    fontFamily: "monospace",
   },
   copyButton: {
     flexDirection: "row",

@@ -55,16 +55,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { sendPlayerInviteEmail, sendWelcomeEmail } from "../emailService";
   import { sendPushNotification } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
+  import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
-  function generateShortInviteCode(): string {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 6; i++) {
-      const randomByte = crypto.randomInt(0, chars.length);
-      code += chars[randomByte];
-    }
-    return code;
-  }
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
     const limit = Math.min(parseInt(query.limit as string) || 50, 100);
