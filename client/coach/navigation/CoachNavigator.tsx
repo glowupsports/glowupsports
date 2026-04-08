@@ -39,6 +39,7 @@ import TournamentManagementScreen from "@/coach/screens/TournamentManagementScre
 import AiUsageScreen from "@/coach/screens/AiUsageScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
+import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors } from "@/constants/theme";
@@ -107,24 +108,31 @@ function CoachTabs() {
 
   const isDesktop = Platform.OS === "web" && width >= WEB_DESKTOP_BREAKPOINT;
 
-  const TAB_LABELS: Record<string, string> = {
+  const TAB_LABELS: Record<string, string> = useMemo(() => ({
     Dashboard: t("nav.home"),
     Calendar: t("coach.calendar.title"),
     Players: t("nav.players"),
     Coaching: t("nav.coaching"),
     Settings: t("nav.settings"),
-  };
+  }), [t]);
 
-  const COACH_TABS: TabConfig[] = BASE_COACH_TABS.map((tab) => ({
+  const COACH_TABS: TabConfig[] = useMemo(() => BASE_COACH_TABS.map((tab) => ({
     ...tab,
     label: TAB_LABELS[tab.key] || tab.key,
-  }));
+  })), [TAB_LABELS]);
+
+  const renderOverlay = useCallback((tabKey: string) => {
+    const shouldShowChat = tabKey === "Dashboard";
+    if (!shouldShowChat) return null;
+    return <CoachChatFooter />;
+  }, []);
 
   const tabBar = (
     <SwipeableTabBar
       tabs={COACH_TABS}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.xpCyan}
+      renderOverlay={isDesktop ? undefined : renderOverlay}
       hideTabBar={isDesktop}
     />
   );

@@ -35,7 +35,6 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
-import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 import { FreelanceLicenseWizard } from "@/coach/components/FreelanceLicenseWizard";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
@@ -1882,8 +1881,6 @@ export default function DashboardScreen() {
         ) : null}
 
       </ScrollView>
-
-      <CoachChatFooter />
 
       <CoachStatusPanel
         visible={showStatusPanel}
