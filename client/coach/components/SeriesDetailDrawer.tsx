@@ -141,8 +141,6 @@ export default function SeriesDetailDrawer({
   
   // Timeline scroll ref
   const timelineScrollRef = useRef<ScrollView>(null);
-  // Stores the last payload sent to updateMaxPlayersMutation so the 409 retry can resend it.
-  const pendingTypeChangePayloadRef = useRef<{ maxPlayers?: number; sessionType?: string; confirmTypeChange?: boolean } | null>(null);
   const TIMELINE_ITEM_HEIGHT = 72; // Approximate height of each timeline item
   
   // Create package inline form state
@@ -423,42 +421,35 @@ export default function SeriesDetailDrawer({
   // Mutation to update max players (and optionally session type)
   const updateMaxPlayersMutation = useMutation({
     mutationFn: async (payload: { maxPlayers?: number; sessionType?: string; confirmTypeChange?: boolean }) => {
-      // Store payload so the 409 confirmation retry can resend the full intended change.
-      pendingTypeChangePayloadRef.current = payload;
       return apiRequest("PATCH", `/api/coach/series/${seriesId}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      pendingTypeChangePayloadRef.current = null;
       setEditingMaxPlayers(false);
       setNewMaxPlayers("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       // Handle server guard: coach tried to change away from group without explicit confirmation.
       // apiRequest throws Error with message "409: {json-body}".
+      // TanStack Query provides `variables` (the original payload) as the second argument.
       const msg: string = err?.message || "";
       if (msg.startsWith("409:")) {
         try {
           const body = JSON.parse(msg.slice(4).trim());
           if (body?.code === "CONFIRM_GROUP_TYPE_CHANGE" && body?.requiresConfirmation) {
             const activePlayerCount: number = body.activePlayerCount ?? 0;
-            const originalPayload = pendingTypeChangePayloadRef.current;
             Alert.alert(
               "Change Session Type?",
               `This is a Group session with ${activePlayerCount} active player(s). Changing the type is permanent and affects all future sessions. Continue?`,
               [
-                {
-                  text: "Keep as Group",
-                  style: "cancel",
-                  onPress: () => { pendingTypeChangePayloadRef.current = null; },
-                },
+                { text: "Keep as Group", style: "cancel" },
                 {
                   text: "Yes, Change Type",
                   style: "destructive",
                   onPress: () => {
                     updateMaxPlayersMutation.mutate({
-                      ...originalPayload,
+                      ...variables,
                       confirmTypeChange: true,
                     });
                   },
@@ -466,7 +457,7 @@ export default function SeriesDetailDrawer({
               ]
             );
           }
-        } catch {
+        } catch (_e) {
           // non-JSON 409 — ignore, generic error handling covers it
         }
       }
