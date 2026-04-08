@@ -976,7 +976,7 @@ export function GroupsSection() {
             <>
               <View style={[groupStyles.discoverSectionHeader, myGroups.length > 0 && { marginTop: Spacing.lg }]}>
                 <Ionicons name="compass" size={15} color="#A78BFA" />
-                <ThemedText style={[groupStyles.discoverSectionTitle, { color: "#A78BFA" }]}>Discover</ThemedText>
+                <ThemedText style={[groupStyles.discoverSectionTitle, { color: "#A78BFA" }]}>Discover Groups</ThemedText>
                 <ThemedText style={groupStyles.discoverSectionCount}>{discoverGroups.length}</ThemedText>
               </View>
               <ThemedText style={groupStyles.discoverSectionSubtitle}>
