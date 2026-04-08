@@ -141,6 +141,8 @@ export default function SeriesDetailDrawer({
   
   // Timeline scroll ref
   const timelineScrollRef = useRef<ScrollView>(null);
+  // Stores the last payload sent to updateMaxPlayersMutation so the 409 retry can resend it.
+  const pendingTypeChangePayloadRef = useRef<{ maxPlayers?: number; sessionType?: string; confirmTypeChange?: boolean } | null>(null);
   const TIMELINE_ITEM_HEIGHT = 72; // Approximate height of each timeline item
   
   // Create package inline form state
@@ -418,19 +420,22 @@ export default function SeriesDetailDrawer({
     },
   });
 
-  // Mutation to update max players
+  // Mutation to update max players (and optionally session type)
   const updateMaxPlayersMutation = useMutation({
     mutationFn: async (payload: { maxPlayers?: number; sessionType?: string; confirmTypeChange?: boolean }) => {
+      // Store payload so the 409 confirmation retry can resend the full intended change.
+      pendingTypeChangePayloadRef.current = payload;
       return apiRequest("PATCH", `/api/coach/series/${seriesId}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      pendingTypeChangePayloadRef.current = null;
       setEditingMaxPlayers(false);
       setNewMaxPlayers("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: any) => {
-      // Handle server guard: coach tried to change away from group without confirmation.
+      // Handle server guard: coach tried to change away from group without explicit confirmation.
       // apiRequest throws Error with message "409: {json-body}".
       const msg: string = err?.message || "";
       if (msg.startsWith("409:")) {
@@ -438,15 +443,25 @@ export default function SeriesDetailDrawer({
           const body = JSON.parse(msg.slice(4).trim());
           if (body?.code === "CONFIRM_GROUP_TYPE_CHANGE" && body?.requiresConfirmation) {
             const activePlayerCount: number = body.activePlayerCount ?? 0;
+            const originalPayload = pendingTypeChangePayloadRef.current;
             Alert.alert(
               "Change Session Type?",
               `This is a Group session with ${activePlayerCount} active player(s). Changing the type is permanent and affects all future sessions. Continue?`,
               [
-                { text: "Keep as Group", style: "cancel" },
+                {
+                  text: "Keep as Group",
+                  style: "cancel",
+                  onPress: () => { pendingTypeChangePayloadRef.current = null; },
+                },
                 {
                   text: "Yes, Change Type",
                   style: "destructive",
-                  onPress: () => updateMaxPlayersMutation.mutate({ confirmTypeChange: true }),
+                  onPress: () => {
+                    updateMaxPlayersMutation.mutate({
+                      ...originalPayload,
+                      confirmTypeChange: true,
+                    });
+                  },
                 },
               ]
             );
@@ -461,10 +476,38 @@ export default function SeriesDetailDrawer({
   const handleSaveMaxPlayers = () => {
     const value = parseInt(newMaxPlayers, 10);
     if (!isNaN(value) && value >= 1 && value <= 20) {
-      const payload: { maxPlayers: number; sessionType?: string } = { maxPlayers: value };
+      const payload: { maxPlayers: number; sessionType?: string; confirmTypeChange?: boolean } = { maxPlayers: value };
+
       if (value >= 3 && series?.sessionType === "semi_private") {
+        // Auto-upgrade to group when max players >= 3
         payload.sessionType = "group";
+        updateMaxPlayersMutation.mutate(payload);
+        return;
       }
+
+      if (value < 3 && series?.sessionType === "group") {
+        // Downgrading from group requires coach confirmation
+        Alert.alert(
+          "Change to Semi-Private?",
+          `Setting max players to ${value} will change this Group session to Semi-Private. This affects all future sessions. Are you sure?`,
+          [
+            { text: "Keep as Group", style: "cancel" },
+            {
+              text: "Change to Semi-Private",
+              style: "destructive",
+              onPress: () => {
+                updateMaxPlayersMutation.mutate({
+                  maxPlayers: value,
+                  sessionType: "semi_private",
+                  confirmTypeChange: true,
+                });
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       updateMaxPlayersMutation.mutate(payload);
     }
   };
