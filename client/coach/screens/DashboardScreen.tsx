@@ -60,7 +60,7 @@ import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GettingStartedChecklist, ChecklistStep } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
-import { HelpButton } from "@/components/HelpButton";
+import { HelpCenterModal, PLATFORM_GLOSSARY } from "@/components/HelpCenterModal";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
@@ -1445,6 +1445,7 @@ export default function DashboardScreen() {
     { question: "How do I mark attendance?", answer: "Open a session from your calendar, tap 'Attendance', and mark each player as Present, Absent, or Late.", category: "Sessions" },
   ];
 
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [showRoleSwitchGuide, setShowRoleSwitchGuide] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
@@ -1653,6 +1654,18 @@ export default function DashboardScreen() {
               {/* Right: Quick Actions */}
               <View style={styles.playerActions}>
                 <LanguageHeaderButton />
+                <Pressable
+                  style={styles.actionBtnGlow}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowHelpCenter(true);
+                  }}
+                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                >
+                  <View style={styles.actionBtnInner}>
+                    <Ionicons name="help-circle" size={20} color={Colors.dark.xpCyan} />
+                  </View>
+                </Pressable>
                 <Pressable
                   style={styles.actionBtnGlow}
                   onPress={() => handleNavigate("Notifications")}
@@ -2616,13 +2629,16 @@ export default function DashboardScreen() {
         onComplete={() => {}}
       />
       
-      <HelpButton
+      <HelpCenterModal
+        visible={showHelpCenter}
+        onClose={() => setShowHelpCenter(false)}
         role="coach"
         faqs={coachFAQs}
+        glossary={PLATFORM_GLOSSARY}
+        tutorials={[]}
         supportEmail="support@glowupsports.com"
-        bottomOffset={120}
       />
-      
+
       <RoleSwitchingGuide
         visible={showRoleSwitchGuide}
         onClose={() => setShowRoleSwitchGuide(false)}
