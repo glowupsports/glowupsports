@@ -7477,11 +7477,6 @@ export const storage = {
       pillarCurriculum.set(pillar, existing);
     }
 
-    // GlowScore: overall curriculum mastery (0-100) from skill scores
-    const totalMaxScore = Array.from(pillarCurriculum.values()).reduce((s, p) => s + p.maxScore, 0);
-    const totalSumScores = Array.from(pillarCurriculum.values()).reduce((s, p) => s + p.sumScores, 0);
-    const glowScore = totalMaxScore > 0 ? Math.round((totalSumScores / totalMaxScore) * 100) : 0;
-    
     // Get recent feedback count (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -7496,15 +7491,26 @@ export const storage = {
       const curriculum = pillarCurriculum.get(pillarName);
       const skillsTotal = curriculum?.skillCount ?? 0;
       const skillsMeetsOrAbove = curriculum?.achievedCount ?? 0;
-      // masteryPct = proportional average: (sum of movingAverages / max possible) × 100
-      // This gives a smooth gradient — 0% when unscored, climbs as real skills are rated
-      const masteryPct = skillsTotal > 0 && (curriculum?.maxScore ?? 0) > 0
-        ? Math.round(((curriculum?.sumScores ?? 0) / (curriculum?.maxScore ?? 1)) * 100)
+
+      // Curriculum mastery: proportional average of skill moving averages (0-100)
+      const curriculumPct = skillsTotal > 0 && (curriculum?.maxScore ?? 0) > 0
+        ? Math.min(100, Math.round(((curriculum?.sumScores ?? 0) / (curriculum?.maxScore ?? 1)) * 100))
         : 0;
+
+      // Coach EMA: currentScore is on 0-2 scale → convert to 0-100
+      const coachEmaScore = pillarData ? Number(pillarData.currentScore) : 0;
+      const coachEmaPct = Math.min(100, Math.round((coachEmaScore / 2) * 100));
+
+      // Blended mastery: 70% curriculum + 30% coach EMA
+      // Fall back to 100% curriculum only when there is no coach EMA row at all (0 sessions)
+      const hasCoachEma = pillarData !== undefined;
+      const masteryPct = hasCoachEma
+        ? Math.round(0.7 * curriculumPct + 0.3 * coachEmaPct)
+        : curriculumPct;
       
       return {
         name: pillarName,
-        score: pillarData ? Number(pillarData.currentScore) : 0,
+        score: coachEmaScore,
         trend: pillarData?.trend || "stable",
         skillsTotal,
         skillsMeetsOrAbove,
@@ -7514,16 +7520,19 @@ export const storage = {
       };
     });
     
-    // Overall readiness: curriculum-based when data exists, EMA-based as fallback
+    // Overall readiness: average of blended pillar masteryPct values
     const hasCurriculumData = curriculumSkills.length > 0;
-    const overallReadiness = hasCurriculumData && totalMaxScore > 0
-      ? Math.min(100, Math.round((totalSumScores / totalMaxScore) * 100))
+    const overallReadiness = hasCurriculumData
+      ? Math.min(100, Math.round(pillars.reduce((s, p) => s + p.masteryPct, 0) / pillars.length))
       : Math.min(100, Math.round((pillars.reduce((s, p) => s + p.score, 0) / pillars.length / 2) * 100));
     
-    // Trial gate: all pillars with curriculum data at ≥ 75% mastery, or EMA ≥ 1.5 fallback
+    // Trial gate: all pillars with curriculum data at ≥ 75% blended mastery, or EMA ≥ 1.5 fallback
     const trialGateReady = hasCurriculumData
       ? pillars.every(p => p.skillsTotal === 0 || p.masteryPct >= 75)
       : pillars.every(p => p.score >= 1.5);
+
+    // GlowScore: average of blended pillar masteryPct values (0-100 scale)
+    const glowScore = Math.round(pillars.reduce((s, p) => s + p.masteryPct, 0) / pillars.length);
     
     return {
       pillars,

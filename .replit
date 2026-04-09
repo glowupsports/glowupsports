@@ -78,12 +78,12 @@ waitForPort = 5000
 name = "OTA Push"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash scripts/ota-push.sh"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "OTA_MESSAGE=\"Fix pillar blend: use row existence (not score>0) for coach EMA detection\" bash scripts/ota-push.sh"
 
 [userenv]
 

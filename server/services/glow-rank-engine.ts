@@ -17,8 +17,18 @@ import {
   ballLevels,
   levelSkills,
   glowSkills,
+  players,
 } from "../../shared/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
+
+const BALL_LEVEL_ENTRY_MAP: Record<string, string> = {
+  blue: "BLUE_3",
+  red: "RED_3",
+  orange: "ORANGE_3",
+  green: "GREEN_3",
+  yellow: "YELLOW_1",
+  glow: "YELLOW_1",
+};
 
 const PILLAR_ALPHA = 0.3;
 const SKILL_ALPHA = 0.4;
@@ -59,7 +69,7 @@ interface GlowRank {
 }
 
 export async function calculateGlowRank(playerId: string): Promise<GlowRank | null> {
-  // Get player's current level
+  // Get player's current level from player_ball_levels
   const [playerLevel] = await db
     .select({
       levelId: playerBallLevels.levelId,
@@ -72,15 +82,33 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
     ))
     .limit(1);
 
+  let resolvedLevelId: string;
+
   if (!playerLevel) {
-    return null;
+    // Fallback: use players.ball_level mapped via BALL_LEVEL_ENTRY_MAP
+    const [playerRow] = await db
+      .select({ ballLevel: players.ballLevel })
+      .from(players)
+      .where(eq(players.id, playerId));
+
+    if (!playerRow?.ballLevel) {
+      return null;
+    }
+
+    const mappedLevelId = BALL_LEVEL_ENTRY_MAP[(playerRow.ballLevel || "").toLowerCase()];
+    if (!mappedLevelId) {
+      return null;
+    }
+    resolvedLevelId = mappedLevelId;
+  } else {
+    resolvedLevelId = playerLevel.levelId;
   }
 
   // Get level details
   const [level] = await db
     .select()
     .from(ballLevels)
-    .where(eq(ballLevels.id, playerLevel.levelId));
+    .where(eq(ballLevels.id, resolvedLevelId));
 
   if (!level) {
     return null;
@@ -96,7 +124,7 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
     })
     .from(levelSkills)
     .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
-    .where(eq(levelSkills.levelId, playerLevel.levelId));
+    .where(eq(levelSkills.levelId, resolvedLevelId));
 
   // Get player's skill scores (latest for each skill)
   const skillIds = levelSkillsData.map(s => s.skillId);
@@ -175,9 +203,9 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
     return sum + (p.score * pillarWeight);
   }, 0);
   
-  // Glow Score: 0-100 scale based on achievement percentage
-  const achievementRatio = skillsTotal > 0 ? skillsAchieved / skillsTotal : 0;
-  const glowScore = Math.round(achievementRatio * 100);
+  // Glow Score: weighted pillar average × 100 (0-100 scale)
+  // pillarWeightedSum is on the 0-2 EMA scale, so divide by 2 to normalise to 0-1, then × 100
+  const glowScore = Math.round((pillarWeightedSum / 2) * 100);
   
   // Pillar progress: average across all pillars
   const pillarProgressScore = pillarScores.length > 0
