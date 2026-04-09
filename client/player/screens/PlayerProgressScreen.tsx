@@ -1453,6 +1453,7 @@ export default function PlayerProgressScreen() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [showGlowPlanExpanded, setShowGlowPlanExpanded] = useState(false);
+  const [journalExpanded, setJournalExpanded] = useState(false);
 
   const { data: weeklyPlanData } = useQuery<{
     id: string;
@@ -1606,6 +1607,13 @@ export default function PlayerProgressScreen() {
     createdAt: string;
     sessionDate: string | null;
     coachName: string | null;
+    techniquePillar: number | null;
+    tacticalPillar: number | null;
+    physicalPillar: number | null;
+    mentalPillar: number | null;
+    socialPillar: number | null;
+    matchPillar: number | null;
+    aiNote: string | null;
   }
   const { data: glowRatings = [] } = useQuery<GlowRatingItem[]>({
     queryKey: ["/api/player/me/glow-ratings"],
@@ -2280,22 +2288,36 @@ export default function PlayerProgressScreen() {
           </View>
         ) : null}
 
-        {/* Latest Coach Ratings (Section 2 - D1) */}
-        {glowRatings.length > 0 ? (
-          <View style={styles.feedbackSection}>
-            <View style={styles.feedbackHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={[styles.sectionIconSmall, { backgroundColor: Colors.dark.successNeon + "20" }]}>
-                  <Ionicons name="star" size={16} color={Colors.dark.successNeon} />
-                </View>
-                <Text style={styles.sectionTitle}>Latest Coach Ratings</Text>
+        {/* Training Journal (Section 2 - D1) */}
+        <View style={styles.feedbackSection}>
+          <View style={styles.feedbackHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconSmall, { backgroundColor: Colors.dark.successNeon + "20" }]}>
+                <Ionicons name="journal-outline" size={16} color={Colors.dark.successNeon} />
               </View>
+              <Text style={styles.sectionTitle}>Training Journal</Text>
             </View>
+          </View>
+          {glowRatings.length === 0 ? (
+            <View style={styles.emptyFeedbackCard}>
+              <Ionicons name="journal-outline" size={24} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyFeedbackText}>No coaching sessions yet. Your first AI session will appear here.</Text>
+            </View>
+          ) : (
             <View style={styles.feedbackList}>
-              {glowRatings.slice(0, 3).map((rating) => {
+              {(journalExpanded ? glowRatings : glowRatings.slice(0, 10)).map((rating) => {
                 const overallColor = rating.overall === "improved" ? Colors.dark.successNeon : rating.overall === "declined" ? Colors.dark.error : Colors.dark.textMuted;
                 const overallIcon = rating.overall === "improved" ? "trending-up" : rating.overall === "declined" ? "trending-down" : "remove";
                 const overallLabel = rating.overall === "improved" ? "Improved" : rating.overall === "declined" ? "Declined" : "Stable";
+                const pillarPills = [
+                  { key: "techniquePillar" as const, label: "TEC", color: Colors.dark.successNeon },
+                  { key: "tacticalPillar" as const, label: "TAC", color: Colors.dark.orange },
+                  { key: "physicalPillar" as const, label: "PHY", color: Colors.dark.error },
+                  { key: "mentalPillar" as const, label: "MEN", color: "#8B5CF6" },
+                  { key: "socialPillar" as const, label: "SOC", color: "#EC4899" },
+                  { key: "matchPillar" as const, label: "MAT", color: "#3B82F6" },
+                ];
+                const activePillars = pillarPills.filter((p) => rating[p.key] !== null && rating[p.key] !== undefined);
                 return (
                   <View key={rating.id} style={styles.noteCard}>
                     <View style={styles.noteCardHeader}>
@@ -2305,6 +2327,19 @@ export default function PlayerProgressScreen() {
                         <Text style={[styles.noteTypeText, { color: overallColor }]}>{overallLabel}</Text>
                       </View>
                     </View>
+                    {(rating.aiNote || rating.note) ? (
+                      <Text style={styles.noteMessage} numberOfLines={2}>{rating.aiNote || rating.note}</Text>
+                    ) : null}
+                    {activePillars.length > 0 ? (
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                        {activePillars.map((p) => (
+                          <View key={p.key} style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: p.color + "20", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.color }} />
+                            <Text style={{ fontSize: 10, color: p.color, fontWeight: "600" }}>{p.label}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                     <View style={{ flexDirection: "row", gap: 12, marginVertical: 6 }}>
                       {[
                         { label: "Effort", value: rating.effort },
@@ -2329,18 +2364,21 @@ export default function PlayerProgressScreen() {
                         </View>
                       ))}
                     </View>
-                    {rating.note ? (
-                      <Text style={styles.noteMessage} numberOfLines={2}>{rating.note}</Text>
-                    ) : null}
                     {rating.coachName ? (
                       <Text style={styles.noteCoach}>{rating.coachName}</Text>
                     ) : null}
                   </View>
                 );
               })}
+              {glowRatings.length > 10 && !journalExpanded ? (
+                <Pressable onPress={() => setJournalExpanded(true)} style={styles.seeAllButton}>
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+                </Pressable>
+              ) : null}
             </View>
-          </View>
-        ) : null}
+          )}
+        </View>
 
         {/* Coach Notes Section */}
         <View style={styles.feedbackSection}>

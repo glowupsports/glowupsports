@@ -1196,13 +1196,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             createdAt: sessionSkillFeedback.createdAt,
             sessionDate: sessions.startTime,
             coachName: coaches.name,
+            techniquePillar: sessionSkillFeedback.techniquePillar,
+            tacticalPillar: sessionSkillFeedback.tacticalPillar,
+            physicalPillar: sessionSkillFeedback.physicalPillar,
+            mentalPillar: sessionSkillFeedback.mentalPillar,
+            socialPillar: sessionSkillFeedback.socialPillar,
+            matchPillar: sessionSkillFeedback.matchPillar,
+            aiNote: sql<string | null>`(
+              SELECT message FROM in_session_feedback
+              WHERE session_id = ${sessionSkillFeedback.sessionId}
+                AND player_id = ${sessionSkillFeedback.playerId}
+                AND feedback_type = 'ai_session_note'
+              ORDER BY created_at DESC
+              LIMIT 1
+            )`,
           })
           .from(sessionSkillFeedback)
           .leftJoin(sessions, eq(sessions.id, sessionSkillFeedback.sessionId))
           .leftJoin(coaches, eq(coaches.id, sessionSkillFeedback.coachId))
           .where(eq(sessionSkillFeedback.playerId, playerId))
           .orderBy(desc(sessionSkillFeedback.createdAt))
-          .limit(10);
+          .limit(50);
 
         res.json(ratings);
       } catch (error) {
