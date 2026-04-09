@@ -298,6 +298,7 @@ import {
   type InsertPlayerDeepAssessment,
   // Glow Skills
   glowSkills,
+  levelSkills,
   // Booking invites
   bookingInvites,
   bookingInviteGuests,
@@ -7405,29 +7406,81 @@ export const storage = {
     glowScore: number; // 0-100 curriculum-based score
   }> {
     const PILLAR_NAMES = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
+
+    // Maps players.ball_level → level_skills.level_id (same mapping as skill-scores endpoint)
+    const BALL_LEVEL_ENTRY_MAP: Record<string, string> = {
+      blue: "BLUE_3",
+      red: "RED_3",
+      orange: "ORANGE_3",
+      green: "GREEN_3",
+      yellow: "YELLOW_1",
+      glow: "YELLOW_1",
+    };
     
-    // Get pillar progress from player_pillar_progress table
+    // Get pillar EMA scores (for trend/lastUpdated fallback display)
     const progress = await db.select().from(playerPillarProgress)
       .where(eq(playerPillarProgress.playerId, playerId));
-    
-    // Try to get curriculum-based mastery per pillar from glow-rank-engine
-    let curriculumPillarMap = new Map<string, { achievedCount: number; skillCount: number }>();
-    let glowScore = 0;
-    try {
-      const { calculateGlowRank } = await import("./services/glow-rank-engine");
-      const rank = await calculateGlowRank(playerId);
-      if (rank) {
-        glowScore = rank.glowScore;
-        for (const ps of rank.pillarScores) {
-          curriculumPillarMap.set(ps.pillar, {
-            achievedCount: ps.achievedCount,
-            skillCount: ps.skillCount,
-          });
-        }
+
+    // Get player's ball level to find curriculum skills
+    const [playerRow] = await db
+      .select({ ballLevel: players.ballLevel })
+      .from(players)
+      .where(eq(players.id, playerId));
+    const ballLevelRaw = (playerRow?.ballLevel || "red").toLowerCase();
+    const levelId = BALL_LEVEL_ENTRY_MAP[ballLevelRaw] || "RED_3";
+
+    // Fetch all curriculum skills for this level with their pillar
+    const curriculumSkills = await db
+      .select({
+        skillId: levelSkills.skillId,
+        pillar: glowSkills.pillar,
+        targetScore: levelSkills.targetScore,
+      })
+      .from(levelSkills)
+      .innerJoin(glowSkills, eq(glowSkills.id, levelSkills.skillId))
+      .where(eq(levelSkills.levelId, levelId));
+
+    // Fetch player's latest moving average per skill (deduplicated)
+    const skillIds = curriculumSkills.map(s => s.skillId);
+    const rawScores = skillIds.length > 0
+      ? await db
+          .select({
+            skillId: playerSkillScores.skillId,
+            movingAverage: playerSkillScores.movingAverage,
+          })
+          .from(playerSkillScores)
+          .where(and(
+            eq(playerSkillScores.playerId, playerId),
+            inArray(playerSkillScores.skillId, skillIds),
+          ))
+          .orderBy(playerSkillScores.skillId, desc(playerSkillScores.createdAt))
+      : [];
+
+    // Keep only the latest score per skill
+    const latestBySkillId = new Map<string, number>();
+    for (const row of rawScores) {
+      if (!latestBySkillId.has(row.skillId)) {
+        latestBySkillId.set(row.skillId, Number(row.movingAverage || 0));
       }
-    } catch (err) {
-      console.error("[PillarSummary] Could not compute curriculum mastery (non-critical):", err);
     }
+
+    // Build per-pillar sums: (sum of movingAverages, count of skills, count achieved ≥ 1.5)
+    const pillarCurriculum = new Map<string, { skillCount: number; sumScores: number; maxScore: number; achievedCount: number }>();
+    for (const skill of curriculumSkills) {
+      const pillar = skill.pillar || "TECHNIQUE";
+      const existing = pillarCurriculum.get(pillar) || { skillCount: 0, sumScores: 0, maxScore: 0, achievedCount: 0 };
+      const movingAvg = latestBySkillId.get(skill.skillId) || 0;
+      existing.skillCount++;
+      existing.sumScores += movingAvg;
+      existing.maxScore += Number(skill.targetScore || 2);
+      if (movingAvg >= 1.5) existing.achievedCount++;
+      pillarCurriculum.set(pillar, existing);
+    }
+
+    // GlowScore: overall curriculum mastery (0-100) from skill scores
+    const totalMaxScore = Array.from(pillarCurriculum.values()).reduce((s, p) => s + p.maxScore, 0);
+    const totalSumScores = Array.from(pillarCurriculum.values()).reduce((s, p) => s + p.sumScores, 0);
+    const glowScore = totalMaxScore > 0 ? Math.round((totalSumScores / totalMaxScore) * 100) : 0;
     
     // Get recent feedback count (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -7440,11 +7493,13 @@ export const storage = {
     
     const pillars = PILLAR_NAMES.map(pillarName => {
       const pillarData = progress.find(p => p.pillar === pillarName);
-      const curriculum = curriculumPillarMap.get(pillarName);
+      const curriculum = pillarCurriculum.get(pillarName);
       const skillsTotal = curriculum?.skillCount ?? 0;
       const skillsMeetsOrAbove = curriculum?.achievedCount ?? 0;
-      const masteryPct = skillsTotal > 0
-        ? Math.round((skillsMeetsOrAbove / skillsTotal) * 100)
+      // masteryPct = proportional average: (sum of movingAverages / max possible) × 100
+      // This gives a smooth gradient — 0% when unscored, climbs as real skills are rated
+      const masteryPct = skillsTotal > 0 && (curriculum?.maxScore ?? 0) > 0
+        ? Math.round(((curriculum?.sumScores ?? 0) / (curriculum?.maxScore ?? 1)) * 100)
         : 0;
       
       return {
@@ -7459,12 +7514,16 @@ export const storage = {
       };
     });
     
-    // Calculate overall readiness (average of pillar scores, max is 2)
-    const avgScore = pillars.reduce((sum, p) => sum + p.score, 0) / pillars.length;
-    const overallReadiness = Math.min(100, Math.round((avgScore / 2) * 100));
+    // Overall readiness: curriculum-based when data exists, EMA-based as fallback
+    const hasCurriculumData = curriculumSkills.length > 0;
+    const overallReadiness = hasCurriculumData && totalMaxScore > 0
+      ? Math.min(100, Math.round((totalSumScores / totalMaxScore) * 100))
+      : Math.min(100, Math.round((pillars.reduce((s, p) => s + p.score, 0) / pillars.length / 2) * 100));
     
-    // Trial gate ready if all pillars have score >= 1.5 (75% of max)
-    const trialGateReady = pillars.every(p => p.score >= 1.5);
+    // Trial gate: all pillars with curriculum data at ≥ 75% mastery, or EMA ≥ 1.5 fallback
+    const trialGateReady = hasCurriculumData
+      ? pillars.every(p => p.skillsTotal === 0 || p.masteryPct >= 75)
+      : pillars.every(p => p.score >= 1.5);
     
     return {
       pillars,

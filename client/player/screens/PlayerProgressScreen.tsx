@@ -2208,9 +2208,10 @@ export default function PlayerProgressScreen() {
               return Object.fromEntries(
                 ALL_PILLARS.map(key => {
                   const pillarEntry = pillarMap.get(key);
-                  const hasRealFeedback = pillarEntry && pillarEntry.lastUpdated !== null;
+                  const hasCurriculum = pillarEntry ? pillarEntry.skillsTotal > 0 : false;
+                  // Show curriculum mastery % whenever we have curriculum skills OR a session EMA
+                  const hasRealFeedback = pillarEntry && (hasCurriculum || pillarEntry.lastUpdated !== null);
                   if (hasRealFeedback) {
-                    const hasCurriculum = pillarEntry!.skillsTotal > 0;
                     const score = hasCurriculum
                       ? pillarEntry!.masteryPct
                       : Math.round(pillarEntry!.score * 50);
