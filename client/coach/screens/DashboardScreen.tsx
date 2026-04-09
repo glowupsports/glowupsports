@@ -203,6 +203,7 @@ function PendingAttendanceCard({
   sessions: PendingAttendanceSession[];
   onSessionTap: (session: PendingAttendanceSession) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? sessions : sessions.slice(0, 5);
   const hidden = sessions.length - 5;
@@ -216,47 +217,60 @@ function PendingAttendanceCard({
 
   return (
     <View style={attendanceCardStyles.card}>
-      <View style={attendanceCardStyles.headerRow}>
-        <Ionicons name="alert-circle" size={18} color="#FF6B35" />
-        <Text style={attendanceCardStyles.headerTitle}>Attendance Needed</Text>
-        <View style={attendanceCardStyles.attendanceBadge}>
-          <Text style={attendanceCardStyles.attendanceBadgeText}>{sessions.length}</Text>
+      <Pressable
+        style={attendanceCardStyles.headerRow}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setCollapsed(c => !c);
+        }}
+      >
+        <View style={attendanceCardStyles.headerLeft}>
+          <Ionicons name="alert-circle" size={18} color="#FF6B35" />
+          <Text style={attendanceCardStyles.headerTitle}>Attendance Needed</Text>
+          <View style={attendanceCardStyles.attendanceBadge}>
+            <Text style={attendanceCardStyles.attendanceBadgeText}>{sessions.length}</Text>
+          </View>
         </View>
-      </View>
-      <Text style={attendanceCardStyles.subLabel}>
-        {sessions.length} {sessions.length === 1 ? "session needs" : "sessions need"} attendance — credits cannot be processed until resolved
-      </Text>
-      {displayed.map((sess) => (
-        <Pressable
-          key={sess.sessionId}
-          style={attendanceCardStyles.sessionRow}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onSessionTap(sess);
-          }}
-        >
-          <View style={attendanceCardStyles.dotAndInfo}>
-            <View style={attendanceCardStyles.dot} />
-            <View style={attendanceCardStyles.sessionInfo}>
-              <Text style={attendanceCardStyles.seriesTitle} numberOfLines={1}>{sess.seriesTitle}</Text>
-              <Text style={attendanceCardStyles.dateText}>{formatSessionDate(sess.startTime)}</Text>
-              <Text style={attendanceCardStyles.playersText} numberOfLines={1}>
-                {(sess.players ?? []).length} player{(sess.players ?? []).length !== 1 ? 's' : ''} · tap to review
-              </Text>
-            </View>
-          </View>
-          <View style={attendanceCardStyles.rightRow}>
-            <View style={attendanceCardStyles.typeBadge}>
-              <Text style={attendanceCardStyles.typeText}>{sess.sessionType === "private" ? "Private" : "Group"}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#FF6B35" />
-          </View>
-        </Pressable>
-      ))}
-      {!showAll && hidden > 0 && (
-        <Pressable onPress={() => setShowAll(true)} style={attendanceCardStyles.showMoreBtn}>
-          <Text style={attendanceCardStyles.showMoreText}>See {hidden} more</Text>
-        </Pressable>
+        <Ionicons name={collapsed ? "chevron-down" : "chevron-up"} size={16} color="#FF6B35" />
+      </Pressable>
+      {!collapsed && (
+        <>
+          <Text style={attendanceCardStyles.subLabel}>
+            {sessions.length} {sessions.length === 1 ? "session needs" : "sessions need"} attendance — credits cannot be processed until resolved
+          </Text>
+          {displayed.map((sess) => (
+            <Pressable
+              key={sess.sessionId}
+              style={attendanceCardStyles.sessionRow}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onSessionTap(sess);
+              }}
+            >
+              <View style={attendanceCardStyles.dotAndInfo}>
+                <View style={attendanceCardStyles.dot} />
+                <View style={attendanceCardStyles.sessionInfo}>
+                  <Text style={attendanceCardStyles.seriesTitle} numberOfLines={1}>{sess.seriesTitle}</Text>
+                  <Text style={attendanceCardStyles.dateText}>{formatSessionDate(sess.startTime)}</Text>
+                  <Text style={attendanceCardStyles.playersText} numberOfLines={1}>
+                    {(sess.players ?? []).length} player{(sess.players ?? []).length !== 1 ? 's' : ''} · tap to review
+                  </Text>
+                </View>
+              </View>
+              <View style={attendanceCardStyles.rightRow}>
+                <View style={attendanceCardStyles.typeBadge}>
+                  <Text style={attendanceCardStyles.typeText}>{sess.sessionType === "private" ? "Private" : "Group"}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#FF6B35" />
+              </View>
+            </Pressable>
+          ))}
+          {!showAll && hidden > 0 && (
+            <Pressable onPress={() => setShowAll(true)} style={attendanceCardStyles.showMoreBtn}>
+              <Text style={attendanceCardStyles.showMoreText}>See {hidden} more</Text>
+            </Pressable>
+          )}
+        </>
       )}
     </View>
   );
@@ -269,6 +283,7 @@ function PendingFeedbackCard({
   sessions: PendingFeedbackSession[];
   onSessionTap: (session: PendingFeedbackSession) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? sessions : sessions.slice(0, 3);
   const hidden = sessions.length - 3;
@@ -282,51 +297,64 @@ function PendingFeedbackCard({
 
   return (
     <View style={feedbackCardStyles.card}>
-      <View style={feedbackCardStyles.headerRow}>
-        <Ionicons name="sparkles" size={16} color={Colors.dark.primary} />
-        <Text style={feedbackCardStyles.headerTitle}>Coach with AI</Text>
-        <View style={feedbackCardStyles.badge}>
-          <Text style={feedbackCardStyles.badgeText}>{sessions.length}</Text>
+      <Pressable
+        style={feedbackCardStyles.headerRow}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setCollapsed(c => !c);
+        }}
+      >
+        <View style={feedbackCardStyles.headerLeft}>
+          <Ionicons name="sparkles" size={16} color={Colors.dark.primary} />
+          <Text style={feedbackCardStyles.headerTitle}>Coach with AI</Text>
+          <View style={feedbackCardStyles.badge}>
+            <Text style={feedbackCardStyles.badgeText}>{sessions.length}</Text>
+          </View>
         </View>
-      </View>
-      <Text style={feedbackCardStyles.subLabel}>
-        {sessions.length === 1 ? "1 session" : `${sessions.length} sessions`} waiting for AI coaching notes
-      </Text>
-      {displayed.map((sess, idx) => {
-        const isGroupCard = sess.cardType === "group";
-        const key = isGroupCard ? sess.sessionId : `${sess.sessionId}:${sess.players[0]?.id ?? idx}`;
-        const playerLabel = isGroupCard
-          ? `${sess.players.slice(0, 3).map((p) => p.name).join(", ")}${sess.playerCount > 3 ? ` +${sess.playerCount - 3}` : ""}`
-          : sess.players[0]?.name ?? "";
-        const typeLabel = sess.sessionType === "private" ? "Private" : sess.sessionType === "group" ? "Group" : "Semi-Priv";
-        return (
-          <Pressable
-            key={key}
-            style={feedbackCardStyles.sessionRow}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onSessionTap(sess);
-            }}
-          >
-            <View style={feedbackCardStyles.sessionInfo}>
-              <Text style={feedbackCardStyles.dateText}>{formatDate(sess.startTime)}</Text>
-              <Text style={feedbackCardStyles.playersText} numberOfLines={1}>
-                {playerLabel}
-              </Text>
-            </View>
-            <View style={feedbackCardStyles.rightRow}>
-              <View style={feedbackCardStyles.typeBadge}>
-                <Text style={feedbackCardStyles.typeText}>{typeLabel}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.primary} />
-            </View>
-          </Pressable>
-        );
-      })}
-      {!showAll && hidden > 0 && (
-        <Pressable onPress={() => setShowAll(true)} style={feedbackCardStyles.showMoreBtn}>
-          <Text style={feedbackCardStyles.showMoreText}>See {hidden} more</Text>
-        </Pressable>
+        <Ionicons name={collapsed ? "chevron-down" : "chevron-up"} size={16} color={Colors.dark.primary} />
+      </Pressable>
+      {!collapsed && (
+        <>
+          <Text style={feedbackCardStyles.subLabel}>
+            {sessions.length === 1 ? "1 session" : `${sessions.length} sessions`} waiting for AI coaching notes
+          </Text>
+          {displayed.map((sess, idx) => {
+            const isGroupCard = sess.cardType === "group";
+            const key = isGroupCard ? sess.sessionId : `${sess.sessionId}:${sess.players[0]?.id ?? idx}`;
+            const playerLabel = isGroupCard
+              ? `${sess.players.slice(0, 3).map((p) => p.name).join(", ")}${sess.playerCount > 3 ? ` +${sess.playerCount - 3}` : ""}`
+              : sess.players[0]?.name ?? "";
+            const typeLabel = sess.sessionType === "private" ? "Private" : sess.sessionType === "group" ? "Group" : "Semi-Priv";
+            return (
+              <Pressable
+                key={key}
+                style={feedbackCardStyles.sessionRow}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onSessionTap(sess);
+                }}
+              >
+                <View style={feedbackCardStyles.sessionInfo}>
+                  <Text style={feedbackCardStyles.dateText}>{formatDate(sess.startTime)}</Text>
+                  <Text style={feedbackCardStyles.playersText} numberOfLines={1}>
+                    {playerLabel}
+                  </Text>
+                </View>
+                <View style={feedbackCardStyles.rightRow}>
+                  <View style={feedbackCardStyles.typeBadge}>
+                    <Text style={feedbackCardStyles.typeText}>{typeLabel}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.primary} />
+                </View>
+              </Pressable>
+            );
+          })}
+          {!showAll && hidden > 0 && (
+            <Pressable onPress={() => setShowAll(true)} style={feedbackCardStyles.showMoreBtn}>
+              <Text style={feedbackCardStyles.showMoreText}>See {hidden} more</Text>
+            </Pressable>
+          )}
+        </>
       )}
     </View>
   );
@@ -345,11 +373,16 @@ const feedbackCardStyles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
     marginBottom: 4,
   },
-  headerTitle: {
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     flex: 1,
+  },
+  headerTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.text,
@@ -518,14 +551,19 @@ const attendanceCardStyles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
     marginBottom: 4,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
   },
   headerTitle: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
-    flex: 1,
   },
   attendanceBadge: {
     backgroundColor: "#FF6B35",
