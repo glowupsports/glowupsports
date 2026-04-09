@@ -13,6 +13,7 @@ interface BallLevelBadgeProps {
   size?: "small" | "medium" | "large";
   showLabel?: boolean;
   trialEndsAt?: string | null;
+  labelOverride?: string | null;
 }
 
 export default function BallLevelBadge({
@@ -22,6 +23,7 @@ export default function BallLevelBadge({
   size = "medium",
   showLabel = true,
   trialEndsAt,
+  labelOverride,
 }: BallLevelBadgeProps) {
   // Guard against undefined levelId
   if (!levelId) {
@@ -33,9 +35,11 @@ export default function BallLevelBadge({
 
   const stage = getStageFromLevel(levelId);
   const stageColor = sportCfg ? getSportSkillLevelColor(normalizedSport, levelId) : getStageColor(stage);
-  const levelLabel = sportCfg
-    ? formatSportSkillLevel(normalizedSport, levelId)
-    : translateLevelLabel(levelId, { stage, role: "player" });
+  const levelLabel = labelOverride
+    ? labelOverride
+    : sportCfg
+      ? formatSportSkillLevel(normalizedSport, levelId)
+      : translateLevelLabel(levelId, { stage, role: "player" });
   
   const isTrial = status === "trial";
   
@@ -96,7 +100,7 @@ export default function BallLevelBadge({
       
       {showLabel ? (
         <View style={styles.labelContainer}>
-          <Text style={[styles.levelLabel, { fontSize: dims.fontSize, color: stageColor }]}>
+          <Text style={[styles.levelLabel, { fontSize: dims.fontSize, color: stageColor }, labelOverride ? { textTransform: "none" } : undefined]}>
             {levelLabel}
           </Text>
           {isTrial && trialDays !== null ? (

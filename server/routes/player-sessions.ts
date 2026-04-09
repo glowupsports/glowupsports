@@ -1045,6 +1045,7 @@ import fs from "fs";
             xpForNextLevel: 500,
             glowScore: 0,
             ballLevel: "red1",
+            displayName: null,
             nextBallLevel: "red2",
             skillRadar: [],
             overallInsights: {
@@ -1230,6 +1231,19 @@ import fs from "fs";
           : currentSkillLevel;
         const compositeLevel = `${normalizedBallLevel.toUpperCase()}_${normalizedSkillLevel}`;
 
+        // Resolve display_name_player from ball_levels table using composite level ID
+        let ballLevelDisplayName: string | null = null;
+        try {
+          const ballLevelRow = await db
+            .select({ displayNamePlayer: ballLevels.displayNamePlayer })
+            .from(ballLevels)
+            .where(eq(ballLevels.id, compositeLevel))
+            .limit(1);
+          ballLevelDisplayName = ballLevelRow[0]?.displayNamePlayer ?? null;
+        } catch (_e) {
+          // Non-critical; fallback to null (client uses translateLevelLabel)
+        }
+
         res.json({
           sport: requestedSport,
           level,
@@ -1237,6 +1251,7 @@ import fs from "fs";
           xpForNextLevel: (level + 1) * 500,
           glowScore,
           ballLevel: compositeLevel, // Always use composite format: GREEN_2
+          displayName: ballLevelDisplayName, // Human-readable from ball_levels table e.g. "Glow 2"
           stage: normalizedBallLevel, // Just the color: green
           skillLevel: normalizedSkillLevel, // Just the number: 2
           nextBallLevel: nextLevel.composite, // Next level in composite format

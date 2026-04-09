@@ -70,6 +70,7 @@ interface ProgressData {
   xpForNextLevel: number;
   glowScore: number;
   ballLevel: string | null;
+  displayName: string | null;
   nextBallLevel: string;
   skillRadar: SkillRadarItem[];
   overallInsights: {
@@ -1763,6 +1764,38 @@ export default function PlayerProgressScreen() {
     insights: skill.insights,
   }));
 
+  const PILLAR_RADAR_COLORS: Record<string, string> = {
+    TECHNIQUE: "#10B981",
+    TACTICAL: "#F59E0B",
+    PHYSICAL: "#EF4444",
+    MENTAL: "#8B5CF6",
+    SOCIAL: "#EC4899",
+    MATCH: "#3B82F6",
+  };
+
+  const radarDomains: SkillDomain[] = (() => {
+    const pillars = pillarProgressData?.pillars ?? [];
+    if (pillars.length > 0) {
+      return pillars.map(p => {
+        const hasCurriculum = p.skillsTotal > 0;
+        const value = hasCurriculum
+          ? p.masteryPct
+          : p.lastUpdated !== null
+            ? Math.round(p.score * 50)
+            : 0;
+        return {
+          id: p.name.toLowerCase(),
+          name: p.name,
+          value,
+          maxValue: 100,
+          icon: "star",
+          color: PILLAR_RADAR_COLORS[p.name] ?? "#888888",
+        };
+      });
+    }
+    return domains;
+  })();
+
   const currentLevelXp = data.xp % 500;
 
   const totalObservations = (data.skillRadar ?? []).reduce((sum, s) => sum + s.observationCount, 0);
@@ -1851,6 +1884,7 @@ export default function PlayerProgressScreen() {
                 levelId={data.ballLevel || "red1"} 
                 size="large" 
                 showLabel={true}
+                labelOverride={data.displayName ?? undefined}
               />
               <View style={styles.levelLabelRow}>
                 <Text style={styles.ballLevelHint}>
@@ -2248,7 +2282,7 @@ export default function PlayerProgressScreen() {
             )}
           </View>
           <View style={styles.radarWrapper}>
-            <SkillRadar domains={domains.length > 0 ? domains : [
+            <SkillRadar domains={radarDomains.length > 0 ? radarDomains : [
               { id: "technique", name: "Technique", value: 5, maxValue: 100, icon: "tennisball", color: "#10B981" },
               { id: "tactical", name: "Tactical", value: 5, maxValue: 100, icon: "bulb", color: "#F59E0B" },
               { id: "physical", name: "Physical", value: 5, maxValue: 100, icon: "fitness", color: "#EF4444" },
