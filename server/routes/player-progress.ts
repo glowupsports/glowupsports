@@ -57,6 +57,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     matches,
     aiCoachConversations,
     playerAiTrainingPlans,
+    deepAssessmentPillarSummaries,
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -2908,7 +2909,61 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           console.error("[AIChat] Pillar progress update failed (non-critical):", pillarErr);
         }
 
-        // 6. Persist Glow Score to players table (non-critical, fire-and-forget)
+        // 6. Update deep_assessment_pillar_summaries from AI pillar scores (best-effort)
+        try {
+          const pillarFields: Array<{ key: keyof typeof structured; pillar: string }> = [
+            { key: "techniquePillar", pillar: "TECHNIQUE" },
+            { key: "tacticalPillar",  pillar: "TACTICAL"  },
+            { key: "physicalPillar",  pillar: "PHYSICAL"  },
+            { key: "mentalPillar",    pillar: "MENTAL"    },
+            { key: "socialPillar",    pillar: "SOCIAL"    },
+            { key: "matchPillar",     pillar: "MATCH"     },
+          ];
+          const alpha = 0.3;
+          const now = new Date();
+          for (const { key, pillar } of pillarFields) {
+            const raw = structured[key];
+            if (raw === undefined || raw === null) continue;
+            const aiScore = clamp(raw as number);
+            const [existing] = await db
+              .select({ id: deepAssessmentPillarSummaries.id, averageScore: deepAssessmentPillarSummaries.averageScore })
+              .from(deepAssessmentPillarSummaries)
+              .where(and(
+                eq(deepAssessmentPillarSummaries.playerId, playerId),
+                eq(deepAssessmentPillarSummaries.pillar, pillar),
+              ))
+              .limit(1);
+            if (existing) {
+              const oldAvg = Number(existing.averageScore ?? aiScore);
+              const newAvg = (alpha * aiScore + (1 - alpha) * oldAvg).toFixed(2);
+              await db.update(deepAssessmentPillarSummaries)
+                .set({ averageScore: newAvg, lastAssessedAt: now, updatedAt: now })
+                .where(eq(deepAssessmentPillarSummaries.id, existing.id));
+            } else {
+              await db.insert(deepAssessmentPillarSummaries).values({
+                playerId,
+                pillar,
+                averageScore: String(aiScore),
+                assessedSkills: 0,
+                totalSkills: 0,
+                score0Count: 0,
+                score1Count: 0,
+                score2Count: 0,
+                score3Count: 0,
+                lowConfidenceCount: 0,
+                mediumConfidenceCount: 0,
+                highConfidenceCount: 0,
+                lastAssessedAt: now,
+                createdAt: now,
+                updatedAt: now,
+              });
+            }
+          }
+        } catch (deepErr) {
+          console.error("[AIChat] Deep assessment pillar update failed (non-critical):", deepErr);
+        }
+
+        // 7. Persist Glow Score to players table (non-critical, fire-and-forget)
         setImmediate(async () => {
           try {
             const { calculateGlowRank } = await import("../services/glow-rank-engine");
@@ -2923,7 +2978,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         });
 
-        // 7. Trigger level readiness when AI flags it
+        // 8. Trigger level readiness when AI flags it
         let levelReadiness = null;
         if (structured.levelUpFlag) {
           try {
@@ -2946,7 +3001,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // 8. Trigger session digest (fire-and-forget)
+        // 9. Trigger session digest (fire-and-forget)
         const _sid = sessionId;
         const _pid = playerId;
         setImmediate(async () => {

@@ -8,7 +8,6 @@ import {
   groupMembers,
   posts,
   playerPillarProgress,
-  deepAssessmentPillarSummaries,
   coaches,
   skillDomains,
   playerSkillState,
@@ -102,62 +101,6 @@ export async function seedDemoDataForTheLaw() {
       }
     }
     console.log("[DemoSeed] Pillar progress added");
-
-    // Add deep assessment pillar summaries
-    console.log("[DemoSeed] Adding deep assessment pillar summaries...");
-    for (const pillar of PILLARS) {
-      const totalSkills = 12;
-      const assessedSkills = Math.floor(totalSkills * 0.7);
-      // Convert percentage to a 0-3 scale (max score is 3)
-      const avgScore = (pillar.percentage / 100) * 3;
-      
-      const existing = await db.select()
-        .from(deepAssessmentPillarSummaries)
-        .where(and(
-          eq(deepAssessmentPillarSummaries.playerId, playerId),
-          eq(deepAssessmentPillarSummaries.pillar, pillar.name)
-        ))
-        .limit(1);
-
-      if (existing.length > 0) {
-        await db.update(deepAssessmentPillarSummaries)
-          .set({
-            totalSkills,
-            assessedSkills,
-            averageScore: avgScore.toFixed(2),
-            score0Count: 0,
-            score1Count: Math.floor(assessedSkills * 0.3),
-            score2Count: Math.floor(assessedSkills * 0.5),
-            score3Count: Math.floor(assessedSkills * 0.2),
-            lowConfidenceCount: 1,
-            mediumConfidenceCount: Math.floor(assessedSkills * 0.4),
-            highConfidenceCount: Math.floor(assessedSkills * 0.5),
-            lastAssessedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(deepAssessmentPillarSummaries.id, existing[0].id));
-      } else {
-        await db.insert(deepAssessmentPillarSummaries).values({
-          id: `deep-${playerId}-${pillar.name.toLowerCase()}`,
-          playerId,
-          pillar: pillar.name,
-          totalSkills,
-          assessedSkills,
-          averageScore: avgScore.toFixed(2),
-          score0Count: 0,
-          score1Count: Math.floor(assessedSkills * 0.3),
-          score2Count: Math.floor(assessedSkills * 0.5),
-          score3Count: Math.floor(assessedSkills * 0.2),
-          lowConfidenceCount: 1,
-          mediumConfidenceCount: Math.floor(assessedSkills * 0.4),
-          highConfidenceCount: Math.floor(assessedSkills * 0.5),
-          lastAssessedAt: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-    }
-    console.log("[DemoSeed] Deep assessment summaries added");
 
     // Add player skill state for SkillRadar
     console.log("[DemoSeed] Adding player skill state data...");
