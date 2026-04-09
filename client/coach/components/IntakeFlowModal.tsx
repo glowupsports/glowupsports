@@ -14,7 +14,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
 type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 import * as Haptics from "expo-haptics";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
@@ -260,6 +261,7 @@ export function IntakeFlowModal({
   players,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const isGroup = sessionType === "group" || sessionType === "semi_private";
   const slideAnim = useRef(new Animated.Value(1)).current; // 0 = visible, 1 = off-screen below
 
@@ -323,6 +325,12 @@ export function IntakeFlowModal({
       return saveOnly;
     },
     onSuccess: (wasSaveOnly, { data }) => {
+      players.forEach((player) => {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/sessions/${sessionId}/players/${player.id}/ai-chat/context`],
+        });
+        AsyncStorage.removeItem(`ai-chat-draft-${sessionId}-${player.id}`).catch(() => {});
+      });
       if (!wasSaveOnly) {
         onComplete(data);
       } else {

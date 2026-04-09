@@ -176,10 +176,10 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
   const isWrappingUpRef = useRef(false);
 
   // Load player context
-  const { data: ctx, isLoading: ctxLoading } = useQuery<PlayerContext>({
+  const { data: ctx, isLoading: ctxLoading, isFetching: ctxFetching } = useQuery<PlayerContext>({
     queryKey: [`/api/sessions/${sessionId}/players/${playerId}/ai-chat/context`],
     enabled: visible && !!sessionId && !!playerId,
-    staleTime: Infinity,
+    staleTime: 0,
   });
 
   // Restore draft on open — sets isDraftHydrated when done (with or without a draft)
@@ -213,9 +213,33 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
       });
   }, [visible, sessionId, playerId]);
 
-  // Initial greeting when context loads — only after hydration and only if no draft
+  // Discard stale draft if it's only the AI opening question and intake data now exists.
+  // Guard on !ctxFetching so we evaluate against the fresh context, not stale cache.
+  useEffect(() => {
+    if (!isDraftHydrated || !resumedDraft || !ctx || !sessionId || !playerId) return;
+    if (ctxFetching) return;
+    const hasOnlyAiGreeting = messages.length === 1 && messages[0].role === "assistant";
+    const intake = ctx.intakeContext;
+    const hasMeaningfulIntake =
+      intake &&
+      ((intake.trainedSkills && intake.trainedSkills.length > 0) ||
+        intake.highlight ||
+        (intake.playerTags && intake.playerTags.length > 0));
+    if (hasOnlyAiGreeting && hasMeaningfulIntake) {
+      AsyncStorage.removeItem(getDraftKey(sessionId, playerId)).catch(() => {});
+      setMessages([]);
+      setResumedDraft(false);
+    }
+  }, [isDraftHydrated, resumedDraft, ctx, ctxFetching, messages.length, sessionId, playerId]);
+
+  // Initial greeting when context loads — only after hydration and only if no draft.
+  // Guard on !ctxFetching so we wait for the fresh fetch to complete before composing
+  // the greeting; staleTime: 0 means cached data is returned immediately but a
+  // background refetch is always triggered — without this guard the old stale context
+  // (no intake) could fire the generic "What was the main focus?" prompt.
   useEffect(() => {
     if (!isDraftHydrated) return;
+    if (ctxFetching) return;
     if (ctx && messages.length === 0 && !resumedDraft) {
       const requiredList = ctx.requiredSkills.filter((s) => s.required).slice(0, 3);
       const skillHint =
@@ -253,7 +277,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
 
       setMessages([{ role: "assistant", content: greeting }]);
     }
-  }, [ctx, isDraftHydrated, messages.length, resumedDraft]);
+  }, [ctx, ctxFetching, isDraftHydrated, messages.length, resumedDraft]);
 
   // Persist draft on every messages change — only after hydration to avoid overwriting
   useEffect(() => {
