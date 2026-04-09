@@ -6,6 +6,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
+import { Colors } from "@/constants/theme";
 
 const ACCENT = "#C8FF3D";
 const BG_SIDEBAR = "#0F141B";

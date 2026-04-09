@@ -23,7 +23,7 @@ import {
   GlowColors,
   TextColors,
   Backgrounds,
-} from "@/constants/theme";
+Colors, } from "@/constants/theme";
 
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";

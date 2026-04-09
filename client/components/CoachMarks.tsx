@@ -34,7 +34,7 @@ import {
   Typography,
   GlowColors,
   TextColors,
-Backgrounds, } from "@/constants/theme";
+Backgrounds, Colors, } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 

@@ -7,7 +7,7 @@ import {
   GlowColors,
   Spacing,
   Shadows,
-} from "@/constants/theme";
+Colors, } from "@/constants/theme";
 import {
   HelpCenterModal,
   PLATFORM_GLOSSARY,

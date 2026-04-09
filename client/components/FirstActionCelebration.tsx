@@ -26,7 +26,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-Backgrounds, } from "@/constants/theme";
+Backgrounds, Colors, } from "@/constants/theme";
 
 const CELEBRATIONS_KEY = "@glow_celebrations_shown";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

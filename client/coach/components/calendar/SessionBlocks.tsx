@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
-import { GlowColors } from "@/constants/theme";
+import { Colors, GlowColors } from "@/constants/theme";
 
 
 export function dimColors(colors: string[]): string[] {

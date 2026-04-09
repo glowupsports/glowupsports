@@ -3,7 +3,7 @@ import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { GlowColors } from "@/constants/theme";
+import { Colors, GlowColors } from "@/constants/theme";
 import { formatTimeInTimezone, formatDateObjectInTimezone, parseUTCTimestamp } from "@/lib/dateUtils";
 import { dragModalStyles } from "./calendarStyles";
 

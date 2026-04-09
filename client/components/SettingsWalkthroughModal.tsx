@@ -23,7 +23,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-Backgrounds, } from "@/constants/theme";
+Backgrounds, Colors, } from "@/constants/theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

@@ -1445,7 +1445,6 @@ export default function DashboardScreen() {
     { question: "How do I mark attendance?", answer: "Open a session from your calendar, tap 'Attendance', and mark each player as Present, Absent, or Late.", category: "Sessions" },
   ];
 
-  const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [showRoleSwitchGuide, setShowRoleSwitchGuide] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);

@@ -29,7 +29,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
+import { Colors, ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";

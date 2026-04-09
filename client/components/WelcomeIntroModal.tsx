@@ -30,7 +30,7 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-Backgrounds, } from "@/constants/theme";
+Backgrounds, Colors, } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

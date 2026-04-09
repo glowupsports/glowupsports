@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { Alert as RNAlert, Platform, View, Text, Pressable, StyleSheet, Modal, Animated } from "react-native";
+import { Colors } from "@/constants/theme";
 
 interface AlertButton {
   text: string;
