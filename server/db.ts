@@ -742,6 +742,24 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] session_intake_data migration skipped:', e.message);
   }
+  // One-time cleanup: remove fake seed data from deep_assessment_pillar_summaries
+  // These rows were inserted by demo-data-seed.ts with fabricated scores; the seeding
+  // block has since been removed and these rows must not exist in production.
+  try {
+    await pool.query(`
+      DELETE FROM deep_assessment_pillar_summaries
+      WHERE id IN (
+        'deep-player-thelaw-001-match',
+        'deep-player-thelaw-001-mental',
+        'deep-player-thelaw-001-physical',
+        'deep-player-thelaw-001-social',
+        'deep-player-thelaw-001-tactical',
+        'deep-player-thelaw-001-technique'
+      )
+    `);
+  } catch (e: any) {
+    console.log('[Database] Deep assessment cleanup skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
