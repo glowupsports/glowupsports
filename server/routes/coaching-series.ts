@@ -1876,6 +1876,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             .json({ error: "Not authorized to modify this series" });
         }
 
+        // Block extra lessons on ended/deleted/completed series
+        if (series.status === "ended" || series.status === "deleted" || series.status === "completed") {
+          return res.status(400).json({
+            error: "This series has ended. Please create a new series to add lessons.",
+          });
+        }
+
         // Parse the start time
         const sessionStart = new Date(startTime);
         const sessionEnd = new Date(
