@@ -1533,6 +1533,18 @@ export default function SeriesDetailDrawer({
                 </View>
               </View>
 
+              {(series.status === "ended" || series.status === "deleted" || series.status === "completed") && (
+                <View style={styles.endedSeriesBanner}>
+                  <Ionicons name="alert-circle-outline" size={16} color={Colors.dark.warning} />
+                  <Text style={styles.endedSeriesBannerText}>
+                    This series has ended.{" "}
+                    {series.status === "ended" || series.status === "deleted"
+                      ? "Create a new series to continue booking sessions."
+                      : "This series is complete."}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.tabBar}>
                 {TABS.map((tab) => (
                   <Pressable
@@ -2101,5 +2113,23 @@ const confirmStyles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+  },
+  endedSeriesBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.warning + "18",
+    borderWidth: 1,
+    borderColor: Colors.dark.warning + "40",
+  },
+  endedSeriesBannerText: {
+    flex: 1,
+    color: Colors.dark.warning,
+    fontSize: 12,
+    lineHeight: 17,
   },
 });
