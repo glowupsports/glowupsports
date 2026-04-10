@@ -1537,10 +1537,10 @@ export default function SeriesDetailDrawer({
                 <View style={styles.endedSeriesBanner}>
                   <Ionicons name="alert-circle-outline" size={16} color={Colors.dark.warning} />
                   <Text style={styles.endedSeriesBannerText}>
-                    This series has ended.{" "}
-                    {series.status === "ended" || series.status === "deleted"
-                      ? "Create a new series to continue booking sessions."
-                      : "This series is complete."}
+                    {series.status === "completed"
+                      ? "This series is complete."
+                      : `This series ended${series.endedAt ? ` on ${new Date(series.endedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}.`}{" "}
+                    {(series.status === "ended" || series.status === "deleted") && "Create a new series to continue booking sessions."}
                   </Text>
                 </View>
               )}

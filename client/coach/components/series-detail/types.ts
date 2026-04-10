@@ -87,6 +87,8 @@ export interface SeriesDetail {
   weekCount: number | null;
   seriesStartDate: string;
   seriesEndDate: string | null;
+  endedAt?: string | null;
+  pausedAt?: string | null;
   maxPlayers: number;
   xpPerSession: number;
   locationName?: string | null;
