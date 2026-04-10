@@ -1044,6 +1044,14 @@ function setupErrorHandler(app: express.Application) {
         console.error("[StartupRepair] Failed:", error);
       }
 
+      // Glow Progress Connectivity: fix BALL_LEVEL_ENTRY_MAP, import Blue/Glow skills, backfill player_ball_levels
+      try {
+        const { runGlowProgressConnectivity } = await import("./migrations/glow-progress-connectivity");
+        await runGlowProgressConnectivity();
+      } catch (err) {
+        console.error("[GlowProgressConnectivity] Startup migration failed:", err);
+      }
+
       // Fix session capacity: correct wrong max_players values from before session-type-aware logic
       try {
         const { db } = await import("./db");

@@ -7414,7 +7414,7 @@ export const storage = {
       orange: "ORANGE_3",
       green: "GREEN_3",
       yellow: "YELLOW_1",
-      glow: "YELLOW_1",
+      glow: "GLOW_9",
     };
     
     // Get pillar EMA scores (for trend/lastUpdated fallback display)

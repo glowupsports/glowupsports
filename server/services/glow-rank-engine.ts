@@ -27,7 +27,7 @@ const BALL_LEVEL_ENTRY_MAP: Record<string, string> = {
   orange: "ORANGE_3",
   green: "GREEN_3",
   yellow: "YELLOW_1",
-  glow: "YELLOW_1",
+  glow: "GLOW_9",
 };
 
 const PILLAR_ALPHA = 0.3;
