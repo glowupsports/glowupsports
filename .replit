@@ -61,6 +61,10 @@ args = "Start App"
 task = "workflow.run"
 args = "OTA Push"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "GitHub Push"
+
 [[workflows.workflow]]
 name = "Start App"
 author = "agent"
@@ -84,6 +88,17 @@ outputType = "console"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "OTA_MESSAGE=\"Connect all 24 levels: Blue+Glow curriculum wired to AI coach, player ball levels backfilled for all players, Glow players now get correct adult curriculum\" bash scripts/ota-push.sh"
+
+[[workflows.workflow]]
+name = "GitHub Push"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "GIT_ASKPASS='' GIT_TERMINAL_PROMPT=0 git push github main --force 2>&1 | tee /tmp/github-push.log; echo \"EXIT:$?\" >> /tmp/github-push.log"
 
 [userenv]
 
