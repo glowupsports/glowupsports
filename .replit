@@ -98,7 +98,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "GIT_ASKPASS='' GIT_TERMINAL_PROMPT=0 git push github main --force 2>&1 | tee /tmp/github-push.log; echo \"EXIT:$?\" >> /tmp/github-push.log"
+args = "GIT_ASKPASS='' GIT_TERMINAL_PROMPT=0 git remote set-url github \"https://glowupsports:$GITHUB_PAT@github.com/glowupsports/glowupsports.git\" 2>/dev/null || git remote add github \"https://glowupsports:$GITHUB_PAT@github.com/glowupsports/glowupsports.git\" && git push github main 2>&1"
 
 [userenv]
 
