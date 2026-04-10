@@ -12389,6 +12389,9 @@ async function cleanupGhostSessions(): Promise<{ cancelled: number }> {
   
   const ids = endedSeriesIds.map(s => s.id);
   
+  // Only cancel sessions that were pre-scheduled BEFORE the series ended (true ghosts).
+  // Sessions created AFTER the series ended_at are intentional coach-created sessions
+  // and must not be touched, even if they reference the same series slot.
   const ghostSessions = await db
     .select({ id: sessions.id })
     .from(sessions)
@@ -12398,7 +12401,13 @@ async function cleanupGhostSessions(): Promise<{ cancelled: number }> {
         inArray(sessions.recurringGroupId, ids)
       ),
       eq(sessions.status, "scheduled"),
-      gte(sessions.startTime, new Date())
+      gte(sessions.startTime, new Date()),
+      sql`COALESCE(
+        (SELECT ended_at FROM coaching_series
+         WHERE id = COALESCE(${sessions.seriesId}, ${sessions.recurringGroupId})
+         LIMIT 1),
+        ${sessions.createdAt}
+      ) >= ${sessions.createdAt}`
     ));
   
   if (ghostSessions.length === 0) return { cancelled: 0 };
