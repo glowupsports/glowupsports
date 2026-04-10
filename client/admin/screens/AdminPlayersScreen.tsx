@@ -12,6 +12,7 @@ import {
   ScrollView,
   Modal,
 } from "react-native";
+import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -37,7 +38,7 @@ import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerMo
 import { AdminDeletePlayerModal } from "@/admin/components/players/AdminDeletePlayerModal";
 
 type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest" | "not_activated";
-type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string };
+type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string; lastSessionDate?: string | null };
 type PlayerPackage = {
   id: string;
   creditType: string;
@@ -527,9 +528,82 @@ export default function AdminPlayersScreen() {
   };
 
 
+  const isDesktop = useDesktop();
+  const [desktopSelectedId, setDesktopSelectedId] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<"name" | "ballLevel" | "credits" | "coach" | "lastSession">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [creditStatusFilter, setCreditStatusFilter] = useState<"all" | "has" | "none">("all");
+
+  const desktopSortedPlayers = useMemo(() => {
+    return [...filteredPlayers]
+      .filter((p) => {
+        if (creditStatusFilter === "has") return (p.remainingCredits ?? 0) > 0;
+        if (creditStatusFilter === "none") return (p.remainingCredits ?? 0) <= 0;
+        return true;
+      })
+      .sort((a, b) => {
+        let cmp = 0;
+        if (sortCol === "name") cmp = (a.name || "").localeCompare(b.name || "");
+        else if (sortCol === "ballLevel") cmp = (a.ballLevel || "").localeCompare(b.ballLevel || "");
+        else if (sortCol === "credits") cmp = (a.remainingCredits || 0) - (b.remainingCredits || 0);
+        else if (sortCol === "coach") cmp = (a.coachName || "").localeCompare(b.coachName || "");
+        else if (sortCol === "lastSession") cmp = (a.lastSessionDate ?? "").localeCompare(b.lastSessionDate ?? "");
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+  }, [filteredPlayers, sortCol, sortDir, creditStatusFilter]);
+
+  const handleDesktopSort = (col: typeof sortCol) => {
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  const toggleBulk = (id: string) => {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkExport = () => {
+    const selected = desktopSortedPlayers.filter((p) => bulkSelected.has(p.id));
+    const csv = ["Name,Email,Ball Level,Credits"]
+      .concat(selected.map((p) => `${p.name},${p.email ?? ""},${p.ballLevel ?? ""},${p.remainingCredits ?? 0}`))
+      .join("\n");
+    Clipboard.setStringAsync(csv);
+    if (Platform.OS === "web") {
+      window.alert(`Copied ${selected.length} player records to clipboard as CSV`);
+    } else {
+      Alert.alert("Exported", `${selected.length} player records copied to clipboard`);
+    }
+  };
+
+  const handleBulkMessage = () => {
+    const selected = desktopSortedPlayers.filter((p) => bulkSelected.has(p.id));
+    const names = selected.map((p) => p.name).join(", ");
+    if (Platform.OS === "web") {
+      window.alert(`Open each player profile to send a message. Selected: ${names}`);
+    } else {
+      Alert.alert("Send Message", `Open each player profile to send a message. Selected: ${names}`);
+    }
+  };
+
+  const handleBulkAddCredits = () => {
+    const count = bulkSelected.size;
+    if (Platform.OS === "web") {
+      window.alert(`Open each player profile to add credits. ${count} player(s) selected.`);
+    } else {
+      Alert.alert("Add Credits", `Open each player profile to add credits. ${count} player(s) selected.`);
+    }
+  };
+
+  const desktopSelectedPlayer = desktopSortedPlayers.find((p) => p.id === desktopSelectedId) ?? null;
+
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.centered, { paddingTop: isDesktop ? 0 : insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.orange} />
       </View>
     );
@@ -537,7 +611,7 @@ export default function AdminPlayersScreen() {
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.centered, { paddingTop: isDesktop ? 0 : insets.top }]}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
         <Text style={styles.errorText}>Failed to load players</Text>
         <Pressable style={styles.retryButton} onPress={() => refetch()}>
@@ -547,6 +621,335 @@ export default function AdminPlayersScreen() {
     );
   }
 
+  if (isDesktop) {
+    const SortIcon = ({ col }: { col: typeof sortCol }) => (
+      <Ionicons
+        name={sortCol === col ? (sortDir === "asc" ? "chevron-up" : "chevron-down") : "swap-vertical-outline"}
+        size={12}
+        color={sortCol === col ? "#C8FF3D" : Colors.dark.textMuted}
+        style={{ marginLeft: 4 }}
+      />
+    );
+
+    return (
+      <View style={dtStyles.root}>
+        <View style={dtStyles.toolbar}>
+          <View style={dtStyles.searchWrap}>
+            <Ionicons name="search" size={16} color={Colors.dark.textMuted} />
+            <TextInput
+              style={dtStyles.searchInput}
+              placeholder="Search players..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery ? (
+              <Pressable onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={dtStyles.filterChipsRow}>
+            <Text style={dtStyles.filterGroupLabel}>Ball:</Text>
+            {["all", "red", "orange", "green", "yellow"].map((b) => (
+              <Pressable
+                key={b}
+                style={[dtStyles.chip, ballLevelFilter === b && dtStyles.chipActive]}
+                onPress={() => setBallLevelFilter(b)}
+              >
+                <Text style={[dtStyles.chipText, ballLevelFilter === b && dtStyles.chipTextActive]}>
+                  {b === "all" ? "All" : b.charAt(0).toUpperCase() + b.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+            <Text style={[dtStyles.filterGroupLabel, { marginLeft: 8 }]}>Credits:</Text>
+            {(["all", "has", "none"] as const).map((c) => (
+              <Pressable
+                key={c}
+                style={[dtStyles.chip, creditStatusFilter === c && dtStyles.chipActive]}
+                onPress={() => setCreditStatusFilter(c)}
+              >
+                <Text style={[dtStyles.chipText, creditStatusFilter === c && dtStyles.chipTextActive]}>
+                  {c === "all" ? "Any" : c === "has" ? "Has Credits" : "No Credits"}
+                </Text>
+              </Pressable>
+            ))}
+            {coaches.length > 0 ? (
+              <>
+                <Text style={[dtStyles.filterGroupLabel, { marginLeft: 8 }]}>Coach:</Text>
+                <Pressable
+                  style={[dtStyles.chip, coachFilter === "all" && dtStyles.chipActive]}
+                  onPress={() => setCoachFilter("all")}
+                >
+                  <Text style={[dtStyles.chipText, coachFilter === "all" && dtStyles.chipTextActive]}>All</Text>
+                </Pressable>
+                {coaches.slice(0, 4).map((coach: Coach) => (
+                  <Pressable
+                    key={coach.id}
+                    style={[dtStyles.chip, coachFilter === coach.name && dtStyles.chipActive]}
+                    onPress={() => setCoachFilter(coach.name)}
+                  >
+                    <Text style={[dtStyles.chipText, coachFilter === coach.name && dtStyles.chipTextActive]} numberOfLines={1}>
+                      {coach.name.split(" ")[0]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+          </View>
+          <Text style={dtStyles.countText}>
+            {desktopSortedPlayers.length} of {players.length} players
+          </Text>
+          <Pressable style={dtStyles.addBtn} onPress={openAddModal}>
+            <Ionicons name="add" size={16} color="#0B0D10" />
+            <Text style={dtStyles.addBtnText}>Add Player</Text>
+          </Pressable>
+        </View>
+
+        {bulkSelected.size > 0 ? (
+          <View style={dtStyles.bulkBar}>
+            <Text style={dtStyles.bulkText}>{bulkSelected.size} selected</Text>
+            <Pressable style={dtStyles.bulkAction} onPress={() => setBulkSelected(new Set())}>
+              <Ionicons name="close" size={14} color={Colors.dark.textMuted} />
+              <Text style={dtStyles.bulkActionText}>Clear</Text>
+            </Pressable>
+            <Pressable style={dtStyles.bulkAction} onPress={handleBulkMessage}>
+              <Ionicons name="mail-outline" size={14} color={Colors.dark.xpCyan} />
+              <Text style={[dtStyles.bulkActionText, { color: Colors.dark.xpCyan }]}>Send message</Text>
+            </Pressable>
+            <Pressable style={dtStyles.bulkAction} onPress={handleBulkAddCredits}>
+              <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
+              <Text style={[dtStyles.bulkActionText, { color: Colors.dark.primary }]}>Add credits</Text>
+            </Pressable>
+            <Pressable style={dtStyles.bulkAction} onPress={handleBulkExport}>
+              <Ionicons name="download-outline" size={14} color={Colors.dark.gold} />
+              <Text style={[dtStyles.bulkActionText, { color: Colors.dark.gold }]}>Export</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={dtStyles.tableArea}>
+          <ScrollView style={dtStyles.tableScroll} showsVerticalScrollIndicator={false}>
+            <View style={dtStyles.tableHeader}>
+              <View style={[dtStyles.thCell, dtStyles.colCheck]}>
+                <Pressable
+                  onPress={() => {
+                    if (bulkSelected.size === desktopSortedPlayers.length && desktopSortedPlayers.length > 0) {
+                      setBulkSelected(new Set());
+                    } else {
+                      setBulkSelected(new Set(desktopSortedPlayers.map((p) => p.id)));
+                    }
+                  }}
+                >
+                  <View style={[dtStyles.checkbox, bulkSelected.size === desktopSortedPlayers.length && desktopSortedPlayers.length > 0 && dtStyles.checkboxChecked]}>
+                    {bulkSelected.size === desktopSortedPlayers.length && desktopSortedPlayers.length > 0 ? (
+                      <Ionicons name="checkmark" size={10} color="#0B0D10" />
+                    ) : null}
+                  </View>
+                </Pressable>
+              </View>
+              <Pressable style={[dtStyles.thCell, dtStyles.colName, dtStyles.thPressable]} onPress={() => handleDesktopSort("name")}>
+                <Text style={dtStyles.thText}>Name</Text>
+                <SortIcon col="name" />
+              </Pressable>
+              <Pressable style={[dtStyles.thCell, dtStyles.colBall, dtStyles.thPressable]} onPress={() => handleDesktopSort("ballLevel")}>
+                <Text style={dtStyles.thText}>Ball Level</Text>
+                <SortIcon col="ballLevel" />
+              </Pressable>
+              <Pressable style={[dtStyles.thCell, dtStyles.colCredits, dtStyles.thPressable]} onPress={() => handleDesktopSort("credits")}>
+                <Text style={dtStyles.thText}>Credits</Text>
+                <SortIcon col="credits" />
+              </Pressable>
+              <Pressable style={[dtStyles.thCell, dtStyles.colCoach, dtStyles.thPressable]} onPress={() => handleDesktopSort("coach")}>
+                <Text style={dtStyles.thText}>Coach</Text>
+                <SortIcon col="coach" />
+              </Pressable>
+              <Pressable style={[dtStyles.thCell, dtStyles.colLastSession, dtStyles.thPressable]} onPress={() => handleDesktopSort("lastSession")}>
+                <Text style={dtStyles.thText}>Last Session</Text>
+                <SortIcon col="lastSession" />
+              </Pressable>
+              <View style={[dtStyles.thCell, dtStyles.colStatus]}>
+                <Text style={dtStyles.thText}>Status</Text>
+              </View>
+              <View style={[dtStyles.thCell, dtStyles.colActions]}>
+                <Text style={dtStyles.thText}>Actions</Text>
+              </View>
+            </View>
+
+            {desktopSortedPlayers.map((player) => {
+              const ballColor = getBallLevelColor(player.ballLevel);
+              const credits = player.remainingCredits;
+              const isActive = player.isActive !== false && player.status !== "inactive";
+              const isRowSelected = desktopSelectedId === player.id;
+              const isChecked = bulkSelected.has(player.id);
+              const initials = player.name?.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") ?? "?";
+
+              return (
+                <Pressable
+                  key={player.id}
+                  style={[dtStyles.tableRow, isRowSelected && dtStyles.tableRowSelected]}
+                  onPress={() => setDesktopSelectedId(isRowSelected ? null : player.id)}
+                >
+                  <View style={[dtStyles.tdCell, dtStyles.colCheck]}>
+                    <Pressable
+                      onPress={(e) => { e.stopPropagation(); toggleBulk(player.id); }}
+                      style={[dtStyles.checkbox, isChecked && dtStyles.checkboxChecked]}
+                    >
+                      {isChecked ? <Ionicons name="checkmark" size={10} color="#0B0D10" /> : null}
+                    </Pressable>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colName]}>
+                    <View style={[dtStyles.playerAvatar, { borderColor: ballColor }]}>
+                      <Text style={dtStyles.avatarText}>{initials}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={dtStyles.playerName} numberOfLines={1}>{player.name}</Text>
+                      <Text style={dtStyles.playerEmail} numberOfLines={1}>{player.email || "No email"}</Text>
+                    </View>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colBall]}>
+                    <View style={[dtStyles.ballBadge, { backgroundColor: `${ballColor}20` }]}>
+                      <View style={[dtStyles.ballDot, { backgroundColor: ballColor }]} />
+                      <Text style={[dtStyles.ballText, { color: ballColor }]}>
+                        {player.ballLevel ? player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1) : "N/A"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colCredits]}>
+                    <Text style={{ color: credits !== undefined && credits > 0 ? "#22c55e" : Colors.dark.error, fontSize: 13, fontWeight: "600" }}>
+                      {credits ?? "—"}
+                    </Text>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colCoach]}>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 13 }} numberOfLines={1}>
+                      {player.coachName || "—"}
+                    </Text>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colLastSession]}>
+                    <Text style={{ color: Colors.dark.textMuted, fontSize: 12 }} numberOfLines={1}>
+                      {player.lastSessionDate
+                        ? new Date(player.lastSessionDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                        : "—"}
+                    </Text>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colStatus]}>
+                    <View style={[dtStyles.statusBadge, { backgroundColor: isActive ? "#22c55e20" : "#ff4d4d20" }]}>
+                      <View style={[dtStyles.statusDot, { backgroundColor: isActive ? "#22c55e" : "#ff4d4d" }]} />
+                      <Text style={[dtStyles.statusText, { color: isActive ? "#22c55e" : "#ff4d4d" }]}>
+                        {isActive ? "Active" : "Inactive"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[dtStyles.tdCell, dtStyles.colActions]}>
+                    <Pressable
+                      style={dtStyles.rowAction}
+                      onPress={(e) => { e.stopPropagation(); setSelectedPlayerId(player.id); setShowCreditStoreModal(true); }}
+                    >
+                      <Text style={dtStyles.rowActionText}>+ Credits</Text>
+                    </Pressable>
+                    <Pressable
+                      style={dtStyles.rowAction}
+                      onPress={(e) => { e.stopPropagation(); setSelectedPlayerId(player.id); setShowInvoiceModal(true); }}
+                    >
+                      <Text style={dtStyles.rowActionText}>Invoice</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[dtStyles.rowAction, { backgroundColor: "rgba(255,255,255,0.04)" }]}
+                      onPress={(e) => { e.stopPropagation(); setDesktopSelectedId(isRowSelected ? null : player.id); }}
+                    >
+                      <Text style={[dtStyles.rowActionText, { color: Colors.dark.textSecondary }]}>View</Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            {desktopSortedPlayers.length === 0 ? (
+              <View style={dtStyles.emptyRow}>
+                <Text style={dtStyles.emptyText}>No players found</Text>
+              </View>
+            ) : null}
+          </ScrollView>
+
+          {desktopSelectedId && desktopSelectedPlayer ? (
+            <View style={dtStyles.rightPanel}>
+              <View style={dtStyles.panelHeader}>
+                <Text style={dtStyles.panelTitle}>Player Profile</Text>
+                <Pressable onPress={() => setDesktopSelectedId(null)}>
+                  <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+                </Pressable>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={dtStyles.panelAvatarRow}>
+                  <View style={[dtStyles.panelAvatar, { borderColor: getBallLevelColor(desktopSelectedPlayer.ballLevel) }]}>
+                    <Text style={dtStyles.panelAvatarText}>
+                      {desktopSelectedPlayer.name?.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") ?? "?"}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={dtStyles.panelName}>{desktopSelectedPlayer.name}</Text>
+                    <Text style={dtStyles.panelEmail}>{desktopSelectedPlayer.email || "No email"}</Text>
+                  </View>
+                </View>
+                {[
+                  { label: "Ball Level", value: desktopSelectedPlayer.ballLevel || "—" },
+                  { label: "Coach", value: desktopSelectedPlayer.coachName || "—" },
+                  { label: "Credits", value: String(desktopSelectedPlayer.remainingCredits ?? "—") },
+                  { label: "Phone", value: desktopSelectedPlayer.phone || "—" },
+                  { label: "Parent", value: desktopSelectedPlayer.parentName || "—" },
+                  { label: "Status", value: desktopSelectedPlayer.isActive !== false ? "Active" : "Inactive" },
+                ].map(({ label, value }) => (
+                  <View key={label} style={dtStyles.panelRow}>
+                    <Text style={dtStyles.panelRowLabel}>{label}</Text>
+                    <Text style={dtStyles.panelRowValue}>{value}</Text>
+                  </View>
+                ))}
+                <View style={dtStyles.panelActions}>
+                  <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
+                    <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
+                    <Text style={[dtStyles.panelActionText, { color: Colors.dark.primary }]}>Add Credits</Text>
+                  </Pressable>
+                  <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowInvoiceModal(true); }}>
+                    <Ionicons name="document-text-outline" size={14} color={Colors.dark.gold} />
+                    <Text style={[dtStyles.panelActionText, { color: Colors.dark.gold }]}>Invoice</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+
+        {showCreditStoreModal && selectedPlayerId ? (
+          <CreditStoreModal
+            visible={showCreditStoreModal}
+            onClose={() => { setShowCreditStoreModal(false); setSelectedPlayerId(null); }}
+            playerId={selectedPlayerId}
+            playerName={players.find((p) => p.id === selectedPlayerId)?.name || ""}
+          />
+        ) : null}
+        {showInvoiceModal && selectedPlayerId ? (
+          <CreateInvoiceModal
+            visible={showInvoiceModal}
+            onClose={() => { setShowInvoiceModal(false); setSelectedPlayerId(null); }}
+            player={(() => {
+              const p = players.find((pl) => pl.id === selectedPlayerId);
+              return p ? { id: p.id, name: p.name, email: p.email, phone: p.phone, parentName: p.parentName, parentEmail: undefined, parentPhone: p.parentPhone } : null;
+            })()}
+            onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] }); }}
+          />
+        ) : null}
+        <AdminAddPlayerModal
+          visible={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          editingPlayer={editingPlayer}
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleSubmit}
+          isSubmitting={addPlayerMutation.isPending || updatePlayerMutation.isPending}
+        />
+      </View>
+    );
+  }
 
   // Check if we should show inline profile
   const showInlineProfile = selectedPlayerId && showDetailModal;
@@ -969,6 +1372,350 @@ export default function AdminPlayersScreen() {
     </View>
   );
 }
+
+const dtStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#0B0D10",
+    flexDirection: "column",
+  },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#11141A",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 8,
+    flex: 1,
+    minWidth: 160,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+  },
+  searchInput: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 13,
+    
+  },
+  filterChipsRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  chipActive: {
+    backgroundColor: "rgba(200,255,61,0.12)",
+    borderColor: "rgba(200,255,61,0.3)",
+  },
+  chipText: {
+    fontSize: 12,
+    color: "#7C8290",
+  },
+  chipTextActive: {
+    color: "#C8FF3D",
+    fontWeight: "600",
+  },
+  countText: {
+    fontSize: 12,
+    color: "#7C8290",
+    flex: 1,
+    textAlign: "right",
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#C8FF3D",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0B0D10",
+  },
+  bulkBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    backgroundColor: "rgba(200,255,61,0.05)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(200,255,61,0.15)",
+    gap: 16,
+  },
+  bulkText: {
+    fontSize: 13,
+    color: "#C8FF3D",
+    fontWeight: "600",
+  },
+  bulkAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  bulkActionText: {
+    fontSize: 13,
+    color: "#7C8290",
+  },
+  tableArea: {
+    flex: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  tableScroll: {
+    flex: 1,
+    overflow: "scroll",
+  },
+  tableHeader: {
+    flexDirection: "row",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "#0D0F13",
+  },
+  thCell: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  thPressable: {
+    
+  },
+  thText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7C8290",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    
+  },
+  tableRowSelected: {
+    backgroundColor: "rgba(200,255,61,0.05)",
+  },
+  tdCell: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  colCheck: { width: 32 },
+  colName: { flex: 2, gap: 10 },
+  colBall: { flex: 1 },
+  colCredits: { flex: 1 },
+  colCoach: { flex: 1.5 },
+  colLastSession: { flex: 1 },
+  colStatus: { flex: 1 },
+  colActions: { flex: 1.5, gap: 6 },
+  filterGroupLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#7C8290",
+    alignSelf: "center",
+  },
+  checkbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#C8FF3D",
+    borderColor: "#C8FF3D",
+  },
+  playerAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,133,27,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  avatarText: {
+    color: "#FF851B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  playerName: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  playerEmail: {
+    color: "#7C8290",
+    fontSize: 11,
+    marginTop: 1,
+  },
+  ballBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  ballDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  ballText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  rowAction: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(200,255,61,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.15)",
+  },
+  rowActionText: {
+    fontSize: 11,
+    color: "#C8FF3D",
+    fontWeight: "600",
+  },
+  emptyRow: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#7C8290",
+    fontSize: 14,
+  },
+  rightPanel: {
+    width: 280,
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "#11141A",
+    padding: 20,
+    overflow: "scroll",
+  },
+  panelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  panelTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  panelAvatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 20,
+  },
+  panelAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,133,27,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  panelAvatarText: {
+    color: "#FF851B",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  panelName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  panelEmail: {
+    fontSize: 12,
+    color: "#7C8290",
+    marginTop: 2,
+  },
+  panelRow: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  panelRowLabel: {
+    flex: 1,
+    fontSize: 12,
+    color: "#7C8290",
+  },
+  panelRowValue: {
+    fontSize: 13,
+    color: "#FFFFFF",
+    fontWeight: "500",
+  },
+  panelActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+  panelActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  panelActionText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+});
 
 function AdminInvitePopover({
   player,

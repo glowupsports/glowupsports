@@ -11,9 +11,11 @@ import {
   ActivityIndicator,
   TextInput,
 } from "react-native";
+import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
@@ -30,6 +32,8 @@ interface Payment {
   currency: string;
   paymentMethod: string;
   paymentDate: string;
+  dueDate?: string | null;
+  packageName?: string | null;
   status: string;
   receivedBy: string | null;
   receiverName?: string;
@@ -57,6 +61,8 @@ export default function AdminPaymentsScreen() {
   const navigation = useNavigation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterMethod, setFilterMethod] = useState<FilterMethod>("all");
+  const [filterCoach, setFilterCoach] = useState<string>("all");
+  const [filterDateRange, setFilterDateRange] = useState<"all" | "today" | "week" | "month">("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -225,7 +231,7 @@ export default function AdminPaymentsScreen() {
     }
   };
 
-  const getMethodIcon = (method: string) => {
+  const getMethodIcon = (method: string): IoniconName => {
     return method === "cash" ? "cash-outline" : "card-outline";
   };
 
@@ -234,8 +240,365 @@ export default function AdminPaymentsScreen() {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
+  const isDesktop = useDesktop();
+
+  const uniqueCoaches = React.useMemo(() => {
+    const names = new Set<string>();
+    payments.forEach((p: Payment) => { if (p.receiverName) names.add(p.receiverName); });
+    return Array.from(names);
+  }, [payments]);
+
   const pendingCount = payments.filter((p: Payment) => p.status === "pending").length;
   const confirmedTotal = payments.filter((p: Payment) => p.status === "confirmed").reduce((sum: number, p: Payment) => sum + parseFloat(p.amount), 0);
+  const overdueCount = payments.filter((p: Payment) => {
+    if (p.status !== "pending") return false;
+    const dueDate = p.dueDate ? new Date(p.dueDate) : null;
+    return dueDate !== null && dueDate < new Date();
+  }).length;
+  const thisMonthTotal = payments
+    .filter((p: Payment) => {
+      const d = new Date(p.paymentDate);
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && p.status === "confirmed";
+    })
+    .reduce((sum: number, p: Payment) => sum + parseFloat(p.amount), 0);
+
+  const desktopPayments = payments.filter((p: Payment) => {
+    if (filterStatus !== "all" && p.status !== filterStatus) return false;
+    if (filterMethod !== "all" && p.paymentMethod !== filterMethod) return false;
+    if (filterCoach !== "all" && (p.receiverName ?? "") !== filterCoach) return false;
+    if (filterDateRange === "all") return true;
+    const d = new Date(p.paymentDate);
+    const now = new Date();
+    if (filterDateRange === "today") {
+      return d.toDateString() === now.toDateString();
+    }
+    if (filterDateRange === "week") {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return d >= weekAgo;
+    }
+    if (filterDateRange === "month") {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+
+  if (isDesktop) {
+    return (
+      <View style={payStyles.root}>
+        <View style={payStyles.toolbar}>
+          <Text style={payStyles.title}>Payments</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable style={payStyles.addBtn} onPress={() => { setShowAddModal(true); setSelectedPayment(null); setShowDetailModal(false); }}>
+            <Ionicons name="add" size={16} color="#0B0D10" />
+            <Text style={payStyles.addBtnText}>Record Payment</Text>
+          </Pressable>
+        </View>
+
+        <View style={payStyles.body}>
+          <View style={payStyles.leftPanel}>
+            {[
+              { label: "Total Revenue", value: `AED ${confirmedTotal.toLocaleString()}`, color: "#22c55e" },
+              { label: "Pending", value: String(pendingCount), color: Colors.dark.gold },
+              { label: "This Month", value: `AED ${thisMonthTotal.toLocaleString()}`, color: Colors.dark.orange },
+              { label: "Overdue", value: String(overdueCount), color: Colors.dark.error },
+            ].map((kpi) => (
+              <View key={kpi.label} style={payStyles.kpiCard}>
+                <Text style={[payStyles.kpiValue, { color: kpi.color }]}>{kpi.value}</Text>
+                <Text style={payStyles.kpiLabel}>{kpi.label}</Text>
+              </View>
+            ))}
+
+            <Text style={payStyles.filterLabel}>Date Range</Text>
+            {(["all", "today", "week", "month"] as const).map((d) => (
+              <Pressable
+                key={d}
+                style={[payStyles.filterItem, filterDateRange === d && payStyles.filterItemActive]}
+                onPress={() => setFilterDateRange(d)}
+              >
+                <Text style={[payStyles.filterItemText, filterDateRange === d && payStyles.filterItemTextActive]}>
+                  {d === "all" ? "All Time" : d === "today" ? "Today" : d === "week" ? "This Week" : "This Month"}
+                </Text>
+              </Pressable>
+            ))}
+
+            <Text style={payStyles.filterLabel}>Status</Text>
+            {(["all", "pending", "confirmed", "rejected"] as FilterStatus[]).map((s) => (
+              <Pressable
+                key={s}
+                style={[payStyles.filterItem, filterStatus === s && payStyles.filterItemActive]}
+                onPress={() => setFilterStatus(s)}
+              >
+                <Text style={[payStyles.filterItemText, filterStatus === s && payStyles.filterItemTextActive]}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+
+            <Text style={payStyles.filterLabel}>Method</Text>
+            {(["all", "cash", "bank_transfer"] as FilterMethod[]).map((m) => (
+              <Pressable
+                key={m}
+                style={[payStyles.filterItem, filterMethod === m && payStyles.filterItemActive]}
+                onPress={() => setFilterMethod(m)}
+              >
+                <Text style={[payStyles.filterItemText, filterMethod === m && payStyles.filterItemTextActive]}>
+                  {m === "all" ? "All Methods" : m === "cash" ? "Cash" : "Bank Transfer"}
+                </Text>
+              </Pressable>
+            ))}
+
+            {uniqueCoaches.length > 0 ? (
+              <>
+                <Text style={payStyles.filterLabel}>Received By</Text>
+                <Pressable
+                  style={[payStyles.filterItem, filterCoach === "all" && payStyles.filterItemActive]}
+                  onPress={() => setFilterCoach("all")}
+                >
+                  <Text style={[payStyles.filterItemText, filterCoach === "all" && payStyles.filterItemTextActive]}>All Coaches</Text>
+                </Pressable>
+                {uniqueCoaches.map((coach) => (
+                  <Pressable
+                    key={coach}
+                    style={[payStyles.filterItem, filterCoach === coach && payStyles.filterItemActive]}
+                    onPress={() => setFilterCoach(coach)}
+                  >
+                    <Text style={[payStyles.filterItemText, filterCoach === coach && payStyles.filterItemTextActive]} numberOfLines={1}>{coach}</Text>
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+          </View>
+
+          <View style={payStyles.tableArea}>
+            <View style={payStyles.tableHeader}>
+              <View style={[payStyles.thCell, payStyles.colPlayer]}>
+                <Text style={payStyles.thText}>Player / Payer</Text>
+              </View>
+              <View style={[payStyles.thCell, payStyles.colPackage]}>
+                <Text style={payStyles.thText}>Package</Text>
+              </View>
+              <View style={[payStyles.thCell, payStyles.colAmount]}>
+                <Text style={payStyles.thText}>Amount</Text>
+              </View>
+              <View style={[payStyles.thCell, payStyles.colDate]}>
+                <Text style={payStyles.thText}>Due Date</Text>
+              </View>
+              <View style={[payStyles.thCell, payStyles.colStatus]}>
+                <Text style={payStyles.thText}>Status</Text>
+              </View>
+              <View style={[payStyles.thCell, payStyles.colActions]}>
+                <Text style={payStyles.thText}>Actions</Text>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={payStyles.tableScroll}>
+              {isLoading ? (
+                <View style={payStyles.emptyRow}>
+                  <ActivityIndicator size="small" color={Colors.dark.orange} />
+                </View>
+              ) : desktopPayments.length === 0 ? (
+                <View style={payStyles.emptyRow}>
+                  <Text style={payStyles.emptyText}>No payments found</Text>
+                </View>
+              ) : desktopPayments.map((payment: Payment) => {
+                const isOverdue = payment.status === "pending" && payment.dueDate != null && new Date(payment.dueDate) < new Date();
+                const displayStatus = isOverdue ? "overdue" : payment.status;
+                const statusColor = isOverdue ? Colors.dark.error : getStatusColor(payment.status);
+                const name = payment.playerName || payment.payerName || "Unknown";
+                return (
+                  <Pressable
+                    key={payment.id}
+                    style={[payStyles.tableRow, isOverdue && { borderLeftWidth: 2, borderLeftColor: Colors.dark.error }]}
+                    onPress={() => { setSelectedPayment(payment); setShowDetailModal(true); setShowAddModal(false); }}
+                  >
+                    <View style={[payStyles.tdCell, payStyles.colPlayer]}>
+                      <View style={payStyles.playerIcon}>
+                        <Text style={payStyles.playerIconText}>{name[0]?.toUpperCase() ?? "?"}</Text>
+                      </View>
+                      <Text style={payStyles.playerName} numberOfLines={1}>{name}</Text>
+                    </View>
+                    <View style={[payStyles.tdCell, payStyles.colPackage]}>
+                      <Text style={payStyles.dateText} numberOfLines={1}>{payment.packageName ?? payment.notes ?? "—"}</Text>
+                    </View>
+                    <View style={[payStyles.tdCell, payStyles.colAmount]}>
+                      <Text style={payStyles.amountText}>{payment.currency} {parseFloat(payment.amount).toLocaleString()}</Text>
+                    </View>
+                    <View style={[payStyles.tdCell, payStyles.colDate]}>
+                      <Text style={[payStyles.dateText, isOverdue && { color: Colors.dark.error }]}>{payment.dueDate ? formatDate(payment.dueDate) : formatDate(payment.paymentDate)}</Text>
+                    </View>
+                    <View style={[payStyles.tdCell, payStyles.colStatus]}>
+                      <View style={[payStyles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
+                        <Text style={[payStyles.statusText, { color: statusColor }]}>
+                          {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[payStyles.tdCell, payStyles.colActions]}>
+                      {payment.status === "pending" ? (
+                        <Pressable
+                          style={payStyles.actionBtn}
+                          onPress={(e) => { e.stopPropagation(); handleConfirm(payment); }}
+                        >
+                          <Text style={payStyles.actionBtnText}>Confirm</Text>
+                        </Pressable>
+                      ) : null}
+                      <Pressable
+                        style={[payStyles.actionBtn, { backgroundColor: "rgba(255,255,255,0.04)" }]}
+                        onPress={(e) => { e.stopPropagation(); setSelectedPayment(payment); setShowDetailModal(true); }}
+                      >
+                        <Text style={[payStyles.actionBtnText, { color: Colors.dark.textMuted }]}>View</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {(showAddModal || showDetailModal) ? (
+            <View style={payStyles.rightPanel}>
+              {showAddModal ? (
+                <>
+                  <View style={[payStyles.toolbar, { paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" }]}>
+                    <Text style={[payStyles.title, { fontSize: 15 }]}>Record Payment</Text>
+                    <Pressable onPress={() => { setShowAddModal(false); resetForm(); }}>
+                      <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+                    </Pressable>
+                  </View>
+                  <ScrollView style={styles.modalBody}>
+                    <Text style={styles.inputLabel}>Payer Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={formData.payerName}
+                      onChangeText={(v) => setFormData({ ...formData, payerName: v })}
+                      placeholder="Enter payer name"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                    <Text style={styles.inputLabel}>Amount *</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={formData.amount}
+                      onChangeText={(v) => setFormData({ ...formData, amount: v })}
+                      keyboardType="numeric"
+                      placeholder="0.00"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                    <Text style={styles.inputLabel}>Payment Method</Text>
+                    <View style={styles.methodPicker}>
+                      {(["cash", "bank_transfer"] as const).map((m) => (
+                        <Pressable
+                          key={m}
+                          style={[styles.methodOption, formData.paymentMethod === m && styles.methodOptionActive]}
+                          onPress={() => setFormData({ ...formData, paymentMethod: m })}
+                        >
+                          <Text style={[styles.methodOptionText, formData.paymentMethod === m && styles.methodOptionTextActive]}>
+                            {m === "cash" ? "Cash" : "Bank Transfer"}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Text style={styles.inputLabel}>Notes</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.notes}
+                      onChangeText={(v) => setFormData({ ...formData, notes: v })}
+                      placeholder="Optional notes"
+                      placeholderTextColor={Colors.dark.textMuted}
+                      multiline
+                    />
+                  </ScrollView>
+                  <View style={[styles.actionButtons, { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg }]}>
+                    <Pressable style={[styles.actionButton, styles.confirmButton]} onPress={handleCreate}>
+                      <Text style={styles.confirmButtonText}>{createMutation.isPending ? "Saving..." : "Record Payment"}</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : selectedPayment ? (
+                <>
+                  <View style={[payStyles.toolbar, { paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" }]}>
+                    <Text style={[payStyles.title, { fontSize: 15 }]}>Payment Details</Text>
+                    <Pressable onPress={() => setShowDetailModal(false)}>
+                      <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+                    </Pressable>
+                  </View>
+                  <ScrollView style={styles.modalBody}>
+                    {[
+                      { label: "Player / Payer", value: selectedPayment.playerName || selectedPayment.payerName || "Unknown" },
+                      { label: "Amount", value: `${selectedPayment.currency} ${parseFloat(selectedPayment.amount).toLocaleString()}` },
+                      { label: "Date", value: formatDate(selectedPayment.paymentDate) },
+                      { label: "Due Date", value: selectedPayment.dueDate ? formatDate(selectedPayment.dueDate) : "—" },
+                      { label: "Method", value: selectedPayment.paymentMethod === "cash" ? "Cash" : "Bank Transfer" },
+                      { label: "Status", value: selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1) },
+                    ].map((row) => (
+                      <View key={row.label} style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>{row.label}</Text>
+                        <Text style={styles.detailValue}>{row.value}</Text>
+                      </View>
+                    ))}
+                    {selectedPayment.notes ? (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Notes</Text>
+                        <Text style={styles.detailValue}>{selectedPayment.notes}</Text>
+                      </View>
+                    ) : null}
+                  </ScrollView>
+                  {selectedPayment.status === "pending" ? (
+                    <View style={[styles.actionButtons, { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg, flexDirection: "column", gap: Spacing.sm }]}>
+                      <Pressable style={[styles.actionButton, styles.confirmButton]} onPress={() => handleConfirm(selectedPayment)}>
+                        <Text style={styles.confirmButtonText}>{confirmMutation.isPending ? "Confirming..." : "Confirm Payment"}</Text>
+                      </Pressable>
+                      <Pressable style={[styles.actionButton, styles.rejectButton]} onPress={() => setShowRejectModal(true)}>
+                        <Text style={styles.rejectButtonText}>Reject</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+
+        <Modal visible={showRejectModal} animationType="fade" transparent>
+          <View style={[styles.modalOverlay, { justifyContent: "center" }]}>
+            <View style={[styles.modalContent, { maxHeight: 340, maxWidth: 400, width: "90%", alignSelf: "center", borderRadius: BorderRadius.xl }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Reject Payment</Text>
+                <Pressable onPress={() => setShowRejectModal(false)}>
+                  <Ionicons name="close" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              <View style={styles.modalBody}>
+                <Text style={styles.inputLabel}>Reason for rejection</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={rejectReason}
+                  onChangeText={setRejectReason}
+                  placeholder="Enter reason..."
+                  placeholderTextColor={Colors.dark.textMuted}
+                  multiline
+                />
+              </View>
+              <View style={[styles.actionButtons, { paddingBottom: Spacing.lg }]}>
+                <Pressable style={[styles.actionButton, { backgroundColor: "rgba(255,255,255,0.08)" }]} onPress={() => setShowRejectModal(false)}>
+                  <Text style={styles.submitButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.actionButton, styles.rejectButton]}
+                  onPress={handleReject}
+                >
+                  <Text style={styles.rejectButtonText}>
+                    {rejectMutation.isPending ? "Rejecting..." : "Reject Payment"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -335,7 +698,7 @@ export default function AdminPaymentsScreen() {
                 </View>
                 <View style={styles.paymentFooter}>
                   <View style={styles.methodBadge}>
-                    <Ionicons name={getMethodIcon(payment.paymentMethod) as any} size={14} color={Colors.dark.textSecondary} />
+                    <Ionicons name={getMethodIcon(payment.paymentMethod)} size={14} color={Colors.dark.textSecondary} />
                     <Text style={styles.methodText}>
                       {payment.paymentMethod === "cash" ? "Cash" : "Bank Transfer"}
                     </Text>
@@ -1059,5 +1422,218 @@ const styles = StyleSheet.create({
     ...Typography.body,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+});
+
+const payStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#0B0D10",
+    flexDirection: "column",
+  },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    gap: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#C8FF3D",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0B0D10",
+  },
+  body: {
+    flex: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  leftPanel: {
+    width: 220,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.07)",
+    padding: 16,
+    overflow: "scroll",
+  },
+  kpiCard: {
+    backgroundColor: "#11141A",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+  },
+  kpiValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  kpiLabel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  filterLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  filterItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 2,
+  },
+  filterItemActive: {
+    backgroundColor: "rgba(200,255,61,0.08)",
+  },
+  filterItemText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  filterItemTextActive: {
+    color: "#C8FF3D",
+    fontWeight: "600",
+  },
+  tableArea: {
+    flex: 1,
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  rightPanel: {
+    width: 300,
+    flexShrink: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "#0D0F13",
+    flexDirection: "column",
+  },
+  tableHeader: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "#0D0F13",
+  },
+  thCell: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  thText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7C8290",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  colPlayer: { flex: 2 },
+  colPackage: { flex: 2 },
+  colAmount: { flex: 1 },
+  colDate: { flex: 1 },
+  colMethod: { flex: 1, gap: 6 },
+  colStatus: { flex: 1 },
+  colActions: { flex: 1, gap: 8 },
+  tableScroll: {
+    flex: 1,
+    overflow: "scroll",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    
+  },
+  tableRowHovered: {
+    backgroundColor: "rgba(255,255,255,0.02)",
+  },
+  tdCell: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  playerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,133,27,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  playerIconText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FF851B",
+  },
+  playerName: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  amountText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  dateText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  methodText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginLeft: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  actionBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(200,255,61,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.2)",
+  },
+  actionBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#C8FF3D",
+  },
+  emptyRow: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#7C8290",
+    fontSize: 14,
   },
 });

@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
 } from "react-native";
+import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -35,6 +36,7 @@ interface Session {
   coachId?: string;
   courtId?: string;
   sport?: string | null;
+  maxCapacity?: number;
   players?: { id: string; name: string }[];
 }
 
@@ -87,6 +89,8 @@ export default function AdminCalendarScreen() {
   } | null>(null);
   const [wizardCoachId, setWizardCoachId] = useState<string | undefined>(undefined);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const isDesktop = useDesktop();
+  const [desktopSelectedSession, setDesktopSelectedSession] = useState<Session | null>(null);
 
   const isToday = useCallback((date: Date) => {
     return date.toDateString() === new Date().toDateString();
@@ -548,10 +552,216 @@ export default function AdminCalendarScreen() {
     </View>
   );
 
+  const getBallLevelColor = (level?: string) => {
+    switch (level?.toLowerCase()) {
+      case "blue": return "#4FC3F7";
+      case "red": return "#FF4D4D";
+      case "orange": return "#FF851B";
+      case "green": return "#C8FF3D";
+      case "yellow": return "#FFD700";
+      case "glow": return "#E040FB";
+      default: return "#7C8290";
+    }
+  };
+
   if (sessionsLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.centered, { paddingTop: isDesktop ? 0 : insets.top }]}>
         <ActivityIndicator size="large" color={ADMIN_COLOR} />
+      </View>
+    );
+  }
+
+  if (isDesktop) {
+    const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+    const HOUR_H = 56;
+
+    return (
+      <View style={calStyles.root}>
+        <View style={calStyles.toolbar}>
+          <Pressable style={calStyles.todayBtn} onPress={goToToday}>
+            <Text style={calStyles.todayBtnText}>Today</Text>
+          </Pressable>
+          <Pressable onPress={() => navigateDate(-1)}>
+            <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
+          </Pressable>
+          <Pressable onPress={() => navigateDate(1)}>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={calStyles.rangeText}>{formatWeekRange()}</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable
+            style={calStyles.newSessionBtn}
+            onPress={() => setShowCreateSession(true)}
+          >
+            <Ionicons name="add" size={16} color="#0B0D10" />
+            <Text style={calStyles.newSessionBtnText}>New Session</Text>
+          </Pressable>
+        </View>
+
+        <View style={calStyles.calendarArea}>
+          <ScrollView style={calStyles.calendarScroll} showsVerticalScrollIndicator={false}>
+            <View style={calStyles.weekGrid}>
+              <View style={calStyles.timeGutter}>
+                <View style={calStyles.dayHeaderCell} />
+                {HOURS.map((h) => (
+                  <View key={h} style={[calStyles.timeCell, { height: HOUR_H }]}>
+                    <Text style={calStyles.timeText}>{`${h.toString().padStart(2, "0")}:00`}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {weekDays.map(({ date, sessions: daySessions }) => {
+                const isToday = date.toDateString() === new Date().toDateString();
+                return (
+                  <View key={date.toISOString()} style={calStyles.dayCol}>
+                    <View style={[calStyles.dayHeaderCell, isToday && calStyles.dayHeaderToday]}>
+                      <Text style={[calStyles.dayHeaderDay, isToday && calStyles.dayHeaderDayToday]}>
+                        {date.toLocaleDateString("en-US", { weekday: "short" })}
+                      </Text>
+                      <Text style={[calStyles.dayHeaderDate, isToday && calStyles.dayHeaderDateToday]}>
+                        {date.getDate()}
+                      </Text>
+                    </View>
+                    <View style={[calStyles.dayBody, { height: HOURS.length * HOUR_H }]}>
+                      {HOURS.map((h) => (
+                        <Pressable
+                          key={h}
+                          style={[calStyles.hourSlot, { height: HOUR_H }]}
+                          onPress={() => handleSlotPress(h, undefined, undefined, date)}
+                        />
+                      ))}
+                      {daySessions.map((session) => {
+                        const start = new Date(session.startTime);
+                        const end = new Date(session.endTime);
+                        const topOffset = (start.getHours() - START_HOUR + start.getMinutes() / 60) * HOUR_H;
+                        const height = Math.max(20, ((end.getTime() - start.getTime()) / 3600000) * HOUR_H);
+                        const color = getBallLevelColor(session.ballLevel);
+                        const isSelected = desktopSelectedSession?.id === session.id;
+
+                        return (
+                          <Pressable
+                            key={session.id}
+                            style={[calStyles.sessionBlock, { top: topOffset, height, borderColor: color, borderLeftWidth: 3, ...(isSelected ? { borderColor: "#C8FF3D", borderWidth: 1 } : {}) }]}
+                            onPress={() => setDesktopSelectedSession(isSelected ? null : session)}
+                          >
+                            <LinearGradient
+                              colors={[`${color}30`, `${color}15`]}
+                              style={calStyles.sessionBlockGradient}
+                            >
+                              <Text style={calStyles.sessionBlockTime} numberOfLines={1}>
+                                {start.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                              </Text>
+                              <Text style={[calStyles.sessionBlockType, { color }]} numberOfLines={1}>
+                                {session.sessionType || session.ballLevel || "Session"}
+                              </Text>
+                              {height > 36 ? (
+                                <Text style={calStyles.sessionBlockCoach} numberOfLines={1}>
+                                  {getCoachName(session.coachId)}
+                                </Text>
+                              ) : null}
+                              {height > 52 ? (
+                                <Text style={calStyles.sessionBlockCapacity} numberOfLines={1}>
+                                  {session.players?.length ?? 0}/{session.maxCapacity ?? "?"} players
+                                </Text>
+                              ) : null}
+                            </LinearGradient>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {desktopSelectedSession ? (
+            <View style={calStyles.rightPanel}>
+              <View style={calStyles.panelHeader}>
+                <Text style={calStyles.panelTitle}>Session Details</Text>
+                <Pressable onPress={() => setDesktopSelectedSession(null)}>
+                  <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+                </Pressable>
+              </View>
+              <View style={calStyles.panelContent}>
+                {(() => {
+                  const s = desktopSelectedSession;
+                  const start = new Date(s.startTime);
+                  const end = new Date(s.endTime);
+                  const color = getBallLevelColor(s.ballLevel);
+                  return (
+                    <>
+                      <View style={[calStyles.panelColorBar, { backgroundColor: color }]} />
+                      {[
+                        { label: "Type", value: s.sessionType || "Session" },
+                        { label: "Ball Level", value: s.ballLevel || "—" },
+                        { label: "Coach", value: getCoachName(s.coachId) },
+                        { label: "Court", value: getCourtName(s.courtId) },
+                        { label: "Start", value: start.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }) },
+                        { label: "End", value: end.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }) },
+                        { label: "Status", value: s.status || "upcoming" },
+                        { label: "Players", value: s.players?.length ? `${s.players.length} enrolled` : "0 enrolled" },
+                      ].map(({ label, value }) => (
+                        <View key={label} style={calStyles.panelRow}>
+                          <Text style={calStyles.panelRowLabel}>{label}</Text>
+                          <Text style={calStyles.panelRowValue}>{value}</Text>
+                        </View>
+                      ))}
+                      {s.players && s.players.length > 0 ? (
+                        <View style={calStyles.playerList}>
+                          <Text style={calStyles.playerListTitle}>
+                            Players ({s.players.length}/{s.maxCapacity ?? "?"})
+                          </Text>
+                          {s.players.map((p) => (
+                            <View key={p.id} style={calStyles.playerListRow}>
+                              <View style={calStyles.playerListDot} />
+                              <Text style={calStyles.playerListName}>{p.name}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                      <View style={calStyles.quickActionsRow}>
+                        <Pressable
+                          style={calStyles.quickAction}
+                          onPress={() => {
+                            setSelectedSlot({
+                              hour: new Date(s.startTime).getHours(),
+                              coachId: s.coachId,
+                              courtId: s.courtId,
+                              date: new Date(s.startTime),
+                            });
+                            setShowCreateSession(true);
+                          }}
+                        >
+                          <Ionicons name="add-circle-outline" size={14} color="#C8FF3D" />
+                          <Text style={calStyles.quickActionText}>New this slot</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[calStyles.quickAction, { borderColor: "rgba(255,133,27,0.3)", backgroundColor: "rgba(255,133,27,0.08)" }]}
+                          onPress={() => setDesktopSelectedSession(null)}
+                        >
+                          <Ionicons name="close-outline" size={14} color={Colors.dark.orange} />
+                          <Text style={[calStyles.quickActionText, { color: Colors.dark.orange }]}>Dismiss</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  );
+                })()}
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        {showCreateSession ? (
+          <CreateSessionWizard
+            visible={showCreateSession}
+            onClose={handleCloseWizard}
+            initialDate={selectedSlot?.date || selectedDate}
+            initialHour={selectedSlot?.hour}
+            initialCoachId={wizardCoachId}
+          />
+        ) : null}
       </View>
     );
   }
@@ -1169,5 +1379,250 @@ const styles = StyleSheet.create({
     fontSize: 6,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+});
+
+const calStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#0B0D10",
+    flexDirection: "column",
+  },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    gap: 12,
+  },
+  todayBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  todayBtnText: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  rangeText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginLeft: 4,
+  },
+  newSessionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#C8FF3D",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  newSessionBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0B0D10",
+  },
+  calendarArea: {
+    flex: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  calendarScroll: {
+    flex: 1,
+    overflow: "scroll",
+  },
+  weekGrid: {
+    flexDirection: "row",
+    minWidth: 700,
+  },
+  timeGutter: {
+    width: 60,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.07)",
+  },
+  dayCol: {
+    flex: 1,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.05)",
+  },
+  dayHeaderCell: {
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  dayHeaderToday: {
+    backgroundColor: "rgba(200,255,61,0.05)",
+  },
+  dayHeaderDay: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  dayHeaderDayToday: {
+    color: "#C8FF3D",
+  },
+  dayHeaderDate: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginTop: 2,
+  },
+  dayHeaderDateToday: {
+    color: "#C8FF3D",
+  },
+  dayBody: {
+    position: "relative",
+    overflow: "hidden",
+  },
+  timeCell: {
+    justifyContent: "flex-start",
+    paddingTop: 4,
+    paddingRight: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  timeText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    textAlign: "right",
+  },
+  hourSlot: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.03)",
+  },
+  sessionBlock: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  sessionBlockGradient: {
+    flex: 1,
+    padding: 4,
+  },
+  sessionBlockTime: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  sessionBlockType: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  sessionBlockCoach: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    marginTop: 1,
+  },
+  rightPanel: {
+    width: 280,
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "#11141A",
+    overflow: "scroll",
+  },
+  panelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  panelTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  panelContent: {
+    padding: 16,
+  },
+  panelColorBar: {
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 16,
+  },
+  panelRow: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  panelRowLabel: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  panelRowValue: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  playerList: {
+    marginTop: 16,
+  },
+  playerListTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  playerListRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    gap: 8,
+  },
+  playerListDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#C8FF3D",
+  },
+  playerListName: {
+    fontSize: 13,
+    color: Colors.dark.text,
+  },
+  sessionBlockCapacity: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 1,
+  },
+  quickActionsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
+    flexWrap: "wrap",
+  },
+  quickAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.3)",
+    backgroundColor: "rgba(200,255,61,0.08)",
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#C8FF3D",
   },
 });
