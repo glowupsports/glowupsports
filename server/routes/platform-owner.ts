@@ -1772,83 +1772,97 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     requireRole("platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academies = await storage.getAllAcademies();
-        const academyMap = new Map<string, string>();
-        for (const academy of academies) {
-          academyMap.set(academy.id, academy.name);
-        }
-
-        // Get ALL players including free players (no academyId)
-        const rawPlayers = await storage.getAllPlayers();
-        const allPlayers = rawPlayers.map((p) => ({
-          ...p,
-          academyName: p.academyId ? (academyMap.get(p.academyId) ?? null) : null,
-        }));
-
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        let totalSessions = 0;
-        let activePlayerIds = new Set<string>();
+        // BATCH QUERY 1: All players + session stats in a single SQL aggregate
+        // Replaces the old N+1 loop (academies → sessions → session_players)
+        const [playerRows, userRows, academies] = await Promise.all([
+          pool.query<{
+            id: string; name: string; academyId: string | null;
+            ballLevel: string | null; level: number | null; totalXp: number | null;
+            streak: number | null; totalMatchesPlayed: number | null;
+            lastActiveAt: Date | null; status: string | null; createdAt: Date | null;
+            sessionsAttended: number; lastSessionAt: Date | null;
+          }>(`
+            SELECT
+              p.id,
+              p.name,
+              p.academy_id       AS "academyId",
+              p.ball_level       AS "ballLevel",
+              p.level,
+              p.total_xp         AS "totalXp",
+              p.streak,
+              p.total_matches_played AS "totalMatchesPlayed",
+              p.last_active_at   AS "lastActiveAt",
+              p.status,
+              p.created_at       AS "createdAt",
+              COUNT(sp.id) FILTER (WHERE sp.attendance_status = 'present')::int AS "sessionsAttended",
+              MAX(sp.credit_deducted_at) AS "lastSessionAt"
+            FROM players p
+            LEFT JOIN session_players sp ON sp.player_id = p.id
+            GROUP BY p.id, p.name, p.academy_id, p.ball_level, p.level, p.total_xp,
+                     p.streak, p.total_matches_played, p.last_active_at, p.status, p.created_at
+          `),
+          // BATCH QUERY 2: last login per player from users table
+          pool.query<{ playerId: string; lastLoginAt: Date | null }>(`
+            SELECT player_id AS "playerId", last_login_at AS "lastLoginAt"
+            FROM users
+            WHERE player_id IS NOT NULL
+          `),
+          storage.getAllAcademies(),
+        ]);
 
+        // Build lookup maps
+        const academyMap = new Map<string, string>();
         for (const academy of academies) {
-          const sessions = await storage.getSessionsByAcademy(academy.id);
-          const recentSessions = sessions.filter(
-            (s) => new Date(s.startTime) >= sevenDaysAgo,
-          );
-          totalSessions += recentSessions.length;
+          academyMap.set(academy.id, academy.name);
+        }
+        const loginMap = new Map<string, Date | null>();
+        for (const row of userRows.rows) {
+          loginMap.set(row.playerId, row.lastLoginAt);
+        }
 
-          for (const session of recentSessions) {
-            const sessionPlayersList = await storage.getSessionPlayers(
-              session.id,
-            );
-            sessionPlayersList.forEach((sp: any) => {
-              if (sp.attendanceStatus === "present") {
-                activePlayerIds.add(sp.playerId);
-              }
-            });
+        const allPlayers = playerRows.rows;
+        const totalPlayers = allPlayers.length;
+
+        // Derive active player IDs (session or app activity within 7 days)
+        const activePlayerIds = new Set<string>();
+        for (const p of allPlayers) {
+          const lastSession = p.lastSessionAt ? new Date(p.lastSessionAt) : null;
+          const lastActive = p.lastActiveAt ? new Date(p.lastActiveAt) : null;
+          if (
+            (lastSession && lastSession >= sevenDaysAgo) ||
+            (lastActive && lastActive >= sevenDaysAgo)
+          ) {
+            activePlayerIds.add(p.id);
           }
         }
 
-        const totalPlayers = allPlayers.length;
         const activeThisWeek = activePlayerIds.size;
         const atRisk = Math.max(0, totalPlayers - activeThisWeek);
 
-        const totalXp = allPlayers.reduce(
-          (sum, p) => sum + (p.totalXp || 0),
-          0,
-        );
-        const totalLevel = allPlayers.reduce(
-          (sum, p) => sum + (p.level || 1),
-          0,
-        );
-        const totalStreak = allPlayers.reduce(
-          (sum, p) => sum + (p.streak || 0),
-          0,
-        );
+        const totalXp = allPlayers.reduce((sum, p) => sum + (Number(p.totalXp) || 0), 0);
+        const totalLevel = allPlayers.reduce((sum, p) => sum + (Number(p.level) || 1), 0);
+        const totalStreak = allPlayers.reduce((sum, p) => sum + (Number(p.streak) || 0), 0);
 
-        const avgXpPerPlayer =
-          totalPlayers > 0 ? Math.round(totalXp / totalPlayers) : 0;
-        const avgLevel =
-          totalPlayers > 0
-            ? Math.round((totalLevel / totalPlayers) * 10) / 10
-            : 1;
-        const avgStreak =
-          totalPlayers > 0
-            ? Math.round((totalStreak / totalPlayers) * 10) / 10
-            : 0;
+        const avgXpPerPlayer = totalPlayers > 0 ? Math.round(totalXp / totalPlayers) : 0;
+        const avgLevel = totalPlayers > 0 ? Math.round((totalLevel / totalPlayers) * 10) / 10 : 1;
+        const avgStreak = totalPlayers > 0 ? Math.round((totalStreak / totalPlayers) * 10) / 10 : 0;
 
         const BALL_LEVEL_ORDER = ["blue", "red", "orange", "green", "yellow", "glow"];
         const ballLevelDistribution = BALL_LEVEL_ORDER.map((ballLevel) => ({
           ballLevel,
-          count: allPlayers.filter((p: any) => (p.ballLevel || "blue").toLowerCase() === ballLevel).length,
+          count: allPlayers.filter((p) => (p.ballLevel || "blue").toLowerCase() === ballLevel).length,
         }));
 
-        const getEngagement = (player: any): "high" | "medium" | "low" => {
+        const getEngagement = (player: typeof allPlayers[0]): "high" | "medium" | "low" => {
           const isActive = activePlayerIds.has(player.id);
-          const hasStreak = (player.streak || 0) >= 3;
+          const hasStreak = (Number(player.streak) || 0) >= 3;
           if (isActive && hasStreak) return "high";
           if (isActive || hasStreak) return "medium";
           return "low";
@@ -1858,26 +1872,40 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .map((p) => ({
             id: p.id,
             name: p.name,
-            academy: p.academyName,
-            level: p.level || 1,
+            academy: p.academyId ? (academyMap.get(p.academyId) ?? null) : null,
+            level: Number(p.level) || 1,
             ballLevel: p.ballLevel || "blue",
-            xp: p.totalXp || 0,
-            sessions: 0,
-            streak: p.streak || 0,
+            xp: Number(p.totalXp) || 0,
+            sessions: p.sessionsAttended,
+            streak: Number(p.streak) || 0,
             engagement: getEngagement(p),
           }))
           .sort((a, b) => b.xp - a.xp)
           .slice(0, 30);
 
-        // All players for directory tab, A-Z sorted
+        // All players for directory tab — enriched, A-Z sorted
         const allPlayersDirectory = allPlayers
-          .map((p) => ({
-            id: p.id,
-            name: p.name,
-            academy: p.academyName,
-            level: p.level || 1,
-            ballLevel: p.ballLevel || "blue",
-          }))
+          .map((p) => {
+            const lastSessionAt = p.lastSessionAt ? p.lastSessionAt.toISOString() : null;
+            const lastActiveAt = p.lastActiveAt ? p.lastActiveAt.toISOString() : null;
+            const lastLoginAt = loginMap.get(p.id);
+            const isActive = activePlayerIds.has(p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              academy: p.academyId ? (academyMap.get(p.academyId) ?? null) : null,
+              level: Number(p.level) || 1,
+              ballLevel: p.ballLevel || "blue",
+              status: p.status ?? null,
+              sessionsAttended: p.sessionsAttended,
+              totalMatchesPlayed: Number(p.totalMatchesPlayed) || 0,
+              lastSessionAt,
+              lastActiveAt,
+              lastLoginAt: lastLoginAt ? lastLoginAt.toISOString() : null,
+              joinedAt: p.createdAt ? p.createdAt.toISOString() : null,
+              isActive,
+            };
+          })
           .sort((a, b) => a.name.localeCompare(b.name));
 
         res.json({

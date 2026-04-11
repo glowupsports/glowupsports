@@ -8,6 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   Pressable,
+  Modal,
+  Platform,
+  SafeAreaView,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
@@ -35,6 +38,12 @@ const BALL_CONFIG: Record<string, { color: string; label: string }> = {
   glow: { color: BallLevelColors.glow, label: "Glow" },
 };
 
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+  active: { color: "#00E676", label: "Active" },
+  inactive: { color: Colors.dark.error, label: "Inactive" },
+  pending_payment: { color: Colors.dark.gold, label: "Pending" },
+};
+
 function getInitialsColor(name: string): string {
   const palette = [
     "#4FC3F7", "#FF4D4D", "#FF851B", "#C8FF3D",
@@ -53,12 +62,38 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+function relativeTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Never";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  if (diff < 0) return "Today";
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 interface DirectoryPlayer {
   id: string;
   name: string;
   academy: string | null;
   level: number;
   ballLevel: string;
+  status: string | null;
+  sessionsAttended: number;
+  totalMatchesPlayed: number;
+  lastSessionAt: string | null;
+  lastActiveAt: string | null;
+  lastLoginAt: string | null;
+  joinedAt: string | null;
+  isActive: boolean;
 }
 
 interface HealthPlayer {
@@ -86,6 +121,8 @@ interface PlayerHealthData {
   players: HealthPlayer[];
   allPlayers: DirectoryPlayer[];
 }
+
+type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
 function InitialsAvatar({ name, size = 40 }: { name: string; size?: number }) {
   const color = getInitialsColor(name);
@@ -120,7 +157,16 @@ function BallBadge({ ballLevel }: { ballLevel: string }) {
   );
 }
 
-type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
+function StatusChip({ status, isActive }: { status: string | null; isActive: boolean }) {
+  const key = isActive ? "active" : (status ?? "inactive");
+  const cfg = STATUS_CONFIG[key] ?? STATUS_CONFIG.inactive;
+  return (
+    <View style={[styles.statusChip, { backgroundColor: `${cfg.color}18`, borderColor: `${cfg.color}40` }]}>
+      <View style={[styles.statusDot, { backgroundColor: cfg.color }]} />
+      <Text style={[styles.statusChipText, { color: cfg.color }]}>{cfg.label}</Text>
+    </View>
+  );
+}
 
 function StatChip({ icon, value, label, color }: { icon: FeatherIconName; value: string | number; label: string; color: string }) {
   return (
@@ -203,22 +249,145 @@ function HealthPlayerRow({ player, isTopPerformer }: { player: HealthPlayer; isT
   );
 }
 
-function DirectoryRow({ item }: { item: DirectoryPlayer }) {
+function DirectoryRow({ item, onPress }: { item: DirectoryPlayer; onPress: () => void }) {
+  const lastSeen = item.lastSessionAt || item.lastActiveAt || item.lastLoginAt;
   return (
-    <View style={styles.directoryRow}>
+    <Pressable style={({ pressed }) => [styles.directoryRow, pressed ? { opacity: 0.7 } : {}]} onPress={onPress}>
       <InitialsAvatar name={item.name} size={42} />
       <View style={styles.directoryInfo}>
-        <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
-        {item.academy ? (
-          <Text style={styles.playerAcademy} numberOfLines={1}>{item.academy}</Text>
-        ) : (
-          <View style={styles.freeChip}>
-            <Text style={styles.freeChipText}>Free Player</Text>
+        <View style={styles.directoryNameRow}>
+          <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
+          <StatusChip status={item.status} isActive={item.isActive} />
+        </View>
+        <View style={styles.directoryMeta}>
+          {item.academy ? (
+            <Text style={styles.playerAcademy} numberOfLines={1}>{item.academy}</Text>
+          ) : (
+            <View style={styles.freeChip}>
+              <Text style={styles.freeChipText}>Free Player</Text>
+            </View>
+          )}
+          <Text style={styles.lastSeen}>
+            <Feather name="clock" size={9} color={Colors.dark.textMuted} /> {relativeTime(lastSeen)}
+          </Text>
+        </View>
+        <View style={styles.miniStats}>
+          <View style={styles.miniStat}>
+            <Feather name="calendar" size={10} color={Colors.dark.textMuted} />
+            <Text style={styles.miniStatText}>{item.sessionsAttended} sess</Text>
           </View>
-        )}
+          <View style={styles.miniStat}>
+            <Feather name="award" size={10} color={Colors.dark.textMuted} />
+            <Text style={styles.miniStatText}>{item.totalMatchesPlayed} matches</Text>
+          </View>
+        </View>
       </View>
-      <BallBadge ballLevel={item.ballLevel} />
-    </View>
+      <View style={styles.directoryRight}>
+        <BallBadge ballLevel={item.ballLevel} />
+        <Feather name="chevron-right" size={14} color={Colors.dark.textMuted} style={{ marginTop: 4 }} />
+      </View>
+    </Pressable>
+  );
+}
+
+function PlayerDetailSheet({ player, onClose }: { player: DirectoryPlayer; onClose: () => void }) {
+  const color = getInitialsColor(player.name);
+  const lastSeen = player.lastSessionAt || player.lastActiveAt || player.lastLoginAt;
+  const ballCfg = BALL_CONFIG[player.ballLevel?.toLowerCase()] ?? { color: Colors.dark.textMuted, label: player.ballLevel ?? "?" };
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === "ios" ? "pageSheet" : "overFullScreen"}
+    >
+      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+        <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
+          <SafeAreaView>
+            {/* Handle */}
+            <View style={styles.sheetHandle} />
+
+            {/* Header */}
+            <View style={styles.sheetHeader}>
+              <InitialsAvatar name={player.name} size={64} />
+              <View style={styles.sheetHeaderInfo}>
+                <Text style={styles.sheetName}>{player.name}</Text>
+                <View style={styles.sheetBadgeRow}>
+                  <View style={[styles.ballBadge, { backgroundColor: `${ballCfg.color}20`, borderColor: `${ballCfg.color}50` }]}>
+                    <View style={[styles.ballDot, { backgroundColor: ballCfg.color }]} />
+                    <Text style={[styles.ballBadgeText, { color: ballCfg.color }]}>{ballCfg.label}</Text>
+                  </View>
+                  <StatusChip status={player.status} isActive={player.isActive} />
+                </View>
+                {player.academy ? (
+                  <Text style={styles.sheetAcademy}>{player.academy}</Text>
+                ) : (
+                  <Text style={[styles.sheetAcademy, { color: Colors.dark.textMuted }]}>Free Player</Text>
+                )}
+              </View>
+              <Pressable onPress={onClose} style={styles.sheetClose}>
+                <Feather name="x" size={18} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+
+            {/* Stats grid */}
+            <View style={styles.sheetStatsGrid}>
+              <View style={[styles.sheetStatCard, CardStyles.elevated]}>
+                <Feather name="calendar" size={18} color={Colors.dark.xpCyan} />
+                <Text style={[styles.sheetStatNum, { color: Colors.dark.xpCyan }]}>{player.sessionsAttended}</Text>
+                <Text style={styles.sheetStatLabel}>Sessions</Text>
+              </View>
+              <View style={[styles.sheetStatCard, CardStyles.elevated]}>
+                <Feather name="award" size={18} color={Colors.dark.gold} />
+                <Text style={[styles.sheetStatNum, { color: Colors.dark.gold }]}>{player.totalMatchesPlayed}</Text>
+                <Text style={styles.sheetStatLabel}>Matches</Text>
+              </View>
+              <View style={[styles.sheetStatCard, CardStyles.elevated]}>
+                <Feather name="zap" size={18} color={NEON_GREEN} />
+                <Text style={[styles.sheetStatNum, { color: NEON_GREEN }]}>{player.level}</Text>
+                <Text style={styles.sheetStatLabel}>Level</Text>
+              </View>
+            </View>
+
+            {/* Timeline */}
+            <View style={[styles.sheetTimeline, CardStyles.elevated]}>
+              <Text style={styles.sheetTimelineTitle}>Activity</Text>
+              <View style={styles.timelineRow}>
+                <Feather name="user-plus" size={14} color={Colors.dark.textMuted} />
+                <Text style={styles.timelineLabel}>Joined</Text>
+                <Text style={styles.timelineValue}>{formatDate(player.joinedAt)}</Text>
+              </View>
+              <View style={styles.timelineDivider} />
+              <View style={styles.timelineRow}>
+                <Feather name="calendar" size={14} color={Colors.dark.textMuted} />
+                <Text style={styles.timelineLabel}>Last Session</Text>
+                <Text style={styles.timelineValue}>{formatDate(player.lastSessionAt)}</Text>
+              </View>
+              <View style={styles.timelineDivider} />
+              <View style={styles.timelineRow}>
+                <Feather name="clock" size={14} color={Colors.dark.textMuted} />
+                <Text style={styles.timelineLabel}>Last Active</Text>
+                <Text style={styles.timelineValue}>
+                  {lastSeen ? `${formatDate(lastSeen)} · ${relativeTime(lastSeen)}` : "Never"}
+                </Text>
+              </View>
+              {player.lastLoginAt ? (
+                <>
+                  <View style={styles.timelineDivider} />
+                  <View style={styles.timelineRow}>
+                    <Feather name="log-in" size={14} color={Colors.dark.textMuted} />
+                    <Text style={styles.timelineLabel}>Last Login</Text>
+                    <Text style={styles.timelineValue}>{relativeTime(player.lastLoginAt)}</Text>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -226,6 +395,7 @@ export default function PlayerHealthScreen() {
   const headerHeight = useHeaderHeight();
   const [activeTab, setActiveTab] = useState<"health" | "directory">("health");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlayer, setSelectedPlayer] = useState<DirectoryPlayer | null>(null);
 
   const { data, isLoading, error } = useQuery<PlayerHealthData>({
     queryKey: ["/api/platform/player-health"],
@@ -343,12 +513,10 @@ export default function PlayerHealthScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Ball level distribution */}
           {ballLevelDistribution.length > 0 ? (
             <BallDistribution distribution={ballLevelDistribution} />
           ) : null}
 
-          {/* At Risk */}
           {atRiskPlayers.length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -371,7 +539,6 @@ export default function PlayerHealthScreen() {
             </View>
           ) : null}
 
-          {/* Top Performers */}
           {topPerformers.length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -406,7 +573,6 @@ export default function PlayerHealthScreen() {
         </ScrollView>
       ) : (
         <View style={styles.directoryContainer}>
-          {/* Search bar */}
           <View style={styles.searchBar}>
             <Feather name="search" size={16} color={Colors.dark.textMuted} />
             <TextInput
@@ -426,15 +592,18 @@ export default function PlayerHealthScreen() {
             ) : null}
           </View>
 
-          {/* Count */}
           <Text style={styles.directoryCount}>
-            {filteredDirectory.length} {filteredDirectory.length === 1 ? "player" : "players"}
+            {searchQuery.trim()
+              ? `${filteredDirectory.length} of ${allPlayers.length} players`
+              : `${allPlayers.length} ${allPlayers.length === 1 ? "player" : "players"}`}
           </Text>
 
           <FlatList
             data={filteredDirectory}
             keyExtractor={(item, i) => item.id ?? String(i)}
-            renderItem={({ item }) => <DirectoryRow item={item} />}
+            renderItem={({ item }) => (
+              <DirectoryRow item={item} onPress={() => setSelectedPlayer(item)} />
+            )}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.divider} />}
             contentContainerStyle={styles.directoryList}
@@ -448,6 +617,10 @@ export default function PlayerHealthScreen() {
           />
         </View>
       )}
+
+      {selectedPlayer ? (
+        <PlayerDetailSheet player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
+      ) : null}
     </View>
   );
 }
@@ -473,7 +646,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 
-  // Hero stats
   heroRow: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -504,7 +676,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Chips
   chipsRow: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -532,7 +703,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Tab switcher
   tabSwitcher: {
     flexDirection: "row",
     backgroundColor: Backgrounds.card,
@@ -560,7 +730,6 @@ const styles = StyleSheet.create({
     color: "#000000",
   },
 
-  // Scroll
   scrollView: {
     flex: 1,
   },
@@ -568,7 +737,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Section card
   sectionCard: {
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
@@ -580,7 +748,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
 
-  // Ball distribution
   ballRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -609,7 +776,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Section
   section: {
     marginBottom: Spacing.xl,
   },
@@ -634,7 +800,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Health player row
   healthRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -669,7 +834,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
 
-  // Avatar
   avatar: {
     justifyContent: "center",
     alignItems: "center",
@@ -678,7 +842,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Ball badge
   ballBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -698,7 +861,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Player info
+  statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  statusChipText: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
+
   playerName: {
     fontSize: 14,
     fontWeight: "600",
@@ -723,7 +904,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Directory
   directoryContainer: {
     flex: 1,
   },
@@ -769,8 +949,42 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  directoryNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    flexWrap: "nowrap",
+  },
+  directoryMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
+    flexWrap: "wrap",
+  },
+  lastSeen: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
+  miniStats: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
+  miniStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  miniStatText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
+  directoryRight: {
+    alignItems: "center",
+    gap: 4,
+  },
 
-  // Empty
   emptyCard: {
     padding: Spacing.xl,
     borderRadius: BorderRadius.lg,
@@ -788,5 +1002,114 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     textAlign: "center",
     fontSize: 12,
+  },
+
+  // Player detail sheet
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  sheetContainer: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    borderTopWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  sheetHeaderInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  sheetName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  sheetBadgeRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+  },
+  sheetAcademy: {
+    fontSize: 12,
+    color: PLATFORM_PURPLE,
+    fontWeight: "500",
+  },
+  sheetClose: {
+    padding: Spacing.xs,
+  },
+  sheetStatsGrid: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  sheetStatCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: 4,
+  },
+  sheetStatNum: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  sheetStatLabel: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  sheetTimeline: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  sheetTimelineTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: Spacing.sm,
+  },
+  timelineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  timelineLabel: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  timelineValue: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+    textAlign: "right",
+    flexShrink: 1,
+  },
+  timelineDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    marginVertical: Spacing.xs,
   },
 });
