@@ -1809,6 +1809,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             streak: number | null; totalMatchesPlayed: number | null;
             lastActiveAt: Date | null; status: string | null; createdAt: Date | null;
             sessionsAttended: number; lastSessionAt: Date | null;
+            email: string | null; phone: string | null; dateOfBirth: string | null;
+            profilePhotoUrl: string | null; city: string | null; country: string | null;
           }>(`
             SELECT
               p.id,
@@ -1822,12 +1824,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               p.last_active_at   AS "lastActiveAt",
               p.status,
               p.created_at       AS "createdAt",
+              p.email,
+              p.phone,
+              p.date_of_birth    AS "dateOfBirth",
+              p.profile_photo_url AS "profilePhotoUrl",
+              p.city,
+              p.country,
               COUNT(sp.id) FILTER (WHERE sp.attendance_status = 'present')::int AS "sessionsAttended",
               MAX(sp.credit_deducted_at) AS "lastSessionAt"
             FROM players p
             LEFT JOIN session_players sp ON sp.player_id = p.id
             GROUP BY p.id, p.name, p.academy_id, p.ball_level, p.level, p.total_xp,
-                     p.streak, p.total_matches_played, p.last_active_at, p.status, p.created_at
+                     p.streak, p.total_matches_played, p.last_active_at, p.status, p.created_at,
+                     p.email, p.phone, p.date_of_birth, p.profile_photo_url, p.city, p.country
           `),
           // BATCH QUERY 2: last login per player from users table
           pool.query<{ playerId: string; lastLoginAt: Date | null }>(`
@@ -1931,6 +1940,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               lastLoginAt: lastLoginAt ? lastLoginAt.toISOString() : null,
               joinedAt: p.createdAt ? p.createdAt.toISOString() : null,
               isActive,
+              email: p.email ?? null,
+              phone: p.phone ?? null,
+              dateOfBirth: p.dateOfBirth ?? null,
+              profilePhotoUrl: p.profilePhotoUrl ?? null,
+              city: p.city ?? null,
+              country: p.country ?? null,
             };
           })
           .sort((a, b) => a.name.localeCompare(b.name));

@@ -11,6 +11,8 @@ import {
   Modal,
   Platform,
   SafeAreaView,
+  Image,
+  Linking,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
@@ -115,6 +117,12 @@ interface DirectoryPlayer {
   lastLoginAt: string | null;
   joinedAt: string | null;
   isActive: boolean;
+  profilePhotoUrl: string | null;
+  email: string | null;
+  phone: string | null;
+  dateOfBirth: string | null;
+  city: string | null;
+  country: string | null;
 }
 
 interface HealthPlayer {
@@ -166,6 +174,24 @@ function InitialsAvatar({ name, size = 40 }: { name: string; size?: number }) {
       </Text>
     </View>
   );
+}
+
+function PlayerAvatar({ name, photoUrl, size = 40 }: { name: string; photoUrl?: string | null; size?: number }) {
+  if (photoUrl) {
+    return (
+      <Image
+        source={{ uri: photoUrl }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1.5,
+          borderColor: "rgba(255,255,255,0.15)",
+        }}
+      />
+    );
+  }
+  return <InitialsAvatar name={name} size={size} />;
 }
 
 function BallBadge({ ballLevel }: { ballLevel: string }) {
@@ -276,7 +302,7 @@ function DirectoryRow({ item, onPress }: { item: DirectoryPlayer; onPress: () =>
   const matches = Number(item.totalMatchesPlayed) || 0;
   return (
     <Pressable style={({ pressed }) => [styles.directoryRow, pressed ? { opacity: 0.7 } : {}]} onPress={onPress}>
-      <InitialsAvatar name={item.name} size={42} />
+      <PlayerAvatar name={item.name} photoUrl={item.profilePhotoUrl} size={42} />
       <View style={styles.directoryInfo}>
         <View style={styles.directoryNameRow}>
           <Text style={[styles.playerName, { flex: 1 }]} numberOfLines={1}>{item.name}</Text>
@@ -432,7 +458,7 @@ function PlayerDetailSheet({
 
               {/* Header */}
               <View style={styles.sheetHeader}>
-                <InitialsAvatar name={player.name} size={64} />
+                <PlayerAvatar name={player.name} photoUrl={player.profilePhotoUrl} size={80} />
                 <View style={styles.sheetHeaderInfo}>
                   <Text style={styles.sheetName}>{player.name}</Text>
                   <View style={styles.sheetBadgeRow}>
@@ -514,6 +540,54 @@ function PlayerDetailSheet({
                     </View>
                   </>
                 ) : null}
+              </View>
+
+              {/* Contact */}
+              <View style={[styles.sheetTimeline, CardStyles.elevated]}>
+                <Text style={styles.sheetTimelineTitle}>Contact</Text>
+                <View style={styles.timelineRow}>
+                  <Feather name="mail" size={14} color={Colors.dark.textMuted} />
+                  <Text style={styles.timelineLabel}>Email</Text>
+                  {player.email ? (
+                    <Pressable onPress={() => Linking.openURL(`mailto:${player.email}`).catch(() => {})}>
+                      <Text style={[styles.timelineValue, { color: Colors.dark.xpCyan }]}>{player.email}</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.timelineValue}>—</Text>
+                  )}
+                </View>
+                <View style={styles.timelineDivider} />
+                <View style={styles.timelineRow}>
+                  <Feather name="phone" size={14} color={Colors.dark.textMuted} />
+                  <Text style={styles.timelineLabel}>Phone</Text>
+                  {player.phone ? (
+                    <Pressable onPress={() => Linking.openURL(`tel:${player.phone}`).catch(() => {})}>
+                      <Text style={[styles.timelineValue, { color: Colors.dark.xpCyan }]}>{player.phone}</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.timelineValue}>—</Text>
+                  )}
+                </View>
+                <View style={styles.timelineDivider} />
+                <View style={styles.timelineRow}>
+                  <Feather name="calendar" size={14} color={Colors.dark.textMuted} />
+                  <Text style={styles.timelineLabel}>Date of Birth</Text>
+                  <Text style={styles.timelineValue}>
+                    {(() => {
+                      if (!player.dateOfBirth) return "—";
+                      const d = new Date(player.dateOfBirth);
+                      return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+                    })()}
+                  </Text>
+                </View>
+                <View style={styles.timelineDivider} />
+                <View style={styles.timelineRow}>
+                  <Feather name="map-pin" size={14} color={Colors.dark.textMuted} />
+                  <Text style={styles.timelineLabel}>Location</Text>
+                  <Text style={styles.timelineValue}>
+                    {[player.city, player.country].filter(Boolean).join(" · ") || "—"}
+                  </Text>
+                </View>
               </View>
 
               {/* Assign to Academy */}
