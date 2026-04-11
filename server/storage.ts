@@ -7198,7 +7198,15 @@ export const storage = {
       let currentRemaining = Number(pkg.remaining_credits);
       const originalRemaining = currentRemaining;
 
-      const unsettledDebts = await tx.select().from(creditTransactions)
+      const unsettledDebts = await tx.select({
+          id: creditTransactions.id,
+          playerId: creditTransactions.playerId,
+          sessionId: creditTransactions.sessionId,
+          amount: creditTransactions.amount,
+          metadata: creditTransactions.metadata,
+          createdAt: creditTransactions.createdAt,
+        }).from(creditTransactions)
+        .innerJoin(sessions, eq(creditTransactions.sessionId, sessions.id))
         .where(and(
           eq(creditTransactions.playerId, playerId),
           eq(creditTransactions.type, "debit"),
@@ -7209,6 +7217,7 @@ export const storage = {
           ),
           isNotNull(creditTransactions.sessionId),
           inArray(creditTransactions.creditType, matchingCreditTypes),
+          ne(sessions.status, "cancelled"),
           sql`COALESCE(${creditTransactions.metadata}->>'cancelled', 'false') != 'true'`,
           sql`COALESCE(${creditTransactions.metadata}->>'settled', 'false') != 'true'`,
           sql`COALESCE(${creditTransactions.metadata}->>'isDebt', 'false') = 'true'`
@@ -7287,6 +7296,12 @@ export const storage = {
     
     const matchingSessionTypes = creditToSessionTypes[creditType] || [creditType];
     
+    // Determine which attendance statuses warrant a credit deduction for this credit type
+    const isGroupType = creditType === "group";
+    const chargeableAttendanceStatuses = isGroupType
+      ? ["present", "late", "absent"] // Group: slot was taken regardless
+      : ["present", "late"];          // Private/semi: only if the player actually showed up
+
     const unpaidSessions = await db.select({
       sessionPlayerId: sessionPlayers.id,
       sessionId: sessionPlayers.sessionId,
@@ -7301,6 +7316,8 @@ export const storage = {
       eq(sessionPlayers.playerId, playerId),
       isNull(sessionPlayers.creditDeductedAt),
       inArray(sessions.sessionType, matchingSessionTypes),
+      ne(sessions.status, "cancelled"),
+      inArray(sessionPlayers.attendanceStatus, chargeableAttendanceStatuses),
       academyId ? eq(sessions.academyId, academyId) : undefined
     ))
     .orderBy(sessions.startTime);
