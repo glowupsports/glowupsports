@@ -26,6 +26,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
 import { SPORTS, type SportOrMulti } from "@shared/sportConfig";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MapLocationPickerModal, type MapLocationResult } from "@/components/MapLocationPickerModal";
 
 interface Court {
   id: string;
@@ -73,6 +74,7 @@ export default function AdminCourtsScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [sportFilter, setSportFilter] = useState<SportOrMulti | "all">("all");
   const [courtAddressSearch, setCourtAddressSearch] = useState<{ address: string; lat: number; lng: number; placeId?: string; matchedLocationId?: string } | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371;
@@ -107,6 +109,17 @@ export default function AdminCourtsScreen() {
       setFormData(prev => ({ ...prev, locationId: closest.id }));
     }
     setCourtAddressSearch({ ...result, matchedLocationId });
+  };
+
+  const handleMapPickerConfirm = (result: MapLocationResult) => {
+    const matchedLocationId = formData.locationId || courtAddressSearch?.matchedLocationId;
+    setCourtAddressSearch({
+      address: result.address,
+      lat: result.lat,
+      lng: result.lng,
+      placeId: courtAddressSearch?.placeId,
+      matchedLocationId,
+    });
   };
 
   const [formData, setFormData] = useState({
@@ -243,11 +256,30 @@ export default function AdminCourtsScreen() {
     }
   };
 
+  const patchLocationCoordinates = async (locationId: string, lat: number, lng: number, address?: string): Promise<boolean> => {
+    try {
+      const payload: Record<string, unknown> = { lat, lng };
+      if (address) payload.address = address;
+      await apiRequest("PUT", `/api/admin/locations/${locationId}`, payload);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/locations"] });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/admin/courts", data),
-    onSuccess: async () => {
-      if (courtAddressSearch?.placeId && courtAddressSearch?.matchedLocationId) {
-        await patchLocationGooglePlaceId(courtAddressSearch.matchedLocationId, courtAddressSearch.placeId);
+    onSuccess: async (_result, variables) => {
+      const submittedLocationId = variables.locationId as string | null | undefined;
+      if (courtAddressSearch?.placeId && submittedLocationId) {
+        await patchLocationGooglePlaceId(submittedLocationId, courtAddressSearch.placeId);
+      }
+      if (courtAddressSearch?.lat != null && courtAddressSearch?.lng != null && submittedLocationId) {
+        const ok = await patchLocationCoordinates(submittedLocationId, courtAddressSearch.lat, courtAddressSearch.lng, courtAddressSearch.address);
+        if (!ok) {
+          Alert.alert("Warning", "Court saved, but the precise map location could not be updated. You can retry by editing the court.");
+        }
       }
       invalidateCourts();
       setShowAddModal(false);
@@ -262,9 +294,16 @@ export default function AdminCourtsScreen() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       apiRequest("PUT", `/api/admin/courts/${id}`, data),
-    onSuccess: async () => {
-      if (courtAddressSearch?.placeId && courtAddressSearch?.matchedLocationId) {
-        await patchLocationGooglePlaceId(courtAddressSearch.matchedLocationId, courtAddressSearch.placeId);
+    onSuccess: async (_result, variables) => {
+      const submittedLocationId = variables.data.locationId as string | null | undefined;
+      if (courtAddressSearch?.placeId && submittedLocationId) {
+        await patchLocationGooglePlaceId(submittedLocationId, courtAddressSearch.placeId);
+      }
+      if (courtAddressSearch?.lat != null && courtAddressSearch?.lng != null && submittedLocationId) {
+        const ok = await patchLocationCoordinates(submittedLocationId, courtAddressSearch.lat, courtAddressSearch.lng, courtAddressSearch.address);
+        if (!ok) {
+          Alert.alert("Warning", "Court saved, but the precise map location could not be updated. You can retry by editing the court.");
+        }
       }
       invalidateCourts();
       setShowEditModal(false);
@@ -526,6 +565,13 @@ export default function AdminCourtsScreen() {
                   mode="venue"
                   onSelect={handleAddressSelect}
                 />
+                <Pressable
+                  style={styles.pickOnMapButton}
+                  onPress={() => setShowMapPicker(true)}
+                >
+                  <Ionicons name="map-outline" size={15} color={Colors.dark.primary} />
+                  <Text style={styles.pickOnMapText}>Pick on map</Text>
+                </Pressable>
                 {courtAddressSearch ? (
                   <View style={styles.addressSearchResult}>
                     <Ionicons name="location" size={12} color={Colors.dark.primary} />
@@ -714,6 +760,13 @@ export default function AdminCourtsScreen() {
                   mode="venue"
                   onSelect={handleAddressSelect}
                 />
+                <Pressable
+                  style={styles.pickOnMapButton}
+                  onPress={() => setShowMapPicker(true)}
+                >
+                  <Ionicons name="map-outline" size={15} color={Colors.dark.primary} />
+                  <Text style={styles.pickOnMapText}>Pick on map</Text>
+                </Pressable>
                 {courtAddressSearch ? (
                   <View style={styles.addressSearchResult}>
                     <Ionicons name="location" size={12} color={Colors.dark.primary} />
@@ -884,6 +937,22 @@ export default function AdminCourtsScreen() {
           </View>
         </View>
       </Modal>
+
+      <MapLocationPickerModal
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirm={handleMapPickerConfirm}
+        initialLat={courtAddressSearch?.lat ?? (
+          formData.locationId
+            ? activeLocations.find(l => l.id === formData.locationId)?.lat
+            : undefined
+        )}
+        initialLng={courtAddressSearch?.lng ?? (
+          formData.locationId
+            ? activeLocations.find(l => l.id === formData.locationId)?.lng
+            : undefined
+        )}
+      />
     </View>
   );
 }
@@ -1108,6 +1177,24 @@ const styles = StyleSheet.create({
     fontSize: Typography.small.fontSize,
     color: Colors.dark.textMuted,
     marginTop: 4,
+  },
+  pickOnMapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    alignSelf: "flex-start",
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
+  },
+  pickOnMapText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   locationPicker: {
     flexDirection: "row",
