@@ -546,7 +546,7 @@ export default function AdminCourtsScreen() {
               </Pressable>
             </View>
 
-            <KeyboardAwareScrollViewCompat>
+            <KeyboardAwareScrollViewCompat showsVerticalScrollIndicator={false}>
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Court Name *</Text>
                 <TextInput
@@ -1125,8 +1125,9 @@ const styles = StyleSheet.create({
     backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    maxHeight: "80%",
+    padding: Spacing.md,
+    paddingTop: Spacing.lg,
+    maxHeight: "90%",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
