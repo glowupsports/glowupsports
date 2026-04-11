@@ -30,6 +30,19 @@ interface LevelTest {
   metrics: Record<string, unknown>;
 }
 
+interface TechnicalSpecs {
+  courtLengthM?: number;
+  courtWidthM?: number;
+  netHeightCm?: number;
+  racketSizeLabel?: string;
+  racketSizeInchMin?: number;
+  racketSizeInchMax?: number;
+  ageBand?: string;
+  itfStageName?: string;
+  ballDescription?: string;
+  note?: string;
+}
+
 interface BallLevel {
   id: string;
   stage: string;
@@ -39,6 +52,7 @@ interface BallLevel {
   identity: string;
   courtType: string;
   ballType: string;
+  technicalSpecs?: TechnicalSpecs | null;
   promotionRequirements: {
     skillAchievedCount: number;
     pillarMinimum: Record<string, number>;
@@ -51,7 +65,7 @@ interface BallLevel {
   tests: LevelTest[];
 }
 
-const STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
+const STAGES = ["RED", "ORANGE", "GREEN", "YELLOW", "BLUE"] as const;
 const PILLARS = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"] as const;
 
 const STAGE_COLORS: Record<string, string> = {
@@ -59,6 +73,7 @@ const STAGE_COLORS: Record<string, string> = {
   ORANGE: Colors.dark.ballOrange,
   GREEN: Colors.dark.ballGreen,
   YELLOW: Colors.dark.ballYellow,
+  BLUE: Colors.dark.xpCyan,
 };
 
 const PILLAR_COLORS: Record<string, string> = {
@@ -213,6 +228,68 @@ export default function LevelCardsScreen() {
                     <ThemedText style={styles.infoText}>{level.courtType.replace(/_/g, " ")}</ThemedText>
                   </View>
                 </View>
+
+                {level.technicalSpecs ? (
+                  <View style={styles.courtSetupCard}>
+                    <View style={styles.courtSetupHeader}>
+                      <Ionicons name="grid-outline" size={14} color="#C8FF3D" />
+                      <ThemedText style={styles.courtSetupTitle}>Court Setup</ThemedText>
+                      {level.technicalSpecs.itfStageName ? (
+                        <View style={styles.itfBadge}>
+                          <ThemedText style={styles.itfBadgeText}>{level.technicalSpecs.itfStageName}</ThemedText>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.courtSetupGrid}>
+                      {level.technicalSpecs.courtLengthM ? (
+                        <View style={styles.courtSpecItem}>
+                          <ThemedText style={styles.courtSpecLabel}>Court Length</ThemedText>
+                          <ThemedText style={styles.courtSpecValue}>{level.technicalSpecs.courtLengthM} m</ThemedText>
+                        </View>
+                      ) : null}
+                      {level.technicalSpecs.courtWidthM ? (
+                        <View style={styles.courtSpecItem}>
+                          <ThemedText style={styles.courtSpecLabel}>Court Width</ThemedText>
+                          <ThemedText style={styles.courtSpecValue}>{level.technicalSpecs.courtWidthM} m</ThemedText>
+                        </View>
+                      ) : null}
+                      {level.technicalSpecs.netHeightCm ? (
+                        <View style={styles.courtSpecItem}>
+                          <ThemedText style={styles.courtSpecLabel}>Net Height</ThemedText>
+                          <ThemedText style={styles.courtSpecValue}>{level.technicalSpecs.netHeightCm} cm</ThemedText>
+                        </View>
+                      ) : null}
+                      {level.technicalSpecs.racketSizeLabel ? (
+                        <View style={styles.courtSpecItem}>
+                          <ThemedText style={styles.courtSpecLabel}>Racket Size</ThemedText>
+                          <ThemedText style={styles.courtSpecValue}>{level.technicalSpecs.racketSizeLabel}</ThemedText>
+                        </View>
+                      ) : null}
+                    </View>
+                    {level.technicalSpecs.ageBand ? (
+                      <View style={styles.courtSpecRow}>
+                        <Ionicons name="person-outline" size={12} color={Colors.dark.text + "99"} />
+                        <ThemedText style={styles.courtSpecMeta}>Age band: {level.technicalSpecs.ageBand}</ThemedText>
+                      </View>
+                    ) : null}
+                    {level.technicalSpecs.ballDescription ? (
+                      <View style={styles.courtSpecRow}>
+                        <Ionicons name="tennisball-outline" size={12} color={Colors.dark.text + "99"} />
+                        <ThemedText style={styles.courtSpecMeta}>{level.technicalSpecs.ballDescription}</ThemedText>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View style={styles.courtSetupCard}>
+                    <View style={styles.courtSetupHeader}>
+                      <Ionicons name="grid-outline" size={14} color="#C8FF3D" />
+                      <ThemedText style={styles.courtSetupTitle}>Court Setup</ThemedText>
+                    </View>
+                    <ThemedText style={styles.courtSpecMeta}>
+                      Full court (23.77 m x 8.23 m) - standard yellow ball
+                    </ThemedText>
+                  </View>
+                )}
 
                 <View style={styles.requirementsSection}>
                   <ThemedText style={styles.sectionTitle}>Promotion Requirements</ThemedText>
@@ -452,6 +529,73 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     opacity: 0.8,
     textTransform: "capitalize",
+  },
+  courtSetupCard: {
+    backgroundColor: "#C8FF3D0D",
+    borderWidth: 1,
+    borderColor: "#C8FF3D25",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  courtSetupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  courtSetupTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#C8FF3D",
+    flex: 1,
+  },
+  itfBadge: {
+    backgroundColor: "#C8FF3D20",
+    borderRadius: 10,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  itfBadgeText: {
+    fontSize: 10,
+    color: "#C8FF3D",
+    fontWeight: "500",
+  },
+  courtSetupGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  courtSpecItem: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    minWidth: "44%",
+    flex: 1,
+  },
+  courtSpecLabel: {
+    fontSize: 10,
+    color: Colors.dark.text,
+    opacity: 0.5,
+    marginBottom: 2,
+  },
+  courtSpecValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  courtSpecRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  courtSpecMeta: {
+    fontSize: 11,
+    color: Colors.dark.text,
+    opacity: 0.6,
+    flex: 1,
   },
   requirementsSection: {
     marginBottom: Spacing.lg,

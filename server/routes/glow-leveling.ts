@@ -362,8 +362,51 @@ router.get("/api/glow-leveling/levels", async (req, res: Response) => {
       }
     }
     
+    // BLUE stage - foundation full-court tennis (uses in-memory seed data)
+    if (!stage || stage === "BLUE") {
+      const { BLUE_STAGE_SKILLS_BY_LEVEL } = await import("../seeds/blue-stage-skills-seed");
+      for (const [levelId, config] of Object.entries(BLUE_STAGE_SKILLS_BY_LEVEL)) {
+        levelsWithDetails.push({
+          id: levelId,
+          stage: "BLUE",
+          rank: config.rank,
+          displayNamePlayer: `Blue ${config.rank} (${config.name})`,
+          displayNameCoach: `Blue ${config.rank} (${config.name})`,
+          identity: config.abilitySnapshot,
+          courtType: "FULL_COURT",
+          ballType: "YELLOW_BALL",
+          promotionRequirements: {
+            skillAchievedCount: Math.round(config.skills.length * 0.7),
+            pillarMinimum: {},
+            tests: [],
+            evidenceMin: 2,
+            matchEvents: 4,
+          },
+          skills: config.skills.map(skill => ({
+            skillId: skill.id,
+            skillName: skill.name,
+            pillar: skill.pillar,
+            targetScore: 2,
+            weight: 1,
+            rubric: skill.rubric.sort((a, b) => a.score - b.score),
+          })),
+          tests: [],
+        });
+      }
+    }
+
+    // Fetch technical_specs from DB and merge into levels
+    const levelIds = levelsWithDetails.map(l => l.id);
+    const dbLevels = levelIds.length > 0
+      ? await db.select({ id: ballLevels.id, technicalSpecs: ballLevels.technicalSpecs }).from(ballLevels).where(inArray(ballLevels.id, levelIds))
+      : [];
+    const techSpecsMap = new Map(dbLevels.map(l => [l.id, l.technicalSpecs]));
+    for (const level of levelsWithDetails) {
+      level.technicalSpecs = techSpecsMap.get(level.id) ?? null;
+    }
+
     // Sort by stage order and rank
-    const stageOrder = { RED: 0, ORANGE: 1, GREEN: 2, YELLOW: 3 };
+    const stageOrder = { RED: 0, ORANGE: 1, GREEN: 2, YELLOW: 3, BLUE: 4 };
     levelsWithDetails.sort((a, b) => {
       const stageCompare = (stageOrder[a.stage as keyof typeof stageOrder] || 0) - (stageOrder[b.stage as keyof typeof stageOrder] || 0);
       if (stageCompare !== 0) return stageCompare;

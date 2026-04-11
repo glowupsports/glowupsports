@@ -4733,12 +4733,38 @@ export const ballLevels = pgTable("ball_levels", {
   trialEnabled: boolean("trial_enabled").default(true),
   trialDays: integer("trial_days").default(14),
   
+  // Technical court specifications (ITF/LTA reference data)
+  technicalSpecs: jsonb("technical_specs").$type<{
+    courtLengthM?: number;
+    courtWidthM?: number;
+    netHeightCm?: number;
+    racketSizeLabel?: string;
+    racketSizeInchMin?: number;
+    racketSizeInchMax?: number;
+    ageBand?: string;
+    itfStageName?: string;
+    ballDescription?: string;
+    note?: string;
+  }>(),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertBallLevelSchema = createInsertSchema(ballLevels).omit({ createdAt: true });
 export type InsertBallLevel = z.infer<typeof insertBallLevelSchema>;
 export type BallLevel = typeof ballLevels.$inferSelect;
+
+// DSS Speelsterkte Thresholds — KNLTB 2026 official rating boundaries
+export const dssSpeelsterkteThresholds = pgTable("dss_speelsterkte_thresholds", {
+  speelsterkte: integer("speelsterkte").primaryKey(),
+  menSinglesMaxRating: numeric("men_singles_max_rating"),
+  womenSinglesMaxRating: numeric("women_singles_max_rating"),
+  menDoublesMaxRating: numeric("men_doubles_max_rating"),
+  womenDoublesMaxRating: numeric("women_doubles_max_rating"),
+  notes: text("notes"),
+});
+
+export type DssSpeelsterkteThreshold = typeof dssSpeelsterkteThresholds.$inferSelect;
 
 // Glow Skills - All skills across all levels
 export const glowSkills = pgTable("glow_skills", {

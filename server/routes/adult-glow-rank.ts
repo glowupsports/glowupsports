@@ -11,7 +11,7 @@
 
 import { Router } from "express";
 import { db } from "../db";
-import { players, adultGlowMatches, adultSkillAssessments } from "@shared/schema";
+import { players, adultGlowMatches, adultSkillAssessments, dssSpeelsterkteThresholds } from "@shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { fireQuestEvent } from "../services/quest-events";
@@ -791,6 +791,45 @@ router.get("/player/:playerId/full-profile", async (req: AuthenticatedRequest, r
     
     const nextFullRankData = ADULT_GLOW_RANKS.find(r => r.rank === currentRank - 1);
     
+    // Compute DSS speelsterkte equivalence from MMR using KNLTB 2026 boundaries.
+    // Policy: use men's singles thresholds as the reference scale (inclusive label).
+    // For speelsterkte 3–5 men's singles is stricter than women's, so using the
+    // women's boundary would over-assign; we use men's for a conservative estimate.
+    const dssRatingNum = mmrToDssRating(player.glowMmr || 1000);
+    const dssThresholds = await db
+      .select()
+      .from(dssSpeelsterkteThresholds)
+      .orderBy(dssSpeelsterkteThresholds.speelsterkte);
+
+    // Walk speelsterkte 1→9; pick the first bracket where dssRating ≤ men_singles_max.
+    // DSS 1 and 2 are ranking-based (no numeric upper boundary in the published table),
+    // so they are excluded from MMR-based approximation. The equivalence range is 3–9.
+    // Players with very low DSS ratings (national/elite level) will map to DSS 3 as the
+    // closest numeric bracket. This is intentional conservative approximation.
+    let dssEquivalent = 9; // default: entry level
+    for (const row of dssThresholds) {
+      const max = row.menSinglesMaxRating !== null ? parseFloat(row.menSinglesMaxRating as string) : null;
+      if (max === null) continue; // speelsterkte 1 and 2 have no numeric upper bound
+      if (dssRatingNum <= max) {
+        dssEquivalent = row.speelsterkte;
+        break;
+      }
+    }
+
+    // Read K-factor from seeded config row (stored as 'dss_k_factor' in app_config)
+    // Falls back to the well-known 2026 KNLTB constant (0.275) if the table is unavailable.
+    let dssKFactor = 0.275;
+    try {
+      const rows = await db.execute(
+        sql`SELECT value::text AS value FROM app_config WHERE key = 'dss_k_factor' LIMIT 1`
+      );
+      const first = rows.rows?.[0];
+      if (first && "value" in first && typeof first.value === "string") {
+        const parsed = parseFloat(first.value);
+        if (!isNaN(parsed)) dssKFactor = parsed;
+      }
+    } catch { /* app_config may not exist in older envs; default is fine */ }
+
     res.json({
       playerId: player.id,
       name: player.name,
@@ -805,6 +844,9 @@ router.get("/player/:playerId/full-profile", async (req: AuthenticatedRequest, r
         mmrMin: nextRankInfo.mmrRange.min,
       } : null,
       isAdult: player.isAdult || false,
+      dssEquivalent,
+      dssRating: formatDssRating(dssRatingNum),
+      dssKFactor,
       stats: {
         totalMatches: player.totalMatchesPlayed || 0,
         wins,

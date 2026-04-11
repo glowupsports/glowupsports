@@ -42,6 +42,8 @@ interface FullProfileResponse {
   mmrRange: { min: number; max: number };
   nextRank: { rank: number; name: string; mmrMin: number } | null;
   isAdult: boolean;
+  dssEquivalent: number | null;
+  dssRating: string | null;
   stats: {
     totalMatches: number;
     wins: number;
@@ -121,6 +123,8 @@ export default function AdultGlowRankScreen() {
     stats,
     skillGates,
     recentMatches,
+    dssEquivalent,
+    dssRating,
   } = profileData;
 
   const mmrProgress =
@@ -179,6 +183,20 @@ export default function AdultGlowRankScreen() {
               </ThemedText>
             )}
           </View>
+
+          {dssEquivalent !== null && (
+            <View style={styles.dssChipRow}>
+              <View style={styles.dssChip}>
+                <Ionicons name="flag-outline" size={12} color="#C8FF3D" />
+                <ThemedText style={styles.dssChipText}>
+                  KNLTB scale: DSS {dssEquivalent}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.dssSubText}>
+                {dssRating ? `Rating ${dssRating}` : ""}
+              </ThemedText>
+            </View>
+          )}
         </Card>
 
         <View style={styles.statsRow}>
@@ -521,6 +539,36 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: "center",
     paddingVertical: Spacing.md,
+  },
+  dssChipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.backgroundSecondary,
+  },
+  dssChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "#C8FF3D18",
+    borderWidth: 1,
+    borderColor: "#C8FF3D40",
+    borderRadius: 20,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+  },
+  dssChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#C8FF3D",
+  },
+  dssSubText: {
+    fontSize: 11,
+    color: Colors.dark.text,
+    opacity: 0.5,
   },
   matchCard: {
     marginBottom: Spacing.sm,
