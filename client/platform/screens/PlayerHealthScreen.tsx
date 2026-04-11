@@ -86,6 +86,8 @@ interface DirectoryPlayer {
   academy: string | null;
   level: number;
   ballLevel: string;
+  totalXp: number;
+  streak: number;
   status: string | null;
   sessionsAttended: number;
   totalMatchesPlayed: number;
@@ -332,20 +334,30 @@ function PlayerDetailSheet({ player, onClose }: { player: DirectoryPlayer; onClo
               </Pressable>
             </View>
 
-            {/* Stats grid */}
+            {/* Stats grid — all 5 stats */}
             <View style={styles.sheetStatsGrid}>
               <View style={[styles.sheetStatCard, CardStyles.elevated]}>
-                <Feather name="calendar" size={18} color={Colors.dark.xpCyan} />
+                <Feather name="calendar" size={16} color={Colors.dark.xpCyan} />
                 <Text style={[styles.sheetStatNum, { color: Colors.dark.xpCyan }]}>{player.sessionsAttended}</Text>
                 <Text style={styles.sheetStatLabel}>Sessions</Text>
               </View>
               <View style={[styles.sheetStatCard, CardStyles.elevated]}>
-                <Feather name="award" size={18} color={Colors.dark.gold} />
+                <Feather name="award" size={16} color={Colors.dark.gold} />
                 <Text style={[styles.sheetStatNum, { color: Colors.dark.gold }]}>{player.totalMatchesPlayed}</Text>
                 <Text style={styles.sheetStatLabel}>Matches</Text>
               </View>
               <View style={[styles.sheetStatCard, CardStyles.elevated]}>
-                <Feather name="zap" size={18} color={NEON_GREEN} />
+                <Feather name="zap" size={16} color={Colors.dark.xpCyan} />
+                <Text style={[styles.sheetStatNum, { color: Colors.dark.xpCyan }]}>{player.totalXp.toLocaleString()}</Text>
+                <Text style={styles.sheetStatLabel}>XP</Text>
+              </View>
+              <View style={[styles.sheetStatCard, CardStyles.elevated]}>
+                <Feather name="activity" size={16} color={Colors.dark.orange} />
+                <Text style={[styles.sheetStatNum, { color: Colors.dark.orange }]}>{player.streak}</Text>
+                <Text style={styles.sheetStatLabel}>Streak</Text>
+              </View>
+              <View style={[styles.sheetStatCard, CardStyles.elevated]}>
+                <Feather name="star" size={16} color={NEON_GREEN} />
                 <Text style={[styles.sheetStatNum, { color: NEON_GREEN }]}>{player.level}</Text>
                 <Text style={styles.sheetStatLabel}>Level</Text>
               </View>

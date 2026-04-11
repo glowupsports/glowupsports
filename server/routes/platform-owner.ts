@@ -1889,13 +1889,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             const lastSessionAt = p.lastSessionAt ? p.lastSessionAt.toISOString() : null;
             const lastActiveAt = p.lastActiveAt ? p.lastActiveAt.toISOString() : null;
             const lastLoginAt = loginMap.get(p.id);
-            const isActive = activePlayerIds.has(p.id);
+            // isActive: status must be 'active' AND recent activity within 30 days
+            const recentActivity =
+              (lastSessionAt && new Date(lastSessionAt) >= thirtyDaysAgo) ||
+              (lastActiveAt && new Date(lastActiveAt) >= thirtyDaysAgo);
+            const isActive = p.status === "active" && !!recentActivity;
             return {
               id: p.id,
               name: p.name,
               academy: p.academyId ? (academyMap.get(p.academyId) ?? null) : null,
               level: Number(p.level) || 1,
               ballLevel: p.ballLevel || "blue",
+              totalXp: Number(p.totalXp) || 0,
+              streak: Number(p.streak) || 0,
               status: p.status ?? null,
               sessionsAttended: p.sessionsAttended,
               totalMatchesPlayed: Number(p.totalMatchesPlayed) || 0,
