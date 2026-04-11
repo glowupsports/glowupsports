@@ -447,8 +447,28 @@ export async function generateProgressNarrative(
       if (ctx) {
         const failurePoints = Array.isArray(ctx.failurePoints) ? (ctx.failurePoints as string[]).slice(0, 3) : [];
         const checklist = Array.isArray(ctx.progressionChecklist) ? (ctx.progressionChecklist as string[]).slice(0, 3) : [];
+        const parts: string[] = [];
         if (failurePoints.length > 0 || checklist.length > 0) {
-          coachingContextText = `Level coaching context (${playerLevel.levelId}): Common failure points: ${failurePoints.join("; ") || "none"}. Progression checklist: ${checklist.join("; ") || "none"}.`;
+          parts.push(`Common failure points: ${failurePoints.join("; ") || "none"}. Progression checklist: ${checklist.join("; ") || "none"}.`);
+        }
+        // Operational targets (Glow levels) — derived non-official training metrics
+        const opTargets = ctx.operationalTargets;
+        if (opTargets && typeof opTargets === "object" && Object.keys(opTargets).length > 0) {
+          const opLines = Object.entries(opTargets)
+            .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+            .join("; ");
+          parts.push(`Operational targets (derived, non-official — session calibration): ${opLines}`);
+        }
+        // Tactical concepts (junior safelines)
+        const tactConcepts = ctx.tacticalConcepts;
+        if (tactConcepts && typeof tactConcepts === "object" && Object.keys(tactConcepts).length > 0) {
+          const tactLines = Object.entries(tactConcepts)
+            .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+            .join("; ");
+          parts.push(`Tactical concepts (safelines): ${tactLines}`);
+        }
+        if (parts.length > 0) {
+          coachingContextText = `Level coaching context (${playerLevel.levelId}): ${parts.join(" ")}`;
         }
       }
     }
@@ -3016,8 +3036,26 @@ export async function generateSessionBrief(sessionId: string): Promise<SessionBr
         if (lcc) {
           const fp = Array.isArray(lcc.failurePoints) ? (lcc.failurePoints as string[]).slice(0, 2) : [];
           const cl = Array.isArray(lcc.progressionChecklist) ? (lcc.progressionChecklist as string[]).slice(0, 2) : [];
+          const ctxParts: string[] = [];
           if (fp.length > 0 || cl.length > 0) {
-            levelCtxLine = `Level ${currentLevelId} coaching context — Failure points: ${fp.join("; ") || "none"}. Progression checklist: ${cl.join("; ") || "none"}.`;
+            ctxParts.push(`Failure points: ${fp.join("; ") || "none"}. Progression checklist: ${cl.join("; ") || "none"}.`);
+          }
+          const opTargets = lcc.operationalTargets;
+          if (opTargets && typeof opTargets === "object" && Object.keys(opTargets).length > 0) {
+            const opLines = Object.entries(opTargets)
+              .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+              .join("; ");
+            ctxParts.push(`Operational targets (derived): ${opLines}`);
+          }
+          const tactConcepts = lcc.tacticalConcepts;
+          if (tactConcepts && typeof tactConcepts === "object" && Object.keys(tactConcepts).length > 0) {
+            const tactLines = Object.entries(tactConcepts)
+              .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+              .join("; ");
+            ctxParts.push(`Tactical concepts (safelines): ${tactLines}`);
+          }
+          if (ctxParts.length > 0) {
+            levelCtxLine = `Level ${currentLevelId} coaching context — ${ctxParts.join(" ")}`;
           }
         }
       }

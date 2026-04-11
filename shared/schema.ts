@@ -7220,6 +7220,8 @@ export const levelCoachingContext = pgTable("level_coaching_context", {
   levelId: varchar("level_id").references(() => ballLevels.id).notNull().unique(),
   failurePoints: jsonb("failure_points").$type<string[]>().default([]),
   progressionChecklist: jsonb("progression_checklist").$type<string[]>().default([]),
+  operationalTargets: jsonb("operational_targets").$type<Record<string, string>>().default({}),
+  tacticalConcepts: jsonb("tactical_concepts").$type<Record<string, string>>().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
