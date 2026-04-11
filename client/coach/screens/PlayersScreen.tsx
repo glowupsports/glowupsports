@@ -158,6 +158,7 @@ export default function PlayersScreen() {
   const { registerTabCallback } = useTabNavigation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [assessmentBadges, setAssessmentBadges] = useState<Record<string, { passed: boolean; percentage: number; assessedAt?: string }>>({});
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
@@ -521,6 +522,12 @@ export default function PlayersScreen() {
         player={selectedPlayer}
         onBack={() => setSelectedPlayer(null)}
         insets={insets}
+        onAssessmentComplete={(result) => {
+          setAssessmentBadges((prev) => ({
+            ...prev,
+            [result.playerId]: { passed: result.passed, percentage: result.percentage, assessedAt: result.assessedAt },
+          }));
+        }}
       />
     );
   }
@@ -1035,6 +1042,7 @@ export default function PlayersScreen() {
                 }}
                 isPast={rosterTab === "past"}
                 isPendingPayment={rosterTab === "pending_payment"}
+                juniorAssessmentBadge={assessmentBadges[player.id] ?? null}
                 onArchive={rosterTab === "active" ? () => {
                   Alert.alert(
                     "Move to Past",

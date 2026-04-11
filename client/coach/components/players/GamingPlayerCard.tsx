@@ -160,6 +160,7 @@ export function GamingPlayerCard({
   onArchive,
   onRestore,
   onPendingPayment,
+  juniorAssessmentBadge,
 }: { 
   player: Player; 
   onPress: () => void;
@@ -171,6 +172,7 @@ export function GamingPlayerCard({
   onArchive?: () => void;
   onRestore?: () => void;
   onPendingPayment?: () => void;
+  juniorAssessmentBadge?: { passed: boolean; percentage: number; assessedAt?: string } | null;
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
@@ -181,12 +183,95 @@ export function GamingPlayerCard({
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
 
   const isPendingSignup = !player.onboardingCompleted;
+  const isJuniorLevel = !!player.ballLevel && ["red", "orange", "green"].includes(player.ballLevel.toLowerCase());
 
   const { data: inviteData } = useQuery<{ inviteCode: string; status: string } | null>({
     queryKey: ["/api/players", player.id, "invite"],
     enabled: isPendingSignup && showInvitePopover,
     retry: false,
   });
+
+  interface TrialTestEntry {
+    passed: boolean;
+    score: number;
+    notes?: string;
+    recordedAt?: string;
+    metrics?: {
+      ustaScore?: number;
+      assessedAt?: string;
+      assessmentPercentage?: number;
+    };
+  }
+  interface TrialRecord {
+    trial: {
+      id: string;
+      toLevelId: string;
+      status: string;
+      completedAt: string | null;
+      evaluationNotes: string | null;
+      testResults: Record<string, TrialTestEntry> | string | null;
+    };
+  }
+
+  const { data: trialsData } = useQuery<TrialRecord[]>({
+    queryKey: ["/api/glow/players", player.id, "trials"],
+    enabled: isJuniorLevel,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const serverAssessmentBadge = (() => {
+    if (!trialsData || !isJuniorLevel) return null;
+    const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const recentUsta = trialsData
+      .filter((t) => {
+        if (!t.trial.testResults) return false;
+        const tr = typeof t.trial.testResults === "string" ? JSON.parse(t.trial.testResults) : t.trial.testResults;
+        const ustaKeys = Object.keys(tr).filter((k) => k.startsWith("usta_"));
+        if (ustaKeys.length === 0) return false;
+        const anyEntry = tr[ustaKeys[0]];
+        const recordedAt = anyEntry?.recordedAt ?? anyEntry?.metrics?.assessedAt;
+        if (!recordedAt) return false;
+        return now - new Date(recordedAt).getTime() <= NINETY_DAYS_MS;
+      })
+      .sort((a, b) => {
+        const getDate = (t: TrialRecord) => {
+          const tr = typeof t.trial.testResults === "string" ? JSON.parse(t.trial.testResults) : t.trial.testResults;
+          const ustaKey = Object.keys(tr).find((k) => k.startsWith("usta_"));
+          return ustaKey ? new Date(tr[ustaKey].recordedAt ?? tr[ustaKey].metrics?.assessedAt ?? 0).getTime() : 0;
+        };
+        return getDate(b) - getDate(a);
+      })[0];
+
+    if (!recentUsta) return null;
+
+    const tr = typeof recentUsta.trial.testResults === "string"
+      ? JSON.parse(recentUsta.trial.testResults)
+      : recentUsta.trial.testResults;
+    const ustaKeys = Object.keys(tr).filter((k) => k.startsWith("usta_"));
+    if (ustaKeys.length === 0) return null;
+
+    const firstEntry = tr[ustaKeys[0]];
+    const recordedAt = firstEntry?.recordedAt ?? firstEntry?.metrics?.assessedAt ?? new Date().toISOString();
+
+    const pct = firstEntry?.metrics?.assessmentPercentage as number | undefined;
+    const percentage = pct !== undefined
+      ? pct
+      : (() => {
+          const totalScore = ustaKeys.reduce((sum, k) => sum + (tr[k].score ?? 0), 0);
+          const maxScore = ustaKeys.length * 3;
+          return maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+        })();
+
+    const notes = recentUsta.trial.evaluationNotes ?? "";
+    const passed = notes.includes("(PASS)") ? true : notes.includes("(FAIL)") ? false : percentage >= 85;
+
+    return { passed, percentage, assessedAt: recordedAt };
+  })();
+
+  const effectiveAssessmentBadge = serverAssessmentBadge ?? juniorAssessmentBadge ?? null;
 
   const handleCopyInviteCode = async () => {
     const code = inviteData?.inviteCode;
@@ -354,6 +439,24 @@ export function GamingPlayerCard({
                   <Text style={styles.baselineNeededText}>Baseline</Text>
                 </Pressable>
               )}
+              {effectiveAssessmentBadge ? (
+                <View style={[styles.ustaAssessedBadge, {
+                  backgroundColor: effectiveAssessmentBadge.passed ? "#C8FF3D18" : Colors.dark.error + "18",
+                  borderColor: effectiveAssessmentBadge.passed ? "#C8FF3D45" : Colors.dark.error + "45",
+                }]}>
+                  <Ionicons
+                    name={effectiveAssessmentBadge.passed ? "ribbon" : "close-circle"}
+                    size={9}
+                    color={effectiveAssessmentBadge.passed ? "#C8FF3D" : Colors.dark.error}
+                  />
+                  <Text style={[styles.ustaAssessedBadgeText, { color: effectiveAssessmentBadge.passed ? "#C8FF3D" : Colors.dark.error }]}>
+                    {effectiveAssessmentBadge.passed ? "PASS" : "FAIL"} {effectiveAssessmentBadge.percentage}%
+                    {"assessedAt" in effectiveAssessmentBadge && effectiveAssessmentBadge.assessedAt
+                      ? ` \u00b7 ${new Date(effectiveAssessmentBadge.assessedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                      : ""}
+                  </Text>
+                </View>
+              ) : null}
               {isPendingPayment ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#f59e0b25", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: "#f59e0b50" }}>
                   <Ionicons name="wallet-outline" size={9} color="#f59e0b" />

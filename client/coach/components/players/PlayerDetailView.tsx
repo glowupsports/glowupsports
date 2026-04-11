@@ -54,6 +54,8 @@ import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
+import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -335,10 +337,12 @@ export function PlayerDetailView({
   player,
   onBack,
   insets,
+  onAssessmentComplete,
 }: {
   player: Player;
   onBack: () => void;
   insets: { top: number; bottom: number };
+  onAssessmentComplete?: (result: JuniorAssessmentResult) => void;
 }) {
   const { coach, academy } = useCoach();
   const navigation = useNavigation<any>();
@@ -351,6 +355,8 @@ export function PlayerDetailView({
   const [showRatePlayerSessions, setShowRatePlayerSessions] = useState(false);
   const [selectedSessionForRating, setSelectedSessionForRating] = useState<{ id: string; players: { id: string; name: string; ballLevel?: string | null }[] } | null>(null);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
+  const [showJuniorAssessment, setShowJuniorAssessment] = useState(false);
+  const [lastJuniorAssessmentResult, setLastJuniorAssessmentResult] = useState<JuniorAssessmentResult | null>(null);
   const [showEditPlayer, setShowEditPlayer] = useState(false);
   const [editName, setEditName] = useState(player.name);
   const [editEmail, setEditEmail] = useState(player.email ?? "");
@@ -982,6 +988,38 @@ export function PlayerDetailView({
               <Text style={styles.premiumQuickStatLabel}>Attendance</Text>
             </View>
           </View>
+
+          {/* Junior Assessment Button - visible for red/orange/green ball level players */}
+          {localPlayer.ballLevel && ["red", "orange", "green"].includes(localPlayer.ballLevel.toLowerCase()) ? (
+            <Pressable
+              style={styles.juniorAssessBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowJuniorAssessment(true);
+              }}
+            >
+              {lastJuniorAssessmentResult ? (
+                <View style={[
+                  styles.assessedBadge,
+                  { backgroundColor: lastJuniorAssessmentResult.passed ? "#C8FF3D20" : Colors.dark.error + "20",
+                    borderColor: lastJuniorAssessmentResult.passed ? "#C8FF3D50" : Colors.dark.error + "50" }
+                ]}>
+                  <Ionicons
+                    name={lastJuniorAssessmentResult.passed ? "checkmark-circle" : "close-circle"}
+                    size={14}
+                    color={lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error}
+                  />
+                  <Text style={[styles.assessedBadgeText, { color: lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error }]}>
+                    {lastJuniorAssessmentResult.passed ? "PASS" : "FAIL"} {lastJuniorAssessmentResult.percentage}%
+                  </Text>
+                </View>
+              ) : null}
+              <Ionicons name="ribbon-outline" size={16} color="#C8FF3D" />
+              <Text style={styles.juniorAssessBtnText}>
+                {lastJuniorAssessmentResult ? "Re-assess" : "Assess for Promotion"}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {pillarProgress ? (
@@ -1625,6 +1663,26 @@ export function PlayerDetailView({
           </Pressable>
         </Pressable>
       </Modal>
+
+      <JuniorAssessmentFlow
+        visible={showJuniorAssessment}
+        playerId={localPlayer.id}
+        playerName={localPlayer.name}
+        currentLevelId={
+          localPlayer.ballLevel
+            ? {
+                red: "RED_2",
+                orange: "ORANGE_2",
+                green: "GREEN_1",
+              }[localPlayer.ballLevel.toLowerCase()] ?? null
+            : null
+        }
+        onClose={() => setShowJuniorAssessment(false)}
+        onAssessmentComplete={(result) => {
+          setLastJuniorAssessmentResult(result);
+          onAssessmentComplete?.(result);
+        }}
+      />
 
     </View>
   );

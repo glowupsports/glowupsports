@@ -783,6 +783,14 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[AcademyGeoCheck] Skipped:', e.message);
   }
+
+  // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
+  try {
+    const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");
+    await seedUstaAssessmentItems();
+  } catch (e: any) {
+    console.log('[Database] USTA assessment seed skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

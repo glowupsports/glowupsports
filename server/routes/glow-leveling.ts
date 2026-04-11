@@ -1583,13 +1583,19 @@ router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAc
       return res.status(400).json({ error: "Trial is not in progress" });
     }
     
-    // Verify test belongs to target level
+    // Verify test belongs to target level OR is a USTA assessment item from the player's current (from) level
     const [test] = await db
       .select()
       .from(levelTests)
       .where(and(
         eq(levelTests.id, testId),
-        eq(levelTests.levelId, trial.toLevelId)
+        or(
+          eq(levelTests.levelId, trial.toLevelId),
+          and(
+            eq(levelTests.levelId, trial.fromLevelId),
+            eq(levelTests.testType, "usta_assessment")
+          )
+        )
       ));
     
     if (!test) {

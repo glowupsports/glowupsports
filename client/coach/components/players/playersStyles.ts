@@ -3371,4 +3371,52 @@ export const strokeTimelineStyles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+
+  // === JUNIOR ASSESSMENT STYLES ===
+  juniorAssessBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    backgroundColor: "#C8FF3D15",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#C8FF3D40",
+  },
+  juniorAssessBtnText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: "#C8FF3D",
+    flex: 1,
+  },
+  assessedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  assessedBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  ustaAssessedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  ustaAssessedBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
 });
