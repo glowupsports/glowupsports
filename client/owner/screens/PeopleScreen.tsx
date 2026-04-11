@@ -490,6 +490,18 @@ export default function PeopleScreen() {
                   {activeTab === "coaches" ? "Invite Coach" : "Add Player"}
                 </Text>
               </Pressable>
+              {activeTab === "players" ? (
+                <Pressable
+                  style={[styles.addButton, { backgroundColor: `${Colors.dark.primary}20`, borderColor: `${Colors.dark.primary}40`, borderWidth: 1 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("PlayersManagement");
+                  }}
+                >
+                  <Ionicons name="people" size={20} color={Colors.dark.primary} />
+                  <Text style={[styles.addButtonText, { color: Colors.dark.primary }]}>Full Management</Text>
+                </Pressable>
+              ) : null}
             </View>
           
         ) : null}
@@ -930,6 +942,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   addButton: {
     flexDirection: "row",

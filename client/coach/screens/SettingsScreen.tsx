@@ -1189,6 +1189,21 @@ export default function SettingsScreen() {
           </Pressable>
           <Pressable 
             style={styles.linkRow}
+            onPress={() => navigation.navigate("CourtsManagement")}
+          >
+            <View style={styles.settingInfo}>
+              <View style={[styles.settingIconWrapper, { backgroundColor: Colors.dark.primary + "20" }]}>
+                <Ionicons name="tennisball-outline" size={20} color={Colors.dark.primary} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Courts Management</Text>
+                <Text style={styles.settingDescription}>Add, edit, and configure academy courts</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
+          </Pressable>
+          <Pressable 
+            style={styles.linkRow}
             onPress={() => navigation.navigate("TournamentManagement")}
           >
             <View style={styles.settingInfo}>

@@ -5595,7 +5595,7 @@ import fs from "fs";
   router.get(
     "/api/admin/courts",
     authMiddleware,
-    requireRole("admin", "academy_owner", "platform_owner"),
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user?.academyId;
@@ -5625,7 +5625,7 @@ import fs from "fs";
   router.post(
     "/api/admin/courts",
     authMiddleware,
-    requireRole("admin", "academy_owner", "platform_owner"),
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user?.academyId;
@@ -5688,7 +5688,7 @@ import fs from "fs";
   router.put(
     "/api/admin/courts/:id",
     authMiddleware,
-    requireRole("admin", "academy_owner", "platform_owner"),
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -5744,7 +5744,7 @@ import fs from "fs";
   router.delete(
     "/api/admin/courts/:id",
     authMiddleware,
-    requireRole("admin", "academy_owner", "platform_owner"),
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;

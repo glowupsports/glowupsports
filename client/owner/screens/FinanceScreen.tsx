@@ -2,8 +2,12 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 interface FinanceData {
   currency: string;
   collected: {
@@ -133,6 +137,7 @@ function PaymentRow({ playerName, amount, status, paymentMethod, date, currency 
 
 export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const { data: financeData, isLoading, isError, refetch } = useQuery<FinanceData>({
     queryKey: ["/api/owner/finance"],
   });
@@ -299,6 +304,16 @@ export default function FinanceScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Payments</Text>
+            <Pressable
+              style={styles.manageButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("PaymentsManagement");
+              }}
+            >
+              <Ionicons name="open-outline" size={14} color={Colors.dark.primary} />
+              <Text style={styles.manageButtonText}>Manage</Text>
+            </Pressable>
           </View>
           {recentPayments.length > 0 ? (
             <View style={[styles.paymentsContainer, CardStyles.elevated]}>
@@ -527,6 +542,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
+  },
+  manageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.sm,
+  },
+  manageButtonText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   paymentsContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,

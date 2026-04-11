@@ -2426,8 +2426,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/players/:playerId/fix-unpaid-sessions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
+      const academyId = req.user?.currentAcademyId;
       
-      const player = await storage.getPlayer(playerId);
+      const player = await storage.getPlayer(playerId, academyId ?? undefined);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
@@ -2518,8 +2519,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.get("/api/admin/players/:playerId/credit-transactions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
+      const academyId = req.user?.currentAcademyId;
       
-      const player = await storage.getPlayer(playerId);
+      const player = await storage.getPlayer(playerId, academyId ?? undefined);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
@@ -2571,6 +2573,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/players/:playerId/add-debt", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
+      const academyId = req.user?.currentAcademyId;
       const addDebtSchema = z.object({
         amount: z.number().positive(),
         creditType: z.enum(["group", "semi_private", "private"]),
@@ -2587,7 +2590,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         return res.status(400).json({ error: "Credit type must be group, semi_private, or private" });
       }
       
-      const player = await storage.getPlayer(playerId);
+      const player = await storage.getPlayer(playerId, academyId ?? undefined);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }

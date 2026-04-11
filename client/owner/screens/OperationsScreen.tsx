@@ -4,8 +4,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 interface Coach {
   id: string;
@@ -99,6 +102,7 @@ function InsightCard({ icon, title, value, color, trend }: InsightCardProps) {
 
 export default function OperationsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const [viewType, setViewType] = useState<ViewType>("day");
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | undefined>();
@@ -146,8 +150,22 @@ export default function OperationsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Operations</Text>
-        <Text style={styles.subtitle}>Court usage and scheduling overview</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>Operations</Text>
+            <Text style={styles.subtitle}>Court usage and scheduling overview</Text>
+          </View>
+          <Pressable
+            style={styles.manageClassesButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("ClassesManagement");
+            }}
+          >
+            <Ionicons name="albums-outline" size={16} color={Colors.dark.primary} />
+            <Text style={styles.manageClassesText}>Classes</Text>
+          </Pressable>
+        </View>
       </View>
 
       
@@ -277,6 +295,26 @@ const styles = StyleSheet.create({
   header: {
     padding: Spacing.lg,
     paddingBottom: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  manageClassesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.md,
+    marginTop: 4,
+  },
+  manageClassesText: {
+    ...Typography.small,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   title: {
     ...Typography.h1,

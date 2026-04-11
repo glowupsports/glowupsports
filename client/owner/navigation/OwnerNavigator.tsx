@@ -14,7 +14,10 @@ import InviteManagementScreen from "@/owner/screens/InviteManagementScreen";
 import OwnerProfileScreen from "@/owner/screens/OwnerProfileScreen";
 import AcademyOnboardingScreen from "@/owner/screens/AcademyOnboardingScreen";
 import AcademyProfileScreen from "@/owner/screens/AcademyProfileScreen";
-import CourtsManagementScreen from "@/owner/screens/CourtsManagementScreen";
+import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
+import AdminPlayersScreen from "@/admin/screens/AdminPlayersScreen";
+import AdminClassesScreen from "@/admin/screens/AdminClassesScreen";
+import AdminPaymentsScreen from "@/admin/screens/AdminPaymentsScreen";
 import RulesAndPoliciesScreen from "@/owner/screens/RulesAndPoliciesScreen";
 import PricingScreen from "@/owner/screens/PricingScreen";
 import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
@@ -42,6 +45,9 @@ export type OwnerStackParamList = {
   OwnerMain: undefined;
   AcademyProfile: undefined;
   CourtsManagement: undefined;
+  PlayersManagement: undefined;
+  ClassesManagement: undefined;
+  PaymentsManagement: undefined;
   RulesAndPolicies: undefined;
   Pricing: undefined;
   CoachCompensation: undefined;
@@ -84,7 +90,10 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
       <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
       <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
       <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} />
-      <Stack.Screen name="CourtsManagement" component={CourtsManagementScreen} />
+      <Stack.Screen name="CourtsManagement" component={AdminCourtsScreen} />
+      <Stack.Screen name="PlayersManagement" component={AdminPlayersScreen} />
+      <Stack.Screen name="ClassesManagement" component={AdminClassesScreen} />
+      <Stack.Screen name="PaymentsManagement" component={AdminPaymentsScreen} />
       <Stack.Screen name="RulesAndPolicies" component={RulesAndPoliciesScreen} />
       <Stack.Screen name="Pricing" component={PricingScreen} />
       <Stack.Screen name="CoachCompensation" component={CoachCompensationScreen} />

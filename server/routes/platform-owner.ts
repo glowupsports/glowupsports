@@ -2488,7 +2488,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const playerId = req.params.id;
-        const player = await storage.getPlayer(playerId);
+        const academyId = req.user?.academyId;
+        const player = await storage.getPlayer(playerId, academyId ?? undefined);
         if (!player) {
           return res.status(404).json({ error: "Player not found" });
         }
@@ -2617,9 +2618,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const playerId = req.params.id;
+        const academyId = req.user?.academyId;
 
-        // Verify player exists
-        const player = await storage.getPlayer(playerId);
+        // Verify player exists and belongs to requester's academy
+        const player = await storage.getPlayer(playerId, academyId ?? undefined);
         if (!player) {
           return res.status(404).json({ error: "Player not found" });
         }
@@ -2681,10 +2683,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
+        const academyId = req.user?.academyId;
         const setLevelSchema = z.object({ level: z.number().int().positive().optional(), xp: z.number().int().nonnegative().optional() });
         const parsedLevel = setLevelSchema.safeParse(req.body);
         if (!parsedLevel.success) return res.status(400).json({ error: fromZodError(parsedLevel.error).message });
         const { level, xp } = parsedLevel.data;
+
+        // Verify player belongs to requester's academy
+        const player = await storage.getPlayer(id, academyId ?? undefined);
+        if (!player) {
+          return res.status(404).json({ error: "Player not found" });
+        }
 
         // Level 50 requires 20500 XP based on leveling formula
         // XP = 100 * level + 50 * (level - 1)^1.3 approximately
@@ -2726,6 +2735,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const playerId = req.params.id;
+        const academyId = req.user?.academyId;
+
+        // Verify player belongs to requester's academy before mutating
+        const existingPlayer = await storage.getPlayer(playerId, academyId ?? undefined);
+        if (!existingPlayer) {
+          return res.status(404).json({ error: "Player not found" });
+        }
 
         const [updated] = await db
           .update(players)

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,14 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
@@ -75,6 +76,8 @@ const getPaymentStatusColor = (status?: string): string => {
   }
 };
 
+const ATTENDANCE_STATUSES = ["pending", "present", "late", "absent", "holiday"] as const;
+
 export function AdminPlayerDetailModal({
   showFullDetailsModal,
   closeFullDetailsModal,
@@ -109,9 +112,152 @@ export function AdminPlayerDetailModal({
   handleDelete,
 }: AdminPlayerDetailModalProps) {
   const queryClient = useQueryClient();
-    const stats = playerStats;
-    
-    return (
+  const stats = playerStats;
+
+  const updateAttendanceMutation = useMutation({
+    mutationFn: async ({ sessionId, playerId, status }: { sessionId: string; playerId: string; status: string }) => {
+      const response = await apiRequest("POST", `/api/admin/sessions/${sessionId}/attendance`, {
+        attendance: [{ playerId, status }],
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to update attendance. Please try again.");
+    },
+  });
+
+  const deletePackageMutation = useMutation({
+    mutationFn: async ({ packageId, force }: { packageId: string; force?: boolean }): Promise<{ success: boolean; error?: string; creditsUsed?: number }> => {
+      const url = force ? `/api/packages/${packageId}?force=true` : `/api/packages/${packageId}`;
+      const baseUrl = getApiUrl();
+      const fullUrl = new URL(url, baseUrl);
+      const response = await fetch(fullUrl, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.error, creditsUsed: data.creditsUsed };
+      }
+      return { success: true };
+    },
+    onSuccess: (data, variables) => {
+      if (!data.success && data.creditsUsed) {
+        Alert.alert(
+          "Package Has Usage",
+          `This package has ${data.creditsUsed} credit(s) already used. Delete anyway?`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete Anyway", style: "destructive", onPress: () => deletePackageMutation.mutate({ packageId: variables.packageId, force: true }) },
+          ]
+        );
+        return;
+      }
+      if (!data.success) {
+        Alert.alert("Error", data.error || "Failed to delete package");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to delete package");
+    },
+  });
+
+  const repairCreditsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/admin/players/${selectedPlayerId}/repair-credits`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Credits Repaired", `Processed ${data.consumed || 0} session(s), ${data.debts || 0} debt(s)`);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to repair credits");
+    },
+  });
+
+  const handleRepairCredits = () => {
+    Alert.alert(
+      "Repair Credits",
+      "This will recalculate credits from all past sessions. Use this if credits don't match attendance records.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Repair", onPress: () => repairCreditsMutation.mutate() },
+      ]
+    );
+  };
+
+  const [showCustomPackageForm, setShowCustomPackageForm] = useState(false);
+  const [customCreditType, setCustomCreditType] = useState<"group" | "semi_private" | "private">("group");
+  const [customCredits, setCustomCredits] = useState("10");
+  const [customPricePerCredit, setCustomPricePerCredit] = useState("95");
+  const [customExpiryMonths, setCustomExpiryMonths] = useState("12");
+
+  const createCustomPackageMutation = useMutation({
+    mutationFn: async () => {
+      const credits = parseInt(customCredits, 10);
+      const pricePerCredit = parseFloat(customPricePerCredit);
+      const expiryMonths = parseInt(customExpiryMonths, 10);
+      if (!selectedPlayerId) throw new Error("No player selected");
+      if (isNaN(credits) || credits <= 0) throw new Error("Enter a valid credit count");
+      if (isNaN(pricePerCredit) || pricePerCredit < 0) throw new Error("Enter a valid price per credit");
+      const response = await apiRequest("POST", "/api/packages", {
+        playerId: selectedPlayerId,
+        totalCredits: credits,
+        creditType: customCreditType,
+        pricePerCredit: pricePerCredit.toFixed(2),
+        expiryMonths: isNaN(expiryMonths) || expiryMonths <= 0 ? 12 : expiryMonths,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      setShowCustomPackageForm(false);
+      setCustomCredits("10");
+      setCustomPricePerCredit("95");
+      setCustomExpiryMonths("12");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to create package");
+    },
+  });
+
+  const handleDeletePackage = (pkg: AdminPlayerPackage) => {
+    Alert.alert(
+      "Delete Package",
+      `Delete this ${pkg.creditType || "package"}? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deletePackageMutation.mutate({ packageId: pkg.id }) },
+      ]
+    );
+  };
+
+  const cycleAttendanceStatus = (session: AdminPlayerSessionItem) => {
+    const sessionId = session.sessionId || session.id;
+    const playerId = selectedPlayerId;
+    if (!sessionId || !playerId) return;
+    const currentStatus = session.attended || session.attendanceStatus || "pending";
+    const idx = ATTENDANCE_STATUSES.indexOf(currentStatus as typeof ATTENDANCE_STATUSES[number]);
+    const nextStatus = ATTENDANCE_STATUSES[(idx + 1) % ATTENDANCE_STATUSES.length];
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateAttendanceMutation.mutate({ sessionId, playerId, status: nextStatus });
+  };
+
+  return (
       <Modal
         visible={showFullDetailsModal}
         animationType="slide"
@@ -431,16 +577,26 @@ export function AdminPlayerDetailModal({
                     <Ionicons name="ticket-outline" size={18} color={Colors.dark.primary} />
                     <Text style={styles.sectionTitle}>Packages</Text>
                   </View>
-                  <Pressable 
-                    style={styles.addCreditsButtonPremium}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setShowCreditStoreModal(true);
-                    }}
-                  >
-                    <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
-                    <Text style={styles.addCreditsButtonText}>Add</Text>
-                  </Pressable>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Pressable
+                      style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${Colors.dark.orange}20`, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: `${Colors.dark.orange}40` }}
+                      onPress={handleRepairCredits}
+                      disabled={repairCreditsMutation.isPending}
+                    >
+                      <Ionicons name="construct-outline" size={14} color={Colors.dark.orange} />
+                      <Text style={{ color: Colors.dark.orange, fontSize: 12, fontWeight: "700" }}>Repair</Text>
+                    </Pressable>
+                    <Pressable 
+                      style={styles.addCreditsButtonPremium}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setShowCustomPackageForm(v => !v);
+                      }}
+                    >
+                      <Ionicons name={showCustomPackageForm ? "chevron-up" : "add"} size={16} color={Colors.dark.buttonText} />
+                      <Text style={styles.addCreditsButtonText}>Add</Text>
+                    </Pressable>
+                  </View>
                 </View>
                 
                 <View style={styles.creditsOverview}>
@@ -469,16 +625,85 @@ export function AdminPlayerDetailModal({
                   </View>
                 </View>
 
-                <Pressable 
-                  style={styles.grantCreditsButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setShowCreditStoreModal(true);
-                  }}
-                >
-                  <Ionicons name="add-circle-outline" size={18} color={Colors.dark.primary} />
-                  <Text style={styles.grantCreditsText}>Grant Credits</Text>
-                </Pressable>
+                {showCustomPackageForm ? (
+                  <View style={{ backgroundColor: `${Colors.dark.backgroundSecondary}`, borderRadius: 12, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: `${Colors.dark.primary}30` }}>
+                    <Text style={{ ...Typography.h3, color: Colors.dark.text, marginBottom: Spacing.md }}>Custom Package</Text>
+                    <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.md }}>
+                      {(["group", "semi_private", "private"] as const).map((type) => {
+                        const typeColor = type === "private" ? Colors.dark.orange : type === "semi_private" ? Colors.dark.primary : Colors.dark.xpCyan;
+                        const typeLabel = type === "private" ? "Private" : type === "semi_private" ? "Semi" : "Group";
+                        return (
+                          <Pressable
+                            key={type}
+                            onPress={() => setCustomCreditType(type)}
+                            style={{ flex: 1, paddingVertical: Spacing.sm, borderRadius: 8, alignItems: "center", backgroundColor: customCreditType === type ? `${typeColor}30` : `${typeColor}10`, borderWidth: 1, borderColor: customCreditType === type ? typeColor : `${typeColor}30` }}
+                          >
+                            <Text style={{ color: typeColor, fontWeight: "700", fontSize: 12 }}>{typeLabel}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.sm }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.small, color: Colors.dark.textMuted, marginBottom: 4 }}>Credits</Text>
+                        <TextInput
+                          value={customCredits}
+                          onChangeText={setCustomCredits}
+                          keyboardType="numeric"
+                          style={{ backgroundColor: Colors.dark.backgroundRoot, color: Colors.dark.text, borderRadius: 8, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: 14, borderWidth: 1, borderColor: `${Colors.dark.primary}30` }}
+                          placeholder="10"
+                          placeholderTextColor={Colors.dark.textMuted}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.small, color: Colors.dark.textMuted, marginBottom: 4 }}>Price/Credit</Text>
+                        <TextInput
+                          value={customPricePerCredit}
+                          onChangeText={setCustomPricePerCredit}
+                          keyboardType="decimal-pad"
+                          style={{ backgroundColor: Colors.dark.backgroundRoot, color: Colors.dark.text, borderRadius: 8, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: 14, borderWidth: 1, borderColor: `${Colors.dark.primary}30` }}
+                          placeholder="95"
+                          placeholderTextColor={Colors.dark.textMuted}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.small, color: Colors.dark.textMuted, marginBottom: 4 }}>Validity (mo)</Text>
+                        <TextInput
+                          value={customExpiryMonths}
+                          onChangeText={setCustomExpiryMonths}
+                          keyboardType="numeric"
+                          style={{ backgroundColor: Colors.dark.backgroundRoot, color: Colors.dark.text, borderRadius: 8, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: 14, borderWidth: 1, borderColor: `${Colors.dark.primary}30` }}
+                          placeholder="12"
+                          placeholderTextColor={Colors.dark.textMuted}
+                        />
+                      </View>
+                    </View>
+                    {parseInt(customCredits, 10) > 0 && parseFloat(customPricePerCredit) >= 0 ? (
+                      <Text style={{ ...Typography.small, color: Colors.dark.textMuted, marginBottom: Spacing.sm }}>
+                        Total: AED {(parseInt(customCredits, 10) * parseFloat(customPricePerCredit)).toFixed(0)}
+                      </Text>
+                    ) : null}
+                    <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                      <Pressable
+                        onPress={() => setShowCustomPackageForm(false)}
+                        style={{ flex: 1, paddingVertical: Spacing.sm, borderRadius: 8, alignItems: "center", backgroundColor: `${Colors.dark.error}15`, borderWidth: 1, borderColor: `${Colors.dark.error}30` }}
+                      >
+                        <Text style={{ color: Colors.dark.error, fontWeight: "700", fontSize: 13 }}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => createCustomPackageMutation.mutate()}
+                        disabled={createCustomPackageMutation.isPending}
+                        style={{ flex: 2, paddingVertical: Spacing.sm, borderRadius: 8, alignItems: "center", backgroundColor: Colors.dark.primary }}
+                      >
+                        {createCustomPackageMutation.isPending ? (
+                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        ) : (
+                          <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 13 }}>Create Package</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : null}
 
                 {/* Package Cards */}
                 {stats.packages && stats.packages.length > 0 ? (
@@ -499,7 +724,7 @@ export function AdminPlayerDetailModal({
                             <View style={[styles.packageTypeBadge, { backgroundColor: `${typeColor}20` }]}>
                               <Text style={[styles.packageTypeText, { color: typeColor }]}>{typeLabel}</Text>
                             </View>
-                            <View style={styles.packageHeaderRight}>
+                            <View style={[styles.packageHeaderRight, { alignItems: "center" }]}>
                               <View style={[
                                 styles.packagePaymentBadge, 
                                 { backgroundColor: pkg.isPaid ? `${Colors.dark.successNeon}20` : `${Colors.dark.gold}20` }
@@ -522,6 +747,13 @@ export function AdminPlayerDetailModal({
                                   {isDepleted ? "Depleted" : "Active"}
                                 </Text>
                               </View>
+                              <Pressable
+                                onPress={() => handleDeletePackage(pkg)}
+                                style={{ padding: 4 }}
+                                disabled={deletePackageMutation.isPending}
+                              >
+                                <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
+                              </Pressable>
                             </View>
                           </View>
                           <View style={styles.packageCardBody}>
@@ -654,11 +886,15 @@ export function AdminPlayerDetailModal({
                   <View style={styles.attendanceList}>
                     {filteredSessions.slice(0, 10).map((session: AdminPlayerSessionItem, index: number) => {
                       const sessionDate = new Date(session.startTime);
-                      const isAttended = session.attended === "present";
-                      const isAbsent = session.attended === "absent" || session.attended === "no_show";
-                      const attendanceLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
-                      const attendanceColor = isAttended ? Colors.dark.successNeon : isAbsent ? Colors.dark.error : Colors.dark.gold;
-                      const attendanceIcon = isAttended ? "checkmark-circle" : isAbsent ? "close-circle" : "time";
+                      const currentStatus = session.attended || session.attendanceStatus || "pending";
+                      const isAttended = currentStatus === "present";
+                      const isAbsent = currentStatus === "absent" || currentStatus === "no_show";
+                      const isLate = currentStatus === "late";
+                      const isHoliday = currentStatus === "holiday";
+                      const attendanceLabel = isAttended ? "Present" : isLate ? "Late" : isHoliday ? "Holiday" : isAbsent ? "Absent" : "Pending";
+                      const attendanceColor = isAttended ? Colors.dark.successNeon : isLate ? Colors.dark.orange : isHoliday ? Colors.dark.primary : isAbsent ? Colors.dark.error : Colors.dark.gold;
+                      const attendanceIcon = isAttended ? "checkmark-circle" : isLate ? "time" : isHoliday ? "sunny" : isAbsent ? "close-circle" : "time";
+                      const sessionId = session.sessionId || session.id;
                       
                       return (
                         <View key={session.id || index} style={styles.attendanceCard}>
@@ -695,12 +931,17 @@ export function AdminPlayerDetailModal({
                               </Text>
                             </View>
                           </View>
-                          <View style={[styles.attendanceStatusBadge, { backgroundColor: `${attendanceColor}15`, borderColor: `${attendanceColor}40` }]}>
+                          <Pressable
+                            onPress={() => sessionId ? cycleAttendanceStatus(session) : null}
+                            style={[styles.attendanceStatusBadge, { backgroundColor: `${attendanceColor}15`, borderColor: `${attendanceColor}40`, flexDirection: "row", alignItems: "center", gap: 4 }]}
+                            disabled={updateAttendanceMutation.isPending}
+                          >
                             <Ionicons name={attendanceIcon} size={18} color={attendanceColor} />
                             <Text style={[styles.attendanceStatusText, { color: attendanceColor }]}>
                               {attendanceLabel}
                             </Text>
-                          </View>
+                            <Ionicons name="chevron-forward" size={10} color={attendanceColor} />
+                          </Pressable>
                         </View>
                       );
                     })}

@@ -37,6 +37,7 @@ import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import TournamentManagementScreen from "@/coach/screens/TournamentManagementScreen";
 import AiUsageScreen from "@/coach/screens/AiUsageScreen";
+import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -85,6 +86,7 @@ export type CoachStackParamList = {
   CoachEarnings: undefined;
   MyReviews: undefined;
   CoachHQ: undefined;
+  CourtsManagement: undefined;
   SessionPlan: { sessionId: string; playerId: string };
   ActiveSession: { sessionId: string; planId?: string };
   EvidenceCapture: { skillTags?: string[]; sessionId?: string; blockId?: string; playerId?: string };
@@ -420,6 +422,13 @@ function CoachStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "AI Usage",
+        }}
+      />
+      <Stack.Screen
+        name="CourtsManagement"
+        component={AdminCourtsScreen}
+        options={{
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
