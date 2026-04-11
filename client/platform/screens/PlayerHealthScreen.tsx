@@ -293,7 +293,6 @@ function DirectoryRow({ item, onPress }: { item: DirectoryPlayer; onPress: () =>
 }
 
 function PlayerDetailSheet({ player, onClose }: { player: DirectoryPlayer; onClose: () => void }) {
-  const color = getInitialsColor(player.name);
   const lastSeen = player.lastSessionAt || player.lastActiveAt || player.lastLoginAt;
   const ballCfg = BALL_CONFIG[player.ballLevel?.toLowerCase()] ?? { color: Colors.dark.textMuted, label: player.ballLevel ?? "?" };
 
