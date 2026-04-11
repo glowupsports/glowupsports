@@ -103,7 +103,6 @@ interface DirectoryPlayer {
   id: string;
   name: string;
   academy: string | null;
-  academyId?: string | null;
   level: number;
   ballLevel: string;
   totalXp: number;
@@ -622,8 +621,10 @@ export default function PlayerHealthScreen() {
         case "academy":
           return (a.academy ?? "").localeCompare(b.academy ?? "");
         case "ball_level": {
-          const ai = BALL_LEVEL_ORDER.indexOf((a.ballLevel ?? "blue").toLowerCase());
-          const bi = BALL_LEVEL_ORDER.indexOf((b.ballLevel ?? "blue").toLowerCase());
+          const aIdx = BALL_LEVEL_ORDER.indexOf((a.ballLevel ?? "").toLowerCase());
+          const bIdx = BALL_LEVEL_ORDER.indexOf((b.ballLevel ?? "").toLowerCase());
+          const ai = aIdx === -1 ? BALL_LEVEL_ORDER.length : aIdx;
+          const bi = bIdx === -1 ? BALL_LEVEL_ORDER.length : bIdx;
           return ai - bi;
         }
         case "most_sessions":
