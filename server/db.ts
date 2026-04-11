@@ -760,6 +760,29 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] Deep assessment cleanup skipped:', e.message);
   }
+  // Onboarding health-check: warn if any public academies have no city/country.
+  // The player onboarding screen filters academies by the device's detected country.
+  // If city/country are NULL the filter returns 0 results and players silently skip
+  // academy selection. This log line makes such data gaps visible in production logs.
+  try {
+    const missingGeo = await pool.query(`
+      SELECT id, name FROM academies
+      WHERE (city IS NULL OR country IS NULL)
+        AND is_freelance = false
+        AND profile_visibility = 'public'
+    `);
+    if (missingGeo.rows.length > 0) {
+      console.warn(
+        '[AcademyGeoCheck] WARNING: The following public academies have no city/country — ' +
+        'players will not find them via country-filtered onboarding search:',
+        missingGeo.rows.map((r: any) => `${r.name} (${r.id})`).join(', ')
+      );
+    } else {
+      console.log('[AcademyGeoCheck] All public academies have city/country set — onboarding search OK');
+    }
+  } catch (e: any) {
+    console.log('[AcademyGeoCheck] Skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
