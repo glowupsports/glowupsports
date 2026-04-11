@@ -1773,23 +1773,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academies = await storage.getAllAcademies();
-        const allPlayers: any[] = [];
         const academyMap = new Map<string, string>();
-
         for (const academy of academies) {
-          const players = await storage.getPlayersByAcademy(academy.id);
           academyMap.set(academy.id, academy.name);
-          allPlayers.push(
-            ...players.map((p) => ({ ...p, academyName: academy.name })),
-          );
         }
+
+        // Get ALL players including free players (no academyId)
+        const rawPlayers = await storage.getAllPlayers();
+        const allPlayers = rawPlayers.map((p) => ({
+          ...p,
+          academyName: p.academyId ? (academyMap.get(p.academyId) ?? null) : null,
+        }));
 
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -1843,9 +1840,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             ? Math.round((totalStreak / totalPlayers) * 10) / 10
             : 0;
 
-        const levelDistribution = [1, 2, 3, 4, 5, 6, 7].map((level) => ({
-          level,
-          count: allPlayers.filter((p: any) => (p.level || 1) === level).length,
+        const BALL_LEVEL_ORDER = ["blue", "red", "orange", "green", "yellow", "glow"];
+        const ballLevelDistribution = BALL_LEVEL_ORDER.map((ballLevel) => ({
+          ballLevel,
+          count: allPlayers.filter((p: any) => (p.ballLevel || "blue").toLowerCase() === ballLevel).length,
         }));
 
         const getEngagement = (player: any): "high" | "medium" | "low" => {
@@ -1858,16 +1856,29 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const playersWithEngagement = allPlayers
           .map((p) => ({
+            id: p.id,
             name: p.name,
             academy: p.academyName,
             level: p.level || 1,
+            ballLevel: p.ballLevel || "blue",
             xp: p.totalXp || 0,
             sessions: 0,
             streak: p.streak || 0,
             engagement: getEngagement(p),
           }))
           .sort((a, b) => b.xp - a.xp)
-          .slice(0, 20);
+          .slice(0, 30);
+
+        // All players for directory tab, A-Z sorted
+        const allPlayersDirectory = allPlayers
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            academy: p.academyName,
+            level: p.level || 1,
+            ballLevel: p.ballLevel || "blue",
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
 
         res.json({
           healthStats: {
@@ -1878,8 +1889,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             avgXpPerPlayer,
             avgStreak,
           },
-          levelDistribution,
+          ballLevelDistribution,
           players: playersWithEngagement,
+          allPlayers: allPlayersDirectory,
         });
       } catch (error) {
         console.error("Platform player health error:", error);
