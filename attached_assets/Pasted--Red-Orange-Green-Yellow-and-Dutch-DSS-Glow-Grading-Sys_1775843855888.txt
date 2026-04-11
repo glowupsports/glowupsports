@@ -1,0 +1,263 @@
+# Red–Orange–Green–Yellow and Dutch DSS/Glow Grading Systems
+
+## Executive summary
+
+This research found that **most national tennis governing bodies publicly define Red/Orange/Green/Yellow primarily as scaled environments and competition formats**, not as a universal “belt exam” with stroke-by-stroke pass/fail gates. The major exception in publicly available materials is the **United States Tennis Association** (USTA), which publishes **explicit competencies for Red Ball 03/02/01, Orange Ball 03/02/01, and Green Ball 02/01**, plus **assessment forms** and a **coach assessment guide with a published pass threshold (85%)** for certain level transitions. citeturn0search0turn3search0turn9view3turn20view2
+
+For the Netherlands, the **Dynamische Speelsterkte Systeem (DSS)** is an official, published **match-results-based rating system** used to assign your annual integer **speelsterkte 1–9** (9 = beginner; 1 = professional). DSS provides the math and yearly boundaries, but **does not publish a technique curriculum as “requirements per DSS level.”** citeturn15view3turn17view0turn0search7
+
+Your **Glow adult/performance track** (Glow 9→Glow 1) is therefore structurally closer to DSS than to junior stage programs: it is defined by **MMR/Elo outcomes** with **skill gates**, where the **app decides rank** (user-provided). Because you requested “more in depth,” this report expands Glow 9–1 into a **full technical + performance rubric** while clearly labeling what is **User‑provided** vs. **Analytical (derived)**.
+
+A key practical conclusion: if you want **Red3/2/1 → Orange3/2/1 → Green3/2/1 → Yellow3/2/1** across multiple federations, you must treat USTA’s published competencies as one of the few “true” public micro-level datasets, while for other federations you must mark sub-level criteria as **“Unspecified (publicly)”** and/or adopt a **derived belt standard** that is explicitly *your* curriculum (mapped to each federation’s stage rules and match formats). citeturn11view1turn12view0turn6view0turn1view0
+
+## Federations and programs found with official public materials
+
+The table below lists the priority bodies you requested and the key official materials discovered. Where a body does not publish sub-level grading criteria, that absence is explicit in later sections.
+
+| Federation / program (official) | Official site | Public materials found that are relevant to your requested fields |
+|---|---:|---|
+| entity["organization","International Tennis Federation","tennis world governing body"] | itftennis.com | Tennis10s/Play+Stay overview and principles; Rules of Tennis Appendix for 10-and-under competition; Tennis10s manual with stage court sizes and scoring options; conditioning and fitness testing protocols. citeturn5search1turn5search2turn11view1turn4search1turn21view0 |
+| entity["organization","United States Tennis Association","national tennis body, US"] | usta.com | Net Generation competency PDFs for Red Ball 03/02/01, Orange Ball 03/02/01, Green Ball 02/01; assessment forms; coach assessment guide (pass threshold published); Yellow Ball practice plan manual (Yellow 2 and Yellow 1). citeturn0search0turn3search0turn9view3turn7view3turn20view2 |
+| entity["organization","Tennis Australia","national tennis body, AU"] | tennis.com.au | Technical Fundamentals (stage-specific technique for Red/Orange/Green/Yellow and tactical fundamentals); ANZ Tennis Hot Shots match-play competency recommendations by stage (Red/Orange/Green/Yellow). citeturn1view0turn13view2 |
+| entity["organization","Tennis Canada","national tennis body, CA"] | tenniscanada.com | Learn & Play Curriculum Guide (point-play framework, tools, and session structure applicable across Red/Orange/Green/Yellow balls). citeturn14view0turn14view1 |
+| entity["organization","Lawn Tennis Association","national tennis body, UK"] | lta.org.uk | Court setup specifications for Red/Orange/Green; competition equipment guidance (court dimensions, net heights, racquet sizes). citeturn12view0turn12view1 |
+| entity["organization","Koninklijke Nederlandse Lawn Tennis Bond","national tennis body, NL"] | knltb.nl and tennis.nl | Tenniskids stage descriptions and ages; Tenniskids match rules and scoring for Red/Orange/Green; announcement of 2026 shift to TOF-based grouping; DSS documentation (definition, formula parameters, yearly speelsterkte boundaries procedure). citeturn6view0turn18view0turn19view1turn16view2turn17view0 |
+
+**Constraint note (important):** The requirement “full breakdown of every federation found online” is practically unbounded globally. This report interprets it as: **every priority federation/program with discoverable official public materials relevant to Red/Orange/Green/Yellow and Dutch DSS**, plus any official documents encountered within that search scope. Any missing public criteria are marked **Unspecified (publicly)** as requested.
+
+## Junior belt colors Red, Orange, Green, Yellow with 3→2→1 subdivisions
+
+### How federations define the stages (why “sublevels” are often not official)
+
+Across national bodies, the consistent public standard is that Red/Orange/Green are **scaled tennis stages** (court + ball + racquet + match format), designed so players can “serve, rally, and score” early. citeturn11view1turn5search1turn14view1
+
+- The international standard (Tennis10s) treats Red/Orange/Green as **three stages** for 10-and-under, with court/ball/racquet scaling and recommended shorter formats. citeturn11view1turn5search2  
+- The Netherlands (Tenniskids) treats Red/Orange/Green as **program phases** up to age 12 and provides detailed scoring formats; it does **not** publish a public “Red 3/2/1” technique exam, and from 2026 it groups competition by TOF progress rather than fixed sublevels. citeturn6view0turn19view1turn18view0  
+- The USTA is an outlier in publishing explicit **03/02/01 competency lists** and assessment sheets. citeturn8view0turn10view0turn9view3turn20view1  
+
+image_group{"layout":"carousel","aspect_ratio":"16:9","query":["Tennis10s court sizes red orange green diagram","LTA red orange green courts setup diagram 11m x 5.5m 18m x 6.5m","KNLTB Tenniskids rood oranje groen baan infographic","USTA 10 and under tennis court sizes diagram"],"num_per_query":1}
+
+### Side-by-side comparison tables for junior belt levels
+
+These tables compare what each body makes publicly available. For non-USTA bodies, you’ll see: **sublevels are Unspecified (publicly)**, but stage-level **environment + scoring/format** are often available.
+
+**Sources for the junior comparison tables:** USTA competency/assessment PDFs citeturn8view0turn10view0turn9view3turn20view1turn7view4; Tennis10s manual + Rules Appendix citeturn11view1turn5search2; LTA court setup citeturn12view0; Tenniskids rules citeturn6view0; Tennis Australia Technical Fundamentals + Hot Shots competencies citeturn1view0turn13view2; Tennis Canada Learn & Play Guide citeturn14view0turn14view1.
+
+#### Red 3 → Red 2 → Red 1
+
+| Level | USTA (published competencies) | Tennis10s / International standard | Tennis Australia | Tennis Canada | LTA | KNLTB Tenniskids |
+|---|---|---|---|---|---|---|
+| **Red 3** | **Shots/technique:** drop-hits to target; simple low‑to‑high swing; volley block with racquet head above wrist. **Movement:** multi-direction movement, recover to center; square stance basics; shoulder turn. **Serve/return:** underhand or overhand serve into correct box from inside service line; direct return back to server. **Game:** score with visual aid; call in/out; positions for serve/return. citeturn8view0turn20view1 | **Unspecified (publicly) as Red 3/2/1.** Stage-level: Red (often 5–8) uses ~11–12m × 5–6m court, 80cm net; slower balls; short formats like tiebreaks to 7/10, short sets to 4, timed matches. citeturn11view1turn5search2 | **Unspecified (publicly) as Red 3/2/1.** Stage-level technique fundamentals (Red 5–8): athletic ready position; Eastern→semi‑western FH; contact in front; circular swing; low‑to‑high path; step forward; basic block volleys; serve with basic throwing action and toss release around eye level. citeturn1view0 | **Unspecified (publicly) as Red 3/2/1.** Curriculum emphasizes point-play and “Road to Rally” progressions across Red/Orange/Green/Yellow. citeturn14view1turn14view0 | **Unspecified (publicly) as Red 3/2/1.** Publishes Red court equipment specs (11m × 5.5m; 80cm net; 17–23" racquet). citeturn12view0turn12view1 | **Unspecified (publicly) as Red 3/2/1.** Publishes Red match rules: first to 7 points; simple counting; alternating serve; overhand/underhand allowed; two attempts. citeturn6view0 |
+| **Red 2** | **Shots/technique:** rally over net from service line; unit turn; trunk rotation; approach + volley from feed; volley deep/short; developing 1HBH volley. **Serve/return:** overhand serve to FH/BH; return 2nd serve deep. **Footwork:** split-step before volley; diagonal movement to volley; recover to center when outside court. **Game:** announce score; win by one/two; shake hands. citeturn8view0turn22view0turn20view1 | Unspecified (publicly) as Red 2. Stage-level as above. citeturn11view1turn5search2 | Unspecified as Red 2. Stage-level as above. citeturn1view0 | Unspecified as Red 2. Framework as above. citeturn14view0 | Unspecified as Red 2. Court setup as above. citeturn12view0 | Unspecified as Red 2. Match format as above. citeturn6view0 |
+| **Red 1** | **Shots/technique:** baseline rally crosscourt/DTL/side-to-side; developing topspin; slice FH/BH from feed; hit to open space; learning to take deep ball on the rise. **Footwork/stances:** open/semi-open stance on wide/deep balls; crossover recovery; step out for unit turn. **Serve:** continuous service motion; continental grip; developing slice/body serve; coordinate knee bend with toss. **Transition:** approach to one side then volley open court; overhead to center; establish trophy position for overhead prep. **Game:** faults/lets; can play best-of-three tiebreaks. citeturn22view0turn8view0 | Unspecified as Red 1. Stage-level as above. citeturn11view1turn5search2 | Unspecified as Red 1. Stage-level as above. citeturn1view0 | Unspecified as Red 1. Framework as above. citeturn14view0 | Unspecified as Red 1. Specs as above. citeturn12view0 | Unspecified as Red 1. Match format as above. citeturn6view0 |
+
+#### Orange 3 → Orange 2 → Orange 1
+
+| Level | USTA (published competencies) | Tennis10s / International standard | Tennis Australia | Tennis Canada | LTA | KNLTB Tenniskids |
+|---|---|---|---|---|---|---|
+| **Orange 3** | **Rally:** depth to center with increased net height; can rally slice FH/BH from inside service box. **Stances/footwork:** square stance in rally, developing open stance on wide balls; crossover recovery; diagonal movement for approach/volley; split-step forward/diagonal for volley. **Serve/return:** serves consistently in box both sides; return to center with depth; moves up for 2nd serve. **Transition:** volley-to-groundstroke rally; approach+volley (racquet feed); overheads; basic doubles positions. citeturn10view0turn7view4 | **Unspecified (publicly) as Orange 3/2/1.** Stage-level: Orange (often 8–10) uses 18m × 6.5–8.23m court; net 80–91cm; scoring options include tiebreaks or short sets; team formats encouraged. citeturn11view1turn5search2 | **Unspecified (publicly) as Orange 3/2/1.** Stage-level technique: earlier prep (backswing complete by bounce); contact in front; vertical face for long hitting zone; square stance step forward introduced; overhead/serve mechanics progress; tactical fundamentals include D‑N‑O phases and “winning plays.” citeturn1view0turn4view3 | Unspecified as Orange 3/2/1; point-play structure across ball colors. citeturn14view1turn14view0 | Unspecified as Orange 3/2/1; publishes orange court specs: singles 18m × 6.5m, doubles 18m × 8.23m, net 80cm, 23–25" racquet. citeturn12view0 | Unspecified as Orange 3/2/1; publishes orange match rules: first to 4 games, no‑ad deciding point at 40‑40; second serve may be underhand; orange competition often timed 15–20 minutes. citeturn6view0 |
+| **Orange 2** | **Rally:** depth + direction to targets; more consistent topspin (FH/BH) with speed; developing slice on low midcourt balls; consistent contact in front. **Serve/return:** increased racquet head speed on 1st serve, spin on 2nd; direct 1st serve to FH/BH; return 2nd serve FH/BH; compact backswing on rise returns. **Transition:** recognize short ball; hop move on square-stance approach; overhead depth; lobs/passing DTL; one up/one back doubles; recover behind baseline after defense. citeturn10view1turn7view1 | Unspecified as Orange 2. Stage-level as above. citeturn11view1turn5search2 | Unspecified as Orange 2. Stage-level as above. citeturn1view0turn4view3 | Unspecified as Orange 2. citeturn14view0 | Unspecified as Orange 2. citeturn12view0 | Unspecified as Orange 2; match format as above. citeturn6view0 |
+| **Orange 1** | **Rally/timing:** plays deep baseline shots on the rise; consistent shape/spin; changes tempo for offense/defense; earlier prep for rise balls. **Footwork:** more dynamic split-step landing on opponent contact; step out + crossover to wide balls; recovery depends on shot. **Serve/return:** routine; serve to wide/body/T; establish serve+1 combos; attack weak 2nd serve on rise and come to net; consistent toss inside front leg; shoulder-over-shoulder up motion. **Transition:** drive volley on high midcourt balls; first volley behind opponent; deep volley + short angle with spin; overhead control near service line; two-at-net doubles communication. citeturn10view2turn7view4 | Unspecified as Orange 1. Stage-level as above. citeturn11view1turn5search2 | Unspecified as Orange 1. Stage-level as above. citeturn1view0turn4view3 | Unspecified as Orange 1. citeturn14view0 | Unspecified as Orange 1. citeturn12view0 | Unspecified as Orange 1; match format as above. citeturn6view0 |
+
+#### Green 3 → Green 2 → Green 1
+
+| Level | USTA | Tennis10s / International standard | Tennis Australia | Tennis Canada | LTA | KNLTB Tenniskids |
+|---|---|---|---|---|---|---|
+| **Green 3** | **Unspecified (publicly).** USTA publishes Green **02** and **01**, not a Green 03 tier. citeturn9view3 | **Unspecified (publicly) as Green 3/2/1.** Stage-level: Green (often 9–10) uses full court with 25% slower (“green dot”) ball; short sets to 4 and match tiebreak patterns appear in Tennis10s guidance. citeturn11view1turn5search2 | Unspecified as Green 3/2/1; publishes stage technique (Green 9+): adaptable stances (square/semi‑open/open); low‑to‑high acceleration; stable head at contact; plus tactical fundamentals. citeturn2view0turn4view3 | Unspecified as Green 3/2/1. citeturn14view0 | Unspecified as Green 3/2/1; publishes “Green uses full regulation court” in court setup guidance. citeturn12view0 | Unspecified as Green 3/2/1; publishes Green match rules: 2 sets to 4 games (win by 2); tiebreak at 4–4 to 7; deciding tiebreak if 1–1 sets; competitive day details. citeturn6view0 |
+| **Green 2** | **Green 02:** depth + direction; developing spin/shape; inside-out FH; topspin angle off wide midcourt balls. **Footwork:** wider lower base on split-step; diagonal forward/back movement and arrive balanced; stances appropriate to deep/wide/short balls. **Serve/return:** direct 1st serve to FH/BH; return 1st serve deep down center; step in for 2nd serve return to open court; increased leg drive; adjust toss to change spin; tossing arm ahead of hitting arm. **Transition:** overhead from service line; passing shots DTL/angle/lob; drop-step + crossover for deeper overheads; trophy position. **Doubles:** close diagonally and volley to space. citeturn9view3turn20view0 | Unspecified as Green 2; stage-level as above. citeturn11view1turn5search2 | Unspecified as Green 2; stage-level as above. citeturn2view0turn4view3 | Unspecified as Green 2. citeturn14view0 | Unspecified as Green 2. citeturn12view0 | Unspecified as Green 2; match format as above. citeturn6view0 |
+| **Green 1** | **Green 01:** combines height/spin/speed to keep opponent deep; forehand dictates from different court areas; drop shots inside baseline. **Footwork/timing:** dynamic split-step slightly after opponent contact; drop-steps/crosses for deep balls; quick shuffle. **Serve/return:** serve to wide/body/T; more consistent 2nd serve depth+spin; return rising or falling; first step “step out”; adjust backswing for return types. **Transition/overheads:** multiple ways to net (topspin/slice approach, drive volley, sneak/delay attack); scissor-kick on deeper overheads; head still and shoulder-over-shoulder for overhead. **Doubles:** two-up, poach, switch; weapon development. citeturn9view3turn20view0 | Unspecified as Green 1; stage-level as above. citeturn11view1turn5search2 | Unspecified as Green 1; stage-level as above. citeturn2view0turn4view3 | Unspecified as Green 1. citeturn14view0 | Unspecified as Green 1. citeturn12view0 | Unspecified as Green 1; match format as above. citeturn6view0 |
+
+#### Yellow 3 → Yellow 2 → Yellow 1
+
+| Level | USTA | Tennis10s / International standard | Tennis Australia | Tennis Canada | LTA | KNLTB / Netherlands |
+|---|---|---|---|---|---|---|
+| **Yellow 3** | **Unspecified (publicly).** USTA manual defines Yellow **2** (entry) and Yellow **1** (top), not Yellow 3. citeturn7view3 | Yellow ball on full court after completing Red/Orange/Green pathway; scoring systems can be any within Rules of Tennis. citeturn11view1turn5search2 | Sublevels Unspecified; Yellow stage technique fundamentals exist (document includes Yellow stage section and tactical fundamentals such as court zones and safelines). citeturn4view0turn4view3 | No published Yellow 3/2/1; point-play curriculum can be run with Yellow ball and uses Point Play + Skill Builder + Coordination structure. citeturn14view1turn14view0 | No published Yellow 3/2/1 in retrieved court setup guides. citeturn12view0 | KNLTB document states: after Green, child is ready for Yellow ball on full court; no public Yellow 3/2/1 rubric found. citeturn6view0 |
+| **Yellow 2** | Yellow 2 is the **first** Yellow level in the USTA manual; objective: maintain Green skills and adapt to Yellow ball. Session template and equipment guidance are published; five ball controls (direction/height/depth/speed/spin) are emphasized. citeturn7view3turn4search0 | As above. citeturn11view1turn5search2 | As above (stage-level), not subdivided. citeturn4view3turn1view0 | As above (not subdivided). citeturn14view0 | Unspecified. citeturn12view0 | Unspecified. citeturn6view0 |
+| **Yellow 1** | Yellow 1 is the **top** Yellow level; documents provide practice plan design and progression, but not an “exam checklist” in the same bullet style as Red/Orange/Green. citeturn7view3 | As above. citeturn5search2 | As above. citeturn1view0 | As above. citeturn14view0 | Unspecified. citeturn12view0 | Unspecified. citeturn6view0 |
+
+### Common failure points in junior transitions
+
+Because most federations do not publish “failure reasons,” the most defensible approach is to identify common failure points **from published competencies** (especially USTA) and from stage logic (scaled tennis). The recurring patterns are consistent across programs:
+
+- **Tempo jumps before motor control:** players move to a faster ball/court when they can’t yet control **depth and height**, leading to short rallies and low “playability.” Tennis10s explicitly cites this motivation/retention problem if kids are pushed too early into Yellow-ball full-court play. citeturn11view1  
+- **Serve and return collapse under scoring:** higher levels expect routines and placement (e.g., wide/body/T in Green 01 and Orange 01). People often “have the stroke” but can’t reproduce it under point pressure. citeturn9view3turn10view2  
+- **Footwork timing problems (split-step):** competency progressions explicitly add “split-step on opponent contact” and later “dynamic split-step slightly after opponent contact.” citeturn10view2turn9view3  
+
+## Adult track: Dutch DSS 9–1 and Glow 9–1
+
+### Dutch DSS: what is officially specified
+
+**DSS is a results-based rating system** designed to group players into competitive strength bands (speelsterkte 1–9) using a published formula based on win expectation. citeturn15view3turn16view2turn0search7
+
+Key official points that affect how you should define “requirements”:
+
+- **Speelsterkte is an integer from 1 to 9**; 9 is assigned to a beginning player and 1 to a professional player. citeturn15view3  
+- Player ratings update after each match using a published Elo-like approach:
+  - Formula uses a win expectation (“Prob”) and a maximum step **K = 0.275**; a worked example is published. citeturn16view0turn16view2  
+- The **2026 boundaries** for converting end-of-season rating to speelsterkte are published (e.g., rating cutoffs for 2–8; and ranking-list assignment for the top banded tiers). citeturn17view0  
+
+**What DSS does *not* publicly specify:** a technique test (“required shots per DSS level”) is not defined as an official public curriculum requirement in the DSS documentation retrieved. Therefore, any “technical DSS 9→1 requirements” are **Unspecified (publicly)** and must be treated as coaching translations (see below). citeturn15view3turn0search7
+
+### DSS 9–1: official performance requirements vs. technical requirements
+
+The table below separates what is truly official (rating boundaries/logic) from what is not.
+
+| DSS level | Official definition / performance basis | Technical requirements (shots, stances, etc.) |
+|---:|---|---|
+| 9 → 1 | **Official performance basis:** derived from **match results**, win expectation and rating update math; annual conversion to integer speelsterkte using published 2026 boundaries and ranking list rules. citeturn16view2turn17view0turn15view3 | **Unspecified (publicly).** DSS documents do not define a stroke curriculum as a promotion gate. citeturn15view3turn0search7 |
+
+**Analytical translation you can safely use in your app (recommended):** define “DSS technical expectations” as **match-observable KPIs** that predict rating improvement, rather than as a claimed official DSS exam. This aligns better with DSS’s purpose and avoids misrepresenting federation policy.
+
+### Glow track (Glow 9 → Glow 1): canonical rubric and bilingual translation for Glow 9
+
+Below, “User‑provided” items are taken directly from your message; “Analytical (derived)” adds depth while keeping the original gates intact.
+
+#### Glow 9 bilingual rubric (User‑provided, translated)
+
+| Original (Dutch, user-provided) | English translation (analytical, faithful) |
+|---|---|
+| “Ik speel tennis, maar heb geen controle.” | “I play tennis, but I have no control.” |
+| Grip Knowledge (FH Eastern/Semi‑Western) | Knows basic forehand grip family (Eastern/Semi‑Western) |
+| Moving Contact (hit while in motion) | Can make contact while moving (not only standing still) |
+| Swing Path (backswing → contact → follow-through) | Has a recognizable swing sequence: backswing → contact → follow-through |
+| Over Net (3+ balls over net) | Can send 3+ balls over the net (not necessarily in) |
+| Ball toss for serve / Service motion recognizable | Has a basic serve toss concept; service motion is recognizable |
+| Tactical: “over net = good”; understands training vs point | Understands basic success criteria and the difference between drills and points |
+| Physical: lateral movement; balance; can train 20 min actively | Can move laterally; maintain balance; sustain ~20 minutes active training |
+| Mental/Social: retries after errors; stays on court; listens; respects coach/players; follows simple rules | Demonstrates persistence, attention, respect, and basic adherence to rules |
+| Match: understands what a point is; can repeat score after explanation | Understands point concept and can repeat scoring after explanation |
+
+(Glow 9 details are user-provided; no external source is asserted here.)
+
+#### Expanded Glow 9–1 technical and performance requirements
+
+The following table provides your requested categories for each Glow level. Where you did not supply details, the additions are **Analytical (derived)** to make the system operational and measurable for an app.
+
+| Glow level | Required techniques/shots | Stances/footwork/timing & distance control | Defense + combinations/patterns | Conditioning standard | Eligibility/testing format & scoring criteria | Common failure points |
+|---|---|---|---|---|---|---|
+| **Glow 9** (User‑provided) | FH/BH basic swing path; stable BH contact (1H or 2H); toss + recognizable overhand serve concept. | Lateral movement; basic balance; bounce-hit timing; can contact while moving. | Basic concept: over net is good; can play practice points; understands point/score basics. | Active 20 minutes. | MMR 0–300; min 3 trainings to promote; app decides rank (User‑provided). | Quits after errors; unstable grip; pushes only; no spacing (always jammed); toss behind head (derived). |
+| **Glow 8** (User‑provided gates + derived detail) | Serve 5/10 in; return 5/10 in play; rally capably (8-ball rally twice). | Split-step emerging; can recover to neutral; spacing maintained more often. | Beginning net/overhead competence; keeps score independently. | Sustain a set-length practice block (45–60 min) with breaks (derived). | MMR 301–600; 3 matches / 8 weeks; skill gates as provided. | Skill gate achieved in drills but not in points; double faults spike; rally breaks due to depth loss. |
+| **Glow 7** (User‑provided) | 1st serve 60% and 2nd serve 70% safe; volley 6/10; 10+ crosscourt rally. | Split-step “present”; directional control improves; timing holds at medium pace. | Plays full set without meltdown; resolves disputes normally. | Can maintain movement quality across a full set (derived). | MMR 601–900; 5 matches / 8 weeks; plus behavior gates. | Split-step disappears under pressure; transition timing late; returns float short (attackable). |
+| **Glow 6** (User‑provided) | Match 60% 1st serve; 2nd serve under pressure; depth 6/10 beyond service line; approach+volley finish 4/10. | Can raise tempo with control; spacing and recovery consistent; serves with leg drive intent (derived). | Two patterns: cross→open; serve+1; reset routine. | Tennis-specific repeat sprint ability improving (derived). | MMR 901–1200; 6 matches / 8 weeks; must beat Glow 7 comfortably. | Patterns exist but aren’t repeatable under scoreboard; approach on wrong ball; second serve collapses in big points. |
+| **Glow 5** (User‑provided) | Serve placement wide/body 4/10 each; return neutralize 6/10; UE controlled. | Timing stable on faster balls; can take some balls earlier; maintains spacing under pace. | Recognizes weakness & adapts (pattern player). | Can handle higher match volume (8 matches / 8 weeks) without breakdown. | MMR 1201–1500; 8 matches / 8 weeks. | Over-adaptation (changes plan too much); placement in practice not in match; return errors vs pace. |
+| **Glow 4** (User‑provided) | Spin 2nd serve (kick/slice); net point ~1 per game average. | Footwork supports multi-game plans; stable in tiebreaks. | Two defensive patterns; competes with Glow 3 at 20–40% winrate. | Maintain intensity across long matches and recover between matches (derived). | MMR 1501–1800; 10 matches / 8 weeks. | Weapon exists but too error-prone; second serve sits up; net approaches without pressure ball. |
+| **Glow 3** (User‑provided) | Serve+1 dominance; BH reliability (not exploitable). | Can absorb/create pace; timing and spacing hold under pressure. | Tournament format; must beat Glow 4 at 60%+ winrate. | Fitness baseline: endurance + speed test (User‑provided). | MMR 1801–2200; 10 matches / 8 weeks. | One wing becomes target under stress; serve+1 fails vs return pressure; fitness ok but movement quality fades late. |
+| **Glow 2** (User‑provided) | Multi-style competence: attack/defend; full toolkit. | Pro-level intensity cues; movement efficiency + injury prevention habits. | Mental tilt control under pressure. | Strength + prehab integrated weekly. | MMR 2201–2600; tournament format; 10 matches / 8 weeks. | Overtraining/injury; win quality comes from one style only; tactical rigidity vs different game styles. |
+| **Glow 1** (User‑provided) | Full toolkit validated (coach + video evidence). | Works at elite speed with stable timing. | International match results; strong win quality. | Elite conditioning + recovery capacity. | MMR 2601–3000; evidence validated (User‑provided). | Rating fraud (“farming”); insufficient opponent strength calibration; inadequate evidence review (derived). |
+
+### How to ground Glow conditioning and “fitness baseline” in official tennis testing
+
+To operationalize conditioning standards and measurable milestones for Glow 6→1, you can directly reuse ITF’s published **fitness testing protocols** (court-based, tennis-specific) as your measurable baselines (e.g., 20m shuttle run/multistage fitness test; strength endurance tests like 1‑minute push-ups; agility and repeat sprint tests). citeturn21view0turn21view1turn4search13
+
+## Comparison tables and progression checklists
+
+### Mermaid flowchart: how junior stages relate to rating-based adult tracks
+
+```mermaid
+flowchart LR
+  subgraph Junior[Junior belt-style stages]
+    R[Red 3->2->1] --> O[Orange 3->2->1]
+    O --> G[Green 3->2->1]
+    G --> Y[Yellow 3->2->1]
+  end
+
+  subgraph Adult[Adult performance track]
+    GL[Glow 9->1 (MMR/Elo)] 
+    DSS[DSS 9->1 (rating -> speelsterkte)]
+  end
+
+  Y --> GL
+  Y --> DSS
+
+  note1[Most federations publish stage environments,\nnot sublevel exams] --- R
+  note2[USTA publishes sublevel competencies\nfor Red/Orange/Green] --- O
+  note3[DSS/Glow are match-result engines,\nnot technique exams] --- DSS
+```
+
+### Progression checklist: what to practice to reach the next stage
+
+This checklist is designed to work “from any level.” Items are framed around **public competency language** (especially USTA) and stage logic (Tennis10s/Tenniskids). citeturn8view0turn10view2turn9view3turn6view0turn11view1
+
+| Current level | Next level | Practice checklist (prioritized) |
+|---|---|---|
+| Red 3 | Red 2 | Build unit turn + recover-to-center habit; serve overhand to start points; add split-step before volley; rally over net from service line with targets. citeturn8view0turn20view1 |
+| Red 2 | Red 1 | Extend rally to baseline; add topspin intention and slice introduction; learn “on the rise” basics; establish continuous serve motion and continental grip. citeturn22view0turn8view0 |
+| Red 1 | Orange 3 | Maintain rally quality with more space/court; add directional targets and net height margin; serve consistency from both sides; approach + volley sequencing. citeturn10view0turn11view1 |
+| Orange 3 | Orange 2 | Increase topspin consistency; add slice on low balls; develop 2nd-serve spin; recognize short ball; add lob/pass options. citeturn10view1turn7view4 |
+| Orange 2 | Orange 1 | Take balls earlier/on rise; stabilize dynamic split-step; build serve to 3 spots + serve+1; attack weak 2nd serve and transition. citeturn10view2turn7view4 |
+| Orange 1 | Green 3/2 | Increase depth control beyond service line; improve first-step explosiveness; add return timing (rising/falling); develop at least one “pattern you can repeat.” citeturn9view3turn10view2 |
+| Green 2 | Green 1 | Add serve to wide/body/T; strengthen 2nd serve depth+spin; develop net entry variety; continue “keep opponent deep” ball controls. citeturn9view3turn20view0 |
+| Green 1 | Yellow 3/2 | Transition to full-speed Yellow: maintain same ball controls (direction/height/depth/speed/spin) at increased pace; add match-play volume; refine return positioning. citeturn7view3turn9view3turn4search0 |
+| Yellow 2 | Yellow 1 | Sustain full-court patterns (serve+1, return+1) under scoring; reduce unforced errors via “safelines”/targets; improve conditioning benchmarks consistently. citeturn7view3turn4view3turn21view0 |
+| Glow 9 | Glow 8 | Stabilize contact on move; 8-ball cooperative rally twice; 5/10 serve + 5/10 return in play; learn scoring independence (User‑provided). |
+| Glow 8 | Glow 7 | Sustain 10+ crosscourt rally; add split-step as non-negotiable; match volume and emotional regulation (User‑provided). |
+| Glow 7 | Glow 6 | Improve depth 6/10 beyond service line; add 2 patterns and pressure-proof 2nd serve; approach timing (User‑provided). |
+| Glow 6 | Glow 5 | Add serve placement to wide/body targets; reduce UE with margin; adapt tactics in-match (User‑provided). |
+| Glow 5 | Glow 4 | Add spin 2nd serve + defensive patterns; average 1 net point per game; stable tiebreak execution (User‑provided). |
+| Glow 4 | Glow 3 | Validate dominance vs Glow 4 in tournament format; remove exploitable wing; pass endurance + speed baseline (User‑provided). |
+| Glow 3 | Glow 2 | Multi-style competence + tilt control; strength/prehab routines become mandatory (User‑provided). |
+| Glow 2 | Glow 1 | Video + coach validation; international match results; opponent quality calibration (User‑provided). |
+
+## Drills, weekly training templates, milestones, and corrections
+
+### Drill library with rep/time ranges and measurable milestones
+
+The drills below are written so they can be used across junior belts and Glow levels; intensity and constraints are adjusted by stage. Ball-control framing aligns with published “five controls” (depth/height/direction/speed/spin). citeturn4search0turn7view3
+
+| Skill/shot | Drill (how to run it) | Rep/time range | Milestones (measurable) |
+|---|---|---:|---|
+| Forehand + backhand rally control | **Crosscourt “safeline” rally**: rally crosscourt only; define a “safe lane” inside sideline; count rallies. (Use Red/Orange scaled courts for juniors.) | 3–5 sets of 4 minutes; rest 1–2 min | Juniors: 10+ rally 3 times. Adults: median rally length +2 balls over 4 weeks; ≥60% balls land beyond service line in Green/Yellow contexts (depth standard aligns with Green competencies). citeturn7view4turn9view3 |
+| Serve consistency | **10-ball serve ladder**: 10 serves from deuce, 10 from ad; track in‑box %. For beginners allow “serve‑or‑drop‑hit second serve” in developmental contexts (seen in stage match-play options). | 20–40 serves/session | Glow 7 gate style: 1st serve % and 2nd serve safe %; Green 01 style: hit 3 zones (wide/body/T) ≥4/10 each over 2 sessions. citeturn10view2turn9view3 |
+| Serve toss + rhythm | **Toss targets + shadow trophy**: 10 tosses that land in a target zone; then 10 shadow serves focusing on “toss arm ahead” + trophy position. | 10 + 10 + 10 reps | Reduce double faults week-over-week; toss variability reduced (hit target zone ≥7/10). Tossing arm cue aligns with Green 02 competency. citeturn9view3turn20view0 |
+| Return of serve | **Block-return to deep middle**: feeder serves medium pace; returner blocks to deep center 8/10; then progress to two targets. | 4×8 returns | Green 02: return first serve deep down center; Orange 02/01: compact backswing on the rise. Record ≥70% in-play returns vs medium serve. citeturn9view3turn10view1 |
+| Split-step timing | **Contact cue drill**: partner hits; returner must visibly split-step timed to opponent contact (or slightly after for advanced timing), then move. Video-tag a 2‑minute segment. | 6×2 min | Presence rate ≥80% of rallies; reaction latency decreases. Split-step timing differences by level are documented in peer-reviewed work. citeturn5search0turn9view3turn10view2 |
+| Approach + volley | **Short ball recognition → approach → split → volley**: coach feeds short ball; player approaches with spacing, split-steps, volleys to open court. | 4×10 sequences | Red 2/Orange 3/Green levels require approach/volley combinations; milestone: finish ≥6/10 sequences without net error. citeturn8view0turn10view0turn22view0 |
+| Overhead | **Service-line overhead control**: start at service line, move back with drop-step/crossover; hit overhead to designated target. | 3×8 overheads | Green 02/01 overhead movement cues match published competencies (trophy position; scissor-kick for deeper balls). citeturn9view3turn20view0 |
+| Defense (buy time) | **High-and-deep “reset”**: when pushed wide, player must send high deep ball down middle (buy time) then recover. | 3×6 points per side | Reduce “panic line errors”; milestone: recover to neutral in ≥50% of defensive points. Tactical “safe spots” are explicitly described in Tennis Australia tactical fundamentals. citeturn4view3 |
+| Conditioning baseline | **ITF test block (monthly)**: 20m shuttle/multistage; 1‑minute push-ups; repeat sprint test protocol; record scores. | Monthly test day | Track improvement trend; ITF publishes protocols + scoring methods and emphasizes reliable repeatable testing. citeturn21view0turn21view1 |
+
+image_group{"layout":"carousel","aspect_ratio":"16:9","query":["tennis serve toss trophy position diagram","tennis split step timing illustration opponent contact","tennis five controls of the ball depth height direction speed spin diagram","tennis approach shot and volley footwork diagram"],"num_per_query":1}
+
+### Weekly training plan templates
+
+These templates are designed to satisfy: (a) skill acquisition, (b) match volume for rating systems (Glow/DSS), and (c) measurable milestones.
+
+**Template for juniors (Red→Yellow): 3 sessions + 1 play day (minimum)**
+- **Session A (60–75 min):** rally control + movement (split-step, recover) + point-play games (serve-rally-score). The “serve, rally, score” design is central to Tennis10s and Tennis Canada’s point-play curriculum. citeturn11view1turn14view1  
+- **Session B (60–75 min):** serve/return fundamentals + transition (approach/volley, overhead) + short competitive formats (tie-breaks/short sets). citeturn11view1turn6view0  
+- **Session C (60–75 min):** tactical theme (cross→open; depth as pressure) + games to targets (“safelines”), aligned with tactical fundamentals like zones and depth. citeturn4view3turn9view3  
+- **Play day:** use stage-appropriate official scoring (Tenniskids rules or Tennis10s short formats). citeturn6view0turn11view1  
+
+**Template for adults (Glow/DSS): 2 training sessions + 2 match days**
+- **Training 1 (75–90 min):** serve+1 and return+1 patterns; end with 20 minutes of pressure games (tiebreaks). Pattern language aligns with USTA Orange/Green competencies (serve+1, attack weak second serve). citeturn10view2turn9view3  
+- **Training 2 (75–90 min):** defense-to-neutral + transition to net; include split-step video-tagging. Split-step timing is a documented differentiator across playing levels. citeturn5search0turn9view3  
+- **Match day 1 + 2:** log verified matches (best-of formats or sets). This supports rating stability in DSS-like systems whose updates are match driven. citeturn16view2turn0search7  
+- **Monthly testing:** ITF fitness testing protocols for measurable standards. citeturn21view0turn21view1  
+
+### Common technical errors and corrective exercises
+
+This table is intended for coaches and for building “failure point” explanations inside your app.
+
+| Error pattern | Corrective cue | Corrective drill |
+|---|---|---|
+| Late preparation on groundstrokes (backswing not complete by bounce) | “Prepare by the bounce.” | Tennis Australia explicitly highlights early preparation within stage fundamentals; use feed → rally with a “bounce prep” rule. citeturn1view0 |
+| Inconsistent contact point (jammed, hit beside body) | “Create space with adjustment steps; contact in front.” | Red/Orange/Green competencies emphasize spacing (“creates space using adjustment steps,” “contact in front”). Do cooperative rally; point only counts if contact occurs in front hip zone. citeturn7view0turn10view1turn2view0 |
+| Split-step missing or mistimed | “Land on (or slightly after) opponent contact.” | USTA Orange 01 and Green 01/02 specify split-step timing; run 2‑minute video-tag segments and score presence rate. citeturn10view2turn9view3 |
+| Second serve collapses under pressure | “Spin + height first; target middle.” | Green 01 requires 2nd serve depth+spin; use 20‑serve ladder: only count serves landing beyond service line depth zone. citeturn9view3 |
+| Approaching on the wrong ball (approach without pressure) | “Recognize short ball; approach with spacing; split-step before volley.” | Orange 02 requires “recognizes short ball”; do coach-fed short-ball recognition with approach+volley sequences. citeturn10view1turn22view0 |
+| Overheads break down (no tracking, poor footwork back) | “Side turn + trophy; drop-step then crossover.” | Green 02/01 overhead movement is explicit; drill service-line overhead with drop-step/crossover and directional targets. citeturn9view3turn20view0 |
+
+### Recommended official curriculum links and video examples
+
+These are prioritized to primary/official sources; citations link directly.
+
+- International Tennis Federation: Play+Stay/Tennis10s overview and resources. citeturn5search1turn6search4  
+- International Tennis Federation (official video channel): ServeRallyScore videos such as “Starter Rally Practices.” citeturn6search18turn6search2  
+- United States Tennis Association: Net Generation competency PDFs (Red/Orange/Green) and Yellow Ball manuals. citeturn0search0turn3search0turn7view3  
+- United States Tennis Association: coach assessment guide (assessment workflow and 85% pass rule). citeturn20view2  
+- Tennis Australia: Technical Fundamentals (stage technique and tactical fundamentals). citeturn1view0turn4view3  
+- Tennis Australia: ANZ Tennis Hot Shots match-play competencies (stage eligibility recommendations). citeturn13view2  
+- Tennis Canada: Learn & Play Curriculum Guide (point-play pyramid, “Road to Rally,” session steps). citeturn14view1turn14view0  
+- Lawn Tennis Association: Red/Orange/Green court setup guidance. citeturn12view0turn12view1  
+- Koninklijke Nederlandse Lawn Tennis Bond / tennis.nl: Tenniskids rules and scoring; DSS documentation and 2026 rating boundaries procedure. citeturn6view0turn16view2turn17view0  
+- KNLTB video playlist: Tenniskids color explanations (Rood/Oranje/Groen). citeturn6search0turn6search11

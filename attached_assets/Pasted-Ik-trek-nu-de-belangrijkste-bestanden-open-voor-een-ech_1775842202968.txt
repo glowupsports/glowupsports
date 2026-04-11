@@ -1,0 +1,292 @@
+Ik trek nu de belangrijkste bestanden open voor een echte audit: auth, routes, database/schema, en build/deploy-config.
+
+Received app response
+Received app response
+Thought for 32s
+Received app response
+
+Ik ben erin gedoken. Dit is een echte eerste forensic audit pass van je codebase — niet oppervlakkig, maar ook nog niet elk bestand 1 voor 1. Op basis van de kernbestanden is dit mijn eerlijke oordeel.
+
+1. Architectuur: sterk, serieus, maar inmiddels zwaar
+
+Je project is duidelijk geen simpele app meer. De basis is professioneel:
+
+Expo / React Native client
+Express backend
+Drizzle + Postgres/Supabase
+Stripe
+Sentry
+OpenAI
+OTA updates via Expo
+TypeScript strict mode
+
+Dat zie je terug in package.json, tsconfig.json, app.json, server/index.ts, server/auth.ts, server/routes.ts, drizzle.config.ts en server/db.ts
+
+Mijn algemene indruk:
+
+de foundations zijn goed genoeg voor een echte product-app
+je hebt veel productieproblemen al proberen opvangen
+maar je backend is nu aan het kantelen van “feature-rich” naar “operationeel fragiel”
+
+Dat komt vooral door hoeveel business logic, repairs, startup fixes en migrations op runtime worden uitgevoerd in server/index.ts en server/db.ts
+
+2. Wat echt goed is
+Security basis
+
+Je hebt best nette security fundamentals:
+
+helmet
+custom security headers
+CORS allowlist
+request IDs + logging
+Stripe webhook vóór express.json()
+globale rate limiter op /api
+Sentry integration
+auth middleware met fresh DB lookup
+deleted-user checks
+maintenance mode enforcement in auth path
+
+Dat is allemaal serieus werk, niet hobby-level
+
+Auth model
+
+Je auth flow is beter dan gemiddeld:
+
+access token en refresh token zijn gescheiden via type claim
+refresh token mag niet als normale auth token gebruikt worden
+fresh user data wordt opnieuw uit DB gehaald
+deleted accounts worden geblokkeerd
+academy context switching voor owners wordt gevalideerd
+parent/child player switching heeft tenminste een extra check ingebouwd
+App config
+
+Je Expo config ziet volwassen uit:
+
+runtime versioning
+OTA updates
+Sentry plugin
+native permissions goed ingevuld
+package IDs correct
+Monetization/subscriptions direction
+
+Je hebt al serieuze subscription foundations:
+
+subscription_plans
+subscriptions
+feature flags via JSONB
+plan limits
+requireFeature en requirePlanLimit middleware
+3. Grootste risico’s die ik nu zie
+A. Je backend doet te veel bij startup
+
+Dit is het grootste technische risico.
+
+In server/index.ts start je niet alleen de server, maar ook:
+
+schedulers
+bulk repairs
+data reconciliations
+ghost cleanup
+invite migrations
+court fixes
+capacity fixes
+player repairs
+progress connectivity migrations
+
+En in server/db.ts doe je nóg een grote hoeveelheid ALTER TABLE IF NOT EXISTS, CREATE TABLE IF NOT EXISTS, backfills en one-time cleanups bij startup
+
+Waarom dit gevaarlijk is:
+
+trage cold starts
+moeilijk voorspelbaar productiegedrag
+“server restart” kan side effects hebben
+repairs en echte app runtime zitten door elkaar
+kans op race conditions of partial startup states
+debugging wordt kut als je niet zeker weet of gedrag kwam door request logic of startup repair
+
+Mijn oordeel:
+dit is nu je grootste backend debt.
+
+Wat moet gebeuren:
+
+startup zo dom mogelijk maken
+migrations alleen via migration pipeline
+repairs als aparte admin jobs / scripts / cron tasks
+one-time fixes uit runtime halen
+B. server/routes.ts is te groot
+
+server/routes.ts is gigantisch en trekt absurd veel domeinen tegelijk naar binnen: auth, diagnostics, uploads, maps, payments, social, player systems, coach systems, subscriptions, etc.
+
+Ook al heb je al veel routers geëxtraheerd, deze file is nog steeds te centraal.
+
+Risico:
+
+regressies bij kleine edits
+lastig ownership per domein
+moeilijk testen
+hidden route precedence bugs
+
+Mijn oordeel:
+architectuur technisch nog werkbaar, maar dit moet verder opgesplitst worden.
+
+C. Database migrations gebeuren deels “buiten migrations om”
+
+drizzle.config.ts wijst netjes naar shared/schema.ts en migrations, maar server/db.ts voert óók direct schema mutations uit bij runtime: ALTER TABLE, CREATE TABLE, indices, backfills, seed logic, cleanup logic, repair logic
+
+Dat betekent in praktijk:
+
+je echte schema state leeft niet alleen in Drizzle migrations
+productie kan een andere staat hebben dan verwacht
+infra wordt lastiger reproduceerbaar
+rollback wordt bijna onmogelijk
+
+Mijn oordeel:
+je DB discipline is nu de zwakste structurele laag.
+
+D. “Fail open” op belangrijke feature gates
+
+In auth.ts zie ik meerdere plekken waar bij errors bewust wordt “fail open” gedaan:
+
+requireFeature
+requirePlanLimit
+requireFeatureUnlock
+
+Bij errors wordt vaak alsnog next() gedaan
+
+Waarom dat riskant is:
+
+subscription restrictions kunnen omzeild worden bij interne fouten
+player-level locked features kunnen ineens openvallen
+plan enforcement wordt onbetrouwbaar
+
+Voor development is dat begrijpelijk.
+Voor productie is dat gevaarlijk.
+
+Mijn oordeel:
+voor billing/plan-gates moet dit fail-closed worden, of ten minste per type verschillend.
+
+E. Identity/auth consistency lijkt niet overal strak
+
+In auth.ts gebruik je netjes userId in JWT payload. Maar in routes.ts zie ik routes die req.user!.id gebruiken in plaats van req.user!.userId voor onboarding state en diagnostics resolution calls
+
+Dat ruikt naar een type mismatch / legacy field confusion.
+
+Dit kan leiden tot:
+
+verkeerde user references
+silent bugs
+“werkt soms wel, soms niet”
+data geschreven onder undefined/null of verkeerde veldnaam
+
+Mijn oordeel:
+dit moet je nu hard standaardiseren.
+
+F. Upload/storage strategy is nog vrij lokaal
+
+Je gebruikt multer.diskStorage en serveert uploads vanaf lokale folders zoals:
+
+uploads/profile-photos
+uploads/social-posts
+uploads/marketplace-listings
+etc.
+
+Voor Replit/single-instance/MVP kan dat prima zijn.
+
+Maar voor serieuze schaal niet:
+
+lokaal filesysteem is fragiel
+deploy/restart/multi-instance problemen
+backup/retention lastig
+CDN ontbreekt
+signed URLs ontbreken grotendeels
+
+Mijn oordeel:
+voor MVP acceptabel, voor echte scale niet.
+
+G. EAS config: test RevenueCat keys staan ook in production env
+
+In eas.json zie ik in production:
+
+EXPO_PUBLIC_REVENUECAT_TEST_API_KEY
+plus iOS/Android keys in dezelfde env block
+
+Die EXPO_PUBLIC_* keys zijn client-exposed by design, dus dat op zich is niet per se fout.
+Maar een test key in productieprofiel is een rode vlag.
+
+Mijn oordeel:
+
+mogelijk harmless als unused
+maar dit is precies het soort config drift dat later subscription chaos geeft
+H. CORS is vrij deployment-specifiek
+
+Je allowlist vertrouwt sterk op Replit domains, localhost en een paar varianten
+
+Dat is logisch voor je huidige setup, maar:
+
+migratie naar ander domein / infra kan onverwacht breken
+staging/preview/prod governance wordt lastiger
+
+Niet direct kritiek, wel iets om later netter te abstraheren.
+
+4. Productie-risico score per domein
+Auth & roles
+
+7.5/10
+Best degelijk. Grootste issue is consistency en fail-open patterns, niet de basis zelf.
+
+Backend maintainability
+
+5/10
+Functioneel sterk, structureel te zwaar. Te veel runtime responsibility in startup en centrale route handling.
+
+Database integrity / operational safety
+
+5/10
+Je hebt veel protections en repair-awareness, maar te veel schema drift en runtime migration behavior.
+
+Mobile app readiness
+
+8/10
+Config, OTA, package IDs, permissions en monitoring voelen volwassen.
+
+Billing/subscription readiness
+
+6.5/10
+Goede basis, maar gates moeten harder en config cleaner.
+
+5. Mijn harde conclusie
+
+Ja, deze app is echt serieus gebouwd.
+Maar ook:
+ja, hij draagt nu al duidelijke sporen van snelle groei, hotfixes en production firefighting.
+
+Dat is niet gek — juist succesvolle apps krijgen dit.
+Alleen: je zit nu op het punt waar extra features niet meer je grootste winst zijn.
+
+Je grootste winst zit nu in:
+
+stabiliseren
+scheiden van responsibilities
+startup saneren
+DB discipline terugbrengen
+auth/identity uniform maken
+billing gates harder maken
+6. Wat ik als P0 meteen zou doen
+P0 — nu aanpakken
+Haal alle runtime schema changes en one-time repairs uit server/db.ts en server/index.ts.
+Standaardiseer req.user overal naar één shape, waarschijnlijk userId.
+Maak billing/feature gates fail-closed waar geld, limits en premium features meespelen.
+Maak een aparte repair/admin jobs layer in plaats van startup side effects.
+Review eas.json productie-envs en verwijder test-config drift.
+P1 — daarna
+Split server/routes.ts verder op per bounded domain.
+Verplaats uploads richting object storage.
+Maak startup health duidelijker: app up, schedulers up, DB up, migrations done, repairs skipped/runnable.
+Voeg betere observability toe rond Stripe, credits en background jobs.
+P2 — daarna
+Strakkere config management per environment.
+Job queue / scheduler architecture los van web server.
+Strakkere tenancy enforcement audit.
+7. Eindoordeel in één zin
+
+Je app is dichter bij een echte product-stack dan bij een MVP, maar je infrastructuur- en backend-discipline moeten nu volwassen worden voordat extra complexiteit echt veilig blijft.
