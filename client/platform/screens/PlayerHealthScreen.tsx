@@ -229,6 +229,7 @@ export default function PlayerHealthScreen() {
 
   const { data, isLoading, error } = useQuery<PlayerHealthData>({
     queryKey: ["/api/platform/player-health"],
+    staleTime: 0,
   });
 
   const healthStats = data?.healthStats ?? {
@@ -439,9 +440,9 @@ export default function PlayerHealthScreen() {
             contentContainerStyle={styles.directoryList}
             ListEmptyComponent={
               <View style={styles.emptyCard}>
-                <Feather name="search" size={40} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyText}>No players found</Text>
-                <Text style={styles.emptySubtext}>Try a different search term</Text>
+                <Feather name={searchQuery.trim() ? "search" : "users"} size={40} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyText}>{searchQuery.trim() ? "No players found" : "No players registered yet"}</Text>
+                <Text style={styles.emptySubtext}>{searchQuery.trim() ? "Try a different search term" : "Players will appear here once they join"}</Text>
               </View>
             }
           />

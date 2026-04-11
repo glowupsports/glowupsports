@@ -2416,7 +2416,7 @@ export const storage = {
     
     const creditsUsed = Number(pkg.totalCredits) - Number(pkg.remainingCredits);
     
-    if (creditsUsed > 0 && !force) {
+    if (Number(pkg.remainingCredits) > 0 && !force) {
       return { 
         success: false, 
         error: `Cannot delete: ${creditsUsed} credit(s) already used from this package`,
