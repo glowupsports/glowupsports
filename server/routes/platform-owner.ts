@@ -1689,6 +1689,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Platform Owner - List all academies (id + name, for pickers)
+  router.get(
+    "/api/platform/academies",
+    authMiddleware,
+    requireRole("platform_owner", "admin"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academies = await storage.getAllAcademies();
+        res.json(
+          academies
+            .filter((a: any) => a.isActive !== false)
+            .sort((a: any, b: any) => (a.name ?? "").localeCompare(b.name ?? ""))
+            .map((a: any) => ({ id: a.id, name: a.name }))
+        );
+      } catch (error) {
+        console.error("Platform list academies error:", error);
+        res.status(500).json({ error: "Failed to fetch academies" });
+      }
+    },
+  );
+
   // Platform Owner - Create new academy
   router.post(
     "/api/platform/academies",
