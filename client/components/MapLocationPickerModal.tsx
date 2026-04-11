@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import WebView from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
@@ -57,7 +58,11 @@ function buildLeafletHtml(lat: number, lng: number): string {
     var marker = L.marker([${lat}, ${lng}], { icon: icon, draggable: true }).addTo(map);
     function postCoords(latlng) {
       var msg = JSON.stringify({ lat: latlng.lat, lng: latlng.lng });
-      window.parent.postMessage(msg, '*');
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(msg);
+      } else {
+        window.parent.postMessage(msg, '*');
+      }
     }
     marker.on('dragend', function(e) { postCoords(e.target.getLatLng()); });
     map.on('click', function(e) { marker.setLatLng(e.latlng); postCoords(e.latlng); });
@@ -67,51 +72,15 @@ function buildLeafletHtml(lat: number, lng: number): string {
         if (d && d.jump) { marker.setLatLng([d.lat, d.lng]); map.setView([d.lat, d.lng], 15); }
       } catch(err) {}
     });
+    document.addEventListener('message', function(e) {
+      try {
+        var d = JSON.parse(e.data);
+        if (d && d.jump) { marker.setLatLng([d.lat, d.lng]); map.setView([d.lat, d.lng], 15); }
+      } catch(err) {}
+    });
   </script>
 </body>
 </html>`;
-}
-
-interface DOMMapViewProps {
-  html: string;
-  mapKey: number;
-  onCoordinates: (lat: number, lng: number) => void;
-  iframeRef: React.RefObject<HTMLIFrameElement | null>;
-}
-
-function DOMMapView({ html, mapKey, onCoordinates, iframeRef }: DOMMapViewProps) {
-  const containerRef = useRef<View>(null);
-
-  useEffect(() => {
-    const container = containerRef.current as unknown as HTMLElement | null;
-    if (!container) return;
-
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "width:100%;height:100%;border:none;display:block;";
-    iframe.srcdoc = html;
-    container.appendChild(iframe);
-    (iframeRef as React.MutableRefObject<HTMLIFrameElement>).current = iframe;
-
-    const handleMessage = (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(String(e.data)) as { lat?: number; lng?: number };
-        if (typeof data.lat === "number" && typeof data.lng === "number") {
-          onCoordinates(data.lat, data.lng);
-        }
-      } catch {
-        // ignore malformed messages
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => {
-      window.removeEventListener("message", handleMessage);
-      if (container.contains(iframe)) container.removeChild(iframe);
-      (iframeRef as React.MutableRefObject<HTMLIFrameElement | null>).current = null;
-    };
-  }, [mapKey]);
-
-  return <View ref={containerRef} style={StyleSheet.absoluteFill} />;
 }
 
 export function MapLocationPickerModal({
@@ -129,7 +98,7 @@ export function MapLocationPickerModal({
   const [leafletHtml, setLeafletHtml] = useState<string>("");
   const [mapKey, setMapKey] = useState(0);
   const reverseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const webViewRef = useRef<WebView>(null);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     setResolving(true);
@@ -171,13 +140,11 @@ export function MapLocationPickerModal({
     if (!visible) return;
     setAddress(null);
 
-    // Saved coordinates → center immediately
     if (initialLat != null && initialLng != null) {
       initMap(initialLat, initialLng);
       return;
     }
 
-    // No saved coords → try GPS, fall back to Dubai
     (async () => {
       let lat = DEFAULT_LAT;
       let lng = DEFAULT_LNG;
@@ -224,9 +191,12 @@ export function MapLocationPickerModal({
       const { latitude, longitude } = loc.coords;
       setCurrentLat(latitude);
       setCurrentLng(longitude);
-      iframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ jump: true, lat: latitude, lng: longitude }),
-        "*"
+      webViewRef.current?.injectJavaScript(
+        `(function(){
+          var d = ${JSON.stringify({ jump: true, lat: latitude, lng: longitude })};
+          marker.setLatLng([d.lat, d.lng]);
+          map.setView([d.lat, d.lng], 15);
+        })()`
       );
       reverseGeocode(latitude, longitude);
     } catch {
@@ -270,11 +240,28 @@ export function MapLocationPickerModal({
 
         <View style={styles.mapWrapper}>
           {leafletHtml ? (
-            <DOMMapView
-              html={leafletHtml}
-              mapKey={mapKey}
-              onCoordinates={handleCoordinates}
-              iframeRef={iframeRef}
+            <WebView
+              key={mapKey}
+              ref={webViewRef}
+              source={{ html: leafletHtml }}
+              javaScriptEnabled
+              style={{ flex: 1 }}
+              onMessage={(e) => {
+                try {
+                  const d = JSON.parse(e.nativeEvent.data) as {
+                    lat?: number;
+                    lng?: number;
+                  };
+                  if (
+                    typeof d.lat === "number" &&
+                    typeof d.lng === "number"
+                  ) {
+                    handleCoordinates(d.lat, d.lng);
+                  }
+                } catch {
+                  // ignore malformed messages
+                }
+              }}
             />
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.mapPlaceholder]}>
