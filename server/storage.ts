@@ -2419,7 +2419,7 @@ export const storage = {
     if (Number(pkg.remainingCredits) > 0 && !force) {
       return { 
         success: false, 
-        error: `Cannot delete: ${creditsUsed} credit(s) already used from this package`,
+        error: `Cannot delete: ${Number(pkg.remainingCredits)} unused credit(s) still remaining in this package`,
         creditsUsed 
       };
     }
