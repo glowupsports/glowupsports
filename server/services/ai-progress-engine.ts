@@ -29,6 +29,7 @@ import {
   playerBaselines,
   playerAiTrainingPlans,
   sessionIntakeData,
+  levelCoachingContext,
 } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
@@ -434,6 +435,24 @@ export async function generateProgressNarrative(
       .limit(10);
 
     const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
+
+    // Fetch coaching context for the player's current level
+    let coachingContextText = "";
+    if (playerLevel?.levelId) {
+      const [ctx] = await db
+        .select()
+        .from(levelCoachingContext)
+        .where(eq(levelCoachingContext.levelId, playerLevel.levelId))
+        .limit(1);
+      if (ctx) {
+        const failurePoints = Array.isArray(ctx.failurePoints) ? (ctx.failurePoints as string[]).slice(0, 3) : [];
+        const checklist = Array.isArray(ctx.progressionChecklist) ? (ctx.progressionChecklist as string[]).slice(0, 3) : [];
+        if (failurePoints.length > 0 || checklist.length > 0) {
+          coachingContextText = `Level coaching context (${playerLevel.levelId}): Common failure points: ${failurePoints.join("; ") || "none"}. Progression checklist: ${checklist.join("; ") || "none"}.`;
+        }
+      }
+    }
+
     const digestsText =
       recentDigests.map((d) => `- ${d.summaryText}`).join("\n") ||
       "No session digests available yet.";
@@ -517,9 +536,9 @@ Skill scores tracked: ${skillProgress}
 ${evidenceSummary ? `Skill evidence captures: ${evidenceSummary}` : ""}
 ${baselineSummary ? `Assessment scores: ${baselineSummary}` : ""}
 Level curriculum skills (${ballLevel}): ${curriculumSkills.join(", ") || "none configured"}
-
-Task 1: Write a 3-4 sentence progress narrative summarising development over the last ${days} days. Be specific about observed trends and curriculum alignment.
-Task 2: Provide exactly 3 recommended focus areas for upcoming sessions, aligned to the curriculum skills listed above.
+${coachingContextText ? `\n${coachingContextText}` : ""}
+Task 1: Write a 3-4 sentence progress narrative summarising development over the last ${days} days. Be specific about observed trends and curriculum alignment. If coaching context is available, note whether the player shows any of the common failure points for their level.
+Task 2: Provide exactly 3 recommended focus areas for upcoming sessions, aligned to the curriculum skills and progression checklist listed above.
 
 Return ONLY valid JSON (no markdown, no code block), like:
 {"narrative": "...", "focusAreas": ["focus 1", "focus 2", "focus 3"]}`;
@@ -2977,6 +2996,32 @@ export async function generateSessionBrief(sessionId: string): Promise<SessionBr
         continue;
       }
 
+      // Fetch authoritative current level from playerBallLevels, fall back to player.ballLevel
+      const [currentLevelRecord] = await db
+        .select({ levelId: playerBallLevels.levelId })
+        .from(playerBallLevels)
+        .where(eq(playerBallLevels.playerId, playerId))
+        .orderBy(desc(playerBallLevels.assignedAt))
+        .limit(1);
+      const currentLevelId = currentLevelRecord?.levelId || player.ballLevel;
+
+      // Fetch level coaching context for this player's current level
+      let levelCtxLine = "";
+      if (currentLevelId) {
+        const [lcc] = await db
+          .select()
+          .from(levelCoachingContext)
+          .where(eq(levelCoachingContext.levelId, currentLevelId))
+          .limit(1);
+        if (lcc) {
+          const fp = Array.isArray(lcc.failurePoints) ? (lcc.failurePoints as string[]).slice(0, 2) : [];
+          const cl = Array.isArray(lcc.progressionChecklist) ? (lcc.progressionChecklist as string[]).slice(0, 2) : [];
+          if (fp.length > 0 || cl.length > 0) {
+            levelCtxLine = `Level ${currentLevelId} coaching context — Failure points: ${fp.join("; ") || "none"}. Progression checklist: ${cl.join("; ") || "none"}.`;
+          }
+        }
+      }
+
       // Build context strings
       const reflectionLines = recentReflections.map((r) => {
         const parts: string[] = [];
@@ -3022,8 +3067,8 @@ ${perceptionGapLines}
 
 Recent coach feedback notes:
 ${feedbackLines}
-
-Generate 2-3 concise coaching bullet points for the coach to focus on in today's session with this player. Each bullet must be directly actionable and specific. If there is a significant perception gap (absolute gap > 1.5), flag it. If the player mentioned a specific focus in their check-in, address it. Start each bullet with a dash (-). Never use emojis. Keep total response under 150 words.`;
+${levelCtxLine ? `\n${levelCtxLine}` : ""}
+Generate 2-3 concise coaching bullet points for the coach to focus on in today's session with this player. Each bullet must be directly actionable and specific. If there is a significant perception gap (absolute gap > 1.5), flag it. If the player mentioned a specific focus in their check-in, address it. If level coaching context is provided, use it to align the bullet points with the player's progression stage. Start each bullet with a dash (-). Never use emojis. Keep total response under 150 words.`;
 
       const systemPrompt = "You are an expert tennis/padel/pickleball coaching assistant. Generate pre-session coaching briefs to help coaches prepare. Be specific, data-driven, and concise. Never use emojis.";
 

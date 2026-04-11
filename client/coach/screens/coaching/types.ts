@@ -1,4 +1,4 @@
-export type TabType = "series" | "weekPlanner" | "roster" | "today" | "progress" | "plans" | "levels" | "templates" | "levelCards" | "matchLog" | "sessionPlan" | "feedback";
+export type TabType = "series" | "weekPlanner" | "roster" | "today" | "progress" | "plans" | "levels" | "templates" | "levelCards" | "matchLog" | "sessionPlan" | "feedback" | "drillBank";
 
 export interface SessionPlayer {
   id: string;

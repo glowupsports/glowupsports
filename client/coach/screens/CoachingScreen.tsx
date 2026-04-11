@@ -36,6 +36,7 @@ import { TemplatesTab } from "./coaching/TemplatesTab";
 import { LevelCardsTab } from "./coaching/LevelCardsTab";
 import { MatchLogTab } from "./coaching/MatchLogTab";
 import { SessionPlanTab } from "./coaching/SessionPlanTab";
+import { DrillBankTab } from "./coaching/DrillBankTab";
 
 const TAB_BAR_HEIGHT = 80;
 
@@ -384,6 +385,19 @@ export default function CoachingScreen() {
             </View>
             <Text style={[styles.glowToolLabel, activeTab === "sessionPlan" && { color: Colors.dark.gold }]}>Session Plan</Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.glowToolButton, activeTab === "drillBank" && styles.glowToolButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab(activeTab === "drillBank" ? "series" : "drillBank");
+            }}
+          >
+            <View style={[styles.glowToolIcon, { backgroundColor: "#A855F720" }, activeTab === "drillBank" && { backgroundColor: "#A855F740" }]}>
+              <Ionicons name="barbell-outline" size={18} color="#A855F7" />
+            </View>
+            <Text style={[styles.glowToolLabel, activeTab === "drillBank" && { color: "#A855F7" }]}>Drill Bank</Text>
+          </Pressable>
         </ScrollView>
       </View>
 
@@ -411,6 +425,8 @@ export default function CoachingScreen() {
         <MatchLogTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : activeTab === "sessionPlan" ? (
         <SessionPlanTab insets={insets} tabBarHeight={tabBarHeight} />
+      ) : activeTab === "drillBank" ? (
+        <DrillBankTab insets={insets} tabBarHeight={tabBarHeight} />
       ) : (
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
       )}

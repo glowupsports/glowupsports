@@ -7211,3 +7211,40 @@ export const sessionIntakeData = pgTable("session_intake_data", {
 export const insertSessionIntakeDataSchema = createInsertSchema(sessionIntakeData).omit({ id: true, createdAt: true });
 export type InsertSessionIntakeData = z.infer<typeof insertSessionIntakeDataSchema>;
 export type SessionIntakeData = typeof sessionIntakeData.$inferSelect;
+
+// ==================== CURRICULUM INTELLIGENCE ====================
+
+// Level Coaching Context - Failure points and progression checklists per level
+export const levelCoachingContext = pgTable("level_coaching_context", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  levelId: varchar("level_id").references(() => ballLevels.id).notNull().unique(),
+  failurePoints: jsonb("failure_points").$type<string[]>().default([]),
+  progressionChecklist: jsonb("progression_checklist").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("level_coaching_context_level_idx").on(table.levelId),
+]);
+
+export const insertLevelCoachingContextSchema = createInsertSchema(levelCoachingContext).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLevelCoachingContext = z.infer<typeof insertLevelCoachingContextSchema>;
+export type LevelCoachingContext = typeof levelCoachingContext.$inferSelect;
+
+// Drills - Standardized drill library
+export const drills = pgTable("drills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  skillArea: text("skill_area").notNull(), // TECHNIQUE, TACTICAL, PHYSICAL, MENTAL, SERVE, RETURN, etc.
+  stageRange: jsonb("stage_range").$type<string[]>().notNull().default([]), // ["RED", "ORANGE"], ["GLOW"] etc.
+  instruction: text("instruction").notNull(),
+  repRange: text("rep_range"), // e.g. "3 sets of 10", "10 min", "20 balls"
+  milestoneCriteria: text("milestone_criteria"), // Observable success criterion
+  source: text("source"), // "USTA", "Tennis Australia", "KNLTB", "Glow", "ITF"
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("drills_skill_area_idx").on(table.skillArea),
+]);
+
+export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true });
+export type InsertDrill = z.infer<typeof insertDrillSchema>;
+export type Drill = typeof drills.$inferSelect;
