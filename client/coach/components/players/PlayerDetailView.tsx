@@ -989,35 +989,62 @@ export function PlayerDetailView({
             </View>
           </View>
 
-          {/* Junior Assessment Button - visible for red/orange/green ball level players */}
+          {/* Junior Assessment Card - visible for red/orange/green ball level players */}
           {localPlayer.ballLevel && ["red", "orange", "green"].includes(localPlayer.ballLevel.toLowerCase()) ? (
             <Pressable
-              style={styles.juniorAssessBtn}
+              style={styles.juniorAssessCard}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setShowJuniorAssessment(true);
               }}
             >
-              {lastJuniorAssessmentResult ? (
-                <View style={[
-                  styles.assessedBadge,
-                  { backgroundColor: lastJuniorAssessmentResult.passed ? "#C8FF3D20" : Colors.dark.error + "20",
-                    borderColor: lastJuniorAssessmentResult.passed ? "#C8FF3D50" : Colors.dark.error + "50" }
-                ]}>
-                  <Ionicons
-                    name={lastJuniorAssessmentResult.passed ? "checkmark-circle" : "close-circle"}
-                    size={14}
-                    color={lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error}
-                  />
-                  <Text style={[styles.assessedBadgeText, { color: lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error }]}>
-                    {lastJuniorAssessmentResult.passed ? "PASS" : "FAIL"} {lastJuniorAssessmentResult.percentage}%
-                  </Text>
+              <LinearGradient
+                colors={["#C8FF3D18", "#C8FF3D06"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.juniorAssessCardGradient}
+              >
+                {lastJuniorAssessmentResult ? (
+                  <View style={styles.juniorAssessPriorResult}>
+                    <View style={[
+                      styles.assessedBadge,
+                      {
+                        backgroundColor: lastJuniorAssessmentResult.passed ? "#C8FF3D25" : Colors.dark.error + "25",
+                        borderColor: lastJuniorAssessmentResult.passed ? "#C8FF3D60" : Colors.dark.error + "60",
+                      }
+                    ]}>
+                      <Ionicons
+                        name={lastJuniorAssessmentResult.passed ? "checkmark-circle" : "close-circle"}
+                        size={16}
+                        color={lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error}
+                      />
+                      <Text style={[styles.assessedBadgeText, { color: lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error }]}>
+                        {lastJuniorAssessmentResult.passed ? "PASS" : "FAIL"}
+                      </Text>
+                    </View>
+                    <Text style={styles.juniorAssessScore}>
+                      {lastJuniorAssessmentResult.percentage}%
+                    </Text>
+                    <Text style={styles.juniorAssessDate}>
+                      {new Date(lastJuniorAssessmentResult.assessedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.juniorAssessCardRow}>
+                  <View style={styles.juniorAssessIconWrap}>
+                    <Ionicons name="ribbon-outline" size={26} color="#C8FF3D" />
+                  </View>
+                  <View style={styles.juniorAssessCardText}>
+                    <Text style={styles.juniorAssessBtnText}>
+                      {lastJuniorAssessmentResult ? "Re-assess for Promotion" : "Assess for Promotion"}
+                    </Text>
+                    <Text style={styles.juniorAssessCardSub}>
+                      USTA Junior Assessment
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#C8FF3D80" />
                 </View>
-              ) : null}
-              <Ionicons name="ribbon-outline" size={16} color="#C8FF3D" />
-              <Text style={styles.juniorAssessBtnText}>
-                {lastJuniorAssessmentResult ? "Re-assess" : "Assess for Promotion"}
-              </Text>
+              </LinearGradient>
             </Pressable>
           ) : null}
         </View>
