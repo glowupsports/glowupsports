@@ -23,7 +23,7 @@ interface CreditStoreModalProps {
 }
 
 type CreditType = "group" | "semi_private" | "private";
-type CreditQuantity = 1 | 5 | 10 | 20;
+type CreditQuantity = 1 | 5 | 10 | 20 | "custom";
 
 const CREDIT_TYPES: { key: CreditType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { key: "group", label: "Group", icon: "people", color: Colors.dark.xpCyan },
@@ -31,7 +31,7 @@ const CREDIT_TYPES: { key: CreditType; label: string; icon: keyof typeof Ionicon
   { key: "private", label: "Private", icon: "person", color: Colors.dark.orange },
 ];
 
-const QUANTITIES: CreditQuantity[] = [1, 5, 10, 20];
+const QUANTITIES: CreditQuantity[] = [1, 5, 10, 20, "custom"];
 
 const CREDIT_PRICES: Record<CreditType, number> = {
   group: 95,
@@ -42,8 +42,18 @@ const CREDIT_PRICES: Record<CreditType, number> = {
 export default function CreditStoreModal({ visible, onClose, playerId, playerName }: CreditStoreModalProps) {
   const [selectedType, setSelectedType] = useState<CreditType>("group");
   const [selectedQuantity, setSelectedQuantity] = useState<CreditQuantity>(5);
+  const [customQuantity, setCustomQuantity] = useState<string>("");
   const pricePerCredit = CREDIT_PRICES[selectedType];
   const queryClient = useQueryClient();
+
+  const effectiveQuantity: number =
+    selectedQuantity === "custom"
+      ? parseInt(customQuantity, 10) || 0
+      : selectedQuantity;
+
+  const isCustomValid =
+    selectedQuantity !== "custom" ||
+    (customQuantity.trim() !== "" && parseInt(customQuantity, 10) > 0);
 
   const grantCreditsMutation = useMutation({
     mutationFn: async (data: { playerId: string; creditType: CreditType; quantity: number; pricePerCredit: number }) => {
@@ -72,16 +82,17 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
   });
 
   const handleGrantCredits = () => {
+    if (!isCustomValid) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     grantCreditsMutation.mutate({
       playerId,
       creditType: selectedType,
-      quantity: selectedQuantity,
+      quantity: effectiveQuantity,
       pricePerCredit: pricePerCredit,
     });
   };
   
-  const totalPrice = pricePerCredit * selectedQuantity;
+  const totalPrice = pricePerCredit * effectiveQuantity;
 
   const selectedTypeInfo = CREDIT_TYPES.find(t => t.key === selectedType);
 
@@ -144,7 +155,7 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
               <View style={styles.quantityRow}>
                 {QUANTITIES.map((qty) => (
                   <Pressable
-                    key={qty}
+                    key={String(qty)}
                     style={[
                       styles.quantityCard,
                       selectedQuantity === qty && { 
@@ -155,18 +166,57 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setSelectedQuantity(qty);
+                      if (qty !== "custom") setCustomQuantity("");
                     }}
                   >
-                    <Text style={[
-                      styles.quantityValue, 
-                      selectedQuantity === qty && { color: selectedTypeInfo?.color }
-                    ]}>
-                      {qty}
-                    </Text>
-                    <Text style={styles.quantityLabel}>credits</Text>
+                    {qty === "custom" ? (
+                      <>
+                        <Ionicons
+                          name="create-outline"
+                          size={18}
+                          color={selectedQuantity === "custom" ? selectedTypeInfo?.color : Colors.dark.textMuted}
+                        />
+                        <Text style={[
+                          styles.quantityLabel,
+                          { marginTop: 2 },
+                          selectedQuantity === "custom" && { color: selectedTypeInfo?.color },
+                        ]}>
+                          Custom
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[
+                          styles.quantityValue, 
+                          selectedQuantity === qty && { color: selectedTypeInfo?.color }
+                        ]}>
+                          {qty}
+                        </Text>
+                        <Text style={styles.quantityLabel}>credits</Text>
+                      </>
+                    )}
                   </Pressable>
                 ))}
               </View>
+              {selectedQuantity === "custom" && (
+                <View style={styles.customInputContainer}>
+                  <TextInput
+                    style={[styles.customInput, { borderColor: selectedTypeInfo?.color ?? "rgba(255,255,255,0.2)" }]}
+                    placeholder="Enter quantity"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="numeric"
+                    value={customQuantity}
+                    onChangeText={(text) => setCustomQuantity(text.replace(/[^0-9]/g, ""))}
+                    maxLength={6}
+                    returnKeyType="done"
+                  />
+                  {!isCustomValid && (
+                    <Text style={styles.customInputHint}>
+                      {customQuantity.trim() === "" ? "Enter a whole number to continue" : "Please enter a number greater than zero"}
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
 
             <View style={styles.section}>
@@ -189,7 +239,7 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Adding</Text>
                 <Text style={[styles.summaryValue, { color: selectedTypeInfo?.color }]}>
-                  {selectedQuantity} {CREDIT_TYPES.find(t => t.key === selectedType)?.label} Credits
+                  {effectiveQuantity > 0 ? effectiveQuantity : "—"} {CREDIT_TYPES.find(t => t.key === selectedType)?.label} Credits
                 </Text>
               </View>
               <View style={styles.summaryRow}>
@@ -206,10 +256,10 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
                 style={[
                   styles.grantButton, 
                   { backgroundColor: selectedTypeInfo?.color },
-                  grantCreditsMutation.isPending && styles.buttonDisabled,
+                  (grantCreditsMutation.isPending || !isCustomValid) && styles.buttonDisabled,
                 ]} 
                 onPress={handleGrantCredits}
-                disabled={grantCreditsMutation.isPending}
+                disabled={grantCreditsMutation.isPending || !isCustomValid}
               >
                 {grantCreditsMutation.isPending ? (
                   <ActivityIndicator color={Colors.dark.buttonText} size="small" />
@@ -428,5 +478,22 @@ const styles = StyleSheet.create({
   totalPriceValue: {
     ...Typography.h3,
     fontWeight: "700",
+  },
+  customInputContainer: {
+    marginTop: Spacing.md,
+  },
+  customInput: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  customInputHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
 });
