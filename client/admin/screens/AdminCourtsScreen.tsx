@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -78,6 +78,12 @@ export default function AdminCourtsScreen() {
   const [creatingLocation, setCreatingLocation] = useState(false);
   const [newLocationBanner, setNewLocationBanner] = useState<string | null>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+    };
+  }, []);
 
   const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371;
@@ -679,7 +685,7 @@ export default function AdminCourtsScreen() {
                   <View style={styles.newLocationBanner}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
                     <Text style={styles.newLocationBannerText}>
-                      Location "{newLocationBanner}" created — rename it in Settings
+                      New location "{newLocationBanner}" created — rename it in Settings → Locations
                     </Text>
                   </View>
                 ) : null}
@@ -896,7 +902,7 @@ export default function AdminCourtsScreen() {
                   <View style={styles.newLocationBanner}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
                     <Text style={styles.newLocationBannerText}>
-                      Location "{newLocationBanner}" created — rename it in Settings
+                      New location "{newLocationBanner}" created — rename it in Settings → Locations
                     </Text>
                   </View>
                 ) : null}
