@@ -1,5 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
 import MapView, { Marker, Callout, PROVIDER_DEFAULT } from "react-native-maps";
@@ -76,6 +77,8 @@ interface PlaySession {
   waitlistStatus?: string | null;
   offeredAt?: string | null;
   claimWindowMinutes?: number;
+  sessionAcademyId?: string | null;
+  sessionAcademyName?: string | null;
 }
 
 interface NearbyPlayer {
@@ -217,6 +220,19 @@ export default function PlayScreen() {
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
   const [friendRequestPlayer, setFriendRequestPlayer] = useState<NearbyPlayer | null>(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [scope, setScope] = useState<"mine" | "all">("mine");
+  const SCOPE_KEY = "@play_scope";
+
+  useEffect(() => {
+    AsyncStorage.getItem(SCOPE_KEY).then(val => {
+      if (val === "all" || val === "mine") setScope(val);
+    }).catch(() => {});
+  }, []);
+
+  const handleScopeChange = useCallback((newScope: "mine" | "all") => {
+    setScope(newScope);
+    AsyncStorage.setItem(SCOPE_KEY, newScope).catch(() => {});
+  }, []);
 
   const scrollY = useSharedValue(0);
   const lastScrollY = useSharedValue(0);
@@ -295,7 +311,7 @@ export default function PlayScreen() {
   }, [hasSeenScreen, startWalkthrough]);
 
 
-  const { data: profileData } = useQuery<{ player: { ballLevel?: string; city?: string; country?: string } }>({
+  const { data: profileData } = useQuery<{ player: { ballLevel?: string; city?: string; country?: string }; academy?: { id: string; name: string } | null }>({
     queryKey: ["/api/player/me/profile"],
   });
 
@@ -389,6 +405,7 @@ export default function PlayScreen() {
   });
 
   const playerBallLevel = profileData?.player?.ballLevel?.toLowerCase() || "glow";
+  const playerAcademyId = profileData?.academy?.id || null;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -432,15 +449,18 @@ export default function PlayScreen() {
     return selectedBallLevel; // "all" or specific level
   }, [showOtherLevels, selectedBallLevel, playerBallLevel]);
 
-  const sessionsQueryKey = `/api/play/sessions?level=${sessionsLevelParam}&sport=${activeSport}`;
+  // Free players (no academy) always use "all" scope regardless of stored preference
+  const effectiveScope = playerAcademyId ? scope : "all";
+
+  const sessionsQueryKey = `/api/play/sessions?level=${sessionsLevelParam}&sport=${activeSport}&scope=${effectiveScope}`;
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery<PlaySession[]>({
     queryKey: [sessionsQueryKey],
   });
 
   const nearbyPlayersQueryKey = discoverFilter !== "all" 
-    ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}&travelTime=true` 
-    : `/api/play/nearby-players?sport=${activeSport}&travelTime=true`;
+    ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}&travelTime=true&scope=${effectiveScope}` 
+    : `/api/play/nearby-players?sport=${activeSport}&travelTime=true&scope=${effectiveScope}`;
   const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<NearbyPlayer[]>({
     queryKey: [nearbyPlayersQueryKey],
   });
@@ -775,6 +795,16 @@ export default function PlayScreen() {
                         {session.academyAverageRating.toFixed(1)}
                       </Text>
                     </View>
+                  ) : null}
+                  {session.sessionAcademyId && session.sessionAcademyId !== playerAcademyId && session.sessionAcademyName ? (
+                    <Pressable
+                      style={styles.crossAcademyBadge}
+                      onPress={() => navigation.navigate("AcademyProfile" as never, { academyId: session.sessionAcademyId } as never)}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="business-outline" size={12} color={Colors.dark.textMuted} />
+                      <Text style={styles.crossAcademyBadgeText}>{session.sessionAcademyName}</Text>
+                    </Pressable>
                   ) : null}
                   <View style={styles.epicMetaRow}>
                     <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
@@ -1657,6 +1687,22 @@ export default function PlayScreen() {
 
         {activeTab === "Group Lessons" ? (
           <>
+            {playerAcademyId ? (
+              <View style={styles.scopeToggleContainer}>
+                <Pressable
+                  style={[styles.scopeToggleBtn, scope === "mine" && styles.scopeToggleBtnActive]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("mine"); }}
+                >
+                  <Text style={[styles.scopeToggleText, scope === "mine" && styles.scopeToggleTextActive]}>My Academy</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.scopeToggleBtn, scope === "all" && styles.scopeToggleBtnActive]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("all"); }}
+                >
+                  <Text style={[styles.scopeToggleText, scope === "all" && styles.scopeToggleTextActive]}>Discover All</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <View style={styles.filterContainer}>
               <View style={styles.filterMainRow}>
                 <Pressable
@@ -1773,13 +1819,47 @@ export default function PlayScreen() {
                 <Text style={styles.loadingText}>{t("player.play.findingGroupLessons")}</Text>
               </View>
             ) : filteredSessions.length > 0 ? (
-              filteredSessions.map(renderSessionCard)
+              (() => {
+                if (effectiveScope === "all" && playerAcademyId) {
+                  const mySessions = filteredSessions.filter(s => s.sessionAcademyId === playerAcademyId || !s.sessionAcademyId);
+                  const otherSessions = filteredSessions.filter(s => s.sessionAcademyId && s.sessionAcademyId !== playerAcademyId);
+                  return (
+                    <>
+                      {mySessions.length > 0 ? (
+                        <>
+                          <View style={styles.sectionDivider}>
+                            <View style={styles.sectionDividerLine} />
+                            <Text style={styles.sectionDividerText}>YOUR ACADEMY</Text>
+                            <View style={styles.sectionDividerLine} />
+                          </View>
+                          {mySessions.map(renderSessionCard)}
+                        </>
+                      ) : null}
+                      {otherSessions.length > 0 ? (
+                        <>
+                          <View style={styles.sectionDivider}>
+                            <View style={styles.sectionDividerLine} />
+                            <Text style={styles.sectionDividerText}>DISCOVER NEARBY</Text>
+                            <View style={styles.sectionDividerLine} />
+                          </View>
+                          {otherSessions.map(renderSessionCard)}
+                        </>
+                      ) : null}
+                    </>
+                  );
+                }
+                return <>{filteredSessions.map(renderSessionCard)}</>;
+              })()
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
                 <Text style={styles.emptyTitle}>{t("player.play.noGroupLessons")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  {selectedBallLevel === "my_level" 
+                  {effectiveScope === "all"
+                    ? "No public lessons near you yet. Check back soon."
+                    : effectiveScope === "mine" && playerAcademyId
+                    ? "No upcoming group sessions at your academy"
+                    : selectedBallLevel === "my_level" 
                     ? `${t("player.play.noLevelLessons", { level: playerBallLevel.toUpperCase() })}`
                     : selectedBallLevel !== "all" 
                     ? `${t("player.play.noLevelLessons", { level: selectedBallLevel.toUpperCase() })}` 
@@ -1800,6 +1880,23 @@ export default function PlayScreen() {
                 ) : null}
               </View>
             </View>
+
+            {playerAcademyId ? (
+              <View style={styles.scopeToggleContainer}>
+                <Pressable
+                  style={[styles.scopeToggleBtn, scope === "mine" && styles.scopeToggleBtnActive]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("mine"); }}
+                >
+                  <Text style={[styles.scopeToggleText, scope === "mine" && styles.scopeToggleTextActive]}>My Academy</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.scopeToggleBtn, scope === "all" && styles.scopeToggleBtnActive]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("all"); }}
+                >
+                  <Text style={[styles.scopeToggleText, scope === "all" && styles.scopeToggleTextActive]}>Discover All</Text>
+                </Pressable>
+              </View>
+            ) : null}
             
             {/* Discovery Filter Chips */}
             <ScrollView 
@@ -1932,7 +2029,11 @@ export default function PlayScreen() {
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
                 <Text style={styles.emptyTitle}>{t("player.play.noPlayersFound")}</Text>
-                <Text style={styles.emptySubtitle}>{t("player.play.playersWillAppear")}</Text>
+                <Text style={styles.emptySubtitle}>
+                  {effectiveScope === "mine" && playerAcademyId
+                    ? "No players in your academy have the app yet"
+                    : "No players found in your area"}
+                </Text>
               </View>
             )}
           </>
@@ -3720,5 +3821,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  scopeToggleContainer: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: 3,
+  },
+  scopeToggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: BorderRadius.md,
+  },
+  scopeToggleBtnActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  scopeToggleText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  scopeToggleTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  sectionDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+    marginVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  sectionDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  sectionDividerText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+  },
+  crossAcademyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 3,
+  },
+  crossAcademyBadgeText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
 });

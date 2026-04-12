@@ -791,17 +791,24 @@ Return only the JSON array, nothing else.`;
       const academyId = currentPlayer?.academyId;
       console.log("[PlaySessions] Player:", playerId, "Academy:", academyId);
 
+      // scope param: 'mine' (default) = own academy only, 'all' = cross-academy
+      const scope = (req.query.scope as string) || "mine";
+
       // Get upcoming group/semi sessions from player's academy + public sessions
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 14); // Next 2 weeks
 
+      // For sessions, both 'mine' and 'all' scope use own-academy sessions.
+      // Cross-academy session discovery requires coaching_series.isPublic which
+      // will be available when Task #496 is merged. Until then, both scopes
+      // show own-academy sessions to prevent exposing private session data.
       const sessions = await db.query.sessions.findMany({
         where: (s, { and, or, eq, gte, lte, inArray }) => and(
           or(
             eq(s.academyId, academyId || ""),
-            eq(s.academyId, null as any) // Public sessions
+            eq(s.academyId, null as any)
           ),
           inArray(s.sessionType, ["group", "semi_private"]),
           eq(s.status, "scheduled"),
@@ -809,8 +816,21 @@ Return only the JSON array, nothing else.`;
           lte(s.startTime, futureDate)
         ),
         orderBy: (s, { asc }) => [asc(s.startTime)],
-        
       });
+
+      // Pre-fetch academy names for cross-academy mode
+      const academyNameCache = new Map<string, string>();
+      if (scope === "all" && academyId) {
+        const uniqueAcademyIds = [...new Set(sessions.map(s => s.academyId).filter(Boolean) as string[])];
+        for (const aid of uniqueAcademyIds) {
+          if (aid !== academyId && !academyNameCache.has(aid)) {
+            try {
+              const acad = await storage.getAcademy(aid);
+              if (acad?.name) academyNameCache.set(aid, acad.name);
+            } catch (e) {}
+          }
+        }
+      }
 
       // Determine which level(s) to show based on optional ?level= query param
       // level=all -> skip level filter entirely
@@ -989,6 +1009,8 @@ Return only the JSON array, nothing else.`;
           waitlistStatus,
           offeredAt,
           claimWindowMinutes,
+          sessionAcademyId: session.academyId || null,
+          sessionAcademyName: session.academyId ? (academyNameCache.get(session.academyId) || null) : null,
         };
       }));
 
@@ -1003,8 +1025,9 @@ Return only the JSON array, nothing else.`;
   router.get("/api/play/nearby-players", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
-      const { filter, travelTime } = req.query;
+      const { filter, travelTime, scope: scopeParam } = req.query;
       const useTravelTime = travelTime === "true";
+      const scope = (scopeParam as string) || "mine";
       
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
@@ -1016,7 +1039,7 @@ Return only the JSON array, nothing else.`;
       });
       
       const academyId = currentPlayer?.academyId;
-      console.log(`[NearbyPlayers] Player ${playerId} academyId: ${academyId}`);
+      console.log(`[NearbyPlayers] Player ${playerId} academyId: ${academyId} scope: ${scope}`);
 
       // Subquery: player IDs that belong to an active (verified) user account
       const activePlayerIdSubquery = db
@@ -1027,16 +1050,29 @@ Return only the JSON array, nothing else.`;
           isNotNull(users.playerId)
         ));
 
-      // Get players from the same academy who have an active user account, in one query
-      const activePlayers = await db
-        .select()
-        .from(players)
-        .where(and(
-          eq(players.academyId, academyId || ""),
-          ne(players.id, playerId),
-          inArray(players.id, activePlayerIdSubquery),
-          not(inArray(players.id, HIDDEN_PLAYER_IDS))
-        ));
+      let activePlayers;
+      if (scope === "all" || !academyId) {
+        // Cross-academy: show all active players across all academies
+        activePlayers = await db
+          .select()
+          .from(players)
+          .where(and(
+            ne(players.id, playerId),
+            inArray(players.id, activePlayerIdSubquery),
+            not(inArray(players.id, HIDDEN_PLAYER_IDS))
+          ));
+      } else {
+        // Get players from the same academy who have an active user account, in one query
+        activePlayers = await db
+          .select()
+          .from(players)
+          .where(and(
+            eq(players.academyId, academyId),
+            ne(players.id, playerId),
+            inArray(players.id, activePlayerIdSubquery),
+            not(inArray(players.id, HIDDEN_PLAYER_IDS))
+          ));
+      }
 
       // Bulk-fetch last_login_at for all active players to avoid N+1
       const playerIds = activePlayers.map(p => p.id);
@@ -1089,6 +1125,7 @@ Return only the JSON array, nothing else.`;
 
         return {
           privacyLevel: (player as any).privacyLevel || "platform",
+          candidateAcademyId: player.academyId || null, // used for privacy check, stripped before response
           id: player.id,
           name: player.name,
           level: player.level || 1,
@@ -1109,8 +1146,8 @@ Return only the JSON array, nothing else.`;
       // Apply privacy filter first - hidden players are never visible
       let filteredPlayers = enrichedPlayers.filter(p => {
         if (p.privacyLevel === "hidden") return false;
-        // Academy-only players only visible to same-academy members
-        if (p.privacyLevel === "academy" && currentPlayer?.academyId !== academyId) return false;
+        // Academy-only players only visible to players from their own academy
+        if (p.privacyLevel === "academy" && p.candidateAcademyId !== academyId) return false;
         return true;
       });
 
@@ -1182,8 +1219,8 @@ Return only the JSON array, nothing else.`;
         }
       }
 
-      // Strip internal location fields from response
-      const responseData = filteredPlayers.map(({ lastLatitude, lastLongitude, ...rest }) => rest);
+      // Strip internal fields from response (location data + server-only privacy fields)
+      const responseData = filteredPlayers.map(({ lastLatitude, lastLongitude, candidateAcademyId, privacyLevel, ...rest }) => rest);
       res.json(responseData);
     } catch (error) {
       console.error("Nearby players error:", error);
