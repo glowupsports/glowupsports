@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -75,6 +75,9 @@ export default function AdminCourtsScreen() {
   const [sportFilter, setSportFilter] = useState<SportOrMulti | "all">("all");
   const [courtAddressSearch, setCourtAddressSearch] = useState<{ address: string; lat: number; lng: number; placeId?: string; matchedLocationId?: string } | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [creatingLocation, setCreatingLocation] = useState(false);
+  const [newLocationBanner, setNewLocationBanner] = useState<string | null>(null);
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371;
@@ -111,15 +114,62 @@ export default function AdminCourtsScreen() {
     setCourtAddressSearch({ ...result, matchedLocationId });
   };
 
-  const handleMapPickerConfirm = (result: MapLocationResult) => {
-    const matchedLocationId = formData.locationId || courtAddressSearch?.matchedLocationId;
+  const handleMapPickerConfirm = async (result: MapLocationResult) => {
+    // Check for an existing location within 2 km
+    const locationsWithCoords = activeLocations.filter(l => l.lat && l.lng);
+    const nearby = locationsWithCoords.length > 0
+      ? locationsWithCoords
+          .map(l => ({ ...l, dist: haversineKm(result.lat, result.lng, l.lat!, l.lng!) }))
+          .sort((a, b) => a.dist - b.dist)[0]
+      : null;
+
+    if (nearby && nearby.dist < 2) {
+      // Good match — auto-select it and save the address
+      setFormData(prev => ({ ...prev, locationId: nearby.id }));
+      setCourtAddressSearch({
+        address: result.address,
+        lat: result.lat,
+        lng: result.lng,
+        placeId: courtAddressSearch?.placeId,
+        matchedLocationId: nearby.id,
+      });
+      return;
+    }
+
+    // No nearby match — derive a name and auto-create a new location
+    const segments = result.address.split(/\s*[,\-–|]\s*/);
+    const rawName = segments[0]?.trim() || "";
+    const locationName = rawName.length > 2 ? rawName : result.address.split(",")[0]?.trim() || "New Location";
+
     setCourtAddressSearch({
       address: result.address,
       lat: result.lat,
       lng: result.lng,
       placeId: courtAddressSearch?.placeId,
-      matchedLocationId,
     });
+    setCreatingLocation(true);
+
+    try {
+      const newLoc = await apiRequest("POST", "/api/admin/locations", {
+        name: locationName,
+        address: result.address,
+        lat: result.lat,
+        lng: result.lng,
+        timezone: "Asia/Dubai",
+      }) as { id: string };
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/locations"] });
+      setFormData(prev => ({ ...prev, locationId: newLoc.id }));
+      setCourtAddressSearch(prev =>
+        prev ? { ...prev, matchedLocationId: newLoc.id } : prev
+      );
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+      setNewLocationBanner(locationName);
+      bannerTimerRef.current = setTimeout(() => setNewLocationBanner(null), 5000);
+    } catch {
+      // Silent — user can still pick a location manually from the chips
+    } finally {
+      setCreatingLocation(false);
+    }
   };
 
   const [formData, setFormData] = useState({
@@ -340,6 +390,8 @@ export default function AdminCourtsScreen() {
       sport: "tennis",
     });
     setCourtAddressSearch(null);
+    setNewLocationBanner(null);
+    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
   };
 
   const handleCreate = () => {
@@ -409,6 +461,8 @@ export default function AdminCourtsScreen() {
       sport: court.sport || "tennis",
     });
     setCourtAddressSearch(null);
+    setNewLocationBanner(null);
+    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
     setShowEditModal(true);
   };
 
@@ -582,9 +636,14 @@ export default function AdminCourtsScreen() {
                 ) : null}
               </View>
 
-              {activeLocations.length > 0 && (
-                <View style={styles.formGroup}>
+              <View style={styles.formGroup}>
+                <View style={styles.locationLabelRow}>
                   <Text style={styles.label}>Location</Text>
+                  {creatingLocation ? (
+                    <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
+                  ) : null}
+                </View>
+                {activeLocations.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
                     {activeLocations.map((location) => (
                       <Pressable
@@ -606,8 +665,20 @@ export default function AdminCourtsScreen() {
                       </Pressable>
                     ))}
                   </ScrollView>
-                </View>
-              )}
+                ) : (
+                  <Text style={styles.locationEmptyHint}>
+                    {creatingLocation ? "Creating location…" : "Use Pick on map above to set the court location"}
+                  </Text>
+                )}
+                {newLocationBanner ? (
+                  <View style={styles.newLocationBanner}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                    <Text style={styles.newLocationBannerText}>
+                      Location "{newLocationBanner}" created — rename it in Settings
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Court Color</Text>
@@ -711,9 +782,9 @@ export default function AdminCourtsScreen() {
               </Pressable>
 
               <Pressable
-                style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
+                style={[styles.submitButton, (createMutation.isPending || creatingLocation) && styles.submitButtonDisabled]}
                 onPress={handleCreate}
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || creatingLocation}
               >
                 {createMutation.isPending ? (
                   <ActivityIndicator color={Colors.dark.buttonText} />
@@ -777,9 +848,14 @@ export default function AdminCourtsScreen() {
                 ) : null}
               </View>
 
-              {activeLocations.length > 0 && (
-                <View style={styles.formGroup}>
+              <View style={styles.formGroup}>
+                <View style={styles.locationLabelRow}>
                   <Text style={styles.label}>Location</Text>
+                  {creatingLocation ? (
+                    <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
+                  ) : null}
+                </View>
+                {activeLocations.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
                     {activeLocations.map((location) => (
                       <Pressable
@@ -801,8 +877,20 @@ export default function AdminCourtsScreen() {
                       </Pressable>
                     ))}
                   </ScrollView>
-                </View>
-              )}
+                ) : (
+                  <Text style={styles.locationEmptyHint}>
+                    {creatingLocation ? "Creating location…" : "Use Pick on map above to set the court location"}
+                  </Text>
+                )}
+                {newLocationBanner ? (
+                  <View style={styles.newLocationBanner}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                    <Text style={styles.newLocationBannerText}>
+                      Location "{newLocationBanner}" created — rename it in Settings
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Court Color</Text>
@@ -907,9 +995,9 @@ export default function AdminCourtsScreen() {
 
               <View style={styles.buttonRow}>
                 <Pressable
-                  style={[styles.submitButton, styles.flexButton, updateMutation.isPending && styles.submitButtonDisabled]}
+                  style={[styles.submitButton, styles.flexButton, (updateMutation.isPending || creatingLocation) && styles.submitButtonDisabled]}
                   onPress={handleUpdate}
-                  disabled={updateMutation.isPending}
+                  disabled={updateMutation.isPending || creatingLocation}
                 >
                   {updateMutation.isPending ? (
                     <ActivityIndicator color={Colors.dark.buttonText} />
@@ -1220,6 +1308,33 @@ const styles = StyleSheet.create({
   locationOptionTextActive: {
     color: Colors.dark.buttonText,
     fontWeight: "600",
+  },
+  locationLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  locationEmptyHint: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+  },
+  newLocationBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.2)",
+  },
+  newLocationBannerText: {
+    fontSize: Typography.tiny?.fontSize ?? 11,
+    color: Colors.dark.primary,
+    flex: 1,
   },
   colorPicker: {
     flexDirection: "row",
