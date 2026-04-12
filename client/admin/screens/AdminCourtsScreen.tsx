@@ -643,33 +643,38 @@ export default function AdminCourtsScreen() {
                     <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
                   ) : null}
                 </View>
-                {activeLocations.length > 0 ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
-                    {activeLocations.map((location) => (
-                      <Pressable
-                        key={location.id}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
+                  <Pressable
+                    style={[styles.locationOption, styles.locationOptionNew]}
+                    onPress={() => setShowMapPicker(true)}
+                  >
+                    <Text style={styles.locationOptionNewText}>+ New Location</Text>
+                  </Pressable>
+                  {activeLocations.map((location) => (
+                    <Pressable
+                      key={location.id}
+                      style={[
+                        styles.locationOption,
+                        formData.locationId === location.id && styles.locationOptionActive,
+                      ]}
+                      onPress={() => setFormData({ ...formData, locationId: location.id })}
+                    >
+                      <Text
                         style={[
-                          styles.locationOption,
-                          formData.locationId === location.id && styles.locationOptionActive,
+                          styles.locationOptionText,
+                          formData.locationId === location.id && styles.locationOptionTextActive,
                         ]}
-                        onPress={() => setFormData({ ...formData, locationId: location.id })}
                       >
-                        <Text
-                          style={[
-                            styles.locationOptionText,
-                            formData.locationId === location.id && styles.locationOptionTextActive,
-                          ]}
-                        >
-                          {location.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <Text style={styles.locationEmptyHint}>
-                    {creatingLocation ? "Creating location…" : "Use Pick on map above to set the court location"}
-                  </Text>
-                )}
+                        {location.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  {activeLocations.length === 0 ? (
+                    <Text style={[styles.locationEmptyHint, { alignSelf: "center", marginLeft: Spacing.sm }]}>
+                      {creatingLocation ? "Creating…" : "Pick on map to set location"}
+                    </Text>
+                  ) : null}
+                </ScrollView>
                 {newLocationBanner ? (
                   <View style={styles.newLocationBanner}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
@@ -855,33 +860,38 @@ export default function AdminCourtsScreen() {
                     <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
                   ) : null}
                 </View>
-                {activeLocations.length > 0 ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
-                    {activeLocations.map((location) => (
-                      <Pressable
-                        key={location.id}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
+                  <Pressable
+                    style={[styles.locationOption, styles.locationOptionNew]}
+                    onPress={() => setShowMapPicker(true)}
+                  >
+                    <Text style={styles.locationOptionNewText}>+ New Location</Text>
+                  </Pressable>
+                  {activeLocations.map((location) => (
+                    <Pressable
+                      key={location.id}
+                      style={[
+                        styles.locationOption,
+                        formData.locationId === location.id && styles.locationOptionActive,
+                      ]}
+                      onPress={() => setFormData({ ...formData, locationId: location.id })}
+                    >
+                      <Text
                         style={[
-                          styles.locationOption,
-                          formData.locationId === location.id && styles.locationOptionActive,
+                          styles.locationOptionText,
+                          formData.locationId === location.id && styles.locationOptionTextActive,
                         ]}
-                        onPress={() => setFormData({ ...formData, locationId: location.id })}
                       >
-                        <Text
-                          style={[
-                            styles.locationOptionText,
-                            formData.locationId === location.id && styles.locationOptionTextActive,
-                          ]}
-                        >
-                          {location.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <Text style={styles.locationEmptyHint}>
-                    {creatingLocation ? "Creating location…" : "Use Pick on map above to set the court location"}
-                  </Text>
-                )}
+                        {location.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  {activeLocations.length === 0 ? (
+                    <Text style={[styles.locationEmptyHint, { alignSelf: "center", marginLeft: Spacing.sm }]}>
+                      {creatingLocation ? "Creating…" : "Pick on map to set location"}
+                    </Text>
+                  ) : null}
+                </ScrollView>
                 {newLocationBanner ? (
                   <View style={styles.newLocationBanner}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
@@ -1307,6 +1317,15 @@ const styles = StyleSheet.create({
   },
   locationOptionTextActive: {
     color: Colors.dark.buttonText,
+    fontWeight: "600",
+  },
+  locationOptionNew: {
+    borderColor: Colors.dark.primary,
+    borderStyle: "dashed",
+  },
+  locationOptionNewText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   locationLabelRow: {
