@@ -7092,6 +7092,11 @@ export const storage = {
             AND reason IN ('session_booking', 'session_consumed')
             AND package_id IS NULL
             AND (metadata->>'packageId') IS NULL)
+          OR
+          (type = 'debit'
+            AND reason IN ('attendance_correction_deduct', 'refund_reversal')
+            AND COALESCE(metadata->>'settled', 'false') != 'true'
+            AND COALESCE(metadata->>'cancelled', 'false') != 'true')
         )
       GROUP BY credit_type
     `);
@@ -7626,6 +7631,11 @@ export const storage = {
             AND reason IN ('session_booking', 'session_consumed')
             AND package_id IS NULL
             AND (metadata->>'packageId') IS NULL)
+          OR
+          (type = 'debit'
+            AND reason IN ('attendance_correction_deduct', 'refund_reversal')
+            AND COALESCE(metadata->>'settled', 'false') != 'true'
+            AND COALESCE(metadata->>'cancelled', 'false') != 'true')
         )
       GROUP BY player_id, credit_type
     `);
