@@ -2518,7 +2518,7 @@ export const storage = {
                     description: `Debt: package deleted, pre-paid session became unpaid`,
                   })}::jsonb
                 )
-                ON CONFLICT (event_key) DO NOTHING
+                ON CONFLICT (event_key) WHERE event_key IS NOT NULL DO NOTHING
               `);
               // Mark the original booking transaction as cancelled to prevent double-accounting
               await tx.execute(sql`
