@@ -372,7 +372,7 @@ export default function AdminCourtsScreen() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/courts/${id}`),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/courts/${id}`),
     onSuccess: () => {
       invalidateCourts();
       setShowEditModal(false);
@@ -438,20 +438,24 @@ export default function AdminCourtsScreen() {
   };
 
   const handleDelete = (court: Court) => {
-    if (Platform.OS === "web") {
-      if (window.confirm(`Delete court "${court.name}"? This action cannot be undone.`)) {
-        deleteMutation.mutate(court.id);
+    setShowEditModal(false);
+    // Defer one frame so the modal finishes closing before the confirm dialog appears
+    setTimeout(() => {
+      if (Platform.OS === "web") {
+        if (window.confirm(`Delete court "${court.name}"? This action cannot be undone.`)) {
+          deleteMutation.mutate(court.id);
+        }
+      } else {
+        Alert.alert(
+          "Delete Court",
+          `Delete court "${court.name}"? This action cannot be undone.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
+          ]
+        );
       }
-    } else {
-      Alert.alert(
-        "Delete Court",
-        `Delete court "${court.name}"? This action cannot be undone.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
-        ]
-      );
-    }
+    }, 16);
   };
 
   const openEditModal = (court: Court) => {
