@@ -3378,115 +3378,103 @@ export const strokeTimelineStyles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // === JUNIOR ASSESSMENT STYLES ===
-  juniorAssessCard: {
+  // === ASSESS FOR PROMOTION CARD ===
+  assessCard: {
     marginTop: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 16,
+    borderWidth: 1.5,
     overflow: "hidden",
   },
-  juniorAssessCardGradient: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
-  },
-  juniorAssessPriorResult: {
+  assessGradient: {},
+  assessResultStripe: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 9,
     borderBottomWidth: 1,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
   },
-  juniorAssessScore: {
+  assessResultBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  assessResultBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  assessResultScore: {
+    flex: 1,
+    textAlign: "center",
     fontSize: FontSizes.xl,
     fontWeight: "800",
     color: "#FFFFFF",
     letterSpacing: -0.5,
   },
-  juniorAssessDate: {
+  assessResultDate: {
     fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
-    textAlign: "right",
   },
-  juniorAssessLevelRow: {
+  assessRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xs,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
   },
-  juniorAssessLevelChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  juniorAssessLevelChipEmoji: {
-    fontSize: 13,
-  },
-  juniorAssessLevelChipText: {
-    fontSize: FontSizes.xs,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  juniorAssessCardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  juniorAssessIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.md,
+  assessIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.5,
     shadowRadius: 10,
-    elevation: 6,
+    elevation: 5,
   },
-  juniorAssessCardText: {
+  assessTextBlock: {
     flex: 1,
     gap: 5,
   },
-  juniorAssessBtnText: {
-    fontSize: FontSizes.xl,
+  assessTitle: {
+    fontSize: 16,
     fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
-  juniorAssessUstaBadge: {
+  assessLevelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  assessLevelChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  assessLevelChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  assessUstaBadge: {
     alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
   },
-  juniorAssessCardSub: {
+  assessUstaText: {
     fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-  assessedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-  },
-  assessedBadgeText: {
-    fontSize: FontSizes.xs,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    letterSpacing: 0.6,
   },
   ustaAssessedBadge: {
     flexDirection: "row",
