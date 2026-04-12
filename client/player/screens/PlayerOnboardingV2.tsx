@@ -51,6 +51,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize, childTshirtSizes, adultTshirtSizes } from "@shared/schema";
 import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import * as Localization from "expo-localization";
+import * as Location from "expo-location";
 
 const ISO_TO_COUNTRY: Record<string, string> = {
   AE: "United Arab Emirates",
@@ -1598,13 +1599,41 @@ function AvailabilityStep({ data, setData, onNext }: StepProps) {
 }
 
 function AcademySelectionStep({ data, setData, onNext }: StepProps) {
-  const detectedRegion = Localization.getLocales?.()[0]?.regionCode ?? null;
-  const detectedCountry = detectedRegion ? (ISO_TO_COUNTRY[detectedRegion] ?? null) : null;
+  const localeRegion = Localization.getLocales?.()[0]?.regionCode ?? null;
+  const localeCountry = localeRegion ? (ISO_TO_COUNTRY[localeRegion] ?? null) : null;
 
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(detectedCountry);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(localeCountry);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showingAll, setShowingAll] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status === "granted") {
+          const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+          if (cancelled) return;
+          const [result] = await Location.reverseGeocodeAsync({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+          if (cancelled) return;
+          if (result?.isoCountryCode) {
+            const gpsCountry = ISO_TO_COUNTRY[result.isoCountryCode.toUpperCase()] ?? null;
+            if (gpsCountry) setSelectedCountry(gpsCountry);
+          }
+        }
+      } catch (_) {
+      } finally {
+        if (!cancelled) setIsDetectingLocation(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const isCountryFiltered = !!selectedCountry && !showingAll;
 
@@ -1660,39 +1689,38 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
         <Text style={styles.stepSubtitle}>Join an academy or continue independently.</Text>
       </Animated.View>
 
-      {selectedCountry && !showingAll ? (
-        <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.locationHeader}>
-          <View style={styles.locationRow}>
-            <Ionicons name="location" size={16} color={GlowColors.primary} />
-            <Text style={styles.locationLabel}>Academies in {selectedCountry}</Text>
-          </View>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowCountryModal(true);
-            }}
-          >
-            <Text style={styles.changeCountryLink}>Not in {selectedCountry}?</Text>
-          </Pressable>
-        </Animated.View>
-      ) : (
-        <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.locationHeader}>
-          <View style={styles.locationRow}>
-            <Ionicons name="globe-outline" size={16} color={Colors.dark.textMuted} />
-            <Text style={[styles.locationLabel, { color: Colors.dark.textMuted }]}>All academies</Text>
-          </View>
-          {countries.length > 0 ? (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowCountryModal(true);
-              }}
-            >
-              <Text style={styles.changeCountryLink}>Filter by country</Text>
-            </Pressable>
-          ) : null}
-        </Animated.View>
-      )}
+      <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.locationHeader}>
+        <View style={styles.locationRow}>
+          {isDetectingLocation ? (
+            <>
+              <Ionicons name="location-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={[styles.locationLabel, { color: Colors.dark.textMuted }]}>Detecting location...</Text>
+            </>
+          ) : selectedCountry && !showingAll ? (
+            <>
+              <Ionicons name="location" size={16} color={GlowColors.primary} />
+              <Text style={styles.locationLabel}>Academies in {selectedCountry}</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="globe-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={[styles.locationLabel, { color: Colors.dark.textMuted }]}>All academies</Text>
+            </>
+          )}
+        </View>
+        <Pressable
+          style={styles.changeCountryButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowCountryModal(true);
+          }}
+        >
+          <Ionicons name="swap-horizontal" size={13} color={GlowColors.primary} />
+          <Text style={styles.changeCountryButtonText}>
+            {selectedCountry && !showingAll ? `Not in ${selectedCountry}?` : "Choose country"}
+          </Text>
+        </Pressable>
+      </Animated.View>
 
       {citiesInCountry.length > 1 ? (
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
@@ -3175,6 +3203,22 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     textDecorationLine: "underline",
+  },
+  changeCountryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: GlowColors.primary,
+    backgroundColor: `${GlowColors.primary}12`,
+  },
+  changeCountryButtonText: {
+    ...Typography.small,
+    color: GlowColors.primary,
+    fontWeight: "600",
   },
   cityChipsRow: {
     marginBottom: Spacing.md,
