@@ -318,7 +318,7 @@ export default function AcademyBrowserScreen() {
                   joinMutation.mutate({ academyId, message })
                 }
                 onViewProfile={(academyId) => 
-                  navigation.navigate("AcademyProfile", { academyId })
+                  navigation.navigate("AcademyPublicProfile", { academyId })
                 }
                 isSubmitting={joinMutation.isPending}
               />

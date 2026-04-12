@@ -32,6 +32,7 @@ interface CoachDetails {
   reviewsCount?: number;
   recentReviews?: RecentReview[];
   profilePhotoUrl?: string | null;
+  academyId?: string | null;
 }
 
 export default function PlayerCoachProfileScreen() {
@@ -238,6 +239,19 @@ export default function PlayerCoachProfileScreen() {
             ))}
           </Card>
         ) : null}
+
+        {coach.academyId ? (
+          <Pressable
+            style={styles.academyCard}
+            onPress={() => navigation.navigate("AcademyPublicProfile", { academyId: coach.academyId })}
+          >
+            <View style={styles.academyCardContent}>
+              <Ionicons name="business-outline" size={20} color={Colors.dark.xpCyan} />
+              <ThemedText style={styles.academyCardText}>View Academy Profile</ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
       </ScrollView>
     </ThemedView>
   );
@@ -430,5 +444,28 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     lineHeight: 20,
     fontStyle: "italic",
+  },
+  academyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xl,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  academyCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  academyCardText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
   },
 });

@@ -4367,6 +4367,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         reviewsCount,
         recentReviews,
         profilePhotoUrl: coach.profilePhotoUrl || null,
+        academyId: coach.academyId || null,
       });
     } catch (error) {
       console.error("Error fetching coach profile:", error);

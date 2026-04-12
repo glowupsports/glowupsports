@@ -53,6 +53,7 @@ import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScree
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
+import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
 import CommunityScreen from "@/player/screens/CommunityScreen";
 import QuestsScreen from "@/player/screens/QuestsScreen";
 import ShopScreen from "@/player/screens/ShopScreen";
@@ -260,6 +261,7 @@ export type PlayerStackParamList = {
   EditProfile: undefined;
   AcademyBrowser: undefined;
   AcademyProfile: { academyId: string };
+  AcademyPublicProfile: { academyId: string };
   CoachDirectory: undefined;
   TransferRequest: { academyId?: string; academyName?: string } | undefined;
   ParentDashboard: undefined;
@@ -1093,6 +1095,14 @@ function PlayerStackNavigator() {
         component={PlayerCoachProfileScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="AcademyPublicProfile" 
+        component={PlayerAcademyProfileScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 

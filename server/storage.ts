@@ -912,12 +912,129 @@ export const storage = {
       eq(coaches.showProfileToPlayers, true),
       eq(coaches.bioStatus, "approved")
     ));
-    
+
+    // Enrich coaches with review stats (averageRating, totalRatings)
+    let coachReviewStatsMap: Record<string, { averageRating: string | null; totalReviews: number }> = {};
+    if (coachList.length > 0) {
+      try {
+        const coachIds = coachList.map(c => c.id);
+        const statsRows = await db.select({
+          coachId: coachReviewStats.coachId,
+          averageOverall: coachReviewStats.averageOverall,
+          totalReviews: coachReviewStats.totalReviews,
+        }).from(coachReviewStats).where(inArray(coachReviewStats.coachId, coachIds));
+        for (const s of statsRows) {
+          coachReviewStatsMap[s.coachId] = {
+            averageRating: s.averageOverall?.toString() ?? null,
+            totalReviews: s.totalReviews ?? 0,
+          };
+        }
+      } catch {
+        // Review stats not available
+      }
+    }
+    const coachesWithRatings = coachList.map(coach => ({
+      ...coach,
+      averageRating: coachReviewStatsMap[coach.id]?.averageRating ?? null,
+      totalRatings: coachReviewStatsMap[coach.id]?.totalReviews ?? 0,
+    }));
+
+    // Public coaching groups — only group sessionType (not private/semi-private)
+    // coachingSeries does not have an isPublic column yet, so we use sessionType as proxy.
+    const publicGroups = await db.select({
+      id: coachingSeries.id,
+      title: coachingSeries.title,
+      sport: coachingSeries.sport,
+      ballLevel: coachingSeries.ballLevel,
+      dayOfWeek: coachingSeries.dayOfWeek,
+      startTime: coachingSeries.startTime,
+      duration: coachingSeries.duration,
+      price: coachingSeries.price,
+      maxPlayers: coachingSeries.maxPlayers,
+      status: coachingSeries.status,
+      sessionType: coachingSeries.sessionType,
+    }).from(coachingSeries).where(and(
+      eq(coachingSeries.academyId, academyId),
+      eq(coachingSeries.status, "active"),
+      eq(coachingSeries.sessionType, "group") // Only expose public group sessions
+    )).limit(10);
+
+    // Active player counts per series
+    const groupPlayerCounts: Record<string, number> = {};
+    if (publicGroups.length > 0) {
+      const seriesIds = publicGroups.map(g => g.id);
+      const activeCounts = await db.select({
+        seriesId: seriesPlayers.seriesId,
+        cnt: count(),
+      }).from(seriesPlayers).where(and(
+        inArray(seriesPlayers.seriesId, seriesIds),
+        eq(seriesPlayers.status, "active")
+      )).groupBy(seriesPlayers.seriesId);
+      for (const row of activeCounts) {
+        groupPlayerCounts[row.seriesId] = row.cnt;
+      }
+    }
+
+    const publicGroupsWithSpots = publicGroups.map(g => ({
+      ...g,
+      enrolledCount: groupPlayerCounts[g.id] || 0,
+      spotsLeft: g.maxPlayers != null ? Math.max(0, g.maxPlayers - (groupPlayerCounts[g.id] || 0)) : null,
+    }));
+
+    // Upcoming public tournaments
+    // tournaments.is_public column may not exist yet (Task #498), so we try with it first,
+    // then fall back to public-status-only filter.
+    interface TournamentRow {
+      id: string;
+      name: string;
+      sport: string;
+      startDate: string;
+      endDate: string;
+      entryFee: string | null;
+      status: string;
+      spotsTotal: number;
+      location: string;
+    }
+    let upcomingTournaments: TournamentRow[] = [];
+    try {
+      const todayStr = new Date().toISOString().split("T")[0];
+      // Attempt to filter by is_public=true when the column exists
+      const rows = await db.execute(sql`
+        SELECT id, name, sport, start_date as "startDate", end_date as "endDate",
+               entry_fee as "entryFee", status, spots_total as "spotsTotal", location
+        FROM tournaments
+        WHERE academy_id = ${academyId}
+          AND start_date >= ${todayStr}
+          AND (is_public IS NULL OR is_public = true)
+          AND status IN ('upcoming', 'registration_open', 'in_progress')
+        ORDER BY start_date ASC
+        LIMIT 5
+      `);
+      upcomingTournaments = (rows.rows ?? []) as TournamentRow[];
+    } catch {
+      // is_public column or table issue — skip tournaments gracefully
+      upcomingTournaments = [];
+    }
+
+    // Trust signals
+    const completedSessionsResult = await db.select({ count: count() })
+      .from(sessions)
+      .where(and(
+        eq(sessions.academyId, academyId),
+        eq(sessions.status, "completed")
+      ));
+
     return {
       ...academy[0],
       coachCount: coachResult[0]?.count || 0,
       playerCount: playerResult[0]?.count || 0,
-      coaches: coachList,
+      coaches: coachesWithRatings,
+      publicGroups: publicGroupsWithSpots,
+      upcomingTournaments,
+      trustSignals: {
+        totalSessions: completedSessionsResult[0]?.count || 0,
+        activePlayers: playerResult[0]?.count || 0,
+      },
     };
   },
 

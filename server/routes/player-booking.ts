@@ -987,6 +987,7 @@ Return only the JSON array, nothing else.`;
           coachAverageRating,
           coachTotalRatings,
           academyAverageRating,
+          academyId: session.academyId || null,
           ballLevel: session.ballLevel,
           vibe: session.vibe || "casual",
           minLevel: session.minLevel,

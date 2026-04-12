@@ -59,6 +59,7 @@ interface PlaySession {
   coachAverageRating?: number | null;
   coachTotalRatings?: number;
   academyAverageRating?: number | null;
+  academyId?: string | null;
   ballLevel?: string;
   vibe: string;
   minLevel?: number;
@@ -758,10 +759,14 @@ export default function PlayScreen() {
                       {getBallLevelLabel(session.ballLevel)}
                     </Text>
                   )}
-                  <View style={styles.epicLocationRow}>
+                  <Pressable
+                    style={styles.epicLocationRow}
+                    onPress={session.academyId ? () => navigation.navigate("AcademyPublicProfile" as never, { academyId: session.academyId } as never) : undefined}
+                    disabled={!session.academyId}
+                  >
                     <Ionicons name="location" size={14} color={Colors.dark.primary} />
                     <Text style={styles.epicLocationText}>{session.locationName}</Text>
-                  </View>
+                  </Pressable>
                   {session.coachName ? (
                     <View style={styles.epicCoachRow}>
                       <Ionicons name="person" size={13} color={Colors.dark.xpCyan} />
