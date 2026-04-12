@@ -2212,7 +2212,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
       {!data.academyId ? (
         <Animated.View entering={FadeInDown.delay(900).duration(600)} style={styles.inviteNudgeCard}>
           <Ionicons name="people" size={24} color={GlowColors.primary} />
-          <Text style={styles.inviteNudgeTitle}>Nodig je eerste tennismaatje uit</Text>
+          <Text style={styles.inviteNudgeTitle}>Invite your first tennis buddy</Text>
           <Text style={styles.inviteNudgeSubtitle}>Play and grow together with friends</Text>
           <Pressable
             style={styles.inviteNudgeBtn}
@@ -2228,14 +2228,14 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
                   }
                 } catch {}
                 await Share.share({
-                  message: `Speel tennis met mij op Glow Up Tennis! Download de app en start je reis: ${inviteLink}`,
-                  title: "Nodig tennismaatjes uit",
+                  message: `Play tennis with me on Glow Up Tennis! Download the app and start your journey: ${inviteLink}`,
+                  title: "Invite tennis friends",
                 });
               } catch {}
             }}
           >
             <Ionicons name="share-social" size={16} color={Colors.dark.buttonText} />
-            <Text style={styles.inviteNudgeBtnText}>Nodig uit</Text>
+            <Text style={styles.inviteNudgeBtnText}>Invite</Text>
           </Pressable>
         </Animated.View>
       ) : null}
