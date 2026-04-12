@@ -584,6 +584,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             city: academy.city,
             country: academy.country,
             description: academy.description,
+            logoUrl: academy.logoUrl,
             coachCount: coaches.length,
             playerCount: players.length,
           };

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +23,10 @@ interface Academy {
   id: string;
   name: string;
   slug: string;
+  city?: string | null;
+  country?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
   coachCount?: number;
   playerCount?: number;
 }
@@ -80,6 +85,8 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
     );
   };
 
+  const locationText = [academy.city, academy.country].filter(Boolean).join(", ");
+
   return (
     <Pressable 
       style={[styles.academyCard, CardStyles.elevated]}
@@ -89,12 +96,27 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
       }}
     >
       <View style={styles.academyHeader}>
-        <View style={[styles.academyIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
-          <Ionicons name="business" size={24} color={Colors.dark.xpCyan} />
-        </View>
+        {academy.logoUrl ? (
+          <Image
+            source={{ uri: academy.logoUrl }}
+            style={styles.academyLogo}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.academyIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
+            <Text style={styles.academyInitial}>{academy.name.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
         <View style={styles.academyInfo}>
           <Text style={styles.academyName}>{academy.name}</Text>
-          <Text style={styles.academySlug}>@{academy.slug}</Text>
+          {locationText ? (
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={12} color={Colors.dark.textMuted} />
+              <Text style={styles.locationText}>{locationText}</Text>
+            </View>
+          ) : (
+            <Text style={styles.academySlug}>@{academy.slug}</Text>
+          )}
         </View>
         {getStatusBadge()}
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -115,6 +137,10 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
             </View>
           ) : null}
         </View>
+      ) : null}
+
+      {academy.description ? (
+        <Text style={styles.descriptionExcerpt} numberOfLines={2}>{academy.description}</Text>
       ) : null}
 
       {showMessageInput ? (
@@ -403,12 +429,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  academyLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   academyIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
+  },
+  academyInitial: {
+    ...Typography.h4,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
   },
   academyInfo: {
     flex: 1,
@@ -422,6 +458,23 @@ const styles = StyleSheet.create({
   academySlug: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 2,
+  },
+  locationText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  descriptionExcerpt: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.sm,
+    paddingLeft: 60,
+    lineHeight: 18,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
