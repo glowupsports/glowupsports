@@ -33,7 +33,6 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
     Friends: "friends",
     GameLobby: "gameLobby",
     Events: "events",
-    Payments: "payments",
     Settings: "settings",
   };
   const currentMenuId = routeToMenuId[currentRouteName] || currentRouteName;
@@ -67,7 +66,6 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
       friends: "Friends",
       gameLobby: "GameLobby",
       events: "Events",
-      payments: "Payments",
       settings: "Settings",
     };
     const routeName = routeMap[screenId];

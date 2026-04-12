@@ -162,7 +162,6 @@ export const DRAWER_ITEMS = [
   { id: "friends", name: "Friends", icon: "people-outline" },
   { id: "gameLobby", name: "Game Lobby", icon: "grid-outline" },
   { id: "events", name: "Events Calendar", icon: "calendar-outline" },
-  { id: "payments", name: "Payments", icon: "card-outline" },
   { id: "settings", name: "Settings", icon: "settings-outline" },
 ];
 

@@ -179,7 +179,6 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     items: [
       { id: "parentdash", title: "Parent Dashboard", subtitle: "Family overview", icon: "home", screen: "ParentDashboard" },
       { id: "lessons", title: "Lessons Overview", subtitle: "Child's sessions", icon: "school", screen: "ParentLessons" },
-      { id: "invoices", title: "Invoices", subtitle: "Payment history", icon: "receipt", screen: "ParentInvoices" },
       { id: "creditstore", title: "Credit Store", subtitle: "Buy credits", icon: "card", screen: "ParentCreditStore" },
       { id: "familysettings", title: "Family Settings", subtitle: "PIN & access", icon: "settings", screen: "ParentSettings" },
     ],

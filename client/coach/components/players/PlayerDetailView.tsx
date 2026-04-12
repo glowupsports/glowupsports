@@ -43,7 +43,6 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
-import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
 import { PlayerAttendanceSection } from "./PlayerAttendanceSection";
 import { PlayerStrokeFeedbackSection } from "./PlayerStrokeFeedbackSection";
 import { PlayerNotesSection } from "./PlayerNotesSection";
@@ -1203,10 +1202,6 @@ export function PlayerDetailView({
 
         <CollapsibleSection title="Packages" icon="ticket-outline" iconColor={Colors.dark.gold}>
           <PackagesCard playerId={player.id} playerName={localPlayer.name} />
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Payments" icon="card-outline" iconColor={Colors.dark.primary}>
-          <PlayerPaymentsSection playerStats={playerStats} playerId={player.id} playerName={localPlayer.name} />
         </CollapsibleSection>
 
         {isInvitePending && inviteData?.inviteCode ? (

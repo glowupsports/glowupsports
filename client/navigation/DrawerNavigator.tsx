@@ -11,7 +11,6 @@ import RankingScreen from "@/screens/RankingScreen";
 import FriendsScreen from "@/player/screens/FriendsListScreen";
 import GameLobbyScreen from "@/screens/GameLobbyScreen";
 import EventsScreen from "@/screens/EventsScreen";
-import PaymentsScreen from "@/screens/PaymentsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import AdultGlowRankScreen from "@/screens/AdultGlowRankScreen";
 import AdultRanksListScreen from "@/screens/AdultRanksListScreen";
@@ -31,7 +30,6 @@ export type DrawerParamList = {
   Friends: undefined;
   GameLobby: undefined;
   Events: undefined;
-  Payments: undefined;
   Settings: undefined;
 };
 
@@ -113,11 +111,6 @@ export default function DrawerNavigator() {
         name="Events"
         component={EventsScreen}
         options={{ headerShown: true, headerTitle: t('nav.events') }}
-      />
-      <Drawer.Screen
-        name="Payments"
-        component={PaymentsScreen}
-        options={{ headerShown: true, headerTitle: t('nav.payments') }}
       />
       <Drawer.Screen
         name="Settings"

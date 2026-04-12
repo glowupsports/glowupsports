@@ -19,7 +19,7 @@ import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
-import { AdminPlayer, AdminPlayerPackage, AdminPlayerInvoice, AdminPlayerSessionItem, AdminPlayerStats } from "./adminPlayerTypes";
+import { AdminPlayer, AdminPlayerPackage, AdminPlayerSessionItem, AdminPlayerStats } from "./adminPlayerTypes";
 
 interface AdminInlinePlayerProfileProps {
   selectedPlayerId: string;
@@ -27,9 +27,7 @@ interface AdminInlinePlayerProfileProps {
   onBack: () => void;
   onEditPlayer: (player: { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; parentName?: string; parentPhone?: string; dateOfBirth?: string | null }) => void;
   onShowDeleteModal: () => void;
-  onShowInvoiceModal: () => void;
   onShowCreditStoreModal: () => void;
-  onShowRecordPaymentModal: () => void;
   onShowMarkPaidModal: (pkg: AdminPlayerPackage) => void;
 }
 
@@ -46,24 +44,13 @@ function getBallLevelColor(level?: string): string {
   }
 }
 
-function getPaymentStatusColor(status?: string): string {
-  switch (status) {
-    case "paid": return Colors.dark.successNeon;
-    case "partial": return Colors.dark.orange;
-    case "overdue": return Colors.dark.error;
-    default: return Colors.dark.textMuted;
-  }
-}
-
 export function AdminInlinePlayerProfile({
   selectedPlayerId,
   selectedPlayer,
   onBack,
   onEditPlayer,
   onShowDeleteModal,
-  onShowInvoiceModal,
   onShowCreditStoreModal,
-  onShowRecordPaymentModal,
   onShowMarkPaidModal,
 }: AdminInlinePlayerProfileProps) {
   const insets = useSafeAreaInsets();
@@ -411,130 +398,6 @@ export function AdminInlinePlayerProfile({
               </>
             ) : null}
           </Pressable>
-
-          <View style={[styles.section, CardStyles.elevated]}>
-            <Text style={styles.sectionTitle}>Payments</Text>
-            <View style={styles.paymentSummary}>
-              <View style={[styles.paymentStatusBadge, { backgroundColor: `${getPaymentStatusColor(stats.payments.status)}20` }]}>
-                <Text style={[styles.paymentStatusText, { color: getPaymentStatusColor(stats.payments.status) }]}>
-                  {stats.payments.status?.toUpperCase() || "N/A"}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.financeRow}>
-              <Text style={styles.financeLabel}>Total Owed</Text>
-              <Text style={[styles.financeValue, { color: Colors.dark.error }]}>
-                {stats.payments.currency} {stats.payments.totalOwed}
-              </Text>
-            </View>
-            <View style={styles.financeRow}>
-              <Text style={styles.financeLabel}>Total Paid</Text>
-              <Text style={[styles.financeValue, { color: Colors.dark.successNeon }]}>
-                {stats.payments.currency} {stats.payments.totalPaid}
-              </Text>
-            </View>
-            {stats.payments.lastPaymentDate ? (
-              <View style={styles.financeRow}>
-                <Text style={styles.financeLabel}>Last Payment</Text>
-                <Text style={styles.financeValue}>{stats.payments.lastPaymentDate}</Text>
-              </View>
-            ) : null}
-            <View style={styles.paymentActions}>
-              <Pressable
-                style={styles.recordPaymentButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onShowRecordPaymentModal();
-                }}
-              >
-                <Ionicons name="card-outline" size={16} color={Colors.dark.buttonText} />
-                <Text style={styles.recordPaymentText}>Record Payment</Text>
-              </Pressable>
-              <Pressable
-                style={styles.createInvoiceButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onShowInvoiceModal();
-                }}
-              >
-                <Ionicons name="document-text-outline" size={16} color={Colors.dark.successNeon} />
-                <Text style={styles.createInvoiceText}>Create Invoice</Text>
-              </Pressable>
-            </View>
-            {stats.payments.invoices && stats.payments.invoices.length > 0 ? (
-              <View style={{ marginTop: Spacing.md }}>
-                <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700", letterSpacing: 1, marginBottom: Spacing.sm }}>
-                  INVOICES ({stats.payments.invoices.length})
-                </Text>
-                {stats.payments.invoices.map((inv: AdminPlayerInvoice) => {
-                  const isOverdue = inv.isOverdue;
-                  const isPaid = inv.status === "paid";
-                  const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
-                  const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
-                  return (
-                    <View key={inv.id} style={{
-                      backgroundColor: "rgba(255,255,255,0.04)",
-                      borderRadius: BorderRadius.sm,
-                      padding: Spacing.sm,
-                      marginBottom: 6,
-                      borderLeftWidth: 3,
-                      borderLeftColor: statusColor,
-                    }}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 13, color: Colors.dark.text, fontWeight: "600" }}>#{inv.invoiceNumber}</Text>
-                          <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
-                            Due: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "No date"}
-                          </Text>
-                        </View>
-                        <Text style={{ fontSize: 15, fontWeight: "700", color: statusColor }}>
-                          {inv.currency} {inv.amount.toLocaleString()}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
-                        <View style={{ backgroundColor: `${statusColor}20`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.xs }}>
-                          <Text style={{ fontSize: 10, fontWeight: "700", color: statusColor }}>{statusLabel}</Text>
-                        </View>
-                        {!isPaid ? (
-                          <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
-                            <Pressable
-                              style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${Colors.dark.successNeon}20`, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: `${Colors.dark.successNeon}40` }}
-                              onPress={async () => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                try {
-                                  await apiRequest("PATCH", `/api/billing/invoices/${inv.id}`, { status: "paid", paidAt: new Date().toISOString() });
-                                  queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
-                                  queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
-                                  queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
-                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                  Alert.alert("Invoice Paid", `Invoice #${inv.invoiceNumber} has been marked as paid.`);
-                                } catch {
-                                  Alert.alert("Error", "Failed to mark invoice as paid. Please try again.");
-                                }
-                              }}
-                            >
-                              <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
-                              <Text style={{ fontSize: 12, color: Colors.dark.successNeon, fontWeight: "700" }}>Paid</Text>
-                            </Pressable>
-                            <Pressable
-                              style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${isOverdue ? Colors.dark.error : "#FFD700"}15`, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: `${isOverdue ? Colors.dark.error : "#FFD700"}30` }}
-                              onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                onShowInvoiceModal();
-                              }}
-                            >
-                              <Ionicons name="mail-outline" size={14} color={isOverdue ? Colors.dark.error : "#FFD700"} />
-                              <Text style={{ fontSize: 12, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "700" }}>Reminder</Text>
-                            </Pressable>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : null}
-          </View>
 
           <View style={[styles.section, CardStyles.elevated]}>
             <View style={styles.sectionHeader}>

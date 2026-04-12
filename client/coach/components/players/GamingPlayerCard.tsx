@@ -41,7 +41,6 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
-import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";

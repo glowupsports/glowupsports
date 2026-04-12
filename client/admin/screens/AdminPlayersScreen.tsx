@@ -25,7 +25,6 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
-import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import CreditStoreModal from "@/admin/components/CreditStoreModal";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
 import { styles } from "@/admin/components/players/adminPlayersStyles";
@@ -116,7 +115,6 @@ export default function AdminPlayersScreen() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCreditStoreModal, setShowCreditStoreModal] = useState(false);
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
@@ -152,26 +150,6 @@ export default function AdminPlayersScreen() {
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
   });
-
-  const { data: invoicesData = [] } = useQuery<{ id: string; playerId: string | null; status: string; amount: string; dueDate: string | null }[]>({
-    queryKey: ["/api/billing/invoices"],
-  });
-
-  const invoicesByPlayer = useMemo(() => {
-    const map = new Map<string, { pendingCount: number; overdueCount: number; totalOwed: number }>();
-    const now = new Date();
-    for (const inv of invoicesData) {
-      if (!inv.playerId || inv.status !== "pending") continue;
-      const existing = map.get(inv.playerId) || { pendingCount: 0, overdueCount: 0, totalOwed: 0 };
-      existing.pendingCount++;
-      existing.totalOwed += Number(inv.amount) || 0;
-      if (inv.dueDate && new Date(inv.dueDate) < now) {
-        existing.overdueCount++;
-      }
-      map.set(inv.playerId, existing);
-    }
-    return map;
-  }, [invoicesData]);
 
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
@@ -439,7 +417,6 @@ export default function AdminPlayersScreen() {
   const renderPlayer = ({ item }: { item: Player }) => {
     const credits = item.remainingCredits;
     const byType = item.creditsByType;
-    const invoiceInfo = invoicesByPlayer.get(item.id);
     const ballColor = getBallLevelColor(item.ballLevel);
 
     const getCreditTypeColor = (val: number) =>
@@ -491,18 +468,6 @@ export default function AdminPlayersScreen() {
               </Text>
             ))}
           </View>
-          {invoiceInfo ? (
-            <View style={[styles.invoiceBadge, { backgroundColor: (invoiceInfo.overdueCount > 0 ? Colors.dark.error : Colors.dark.gold) + "20" }]}>
-              <Ionicons
-                name={invoiceInfo.overdueCount > 0 ? "alert-circle" : "document-text-outline"}
-                size={10}
-                color={invoiceInfo.overdueCount > 0 ? Colors.dark.error : Colors.dark.gold}
-              />
-              <Text style={[styles.invoiceBadgeText, { color: invoiceInfo.overdueCount > 0 ? Colors.dark.error : Colors.dark.gold }]}>
-                {invoiceInfo.overdueCount > 0 ? "Overdue" : "Pending"}
-              </Text>
-            </View>
-          ) : null}
           {!item.onboardingCompleted ? (
             <Pressable
               style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: Colors.dark.orange + "25", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.dark.orange + "50" }}
@@ -848,12 +813,6 @@ export default function AdminPlayersScreen() {
                       <Text style={dtStyles.rowActionText}>+ Credits</Text>
                     </Pressable>
                     <Pressable
-                      style={dtStyles.rowAction}
-                      onPress={(e) => { e.stopPropagation(); setSelectedPlayerId(player.id); setShowInvoiceModal(true); }}
-                    >
-                      <Text style={dtStyles.rowActionText}>Invoice</Text>
-                    </Pressable>
-                    <Pressable
                       style={[dtStyles.rowAction, { backgroundColor: "rgba(255,255,255,0.04)" }]}
                       onPress={(e) => { e.stopPropagation(); setDesktopSelectedId(isRowSelected ? null : player.id); }}
                     >
@@ -909,10 +868,6 @@ export default function AdminPlayersScreen() {
                     <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
                     <Text style={[dtStyles.panelActionText, { color: Colors.dark.primary }]}>Add Credits</Text>
                   </Pressable>
-                  <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowInvoiceModal(true); }}>
-                    <Ionicons name="document-text-outline" size={14} color={Colors.dark.gold} />
-                    <Text style={[dtStyles.panelActionText, { color: Colors.dark.gold }]}>Invoice</Text>
-                  </Pressable>
                 </View>
               </ScrollView>
             </View>
@@ -925,17 +880,6 @@ export default function AdminPlayersScreen() {
             onClose={() => { setShowCreditStoreModal(false); setSelectedPlayerId(null); }}
             playerId={selectedPlayerId}
             playerName={players.find((p) => p.id === selectedPlayerId)?.name || ""}
-          />
-        ) : null}
-        {showInvoiceModal && selectedPlayerId ? (
-          <CreateInvoiceModal
-            visible={showInvoiceModal}
-            onClose={() => { setShowInvoiceModal(false); setSelectedPlayerId(null); }}
-            player={(() => {
-              const p = players.find((pl) => pl.id === selectedPlayerId);
-              return p ? { id: p.id, name: p.name, email: p.email, phone: p.phone, parentName: p.parentName, parentEmail: undefined, parentPhone: p.parentPhone } : null;
-            })()}
-            onSuccess={() => { queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] }); }}
           />
         ) : null}
         <AdminAddPlayerModal
@@ -981,9 +925,7 @@ export default function AdminPlayersScreen() {
             setShowAddModal(true);
           }}
           onShowDeleteModal={() => setShowDeleteModal(true)}
-          onShowInvoiceModal={() => setShowInvoiceModal(true)}
           onShowCreditStoreModal={() => setShowCreditStoreModal(true)}
-          onShowRecordPaymentModal={() => setShowRecordPaymentModal(true)}
           onShowMarkPaidModal={(pkg) => {
             setSelectedPackageForPayment(pkg);
             setPaymentMethod("cash");
@@ -1278,9 +1220,6 @@ export default function AdminPlayersScreen() {
         setFormData={setFormData}
         closeDetailModal={closeDetailModal}
         setShowAddModal={setShowAddModal}
-        setShowRecordPaymentModal={setShowRecordPaymentModal}
-        setSelectedPackageForPayment={setSelectedPackageForPayment}
-        setShowInvoiceModal={setShowInvoiceModal}
         setShowCreditStoreModal={setShowCreditStoreModal}
         progressExpanded={progressExpanded}
         setProgressExpanded={setProgressExpanded}
@@ -1319,23 +1258,6 @@ export default function AdminPlayersScreen() {
         visible={showReportIssueModal}
         onClose={() => setShowReportIssueModal(false)}
         currentScreen="AdminPlayersScreen - Player Details"
-      />
-
-      <CreateInvoiceModal
-        visible={showInvoiceModal}
-        onClose={() => setShowInvoiceModal(false)}
-        player={playerStats?.player ? {
-          id: playerStats.player.id,
-          name: playerStats.player.name,
-          email: playerStats.player.email,
-          phone: playerStats.player.phone,
-          parentName: playerStats.player.parentName,
-          parentEmail: undefined,
-          parentPhone: playerStats.player.parentPhone,
-        } : null}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
-        }}
       />
 
       <CreditStoreModal

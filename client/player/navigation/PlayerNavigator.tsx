@@ -29,8 +29,6 @@ import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
 import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
-import ParentInvoicesScreen from "@/player/screens/ParentInvoicesScreen";
-import ParentPaymentsScreen from "@/player/screens/ParentPaymentsScreen";
 import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
 import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
 import ParentCreditStoreScreen from "@/player/screens/ParentCreditStoreScreen";
@@ -265,8 +263,6 @@ export type PlayerStackParamList = {
   CoachDirectory: undefined;
   TransferRequest: { academyId?: string; academyName?: string } | undefined;
   ParentDashboard: undefined;
-  ParentInvoices: { playerId: string };
-  ParentPayments: { playerId: string };
   ParentLessons: { playerId: string };
   ParentCreditStore: { playerId: string };
   ParentSettings: undefined;
@@ -855,20 +851,6 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="ParentDashboard" 
         component={ParentDashboardScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentInvoices" 
-        component={ParentInvoicesScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentPayments" 
-        component={ParentPaymentsScreen}
         options={{
           presentation: "card",
         }}

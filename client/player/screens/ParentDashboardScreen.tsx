@@ -41,18 +41,6 @@ export default function ParentDashboardScreen() {
   });
   const recentRatings = ratingsData?.ratings?.slice(0, 5) ?? [];
 
-  const navigateToInvoices = () => {
-    if (playerId) {
-      (navigation as any).navigate("ParentInvoices", { playerId });
-    }
-  };
-
-  const navigateToPayments = () => {
-    if (playerId) {
-      (navigation as any).navigate("ParentPayments", { playerId });
-    }
-  };
-
   const navigateToLessons = () => {
     if (playerId) {
       (navigation as any).navigate("ParentLessons", { playerId });
@@ -161,47 +149,6 @@ export default function ParentDashboardScreen() {
             </View>
 
             <View style={styles.summarySection}>
-              <Text style={styles.sectionTitle}>Payment Overview</Text>
-              <View style={styles.summaryCards}>
-                <Pressable 
-                  style={({ pressed }) => [styles.summaryCard, pressed && styles.cardPressed]} 
-                  onPress={navigateToInvoices}
-                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
-                >
-                  <View style={styles.summaryIconContainer}>
-                    <Ionicons name="document-text-outline" size={24} color="#FBBF24" />
-                  </View>
-                  <Text style={styles.summaryValue}>{dashboardData.invoiceSummary.pending}</Text>
-                  <Text style={styles.summaryLabel}>Pending</Text>
-                </Pressable>
-
-                <Pressable 
-                  style={({ pressed }) => [styles.summaryCard, pressed && styles.cardPressed]} 
-                  onPress={navigateToInvoices}
-                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
-                >
-                  <View style={[styles.summaryIconContainer, { backgroundColor: "rgba(239, 68, 68, 0.15)" }]}>
-                    <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
-                  </View>
-                  <Text style={[styles.summaryValue, dashboardData.invoiceSummary.overdue > 0 && { color: "#EF4444" }]}>
-                    {dashboardData.invoiceSummary.overdue}
-                  </Text>
-                  <Text style={styles.summaryLabel}>Overdue</Text>
-                </Pressable>
-
-                <View style={styles.summaryCard}>
-                  <View style={[styles.summaryIconContainer, { backgroundColor: "rgba(59, 130, 246, 0.15)" }]}>
-                    <Ionicons name="wallet-outline" size={24} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.summaryValue}>
-                    {dashboardData.invoiceSummary.totalPending.toFixed(0)}
-                  </Text>
-                  <Text style={styles.summaryLabel}>AED Due</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.summarySection}>
               <Text style={styles.sectionTitle}>This Month's Lessons</Text>
               <View style={styles.lessonSummaryCard}>
                 <View style={styles.lessonRow}>
@@ -268,22 +215,6 @@ export default function ParentDashboardScreen() {
             <View style={styles.quickActions}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>
               <View style={styles.actionButtons}>
-                <Pressable 
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
-                  onPress={navigateToInvoices}
-                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
-                >
-                  <Ionicons name="receipt-outline" size={24} color={Colors.dark.text} />
-                  <Text style={styles.actionButtonText}>Invoices</Text>
-                </Pressable>
-                <Pressable 
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
-                  onPress={navigateToPayments}
-                  android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
-                >
-                  <Ionicons name="card-outline" size={24} color={Colors.dark.text} />
-                  <Text style={styles.actionButtonText}>Payments</Text>
-                </Pressable>
                 <Pressable 
                   style={({ pressed }) => [styles.actionButton, pressed && styles.cardPressed]} 
                   onPress={navigateToLessons}
