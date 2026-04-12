@@ -56,6 +56,7 @@ interface Player {
   ballLevel?: string | null;
   status?: string;
   isGuest?: boolean;
+  joinType?: string | null;
   attendanceStatus?: string | null;
   profilePhotoUrl?: string | null;
 }
@@ -1134,104 +1135,147 @@ export default function SessionDetailDrawer({
       ) : null}
 
       <View style={styles.playersSection}>
-        <Text style={styles.sectionTitle}>Players ({(liveSession?.players?.filter(p => !removedPlayerIds.has(p.id))?.length) || 0})</Text>
-        {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 ? (
-          <View style={styles.playersGrid}>
-            {(() => {
-              const filteredPlayers = liveSession.players.filter(p => !removedPlayerIds.has(p.id));
-              const rows: typeof filteredPlayers[] = [];
-              for (let i = 0; i < filteredPlayers.length; i += 2) {
-                rows.push(filteredPlayers.slice(i, i + 2));
-              }
-              return rows.map((row, rowIndex) => (
-                <View key={rowIndex} style={styles.playersGridRow}>
-                  {row.map(player => {
-              const isGuest = player.name.includes("(Guest)") || player.isGuest;
-              const isPastSession = new Date(session.endTime) < new Date();
-              const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
-              const levelTextColor = getPlayerLevelTextColor(player.ballLevel || player.level);
-              return (
-                <View 
-                  key={player.id} 
-                  style={[
-                    styles.playerCard,
-                    isGuest && styles.playerCardGuest,
-                    player.status && { borderColor: getStatusColor(player.status) + "60" }
-                  ]}
-                >
-                  <Pressable
-                    style={styles.playerCardRemove}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setShowRemovePlayer(player);
-                      setRemoveReason("");
-                      setRemoveFromDate("today");
-                    }}
-                  >
-                    <Ionicons name="close" size={12} color={Colors.dark.error} />
-                  </Pressable>
-                  <Pressable
-                    style={styles.playerCardContent}
-                    onPress={() => {
-                      if (isGuest && isPastSession) {
-                        setShowGuestConvert({ id: player.id, name: player.name });
-                        setGuestPhone("");
-                        setGuestBallLevel("");
-                      } else if (!isGuest) {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedPlayerForHistory({
-                          id: player.id,
-                          name: player.name,
-                          photoUrl: player.profilePhotoUrl,
-                          level: player.level,
-                          ballLevel: player.ballLevel,
-                        });
-                      }
-                    }}
-                    disabled={false}
-                  >
-                    <View style={[
-                      styles.playerCardAvatar, 
-                      isGuest && styles.playerCardAvatarGuest,
-                      !isGuest && { backgroundColor: levelColor + "30", borderColor: levelColor }
-                    ]}>
-                      <Text style={[styles.playerCardInitial, !isGuest && { color: levelTextColor }]}>
-                        {player.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <Text style={styles.playerCardName} numberOfLines={1}>
-                      {player.name.replace(" (Guest)", "")}
-                    </Text>
-                    {player.ballLevel ? (
-                      <View style={[styles.playerCardLevel, { backgroundColor: levelColor + "20" }]}>
-                        <View style={[styles.playerCardLevelDot, { backgroundColor: levelColor }]} />
-                        <Text style={[styles.playerCardLevelText, { color: levelTextColor }]}>
-                          {player.ballLevel.split("_")[0]}
+        {(() => {
+          const allFiltered = liveSession?.players?.filter(p => !removedPlayerIds.has(p.id)) || [];
+          const dropInPlayers = allFiltered.filter(p => p.joinType === "drop_in");
+          const memberPlayers = allFiltered.filter(p => p.joinType !== "drop_in");
+          const isPastSession = new Date(session.endTime) < new Date();
+
+          const renderPlayerGrid = (playerList: typeof allFiltered) => {
+            const rows: typeof allFiltered[] = [];
+            for (let i = 0; i < playerList.length; i += 2) {
+              rows.push(playerList.slice(i, i + 2));
+            }
+            return rows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.playersGridRow}>
+                {row.map(player => {
+                  const isGuest = player.name.includes("(Guest)") || player.isGuest;
+                  const isDropIn = player.joinType === "drop_in";
+                  const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
+                  const levelTextColor = getPlayerLevelTextColor(player.ballLevel || player.level);
+                  return (
+                    <View
+                      key={player.id}
+                      style={[
+                        styles.playerCard,
+                        isGuest && styles.playerCardGuest,
+                        isDropIn && { borderColor: "#F39C1240" },
+                        player.status && { borderColor: getStatusColor(player.status) + "60" }
+                      ]}
+                    >
+                      <Pressable
+                        style={styles.playerCardRemove}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setShowRemovePlayer(player);
+                          setRemoveReason("");
+                          setRemoveFromDate("today");
+                        }}
+                      >
+                        <Ionicons name="close" size={12} color={Colors.dark.error} />
+                      </Pressable>
+                      <Pressable
+                        style={styles.playerCardContent}
+                        onPress={() => {
+                          if (isGuest && isPastSession) {
+                            setShowGuestConvert({ id: player.id, name: player.name });
+                            setGuestPhone("");
+                            setGuestBallLevel("");
+                          } else if (!isGuest) {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedPlayerForHistory({
+                              id: player.id,
+                              name: player.name,
+                              photoUrl: player.profilePhotoUrl,
+                              level: player.level,
+                              ballLevel: player.ballLevel,
+                            });
+                          }
+                        }}
+                        disabled={false}
+                      >
+                        <View style={[
+                          styles.playerCardAvatar,
+                          isGuest && styles.playerCardAvatarGuest,
+                          isDropIn && { backgroundColor: "#F39C1230", borderColor: "#F39C12", borderWidth: 2 },
+                          !isGuest && !isDropIn && { backgroundColor: levelColor + "30", borderColor: levelColor }
+                        ]}>
+                          <Text style={[styles.playerCardInitial, !isGuest && { color: isDropIn ? "#F39C12" : levelTextColor }]}>
+                            {player.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={styles.playerCardName} numberOfLines={1}>
+                          {player.name.replace(" (Guest)", "")}
                         </Text>
-                      </View>
-                    ) : isGuest ? (
-                      <View style={[styles.playerCardLevel, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                        <Text style={[styles.playerCardLevelText, { color: Colors.dark.xpCyan }]}>Guest</Text>
-                      </View>
-                    ) : null}
-                    {player.status ? (
-                      <View style={[styles.playerCardStatus, { backgroundColor: getStatusColor(player.status) }]} />
-                    ) : null}
-                  </Pressable>
+                        {player.ballLevel ? (
+                          <View style={[styles.playerCardLevel, { backgroundColor: isDropIn ? "#F39C1220" : levelColor + "20" }]}>
+                            <View style={[styles.playerCardLevelDot, { backgroundColor: isDropIn ? "#F39C12" : levelColor }]} />
+                            <Text style={[styles.playerCardLevelText, { color: isDropIn ? "#F39C12" : levelTextColor }]}>
+                              {player.ballLevel.split("_")[0]}
+                            </Text>
+                          </View>
+                        ) : isDropIn ? (
+                          <View style={[styles.playerCardLevel, { backgroundColor: "#F39C1220" }]}>
+                            <Text style={[styles.playerCardLevelText, { color: "#F39C12" }]}>Drop-in</Text>
+                          </View>
+                        ) : isGuest ? (
+                          <View style={[styles.playerCardLevel, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                            <Text style={[styles.playerCardLevelText, { color: Colors.dark.xpCyan }]}>Guest</Text>
+                          </View>
+                        ) : null}
+                        {player.status ? (
+                          <View style={[styles.playerCardStatus, { backgroundColor: getStatusColor(player.status) }]} />
+                        ) : null}
+                      </Pressable>
+                    </View>
+                  );
+                })}
+                {row.length === 1 ? <View style={styles.playerCardSpacer} /> : null}
+              </View>
+            ));
+          };
+
+          if (allFiltered.length === 0) {
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Players (0)</Text>
+                <View style={styles.noPlayersCard}>
+                  <Ionicons name="people-outline" size={32} color={Colors.dark.disabled} />
+                  <Text style={styles.noPlayersText}>No players assigned yet</Text>
                 </View>
-              );
-                  })}
-                  {row.length === 1 ? <View style={styles.playerCardSpacer} /> : null}
+              </>
+            );
+          }
+
+          if (dropInPlayers.length === 0) {
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Players ({memberPlayers.length})</Text>
+                <View style={styles.playersGrid}>
+                  {renderPlayerGrid(memberPlayers)}
                 </View>
-              ));
-            })()}
-          </View>
-        ) : (
-          <View style={styles.noPlayersCard}>
-            <Ionicons name="people-outline" size={32} color={Colors.dark.disabled} />
-            <Text style={styles.noPlayersText}>No players assigned yet</Text>
-          </View>
-        )}
+              </>
+            );
+          }
+
+          return (
+            <>
+              <Text style={styles.sectionTitle}>Members ({memberPlayers.length})</Text>
+              {memberPlayers.length > 0 ? (
+                <View style={styles.playersGrid}>
+                  {renderPlayerGrid(memberPlayers)}
+                </View>
+              ) : null}
+              <View style={styles.dropInSubLabel}>
+                <Ionicons name="flash" size={12} color="#F39C12" />
+                <Text style={styles.dropInSubLabelText}>Drop-in Players ({dropInPlayers.length})</Text>
+              </View>
+              <View style={[styles.playersGrid, { marginTop: Spacing.xs }]}>
+                {renderPlayerGrid(dropInPlayers)}
+              </View>
+            </>
+          );
+        })()}
       </View>
 
       {/* Remove Player Confirmation */}
@@ -2678,6 +2722,23 @@ const styles = StyleSheet.create({
     ...Typography.sectionTitle,
     color: Colors.dark.text,
     marginBottom: Spacing.md,
+  },
+  dropInSubLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: "#F39C1215",
+    borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
+  },
+  dropInSubLabelText: {
+    ...Typography.caption,
+    color: "#F39C12",
+    fontWeight: "600",
+    fontSize: 12,
   },
   playersList: {
     gap: Spacing.sm,

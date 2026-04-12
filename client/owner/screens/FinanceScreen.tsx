@@ -8,6 +8,87 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+
+const DROP_IN_GREEN = "#2ECC71";
+
+function DropInRevenueCard({ currency }: { currency: string }) {
+  const { data } = useQuery<{
+    summary: {
+      totalPublic: number;
+      dropInBookingsThisMonth: number;
+      dropInRevenueThisMonth: number;
+    };
+  }>({
+    queryKey: ["/api/owner/public-listings"],
+  });
+
+  const summary = data?.summary;
+  if (!summary) return null;
+
+  return (
+    <View style={dropInStyles.card}>
+      <View style={dropInStyles.header}>
+        <Ionicons name="storefront-outline" size={18} color={DROP_IN_GREEN} />
+        <Text style={dropInStyles.title}>Drop-in Revenue</Text>
+        <Text style={dropInStyles.period}>this month</Text>
+      </View>
+      <Text style={dropInStyles.amount}>
+        {currency} {summary.dropInRevenueThisMonth.toLocaleString()}
+      </Text>
+      <View style={dropInStyles.subRow}>
+        <Ionicons name="arrow-up" size={12} color={DROP_IN_GREEN} />
+        <Text style={dropInStyles.subText}>
+          {summary.dropInBookingsThisMonth} new drop-in bookings
+          {" "}&bull;{" "}
+          {summary.totalPublic} public {summary.totalPublic === 1 ? "group" : "groups"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const dropInStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.dark.cardElevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${DROP_IN_GREEN}22`,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  title: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    flex: 1,
+  },
+  period: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  amount: {
+    ...Typography.h2,
+    color: DROP_IN_GREEN,
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
+  },
+  subRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  subText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+  },
+});
 interface FinanceData {
   currency: string;
   collected: {
@@ -298,9 +379,9 @@ export default function FinanceScreen() {
             </View>
           )}
         </FinanceSectionCard>
-        
 
-        
+        <DropInRevenueCard currency={currency} />
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Payments</Text>

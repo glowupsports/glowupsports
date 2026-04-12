@@ -1388,6 +1388,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           "vibe",
           "price",
           "seriesEndDate",
+          "isPublic",
         ];
 
         const validSessionTypes = ["private", "semi_private", "group", "physical", "activity"];

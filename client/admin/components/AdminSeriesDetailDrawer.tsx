@@ -72,6 +72,7 @@ interface SeriesDetail {
   xpPerSession: number;
   locationName?: string;
   courtName?: string;
+  isPublic?: boolean;
   players: Player[];
   sessions: SessionInstance[];
   stats: {
@@ -240,6 +241,19 @@ export default function AdminSeriesDetailDrawer({
       setShowAttendanceModal(false);
       setSelectedSession(null);
       setAttendanceState({});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: async (isPublic: boolean) => {
+      const response = await apiRequest("PATCH", `/api/owner/series/${seriesId}/visibility`, { isPublic });
+      if (!response.ok) throw new Error("Failed to update visibility");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/public-listings"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
@@ -417,6 +431,30 @@ export default function AdminSeriesDetailDrawer({
                     <View style={styles.infoRow}>
                       <Ionicons name="flash-outline" size={16} color={Colors.dark.textMuted} />
                       <Text style={styles.infoText}>{series.xpPerSession} XP per session</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Marketplace Visibility</Text>
+                    <View style={[styles.infoRow, { justifyContent: "space-between", alignItems: "center" }]}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Ionicons name="globe-outline" size={16} color={series.isPublic ? "#2ECC71" : Colors.dark.textMuted} />
+                        <Text style={[styles.infoText, { color: series.isPublic ? "#2ECC71" : Colors.dark.textMuted }]}>
+                          {series.isPublic ? "Listed in Marketplace" : "Private (not listed)"}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={[styles.addButton, { backgroundColor: series.isPublic ? `${Colors.dark.red}20` : `#2ECC7120`, paddingHorizontal: 12 }]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          toggleVisibilityMutation.mutate(!series.isPublic);
+                        }}
+                        disabled={toggleVisibilityMutation.isPending}
+                      >
+                        <Text style={{ color: series.isPublic ? Colors.dark.red : "#2ECC71", fontSize: 12, fontWeight: "600" }}>
+                          {series.isPublic ? "Make Private" : "Make Public"}
+                        </Text>
+                      </Pressable>
                     </View>
                   </View>
 

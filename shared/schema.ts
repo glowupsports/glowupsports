@@ -1659,6 +1659,9 @@ export const coachingSeries = pgTable("coaching_series", {
   // Multi-sport support
   sport: text("sport").default("tennis"), // tennis | padel | pickleball
   
+  // Marketplace / public drop-in
+  isPublic: boolean("is_public").default(false), // Whether this group is publicly listed for drop-in bookings
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1756,6 +1759,7 @@ export const sessionPlayers = pgTable("session_players", {
   absenceReason: text("absence_reason"), // sick/forgot/traffic/holiday/no-show/other
   
   isGuest: boolean("is_guest").default(false),
+  joinType: text("join_type").default("member"), // member | drop_in
   
   xpAwarded: integer("xp_awarded"),
   notes: text("notes"),

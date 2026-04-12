@@ -211,6 +211,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
                   attendanceStatus: sessionPlayers.attendanceStatus,
                   isGuest: sessionPlayers.isGuest,
+                  joinType: sessionPlayers.joinType,
                   playerName: players.name,
                   hostBallLevel: players.ballLevel,
                   playerBallLevel: players.ballLevel,
@@ -362,6 +363,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               status: p.attendanceStatus || "active",
               attendanceStatus: p.attendanceStatus,
               isGuest: p.isGuest,
+              joinType: p.joinType || "member",
             })),
             ...baseSeriesPlayers
               .filter((p) => !sessionPlayerIds.has(p.playerId))
@@ -373,6 +375,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 status: p.attendanceStatus || "active",
                 attendanceStatus: null,
                 isGuest: false,
+                joinType: "member" as const,
               })),
           ];
 

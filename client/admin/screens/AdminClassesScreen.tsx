@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,11 @@ import Animated, {
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import AdminSeriesDetailDrawer from "../components/AdminSeriesDetailDrawer";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { RouteProp } from "@react-navigation/native";
+
+type AdminClassesScreenProps = {
+  route?: RouteProp<{ ClassesManagement: { focusSeriesId?: string } | undefined }, "ClassesManagement">;
+};
 
 const ADMIN_COLOR = Colors.dark.orange;
 
@@ -123,7 +128,7 @@ function CollapsibleDaySection({
   );
 }
 
-export default function AdminClassesScreen() {
+export default function AdminClassesScreen({ route }: AdminClassesScreenProps) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('all');
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
@@ -131,6 +136,14 @@ export default function AdminClassesScreen() {
   const [wizardCoachId, setWizardCoachId] = useState<string | null>(null);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
+
+  useEffect(() => {
+    const focusSeriesId = route?.params?.focusSeriesId;
+    if (focusSeriesId) {
+      setSelectedSeriesId(focusSeriesId);
+      setShowDetailDrawer(true);
+    }
+  }, [route?.params?.focusSeriesId]);
 
   const { data: seriesData = [], isLoading } = useQuery<CoachingSeries[]>({
     queryKey: ['/api/admin/series'],

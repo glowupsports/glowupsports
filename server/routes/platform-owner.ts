@@ -934,6 +934,66 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           });
         }
 
+        // Marketplace stats
+        const marketplaceData = await (async () => {
+          try {
+            const now2 = new Date();
+            const startOfMonth = new Date(now2.getFullYear(), now2.getMonth(), 1);
+            const [publicSeriesResult, dropInResult] = await Promise.all([
+              db.select({ count: sql<number>`count(*)::int` }).from(coachingSeries).where(eq(coachingSeries.isPublic, true)),
+              db.select({ count: sql<number>`count(*)::int` }).from(sessionPlayers).where(
+                and(eq(sessionPlayers.joinType, "drop_in"), gte(sessionPlayers.creditDeductedAt, startOfMonth))
+              ),
+            ]);
+            const [topAcademiesResult, dropInRevenueResult] = await Promise.all([
+              db
+                .select({
+                  academyId: coachingSeries.academyId,
+                  academyName: academies.name,
+                  dropInCount: sql<number>`count(${sessionPlayers.id})::int`,
+                })
+                .from(sessionPlayers)
+                .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+                .innerJoin(coachingSeries, eq(sessions.seriesId, coachingSeries.id))
+                .innerJoin(academies, eq(coachingSeries.academyId, academies.id))
+                .where(
+                  and(
+                    eq(sessionPlayers.joinType, "drop_in"),
+                    gte(sessionPlayers.creditDeductedAt, startOfMonth),
+                  ),
+                )
+                .groupBy(coachingSeries.academyId, academies.name)
+                .orderBy(desc(sql`count(${sessionPlayers.id})`))
+                .limit(5),
+              db
+                .select({
+                  revenue: sql<number>`coalesce(sum(${coachingSeries.price}::numeric), 0)::float`,
+                })
+                .from(sessionPlayers)
+                .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+                .innerJoin(coachingSeries, eq(sessions.seriesId, coachingSeries.id))
+                .where(
+                  and(
+                    eq(sessionPlayers.joinType, "drop_in"),
+                    gte(sessionPlayers.creditDeductedAt, startOfMonth),
+                  ),
+                ),
+            ]);
+            return {
+              publicSeriesCount: publicSeriesResult[0]?.count || 0,
+              dropInBookingsThisMonth: dropInResult[0]?.count || 0,
+              dropInRevenueThisMonth: dropInRevenueResult[0]?.revenue || 0,
+              topAcademiesByDropIn: topAcademiesResult.map(r => ({
+                academyId: r.academyId,
+                academyName: r.academyName || "Unknown",
+                dropInCount: r.dropInCount,
+              })),
+            };
+          } catch {
+            return { publicSeriesCount: 0, dropInBookingsThisMonth: 0, dropInRevenueThisMonth: 0, topAcademiesByDropIn: [] };
+          }
+        })();
+
         res.json({
           platform: {
             name: "Glow Up Sports",
@@ -960,6 +1020,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           weekActivity,
           insights,
           alerts,
+          marketplace: marketplaceData,
         });
       } catch (error) {
         console.error("Platform enhanced dashboard error:", error);
@@ -1485,6 +1546,87 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           count: allPlayers.filter((p: any) => (p.level || 1) === level).length,
         }));
 
+        // Marketplace stats: public series listings + drop-in session data
+        const marketplaceStats = await (async () => {
+          try {
+            const now2 = new Date();
+            const startOfMonth = new Date(now2.getFullYear(), now2.getMonth(), 1);
+
+            // Count public coaching series
+            const publicSeriesResult = await db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(coachingSeries)
+              .where(eq(coachingSeries.isPublic, true));
+            const publicSeriesCount = publicSeriesResult[0]?.count || 0;
+
+            // Count drop-in session players this month
+            const dropInResult = await db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(sessionPlayers)
+              .where(
+                and(
+                  eq(sessionPlayers.joinType, "drop_in"),
+                  gte(sessionPlayers.creditDeductedAt, startOfMonth),
+                ),
+              );
+            const dropInBookingsThisMonth = dropInResult[0]?.count || 0;
+
+            // Top academies by drop-in booking count + revenue
+            const [topAcademiesResult, ownerDropInRevenueResult] = await Promise.all([
+              db
+                .select({
+                  academyId: coachingSeries.academyId,
+                  academyName: academies.name,
+                  dropInCount: sql<number>`count(${sessionPlayers.id})::int`,
+                })
+                .from(sessionPlayers)
+                .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+                .innerJoin(coachingSeries, eq(sessions.seriesId, coachingSeries.id))
+                .innerJoin(academies, eq(coachingSeries.academyId, academies.id))
+                .where(
+                  and(
+                    eq(sessionPlayers.joinType, "drop_in"),
+                    gte(sessionPlayers.creditDeductedAt, startOfMonth),
+                  ),
+                )
+                .groupBy(coachingSeries.academyId, academies.name)
+                .orderBy(desc(sql`count(${sessionPlayers.id})`))
+                .limit(5),
+              db
+                .select({
+                  revenue: sql<number>`coalesce(sum(${coachingSeries.price}::numeric), 0)::float`,
+                })
+                .from(sessionPlayers)
+                .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+                .innerJoin(coachingSeries, eq(sessions.seriesId, coachingSeries.id))
+                .where(
+                  and(
+                    eq(sessionPlayers.joinType, "drop_in"),
+                    gte(sessionPlayers.creditDeductedAt, startOfMonth),
+                  ),
+                ),
+            ]);
+
+            return {
+              publicSeriesCount,
+              dropInBookingsThisMonth,
+              dropInRevenueThisMonth: ownerDropInRevenueResult[0]?.revenue || 0,
+              topAcademiesByDropIn: topAcademiesResult.map(r => ({
+                academyId: r.academyId,
+                academyName: r.academyName || "Unknown",
+                dropInCount: r.dropInCount,
+              })),
+            };
+          } catch {
+            return {
+              publicSeriesCount: 0,
+              dropInBookingsThisMonth: 0,
+              dropInRevenueThisMonth: 0,
+              topAcademiesByDropIn: [],
+            };
+          }
+        })();
+
         // Calculate weekly activity heatmap
         const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
         const weekActivity = await (async () => {
@@ -1541,6 +1683,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             { month: "Dec", amount: totalMrr },
           ],
           weekActivity,
+          marketplace: marketplaceStats,
         });
       } catch (error) {
         console.error("Platform stats error:", error);

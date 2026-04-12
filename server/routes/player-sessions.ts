@@ -4317,6 +4317,162 @@ import fs from "fs";
     },
   );
 
+  // Academy Owner - Get public listings (coaching series with isPublic=true) with drop-in stats
+  router.get(
+    "/api/owner/public-listings",
+    authMiddleware,
+    requireRole("owner", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "Academy ID required" });
+        }
+
+        const scope = (req.query.scope as string) || "mine";
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Get all active coaching series - scoped to this academy or all (platform-wide public)
+        const allSeries = await db
+          .select()
+          .from(coachingSeries)
+          .where(
+            scope === "all"
+              ? and(eq(coachingSeries.isPublic, true), ne(coachingSeries.status, "ended"))
+              : and(eq(coachingSeries.academyId, academyId), ne(coachingSeries.status, "ended"))
+          )
+          .orderBy(asc(coachingSeries.dayOfWeek), asc(coachingSeries.startTime));
+
+        // For each series, get player count and drop-in bookings this month
+        const seriesIds = allSeries.map(s => s.id);
+
+        const [playerCounts, dropInThisMonth] = await Promise.all([
+          seriesIds.length > 0
+            ? db
+                .select({
+                  seriesId: seriesPlayers.seriesId,
+                  count: sql<number>`count(*)::int`,
+                })
+                .from(seriesPlayers)
+                .where(
+                  and(
+                    inArray(seriesPlayers.seriesId, seriesIds),
+                    eq(seriesPlayers.status, "active"),
+                  )
+                )
+                .groupBy(seriesPlayers.seriesId)
+            : Promise.resolve([]),
+
+          seriesIds.length > 0
+            ? db
+                .select({
+                  seriesId: sessions.seriesId,
+                  count: sql<number>`count(${sessionPlayers.id})::int`,
+                })
+                .from(sessionPlayers)
+                .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+                .where(
+                  and(
+                    inArray(sessions.seriesId, seriesIds),
+                    eq(sessionPlayers.joinType, "drop_in"),
+                    gte(sessionPlayers.creditDeductedAt, startOfMonth),
+                  )
+                )
+                .groupBy(sessions.seriesId)
+            : Promise.resolve([]),
+        ]);
+
+        const playerCountMap = new Map(playerCounts.map(p => [p.seriesId, p.count]));
+        const dropInMap = new Map(dropInThisMonth.map(d => [d.seriesId, d.count]));
+
+        const settings = await storage.getAcademySettings(academyId);
+        const currency = settings?.currency || "AED";
+
+        // Aggregate summary
+        const totalPublic = allSeries.filter(s => s.isPublic).length;
+        const totalDropInThisMonth = Array.from(dropInMap.values()).reduce((a, b) => a + b, 0);
+        const totalDropInRevenue = allSeries
+          .filter(s => s.isPublic)
+          .reduce((sum, s) => {
+            const count = dropInMap.get(s.id) || 0;
+            return sum + count * Number(s.price || 0);
+          }, 0);
+
+        const listings = allSeries.map(s => ({
+          id: s.id,
+          title: s.title,
+          isPublic: s.isPublic ?? false,
+          status: s.status,
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          maxPlayers: s.maxPlayers,
+          price: s.price ? Number(s.price) : null,
+          sport: s.sport,
+          playerCount: playerCountMap.get(s.id) || 0,
+          dropInThisMonth: dropInMap.get(s.id) || 0,
+          dropInRevenueThisMonth: (dropInMap.get(s.id) || 0) * Number(s.price || 0),
+        }));
+
+        res.json({
+          currency,
+          listings,
+          summary: {
+            totalPublic,
+            totalPrivate: allSeries.length - totalPublic,
+            dropInBookingsThisMonth: totalDropInThisMonth,
+            dropInRevenueThisMonth: totalDropInRevenue,
+          },
+        });
+      } catch (error) {
+        console.error("Owner public listings error:", error);
+        res.status(500).json({ error: "Failed to fetch public listings" });
+      }
+    },
+  );
+
+  // Academy Owner - Toggle isPublic for a coaching series (academy-scoped, no coachId check)
+  router.patch(
+    "/api/owner/series/:id/visibility",
+    authMiddleware,
+    requireRole("owner", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "Academy ID required" });
+        }
+        const { id } = req.params;
+        const { isPublic } = req.body;
+        if (typeof isPublic !== "boolean") {
+          return res.status(400).json({ error: "isPublic must be a boolean" });
+        }
+
+        const existing = await db
+          .select()
+          .from(coachingSeries)
+          .where(and(eq(coachingSeries.id, id), eq(coachingSeries.academyId, academyId)))
+          .limit(1);
+
+        if (!existing[0]) {
+          return res.status(404).json({ error: "Series not found or not in your academy" });
+        }
+
+        const updated = await db
+          .update(coachingSeries)
+          .set({ isPublic })
+          .where(eq(coachingSeries.id, id))
+          .returning();
+
+        res.json(updated[0]);
+      } catch (error) {
+        console.error("Owner series visibility toggle error:", error);
+        res.status(500).json({ error: "Failed to update series visibility" });
+      }
+    },
+  );
+
   // ==================== ACADEMY SETTINGS & EXPORTS ====================
 
   // Get academy settings (for settings screen)

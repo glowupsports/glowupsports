@@ -287,6 +287,17 @@ function FeatureUsageCard({ academies }: { academies: AcademyOption[] }) {
   );
 }
 
+interface MarketplaceStats {
+  publicSeriesCount: number;
+  dropInBookingsThisMonth: number;
+  dropInRevenueThisMonth: number;
+  topAcademiesByDropIn: Array<{
+    academyId: string | null;
+    academyName: string;
+    dropInCount: number;
+  }>;
+}
+
 interface PlatformDashboardData {
   platform: {
     name: string;
@@ -334,7 +345,131 @@ interface PlatformDashboardData {
     title: string;
     description: string;
   }>;
+  marketplace?: MarketplaceStats;
 }
+
+const MARKETPLACE_GREEN = "#2ECC71";
+
+function MarketplaceCard({ marketplace, currency }: { marketplace?: MarketplaceStats; currency: string }) {
+  const stats = marketplace || {
+    publicSeriesCount: 0,
+    dropInBookingsThisMonth: 0,
+    dropInRevenueThisMonth: 0,
+    topAcademiesByDropIn: [],
+  };
+  const topAcademy = stats.topAcademiesByDropIn?.[0];
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="storefront" size={16} color={MARKETPLACE_GREEN} />
+          <Text style={styles.sectionTitle}>Marketplace</Text>
+        </View>
+      </View>
+      <View style={mkStyles.card}>
+        <View style={mkStyles.row}>
+          <View style={mkStyles.statBox}>
+            <Text style={mkStyles.statValue}>{stats.publicSeriesCount}</Text>
+            <Text style={mkStyles.statLabel}>Public listings</Text>
+          </View>
+          <View style={mkStyles.divider} />
+          <View style={mkStyles.statBox}>
+            <Text style={mkStyles.statValue}>{stats.dropInBookingsThisMonth}</Text>
+            <Text style={mkStyles.statLabel}>Drop-in bookings</Text>
+            <Text style={mkStyles.statSub}>this month</Text>
+          </View>
+          <View style={mkStyles.divider} />
+          <View style={mkStyles.statBox}>
+            <Text style={mkStyles.statValue}>
+              {currency} {stats.dropInRevenueThisMonth.toLocaleString()}
+            </Text>
+            <Text style={mkStyles.statLabel}>Platform revenue</Text>
+          </View>
+        </View>
+        {topAcademy ? (
+          <View style={mkStyles.topAcademyRow}>
+            <Ionicons name="trophy" size={13} color={MARKETPLACE_GREEN} />
+            <Text style={mkStyles.topAcademyText}>
+              Top academy: <Text style={mkStyles.topAcademyName}>{topAcademy.academyName}</Text>
+              {" "}({topAcademy.dropInCount} bookings)
+            </Text>
+          </View>
+        ) : (
+          <View style={mkStyles.topAcademyRow}>
+            <Ionicons name="information-circle-outline" size={13} color={Colors.dark.textMuted} />
+            <Text style={mkStyles.noDataText}>No drop-in bookings recorded yet this month</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const mkStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.dark.cardElevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: `${MARKETPLACE_GREEN}22`,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.dark.border,
+  },
+  statValue: {
+    ...Typography.h3,
+    color: MARKETPLACE_GREEN,
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginTop: 2,
+    fontSize: 11,
+  },
+  statSub: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    textAlign: "center",
+  },
+  topAcademyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  topAcademyText: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+  },
+  topAcademyName: {
+    color: MARKETPLACE_GREEN,
+    fontWeight: "600",
+  },
+  noDataText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+  },
+});
 
 interface ActivityDayProps {
   day: string;
@@ -609,6 +744,8 @@ export default function CommandCenterScreen() {
           onAcademyPress={(id) => navigateToTab("Academies")}
           onViewAll={() => navigateToTab("Academies")}
         />
+
+        <MarketplaceCard marketplace={platformData?.marketplace} currency={currency} />
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

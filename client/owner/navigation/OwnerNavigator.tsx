@@ -23,6 +23,7 @@ import PricingScreen from "@/owner/screens/PricingScreen";
 import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
 import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
 import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
+import PublicListingsScreen from "@/owner/screens/PublicListingsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
@@ -34,6 +35,7 @@ export type OwnerTabParamList = {
   Operations: undefined;
   Performance: undefined;
   Finance: undefined;
+  PublicListings: undefined;
   Settings: undefined;
 };
 
@@ -46,7 +48,7 @@ export type OwnerStackParamList = {
   AcademyProfile: undefined;
   CourtsManagement: undefined;
   PlayersManagement: undefined;
-  ClassesManagement: undefined;
+  ClassesManagement: { focusSeriesId?: string } | undefined;
   PaymentsManagement: undefined;
   RulesAndPolicies: undefined;
   Pricing: undefined;
@@ -64,6 +66,7 @@ const OWNER_TABS: TabConfig[] = [
   { key: "Operations", label: "Ops", icon: "calendar-outline", iconFocused: "calendar", component: OperationsScreen },
   { key: "Performance", label: "Stats", icon: "analytics-outline", iconFocused: "analytics", component: PerformanceScreen },
   { key: "Finance", label: "Finance", icon: "card-outline", iconFocused: "card", component: FinanceScreen },
+  { key: "PublicListings", label: "Listings", icon: "globe-outline", iconFocused: "globe", component: PublicListingsScreen },
   { key: "Settings", label: "Settings", icon: "cog-outline", iconFocused: "cog", component: SettingsScreen },
 ];
 

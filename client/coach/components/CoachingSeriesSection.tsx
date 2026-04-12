@@ -52,6 +52,7 @@ interface CoachingSeries {
   pendingFeedback: number;
   playerPreview?: PlayerPreview[];
   sport?: string | null;
+  isPublic?: boolean | null;
 }
 
 interface Props {
@@ -84,6 +85,7 @@ interface CollapsibleDaySectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSeriesPress: (series: CoachingSeries) => void;
+  onSeriesLongPress?: (series: CoachingSeries) => void;
   isFlexible?: boolean;
 }
 
@@ -93,6 +95,7 @@ function CollapsibleDaySection({
   isExpanded, 
   onToggle, 
   onSeriesPress,
+  onSeriesLongPress,
   isFlexible = false,
 }: CollapsibleDaySectionProps) {
   const rotation = useSharedValue(isExpanded ? 1 : 0);
@@ -147,6 +150,7 @@ function CollapsibleDaySection({
               key={s.id}
               series={s}
               onPress={onSeriesPress}
+              onLongPress={onSeriesLongPress}
             />
           ))}
         </View>
@@ -244,6 +248,49 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
       Alert.alert("Migration Failed", error.message);
     },
   });
+
+  const togglePublicMutation = useMutation({
+    mutationFn: async ({ seriesId, isPublic }: { seriesId: string; isPublic: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/coach/series/${seriesId}`, { isPublic });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to update listing");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { isPublic }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        isPublic ? "Listed Publicly" : "Set to Private",
+        isPublic
+          ? "This class is now visible in the marketplace."
+          : "This class is now private and no longer listed.",
+        [{ text: "OK" }]
+      );
+    },
+    onError: (error: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", error.message);
+    },
+  });
+
+  const handleLongPress = (series: CoachingSeries) => {
+    const isCurrentlyPublic = !!series.isPublic;
+    Alert.alert(
+      isCurrentlyPublic ? "Remove from Marketplace?" : "List on Marketplace?",
+      isCurrentlyPublic
+        ? `"${series.title}" will be removed from public listings.`
+        : `"${series.title}" will appear in the marketplace for drop-in players.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: isCurrentlyPublic ? "Make Private" : "Make Public",
+          onPress: () => togglePublicMutation.mutate({ seriesId: series.id, isPublic: !isCurrentlyPublic }),
+        },
+      ]
+    );
+  };
 
   const searchResults = useMemo(() => {
     if (!searchText.trim() || !seriesList) return [];
@@ -554,12 +601,12 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
                         <Text style={playerGroupStyles.classCount}>{group.series.length} {group.series.length === 1 ? "class" : "classes"}</Text>
                       </View>
                       {group.series.sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
-                        <CoachingSeriesCard key={s.id} series={s} onPress={onSeriesPress} />
+                        <CoachingSeriesCard key={s.id} series={s} onPress={onSeriesPress} onLongPress={handleLongPress} />
                       ))}
                     </View>
                   ))}
                   {flexibleGroupedByPlayer.ungrouped.map((s) => (
-                    <CoachingSeriesCard key={s.id} series={s} onPress={onSeriesPress} />
+                    <CoachingSeriesCard key={s.id} series={s} onPress={onSeriesPress} onLongPress={handleLongPress} />
                   ))}
                 </View>
               ) : null}
@@ -574,6 +621,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
               isExpanded={expandedDays.has(dayOfWeek)}
               onToggle={() => toggleDay(dayOfWeek)}
               onSeriesPress={onSeriesPress}
+              onSeriesLongPress={handleLongPress}
             />
           ))}
           

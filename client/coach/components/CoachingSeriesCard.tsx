@@ -41,12 +41,14 @@ interface CoachingSeries {
   primaryBallLevel?: string | null;
   nextSessionDate?: string | null;
   sport?: string | null;
+  isPublic?: boolean | null;
 }
 
 interface Props {
   series: CoachingSeries;
   onPress: (series: CoachingSeries) => void;
   onEditPress?: (series: CoachingSeries) => void;
+  onLongPress?: (series: CoachingSeries) => void;
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -59,12 +61,17 @@ const SESSION_TYPE_CONFIG: Record<string, { color: string; icon: string }> = {
   activity: { color: Colors.dark.sessionActivity, icon: "game-controller" },
 };
 
-export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
+export function CoachingSeriesCard({ series, onPress, onEditPress, onLongPress }: Props) {
   const { academy } = useCoach();
   
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress(series);
+  };
+
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    onLongPress?.(series);
   };
 
   const handleEditPress = (e: any) => {
@@ -163,7 +170,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
   const nextSessionLabel = formatNextSession();
 
   return (
-    <Pressable onPress={handlePress} style={styles.cardContainer}>
+    <Pressable onPress={handlePress} onLongPress={onLongPress ? handleLongPress : undefined} style={styles.cardContainer}>
       <LinearGradient
         colors={[`${typeConfig.color}15`, `${typeConfig.color}05`, "transparent"]}
         start={{ x: 0, y: 0 }}
@@ -189,6 +196,12 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
                 <Text style={[styles.ballLevelText, { color: ballLevelColor }]}>
                   {ballLevelLabel}
                 </Text>
+              </View>
+            ) : null}
+            {series.isPublic ? (
+              <View style={styles.publicBadge}>
+                <Ionicons name="globe-outline" size={11} color="#39FF14" />
+                <Text style={styles.publicBadgeText}>PUBLIC</Text>
               </View>
             ) : null}
             {onEditPress ? (
@@ -335,6 +348,23 @@ const styles = StyleSheet.create({
   },
   editButton: {
     padding: Spacing.xs,
+  },
+  publicBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#39FF1420",
+    borderColor: "#39FF14",
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  publicBadgeText: {
+    color: "#39FF14",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   scheduleRow: {
     flexDirection: "row",
