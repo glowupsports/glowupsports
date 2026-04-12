@@ -990,63 +990,94 @@ export function PlayerDetailView({
           </View>
 
           {/* Junior Assessment Card - visible for red/orange/green ball level players */}
-          {localPlayer.ballLevel && ["red", "orange", "green"].includes(localPlayer.ballLevel.toLowerCase()) ? (
-            <Pressable
-              style={styles.juniorAssessCard}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowJuniorAssessment(true);
-              }}
-            >
-              <LinearGradient
-                colors={["#C8FF3D18", "#C8FF3D06"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.juniorAssessCardGradient}
+          {localPlayer.ballLevel && ["red", "orange", "green"].includes(localPlayer.ballLevel.toLowerCase()) ? (() => {
+            const ballLevel = localPlayer.ballLevel!.toLowerCase();
+            const levelColor = getPlayerLevelColor(ballLevel);
+            const nextLevel = LEVEL_THRESHOLDS[ballLevel as keyof typeof LEVEL_THRESHOLDS]?.nextLevel ?? null;
+            const nextLevelColor = nextLevel ? getPlayerLevelColor(nextLevel) : levelColor;
+            const levelEmoji = ballLevel === "red" ? "🔴" : ballLevel === "orange" ? "🟠" : "🟢";
+            const nextLevelEmoji = nextLevel === "orange" ? "🟠" : nextLevel === "green" ? "🟢" : nextLevel === "yellow" ? "🟡" : "✨";
+            const nextLevelLabel = nextLevel ? `${nextLevel.charAt(0).toUpperCase() + nextLevel.slice(1)} Ball` : "Next Level";
+            const passed = lastJuniorAssessmentResult?.passed;
+
+            return (
+              <Pressable
+                style={styles.juniorAssessCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowJuniorAssessment(true);
+                }}
               >
-                {lastJuniorAssessmentResult ? (
-                  <View style={styles.juniorAssessPriorResult}>
-                    <View style={[
-                      styles.assessedBadge,
-                      {
-                        backgroundColor: lastJuniorAssessmentResult.passed ? "#C8FF3D25" : Colors.dark.error + "25",
-                        borderColor: lastJuniorAssessmentResult.passed ? "#C8FF3D60" : Colors.dark.error + "60",
-                      }
-                    ]}>
-                      <Ionicons
-                        name={lastJuniorAssessmentResult.passed ? "checkmark-circle" : "close-circle"}
-                        size={16}
-                        color={lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error}
-                      />
-                      <Text style={[styles.assessedBadgeText, { color: lastJuniorAssessmentResult.passed ? "#C8FF3D" : Colors.dark.error }]}>
-                        {lastJuniorAssessmentResult.passed ? "PASS" : "FAIL"}
+                <LinearGradient
+                  colors={[levelColor + "60", levelColor + "20", "transparent"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.juniorAssessCardGradient, { borderColor: levelColor + "55" }]}
+                >
+                  {lastJuniorAssessmentResult ? (
+                    <View style={[styles.juniorAssessPriorResult, { borderBottomColor: levelColor + "30", backgroundColor: passed ? levelColor + "15" : Colors.dark.error + "15" }]}>
+                      <View style={[
+                        styles.assessedBadge,
+                        {
+                          backgroundColor: passed ? levelColor + "30" : Colors.dark.error + "25",
+                          borderColor: passed ? levelColor + "70" : Colors.dark.error + "60",
+                        }
+                      ]}>
+                        <Ionicons
+                          name={passed ? "checkmark-circle" : "close-circle"}
+                          size={16}
+                          color={passed ? levelColor : Colors.dark.error}
+                        />
+                        <Text style={[styles.assessedBadgeText, { color: passed ? levelColor : Colors.dark.error }]}>
+                          {passed ? "PASS" : "FAIL"}
+                        </Text>
+                      </View>
+                      <Text style={[styles.juniorAssessScore, { color: "#FFFFFF", flex: 1, textAlign: "center" }]}>
+                        {lastJuniorAssessmentResult.percentage}%
+                      </Text>
+                      <Text style={styles.juniorAssessDate}>
+                        {new Date(lastJuniorAssessmentResult.assessedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </Text>
                     </View>
-                    <Text style={styles.juniorAssessScore}>
-                      {lastJuniorAssessmentResult.percentage}%
-                    </Text>
-                    <Text style={styles.juniorAssessDate}>
-                      {new Date(lastJuniorAssessmentResult.assessedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </Text>
+                  ) : null}
+
+                  {/* Level progression chips */}
+                  {nextLevel ? (
+                    <View style={styles.juniorAssessLevelRow}>
+                      <View style={[styles.juniorAssessLevelChip, { backgroundColor: levelColor + "25", borderColor: levelColor + "60" }]}>
+                        <Text style={styles.juniorAssessLevelChipEmoji}>{levelEmoji}</Text>
+                        <Text style={[styles.juniorAssessLevelChipText, { color: levelColor }]}>
+                          {ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1)} Ball
+                        </Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={16} color="#FFFFFF80" />
+                      <View style={[styles.juniorAssessLevelChip, { backgroundColor: nextLevelColor + "25", borderColor: nextLevelColor + "60" }]}>
+                        <Text style={styles.juniorAssessLevelChipEmoji}>{nextLevelEmoji}</Text>
+                        <Text style={[styles.juniorAssessLevelChipText, { color: nextLevelColor }]}>{nextLevelLabel}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.juniorAssessCardRow}>
+                    <View style={[styles.juniorAssessIconWrap, { backgroundColor: levelColor + "25", borderColor: levelColor + "50", shadowColor: levelColor }]}>
+                      <Ionicons name="ribbon" size={28} color={levelColor} />
+                    </View>
+                    <View style={styles.juniorAssessCardText}>
+                      <Text style={styles.juniorAssessBtnText}>
+                        {lastJuniorAssessmentResult ? "Re-assess for Promotion" : "Assess for Promotion"}
+                      </Text>
+                      <View style={[styles.juniorAssessUstaBadge, { backgroundColor: levelColor + "20", borderColor: levelColor + "40" }]}>
+                        <Text style={[styles.juniorAssessCardSub, { color: levelColor }]}>
+                          USTA JUNIOR ASSESSMENT
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={22} color="#FFFFFF60" />
                   </View>
-                ) : null}
-                <View style={styles.juniorAssessCardRow}>
-                  <View style={styles.juniorAssessIconWrap}>
-                    <Ionicons name="ribbon-outline" size={26} color="#C8FF3D" />
-                  </View>
-                  <View style={styles.juniorAssessCardText}>
-                    <Text style={styles.juniorAssessBtnText}>
-                      {lastJuniorAssessmentResult ? "Re-assess for Promotion" : "Assess for Promotion"}
-                    </Text>
-                    <Text style={styles.juniorAssessCardSub}>
-                      USTA Junior Assessment
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#C8FF3D80" />
-                </View>
-              </LinearGradient>
-            </Pressable>
-          ) : null}
+                </LinearGradient>
+              </Pressable>
+            );
+          })() : null}
         </View>
 
         {pillarProgress ? (
