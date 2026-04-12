@@ -241,6 +241,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             styles.attendanceStatusBadge,
             record.status === "present" ? styles.attendanceStatusPresent :
             record.status === "absent" ? styles.attendanceStatusAbsent :
+            record.status === "late" ? styles.attendanceStatusLate :
             (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
             styles.attendanceStatusPending
           ]}>
@@ -257,11 +258,13 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
               styles.attendanceStatusText,
               record.status === "present" ? styles.attendanceStatusTextPresent :
               record.status === "absent" ? styles.attendanceStatusTextAbsent :
+              record.status === "late" ? styles.attendanceStatusTextLate :
               (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
               styles.attendanceStatusTextPending
             ]}>
               {record.status === "present" ? "Present" :
                record.status === "absent" ? "Absent" :
+               record.status === "late" ? "Late" :
                record.status === "holiday" ? "Holiday" :
                record.status === "vacation" ? "Vacation" :
                record.status === "cancelled" ? "Cancelled" : "Pending"}

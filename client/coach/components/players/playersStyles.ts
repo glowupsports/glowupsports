@@ -2849,6 +2849,9 @@ export const styles = StyleSheet.create({
   attendanceStatusPending: {
     backgroundColor: Colors.dark.gold + "20",
   },
+  attendanceStatusLate: {
+    backgroundColor: Colors.dark.gold + "20",
+  },
   attendanceStatusCancelled: {
     backgroundColor: "#E53935" + "30",  // Red background for cancelled
   },
@@ -2863,6 +2866,9 @@ export const styles = StyleSheet.create({
     color: Colors.dark.error,
   },
   attendanceStatusTextPending: {
+    color: Colors.dark.gold,
+  },
+  attendanceStatusTextLate: {
     color: Colors.dark.gold,
   },
   attendanceStatusTextCancelled: {
