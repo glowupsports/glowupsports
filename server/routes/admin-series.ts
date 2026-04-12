@@ -6,6 +6,7 @@ import { db } from "../db";
 import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
+  sessionRatings,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or } from "drizzle-orm";
@@ -4321,8 +4322,36 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const reviewStats = await storage.getCoachReviewStats(coachId);
       
       // Get number of active players for this coach
-      const players = await storage.getPlayersByCoach(coachId);
-      const activePlayers = players.length;
+      const coachPlayers = await storage.getPlayersByCoach(coachId);
+      const activePlayers = coachPlayers.length;
+
+      // Use session-based average rating if available, fall back to review stats
+      const sessionAvgRating = coach.averageRating ? parseFloat(coach.averageRating.toString()) : null;
+      const sessionTotalRatings = coach.totalRatings ?? 0;
+      const reviewAvgRating = reviewStats?.averageOverall ? parseFloat(reviewStats.averageOverall.toString()) : null;
+      const averageRating = sessionAvgRating ?? reviewAvgRating;
+      const reviewsCount = sessionTotalRatings > 0 ? sessionTotalRatings : (reviewStats?.totalReviews || 0);
+
+      // Fetch last 5 session ratings with player first name and comment
+      const recentRatingsRows = await db
+        .select({
+          rating: sessionRatings.rating,
+          comment: sessionRatings.comment,
+          createdAt: sessionRatings.createdAt,
+          playerName: players.name,
+        })
+        .from(sessionRatings)
+        .leftJoin(players, eq(sessionRatings.playerId, players.id))
+        .where(and(eq(sessionRatings.coachId, coachId), isNotNull(sessionRatings.comment)))
+        .orderBy(desc(sessionRatings.createdAt))
+        .limit(5);
+
+      const recentReviews = recentRatingsRows.map((r: { rating: number; comment: string | null; createdAt: Date | null; playerName: string | null }) => ({
+        rating: r.rating,
+        comment: r.comment,
+        playerFirstName: r.playerName ? r.playerName.split(" ")[0] : "Player",
+        createdAt: r.createdAt?.toISOString() || null,
+      }));
       
       res.json({
         id: coach.id,
@@ -4334,8 +4363,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         specializations: coach.specializations || [],
         certifications: coach.certifications || [],
         playersCount: activePlayers,
-        averageRating: reviewStats?.averageRating || null,
-        reviewsCount: reviewStats?.totalReviews || 0,
+        averageRating: averageRating || null,
+        reviewsCount,
+        recentReviews,
         profilePhotoUrl: coach.profilePhotoUrl || null,
       });
     } catch (error) {

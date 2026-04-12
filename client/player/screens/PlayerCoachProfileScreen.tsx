@@ -11,6 +11,13 @@ import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
+interface RecentReview {
+  rating: number;
+  comment: string | null;
+  playerFirstName: string;
+  createdAt: string | null;
+}
+
 interface CoachDetails {
   id: string;
   name: string;
@@ -23,6 +30,7 @@ interface CoachDetails {
   playersCount?: number;
   averageRating?: number;
   reviewsCount?: number;
+  recentReviews?: RecentReview[];
   profilePhotoUrl?: string | null;
 }
 
@@ -204,6 +212,32 @@ export default function PlayerCoachProfileScreen() {
             </View>
           </View>
         </Card>
+
+        {coach.recentReviews && coach.recentReviews.length > 0 ? (
+          <Card style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Recent Feedback</ThemedText>
+            {coach.recentReviews.slice(0, 3).map((review, index) => (
+              <View key={index} style={styles.reviewItem}>
+                <View style={styles.reviewHeader}>
+                  <View style={styles.reviewStars}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Ionicons
+                        key={star}
+                        name="star"
+                        size={12}
+                        color={star <= review.rating ? Colors.dark.accentWarning : Colors.dark.border}
+                      />
+                    ))}
+                  </View>
+                  <ThemedText style={styles.reviewPlayer}>{review.playerFirstName}</ThemedText>
+                </View>
+                {review.comment ? (
+                  <ThemedText style={styles.reviewComment}>{review.comment}</ThemedText>
+                ) : null}
+              </View>
+            ))}
+          </Card>
+        ) : null}
       </ScrollView>
     </ThemedView>
   );
@@ -370,5 +404,31 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
+  },
+  reviewItem: {
+    marginBottom: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  reviewStars: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  reviewPlayer: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    lineHeight: 20,
+    fontStyle: "italic",
   },
 });

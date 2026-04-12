@@ -865,9 +865,13 @@ Return only the JSON array, nothing else.`;
 
         // Get coach info
         let coachName = null;
+        let coachAverageRating: number | null = null;
+        let coachTotalRatings = 0;
         if (session.coachId) {
           const coach = await storage.getCoach(session.coachId);
           coachName = coach?.name || null;
+          coachAverageRating = coach?.averageRating ? parseFloat(coach.averageRating.toString()) : null;
+          coachTotalRatings = coach?.totalRatings ?? 0;
         }
         // Get court info first (needed for location fallback)
         let courtName = null;
@@ -906,6 +910,13 @@ Return only the JSON array, nothing else.`;
           locationLat = location?.lat ?? null;
           locationLng = location?.lng ?? null;
           locationGooglePlaceId = location?.googlePlaceId ?? null;
+        }
+
+        // Get academy rating
+        let academyAverageRating: number | null = null;
+        if (session.academyId) {
+          const academy = await storage.getAcademy(session.academyId);
+          academyAverageRating = academy?.averageRating ? parseFloat(academy.averageRating.toString()) : null;
         }
 
         // Check waitlist
@@ -953,6 +964,9 @@ Return only the JSON array, nothing else.`;
           courtName,
           coachName,
           coachId: session.coachId,
+          coachAverageRating,
+          coachTotalRatings,
+          academyAverageRating,
           ballLevel: session.ballLevel,
           vibe: session.vibe || "casual",
           minLevel: session.minLevel,
@@ -5346,6 +5360,15 @@ router.post(
           comment: comment ?? null,
         })
         .returning();
+
+      // Update coach aggregate rating from session ratings
+      if (created.coachId) {
+        await storage.updateCoachSessionRatingStats(created.coachId);
+      }
+      // Update academy aggregate rating from session ratings
+      if (created.academyId) {
+        await storage.updateAcademyRatingStats(created.academyId);
+      }
 
       return res.status(201).json({ success: true, rating: created });
     } catch (error: unknown) {

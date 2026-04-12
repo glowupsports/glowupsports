@@ -205,6 +205,10 @@ export const academies = pgTable("academies", {
   // AI Budget Control (platform owner configurable)
   monthlyTokenBudget: integer("monthly_token_budget"), // null = unlimited
   
+  // Aggregate rating from session ratings
+  averageRating: numeric("average_rating", { precision: 3, scale: 2 }),
+  totalRatings: integer("total_ratings").notNull().default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -453,6 +457,10 @@ export const coaches = pgTable("coaches", {
   isFreelance: boolean("is_freelance").default(false), // Coach can run their own personal academy
   personalAcademyId: varchar("personal_academy_id"), // ID of auto-created personal academy for freelancers
   selfServiceRate: numeric("self_service_rate"), // Rate for self-managed sessions (personal academy)
+
+  // Aggregate rating from session ratings
+  averageRating: numeric("average_rating", { precision: 3, scale: 2 }),
+  totalRatings: integer("total_ratings").notNull().default(0),
 
   // Live GPS tracking
   lastLat: doublePrecision("last_lat"),

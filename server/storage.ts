@@ -120,6 +120,8 @@ import {
   packageTemplates,
   type PackageTemplate,
   type InsertPackageTemplate,
+  // Session Ratings
+  sessionRatings,
   // Coach Review System
   coachReviews,
   reviewResponses,
@@ -9583,6 +9585,48 @@ export const storage = {
     } else {
       await db.insert(coachReviewStats).values({ coachId, ...statsData });
     }
+  },
+
+  // Update coach average rating from session ratings
+  async updateCoachSessionRatingStats(coachId: string): Promise<void> {
+    const result = await db
+      .select({
+        avg: sql<string>`AVG(${sessionRatings.rating})`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(sessionRatings)
+      .where(eq(sessionRatings.coachId, coachId));
+
+    const avg = result[0]?.avg ? parseFloat(result[0].avg) : null;
+    const count = result[0]?.count ?? 0;
+
+    await db.update(coaches)
+      .set({
+        averageRating: avg !== null ? avg.toFixed(2) : null,
+        totalRatings: count,
+      })
+      .where(eq(coaches.id, coachId));
+  },
+
+  // Update academy aggregate rating from session ratings
+  async updateAcademyRatingStats(academyId: string): Promise<void> {
+    const result = await db
+      .select({
+        avg: sql<string>`AVG(${sessionRatings.rating})`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(sessionRatings)
+      .where(eq(sessionRatings.academyId, academyId));
+
+    const avg = result[0]?.avg ? parseFloat(result[0].avg) : null;
+    const count = result[0]?.count ?? 0;
+
+    await db.update(academies)
+      .set({
+        averageRating: avg !== null ? avg.toFixed(2) : null,
+        totalRatings: count,
+      })
+      .where(eq(academies.id, academyId));
   },
 
   // Get visible reviews for a coach (public display)

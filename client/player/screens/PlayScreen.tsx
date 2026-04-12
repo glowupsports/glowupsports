@@ -55,6 +55,9 @@ interface PlaySession {
   courtImageUrl?: string;
   coachName?: string;
   coachId?: string;
+  coachAverageRating?: number | null;
+  coachTotalRatings?: number;
+  academyAverageRating?: number | null;
   ballLevel?: string;
   vibe: string;
   minLevel?: number;
@@ -739,12 +742,40 @@ export default function PlayScreen() {
                     <Ionicons name="location" size={14} color={Colors.dark.primary} />
                     <Text style={styles.epicLocationText}>{session.locationName}</Text>
                   </View>
-                  {session.coachName && (
+                  {session.coachName ? (
                     <View style={styles.epicCoachRow}>
                       <Ionicons name="person" size={13} color={Colors.dark.xpCyan} />
                       <Text style={styles.epicCoachText}>Coach {session.coachName}</Text>
+                      {session.coachAverageRating != null && session.coachAverageRating > 0 ? (
+                        <>
+                          <Ionicons
+                            name="star"
+                            size={12}
+                            color={session.coachAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted}
+                            style={{ marginLeft: 6 }}
+                          />
+                          <Text style={[styles.epicCoachText, { color: session.coachAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted }]}>
+                            {session.coachAverageRating.toFixed(1)}
+                          </Text>
+                        </>
+                      ) : null}
                     </View>
-                  )}
+                  ) : null}
+                  {session.academyAverageRating != null && session.academyAverageRating > 0 ? (
+                    <View style={styles.epicCoachRow}>
+                      <Ionicons name="business-outline" size={13} color={Colors.dark.textMuted} />
+                      <Text style={styles.epicCoachText}>at {session.locationName}</Text>
+                      <Ionicons
+                        name="star"
+                        size={12}
+                        color={session.academyAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted}
+                        style={{ marginLeft: 6 }}
+                      />
+                      <Text style={[styles.epicCoachText, { color: session.academyAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted }]}>
+                        {session.academyAverageRating.toFixed(1)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.epicMetaRow}>
                     <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
                     <Text style={styles.epicMetaText}>{formatTime(session.startTime)}</Text>
