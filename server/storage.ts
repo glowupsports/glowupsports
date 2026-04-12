@@ -11993,10 +11993,10 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         throw insertError;
       }
       
-      // Decrement package credits
+      // Decrement package credits — GREATEST(0, ...) ensures we never write a negative value
       await tx.execute(sql`
         UPDATE packages 
-        SET remaining_credits = ${balanceAfter},
+        SET remaining_credits = GREATEST(0, ${balanceAfter}::numeric),
             status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
         WHERE id = ${pkg.id}
       `);
@@ -12485,12 +12485,13 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
       GROUP BY metadata->>'settledByPackage'
     ) settled ON settled.package_id = p.id
-    WHERE p.status = 'active'
-      AND p.remaining_credits::numeric > (
-        p.total_credits::numeric
-        - COALESCE(pkg_debits.deducted, 0)
-        - COALESCE(settled.settled_amount, 0)
-      ) + 0.01
+    WHERE ABS(
+        p.remaining_credits::numeric - (
+          p.total_credits::numeric
+          - COALESCE(pkg_debits.deducted, 0)
+          - COALESCE(settled.settled_amount, 0)
+        )
+      ) > 0.01
   `);
 
   result.checked = drifted.rows.length;

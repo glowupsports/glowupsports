@@ -1028,6 +1028,19 @@ function setupErrorHandler(app: express.Application) {
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();
 
+        // Safety clamp: remaining_credits must never be negative (depleted = 0, not -N)
+        try {
+          const { db: dbClamp } = await import("./db");
+          const { sql: sqlClamp } = await import("drizzle-orm");
+          const clamped = await dbClamp.execute(sqlClamp`
+            UPDATE packages SET remaining_credits = 0 WHERE remaining_credits < 0
+          `);
+          const count = (clamped as any).rowCount ?? 0;
+          if (count > 0) log(`[CreditClamp] Clamped ${count} packages with negative remaining_credits to 0`);
+        } catch (e: any) {
+          console.error("[CreditClamp] Failed:", e.message);
+        }
+
         log("[CreditReconcile] Reconciling package remaining_credits against transaction history...");
         const reconcileResult = await reconcilePackageCredits();
         log(`[CreditReconcile] Done: ${reconcileResult.checked} drifted, ${reconcileResult.fixed} fixed, ${reconcileResult.errors.length} errors`);

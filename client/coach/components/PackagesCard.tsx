@@ -62,8 +62,9 @@ const CREDIT_TYPE_ICONS: Record<CreditType, string> = {
 
 function PackageItemRow({ pkg, onDelete }: { pkg: Package; onDelete: (pkg: Package) => void }) {
   const creditType = (pkg.creditType || "group") as CreditType;
-  const progressPercent = pkg.totalCredits > 0 ? (pkg.remainingCredits / pkg.totalCredits) * 100 : 0;
-  const isDepleted = pkg.remainingCredits <= 0;
+  const safeRemaining = Math.max(0, pkg.remainingCredits);
+  const progressPercent = pkg.totalCredits > 0 ? (safeRemaining / pkg.totalCredits) * 100 : 0;
+  const isDepleted = safeRemaining <= 0;
   const expired = pkg.expiryDate ? new Date(pkg.expiryDate) < new Date() : false;
   const typeColor = creditType === "private" ? Colors.dark.sessionPrivate
     : creditType === "semi_private" ? Colors.dark.sessionSemiPrivate
@@ -112,7 +113,7 @@ function PackageItemRow({ pkg, onDelete }: { pkg: Package; onDelete: (pkg: Packa
         <Text style={styles.creditsLabel}>Credits</Text>
         <View style={styles.creditsDisplay}>
           <Text style={[styles.creditsRemaining, isDepleted && styles.creditsDepleted]}>
-            {formatCredits(pkg.remainingCredits)}
+            {formatCredits(safeRemaining)}
           </Text>
           <Text style={styles.creditsTotal}>/ {formatCredits(pkg.totalCredits)}</Text>
         </View>
@@ -250,13 +251,13 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     (p) => p.remainingCredits <= 0 || (p.expiryDate !== null && new Date(p.expiryDate) < new Date())
   );
 
-  const totalRemaining = activePackages.reduce((sum, p) => sum + p.remainingCredits, 0);
+  const totalRemaining = activePackages.reduce((sum, p) => sum + Math.max(0, p.remainingCredits), 0);
 
   const creditsByType = useMemo(() => {
     const byType: Record<CreditType, number> = { group: 0, private: 0, semi_private: 0 };
     activePackages.forEach((p) => {
       const type = (p.creditType || "group") as CreditType;
-      byType[type] += p.remainingCredits;
+      byType[type] += Math.max(0, p.remainingCredits);
     });
     return byType;
   }, [activePackages]);
@@ -753,9 +754,13 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
             <Text style={styles.modalTitle}>Delete Package</Text>
             {packageToDelete && (
               <Text style={styles.deleteMessage}>
-                {packageToDelete.totalCredits - packageToDelete.remainingCredits > 0
-                  ? `This package has ${formatCredits(packageToDelete.totalCredits - packageToDelete.remainingCredits)} used and ${formatCredits(packageToDelete.remainingCredits)} remaining credits. Delete it?`
-                  : `Delete this package with ${formatCredits(packageToDelete.remainingCredits)} credits?`}
+                {(() => {
+                  const safeRem = Math.max(0, packageToDelete.remainingCredits);
+                  const used = packageToDelete.totalCredits - safeRem;
+                  return used > 0
+                    ? `This package has ${formatCredits(used)} used and ${formatCredits(safeRem)} remaining credits. Delete it?`
+                    : `Delete this package with ${formatCredits(safeRem)} credits?`;
+                })()}
               </Text>
             )}
             <View style={styles.modalButtons}>
