@@ -12588,7 +12588,7 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; failur
       const inserted = await db.execute(sql`
         INSERT INTO session_players (id, session_id, player_id, attendance_status)
         VALUES (gen_random_uuid(), ${s.id}, ${m.player_id}, 'present')
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (session_id, player_id) DO NOTHING
         RETURNING id
       `);
 
