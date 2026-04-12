@@ -4966,6 +4966,7 @@ export const storage = {
       playerId,
       xpAmount,
       sessionId: sessionId || null,
+      source: description || "session_attendance",
       description: description || "XP earned",
     });
     await db.update(players).set({
