@@ -13,6 +13,7 @@ import {
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
   sessionRatings, sessionRatingInputSchema,
+  academies, coachReviewStats,
 } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
@@ -883,15 +884,38 @@ Return only the JSON array, nothing else.`;
             })
           : [];
 
-        // Get coach info
-        let coachName = null;
+        // Get coach info (name, photo, rating)
+        let coachName: string | null = null;
+        let coachPhotoUrl: string | null = null;
         let coachAverageRating: number | null = null;
-        let coachTotalRatings = 0;
+        let coachTotalRatings: number = 0;
+        let sessionAcademyId: string | null = null;
+        let academyName: string | null = null;
+        let academyLogoUrl: string | null = null;
+        let academyCity: string | null = null;
         if (session.coachId) {
           const coach = await storage.getCoach(session.coachId);
           coachName = coach?.name || null;
-          coachAverageRating = coach?.averageRating ? parseFloat(coach.averageRating.toString()) : null;
-          coachTotalRatings = coach?.totalRatings ?? 0;
+          coachPhotoUrl = coach?.photoUrl || null;
+          sessionAcademyId = coach?.academyId || null;
+          // Get coach rating stats
+          const ratingStats = await db.select().from(coachReviewStats).where(eq(coachReviewStats.coachId, session.coachId)).limit(1);
+          if (ratingStats[0]) {
+            coachAverageRating = ratingStats[0].averageOverall ? parseFloat(ratingStats[0].averageOverall.toString()) : null;
+            coachTotalRatings = ratingStats[0].totalReviews || 0;
+          }
+        }
+        // Get academy info for this session (from session.academyId or coach's academy)
+        const resolvedAcademyId = session.academyId || sessionAcademyId;
+        if (resolvedAcademyId) {
+          const academyRows = await db.select({ id: academies.id, name: academies.name, logoUrl: academies.logoUrl, city: academies.city })
+            .from(academies).where(eq(academies.id, resolvedAcademyId)).limit(1);
+          if (academyRows[0]) {
+            academyName = academyRows[0].name || null;
+            academyLogoUrl = academyRows[0].logoUrl || null;
+            academyCity = academyRows[0].city || null;
+            sessionAcademyId = academyRows[0].id;
+          }
         }
         // Get court info first (needed for location fallback)
         let courtName = null;
@@ -971,6 +995,13 @@ Return only the JSON array, nothing else.`;
         const offeredAt = myWaitlistEntry?.offeredAt?.toISOString() || null;
         const claimWindowMinutes = myWaitlistEntry?.claimWindowMinutes || 30;
 
+        // Calculate publicDropInPrice: use academyPrice if set, otherwise price
+        const publicDropInPrice = session.academyPrice
+          ? parseFloat(session.academyPrice.toString())
+          : session.price
+          ? parseFloat(session.price.toString())
+          : null;
+
         return {
           id: session.id,
           title: session.title || `${session.sessionType === "group" ? "Group" : "Semi"} Training`,
@@ -984,10 +1015,14 @@ Return only the JSON array, nothing else.`;
           courtName,
           coachName,
           coachId: session.coachId,
+          coachPhotoUrl,
           coachAverageRating,
           coachTotalRatings,
-          academyAverageRating,
-          academyId: session.academyId || null,
+          academyId: sessionAcademyId,
+          academyName,
+          academyLogoUrl,
+          academyCity,
+          publicDropInPrice,
           ballLevel: session.ballLevel,
           vibe: session.vibe || "casual",
           minLevel: session.minLevel,

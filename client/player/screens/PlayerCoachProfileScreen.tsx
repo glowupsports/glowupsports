@@ -10,6 +10,29 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
+
+interface UpcomingSession {
+  id: string;
+  title?: string | null;
+  startTime: string;
+  endTime: string;
+  ballLevel?: string | null;
+  sessionType: string;
+  maxPlayers: number;
+  currentPlayers: number;
+  spotsLeft: number;
+  publicDropInPrice?: number | null;
+}
+
+interface RecentReview {
+  id: string;
+  overallScore?: number | null;
+  comment?: string | null;
+  playerFirstName: string;
+  reviewerLevel?: string | null;
+  createdAt?: string | null;
+}
 
 interface RecentReview {
   rating: number;
@@ -28,11 +51,35 @@ interface CoachDetails {
   specializations?: string[];
   certifications?: string[];
   playersCount?: number;
-  averageRating?: number;
+  averageRating?: number | null;
   reviewsCount?: number;
-  recentReviews?: RecentReview[];
   profilePhotoUrl?: string | null;
   academyId?: string | null;
+  academyName?: string | null;
+  academyLogoUrl?: string | null;
+  academyCity?: string | null;
+  upcomingPublicSessions?: UpcomingSession[];
+  recentReviews?: RecentReview[];
+}
+
+const NEON_GREEN = "#CCFF00";
+
+function StarRatingRow({ rating, count }: { rating: number; count: number }) {
+  const stars = [1, 2, 3, 4, 5];
+  return (
+    <View style={styles.ratingBarRow}>
+      {stars.map((s) => (
+        <Ionicons
+          key={s}
+          name={rating >= s ? "star" : rating >= s - 0.5 ? "star-half" : "star-outline"}
+          size={18}
+          color={NEON_GREEN}
+        />
+      ))}
+      <ThemedText style={styles.ratingBarValue}>{rating.toFixed(1)}</ThemedText>
+      <ThemedText style={styles.ratingBarCount}>({count} {count === 1 ? "rating" : "ratings"})</ThemedText>
+    </View>
+  );
 }
 
 export default function PlayerCoachProfileScreen() {
@@ -52,13 +99,27 @@ export default function PlayerCoachProfileScreen() {
 
   const handleContact = () => {
     if (coach?.email) {
-      Linking.openURL(`mailto:${coach.email}`);
+      Linking.openURL(`mailto:${coach.email}?subject=Private Lesson Request`);
     }
   };
 
   const handleCall = () => {
     if (coach?.phone && Platform.OS !== "web") {
       Linking.openURL(`tel:${coach.phone}`);
+    }
+  };
+
+  const handlePrivateLesson = () => {
+    if (coach?.email) {
+      const subject = encodeURIComponent(`Private Lesson Request — ${coach.name}`);
+      const body = encodeURIComponent(`Hi ${coach.name},\n\nI would like to request a private lesson.\n\nPlease let me know your availability.\n\nThanks!`);
+      Linking.openURL(`mailto:${coach.email}?subject=${subject}&body=${body}`);
+    }
+  };
+
+  const handleAcademyPress = () => {
+    if (coach?.academyId) {
+      navigation.navigate("AcademyProfile", { academyId: coach.academyId });
     }
   };
 
@@ -96,6 +157,9 @@ export default function PlayerCoachProfileScreen() {
     );
   }
 
+  const firstName = coach.name?.split(" ")[0] || "Coach";
+  const spotsLeftText = (spotsLeft: number) => spotsLeft === 0 ? "Full" : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left`;
+
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -106,14 +170,48 @@ export default function PlayerCoachProfileScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Academy section — prominent at top */}
+        {coach.academyName ? (
+          <Pressable style={styles.academyBanner} onPress={handleAcademyPress}>
+            {coach.academyLogoUrl ? (
+              Platform.OS === "web" ? (
+                <RNImage
+                  source={{ uri: buildPhotoUrl(coach.academyLogoUrl)! }}
+                  style={styles.academyLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Image
+                  source={{ uri: buildPhotoUrl(coach.academyLogoUrl)! }}
+                  style={styles.academyLogo}
+                  contentFit="contain"
+                />
+              )
+            ) : (
+              <View style={styles.academyLogoPlaceholder}>
+                <Ionicons name="business-outline" size={22} color={Colors.dark.textSecondary} />
+              </View>
+            )}
+            <View style={styles.academyInfo}>
+              <ThemedText style={styles.academyName}>{coach.academyName}</ThemedText>
+              {coach.academyCity ? (
+                <ThemedText style={styles.academySubtext}>{coach.academyCity}, UAE</ThemedText>
+              ) : (
+                <ThemedText style={styles.academySubtext}>View Academy</ThemedText>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
+
         <View style={styles.profileHeader}>
           {coach.profilePhotoUrl ? (
-            Platform.OS === 'web' ? (
+            Platform.OS === "web" ? (
               <RNImage
                 source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
                 style={styles.avatarLargeImage}
@@ -139,14 +237,13 @@ export default function PlayerCoachProfileScreen() {
               {coach.yearsExperience} years experience
             </ThemedText>
           ) : null}
+
+          {/* Rating bar */}
           {coach.averageRating ? (
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={16} color={Colors.dark.accentWarning} />
-              <ThemedText style={styles.rating}>
-                {coach.averageRating.toFixed(1)} ({coach.reviewsCount || 0} reviews)
-              </ThemedText>
-            </View>
-          ) : null}
+            <StarRatingRow rating={coach.averageRating} count={coach.reviewsCount || 0} />
+          ) : (
+            <ThemedText style={styles.noRatingsText}>No ratings yet</ThemedText>
+          )}
         </View>
 
         <View style={styles.contactButtons}>
@@ -168,6 +265,47 @@ export default function PlayerCoachProfileScreen() {
           <Card style={styles.section}>
             <ThemedText style={styles.sectionTitle}>About</ThemedText>
             <ThemedText style={styles.bio}>{coach.bio}</ThemedText>
+          </Card>
+        ) : null}
+
+        {/* Upcoming public lessons */}
+        {coach.upcomingPublicSessions && coach.upcomingPublicSessions.length > 0 ? (
+          <Card style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Join a group with {firstName}</ThemedText>
+            {coach.upcomingPublicSessions.slice(0, 3).map((s) => (
+              <View key={s.id} style={styles.upcomingSessionCard}>
+                <View style={styles.upcomingSessionRow}>
+                  <View style={styles.upcomingSessionInfo}>
+                    <ThemedText style={styles.upcomingSessionTime}>
+                      {formatSessionTimeWithRelativeDay(s.startTime, "Asia/Dubai")}
+                    </ThemedText>
+                    <View style={styles.upcomingSessionMeta}>
+                      {s.ballLevel ? (
+                        <ThemedText style={styles.upcomingSessionLevel}>{s.ballLevel.toUpperCase()}</ThemedText>
+                      ) : null}
+                      <ThemedText style={styles.upcomingSessionPriceSpots}>
+                        {s.publicDropInPrice != null && s.publicDropInPrice > 0
+                          ? `AED ${s.publicDropInPrice.toFixed(0)}`
+                          : "Free"}{" "}
+                        · {spotsLeftText(s.spotsLeft)}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  {s.spotsLeft > 0 ? (
+                    <Pressable
+                      style={styles.bookNowButton}
+                      onPress={() => navigation.navigate("LessonBooking")}
+                    >
+                      <ThemedText style={styles.bookNowButtonText}>Book Now</ThemedText>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.fullBadge}>
+                      <ThemedText style={styles.fullBadgeText}>Full</ThemedText>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))}
           </Card>
         ) : null}
 
@@ -214,19 +352,20 @@ export default function PlayerCoachProfileScreen() {
           </View>
         </Card>
 
+        {/* Recent reviews */}
         {coach.recentReviews && coach.recentReviews.length > 0 ? (
           <Card style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Recent Feedback</ThemedText>
-            {coach.recentReviews.slice(0, 3).map((review, index) => (
-              <View key={index} style={styles.reviewItem}>
+            <ThemedText style={styles.sectionTitle}>What players say</ThemedText>
+            {coach.recentReviews.map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
-                  <View style={styles.reviewStars}>
-                    {[1, 2, 3, 4, 5].map(star => (
+                  <View style={styles.reviewStarsRow}>
+                    {[1, 2, 3, 4, 5].map((s) => (
                       <Ionicons
-                        key={star}
-                        name="star"
+                        key={s}
+                        name={review.overallScore && review.overallScore >= s ? "star" : "star-outline"}
                         size={12}
-                        color={star <= review.rating ? Colors.dark.accentWarning : Colors.dark.border}
+                        color={NEON_GREEN}
                       />
                     ))}
                   </View>
@@ -240,16 +379,11 @@ export default function PlayerCoachProfileScreen() {
           </Card>
         ) : null}
 
-        {coach.academyId ? (
-          <Pressable
-            style={styles.academyCard}
-            onPress={() => navigation.navigate("AcademyPublicProfile", { academyId: coach.academyId })}
-          >
-            <View style={styles.academyCardContent}>
-              <Ionicons name="business-outline" size={20} color={Colors.dark.xpCyan} />
-              <ThemedText style={styles.academyCardText}>View Academy Profile</ThemedText>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+        {/* Request private lesson CTA */}
+        {coach.email ? (
+          <Pressable style={styles.privateLessonButton} onPress={handlePrivateLesson}>
+            <Ionicons name="person-outline" size={20} color={Colors.dark.backgroundRoot} />
+            <ThemedText style={styles.privateLessonButtonText}>Request Private Lesson</ThemedText>
           </Pressable>
         ) : null}
       </ScrollView>
@@ -296,6 +430,42 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.dark.textSecondary,
   },
+  academyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.md,
+  },
+  academyLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+  },
+  academyLogoPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  academyInfo: {
+    flex: 1,
+  },
+  academyName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  academySubtext: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
   profileHeader: {
     alignItems: "center",
     marginBottom: Spacing.xl,
@@ -333,14 +503,27 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.xs,
   },
-  ratingRow: {
+  ratingBarRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 4,
+    marginTop: Spacing.xs,
   },
-  rating: {
-    fontSize: 14,
+  ratingBarValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: NEON_GREEN,
+    marginLeft: 4,
+  },
+  ratingBarCount: {
+    fontSize: 13,
     color: Colors.dark.textSecondary,
+  },
+  noRatingsText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    fontStyle: "italic",
   },
   contactButtons: {
     flexDirection: "row",
@@ -419,31 +602,116 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.textSecondary,
   },
-  reviewItem: {
-    marginBottom: Spacing.md,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+  upcomingSessionCard: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  upcomingSessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  upcomingSessionInfo: {
+    flex: 1,
+  },
+  upcomingSessionMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+    marginTop: 2,
+  },
+  upcomingSessionTime: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  upcomingSessionLevel: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    backgroundColor: Colors.dark.primary + "20",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  upcomingSessionPriceSpots: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+  },
+  bookNowButton: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    minWidth: 72,
+    alignItems: "center",
+  },
+  bookNowButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  fullBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.textMuted + "20",
+    minWidth: 72,
+    alignItems: "center",
+  },
+  fullBadgeText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  reviewCard: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   reviewHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
-  reviewStars: {
+  reviewStarsRow: {
     flexDirection: "row",
     gap: 2,
   },
   reviewPlayer: {
     fontSize: 12,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
   },
   reviewComment: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.dark.textSecondary,
-    lineHeight: 20,
-    fontStyle: "italic",
+    lineHeight: 18,
+  },
+  privateLessonButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  privateLessonButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
   academyCard: {
     flexDirection: "row",

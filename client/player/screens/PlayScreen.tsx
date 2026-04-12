@@ -56,10 +56,14 @@ interface PlaySession {
   courtImageUrl?: string;
   coachName?: string;
   coachId?: string;
+  coachPhotoUrl?: string | null;
   coachAverageRating?: number | null;
   coachTotalRatings?: number;
-  academyAverageRating?: number | null;
   academyId?: string | null;
+  academyName?: string | null;
+  academyLogoUrl?: string | null;
+  academyCity?: string | null;
+  publicDropInPrice?: number | null;
   ballLevel?: string;
   vibe: string;
   minLevel?: number;
@@ -768,38 +772,46 @@ export default function PlayScreen() {
                     <Text style={styles.epicLocationText}>{session.locationName}</Text>
                   </Pressable>
                   {session.coachName ? (
-                    <View style={styles.epicCoachRow}>
-                      <Ionicons name="person" size={13} color={Colors.dark.xpCyan} />
-                      <Text style={styles.epicCoachText}>Coach {session.coachName}</Text>
-                      {session.coachAverageRating != null && session.coachAverageRating > 0 ? (
-                        <>
-                          <Ionicons
-                            name="star"
-                            size={12}
-                            color={session.coachAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted}
-                            style={{ marginLeft: 6 }}
-                          />
-                          <Text style={[styles.epicCoachText, { color: session.coachAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted }]}>
-                            {session.coachAverageRating.toFixed(1)}
-                          </Text>
-                        </>
+                    <Pressable
+                      style={styles.epicCoachRow}
+                      onPress={() => session.coachId ? navigation.navigate("CoachProfile", { coachId: session.coachId }) : undefined}
+                    >
+                      {session.coachPhotoUrl ? (
+                        <ExpoImage
+                          source={{ uri: buildPhotoUrl(session.coachPhotoUrl)! }}
+                          style={styles.coachAvatarSmall}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={styles.coachAvatarSmallPlaceholder}>
+                          <Text style={styles.coachAvatarSmallInitial}>{session.coachName.charAt(0)}</Text>
+                        </View>
+                      )}
+                      <Text style={styles.epicCoachText}>{session.coachName}</Text>
+                      {session.coachAverageRating ? (
+                        <View style={styles.coachRatingBadge}>
+                          <Ionicons name="star" size={10} color={Colors.dark.primary} />
+                          <Text style={styles.coachRatingText}>{session.coachAverageRating.toFixed(1)}</Text>
+                        </View>
                       ) : null}
-                    </View>
+                    </Pressable>
                   ) : null}
-                  {session.academyAverageRating != null && session.academyAverageRating > 0 ? (
-                    <View style={styles.epicCoachRow}>
-                      <Ionicons name="business-outline" size={13} color={Colors.dark.textMuted} />
-                      <Text style={styles.epicCoachText}>at {session.locationName}</Text>
-                      <Ionicons
-                        name="star"
-                        size={12}
-                        color={session.academyAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted}
-                        style={{ marginLeft: 6 }}
-                      />
-                      <Text style={[styles.epicCoachText, { color: session.academyAverageRating >= 4.5 ? Colors.dark.primary : Colors.dark.textMuted }]}>
-                        {session.academyAverageRating.toFixed(1)}
-                      </Text>
-                    </View>
+                  {session.academyName ? (
+                    <Pressable
+                      style={styles.epicAcademyRow}
+                      onPress={() => session.academyId ? navigation.navigate("AcademyProfile", { academyId: session.academyId }) : undefined}
+                    >
+                      {session.academyLogoUrl ? (
+                        <ExpoImage
+                          source={{ uri: buildPhotoUrl(session.academyLogoUrl)! }}
+                          style={styles.academyLogoSmall}
+                          contentFit="contain"
+                        />
+                      ) : (
+                        <Ionicons name="business-outline" size={13} color={Colors.dark.textMuted} />
+                      )}
+                      <Text style={styles.epicAcademyText}>{session.academyName}{session.academyCity ? ` · ${session.academyCity}` : ""}</Text>
+                    </Pressable>
                   ) : null}
                   {session.sessionAcademyId && session.sessionAcademyId !== playerAcademyId && session.sessionAcademyName ? (
                     <Pressable
@@ -934,6 +946,18 @@ export default function PlayScreen() {
                   )}
                 </View>
               </View>
+
+              {/* Price + Spots chip */}
+              {session.publicDropInPrice != null ? (
+                <View style={styles.priceChipRow}>
+                  <View style={styles.priceChip}>
+                    <Text style={styles.priceChipText}>AED {session.publicDropInPrice.toFixed(0)} / session</Text>
+                  </View>
+                  <View style={styles.spotsChip}>
+                    <Text style={styles.spotsChipText}>{Math.max(0, session.maxPlayers - session.currentPlayers)} spots left</Text>
+                  </View>
+                </View>
+              ) : null}
 
               {/* Credit Cost Indicator */}
               <View style={styles.creditCostRow}>
@@ -2633,6 +2657,56 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
     fontWeight: "500",
   },
+  coachAvatarSmall: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "80",
+  },
+  coachAvatarSmallPlaceholder: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.dark.xpCyan + "30",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coachAvatarSmallInitial: {
+    fontSize: 10,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+  },
+  coachRatingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: Colors.dark.primary + "25",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  coachRatingText: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  epicAcademyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: 2,
+  },
+  academyLogoSmall: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+  },
+  epicAcademyText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+  },
   epicMetaRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2891,6 +2965,36 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontSize: 11,
+  },
+  priceChipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  priceChip: {
+    backgroundColor: Colors.dark.primary + "25",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "60",
+  },
+  priceChipText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  spotsChip: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  spotsChipText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
   creditCostRow: {
     flexDirection: "row",

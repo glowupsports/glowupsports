@@ -6,10 +6,10 @@ import { db } from "../db";
 import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
-  sessionRatings,
+  sessionRatings, coachReviews, coachReviewStats,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
-import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or } from "drizzle-orm";
+import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -4322,37 +4322,104 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const reviewStats = await storage.getCoachReviewStats(coachId);
       
       // Get number of active players for this coach
-      const coachPlayers = await storage.getPlayersByCoach(coachId);
-      const activePlayers = coachPlayers.length;
+      const playersList = await storage.getPlayersByCoach(coachId);
+      const activePlayers = playersList.length;
 
-      // Use session-based average rating if available, fall back to review stats
-      const sessionAvgRating = coach.averageRating ? parseFloat(coach.averageRating.toString()) : null;
-      const sessionTotalRatings = coach.totalRatings ?? 0;
-      const reviewAvgRating = reviewStats?.averageOverall ? parseFloat(reviewStats.averageOverall.toString()) : null;
-      const averageRating = sessionAvgRating ?? reviewAvgRating;
-      const reviewsCount = sessionTotalRatings > 0 ? sessionTotalRatings : (reviewStats?.totalReviews || 0);
+      // Get academy info
+      let academyId: string | null = coach.academyId || null;
+      let academyName: string | null = null;
+      let academyLogoUrl: string | null = null;
+      let academyCity: string | null = null;
+      if (academyId) {
+        const academyRows = await db.select({ id: academies.id, name: academies.name, logoUrl: academies.logoUrl, city: academies.city })
+          .from(academies).where(eq(academies.id, academyId)).limit(1);
+        if (academyRows[0]) {
+          academyName = academyRows[0].name || null;
+          academyLogoUrl = academyRows[0].logoUrl || null;
+          academyCity = academyRows[0].city || null;
+        }
+      }
 
-      // Fetch last 5 session ratings with player first name and comment
-      const recentRatingsRows = await db
-        .select({
-          rating: sessionRatings.rating,
-          comment: sessionRatings.comment,
-          createdAt: sessionRatings.createdAt,
-          playerName: players.name,
-        })
-        .from(sessionRatings)
-        .leftJoin(players, eq(sessionRatings.playerId, players.id))
-        .where(and(eq(sessionRatings.coachId, coachId), isNotNull(sessionRatings.comment)))
-        .orderBy(desc(sessionRatings.createdAt))
+      // Get upcoming public sessions (next 5, group type, from this coach's series)
+      const now = new Date();
+      const upcomingPublicSessions = await db.select({
+        id: sessions.id,
+        title: sessions.title,
+        startTime: sessions.startTime,
+        endTime: sessions.endTime,
+        maxPlayers: sessions.maxPlayers,
+        ballLevel: sessions.ballLevel,
+        sessionType: sessions.sessionType,
+        price: sessions.price,
+        academyPrice: sessions.academyPrice,
+      })
+        .from(sessions)
+        .where(and(
+          eq(sessions.coachId, coachId),
+          eq(sessions.status, "scheduled"),
+          inArray(sessions.sessionType, ["group", "semi_private"]),
+          gte(sessions.startTime, now)
+        ))
+        .orderBy(asc(sessions.startTime))
         .limit(5);
 
-      const recentReviews = recentRatingsRows.map((r: { rating: number; comment: string | null; createdAt: Date | null; playerName: string | null }) => ({
-        rating: r.rating,
-        comment: r.comment,
-        playerFirstName: r.playerName ? r.playerName.split(" ")[0] : "Player",
+      // For each upcoming session, compute spots left
+      const upcomingSessionsEnriched = await Promise.all(upcomingPublicSessions.map(async (s) => {
+        const enrolled = await db.select({ count: sql<number>`count(*)` }).from(sessionPlayers).where(eq(sessionPlayers.sessionId, s.id));
+        const currentPlayers = Number(enrolled[0]?.count || 0);
+        const maxP = s.maxPlayers || 6;
+        const spotsLeft = Math.max(0, maxP - currentPlayers);
+        const publicDropInPrice = s.academyPrice != null ? parseFloat(s.academyPrice.toString()) : (s.price != null ? parseFloat(s.price.toString()) : null);
+        return {
+          id: s.id,
+          title: s.title,
+          startTime: s.startTime.toISOString(),
+          endTime: s.endTime.toISOString(),
+          ballLevel: s.ballLevel,
+          sessionType: s.sessionType,
+          maxPlayers: maxP,
+          currentPlayers,
+          spotsLeft,
+          publicDropInPrice,
+        };
+      }));
+
+      // Get last 5 visible coach reviews with player first name
+      const recentReviewRows = await db.select({
+        id: coachReviews.id,
+        overallScore: coachReviews.overallScore,
+        whatDoesWell: coachReviews.whatDoesWell,
+        reviewerAgeCategory: coachReviews.reviewerAgeCategory,
+        reviewerLevel: coachReviews.reviewerLevel,
+        createdAt: coachReviews.createdAt,
+        playerId: coachReviews.playerId,
+      })
+        .from(coachReviews)
+        .where(and(
+          eq(coachReviews.coachId, coachId),
+          eq(coachReviews.isHidden, false),
+          eq(coachReviews.isVisible, true)
+        ))
+        .orderBy(desc(coachReviews.createdAt))
+        .limit(5);
+
+      // Fetch player first names for reviews
+      const reviewPlayerIds = recentReviewRows.map(r => r.playerId).filter(Boolean) as string[];
+      const reviewPlayers = reviewPlayerIds.length > 0
+        ? await db.select({ id: players.id, name: players.name }).from(players).where(inArray(players.id, reviewPlayerIds))
+        : [];
+      const playerNameMap = new Map(reviewPlayers.map(p => [p.id, p.name?.split(" ")[0] || "Player"]));
+
+      const reviewsFormatted = recentReviewRows.map(r => ({
+        id: r.id,
+        overallScore: r.overallScore ? parseFloat(r.overallScore.toString()) : null,
+        comment: r.whatDoesWell || null,
+        playerFirstName: playerNameMap.get(r.playerId) || "Player",
+        reviewerLevel: r.reviewerLevel,
         createdAt: r.createdAt?.toISOString() || null,
       }));
-      
+
+
       res.json({
         id: coach.id,
         name: coach.name,
@@ -4363,11 +4430,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         specializations: coach.specializations || [],
         certifications: coach.certifications || [],
         playersCount: activePlayers,
-        averageRating: averageRating || null,
-        reviewsCount,
-        recentReviews,
-        profilePhotoUrl: coach.profilePhotoUrl || null,
-        academyId: coach.academyId || null,
+        averageRating: reviewStats?.averageOverall ? parseFloat(reviewStats.averageOverall.toString()) : null,
+        reviewsCount: reviewStats?.totalReviews || 0,
+        profilePhotoUrl: coach.photoUrl || null,
+        academyId,
+        academyName,
+        academyLogoUrl,
+        academyCity,
+        upcomingPublicSessions: upcomingSessionsEnriched,
+        recentReviews: reviewsFormatted,
       });
     } catch (error) {
       console.error("Error fetching coach profile:", error);
