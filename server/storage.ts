@@ -9226,6 +9226,40 @@ export const storage = {
       requestedEnd: new Date(row.requestedEnd),
     }));
 
+    // Fetch travel times between locations for the academy, scoped per-coach.
+    // checkCoachConflict (booking-time guard) does the same — it reads by coachId.
+    // We fetch all records for the academy once and look up by coachId at evaluation time
+    // so we avoid per-slot DB queries while still honouring coach-specific travel configs.
+    const travelTimesData = await db
+      .select()
+      .from(locationTravelTimes)
+      .where(eq(locationTravelTimes.academyId, params.academyId));
+
+    // Build a court → locationId lookup from all courts in the academy
+    const academyCourts = await db
+      .select({ id: courts.id, locationId: courts.locationId })
+      .from(courts)
+      .where(eq(courts.academyId, params.academyId));
+    const courtLocationMap = new Map<string, string | null>(
+      academyCourts.map(c => [c.id, c.locationId])
+    );
+
+    // Pre-index travel times by "coachId:locationA:locationB" (both orderings) for O(1) lookup
+    // inside the hot slot-generation loop. Mirrors checkCoachConflict's coach-scoped behavior.
+    const travelTimeIndex = new Map<string, number>();
+    for (const tt of travelTimesData) {
+      if (!tt.coachId) continue;
+      const keyAB = `${tt.coachId}:${tt.fromLocationId}:${tt.toLocationId}`;
+      const keyBA = `${tt.coachId}:${tt.toLocationId}:${tt.fromLocationId}`;
+      travelTimeIndex.set(keyAB, tt.travelTimeMinutes);
+      travelTimeIndex.set(keyBA, tt.travelTimeMinutes);
+    }
+
+    function getTravelMinutes(coachId: string, fromLocId: string, toLocId: string): number {
+      if (fromLocId === toLocId) return 0;
+      return travelTimeIndex.get(`${coachId}:${fromLocId}:${toLocId}`) ?? 0;
+    }
+
     // Fetch court availability blocks for the date range (blocked/booked from ALL coaches)
     // This ensures cross-coach court conflict exclusion
     const startDateStr = `${params.startDate.getUTCFullYear()}-${String(params.startDate.getUTCMonth() + 1).padStart(2, "0")}-${String(params.startDate.getUTCDate()).padStart(2, "0")}`;
@@ -9322,19 +9356,68 @@ export const storage = {
           const slotStartTime = `${String(slotStart.getUTCHours()).padStart(2, "0")}:${String(slotStart.getUTCMinutes()).padStart(2, "0")}`;
           const slotEndTime = `${String(slotEnd.getUTCHours()).padStart(2, "0")}:${String(slotEnd.getUTCMinutes()).padStart(2, "0")}`;
 
-          // Check coach-level session conflict (same coach)
-          const hasConflict = existingSessions.some(session => 
-            session.coachId === availability.coachId &&
-            session.startTime && session.endTime &&
-            slotStart < session.endTime && slotEnd > session.startTime
-          );
+          // Determine the target locationId for this candidate slot.
+          // Priority: (1) direct locationId on the availability record, (2) the court's location
+          // (resolved via courtLocationMap), (3) the params.locationId filter the caller supplied.
+          // Wildcard availability rows (locationId = null, courtId = null) often match any location,
+          // so when the player has filtered by a specific location we use params.locationId as the
+          // authoritative target — this is the location the player is browsing for, and it is what
+          // the booking-confirmation guard would check the new session against.
+          const slotLocationId: string | null =
+            availability.locationId
+            ?? (availability.courtId ? (courtLocationMap.get(availability.courtId) ?? null) : null)
+            ?? params.locationId
+            ?? null;
+
+          // Check coach-level session conflict (same coach) — with cross-location travel buffer
+          const hasConflict = existingSessions.some(session => {
+            if (session.coachId !== availability.coachId) return false;
+            if (!session.startTime || !session.endTime) return false;
+
+            // Direct time overlap (same or unknown location)
+            const directOverlap = slotStart < session.endTime && slotEnd > session.startTime;
+            if (directOverlap) return true;
+
+            // Cross-location travel-time buffer check (scoped to this coach's travel config)
+            if (slotLocationId && session.courtId) {
+              const sessionLocationId = courtLocationMap.get(session.courtId) ?? null;
+              if (sessionLocationId && sessionLocationId !== slotLocationId) {
+                const travelMins = getTravelMinutes(availability.coachId, sessionLocationId, slotLocationId);
+                if (travelMins > 0) {
+                  const bufferAfterSession = new Date(session.endTime.getTime() + travelMins * 60000);
+                  if (slotStart < bufferAfterSession && slotEnd > session.endTime) return true;
+                  const bufferBeforeSession = new Date(session.startTime.getTime() - travelMins * 60000);
+                  if (slotEnd > bufferBeforeSession && slotStart < session.startTime) return true;
+                }
+              }
+            }
+            return false;
+          });
           
-          // Check coach-level pending request conflict (same coach)
-          const hasPendingConflict = pendingRequests.some(req =>
-            req.coachId === availability.coachId &&
-            req.requestedStart && req.requestedEnd &&
-            slotStart < req.requestedEnd && slotEnd > req.requestedStart
-          );
+          // Check coach-level pending request conflict (same coach) — with cross-location travel buffer
+          const hasPendingConflict = pendingRequests.some(req => {
+            if (req.coachId !== availability.coachId) return false;
+            if (!req.requestedStart || !req.requestedEnd) return false;
+
+            // Direct time overlap (same or unknown location)
+            const directOverlap = slotStart < req.requestedEnd && slotEnd > req.requestedStart;
+            if (directOverlap) return true;
+
+            // Cross-location travel-time buffer check (scoped to this coach's travel config)
+            if (slotLocationId && req.courtId) {
+              const reqLocationId = courtLocationMap.get(req.courtId) ?? null;
+              if (reqLocationId && reqLocationId !== slotLocationId) {
+                const travelMins = getTravelMinutes(availability.coachId, reqLocationId, slotLocationId);
+                if (travelMins > 0) {
+                  const bufferAfterReq = new Date(req.requestedEnd.getTime() + travelMins * 60000);
+                  if (slotStart < bufferAfterReq && slotEnd > req.requestedEnd) return true;
+                  const bufferBeforeReq = new Date(req.requestedStart.getTime() - travelMins * 60000);
+                  if (slotEnd > bufferBeforeReq && slotStart < req.requestedStart) return true;
+                }
+              }
+            }
+            return false;
+          });
 
           // Check court-level conflict via courtAvailability (blocked/booked by ANY coach)
           const hasCourtBlock = availability.courtId ? courtBlocks.some(block =>
