@@ -11746,14 +11746,14 @@ async function updateSeriesSessionType(
   // Update the series itself
   await db.update(coachingSeries).set({ 
     sessionType: newSessionType,
-    maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : (series.maxPlayers && series.maxPlayers > 2 ? series.maxPlayers : 4),
+    maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : (series.maxPlayers && series.maxPlayers > 2 ? series.maxPlayers : 6),
   }).where(eq(coachingSeries.id, seriesId));
   
   // Update all future sessions in this series
   const now = new Date();
   const result = await db.update(sessions).set({
     sessionType: newSessionType,
-    maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : 4,
+    maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : 6,
   }).where(
     and(
       eq(sessions.seriesId, seriesId),
