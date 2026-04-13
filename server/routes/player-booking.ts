@@ -801,16 +801,12 @@ Return only the JSON array, nothing else.`;
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 14); // Next 2 weeks
 
-      // For sessions, both 'mine' and 'all' scope use own-academy sessions.
-      // Cross-academy session discovery requires coaching_series.isPublic which
-      // will be available when Task #496 is merged. Until then, both scopes
-      // show own-academy sessions to prevent exposing private session data.
-      const sessions = await db.query.sessions.findMany({
+      // Always fetch own-academy sessions (or sessions with no academy if player has no academy)
+      const ownAcademySessions = await db.query.sessions.findMany({
         where: (s, { and, or, eq, gte, lte, inArray }) => and(
-          or(
-            eq(s.academyId, academyId || ""),
-            eq(s.academyId, null as any)
-          ),
+          academyId
+            ? eq(s.academyId, academyId)
+            : eq(s.academyId, null as any),
           inArray(s.sessionType, ["group", "semi_private"]),
           eq(s.status, "scheduled"),
           gte(s.startTime, now),
@@ -819,12 +815,61 @@ Return only the JSON array, nothing else.`;
         orderBy: (s, { asc }) => [asc(s.startTime)],
       });
 
-      // Pre-fetch academy names for cross-academy mode
+      // Always fetch cross-academy public sessions (coaching_series.isPublic = true)
+      // regardless of scope — public lessons from any academy are always shown
+      let publicCrossSessions: typeof ownAcademySessions = [];
+      try {
+        const publicSessionRows = await db.execute(
+          sql`SELECT s.* FROM sessions s
+              INNER JOIN coaching_series cs ON s.series_id = cs.id
+              WHERE cs.is_public = true
+                AND s.session_type IN ('group', 'semi_private')
+                AND s.status = 'scheduled'
+                AND s.start_time >= ${now}
+                AND s.start_time <= ${futureDate}
+                ${academyId ? sql`AND s.academy_id != ${academyId}` : sql``}
+              ORDER BY s.start_time ASC`
+        );
+        publicCrossSessions = publicSessionRows.rows.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          sessionType: row.session_type,
+          startTime: new Date(row.start_time),
+          endTime: new Date(row.end_time),
+          status: row.status,
+          academyId: row.academy_id,
+          coachId: row.coach_id,
+          locationId: row.location_id,
+          courtId: row.court_id,
+          seriesId: row.series_id,
+          ballLevel: row.ball_level,
+          price: row.price,
+          academyPrice: row.academy_price,
+          maxPlayers: row.max_players,
+          vibe: row.vibe,
+          minLevel: row.min_level,
+          maxLevel: row.max_level,
+          xpReward: row.xp_reward,
+        })) as any[];
+      } catch (e) {
+        console.error("[PlaySessions] Error fetching public cross-academy sessions:", e);
+      }
+
+      // Merge and deduplicate by session ID (own-academy sessions take priority)
+      const ownIds = new Set(ownAcademySessions.map(s => s.id));
+      const mergedSessions = [
+        ...ownAcademySessions,
+        ...publicCrossSessions.filter(s => !ownIds.has(s.id)),
+      ].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+      const sessions = mergedSessions;
+
+      // Pre-fetch academy names for cross-academy sessions
       const academyNameCache = new Map<string, string>();
-      if (scope === "all" && academyId) {
+      {
         const uniqueAcademyIds = [...new Set(sessions.map(s => s.academyId).filter(Boolean) as string[])];
         for (const aid of uniqueAcademyIds) {
-          if (aid !== academyId && !academyNameCache.has(aid)) {
+          if (!academyNameCache.has(aid)) {
             try {
               const acad = await storage.getAcademy(aid);
               if (acad?.name) academyNameCache.set(aid, acad.name);
@@ -1086,29 +1131,15 @@ Return only the JSON array, nothing else.`;
           isNotNull(users.playerId)
         ));
 
-      let activePlayers;
-      if (scope === "all" || !academyId) {
-        // Cross-academy: show all active players across all academies
-        activePlayers = await db
-          .select()
-          .from(players)
-          .where(and(
-            ne(players.id, playerId),
-            inArray(players.id, activePlayerIdSubquery),
-            not(inArray(players.id, HIDDEN_PLAYER_IDS))
-          ));
-      } else {
-        // Get players from the same academy who have an active user account, in one query
-        activePlayers = await db
-          .select()
-          .from(players)
-          .where(and(
-            eq(players.academyId, academyId),
-            ne(players.id, playerId),
-            inArray(players.id, activePlayerIdSubquery),
-            not(inArray(players.id, HIDDEN_PLAYER_IDS))
-          ));
-      }
+      // Always cross-academy: show all active players respecting privacy levels
+      const activePlayers = await db
+        .select()
+        .from(players)
+        .where(and(
+          ne(players.id, playerId),
+          inArray(players.id, activePlayerIdSubquery),
+          not(inArray(players.id, HIDDEN_PLAYER_IDS))
+        ));
 
       // Bulk-fetch last_login_at for all active players to avoid N+1
       const playerIds = activePlayers.map(p => p.id);

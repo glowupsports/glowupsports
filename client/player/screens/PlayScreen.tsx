@@ -1882,18 +1882,19 @@ export default function PlayScreen() {
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitle}>{t("player.play.noGroupLessons")}</Text>
+                <Text style={styles.emptyTitle}>No public lessons near you yet</Text>
                 <Text style={styles.emptySubtitle}>
-                  {effectiveScope === "all"
-                    ? "No public lessons near you yet. Check back soon."
-                    : effectiveScope === "mine" && playerAcademyId
-                    ? "No upcoming group sessions at your academy"
-                    : selectedBallLevel === "my_level" 
-                    ? `${t("player.play.noLevelLessons", { level: playerBallLevel.toUpperCase() })}`
-                    : selectedBallLevel !== "all" 
-                    ? `${t("player.play.noLevelLessons", { level: selectedBallLevel.toUpperCase() })}` 
-                    : t("player.play.checkBackSoon")}
+                  Check back soon — coaches in your area are adding public group lessons
                 </Text>
+                {!playerAcademyId ? (
+                  <Pressable
+                    onPress={() => navigation.navigate("AcademyBrowser")}
+                    style={styles.findAcademyLink}
+                  >
+                    <Text style={styles.findAcademyLinkText}>Find an Academy</Text>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.dark.primary} />
+                  </Pressable>
+                ) : null}
               </View>
             )}
             {renderCourtsNearYou()}
@@ -2057,11 +2058,9 @@ export default function PlayScreen() {
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitle}>{t("player.play.noPlayersFound")}</Text>
+                <Text style={styles.emptyTitle}>No players found</Text>
                 <Text style={styles.emptySubtitle}>
-                  {effectiveScope === "mine" && playerAcademyId
-                    ? "No players in your academy have the app yet"
-                    : "No players found in your area"}
+                  Players who are open to playing appear here
                 </Text>
               </View>
             )}
@@ -3437,6 +3436,17 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  findAcademyLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: Spacing.sm,
+  },
+  findAcademyLinkText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   bookingToolsScroll: {
     flexGrow: 0,
