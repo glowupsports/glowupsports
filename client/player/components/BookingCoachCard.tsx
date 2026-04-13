@@ -22,7 +22,7 @@ interface BookingCoachCardProps {
     specializations?: string[] | null;
     ballLevels?: string[] | null;
     rating?: number | null;
-    totalStudents?: number | null;
+    totalSessions?: number | null;
     bio?: string | null;
     availableForPrivate?: boolean;
     availableForGroup?: boolean;
@@ -157,10 +157,10 @@ export default function BookingCoachCard({
                     <Text style={styles.statText}>{Number(coach.rating).toFixed(1)}</Text>
                   </View>
                 )}
-                {coach.totalStudents && coach.totalStudents > 0 && (
+                {coach.totalSessions && coach.totalSessions > 0 && (
                   <View style={styles.statItem}>
-                    <Ionicons name="people-outline" size={14} color={Colors.dark.textSecondary} />
-                    <Text style={styles.statText}>{coach.totalStudents}</Text>
+                    <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} />
+                    <Text style={styles.statText}>{coach.totalSessions} sessions</Text>
                   </View>
                 )}
               </View>

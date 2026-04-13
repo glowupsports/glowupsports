@@ -66,7 +66,7 @@ interface DirectoryCoach {
   academyId?: string | null;
   academyName?: string | null;
   rating?: number | null;
-  totalStudents?: number | null;
+  totalSessions?: number | null;
   bio?: string | null;
   certifications?: string[] | null;
   ballLevels?: string[] | null;
@@ -752,7 +752,7 @@ export default function PlayerBookingWizard({
       specializations: coach.specializations,
       ballLevels: coach.ballLevels,
       rating: coach.rating,
-      totalStudents: coach.totalStudents,
+      totalSessions: coach.totalSessions,
       bio: coach.bio,
       availableForPrivate: true,
       availableForGroup: true,
@@ -767,7 +767,7 @@ export default function PlayerBookingWizard({
       specializations: coach.specializations,
       ballLevels: coach.ballLevels,
       rating: coach.rating,
-      totalStudents: coach.totalStudents,
+      totalSessions: coach.totalSessions,
       bio: coach.bio,
       certifications: coach.certifications,
       languages: coach.languages,

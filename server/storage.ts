@@ -1105,10 +1105,13 @@ export const storage = {
       // Get session counts and calculate ratings for each coach
       const enrichedCoaches = await Promise.all(academyCoaches.map(async (coach) => {
         try {
-          // Count total students (unique players in sessions)
-          const studentCount = await db.select({ count: count() })
+          // Count completed sessions only
+          const sessionCount = await db.select({ count: count() })
             .from(sessions)
-            .where(eq(sessions.coachId, coach.id));
+            .where(and(
+              eq(sessions.coachId, coach.id),
+              eq(sessions.status, 'completed')
+            ));
           
           // Calculate average rating from coach reviews using raw SQL for safety
           let avgRating = null;
@@ -1138,7 +1141,7 @@ export const storage = {
             certifications: coach.certifications,
             languages: coach.languages,
             hourlyRate: coach.hourlyRate,
-            totalStudents: studentCount[0]?.count || 0,
+            totalSessions: sessionCount[0]?.count || 0,
             rating: avgRating ? Number(avgRating).toFixed(1) : null,
             totalReviews,
             availableForPrivate: true,
@@ -1158,7 +1161,7 @@ export const storage = {
             certifications: coach.certifications,
             languages: coach.languages,
             hourlyRate: coach.hourlyRate,
-            totalStudents: 0,
+            totalSessions: 0,
             rating: null,
             totalReviews: 0,
             availableForPrivate: true,

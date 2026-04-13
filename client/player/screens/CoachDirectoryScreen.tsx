@@ -42,7 +42,7 @@ interface CoachDirectoryEntry {
   academyCity: string | null;
   academyCountry: string | null;
   rating?: number;
-  totalStudents?: number;
+  totalSessions?: number;
 }
 
 const EXPERIENCE_LABELS: Record<string, string> = {

@@ -35,7 +35,7 @@ interface CoachProfileDrawerProps {
     specializations?: string[] | null;
     ballLevels?: string[] | null;
     rating?: number | null;
-    totalStudents?: number | null;
+    totalSessions?: number | null;
     bio?: string | null;
     certifications?: string[] | null;
     languages?: string[] | null;
@@ -166,10 +166,10 @@ export default function CoachProfileDrawer({
                   <Text style={styles.quickStatValue}>{Number(coach.rating).toFixed(1)} rating</Text>
                 </View>
               )}
-              {coach.totalStudents && coach.totalStudents > 0 && (
+              {coach.totalSessions && coach.totalSessions > 0 && (
                 <View style={styles.quickStatCard}>
-                  <Ionicons name="people" size={20} color={GlowColors.primary} />
-                  <Text style={styles.quickStatValue}>{coach.totalStudents} students</Text>
+                  <Ionicons name="calendar-outline" size={20} color={GlowColors.primary} />
+                  <Text style={styles.quickStatValue}>{coach.totalSessions} sessions</Text>
                 </View>
               )}
             </View>
