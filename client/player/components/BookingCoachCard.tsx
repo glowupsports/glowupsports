@@ -151,10 +151,10 @@ export default function BookingCoachCard({
                     </Text>
                   </View>
                 )}
-                {coach.rating && (
+                {coach.rating && !isNaN(Number(coach.rating)) && (
                   <View style={styles.statItem}>
                     <Ionicons name="star" size={14} color="#FFD700" />
-                    <Text style={styles.statText}>{coach.rating.toFixed(1)}</Text>
+                    <Text style={styles.statText}>{Number(coach.rating).toFixed(1)}</Text>
                   </View>
                 )}
                 {coach.totalStudents && coach.totalStudents > 0 && (
