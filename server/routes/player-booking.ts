@@ -28,7 +28,7 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
 import { playerNotifications } from "@shared/schema";
-import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
+import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
 
 async function getEffectivePlayerCount(sessionId: string): Promise<number> {
   const [enrolledRows, offeredRows] = await Promise.all([
@@ -467,6 +467,33 @@ function toDubaiTime(utcDate: Date): Date {
         performedBy: playerId,
         performedByRole: "player",
       });
+
+      // Send push notification to coach (non-blocking)
+      try {
+        if (coachId) {
+          const coachTokens = await getCoachPushTokens(coachId);
+          if (coachTokens.length > 0) {
+            const sessionTypeLabel =
+              sessionType === "private" ? "Private Lesson" :
+              sessionType === "semi_private" ? "Semi-Private Lesson" :
+              sessionType === "group" ? "Group Session" : "Open Play";
+            const requestedDate = new Date(requestedStart).toLocaleDateString("en-GB", {
+              weekday: "short", day: "numeric", month: "short"
+            });
+            const notifTitle = isJoinRequest ? "New Join Request" : "New Lesson Request";
+            const notifBody = `${player.name} wants a ${duration}-min ${sessionTypeLabel} on ${requestedDate}`;
+            await sendPushNotification(
+              coachTokens,
+              notifTitle,
+              notifBody,
+              { type: "booking_request", bookingRequestId: request.id },
+              coachId
+            );
+          }
+        }
+      } catch (notifErr) {
+        console.error("[Booking] Failed to send coach notification:", notifErr);
+      }
 
       res.status(201).json(request);
     } catch (error) {
