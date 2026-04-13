@@ -419,7 +419,7 @@ export default function MyCourtBookingsScreen() {
             {activeTab === "upcoming" && (
               <Pressable 
                 style={styles.bookNewButton}
-                onPress={() => navigation.navigate("CourtBooking" as any)}
+                onPress={() => navigation.navigate("CourtBooking")}
               >
                 <Text style={styles.bookNewButtonText}>Book a Court</Text>
               </Pressable>
@@ -432,7 +432,7 @@ export default function MyCourtBookingsScreen() {
 
       <Pressable 
         style={[styles.fab, { bottom: insets.bottom + 100 }]}
-        onPress={() => navigation.navigate("CourtBooking" as any)}
+        onPress={() => navigation.navigate("CourtBooking")}
       >
         <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
       </Pressable>

@@ -20,6 +20,7 @@ import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 import { QuestTrackerCard } from "@/player/components/QuestTrackerCard";
 import { SocialPulseCard } from "@/player/components/SocialPulseCard";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { BirthdayCelebrationModal, shouldShowBirthdayCelebration } from "@/player/components/BirthdayCelebrationModal";
 import { BirthdayConfettiOverlay, BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
@@ -882,6 +883,7 @@ export default function PlayerHomeScreen() {
   const { user } = useAuth();
   const { mode } = useAppMode();
   const { openDrawer } = usePlayerDrawer();
+  const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   
   const isPlayer = user?.role === "player";
@@ -1452,7 +1454,7 @@ export default function PlayerHomeScreen() {
           onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
           onViewAll={() => {
             track("home:quest_tracker");
-            navigation.navigate("PlayerTabs", { screen: "Growth" } as any);
+            navigateToTab("Growth", { screen: "QuestsMain" });
           }}
         />
 
@@ -1570,7 +1572,7 @@ export default function PlayerHomeScreen() {
         {lastFeedback ? (
           <Pressable 
             style={styles.feedbackCard}
-            onPress={() => navigation.navigate("Growth" as any)}
+            onPress={() => navigateToTab("Growth")}
           >
             <View style={styles.feedbackHeader}>
               <Ionicons name="chatbubble" size={20} color={GlowColors.primary} />

@@ -953,8 +953,8 @@ function PlayerHomeContent() {
         <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
-        {/* ── IMPROVE SECTION ── Feedback, progress, recognition (hidden for guests) */}
-        {!isGuest ? (
+        {/* ── IMPROVE SECTION ── Feedback, progress, recognition (hidden for guests and players with no academy data) */}
+        {!isGuest && !!effectiveData?.player ? (
           <>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
@@ -977,7 +977,7 @@ function PlayerHomeContent() {
               onViewAll={() => {
                 track("home:quest_tracker");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Quests" as never);
+                navigateToTab("Growth", { screen: "QuestsMain" });
               }}
             />
 

@@ -531,6 +531,7 @@ function ScheduleStackNavigator() {
 
 type GrowthSubTab = "Progress" | "Quests" | "Schedule";
 const GROWTH_SCHEDULE_SCREENS = new Set(["ScheduleMain", "CourtBooking", "CourtDetail", "MyCourtBookings", "QuickBook", "Match", "MatchDetail", "MatchPrep", "OpponentProfile"]);
+const GROWTH_QUESTS_SCREENS = new Set(["QuestsMain"]);
 
 function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: GrowthSubTab) => void) => void }) {
   const [activeSubTab, setActiveSubTab] = useState<GrowthSubTab>("Progress");
@@ -575,7 +576,9 @@ function GrowthMainWithCallback(props: any) {
 
   useEffect(() => {
     return registerTabCallback("Growth", (screen, params) => {
-      if (GROWTH_SCHEDULE_SCREENS.has(screen)) {
+      if (GROWTH_QUESTS_SCREENS.has(screen)) {
+        subTabSetterRef.current?.("Quests");
+      } else if (GROWTH_SCHEDULE_SCREENS.has(screen)) {
         subTabSetterRef.current?.("Schedule");
         if (screen !== "ScheduleMain") {
           setTimeout(() => navigation.navigate(screen as any, params), 150);

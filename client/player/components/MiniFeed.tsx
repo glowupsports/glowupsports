@@ -310,7 +310,7 @@ export function MiniFeed() {
 
   const events = state.communityEvents.slice(0, 2);
 
-  if (!latestPost && events.length === 0) return null;
+  if (!latestPost) return null;
 
   return (
     <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.outerCard}>

@@ -118,9 +118,9 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     title: "XP & QUESTS",
     icon: "rocket",
     items: [
-      { id: "dailyquests", title: "Daily Quests", subtitle: "Today's challenges", icon: "flash", screen: "PlayerTabs", params: { screen: "Growth" } },
-      { id: "weeklyquests", title: "Weekly Quests", subtitle: "This week's goals", icon: "flame", screen: "PlayerTabs", params: { screen: "Growth" } },
-      { id: "rewards", title: "Claim Rewards", subtitle: "Your earned prizes", icon: "gift", screen: "PlayerTabs", params: { screen: "Growth" } },
+      { id: "dailyquests", title: "Daily Quests", subtitle: "Today's challenges", icon: "flash", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "QuestsMain" } } },
+      { id: "weeklyquests", title: "Weekly Quests", subtitle: "This week's goals", icon: "flame", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "QuestsMain" } } },
+      { id: "rewards", title: "Claim Rewards", subtitle: "Your earned prizes", icon: "gift", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "QuestsMain" } } },
       { id: "unlockedfeatures", title: "Unlocked Features", subtitle: "What's available", icon: "lock-open", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "Collection" } } },
       { id: "levelhistory", title: "Level History", subtitle: "Your progress story", icon: "time", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "LevelUpHistory" } } },
     ],
