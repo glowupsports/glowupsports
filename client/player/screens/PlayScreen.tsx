@@ -123,7 +123,7 @@ interface NearbyCourt {
   academyName: string | null;
 }
 
-const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
+const TAB_OPTIONS = ["Group Lessons", "Players", "Leaderboard"] as const;
 
 const BALL_LEVELS = ["my_level", "all", "blue", "red", "orange", "green", "yellow", "glow"] as const;
 
@@ -227,6 +227,8 @@ export default function PlayScreen() {
   const [friendRequestSent, setFriendRequestSent] = useState(false);
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const SCOPE_KEY = "@play_scope";
+  const [leaderboardSport, setLeaderboardSport] = useState<string>("all");
+  const [leaderboardCity, setLeaderboardCity] = useState<string>("all");
 
   useEffect(() => {
     AsyncStorage.getItem(SCOPE_KEY).then(val => {
@@ -468,6 +470,27 @@ export default function PlayScreen() {
     : `/api/play/nearby-players?sport=${activeSport}&travelTime=true&scope=${effectiveScope}`;
   const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<NearbyPlayer[]>({
     queryKey: [nearbyPlayersQueryKey],
+  });
+
+  const leaderboardQueryKey = `/api/player/leaderboard?scope=global&sport=${encodeURIComponent(leaderboardSport)}&city=${encodeURIComponent(leaderboardCity)}&limit=100`;
+  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery<{
+    rankings: Array<{
+      rank: number;
+      id: string;
+      name: string;
+      photoUrl: string | null;
+      ballLevel: string | null;
+      glowRank: number | null;
+      glowMmr: number;
+      academyName: string | null;
+      city: string | null;
+      isCurrentPlayer: boolean;
+    }>;
+    myRank: number;
+    availableCities: string[];
+  }>({
+    queryKey: [leaderboardQueryKey],
+    enabled: activeTab === "Leaderboard",
   });
 
   // Filter and limit players based on search and showAll state
@@ -1687,7 +1710,9 @@ export default function PlayScreen() {
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab === "Group Lessons" ? t("player.play.groupLessons") : t("player.play.players")}</Text>
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab === "Group Lessons" ? t("player.play.groupLessons") : tab === "Players" ? t("player.play.players") : "Leaderboard"}
+            </Text>
           </Pressable>
         ))}
         </View>
@@ -1899,7 +1924,7 @@ export default function PlayScreen() {
             )}
             {renderCourtsNearYou()}
           </>
-        ) : (
+        ) : activeTab === "Players" ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
@@ -2062,6 +2087,109 @@ export default function PlayScreen() {
                 <Text style={styles.emptySubtitle}>
                   Players who are open to playing appear here
                 </Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Leaderboard Tab */}
+            <View style={styles.leaderboardFilterRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaderboardFilterScroll}>
+                {["all", "tennis", "padel", "pickleball"].map((sport) => (
+                  <Pressable
+                    key={sport}
+                    style={[styles.leaderboardChip, leaderboardSport === sport && styles.leaderboardChipActive]}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLeaderboardSport(sport); }}
+                  >
+                    <Text style={[styles.leaderboardChipText, leaderboardSport === sport && styles.leaderboardChipTextActive]}>
+                      {sport === "all" ? "All Sports" : sport.charAt(0).toUpperCase() + sport.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
+            {leaderboardData && leaderboardData.availableCities && leaderboardData.availableCities.length > 0 ? (
+              <View style={styles.leaderboardFilterRow}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaderboardFilterScroll}>
+                  {["all", ...leaderboardData.availableCities].map((city) => (
+                    <Pressable
+                      key={city}
+                      style={[styles.leaderboardChip, leaderboardCity === city && styles.leaderboardChipActive]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLeaderboardCity(city); }}
+                    >
+                      <Text style={[styles.leaderboardChipText, leaderboardCity === city && styles.leaderboardChipTextActive]}>
+                        {city === "all" ? "All City/Country" : city}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            {leaderboardLoading ? (
+              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+            ) : leaderboardData && leaderboardData.rankings.length > 0 ? (
+              <>
+                {leaderboardData.rankings.map((player) => {
+                  const rankNum = player.rank;
+                  const isTop3 = rankNum <= 3;
+                  const rankMedal = rankNum === 1 ? "#FFD700" : rankNum === 2 ? "#C0C0C0" : rankNum === 3 ? "#CD7F32" : null;
+                  const GLOW_RANK_NAMES: Record<number, string> = { 1: "Glow 1", 2: "Glow 2", 3: "Glow 3", 4: "Glow 4", 5: "Glow 5", 6: "Glow 6", 7: "Glow 7", 8: "Glow 8", 9: "Blue" };
+                  const glowRankLabel = player.glowRank != null ? (GLOW_RANK_NAMES[player.glowRank] || `Glow ${player.glowRank}`) : null;
+                  const avatarLetter = player.name ? player.name.charAt(0).toUpperCase() : "?";
+                  const ballColor = getBallLevelColor(player.ballLevel || "");
+                  return (
+                    <Pressable
+                      key={player.id}
+                      style={[styles.leaderboardRow, player.isCurrentPlayer && styles.leaderboardRowHighlight]}
+                      onPress={() => navigation.navigate("PublicProfile" as never, { playerId: player.id } as never)}
+                    >
+                      <View style={styles.leaderboardRankCol}>
+                        {isTop3 ? (
+                          <Text style={[styles.leaderboardRankText, { color: rankMedal! }]}>#{rankNum}</Text>
+                        ) : (
+                          <Text style={styles.leaderboardRankText}>#{rankNum}</Text>
+                        )}
+                      </View>
+                      <View style={[styles.leaderboardAvatar, { borderColor: ballColor }]}>
+                        {player.photoUrl ? (
+                          <ExpoImage
+                            source={{ uri: buildPhotoUrl(player.photoUrl) ?? undefined }}
+                            style={styles.leaderboardAvatarImg}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={[styles.leaderboardAvatarPlaceholder, { backgroundColor: ballColor + "30" }]}>
+                            <Text style={[styles.leaderboardAvatarLetter, { color: ballColor }]}>{avatarLetter}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.leaderboardPlayerInfo}>
+                        <Text style={styles.leaderboardPlayerName} numberOfLines={1}>
+                          {player.name}{player.isCurrentPlayer ? " (You)" : ""}
+                        </Text>
+                        {glowRankLabel ? (
+                          <Text style={[styles.leaderboardGlowRank, { color: ballColor }]}>{glowRankLabel}</Text>
+                        ) : null}
+                        {player.academyName ? (
+                          <Text style={styles.leaderboardAcademy} numberOfLines={1}>{player.academyName}{player.city ? ` · ${player.city}` : ""}</Text>
+                        ) : player.city ? (
+                          <Text style={styles.leaderboardAcademy}>{player.city}</Text>
+                        ) : null}
+                      </View>
+                      <Text style={[styles.leaderboardMmr, player.isCurrentPlayer && { color: Colors.dark.primary }]}>
+                        {player.glowMmr.toLocaleString()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </>
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="trophy-outline" size={48} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTitle}>No ranked players yet</Text>
+                <Text style={styles.emptySubtitle}>No ranked players found in this region yet. Play matches to earn your Glow Rank.</Text>
               </View>
             )}
           </>
@@ -3995,5 +4123,106 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
     fontWeight: "500",
+  },
+  leaderboardFilterRow: {
+    marginBottom: Spacing.sm,
+  },
+  leaderboardFilterScroll: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  leaderboardChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  leaderboardChipActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  leaderboardChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  leaderboardChipTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  leaderboardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.sm,
+  },
+  leaderboardRowHighlight: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "12",
+  },
+  leaderboardRankCol: {
+    width: 36,
+    alignItems: "center",
+  },
+  leaderboardRankText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  leaderboardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  leaderboardAvatarImg: {
+    width: 40,
+    height: 40,
+  },
+  leaderboardAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  leaderboardAvatarLetter: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  leaderboardPlayerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  leaderboardPlayerName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  leaderboardGlowRank: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  leaderboardAcademy: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  leaderboardMmr: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    minWidth: 50,
+    textAlign: "right",
   },
 });

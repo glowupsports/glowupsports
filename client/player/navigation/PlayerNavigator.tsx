@@ -208,7 +208,7 @@ export type PlayerTabParamList = {
 };
 
 export type PlayStackParamList = {
-  Play: { initialTab?: "Group Lessons" | "Players" } | undefined;
+  Play: { initialTab?: "Group Lessons" | "Players" | "Leaderboard" } | undefined;
   OpenMatches: undefined;
   CreateMatch: undefined;
   ChallengePlayer: {

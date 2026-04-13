@@ -1341,13 +1341,27 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
       const playerId = req.user!.playerId;
       const scope = (req.query.scope as string) || "academy";
       const category = (req.query.category as string) || "glow_score";
-      
+      const cityFilter = (req.query.city as string) || null;
+      const sportFilter = (req.query.sport as string) || null;
+      const limitParam = parseInt((req.query.limit as string) || "100", 10);
+      const limit = Math.min(isNaN(limitParam) ? 100 : limitParam, 200);
+
+      // For global scope: join with academies to support city/country filtering
+      const isGlobalScope = scope === "global";
+
       // Build conditions array
       const conditions: any[] = [eq(players.status, "active")];
-      if (scope === "academy" && academyId) {
+      if (!isGlobalScope && scope === "academy" && academyId) {
         conditions.push(eq(players.academyId, academyId));
       }
-      
+
+      // Exclude hidden players in global scope + require active user account
+      if (isGlobalScope) {
+        conditions.push(sql`${players.privacyLevel} != 'hidden'`);
+        conditions.push(eq(users.status, "active"));
+        conditions.push(sql`COALESCE(${users.deleted}, false) = false`);
+      }
+
       // Add category-specific conditions
       if (category === "dss_rating") {
         conditions.push(eq(players.isAdult, true));
@@ -1355,11 +1369,39 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
       } else if (category === "ball_level") {
         conditions.push(sql`${players.ballLevel} IS NOT NULL`);
       }
-      
+
+      // For global leaderboard: always require glowMmr > 0
+      if (isGlobalScope) {
+        conditions.push(sql`COALESCE(${players.glowMmr}, 0) > 0`);
+      }
+
+      // City filter: match academy city or player city
+      if (isGlobalScope && cityFilter && cityFilter !== "all") {
+        conditions.push(
+          or(
+            sql`LOWER(${academies.city}) = LOWER(${cityFilter})`,
+            sql`LOWER(${academies.country}) = LOWER(${cityFilter})`,
+            sql`LOWER(${players.city}) = LOWER(${cityFilter})`,
+            sql`LOWER(${players.country}) = LOWER(${cityFilter})`
+          )
+        );
+      }
+
+      // Sport filter: match academy sports array OR player sport profile key
+      if (isGlobalScope && sportFilter && sportFilter !== "all") {
+        conditions.push(
+          or(
+            sql`${academies.sports} @> ${JSON.stringify([sportFilter])}::jsonb`,
+            sql`${players.sportProfiles} ? ${sportFilter}`
+          )
+        );
+      }
+
       // Get top players with simple ordering
       let topPlayers: any[];
-      
-      if (category === "xp") {
+
+      if (isGlobalScope) {
+        // Global leaderboard: join with users (active check) and academies (city/country)
         topPlayers = await db.select({
           id: players.id,
           name: players.name,
@@ -1369,7 +1411,33 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           xp: players.xp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
+          glowRank: players.glowRank,
           streak: players.consecutiveDays,
+          academyName: academies.name,
+          city: sql<string>`COALESCE(${academies.city}, ${players.city})`,
+          country: sql<string>`COALESCE(${academies.country}, ${players.country})`,
+        })
+        .from(players)
+        .innerJoin(users, eq(users.playerId, players.id))
+        .leftJoin(academies, eq(players.academyId, academies.id))
+        .where(and(...conditions))
+        .orderBy(desc(players.glowMmr))
+        .limit(limit);
+      } else if (category === "xp") {
+        topPlayers = await db.select({
+          id: players.id,
+          name: players.name,
+          photoUrl: players.profilePhotoUrl,
+          level: players.level,
+          glowScore: players.glowScore,
+          xp: players.xp,
+          ballLevel: players.ballLevel,
+          glowMmr: players.glowMmr,
+          glowRank: players.glowRank,
+          streak: players.consecutiveDays,
+          academyName: sql<string | null>`NULL`,
+          city: sql<string | null>`NULL`,
+          country: sql<string | null>`NULL`,
         })
         .from(players)
         .where(and(...conditions))
@@ -1385,7 +1453,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           xp: players.xp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
+          glowRank: players.glowRank,
           streak: players.consecutiveDays,
+          academyName: sql<string | null>`NULL`,
+          city: sql<string | null>`NULL`,
+          country: sql<string | null>`NULL`,
         })
         .from(players)
         .where(and(...conditions))
@@ -1401,7 +1473,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           xp: players.xp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
+          glowRank: players.glowRank,
           streak: players.consecutiveDays,
+          academyName: sql<string | null>`NULL`,
+          city: sql<string | null>`NULL`,
+          country: sql<string | null>`NULL`,
         })
         .from(players)
         .where(and(...conditions))
@@ -1421,7 +1497,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           xp: players.xp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
+          glowRank: players.glowRank,
           streak: players.consecutiveDays,
+          academyName: sql<string | null>`NULL`,
+          city: sql<string | null>`NULL`,
+          country: sql<string | null>`NULL`,
         })
         .from(players)
         .where(and(...conditions))
@@ -1429,48 +1509,201 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
         .limit(50);
       }
       
-      // Calculate current player's rank
-      let myRank = 0;
-      if (playerId) {
-        const playerIndex = topPlayers.findIndex(p => p.id === playerId);
-        if (playerIndex >= 0) {
-          myRank = playerIndex + 1;
-        } else {
-          myRank = topPlayers.length + 1;
-        }
-      }
-      
-      // Get current player's data
-      const currentPlayer = playerId ? topPlayers.find(p => p.id === playerId) : null;
-      
       // Helper to format DSS rating from MMR
       const formatDssRating = (mmr: number | null) => {
         if (!mmr) return null;
         return ((mmr - 1000) / 1000 * 3 + 3).toFixed(1);
       };
-      
+
+      const formatRankingRow = (p: any, rank: number) => ({
+        rank,
+        id: p.id,
+        name: p.name,
+        photoUrl: p.photoUrl,
+        level: p.level || 1,
+        glowScore: p.glowScore || 0,
+        xp: p.xp || 0,
+        ballLevel: p.ballLevel,
+        glowRank: p.glowRank,
+        glowMmr: p.glowMmr || 0,
+        dssRating: formatDssRating(p.glowMmr),
+        streak: p.streak || 0,
+        academyName: p.academyName || null,
+        city: p.city || null,
+        isCurrentPlayer: p.id === playerId,
+      });
+
+      // Calculate current player's rank
+      let myRank = 0;
+      let currentPlayerData: any = null;
+
+      if (playerId) {
+        const playerIndex = topPlayers.findIndex(p => p.id === playerId);
+        if (playerIndex >= 0) {
+          myRank = playerIndex + 1;
+          currentPlayerData = topPlayers[playerIndex];
+        } else if (isGlobalScope) {
+          // Player is outside top-N: fetch their own row first (with same joins + privacy check)
+          const myRows = await db.select({
+            id: players.id,
+            name: players.name,
+            photoUrl: players.profilePhotoUrl,
+            level: players.level,
+            glowScore: players.glowScore,
+            xp: players.xp,
+            ballLevel: players.ballLevel,
+            glowMmr: players.glowMmr,
+            glowRank: players.glowRank,
+            streak: players.consecutiveDays,
+            academyName: academies.name,
+            city: sql<string>`COALESCE(${academies.city}, ${players.city})`,
+            country: sql<string>`COALESCE(${academies.country}, ${players.country})`,
+          })
+          .from(players)
+          .innerJoin(users, eq(users.playerId, players.id))
+          .leftJoin(academies, eq(players.academyId, academies.id))
+          .where(and(
+            eq(players.id, playerId),
+            eq(players.status, "active"),
+            sql`${players.privacyLevel} != 'hidden'`,
+            eq(users.status, "active"),
+            sql`COALESCE(${users.deleted}, false) = false`,
+            sql`COALESCE(${players.glowMmr}, 0) > 0`,
+          ))
+          .limit(1);
+
+          if (myRows[0]) {
+            currentPlayerData = myRows[0];
+            const myMmr = myRows[0].glowMmr ?? 0;
+
+            // Determine if player satisfies the active filter constraints (city/sport)
+            // by checking if they would match the same conditions as the main query.
+            // We check this by verifying the player's city/sport match the filters.
+            let satisfiesFilters = true;
+
+            if (cityFilter && cityFilter !== "all") {
+              // Use exact same OR logic as main query: academy.city | academy.country | player.city | player.country
+              // Re-query via DB to avoid COALESCE shortcut divergence
+              const cityMatch = await db.select({ id: players.id })
+                .from(players)
+                .innerJoin(users, eq(users.playerId, players.id))
+                .leftJoin(academies, eq(players.academyId, academies.id))
+                .where(and(
+                  eq(players.id, playerId),
+                  or(
+                    sql`LOWER(${academies.city}) = LOWER(${cityFilter})`,
+                    sql`LOWER(${academies.country}) = LOWER(${cityFilter})`,
+                    sql`LOWER(${players.city}) = LOWER(${cityFilter})`,
+                    sql`LOWER(${players.country}) = LOWER(${cityFilter})`
+                  )
+                ))
+                .limit(1);
+              satisfiesFilters = cityMatch.length > 0;
+            }
+
+            if (satisfiesFilters && sportFilter && sportFilter !== "all") {
+              // Re-check by running a filtered existence query
+              const sportMatch = await db.select({ id: players.id })
+                .from(players)
+                .innerJoin(users, eq(users.playerId, players.id))
+                .leftJoin(academies, eq(players.academyId, academies.id))
+                .where(and(
+                  eq(players.id, playerId),
+                  or(
+                    sql`${academies.sports} @> ${JSON.stringify([sportFilter])}::jsonb`,
+                    sql`${players.sportProfiles} ? ${sportFilter}`
+                  )
+                ))
+                .limit(1);
+              satisfiesFilters = sportMatch.length > 0;
+            }
+
+            if (satisfiesFilters) {
+              // Count how many players with glowMmr > mine satisfy the same full filter set
+              const countConditions: any[] = [
+                eq(players.status, "active"),
+                sql`${players.privacyLevel} != 'hidden'`,
+                eq(users.status, "active"),
+                sql`COALESCE(${users.deleted}, false) = false`,
+                sql`COALESCE(${players.glowMmr}, 0) > 0`,
+                sql`COALESCE(${players.glowMmr}, 0) > ${myMmr}`,
+              ];
+              if (cityFilter && cityFilter !== "all") {
+                countConditions.push(
+                  or(
+                    sql`LOWER(${academies.city}) = LOWER(${cityFilter})`,
+                    sql`LOWER(${academies.country}) = LOWER(${cityFilter})`,
+                    sql`LOWER(${players.city}) = LOWER(${cityFilter})`,
+                    sql`LOWER(${players.country}) = LOWER(${cityFilter})`
+                  )
+                );
+              }
+              if (sportFilter && sportFilter !== "all") {
+                countConditions.push(
+                  or(
+                    sql`${academies.sports} @> ${JSON.stringify([sportFilter])}::jsonb`,
+                    sql`${players.sportProfiles} ? ${sportFilter}`
+                  )
+                );
+              }
+              const aboveCount = await db.select({ count: count() })
+                .from(players)
+                .innerJoin(users, eq(users.playerId, players.id))
+                .leftJoin(academies, eq(players.academyId, academies.id))
+                .where(and(...countConditions));
+              myRank = (aboveCount[0]?.count ?? 0) + 1;
+            } else {
+              // Player doesn't match current filters — do not append row, rank unknown in this filter context
+              currentPlayerData = null;
+            }
+          }
+        } else {
+          myRank = topPlayers.length + 1;
+        }
+      }
+
+      // Collect available cities for global scope via a distinct query (not just top-N results)
+      const availableCities: string[] = [];
+      if (isGlobalScope) {
+        const cityRows = await db.selectDistinct({
+          city: sql<string | null>`COALESCE(${academies.city}, ${players.city})`,
+          country: sql<string | null>`COALESCE(${academies.country}, ${players.country})`,
+        })
+        .from(players)
+        .innerJoin(users, eq(users.playerId, players.id))
+        .leftJoin(academies, eq(players.academyId, academies.id))
+        .where(and(
+          eq(players.status, "active"),
+          sql`${players.privacyLevel} != 'hidden'`,
+          eq(users.status, "active"),
+          sql`COALESCE(${users.deleted}, false) = false`,
+          sql`COALESCE(${players.glowMmr}, 0) > 0`,
+        ));
+        const citySet = new Set<string>();
+        cityRows.forEach(r => {
+          if (r.city) citySet.add(r.city);
+          if (r.country) citySet.add(r.country);
+        });
+        availableCities.push(...Array.from(citySet).sort());
+      }
+
+      // Build rankings list; append current player row if they're outside top-N
+      const rankings = topPlayers.map((p, idx) => formatRankingRow(p, idx + 1));
+      if (isGlobalScope && playerId && currentPlayerData && !topPlayers.find(p => p.id === playerId)) {
+        rankings.push({ ...formatRankingRow(currentPlayerData, myRank), isCurrentPlayer: true });
+      }
+
       res.json({
         scope,
         category,
         myRank,
-        currentPlayer: currentPlayer ? {
-          ...currentPlayer,
+        availableCities,
+        currentPlayer: currentPlayerData ? {
+          ...currentPlayerData,
           rank: myRank,
-          dssRating: formatDssRating(currentPlayer.glowMmr),
+          dssRating: formatDssRating(currentPlayerData.glowMmr),
         } : null,
-        rankings: topPlayers.map((p, idx) => ({
-          rank: idx + 1,
-          id: p.id,
-          name: p.name,
-          photoUrl: p.photoUrl,
-          level: p.level || 1,
-          glowScore: p.glowScore || 0,
-          xp: p.xp || 0,
-          ballLevel: p.ballLevel,
-          dssRating: formatDssRating(p.glowMmr),
-          streak: p.streak || 0,
-          isCurrentPlayer: p.id === playerId,
-        })),
+        rankings,
       });
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
