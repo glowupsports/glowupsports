@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { randomUUID } from "node:crypto";
+import { localHHMMToUtc } from "./utils/timezone";
 import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
@@ -9081,6 +9082,10 @@ export const storage = {
     startTime: Date;
     endTime: Date;
   }>> {
+    // Fetch the academy's timezone so availability windows are interpreted in local time
+    const academyRow = await db.select({ timezone: academies.timezone }).from(academies).where(eq(academies.id, params.academyId)).limit(1);
+    const academyTimezone = academyRow[0]?.timezone ?? 'Asia/Dubai';
+
     const conditions: any[] = [eq(coachAvailability.academyId, params.academyId), eq(coachAvailability.isActive, true)];
     
     if (params.coachId) {
@@ -9180,10 +9185,11 @@ export const storage = {
         const [startHour, startMin] = availability.startTime.split(':').map(Number);
         const [endHour, endMin] = availability.endTime.split(':').map(Number);
         
-        // Build slot boundaries in UTC using explicit UTC component setting
-        const slotStart = new Date(Date.UTC(yyyy, currentDayDate.getUTCMonth(), currentDayDate.getUTCDate(), startHour, startMin, 0, 0));
+        // Build slot boundaries by converting local HH:MM availability windows to UTC
+        // using the academy's timezone so that "09:00" means 9am local time, not 9am UTC
+        const slotStart = localHHMMToUtc(yyyy, currentDayDate.getUTCMonth(), currentDayDate.getUTCDate(), startHour, startMin, academyTimezone);
         
-        const availabilityEnd = new Date(Date.UTC(yyyy, currentDayDate.getUTCMonth(), currentDayDate.getUTCDate(), endHour, endMin, 0, 0));
+        const availabilityEnd = localHHMMToUtc(yyyy, currentDayDate.getUTCMonth(), currentDayDate.getUTCDate(), endHour, endMin, academyTimezone);
         
         const slotDuration = availability.slotDuration || params.duration;
         

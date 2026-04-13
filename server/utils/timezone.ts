@@ -284,6 +284,25 @@ export function getFirstSessionDate(
   };
 }
 
+/**
+ * Convert a local HH:MM time on a specific calendar date in a given IANA timezone to a UTC Date.
+ * month is 0-indexed (consistent with Date.UTC and getUTCMonth).
+ * Uses the robust resolveLocalTimeToUTC minute-search to handle DST transitions and
+ * any timezone offset including date-boundary edge cases.
+ */
+export function localHHMMToUtc(year: number, month: number, day: number, hour: number, minute: number, timezone: string): Date {
+  const monthStr = String(month + 1).padStart(2, '0');
+  const dayStr = String(day).padStart(2, '0');
+  const dateStr = `${year}-${monthStr}-${dayStr}`;
+  const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const resolution = resolveLocalTimeToUTC(dateStr, timeStr, timezone);
+  if (resolution.status === 'ok') return resolution.utcDate;
+  if (resolution.status === 'ambiguous') return resolution.utcDate;
+  if (resolution.status === 'gap') return resolution.suggestedUtc;
+  // Fallback: treat as UTC (should never reach here)
+  return new Date(Date.UTC(year, month, day, hour, minute));
+}
+
 export function getTimezoneOffset(timezone: string): number {
   const now = new Date();
   const local = formatLocalDateTime(now, timezone);

@@ -486,7 +486,18 @@ export default function PlayerBookingWizard({
       }, 2500);
     },
     onError: (error: Error) => {
-      Alert.alert("Error", error.message || "Failed to submit booking request");
+      let message = error.message || "Failed to submit booking request";
+      const colonIdx = message.indexOf(": ");
+      if (colonIdx !== -1) {
+        const body = message.slice(colonIdx + 2);
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed?.error) message = parsed.error;
+        } catch {
+          if (body) message = body;
+        }
+      }
+      Alert.alert("Booking Failed", message || "Could not submit your booking request. Please try again.");
     },
   });
 
