@@ -954,8 +954,8 @@ function PlayerHomeContent() {
         <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
-        {/* ── IMPROVE SECTION ── Feedback, progress, recognition — shown only when player has real coaching data (feedback history or an assigned coach) */}
-        {!isGuest && (!!effectiveData?.lastFeedback || !!effectiveData?.coach) ? (
+        {/* ── IMPROVE SECTION ── Feedback, progress, recognition — shown only when player has real coaching data: received feedback or has attended sessions (skill progress) */}
+        {!isGuest && (!!effectiveData?.lastFeedback || (effectiveData?.player?.streak ?? 0) > 0) ? (
           <>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />

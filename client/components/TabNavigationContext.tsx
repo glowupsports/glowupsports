@@ -76,7 +76,19 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
     if (!tabsStore.current.length) {
       return;
     }
-    
+
+    const LEGACY_TAB_ALIASES: Record<string, { tabKey: string; screen: string }> = {
+      "Schedule":  { tabKey: "Growth", screen: "Schedule" },
+      "Quests":    { tabKey: "Growth", screen: "Quests" },
+      "Progress":  { tabKey: "Growth", screen: "Progress" },
+    };
+    const alias = LEGACY_TAB_ALIASES[tabKey];
+    if (alias) {
+      const resolvedParams = screenParams ?? { screen: alias.screen };
+      tabKey = alias.tabKey;
+      screenParams = resolvedParams;
+    }
+
     const tabIndex = tabsStore.current.findIndex(t => t.key === tabKey);
     if (tabIndex === -1) {
       return;
