@@ -86,7 +86,7 @@ interface AvailableSlot {
   coachPhotoUrl?: string | null;
   courtId: string;
   courtName: string;
-  locationId: string;
+  locationId: string | null;
   locationName: string;
   startTime: string;
   endTime: string;
@@ -969,13 +969,21 @@ export default function PlayerBookingWizard({
                 </Text>
                 {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).map((slot, index) => {
                   const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
+                  const displayLocationName = slot.locationId
+                    ? slot.locationName
+                    : selectedLocationId
+                      ? (locations.find(l => l.id === selectedLocationId)?.name ?? slot.locationName)
+                      : slot.locationName;
                   return (
                     <Pressable
                       key={`${slot.coachId}-${slot.startTime}-${index}`}
                       style={[styles.slotCard, isSelected && styles.slotCardSelected]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setSelectedSlot(slot);
+                        const effectiveSlot = (!slot.locationId && selectedLocationId)
+                          ? { ...slot, locationId: selectedLocationId, locationName: locations.find(l => l.id === selectedLocationId)?.name ?? slot.locationName }
+                          : slot;
+                        setSelectedSlot(effectiveSlot);
                         setSelectedSession(null);
                         setIsJoining(false);
                       }}
@@ -998,7 +1006,7 @@ export default function PlayerBookingWizard({
                         </View>
                         <View style={styles.locationRow}>
                           <Ionicons name="location" size={12} color={Colors.dark.textSecondary} />
-                          <Text style={styles.slotLocationText}>{slot.locationName} - {slot.courtName}</Text>
+                          <Text style={styles.slotLocationText}>{displayLocationName} - {slot.courtName}</Text>
                         </View>
                       </View>
 
