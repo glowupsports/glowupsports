@@ -297,7 +297,7 @@ function HealthPlayerRow({ player, isTopPerformer }: { player: HealthPlayer; isT
 }
 
 function DirectoryRow({ item, onPress }: { item: DirectoryPlayer; onPress: () => void }) {
-  const lastSeen = item.lastSessionAt || item.lastActiveAt || item.lastLoginAt;
+  const lastOpened = item.lastLoginAt;
   const sessions = Number(item.sessionsAttended) || 0;
   const matches = Number(item.totalMatchesPlayed) || 0;
   return (
@@ -316,9 +316,14 @@ function DirectoryRow({ item, onPress }: { item: DirectoryPlayer; onPress: () =>
               <Text style={styles.freeChipText}>Free Player</Text>
             </View>
           )}
-          <Text style={styles.lastSeen}>
-            {relativeTime(lastSeen)}
-          </Text>
+          <View style={styles.lastOpenedRow}>
+            <Feather name="smartphone" size={9} color={lastOpened ? Colors.dark.textMuted : "rgba(255,255,255,0.2)"} />
+            {lastOpened ? (
+              <Text style={styles.lastSeen}>Last opened: {relativeTime(lastOpened)}</Text>
+            ) : (
+              <Text style={styles.neverOpened}>Never opened</Text>
+            )}
+          </View>
         </View>
         <View style={styles.miniStats}>
           <View style={styles.miniStat}>
@@ -1362,9 +1367,19 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: 2,
   },
+  lastOpenedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
   lastSeen: {
     fontSize: 10,
     color: Colors.dark.textMuted,
+  },
+  neverOpened: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.25)",
+    fontStyle: "italic",
   },
   miniStats: {
     flexDirection: "row",

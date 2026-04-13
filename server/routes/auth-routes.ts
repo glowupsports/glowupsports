@@ -1289,6 +1289,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const token = generateToken(payload);
         const refreshToken = generateRefreshToken(payload);
         res.json({ token, refreshToken });
+
+        // Update lastLoginAt throttled to once per hour to keep app-open time fresh
+        // without excessive DB writes on every background token refresh
+        try {
+          const dbUser = await storage.getUserById(user.userId);
+          if (dbUser) {
+            const lastLogin = dbUser.lastLoginAt ? new Date(dbUser.lastLoginAt).getTime() : 0;
+            const oneHourAgo = Date.now() - 60 * 60 * 1000;
+            if (lastLogin < oneHourAgo) {
+              await storage.updateUserLastLogin(user.userId);
+            }
+          }
+        } catch (updateErr) {
+          console.error("Failed to update lastLoginAt on token refresh:", updateErr);
+        }
       } catch (error) {
         console.error("Token refresh error:", error);
         res.status(500).json({ error: "Token refresh failed" });
