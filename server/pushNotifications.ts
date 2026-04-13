@@ -4056,7 +4056,7 @@ async function processBirthdayNotificationsForTimezone(timezone: string): Promis
       await sendPushNotification(
         tokens,
         `Today is ${playerName}'s birthday!`,
-        `${playerName} turns ${turningAge} today. Take a moment to wish them a happy birthday!`,
+        `Take a moment to wish them a happy birthday during your session!`,
         { type: "birthday", playerId: row.player_id as string }
       );
 
