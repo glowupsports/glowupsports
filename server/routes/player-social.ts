@@ -3596,7 +3596,7 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
       }
     }
 
-    // Anonymize player PII
+    // Anonymize player PII and remove from academy active roster
     if (playerId) {
       await db.update(players)
         .set({
@@ -3606,6 +3606,8 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
           dateOfBirth: null,
           parentEmail: null,
           profilePhotoUrl: null,
+          status: "inactive",
+          academyId: null,
         })
         .where(eq(players.id, playerId));
     }
