@@ -659,6 +659,8 @@ async function autoCancel(
         return res.status(400).json({ error: "Coach ID required" });
       }
 
+      const days = Math.min(parseInt(req.query.days as string) || 7, 60);
+
       const coachPlayers = await db
         .select({
           id: players.id,
@@ -682,6 +684,8 @@ async function autoCancel(
       const todayBirthdays: any[] = [];
       const upcomingBirthdays: any[] = [];
 
+      const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
       for (const p of coachPlayers) {
         if (!p.dateOfBirth) continue;
         const birth = new Date(p.dateOfBirth);
@@ -696,6 +700,8 @@ async function autoCancel(
         const diffMs = thisYearBirthday.getTime() - new Date(today.getFullYear(), todayMonth, todayDate).getTime();
         const daysAway = Math.round(diffMs / (1000 * 60 * 60 * 24));
         const age = thisYearBirthday.getFullYear() - birth.getFullYear();
+        const monthLabel = `${MONTH_NAMES[thisYearBirthday.getMonth()]} ${thisYearBirthday.getFullYear()}`;
+        const dateLabel = `${MONTH_NAMES[thisYearBirthday.getMonth()].slice(0, 3)} ${thisYearBirthday.getDate()}`;
 
         const entry = {
           id: p.id,
@@ -704,11 +710,13 @@ async function autoCancel(
           photoUrl: p.profilePhotoUrl,
           turningAge: age,
           daysAway,
+          monthLabel,
+          dateLabel,
         };
 
         if (daysAway === 0) {
           todayBirthdays.push(entry);
-        } else if (daysAway > 0 && daysAway <= 7) {
+        } else if (daysAway > 0 && daysAway <= days) {
           upcomingBirthdays.push(entry);
         }
       }
@@ -724,6 +732,69 @@ async function autoCancel(
     } catch (error) {
       console.error("Error fetching upcoming birthdays:", error);
       res.status(500).json({ error: "Failed to fetch upcoming birthdays" });
+    }
+  });
+
+  router.get("/api/coach/birthdays/week", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+
+      const weekStartParam = req.query.weekStart as string;
+      const weekStart = weekStartParam ? new Date(weekStartParam) : new Date();
+      weekStart.setHours(0, 0, 0, 0);
+
+      const coachPlayers = await db
+        .select({
+          id: players.id,
+          name: players.name,
+          dateOfBirth: players.dateOfBirth,
+        })
+        .from(players)
+        .where(
+          and(
+            eq(players.coachId, coachId),
+            isNotNull(players.dateOfBirth)
+          )
+        );
+
+      const grouped: Record<string, { id: string; name: string; turningAge: number }[]> = {};
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        const isoDate = d.toISOString().split("T")[0];
+        grouped[isoDate] = [];
+      }
+
+      for (const p of coachPlayers) {
+        if (!p.dateOfBirth) continue;
+        const birth = new Date(p.dateOfBirth);
+        const bMonth = birth.getMonth();
+        const bDay = birth.getDate();
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(weekStart);
+          d.setDate(weekStart.getDate() + i);
+
+          if (d.getMonth() === bMonth && d.getDate() === bDay) {
+            const isoDate = d.toISOString().split("T")[0];
+            const turningAge = d.getFullYear() - birth.getFullYear();
+            grouped[isoDate].push({ id: p.id, name: p.name, turningAge });
+          }
+        }
+      }
+
+      for (const key of Object.keys(grouped)) {
+        if (grouped[key].length === 0) delete grouped[key];
+      }
+
+      res.json(grouped);
+    } catch (error) {
+      console.error("Error fetching week birthdays:", error);
+      res.status(500).json({ error: "Failed to fetch week birthdays" });
     }
   });
 

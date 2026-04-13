@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, TouchableOpacity } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
@@ -10,6 +10,9 @@ import {
   formatDateObjectInTimezone,
 } from "@/lib/dateUtils";
 import { getSessionTypeGradient } from "./calendarUtils";
+import { useQuery } from "@tanstack/react-query";
+import { useCoach } from "@/coach/context/CoachContext";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 interface SessionPlayer {
   name: string;
@@ -73,6 +76,25 @@ export function CalendarWeekViewOverview({
   setSelectedSlot,
   setShowCreateDrawer,
 }: CalendarWeekViewOverviewProps) {
+  const { coach } = useCoach();
+  const [birthdayPopup, setBirthdayPopup] = useState<{ date: string; players: { id: string; name: string; turningAge: number }[] } | null>(null);
+
+  const weekStartISO = weekDates.length > 0 ? weekDates[0].toISOString().split("T")[0] : "";
+
+  const { data: weekBirthdays } = useQuery<Record<string, { id: string; name: string; turningAge: number }[]>>({
+    queryKey: ["/api/coach/birthdays/week", weekStartISO],
+    queryFn: async () => {
+      const res = await fetch(
+        new URL(`/api/coach/birthdays/week?weekStart=${weekStartISO}`, getApiUrl()).toString(),
+        { headers: await getAuthHeaders() }
+      );
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: !!coach?.id && weekDates.length > 0,
+    staleTime: 1000 * 60 * 30,
+  });
+
   return (
     <>
       {allCourts.length > 1 && (
@@ -133,6 +155,62 @@ export function CalendarWeekViewOverview({
             );
           })}
         </View>
+
+        {weekBirthdays && Object.keys(weekBirthdays).length > 0 ? (
+          <View style={birthdayStripStyles.row}>
+            <View style={birthdayStripStyles.timeCol} />
+            {weekDates.map((date, idx) => {
+              const isoDate = date.toISOString().split("T")[0];
+              const bdays = weekBirthdays[isoDate];
+              if (!bdays || bdays.length === 0) {
+                return <View key={idx} style={birthdayStripStyles.cell} />;
+              }
+              const firstName = bdays[0].name.split(" ")[0];
+              const label = bdays.length > 1 ? `${firstName} +${bdays.length - 1}` : firstName;
+              return (
+                <Pressable
+                  key={idx}
+                  style={birthdayStripStyles.cellActive}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setBirthdayPopup({ date: isoDate, players: bdays });
+                  }}
+                >
+                  <Ionicons name="gift-outline" size={10} color="#FF69B4" />
+                  <Text style={birthdayStripStyles.cellText} numberOfLines={1}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        <Modal
+          visible={!!birthdayPopup}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setBirthdayPopup(null)}
+        >
+          <Pressable style={birthdayStripStyles.popupOverlay} onPress={() => setBirthdayPopup(null)}>
+            <View style={birthdayStripStyles.popup}>
+              <View style={birthdayStripStyles.popupHeader}>
+                <Ionicons name="gift" size={16} color="#FF69B4" />
+                <Text style={birthdayStripStyles.popupTitle}>
+                  {birthdayPopup ? new Date(birthdayPopup.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : ""}
+                </Text>
+                <TouchableOpacity onPress={() => setBirthdayPopup(null)}>
+                  <Ionicons name="close" size={16} color={Colors.dark.tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              {birthdayPopup?.players.map((p) => (
+                <View key={p.id} style={birthdayStripStyles.popupRow}>
+                  <View style={birthdayStripStyles.popupDot} />
+                  <Text style={birthdayStripStyles.popupName}>{p.name}</Text>
+                  <Text style={birthdayStripStyles.popupAge}>turns {p.turningAge}</Text>
+                </View>
+              ))}
+            </View>
+          </Pressable>
+        </Modal>
 
         {(() => {
           const filteredSessions = selectedCourtFilter
@@ -299,3 +377,83 @@ export function CalendarWeekViewOverview({
     </>
   );
 }
+
+const birthdayStripStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 105, 180, 0.06)",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 105, 180, 0.15)",
+  },
+  timeCol: {
+    width: 48,
+  },
+  cell: {
+    flex: 1,
+    height: 22,
+  },
+  cellActive: {
+    flex: 1,
+    height: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 2,
+    gap: 2,
+  },
+  cellText: {
+    fontSize: 9,
+    color: "#FF69B4",
+    fontWeight: "600" as const,
+    flexShrink: 1,
+  },
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  popup: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 14,
+    padding: 16,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "rgba(255,105,180,0.2)",
+  },
+  popupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  popupTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.dark.text,
+  },
+  popupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+  },
+  popupDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FF69B4",
+  },
+  popupName: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "500" as const,
+  },
+  popupAge: {
+    fontSize: 12,
+    color: "#FF69B4",
+    fontWeight: "600" as const,
+  },
+});

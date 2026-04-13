@@ -4001,3 +4001,128 @@ export function stopGlowPlansScheduler(): void {
     console.log("[GlowPlans] Scheduler stopped");
   }
 }
+
+// ==================== BIRTHDAY NOTIFICATION SCHEDULER ====================
+// Every morning at 8 AM (per academy's local timezone), notify coaches
+// about players whose birthday is TODAY.
+
+let birthdayNotifInterval: ReturnType<typeof setInterval> | null = null;
+const birthdayNotifProcessedTimezones = new Set<string>();
+
+async function processBirthdayNotificationsForTimezone(timezone: string): Promise<void> {
+  try {
+    const localDateStr = new Date().toLocaleDateString("en-CA", { timeZone: timezone }); // YYYY-MM-DD
+    const parts = localDateStr.split("-");
+    const localMonth = parseInt(parts[1], 10); // 1-indexed
+    const localDay = parseInt(parts[2], 10);
+
+    console.log(`[BirthdayNotif] Checking birthdays for ${timezone} on ${localDateStr} (month=${localMonth}, day=${localDay})`);
+
+    const result = await pool.query(
+      `SELECT
+         c.id AS coach_id,
+         p.id AS player_id,
+         p.name AS player_name,
+         p.date_of_birth
+       FROM coaches c
+       JOIN academies a ON c.academy_id = a.id
+       JOIN players p ON p.coach_id = c.id
+       WHERE a.timezone = $1
+         AND p.date_of_birth IS NOT NULL
+         AND EXTRACT(MONTH FROM p.date_of_birth) = $2
+         AND EXTRACT(DAY FROM p.date_of_birth) = $3`,
+      [timezone, localMonth, localDay]
+    );
+
+    if (result.rows.length === 0) {
+      console.log(`[BirthdayNotif] No birthdays today for timezone ${timezone}`);
+      return;
+    }
+
+    console.log(`[BirthdayNotif] Found ${result.rows.length} birthday(s) in timezone ${timezone}`);
+
+    for (const row of result.rows) {
+      const coachId = row.coach_id as string;
+      const playerName = row.player_name as string;
+      const dob = new Date(row.date_of_birth);
+      const turningAge = new Date().getFullYear() - dob.getFullYear();
+
+      const tokens = await getCoachPushTokens(coachId);
+      if (tokens.length === 0) {
+        console.log(`[BirthdayNotif] Coach ${coachId} has no push tokens — skipping`);
+        continue;
+      }
+
+      await sendPushNotification(
+        tokens,
+        `Today is ${playerName}'s birthday!`,
+        `${playerName} turns ${turningAge} today. Take a moment to wish them a happy birthday!`,
+        { type: "birthday", playerId: row.player_id as string }
+      );
+
+      console.log(`[BirthdayNotif] Sent birthday notification for ${playerName} to coach ${coachId}`);
+    }
+  } catch (error) {
+    console.error(`[BirthdayNotif] Error processing timezone ${timezone}:`, error);
+  }
+}
+
+export async function processBirthdayNotifications(): Promise<void> {
+  try {
+    const result = await pool.query(`SELECT DISTINCT timezone FROM academies WHERE timezone IS NOT NULL`);
+    for (const row of result.rows) {
+      await processBirthdayNotificationsForTimezone(row.timezone || "UTC");
+    }
+  } catch (error) {
+    console.error("[BirthdayNotif] Error:", error);
+  }
+}
+
+export function startBirthdayNotificationScheduler(): void {
+  if (birthdayNotifInterval) {
+    console.log("[BirthdayNotif] Scheduler already running");
+    return;
+  }
+
+  console.log("[BirthdayNotif] Starting birthday notification scheduler (checks every 15 min, fires at 8 AM academy-local time)");
+
+  birthdayNotifInterval = setInterval(async () => {
+    try {
+      const now = new Date();
+      const todayKey = now.toISOString().split("T")[0];
+
+      const result = await pool.query(`SELECT DISTINCT timezone FROM academies WHERE timezone IS NOT NULL`);
+
+      for (const row of result.rows) {
+        const tz = row.timezone || "UTC";
+        const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+        const localHour = localNow.getHours();
+        const localMinute = localNow.getMinutes();
+        const tzDayKey = `${tz}-${todayKey}`;
+
+        if (localHour === 8 && localMinute < 15 && !birthdayNotifProcessedTimezones.has(tzDayKey)) {
+          birthdayNotifProcessedTimezones.add(tzDayKey);
+          processBirthdayNotificationsForTimezone(tz).catch(err =>
+            console.error(`[BirthdayNotif] Async error for ${tz}:`, err)
+          );
+        }
+      }
+
+      for (const key of birthdayNotifProcessedTimezones) {
+        if (!key.includes(todayKey)) {
+          birthdayNotifProcessedTimezones.delete(key);
+        }
+      }
+    } catch (err) {
+      console.error("[BirthdayNotif] Scheduler check error:", err);
+    }
+  }, 15 * 60 * 1000);
+}
+
+export function stopBirthdayNotificationScheduler(): void {
+  if (birthdayNotifInterval) {
+    clearInterval(birthdayNotifInterval);
+    birthdayNotifInterval = null;
+    console.log("[BirthdayNotif] Scheduler stopped");
+  }
+}
