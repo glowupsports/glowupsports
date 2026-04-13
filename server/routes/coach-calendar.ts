@@ -1455,14 +1455,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // Cancel ghost debt for players who attended without an active package
-        // (creditDeductedAt is null = no package credit was consumed = potential debt transaction)
+        // Cancel any unsettled debt for ALL players — including those whose debt was created by
+        // ensureCreditProcessed (which sets creditDeductedAt). cancelSessionDebt is idempotent.
         for (const sp of sessionPlayersForRefund) {
-          if (!sp.creditDeductedAt) {
-            const debtResult = await storage.cancelSessionDebt(sp.playerId, id);
-            if (debtResult.cancelled) {
-              console.log(`[Cancel] Cancelled ghost debt for player ${sp.playerId}, session ${id}`);
-            }
+          const debtResult = await storage.cancelSessionDebt(sp.playerId, id, "session_cancelled_by_coach");
+          if (debtResult.cancelled) {
+            console.log(`[Cancel] Cancelled debt for player ${sp.playerId}, session ${id}`);
           }
         }
 
@@ -1615,14 +1613,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // Cancel ghost debt for players who attended without an active package
+        // Cancel any unsettled debt for ALL players — including those processed by ensureCreditProcessed.
         const lastMinutePlayers = await storage.getSessionPlayers(id);
         for (const sp of lastMinutePlayers) {
-          if (!sp.creditDeductedAt) {
-            const debtResult = await storage.cancelSessionDebt(sp.playerId, id);
-            if (debtResult.cancelled) {
-              console.log(`[LastMinuteCancel] Cancelled ghost debt for player ${sp.playerId}, session ${id}`);
-            }
+          const debtResult = await storage.cancelSessionDebt(sp.playerId, id, "session_cancelled_last_minute");
+          if (debtResult.cancelled) {
+            console.log(`[LastMinuteCancel] Cancelled debt for player ${sp.playerId}, session ${id}`);
           }
         }
 

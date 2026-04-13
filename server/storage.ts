@@ -3276,6 +3276,19 @@ export const storage = {
       .set({ status: "cancelled" })
       .where(eq(sessions.id, id))
       .returning();
+
+    // Cancel any unsettled debt transactions for all players in this session.
+    // We cancel for ALL players regardless of creditDeductedAt so that debts created
+    // by ensureCreditProcessed (which DOES set creditDeductedAt) are also cleaned up.
+    const players = await db
+      .select({ playerId: sessionPlayers.playerId })
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.sessionId, id));
+
+    for (const sp of players) {
+      await this.cancelSessionDebt(sp.playerId, id, "session_cancelled");
+    }
+
     return result[0];
   },
 

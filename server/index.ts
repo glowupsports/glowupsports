@@ -1202,6 +1202,40 @@ function setupErrorHandler(app: express.Application) {
       } catch (err) {
         console.error("[MigrateInviteCodes] Failed:", err);
       }
+
+      // ── CancelledSessionGhostDebtFix ──────────────────────────────────────
+      // One-time backfill: cancel any unsettled debt transactions whose linked
+      // session has since been cancelled. Normally the session-cancel routes do
+      // this, but the previous code guarded on !creditDeductedAt and missed debts
+      // created by ensureCreditProcessed. This patch is idempotent — already-
+      // cancelled transactions are skipped by the WHERE filter.
+      try {
+        const { db: dbGhost } = await import("./db");
+        const { sql: sqlGhost } = await import("drizzle-orm");
+        const ghostDebtResult = await dbGhost.execute(sqlGhost`
+          UPDATE credit_transactions ct
+          SET metadata = ct.metadata || jsonb_build_object(
+            'cancelled', true,
+            'cancelledAt', now()::text,
+            'cancelReason', 'backfill_cancelled_session_ghost_debt'
+          )
+          FROM sessions s
+          WHERE ct.session_id = s.id
+            AND s.status = 'cancelled'
+            AND ct.type = 'debit'
+            AND ct.reason IN ('session_join_debt', 'session_debt', 'session_unpaid', 'session_booking')
+            AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+            AND (ct.metadata->>'settled')::text IS DISTINCT FROM 'true'
+        `);
+        const fixed = (ghostDebtResult as any).rowCount ?? 0;
+        if (fixed > 0) {
+          log(`[CancelledSessionGhostDebtFix] Cancelled ${fixed} ghost debt transaction(s) tied to cancelled sessions`);
+        } else {
+          log(`[CancelledSessionGhostDebtFix] No ghost debts found — skipping`);
+        }
+      } catch (err) {
+        console.error("[CancelledSessionGhostDebtFix] Failed:", err);
+      }
     },
   );
 })();
