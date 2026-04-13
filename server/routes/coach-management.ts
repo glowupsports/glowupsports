@@ -63,6 +63,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
 const router = Router();
 
+const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
+
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
     const limit = Math.min(parseInt(query.limit as string) || 50, 100);
     const page = parseInt(query.page as string) || 1;
@@ -371,6 +373,13 @@ const router = Router();
       try {
         const { id } = req.params;
         const academyId = req.user!.academyId!;
+
+        const cacheKey = `coachXp:${academyId}:${id}`;
+        const cached = _coachXpCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+          return res.json(cached.data);
+        }
+
         const coach = await storage.getCoach(id, academyId);
         if (!coach) {
           return res.status(404).json({ error: "Coach not found" });
@@ -397,14 +406,16 @@ const router = Router();
         // Get recent transactions
         const transactions = await storage.getCoachXpTransactions(id, 10);
 
-        res.json({
+        const xpResult = {
           level,
           totalXp,
           currentLevelXp,
           requiredForLevel,
           xpPercent,
           transactions,
-        });
+        };
+        _coachXpCache.set(cacheKey, { data: xpResult, expiresAt: Date.now() + 5 * 60 * 1000 });
+        res.json(xpResult);
       } catch (error) {
         console.error("Error fetching coach XP:", error);
         res.status(500).json({ error: "Failed to fetch coach XP" });

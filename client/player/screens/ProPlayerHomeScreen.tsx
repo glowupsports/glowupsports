@@ -537,6 +537,7 @@ function PlayerHomeContent() {
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
     enabled: !!user?.playerId && !isGuest,
+    staleTime: 10 * 60 * 1000,
   });
 
   const { data: questsData } = useQuests(!isGuest);

@@ -8,6 +8,8 @@ import type { AuthenticatedRequest } from "../auth";
 
 const router = Router();
 
+const _etaCache = new Map<string, { data: unknown; expiresAt: number }>();
+
 const SAME_LOCATION_KM = 0.3;
 const LOCATION_FRESHNESS_MINUTES = 30;
 
@@ -48,6 +50,12 @@ router.get("/api/coach/me/next-session-eta", authMiddleware, requireRole("coach"
       return res.status(400).json({ error: "Coach profile not found" });
     }
 
+    const etaCacheKey = `nextEta:${coachId}`;
+    const etaCached = _etaCache.get(etaCacheKey);
+    if (etaCached && etaCached.expiresAt > Date.now()) {
+      return res.json(etaCached.data);
+    }
+
     const [coach] = await db.select({
       id: coaches.id,
       lastLat: coaches.lastLat,
@@ -82,8 +90,12 @@ router.get("/api/coach/me/next-session-eta", authMiddleware, requireRole("coach"
       .orderBy(asc(sessions.startTime))
       .limit(1);
 
+    const ETA_TTL = 60 * 1000;
+
     if (upcomingSessions.length === 0) {
-      return res.json({ eta: null, reason: "no_upcoming_sessions" });
+      const resp = { eta: null, reason: "no_upcoming_sessions" };
+      _etaCache.set(etaCacheKey, { data: resp, expiresAt: Date.now() + ETA_TTL });
+      return res.json(resp);
     }
 
     const nextSession = upcomingSessions[0];
@@ -98,39 +110,47 @@ router.get("/api/coach/me/next-session-eta", authMiddleware, requireRole("coach"
     }).from(locations).where(eq(locations.id, nextSession.locationId!));
 
     if (!sessionLocation) {
-      return res.json({ eta: null, reason: "location_not_found" });
+      const resp = { eta: null, reason: "location_not_found" };
+      _etaCache.set(etaCacheKey, { data: resp, expiresAt: Date.now() + ETA_TTL });
+      return res.json(resp);
     }
 
     const destLat = sessionLocation.lat;
     const destLng = sessionLocation.lng;
 
     if (destLat === null || destLat === undefined || destLng === null || destLng === undefined) {
-      return res.json({ eta: null, reason: "location_no_coordinates" });
+      const resp = { eta: null, reason: "location_no_coordinates" };
+      _etaCache.set(etaCacheKey, { data: resp, expiresAt: Date.now() + ETA_TTL });
+      return res.json(resp);
     }
 
     if (coach.lastLat === null || coach.lastLat === undefined || coach.lastLng === null || coach.lastLng === undefined) {
-      return res.json({
+      const resp = {
         sessionId: nextSession.id,
         locationName: sessionLocation.name,
         sessionStart: sessionStart.toISOString(),
         minutesToSession,
         eta: null,
         reason: "no_coach_location",
-      });
+      };
+      _etaCache.set(etaCacheKey, { data: resp, expiresAt: Date.now() + ETA_TTL });
+      return res.json(resp);
     }
 
     const freshnessMs = LOCATION_FRESHNESS_MINUTES * 60 * 1000;
     if (coach.lastLocationAt !== null && coach.lastLocationAt !== undefined) {
       const ageMs = now.getTime() - new Date(coach.lastLocationAt).getTime();
       if (ageMs > freshnessMs) {
-        return res.json({
+        const resp = {
           sessionId: nextSession.id,
           locationName: sessionLocation.name,
           sessionStart: sessionStart.toISOString(),
           minutesToSession,
           eta: null,
           reason: "stale_coach_location",
-        });
+        };
+        _etaCache.set(etaCacheKey, { data: resp, expiresAt: Date.now() + ETA_TTL });
+        return res.json(resp);
       }
     }
 
@@ -139,14 +159,16 @@ router.get("/api/coach/me/next-session-eta", authMiddleware, requireRole("coach"
 
     const distKm = haversineKm(coachLat, coachLng, destLat, destLng);
     if (distKm < SAME_LOCATION_KM) {
-      return res.json({
+      const resp = {
         sessionId: nextSession.id,
         locationName: sessionLocation.name,
         sessionStart: sessionStart.toISOString(),
         minutesToSession,
         minutes: 0,
         sameLocation: true,
-      });
+      };
+      _etaCache.set(etaCacheKey, { data: resp, expiresAt: Date.now() + ETA_TTL });
+      return res.json(resp);
     }
 
     let travelMinutes: number | null = null;
@@ -166,7 +188,7 @@ router.get("/api/coach/me/next-session-eta", authMiddleware, requireRole("coach"
 
     const shouldLeaveInMinutes = minutesToSession - travelMinutes;
 
-    return res.json({
+    const etaResult = {
       sessionId: nextSession.id,
       locationName: sessionLocation.name,
       sessionStart: sessionStart.toISOString(),
@@ -174,7 +196,9 @@ router.get("/api/coach/me/next-session-eta", authMiddleware, requireRole("coach"
       minutes: travelMinutes,
       sameLocation: false,
       shouldLeaveInMinutes,
-    });
+    };
+    _etaCache.set(etaCacheKey, { data: etaResult, expiresAt: Date.now() + ETA_TTL });
+    return res.json(etaResult);
   } catch (err) {
     console.error("[CoachLocation] GET /api/coach/me/next-session-eta error:", err);
     return res.status(500).json({ error: "Failed to compute ETA" });

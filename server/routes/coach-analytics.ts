@@ -52,7 +52,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "@shared/schema";
   
   const router = Router();
-  
+
+  const _burnoutCache = new Map<string, { data: unknown; expiresAt: number }>();
+
     // ==================== INSIGHTS & ANALYTICS ENDPOINTS ====================
 
   // Get attendance trends for academy
@@ -284,6 +286,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Assessment not found" });
         }
 
+        const cacheKey = `burnout:${id}`;
+        const cached = _burnoutCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+          return res.json(cached.data);
+        }
+
         // Analyze last 14 days + next 7 days
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -406,7 +414,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           );
         }
 
-        res.json({
+        const burnoutResult = {
           riskScore: Math.round(riskScore),
           riskLevel,
           metrics: {
@@ -418,7 +426,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             scheduledMinutesNext7Days: futureMinutes,
           },
           recommendations,
-        });
+        };
+        _burnoutCache.set(`burnout:${id}`, { data: burnoutResult, expiresAt: Date.now() + 5 * 60 * 1000 });
+        res.json(burnoutResult);
       } catch (error) {
         console.error("Error calculating burnout risk:", error);
         res.status(500).json({ error: "Failed to calculate burnout risk" });

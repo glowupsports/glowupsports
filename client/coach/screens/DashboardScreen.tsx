@@ -987,7 +987,7 @@ export default function DashboardScreen() {
   }>({
     queryKey: ["/api/coaches", coach?.id, "burnout-risk"],
     enabled: !!coach?.id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
   });
 
   // Calculate recovery-aware stamina: uses burnout risk which accounts for rest days
@@ -1060,6 +1060,7 @@ export default function DashboardScreen() {
   }>({
     queryKey: ["/api/coach", coach?.id, "xp"],
     enabled: !!coach?.id,
+    staleTime: 15 * 60 * 1000,
   });
   
   
@@ -1195,7 +1196,7 @@ export default function DashboardScreen() {
   const { data: coachReviewsData } = useQuery<{ stats: { totalReviews: number; averageOverall: number | null } | null; reviews: any[] }>({
     queryKey: ["/api/coach/my-reviews"],
     enabled: !!coach?.id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
   });
 
   const { data: pendingAttendanceSessions = [] } = useQuery<PendingAttendanceSession[]>({
@@ -1208,7 +1209,7 @@ export default function DashboardScreen() {
   const { data: pendingFeedbackSessions = [] } = useQuery<PendingFeedbackSession[]>({
     queryKey: ["/api/coach/sessions/pending-feedback"],
     enabled: !!coach?.id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
   });
 
   const pendingFeedbackCount = useMemo(() => {
