@@ -9114,33 +9114,104 @@ export const storage = {
     const availabilitySlots = await db.select().from(coachAvailability)
       .where(and(...conditions));
     
-    const sessionConditions: any[] = [
-      eq(sessions.academyId, params.academyId),
-      gte(sessions.startTime, params.startDate),
-      lte(sessions.endTime, params.endDate),
-      ne(sessions.status, "cancelled"),
-    ];
-    
-    if (params.coachId) {
-      sessionConditions.push(eq(sessions.coachId, params.coachId));
-    }
-    
-    const existingSessions = await db.select().from(sessions)
-      .where(and(...sessionConditions));
-    
-    const pendingConditions: any[] = [
-      eq(bookingRequests.academyId, params.academyId),
-      eq(bookingRequests.status, "pending"),
-      gte(bookingRequests.requestedStart, params.startDate),
-      lte(bookingRequests.requestedEnd, params.endDate),
-    ];
-    
-    if (params.coachId) {
-      pendingConditions.push(eq(bookingRequests.coachId, params.coachId));
-    }
-    
-    const pendingRequests = await db.select().from(bookingRequests)
-      .where(and(...pendingConditions));
+    // IMPORTANT: sessions.start_time / end_time are stored as `timestamp without time zone`
+    // containing the academy's LOCAL time (e.g. "13:00" = 1 pm Dubai, not 1 pm UTC).
+    // Drizzle ORM reads them as-is and creates JS Date objects treating the value as UTC,
+    // causing a systematic offset equal to the academy's UTC offset (4 h for Dubai).
+    // Fix: use raw SQL with `AT TIME ZONE academy_timezone` so PostgreSQL interprets the
+    // stored local value correctly and returns a real UTC timestamptz for comparison.
+    const sessionStartIso = params.startDate.toISOString();
+    const sessionEndIso = params.endDate.toISOString();
+
+    const sessionQuery = params.coachId
+      ? sql`
+          SELECT
+            id,
+            coach_id      AS "coachId",
+            academy_id    AS "academyId",
+            status,
+            court_id      AS "courtId",
+            (start_time AT TIME ZONE ${academyTimezone}) AS "startTime",
+            (end_time   AT TIME ZONE ${academyTimezone}) AS "endTime"
+          FROM sessions
+          WHERE academy_id = ${params.academyId}
+            AND status != 'cancelled'
+            AND (end_time   AT TIME ZONE ${academyTimezone}) > ${sessionStartIso}::timestamptz
+            AND (start_time AT TIME ZONE ${academyTimezone}) < ${sessionEndIso}::timestamptz
+            AND coach_id = ${params.coachId}
+        `
+      : sql`
+          SELECT
+            id,
+            coach_id      AS "coachId",
+            academy_id    AS "academyId",
+            status,
+            court_id      AS "courtId",
+            (start_time AT TIME ZONE ${academyTimezone}) AS "startTime",
+            (end_time   AT TIME ZONE ${academyTimezone}) AS "endTime"
+          FROM sessions
+          WHERE academy_id = ${params.academyId}
+            AND status != 'cancelled'
+            AND (end_time   AT TIME ZONE ${academyTimezone}) > ${sessionStartIso}::timestamptz
+            AND (start_time AT TIME ZONE ${academyTimezone}) < ${sessionEndIso}::timestamptz
+        `;
+
+    const sessionResult = await db.execute(sessionQuery);
+    const existingSessions = (sessionResult.rows as Array<{
+      id: string;
+      coachId: string;
+      academyId: string;
+      status: string;
+      courtId: string | null;
+      startTime: Date;
+      endTime: Date;
+    }>);
+
+    // Same fix for pending booking requests — requested_start/end are also
+    // `timestamp without time zone` containing local academy time.
+    const pendingQuery = params.coachId
+      ? sql`
+          SELECT
+            id,
+            coach_id        AS "coachId",
+            academy_id      AS "academyId",
+            status,
+            court_id        AS "courtId",
+            (requested_start AT TIME ZONE ${academyTimezone}) AS "requestedStart",
+            (requested_end   AT TIME ZONE ${academyTimezone}) AS "requestedEnd"
+          FROM booking_requests
+          WHERE academy_id = ${params.academyId}
+            AND status = 'pending'
+            AND (requested_end   AT TIME ZONE ${academyTimezone}) > ${sessionStartIso}::timestamptz
+            AND (requested_start AT TIME ZONE ${academyTimezone}) < ${sessionEndIso}::timestamptz
+            AND coach_id = ${params.coachId}
+        `
+      : sql`
+          SELECT
+            id,
+            coach_id        AS "coachId",
+            academy_id      AS "academyId",
+            status,
+            court_id        AS "courtId",
+            (requested_start AT TIME ZONE ${academyTimezone}) AS "requestedStart",
+            (requested_end   AT TIME ZONE ${academyTimezone}) AS "requestedEnd"
+          FROM booking_requests
+          WHERE academy_id = ${params.academyId}
+            AND status = 'pending'
+            AND (requested_end   AT TIME ZONE ${academyTimezone}) > ${sessionStartIso}::timestamptz
+            AND (requested_start AT TIME ZONE ${academyTimezone}) < ${sessionEndIso}::timestamptz
+        `;
+
+    const pendingResult = await db.execute(pendingQuery);
+    const pendingRequests = (pendingResult.rows as Array<{
+      id: string;
+      coachId: string;
+      academyId: string;
+      status: string;
+      courtId: string | null;
+      requestedStart: Date;
+      requestedEnd: Date;
+    }>);
 
     // Fetch court availability blocks for the date range (blocked/booked from ALL coaches)
     // This ensures cross-coach court conflict exclusion
