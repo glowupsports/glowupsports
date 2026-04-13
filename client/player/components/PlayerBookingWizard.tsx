@@ -1014,9 +1014,35 @@ export default function PlayerBookingWizard({
             {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).length === 0 && joinableSessions.length === 0 && !isLoading && (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
-                <Text style={styles.emptyStateTitle}>No sessions available</Text>
+                <Text style={styles.emptyStateTitle}>
+                  {(() => {
+                    const now = new Date();
+                    const isToday = selectedDate.toDateString() === now.toDateString();
+                    const isLateInDay = isToday && now.getHours() >= 17;
+                    if (isLateInDay) return "No more slots today";
+                    if (isToday) return "Nothing available right now";
+                    return "No sessions available";
+                  })()}
+                </Text>
                 <Text style={styles.emptyStateText}>
-                  {selectedLocationId ? "Try a different location, date, or duration" : "Try a different date or duration"}
+                  {(() => {
+                    const now = new Date();
+                    const isToday = selectedDate.toDateString() === now.toDateString();
+                    const isLateInDay = isToday && now.getHours() >= 17;
+                    if (isLateInDay && selectedLocationId) {
+                      return "It's getting late — try tomorrow, a different location, or a shorter session";
+                    } else if (isLateInDay) {
+                      return "It's getting late — try tomorrow or a shorter session";
+                    } else if (isToday && selectedLocationId) {
+                      return "Try a different duration, location, or pick another date";
+                    } else if (isToday) {
+                      return "Try a different duration or pick another date";
+                    } else if (selectedLocationId) {
+                      return "Try a different date, location, or duration";
+                    } else {
+                      return "Try a different date or duration";
+                    }
+                  })()}
                 </Text>
               </View>
             )}
