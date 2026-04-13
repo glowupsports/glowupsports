@@ -15,6 +15,7 @@ import { Colors, Spacing } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 interface BirthdayEntry {
   id: string;
@@ -84,7 +85,7 @@ function BirthdayFullSheet({ onClose, coachId }: { onClose: () => void; coachId:
       <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.sheetHandle} />
         <View style={styles.sheetHeader}>
-          <Ionicons name="gift" size={20} color="#FF69B4" />
+          <MaterialCommunityIcons name="cake-variant-outline" size={20} color="#FF69B4" />
           <Text style={styles.sheetTitle}>Birthdays — Next 60 Days</Text>
           {totalCount > 0 ? (
             <View style={styles.sheetCountBadge}>
@@ -131,7 +132,7 @@ function BirthdayFullSheet({ onClose, coachId }: { onClose: () => void; coachId:
                       <View style={styles.sheetPlayerRight}>
                         {isToday ? (
                           <>
-                            <Ionicons name="gift" size={14} color="#FF69B4" />
+                            <MaterialCommunityIcons name="cake-variant" size={14} color="#FF69B4" />
                             <Text style={[styles.sheetDaysText, { color: "#FF69B4", marginLeft: 4 }]}>Today</Text>
                           </>
                         ) : (
@@ -189,8 +190,8 @@ export function BirthdayOverviewCard() {
           style={styles.card}
         >
           <View style={styles.header}>
-            <Ionicons
-              name={hasToday ? "gift" : "calendar-outline"}
+            <MaterialCommunityIcons
+              name={hasToday ? "cake-variant" : "cake-variant-outline"}
               size={20}
               color="#FF69B4"
               style={styles.headerIcon}
@@ -207,8 +208,14 @@ export function BirthdayOverviewCard() {
                 </Text>
               </View>
             </View>
-            <Text style={styles.seeAll}>See all</Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.dark.tabIconDefault} />
+            {data.upcomingCount > 3 ? (
+              <>
+                <Text style={styles.seeAll}>See all</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.tabIconDefault} />
+              </>
+            ) : (
+              <Ionicons name="chevron-forward" size={14} color={Colors.dark.tabIconDefault} style={{ opacity: 0.5 }} />
+            )}
           </View>
 
           {data.today.map((player) => (

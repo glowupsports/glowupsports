@@ -13,6 +13,7 @@ import { getSessionTypeGradient } from "./calendarUtils";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 interface SessionPlayer {
   name: string;
@@ -79,7 +80,9 @@ export function CalendarWeekViewOverview({
   const { coach } = useCoach();
   const [birthdayPopup, setBirthdayPopup] = useState<{ date: string; players: { id: string; name: string; turningAge: number }[] } | null>(null);
 
-  const weekStartISO = weekDates.length > 0 ? weekDates[0].toISOString().split("T")[0] : "";
+  const weekStartISO = weekDates.length > 0
+    ? formatDateObjectInTimezone(weekDates[0], academyTimezone)
+    : "";
 
   const { data: weekBirthdays } = useQuery<Record<string, { id: string; name: string; turningAge: number }[]>>({
     queryKey: ["/api/coach/birthdays/week", weekStartISO],
@@ -91,7 +94,7 @@ export function CalendarWeekViewOverview({
       if (!res.ok) return {};
       return res.json();
     },
-    enabled: !!coach?.id && weekDates.length > 0,
+    enabled: !!coach?.id && weekDates.length > 0 && !!weekStartISO,
     staleTime: 1000 * 60 * 30,
   });
 
@@ -160,7 +163,7 @@ export function CalendarWeekViewOverview({
           <View style={birthdayStripStyles.row}>
             <View style={birthdayStripStyles.timeCol} />
             {weekDates.map((date, idx) => {
-              const isoDate = date.toISOString().split("T")[0];
+              const isoDate = formatDateObjectInTimezone(date, academyTimezone);
               const bdays = weekBirthdays[isoDate];
               if (!bdays || bdays.length === 0) {
                 return <View key={idx} style={birthdayStripStyles.cell} />;
@@ -176,7 +179,7 @@ export function CalendarWeekViewOverview({
                     setBirthdayPopup({ date: isoDate, players: bdays });
                   }}
                 >
-                  <Ionicons name="gift-outline" size={10} color="#FF69B4" />
+                  <MaterialCommunityIcons name="cake-variant-outline" size={10} color="#FF69B4" />
                   <Text style={birthdayStripStyles.cellText} numberOfLines={1}>{label}</Text>
                 </Pressable>
               );
