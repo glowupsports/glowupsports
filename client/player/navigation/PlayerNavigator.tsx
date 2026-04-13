@@ -576,13 +576,15 @@ function GrowthMainWithCallback(props: any) {
 
   useEffect(() => {
     return registerTabCallback("Growth", (screen, params) => {
-      if (GROWTH_QUESTS_SCREENS.has(screen)) {
+      if (GROWTH_QUESTS_SCREENS.has(screen) || screen === "Quests") {
         subTabSetterRef.current?.("Quests");
-      } else if (GROWTH_SCHEDULE_SCREENS.has(screen)) {
+      } else if (GROWTH_SCHEDULE_SCREENS.has(screen) || screen === "Schedule" || screen === "ScheduleMain") {
         subTabSetterRef.current?.("Schedule");
-        if (screen !== "ScheduleMain") {
+        if (screen !== "ScheduleMain" && screen !== "Schedule") {
           setTimeout(() => navigation.navigate(screen as any, params), 150);
         }
+      } else if (screen === "Progress" || screen === "ProgressMain") {
+        subTabSetterRef.current?.("Progress");
       } else {
         navigation.navigate(screen as any, params);
       }

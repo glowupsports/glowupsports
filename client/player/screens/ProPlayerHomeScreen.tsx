@@ -953,8 +953,8 @@ function PlayerHomeContent() {
         <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
-        {/* ── IMPROVE SECTION ── Feedback, progress, recognition (hidden for guests and players with no academy data) */}
-        {!isGuest && !!effectiveData?.player ? (
+        {/* ── IMPROVE SECTION ── Feedback, progress, recognition (hidden for guests, free players with no academy, and players with no session/academy data) */}
+        {!isGuest && !isFreePlayer && (!!effectiveData?.nextSession || !!effectiveData?.academy) ? (
           <>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />

@@ -94,11 +94,11 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     title: "TRAINING",
     icon: "fitness",
     items: [
-      { id: "sessions", title: "My Sessions", subtitle: "Upcoming training", icon: "calendar", screen: "PlayerTabs", params: { screen: "Schedule" } },
-      { id: "plan", title: "My Plan & Progress", subtitle: "Academy program & XP", icon: "document-text", screen: "PlayerTabs", params: { screen: "Progress" } },
-      { id: "swinglab", title: "Swing Lab", subtitle: "Video analysis", icon: "videocam", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "SkillEvidence" } } },
-      { id: "feedback", title: "Feedback Center", subtitle: "Skill assessments", icon: "stats-chart", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "FeedbackCenter" } } },
-      { id: "coachfeedback", title: "Coach Feedback", subtitle: "Session reviews", icon: "chatbubbles", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "CoachFeedbackHistory" } } },
+      { id: "sessions", title: "My Sessions", subtitle: "Upcoming training", icon: "calendar", screen: "PlayerTabs", params: { screen: "Growth" } },
+      { id: "plan", title: "My Plan & Progress", subtitle: "Academy program & XP", icon: "document-text", screen: "PlayerTabs", params: { screen: "Growth" } },
+      { id: "swinglab", title: "Swing Lab", subtitle: "Video analysis", icon: "videocam", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "SkillEvidence" } } },
+      { id: "feedback", title: "Feedback Center", subtitle: "Skill assessments", icon: "stats-chart", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "FeedbackCenter" } } },
+      { id: "coachfeedback", title: "Coach Feedback", subtitle: "Session reviews", icon: "chatbubbles", screen: "PlayerTabs", params: { screen: "Growth", params: { screen: "CoachFeedbackHistory" } } },
     ],
   },
   {
