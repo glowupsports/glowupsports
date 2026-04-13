@@ -261,6 +261,9 @@ export type ProgressStackParamList = {
 
 export type PlayerStackParamList = {
   PlayerTabs: undefined;
+  Schedule: undefined;
+  Quests: undefined;
+  Progress: undefined;
   Training: undefined;
   TrainingDetail: { sessionId: string };
   SkillDetail: { domain: string };
@@ -884,6 +887,36 @@ function PlayerTabs() {
   );
 }
 
+function LegacyScheduleRedirect() {
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
+  React.useEffect(() => {
+    navigation.goBack();
+    setTimeout(() => navigateToTab("Growth", { screen: "Schedule" }), 100);
+  }, []);
+  return null;
+}
+
+function LegacyQuestsRedirect() {
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
+  React.useEffect(() => {
+    navigation.goBack();
+    setTimeout(() => navigateToTab("Growth", { screen: "Quests" }), 100);
+  }, []);
+  return null;
+}
+
+function LegacyProgressRedirect() {
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
+  React.useEffect(() => {
+    navigation.goBack();
+    setTimeout(() => navigateToTab("Growth", { screen: "Progress" }), 100);
+  }, []);
+  return null;
+}
+
 function PlayerStackNavigator() {
   const { t } = useTranslation();
   return (
@@ -1453,6 +1486,9 @@ function PlayerStackNavigator() {
           headerTransparent: false,
         }}
       />
+      <Stack.Screen name="Schedule" component={LegacyScheduleRedirect} options={{ headerShown: false }} />
+      <Stack.Screen name="Quests" component={LegacyQuestsRedirect} options={{ headerShown: false }} />
+      <Stack.Screen name="Progress" component={LegacyProgressRedirect} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
