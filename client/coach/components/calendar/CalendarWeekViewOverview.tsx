@@ -196,9 +196,9 @@ export function CalendarWeekViewOverview({
           <Pressable style={birthdayStripStyles.popupOverlay} onPress={() => setBirthdayPopup(null)}>
             <View style={birthdayStripStyles.popup}>
               <View style={birthdayStripStyles.popupHeader}>
-                <Ionicons name="gift" size={16} color="#FF69B4" />
+                <MaterialCommunityIcons name="cake-variant-outline" size={16} color="#FF69B4" />
                 <Text style={birthdayStripStyles.popupTitle}>
-                  {birthdayPopup ? new Date(birthdayPopup.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : ""}
+                  {birthdayPopup ? new Date(birthdayPopup.date + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: academyTimezone }) : ""}
                 </Text>
                 <TouchableOpacity onPress={() => setBirthdayPopup(null)}>
                   <Ionicons name="close" size={16} color={Colors.dark.tabIconDefault} />

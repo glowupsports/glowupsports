@@ -743,8 +743,17 @@ async function autoCancel(
       }
 
       const weekStartParam = req.query.weekStart as string;
-      const weekStart = weekStartParam ? new Date(weekStartParam) : new Date();
-      weekStart.setHours(0, 0, 0, 0);
+      if (!weekStartParam || !/^\d{4}-\d{2}-\d{2}$/.test(weekStartParam)) {
+        return res.status(400).json({ error: "weekStart must be YYYY-MM-DD" });
+      }
+
+      // Force UTC midnight parsing to avoid server-timezone shifts
+      const weekDates: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStartParam + "T00:00:00Z");
+        d.setUTCDate(d.getUTCDate() + i);
+        weekDates.push(d.toISOString().split("T")[0]);
+      }
 
       const coachPlayers = await db
         .select({
@@ -761,27 +770,24 @@ async function autoCancel(
         );
 
       const grouped: Record<string, { id: string; name: string; turningAge: number }[]> = {};
-
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        const isoDate = d.toISOString().split("T")[0];
+      for (const isoDate of weekDates) {
         grouped[isoDate] = [];
       }
 
       for (const p of coachPlayers) {
         if (!p.dateOfBirth) continue;
-        const birth = new Date(p.dateOfBirth);
-        const bMonth = birth.getMonth();
-        const bDay = birth.getDate();
+        // Force UTC parsing for date_of_birth to avoid server-timezone influence
+        const dobStr = typeof p.dateOfBirth === "string"
+          ? p.dateOfBirth.substring(0, 10)
+          : new Date(p.dateOfBirth).toISOString().split("T")[0];
+        const birth = new Date(dobStr + "T00:00:00Z");
+        const bMonth = birth.getUTCMonth();
+        const bDay = birth.getUTCDate();
 
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(weekStart);
-          d.setDate(weekStart.getDate() + i);
-
-          if (d.getMonth() === bMonth && d.getDate() === bDay) {
-            const isoDate = d.toISOString().split("T")[0];
-            const turningAge = d.getFullYear() - birth.getFullYear();
+        for (const isoDate of weekDates) {
+          const d = new Date(isoDate + "T00:00:00Z");
+          if (d.getUTCMonth() === bMonth && d.getUTCDate() === bDay) {
+            const turningAge = d.getUTCFullYear() - birth.getUTCFullYear();
             grouped[isoDate].push({ id: p.id, name: p.name, turningAge });
           }
         }
