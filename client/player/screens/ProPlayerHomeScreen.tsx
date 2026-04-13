@@ -82,6 +82,7 @@ interface DashboardData {
     semi_private: number;
   };
   isFreePlayer?: boolean;
+  lastFeedback?: { message: string; date: string } | null;
 }
 
 function toIoniconName(name: string | null | undefined, fallback: keyof typeof Ionicons.glyphMap = "star"): keyof typeof Ionicons.glyphMap {
@@ -953,8 +954,8 @@ function PlayerHomeContent() {
         <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
-        {/* ── IMPROVE SECTION ── Feedback, progress, recognition (hidden for guests, free players with no academy, and players with no session/academy data) */}
-        {!isGuest && !isFreePlayer && (!!effectiveData?.nextSession || !!effectiveData?.academy) ? (
+        {/* ── IMPROVE SECTION ── Feedback, progress, recognition — shown only when player has real coaching data (feedback history or an assigned coach) */}
+        {!isGuest && (!!effectiveData?.lastFeedback || !!effectiveData?.coach) ? (
           <>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
