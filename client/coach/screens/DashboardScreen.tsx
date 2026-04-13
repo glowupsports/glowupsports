@@ -462,14 +462,8 @@ interface PendingReview {
   player?: { id: string; name?: string; firstName?: string; lastName?: string };
 }
 
-function CoachMatchReviewsCard({ coachId, navigation }: { coachId: string | null; navigation: any }) {
-  const { data: pending, isLoading } = useQuery<PendingReview[]>({
-    queryKey: [`/api/match-intelligence/coach/${coachId}/pending-reviews`],
-    enabled: !!coachId,
-    staleTime: 60000,
-  });
-
-  if (!coachId || isLoading) return null;
+function CoachMatchReviewsCard({ coachId, navigation, pending }: { coachId: string | null; navigation: any; pending?: PendingReview[] }) {
+  if (!coachId) return null;
   if (!pending || pending.length === 0) {
     return (
       <View style={[matchReviewStyles.card, { flexDirection: "row", alignItems: "center", gap: Spacing.sm }]}>
@@ -780,12 +774,52 @@ export default function DashboardScreen() {
     return () => clearInterval(interval);
   }, []);
   
-  const { data: notificationsData } = useQuery<{ id: string; isRead: boolean | null }[]>({
-    queryKey: ["/api/coach/notifications"],
+  const { data: homeData } = useQuery<{
+    notifications: { id: string; isRead: boolean | null }[];
+    unreadNotificationCount: number;
+    pendingAttendance: PendingAttendanceSession[];
+    pendingAttendanceCount: number;
+    pendingFeedback: PendingFeedbackSession[];
+    pendingBookingRequests: any[];
+    pendingBookingCount: number;
+    nextSessionEta: {
+      sessionId?: string;
+      locationName?: string;
+      sessionStart?: string;
+      minutesToSession?: number;
+      minutes?: number;
+      sameLocation?: boolean;
+      shouldLeaveInMinutes?: number;
+      eta?: null;
+      reason?: string;
+    } | null;
+    xp: {
+      level: number;
+      totalXp: number;
+      currentLevelXp: number;
+      requiredForLevel: number;
+      xpPercent: number;
+    } | null;
+    burnoutRisk: {
+      riskScore: number;
+      riskLevel: string;
+      metrics: {
+        restDaysLastWeek: number;
+        avgDailyMinutesPast: number;
+      };
+    } | null;
+    reviews: {
+      stats: { totalReviews: number; averageOverall: number | null } | null;
+    };
+    pendingMatchReviews: PendingReview[];
+    pendingMatchReviewCount: number;
+  }>({
+    queryKey: ["/api/coach/me/home-data"],
     enabled: !!coach?.id,
-    staleTime: 30000,
+    staleTime: 30_000,
   });
-  const unreadNotificationCount = notificationsData?.filter(n => !n.isRead)?.length ?? 0;
+
+  const unreadNotificationCount = homeData?.unreadNotificationCount ?? 0;
 
   const todayDateStr = new Date().toISOString().split("T")[0];
   const weeklyCalendarPath = coach?.id 
@@ -811,13 +845,13 @@ export default function DashboardScreen() {
     onSessionUpdate: useCallback(() => {
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/me/pending-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
       if (refetchCalendar) refetchCalendar();
       refetchWeeklyCalendar();
     }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
     onConnected: useCallback(() => {
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
       if (refetchCalendar) refetchCalendar();
     }, [queryClient, refetchCalendar]),
   });
@@ -976,19 +1010,7 @@ export default function DashboardScreen() {
     return { totalMinutes, completedMinutes, remainingMinutes, staminaPercent, impactPercent, energyState, dayIntensity };
   }, [todaysSessions]);
 
-  // Fetch burnout risk for recovery-aware stamina calculation
-  const { data: burnoutRiskData } = useQuery<{
-    riskScore: number;
-    riskLevel: string;
-    metrics: {
-      restDaysLastWeek: number;
-      avgDailyMinutesPast: number;
-    };
-  }>({
-    queryKey: ["/api/coaches", coach?.id, "burnout-risk"],
-    enabled: !!coach?.id,
-    staleTime: 15 * 60 * 1000,
-  });
+  const burnoutRiskData = homeData?.burnoutRisk ?? null;
 
   // Calculate recovery-aware stamina: uses burnout risk which accounts for rest days
   const recoveryAwareStamina = useMemo(() => {
@@ -1050,20 +1072,9 @@ export default function DashboardScreen() {
     return insights;
   }, [todaysSessions, coachStats]);
 
-  // Fetch coach XP from API
-  const { data: coachXpData } = useQuery<{
-    level: number;
-    totalXp: number;
-    currentLevelXp: number;
-    requiredForLevel: number;
-    xpPercent: number;
-  }>({
-    queryKey: ["/api/coach", coach?.id, "xp"],
-    enabled: !!coach?.id,
-    staleTime: 15 * 60 * 1000,
-  });
-  
-  
+  const coachXpData = homeData?.xp ?? null;
+
+
   const coachXP = useMemo(() => {
     if (coachXpData) {
       return {
@@ -1089,12 +1100,7 @@ export default function DashboardScreen() {
     return { level, currentXP, requiredXP, xpPercent };
   }, [coachXpData, coach?.level, coach?.totalXp]);
 
-  // Fetch pending booking requests for this coach
-  const { data: pendingBookingRequests = [] } = useQuery<any[]>({
-    queryKey: ["/api/coach/booking-requests?status=pending"],
-    enabled: !!coach?.id,
-    staleTime: 30000,
-  });
+  const pendingBookingRequests = homeData?.pendingBookingRequests ?? [];
 
   // === GPS LOCATION TRACKING ===
   const locationWatcherRef = useRef<Location.LocationSubscription | null>(null);
@@ -1174,43 +1180,17 @@ export default function DashboardScreen() {
     };
   }, [coach?.id, sendLocationToServer]);
 
-  // === ETA QUERY FOR TRAVEL BANNER ===
-  const { data: nextSessionEta } = useQuery<{
-    sessionId?: string;
-    locationName?: string;
-    sessionStart?: string;
-    minutesToSession?: number;
-    minutes?: number;
-    sameLocation?: boolean;
-    shouldLeaveInMinutes?: number;
-    eta?: null;
-    reason?: string;
-  } | null>({
-    queryKey: ["/api/coach/me/next-session-eta"],
-    enabled: !!coach?.id,
-    refetchInterval: 60 * 1000,
-    staleTime: 55 * 1000,
-  });
+  const nextSessionEta = homeData?.nextSessionEta ?? null;
 
-  // Fetch coach reviews for dashboard card (E1)
-  const { data: coachReviewsData } = useQuery<{ stats: { totalReviews: number; averageOverall: number | null } | null; reviews: any[] }>({
-    queryKey: ["/api/coach/my-reviews"],
-    enabled: !!coach?.id,
-    staleTime: 30 * 60 * 1000,
-  });
+  const coachReviewsData = homeData?.reviews
+    ? { stats: homeData.reviews.stats, reviews: [] as any[] }
+    : null;
 
-  const { data: pendingAttendanceSessions = [] } = useQuery<PendingAttendanceSession[]>({
-    queryKey: ["/api/coach/me/pending-attendance"],
-    enabled: !!coach?.id,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
-  });
+  const pendingAttendanceSessions: PendingAttendanceSession[] =
+    homeData?.pendingAttendance ?? [];
 
-  const { data: pendingFeedbackSessions = [] } = useQuery<PendingFeedbackSession[]>({
-    queryKey: ["/api/coach/sessions/pending-feedback"],
-    enabled: !!coach?.id,
-    staleTime: 15 * 60 * 1000,
-  });
+  const pendingFeedbackSessions: PendingFeedbackSession[] =
+    homeData?.pendingFeedback ?? [];
 
   const pendingFeedbackCount = useMemo(() => {
     const now = new Date();
@@ -1803,7 +1783,7 @@ export default function DashboardScreen() {
                       onPress={async () => {
                         try {
                           await apiRequest("POST", `/api/coach/booking-requests/${req.id}/approve`, {});
-                          queryClient.invalidateQueries({ queryKey: ["/api/coach/booking-requests?status=pending"] });
+                          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
                           queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
                         } catch (e) {
                           RNAlert.alert("Error", "Failed to approve request");
@@ -1817,7 +1797,7 @@ export default function DashboardScreen() {
                       onPress={async () => {
                         try {
                           await apiRequest("POST", `/api/coach/booking-requests/${req.id}/decline`, {});
-                          queryClient.invalidateQueries({ queryKey: ["/api/coach/booking-requests?status=pending"] });
+                          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
                         } catch (e) {
                           RNAlert.alert("Error", "Failed to decline request");
                         }
@@ -2199,7 +2179,7 @@ export default function DashboardScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               openIntake(sess, {
                 onSaveOnly: () => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
                 },
                 onComplete: (_result: IntakeResult) => {
                   if (sess.players.length > 0) {
@@ -2453,7 +2433,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* === MATCH REVIEWS === */}
-        <CoachMatchReviewsCard coachId={coach?.id || null} navigation={navigation as any} />
+        <CoachMatchReviewsCard coachId={coach?.id || null} navigation={navigation as any} pending={homeData?.pendingMatchReviews} />
 
         {/* === ROSTER INSIGHTS === */}
         <RosterInsightsCard />
@@ -2605,7 +2585,7 @@ export default function DashboardScreen() {
         onClose={() => setSelectedSessionForAttendance(null)}
         onSave={() => {
           setSelectedSessionForAttendance(null);
-          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/pending-attendance"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
         }}
       />
 
