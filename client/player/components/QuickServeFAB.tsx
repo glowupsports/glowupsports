@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -75,6 +76,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
   const [isOpen, setIsOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const progress = useSharedValue(0);
   const fabScale = useSharedValue(1);
   const track = useTrackFeature();
@@ -107,7 +109,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       color: ProTennisColors.electricGreen,
       onPress: () => {
         track("action:open_session");
-        navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } });
+        navigateToTab("Growth", { screen: "Match" });
       },
     },
     {
@@ -127,7 +129,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       color: ProTennisColors.electricGreen,
       onPress: () => {
         track("action:record_video");
-        navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "SkillEvidence" } });
+        navigateToTab("Growth", { screen: "SkillEvidence" });
       },
     },
   ];

@@ -519,14 +519,14 @@ export function SessionHeroCard({
     if (onBookSession) {
       onBookSession();
     } else {
-      navigateToTab("Schedule");
+      navigateToTab("Growth", { screen: "ScheduleMain" });
     }
   };
 
   const handleBookCourt = () => {
     logger.log("[SessionHeroCard] handleBookCourt called");
     // Navigate to Schedule tab, then to CourtBooking screen
-    navigateToTab("Schedule", { screen: "CourtBooking" });
+    navigateToTab("Growth", { screen: "CourtBooking" });
   };
 
   const handleFindMatch = () => {

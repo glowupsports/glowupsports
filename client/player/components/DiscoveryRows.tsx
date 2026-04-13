@@ -957,12 +957,12 @@ export function TrainingSessionsRow() {
 
   const handleBookPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("Schedule");
+    navigateToTab("Growth", { screen: "ScheduleMain" });
   };
 
   const handleCourtPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("Schedule");
+    navigateToTab("Growth", { screen: "ScheduleMain" });
   };
 
   return (

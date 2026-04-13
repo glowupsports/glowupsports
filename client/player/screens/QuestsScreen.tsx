@@ -816,7 +816,7 @@ export default function QuestsScreen() {
     } else if (action === "send_connection") {
       navigation.navigate("FriendsList");
     } else if (action === "read_coach_feedback") {
-      navigateToTab("Progress", { screen: "FeedbackCenter" });
+      navigateToTab("Growth", { screen: "FeedbackCenter" });
     } else if (action === "log_match" || action === "win_match") {
       navigateToTab("PlayStack");
     } else if (action === "daily_login" || action === "complete_session") {

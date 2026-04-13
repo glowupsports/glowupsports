@@ -211,7 +211,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 20;
+const TOTAL_STEPS = 5;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -356,6 +356,87 @@ function WelcomeStep({ onNext }: StepProps) {
         <Text style={styles.skipButtonText}>Skip intro</Text>
       </Pressable>
     </View>
+  );
+}
+
+function SportAndSkillStep({ data, setData }: StepProps) {
+  const toggleSport = (sportKey: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setData(prev => {
+      const current = prev.selectedSports;
+      if (current.includes(sportKey)) {
+        if (current.length === 1) return prev;
+        return { ...prev, selectedSports: current.filter(s => s !== sportKey) };
+      }
+      return { ...prev, selectedSports: [...current, sportKey] };
+    });
+  };
+
+  const experienceOptions = [
+    { id: "new", label: "New to the sport" },
+    { id: "6-12months", label: "6-12 months" },
+    { id: "1-3years", label: "1-3 years" },
+    { id: "3-5years", label: "3-5 years" },
+    { id: "5-10years", label: "5-10 years" },
+    { id: "10+years", label: "10+ years" },
+  ];
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>Your Sport & Skill</Text>
+        <Text style={styles.stepSubtitle}>Which sports do you play, and how experienced are you?</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+        <Text style={styles.sectionLabel}>Sports (select all that apply)</Text>
+        <View style={styles.sportGrid}>
+          {SPORT_DEFINITIONS.map(sport => {
+            const isSelected = data.selectedSports.includes(sport.key);
+            return (
+              <Pressable
+                key={sport.key}
+                style={[
+                  styles.sportCard,
+                  isSelected && { borderColor: sport.color, backgroundColor: sport.color + "15" },
+                ]}
+                onPress={() => toggleSport(sport.key)}
+              >
+                <View style={[styles.sportIconCircle, { backgroundColor: sport.color + "20" }]}>
+                  <Ionicons name={sport.icon as keyof typeof Ionicons.glyphMap} size={28} color={sport.color} />
+                </View>
+                <Text style={[styles.sportCardTitle, isSelected && { color: sport.color }]}>{sport.label}</Text>
+                {isSelected ? (
+                  <View style={[styles.sportCheckmark, { backgroundColor: sport.color }]}>
+                    <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(350).duration(500)}>
+        <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>Experience level</Text>
+        <View style={styles.chipsContainer}>
+          {experienceOptions.map((option) => (
+            <Pressable
+              key={option.id}
+              style={[styles.chip, data.experienceLevel === option.id ? styles.chipActive : null]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setData((prev) => ({ ...prev, experienceLevel: option.id }));
+              }}
+            >
+              <Text style={[styles.chipText, data.experienceLevel === option.id ? styles.chipTextActive : null]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Animated.View>
+    </ScrollView>
   );
 }
 
@@ -2400,8 +2481,6 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const playerName = user?.username || "";
   const age = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
   const ageGroup = age !== null ? getAgeGroup(age) : "adult";
-  const needsParentConnect = age !== null && age < 16;
-  const isBeginner = data.experienceLevel === "new";
 
   const saveMutation = useMutation({
     mutationFn: async (onboardingData: OnboardingData) => {
@@ -2566,25 +2645,10 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const canProceed = () => {
     switch (currentStep) {
       case 0: return true; // Welcome
-      case 1: return !!data.dateOfBirth; // Birthday
-      case 2: return !!data.gender; // Gender
-      case 3: return true; // Photo (optional)
-      case 4: return true; // Ball/Glow Level Reveal
-      case 5: return true; // Platform Welcome Video
-      case 6: return (data.motivationTypes?.length || 0) > 0; // Why Tennis
-      case 7: return !!data.experienceLevel; // Experience
-      case 8: return !!data.dominantHand; // About Yourself
-      case 9: return true; // Play Style (skippable)
-      case 10: return true; // Tennis Idol (optional)
-      case 11: return data.enjoymentTags.length > 0; // Enjoyment
-      case 12: return data.focusGoals.length > 0; // Focus Goals
-      case 13: return data.typicalPlayTimes.length > 0; // Availability
-      case 14: return true; // Academy Selection
-      case 15: return true; // Academy Welcome Video
-      case 16: return true; // Goal Setting
-      case 17: return true; // Sport Selection
-      case 18: return true; // Parent Connect
-      case 19: return true; // Completion
+      case 1: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
+      case 2: return true; // Goals (optional)
+      case 3: return true; // Academy (optional)
+      case 4: return true; // Completion
       default: return false;
     }
   };
@@ -2594,30 +2658,16 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
 
     switch (currentStep) {
       case 0: return <WelcomeStep {...stepProps} />;
-      case 1: return <BirthdayStep {...stepProps} />;
-      case 2: return <GenderStep {...stepProps} />;
-      case 3: return <PhotoUploadStep {...stepProps} />;
-      case 4: return age !== null ? <BallLevelRevealStep {...stepProps} age={age} /> : null;
-      case 5: return <PlatformWelcomeVideoStep {...stepProps} />;
-      case 6: return <WhyTennisStep {...stepProps} />;
-      case 7: return <ExperienceStep {...stepProps} age={age || undefined} />;
-      case 8: return <AboutYourselfStep {...stepProps} />;
-      case 9: return <PlayStyleStep {...stepProps} />;
-      case 10: return <TennisIdolStep {...stepProps} />;
-      case 11: return <EnjoymentStep {...stepProps} />;
-      case 12: return <FocusGoalsStep {...stepProps} />;
-      case 13: return <AvailabilityStep {...stepProps} />;
-      case 14: return <AcademySelectionStep {...stepProps} />;
-      case 15: return <AcademyWelcomeVideoStep {...stepProps} />;
-      case 16: return <GoalSettingStep {...stepProps} />;
-      case 17: return <SportSelectionStep {...stepProps} />;
-      case 18: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
-      case 19: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 1: return <SportAndSkillStep {...stepProps} />;
+      case 2: return <GoalSettingStep {...stepProps} />;
+      case 3: return <AcademySelectionStep {...stepProps} />;
+      case 4: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 18 && !needsParentConnect);
+  const isCompletionStep = currentStep === 4;
+  const showFooter = currentStep > 0 && currentStep < 4;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
@@ -2630,27 +2680,21 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
 
       <View style={styles.content}>{renderStep()}</View>
 
-      {!isCompletionStep && currentStep !== 0 ? (
+      {showFooter ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-          {currentStep > 0 ? (
-            <Pressable style={styles.backButton} onPress={handleBack}>
-              <Ionicons name="chevron-back" size={20} color={Colors.dark.textMuted} />
-              <Text style={styles.backButtonText}>Back</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.backButton} />
-          )}
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Ionicons name="chevron-back" size={20} color={Colors.dark.textMuted} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </Pressable>
 
-          {![0, 1, 2, 4, 5, 6, 7, 14].includes(currentStep) ? (
-            <Pressable
-              style={[styles.nextButton, !canProceed() ? styles.nextButtonDisabled : null]}
-              onPress={handleNext}
-              disabled={!canProceed()}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.buttonText} />
-            </Pressable>
-          ) : null}
+          <Pressable
+            style={[styles.nextButton, !canProceed() ? styles.nextButtonDisabled : null]}
+            onPress={handleNext}
+            disabled={!canProceed()}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.buttonText} />
+          </Pressable>
         </View>
       ) : null}
     </View>

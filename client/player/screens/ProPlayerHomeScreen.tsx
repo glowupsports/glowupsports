@@ -713,7 +713,7 @@ function PlayerHomeContent() {
       title: t("player.home.checkProgress"),
       description: t("player.home.checkProgressDesc"),
       actionLabel: t("player.home.viewProgress"),
-      onAction: () => navigateToTab("Progress"),
+      onAction: () => navigateToTab("Growth"),
       isCompleted: false,
     });
 
@@ -953,47 +953,45 @@ function PlayerHomeContent() {
         <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
-        {/* ── IMPROVE SECTION ── Feedback, progress, recognition */}
-        <View style={styles.sectionDivider}>
-          <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
-          <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>IMPROVE</Text>
-        </View>
-
-        {/* WEEKLY AI FOCUS CARD */}
-        {!isGuest && player?.id ? (
-          <WeeklyAIFocusCard playerId={player.id} />
-        ) : null}
-
-        {/* AI COACH ENTRY CARD */}
-        {!isGuest ? <AICoachEntryCard /> : null}
-
-        <RecentFeedbackCard />
-
-        {/* UPCOMING APPOINTMENT - Soonest confirmed service booking */}
-        {!isGuest ? <UpcomingAppointmentCard /> : null}
-
-        {/* ACTIVE QUEST CARD - Most urgent active quest teaser */}
+        {/* ── IMPROVE SECTION ── Feedback, progress, recognition (hidden for guests) */}
         {!isGuest ? (
-          <ActiveQuestCard
-            quest={activeQuest}
-            questType={activeQuestType}
-            onViewAll={() => {
-              track("home:quest_tracker");
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("Quests" as never);
-            }}
-          />
+          <>
+            <View style={styles.sectionDivider}>
+              <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
+              <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>IMPROVE</Text>
+            </View>
+
+            {player?.id ? (
+              <WeeklyAIFocusCard playerId={player.id} />
+            ) : null}
+
+            <AICoachEntryCard />
+
+            <RecentFeedbackCard />
+
+            <UpcomingAppointmentCard />
+
+            <ActiveQuestCard
+              quest={activeQuest}
+              questType={activeQuestType}
+              onViewAll={() => {
+                track("home:quest_tracker");
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Quests" as never);
+              }}
+            />
+
+            <SpotlightCard
+              onNominate={() => setShowSpotlightNomination(true)}
+              onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
+              accessibilityLabel="Player spotlight card"
+            />
+
+            <FriendSpotlightCard
+              onAddFriends={() => navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } })}
+            />
+          </>
         ) : null}
-
-        <SpotlightCard
-          onNominate={() => setShowSpotlightNomination(true)}
-          onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
-          accessibilityLabel="Player spotlight card"
-        />
-
-        <FriendSpotlightCard
-          onAddFriends={() => navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } })}
-        />
 
         {/* ── COMMUNITY ── Social feed (has its own header) */}
         <MiniFeed />

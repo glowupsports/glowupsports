@@ -58,6 +58,8 @@ export function GlowMarketSpotlight() {
 
   const featuredProducts = shopData?.featuredProducts?.slice(0, 6) || [];
 
+  if (shopData !== undefined && featuredProducts.length === 0) return null;
+
   const getDiscountPercent = (product: ShopProduct): number | null => {
     if (!product.compareAtPrice || !product.price) return null;
     const compare = Number(product.compareAtPrice);

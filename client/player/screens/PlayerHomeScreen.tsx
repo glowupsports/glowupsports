@@ -1452,7 +1452,7 @@ export default function PlayerHomeScreen() {
           onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
           onViewAll={() => {
             track("home:quest_tracker");
-            navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } });
+            navigation.navigate("PlayerTabs", { screen: "Growth" } as any);
           }}
         />
 
@@ -1570,7 +1570,7 @@ export default function PlayerHomeScreen() {
         {lastFeedback ? (
           <Pressable 
             style={styles.feedbackCard}
-            onPress={() => navigation.navigate("Progress")}
+            onPress={() => navigation.navigate("Growth" as any)}
           >
             <View style={styles.feedbackHeader}>
               <Ionicons name="chatbubble" size={20} color={GlowColors.primary} />

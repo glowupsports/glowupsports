@@ -62,7 +62,7 @@ export function RecentFeedbackCard() {
       <View
         style={[styles.gradientInner, { backgroundColor: "#0F141B" }]}
       >
-        <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigateToTab("Progress", { screen: "CoachFeedbackHistory" }); }} style={styles.headerRow}>
+        <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigateToTab("Growth", { screen: "CoachFeedbackHistory" }); }} style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.headerIconWrap}>
               <Ionicons name="chatbubbles" size={13} color={GlowColors.primary} />

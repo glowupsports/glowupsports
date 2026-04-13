@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -110,6 +111,7 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors, Spacing, FontSizes, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider, useFamily } from "@/player/context/FamilyContext";
 import { getApiUrl } from "@/lib/query-client";
@@ -202,9 +204,7 @@ export type PlayerTabParamList = {
   Home: undefined;
   Community: undefined;
   PlayStack: undefined;
-  Schedule: undefined;
-  Quests: undefined;
-  Progress: undefined;
+  Growth: undefined;
   Profile: undefined;
 };
 
@@ -250,6 +250,13 @@ export type ProgressStackParamList = {
   Collection: undefined;
   XPHistory: undefined;
   LevelUpHistory: undefined;
+  CourtBooking: undefined;
+  CourtDetail: { courtId: string; date: string; time?: string };
+  MyCourtBookings: undefined;
+  Match: { opponentId?: string; initialTab?: "upcoming" | "history" } | undefined;
+  MatchDetail: { matchId: string };
+  MatchPrep: { planId?: string; matchId?: string };
+  OpponentProfile: { opponentId: string | null };
 };
 
 export type PlayerStackParamList = {
@@ -522,17 +529,64 @@ function ScheduleStackNavigator() {
   );
 }
 
-function ProgressMainWithCallback(props: any) {
+type GrowthSubTab = "Progress" | "Quests" | "Schedule";
+const GROWTH_SCHEDULE_SCREENS = new Set(["ScheduleMain", "CourtBooking", "CourtDetail", "MyCourtBookings", "QuickBook", "Match", "MatchDetail", "MatchPrep", "OpponentProfile"]);
+
+function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: GrowthSubTab) => void) => void }) {
+  const [activeSubTab, setActiveSubTab] = useState<GrowthSubTab>("Progress");
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    setSubTabSetter(setActiveSubTab);
+  }, [setSubTabSetter]);
+
+  const modifiedInsets = useMemo(() => ({ ...insets, top: 0 }), [insets]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
+      <View style={{ paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: Spacing.md, flexDirection: "row", gap: 8, backgroundColor: Colors.dark.backgroundRoot }}>
+        {(["Progress", "Quests", "Schedule"] as GrowthSubTab[]).map((tab) => (
+          <Pressable
+            key={tab}
+            onPress={() => { setActiveSubTab(tab); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            style={{ flex: 1, paddingVertical: 9, borderRadius: 24, backgroundColor: activeSubTab === tab ? GlowColors.primary : "rgba(255,255,255,0.08)", alignItems: "center" }}
+          >
+            <Text style={{ color: activeSubTab === tab ? "#000" : Colors.dark.text, fontWeight: "700", fontSize: 13 }}>{tab}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <SafeAreaInsetsContext.Provider value={modifiedInsets}>
+        {activeSubTab === "Progress" ? <PlayerProgressScreen /> : null}
+        {activeSubTab === "Quests" ? <QuestsScreen /> : null}
+        {activeSubTab === "Schedule" ? <PlayerScheduleScreen /> : null}
+      </SafeAreaInsetsContext.Provider>
+    </View>
+  );
+}
+
+function GrowthMainWithCallback(props: any) {
   const navigation = useNavigation<any>();
   const { registerTabCallback } = useTabNavigation();
+  const subTabSetterRef = useRef<((tab: GrowthSubTab) => void) | null>(null);
 
-  React.useEffect(() => {
-    return registerTabCallback("Progress", (screen, params) => {
-      navigation.navigate(screen, params);
+  const setSubTabSetter = useCallback((setter: (t: GrowthSubTab) => void) => {
+    subTabSetterRef.current = setter;
+  }, []);
+
+  useEffect(() => {
+    return registerTabCallback("Growth", (screen, params) => {
+      if (GROWTH_SCHEDULE_SCREENS.has(screen)) {
+        subTabSetterRef.current?.("Schedule");
+        if (screen !== "ScheduleMain") {
+          setTimeout(() => navigation.navigate(screen as any, params), 150);
+        }
+      } else {
+        navigation.navigate(screen as any, params);
+      }
     });
   }, [navigation, registerTabCallback]);
 
-  return <PlayerProgressScreen {...props} />;
+  return <GrowthScreen {...props} setSubTabSetter={setSubTabSetter} />;
 }
 
 function ProgressStackNavigator() {
@@ -540,7 +594,7 @@ function ProgressStackNavigator() {
 
   return (
     <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
-      <ProgressStack.Screen name="ProgressMain" component={ProgressMainWithCallback} />
+      <ProgressStack.Screen name="ProgressMain" component={GrowthMainWithCallback} />
       <ProgressStack.Screen 
         name="GlowLeaderboard" 
         component={GlowLeaderboardScreen}
@@ -566,37 +620,27 @@ function ProgressStackNavigator() {
       <ProgressStack.Screen 
         name="Tournaments" 
         component={TournamentsScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <ProgressStack.Screen 
         name="TournamentDetail" 
         component={TournamentDetailScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <ProgressStack.Screen 
         name="LadderDetail" 
         component={LadderDetailScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <ProgressStack.Screen 
         name="FeedbackCenter" 
         component={FeedbackCenterScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <ProgressStack.Screen 
         name="CoachFeedbackHistory" 
         component={CoachFeedbackHistoryScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <ProgressStack.Screen 
         name="SkillEvidence" 
@@ -653,6 +697,65 @@ function ProgressStackNavigator() {
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
+      <ProgressStack.Screen 
+        name="CourtBooking" 
+        component={CourtBookingScreen}
+        options={{ headerShown: false }}
+      />
+      <ProgressStack.Screen 
+        name="CourtDetail" 
+        component={CourtDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <ProgressStack.Screen 
+        name="MyCourtBookings" 
+        component={MyCourtBookingsScreen}
+        options={{ headerShown: false }}
+      />
+      <ProgressStack.Screen 
+        name="Match" 
+        component={MatchScreen}
+        options={{
+          headerShown: true,
+          headerTitle: t('nav.matches'),
+          headerStyle: { backgroundColor: '#0a0f1a' },
+          headerTintColor: '#00ff88',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen 
+        name="MatchDetail" 
+        component={MatchDetailScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Match Details",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen
+        name="MatchPrep"
+        component={MatchPrepScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Match Preparation",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#C8FF3D',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen
+        name="OpponentProfile"
+        component={OpponentProfileScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Opponent Profile",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#A78BFA',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
     </ProgressStack.Navigator>
   );
 }
@@ -663,9 +766,7 @@ const TAB_FEATURE_KEYS: Record<string, string> = {
   Home: "tab:home",
   Community: "tab:social",
   PlayStack: "tab:play",
-  Schedule: "tab:schedule",
-  Quests: "tab:quests",
-  Progress: "tab:stats",
+  Growth: "tab:growth",
   Profile: "tab:me",
 };
 
@@ -680,9 +781,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
     { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
     { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
-    { key: "Schedule", label: "Sched", icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
-    { key: "Quests", label: "Quests", icon: "flash-outline", iconFocused: "flash", component: QuestsScreen },
-    { key: "Progress", label: "Progress", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
+    { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
     { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
   ], [t]);
   
@@ -722,7 +821,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
       onEdgeSwipeLeft={onEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
-      dividerAfterIndices={[3, 5]}
+      dividerAfterIndices={[2]}
     />
   );
 }
