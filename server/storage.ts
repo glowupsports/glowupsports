@@ -9088,6 +9088,7 @@ export const storage = {
     startDate: Date;
     endDate: Date;
     duration: number;
+    requestingPlayerId?: string;
   }): Promise<Array<{
     coachId: string;
     locationId: string | null;
@@ -9157,15 +9158,22 @@ export const storage = {
         `;
 
     const sessionResult = await db.execute(sessionQuery);
+    // IMPORTANT: Drizzle's node-postgres adapter overrides pg type parsers so that
+    // TIMESTAMP/TIMESTAMPTZ columns are returned as raw strings, NOT Date objects.
+    // We must explicitly wrap them in new Date() so that JS comparisons work correctly.
     const existingSessions = (sessionResult.rows as Array<{
       id: string;
       coachId: string;
       academyId: string;
       status: string;
       courtId: string | null;
-      startTime: Date;
-      endTime: Date;
-    }>);
+      startTime: string;
+      endTime: string;
+    }>).map(row => ({
+      ...row,
+      startTime: new Date(row.startTime),
+      endTime: new Date(row.endTime),
+    }));
 
     // booking_requests.requested_start / requested_end are also UTC (sent by the
     // client slot generator). Direct ::timestamptz cast is correct here too.
@@ -9203,15 +9211,20 @@ export const storage = {
         `;
 
     const pendingResult = await db.execute(pendingQuery);
+    // Same Drizzle string-return issue — must wrap timestamps explicitly.
     const pendingRequests = (pendingResult.rows as Array<{
       id: string;
       coachId: string;
       academyId: string;
       status: string;
       courtId: string | null;
-      requestedStart: Date;
-      requestedEnd: Date;
-    }>);
+      requestedStart: string;
+      requestedEnd: string;
+    }>).map(row => ({
+      ...row,
+      requestedStart: new Date(row.requestedStart),
+      requestedEnd: new Date(row.requestedEnd),
+    }));
 
     // Fetch court availability blocks for the date range (blocked/booked from ALL coaches)
     // This ensures cross-coach court conflict exclusion
@@ -9232,7 +9245,27 @@ export const storage = {
 
     // Also check sessions that have courts assigned (cross-coach court conflict)
     const sessionCourtConflicts = existingSessions.filter(s => s.courtId);
-    
+
+    // Fetch active slot reservations by OTHER players — these temp-lock slots for 5 min
+    // to prevent race-condition double-bookings. Clean up expired ones first.
+    await db.execute(sql`DELETE FROM slot_reservations WHERE expires_at < NOW()`);
+    const activeReservationsResult = await db.execute(sql`
+      SELECT coach_id AS "coachId", start_time AS "startTime", end_time AS "endTime"
+      FROM slot_reservations
+      WHERE academy_id = ${params.academyId}
+        AND expires_at > NOW()
+        ${params.requestingPlayerId ? sql`AND player_id != ${params.requestingPlayerId}` : sql``}
+    `);
+    const activeReservations = (activeReservationsResult.rows as Array<{
+      coachId: string;
+      startTime: string;
+      endTime: string;
+    }>).map(row => ({
+      coachId: row.coachId,
+      startTime: new Date(row.startTime),
+      endTime: new Date(row.endTime),
+    }));
+
     const availableSlots: Array<{
       coachId: string;
       locationId: string | null;
@@ -9316,8 +9349,14 @@ export const storage = {
             session.startTime && session.endTime &&
             slotStart < session.endTime && slotEnd > session.startTime
           ) : false;
+
+          // Check if another player has temporarily reserved this exact coach+slot
+          const hasReservationConflict = activeReservations.some(res =>
+            res.coachId === availability.coachId &&
+            slotStart < res.endTime && slotEnd > res.startTime
+          );
           
-          if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict) {
+          if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict) {
             availableSlots.push({
               coachId: availability.coachId,
               locationId: availability.locationId,

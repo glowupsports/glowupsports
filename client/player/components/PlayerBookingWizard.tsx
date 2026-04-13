@@ -213,6 +213,14 @@ export default function PlayerBookingWizard({
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [selectedCourtName, setSelectedCourtName] = useState<string | null>(null);
 
+  // Slot reservation — temp lock to prevent race-condition double-booking
+  const activeReservationRef = React.useRef<string | null>(null); // ref so resetForm can access without dep
+  const [reservationId, setReservationId] = useState<string | null>(null);
+  const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(null);
+  const [reservationSecondsLeft, setReservationSecondsLeft] = useState(0);
+  const [reservationError, setReservationError] = useState<string | null>(null);
+  const [reservationLoading, setReservationLoading] = useState(false);
+
   // Slide 3: Details
   const [playerNote, setPlayerNote] = useState("");
   const [friendEmail, setFriendEmail] = useState("");
@@ -329,6 +337,50 @@ export default function PlayerBookingWizard({
   const [showCoachDrawer, setShowCoachDrawer] = useState(false);
   const [selectedCoachForDrawer, setSelectedCoachForDrawer] = useState<DirectoryCoach | null>(null);
 
+  // Reservation mutation — atomically locks the slot for 5 min on the server
+  const reserveSlotMutation = useMutation({
+    mutationFn: (data: { coachId: string; startTime: string; endTime: string }) =>
+      apiRequest("POST", "/api/player/reserve-slot", data),
+    onSuccess: (data: { reservationId: string; expiresAt: string }) => {
+      const id = data.reservationId;
+      activeReservationRef.current = id;
+      setReservationId(id);
+      setReservationExpiresAt(new Date(data.expiresAt));
+      setReservationError(null);
+      setReservationLoading(false);
+    },
+    onError: (error: any) => {
+      setReservationLoading(false);
+      const msg: string = error?.message || "";
+      if (msg.includes("slot_taken") || msg.includes("409")) {
+        setReservationError("Someone just grabbed this slot!");
+        queryClient.invalidateQueries({ queryKey: [availabilityQueryUrl] });
+        setSelectedSlot(null);
+      } else {
+        setReservationError("Could not lock this slot. Please try again.");
+      }
+    },
+  });
+
+  // Countdown timer — ticks every second when a reservation is active
+  useEffect(() => {
+    if (!reservationExpiresAt) return;
+    const tick = setInterval(() => {
+      const left = Math.max(0, Math.round((reservationExpiresAt.getTime() - Date.now()) / 1000));
+      setReservationSecondsLeft(left);
+      if (left === 0) {
+        clearInterval(tick);
+        activeReservationRef.current = null;
+        setReservationId(null);
+        setReservationExpiresAt(null);
+        setSelectedSlot(null);
+        setReservationError("Your hold expired — please pick a slot again.");
+        queryClient.invalidateQueries({ queryKey: [availabilityQueryUrl] });
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [reservationExpiresAt]);
+
   // Dynamic slide count - add extra slide when browsing by coach
   const getTotalSlides = () => browseMode === "by_coach" ? 6 : 5;
   const getSlideTitle = (slide: number) => {
@@ -339,8 +391,14 @@ export default function PlayerBookingWizard({
     return SLIDE_TITLES[slide] || "";
   };
 
-  // Reset form on close
+  // Reset form on close — also releases any active slot reservation
   const resetForm = useCallback(() => {
+    // Release reservation fire-and-forget (ref avoids stale closure dep)
+    const holdId = activeReservationRef.current;
+    if (holdId) {
+      apiRequest("DELETE", `/api/player/reserve-slot/${holdId}`, undefined).catch(() => {});
+      activeReservationRef.current = null;
+    }
     setCurrentSlide(0);
     setSessionType("private");
     setBrowseMode("by_time");
@@ -360,6 +418,11 @@ export default function PlayerBookingWizard({
     setAiFocusFetched(false);
     setSelectedCourtId(null);
     setSelectedCourtName(null);
+    setReservationId(null);
+    setReservationExpiresAt(null);
+    setReservationSecondsLeft(0);
+    setReservationError(null);
+    setReservationLoading(false);
   }, []);
 
   useEffect(() => {
@@ -961,6 +1024,26 @@ export default function PlayerBookingWizard({
               </>
             )}
 
+            {/* Reservation error banner */}
+            {reservationError ? (
+              <View style={styles.reservationErrorBanner}>
+                <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
+                <Text style={styles.reservationErrorText}>{reservationError}</Text>
+              </View>
+            ) : null}
+
+            {/* Reserved slot confirmation banner */}
+            {reservationId && selectedSlot && !reservationLoading ? (
+              <View style={styles.reservationSuccessBanner}>
+                <Ionicons name="lock-closed" size={14} color={Colors.dark.primary} />
+                <Text style={styles.reservationSuccessText}>
+                  Slot held for you —{" "}
+                  {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}{" "}
+                  remaining
+                </Text>
+              </View>
+            ) : null}
+
             {/* Available Slots for New Booking */}
             {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).length > 0 && (
               <>
@@ -979,13 +1062,30 @@ export default function PlayerBookingWizard({
                       key={`${slot.coachId}-${slot.startTime}-${index}`}
                       style={[styles.slotCard, isSelected && styles.slotCardSelected]}
                       onPress={() => {
+                        if (reservationLoading) return;
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        // Release any previous reservation before claiming a new slot
+                        const prevId = activeReservationRef.current;
+                        if (prevId) {
+                          apiRequest("DELETE", `/api/player/reserve-slot/${prevId}`, undefined).catch(() => {});
+                          activeReservationRef.current = null;
+                          setReservationId(null);
+                          setReservationExpiresAt(null);
+                        }
+                        setReservationError(null);
                         const effectiveSlot = (!slot.locationId && selectedLocationId)
                           ? { ...slot, locationId: selectedLocationId, locationName: locations.find(l => l.id === selectedLocationId)?.name ?? slot.locationName }
                           : slot;
                         setSelectedSlot(effectiveSlot);
                         setSelectedSession(null);
                         setIsJoining(false);
+                        // Immediately reserve the slot to prevent race conditions
+                        setReservationLoading(true);
+                        reserveSlotMutation.mutate({
+                          coachId: slot.coachId,
+                          startTime: slot.startTime,
+                          endTime: slot.endTime,
+                        });
                       }}
                     >
                       <View style={styles.slotTimeColumn}>
@@ -1010,9 +1110,20 @@ export default function PlayerBookingWizard({
                         </View>
                       </View>
 
-                      {isSelected && (
-                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.xpCyan} />
-                      )}
+                      {isSelected ? (
+                        reservationLoading ? (
+                          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                        ) : reservationId ? (
+                          <View style={styles.countdownBadge}>
+                            <Ionicons name="time-outline" size={11} color="#000" />
+                            <Text style={styles.countdownText}>
+                              {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Ionicons name="checkmark-circle" size={24} color={Colors.dark.xpCyan} />
+                        )
+                      ) : null}
                     </Pressable>
                   );
                 })}
@@ -2014,6 +2125,54 @@ const styles = StyleSheet.create({
   slotLocationText: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
+  },
+  countdownBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  countdownText: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#000",
+  },
+  reservationErrorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255,107,107,0.12)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.3)",
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  reservationErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#FF6B6B",
+    fontWeight: 500,
+  },
+  reservationSuccessBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  reservationSuccessText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.primary,
+    fontWeight: 600,
   },
   emptyState: {
     flex: 1,

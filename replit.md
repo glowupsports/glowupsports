@@ -79,6 +79,7 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Player Calendar Integration**: Players can subscribe to upcoming sessions via ICS feed and add individual sessions to native calendars.
 - **Venue/Club System**: Supports various academy types including coaching, court rental, and social clubs.
 - **Playtomic-Style Court Booking System**: Multi-phase booking with friend invites, cost splitting, and smart availability.
+- **Slot Reservation System**: Prevents double-booking race conditions. When a player taps a slot, the server atomically claims a 5-minute hold via `slot_reservations` table (unique constraint on `coach_id + start_time`). Returns a countdown timer to the client; other players see the slot grayed out. Hold auto-expires after 5 min. Released on booking success or wizard close. CRITICAL NOTE: Drizzle node-postgres adapter returns TIMESTAMP columns as raw strings (not Date objects) — always wrap in `new Date()` after `db.execute()` calls, or use `db.select().from(table)` which applies schema type mapping correctly.
 - **Family Lobby System**: Netflix-style multi-account management with profile cards and quick-switching.
 - **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, and evidence upload.
 - **Week Planner**: Coach "Week View" showing active groups, player lists, capacity, and holiday/paused counts.

@@ -150,6 +150,7 @@ function toDubaiTime(utcDate: Date): Date {
         startDate: rangeStart,
         endDate: rangeEnd,
         duration: parseInt(duration as string) || 60,
+        requestingPlayerId: playerId,
       });
       // Enrich slots with coach, location, and court names
       const enrichedSlots = await Promise.all(slots.map(async (slot) => {
@@ -318,6 +319,74 @@ function toDubaiTime(utcDate: Date): Date {
     } catch (error) {
       console.error("Available courts error:", error);
       res.status(500).json({ error: "Failed to fetch available courts" });
+    }
+  });
+
+  // Reserve a slot (5-min temporary hold to prevent double-booking race conditions)
+  router.post("/api/player/reserve-slot", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+
+      const { coachId, startTime, endTime } = req.body;
+      if (!coachId || !startTime || !endTime) {
+        return res.status(400).json({ error: "coachId, startTime, endTime are required" });
+      }
+
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ error: "Invalid startTime or endTime" });
+      }
+
+      // Look up the player's academyId from their profile
+      const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+      if (!player?.academyId) {
+        return res.status(404).json({ error: "Player or academy not found" });
+      }
+      const academyId = player.academyId;
+
+      // Atomically: clean up expired reservations for this slot, then try to claim it
+      const result = await pool.query(`
+        WITH cleanup AS (
+          DELETE FROM slot_reservations
+          WHERE coach_id = $1
+            AND start_time = $2
+            AND expires_at < NOW()
+        )
+        INSERT INTO slot_reservations (id, academy_id, coach_id, player_id, start_time, end_time, expires_at)
+        VALUES (gen_random_uuid(), $3, $1, $4, $2, $5, NOW() + INTERVAL '5 minutes')
+        ON CONFLICT (coach_id, start_time) DO NOTHING
+        RETURNING id, expires_at AS "expiresAt"
+      `, [coachId, start.toISOString(), academyId, playerId, end.toISOString()]);
+
+      if (result.rows.length === 0) {
+        return res.status(409).json({ error: "slot_taken", message: "This slot was just reserved by someone else" });
+      }
+
+      const { id: reservationId, expiresAt } = result.rows[0];
+      return res.json({ reservationId, expiresAt });
+    } catch (error) {
+      console.error("Reserve slot error:", error);
+      res.status(500).json({ error: "Failed to reserve slot" });
+    }
+  });
+
+  // Release a slot reservation (called when player cancels or booking is confirmed)
+  router.delete("/api/player/reserve-slot/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+
+      const { id } = req.params;
+      await pool.query(
+        "DELETE FROM slot_reservations WHERE id = $1 AND player_id = $2",
+        [id, playerId]
+      );
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Release slot error:", error);
+      res.status(500).json({ error: "Failed to release slot reservation" });
     }
   });
 

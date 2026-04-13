@@ -7290,3 +7290,15 @@ export const drills = pgTable("drills", {
 export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true });
 export type InsertDrill = z.infer<typeof insertDrillSchema>;
 export type Drill = typeof drills.$inferSelect;
+
+// Slot Reservations — temporary holds (5 min TTL) to prevent double-booking race conditions
+export const slotReservations = pgTable("slot_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id, { onDelete: "cascade" }),
+  coachId: varchar("coach_id").notNull().references(() => coaches.id, { onDelete: "cascade" }),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
