@@ -87,7 +87,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Family invite: Enter Code tab in Family Lobby, multi-child loop fix, renamed invite button\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Family invite code: enter your coach's code during onboarding to link your account instantly\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"
