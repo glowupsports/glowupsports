@@ -40,6 +40,7 @@ import QuickBookScreen from "@/player/screens/QuickBookScreen";
 import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
 import BrowseGroupLessonsScreen from "@/player/screens/BrowseGroupLessonsScreen";
 import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
+import BookingConfirmedScreen from "@/player/screens/BookingConfirmedScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import FriendsListScreen from "@/player/screens/FriendsListScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
@@ -273,6 +274,14 @@ export type PlayerStackParamList = {
   LessonBooking: { sport?: string } | undefined;
   BrowseGroupLessons: undefined;
   MyLessonRequests: undefined;
+  BookingConfirmed: {
+    sessionType: string;
+    dateStr: string;
+    timeStr: string;
+    coachName?: string;
+    coachWelcomeMessage?: string;
+    durationMinutes?: number;
+  };
   PlayerFinder: undefined;
   FriendsList: undefined;
   Groups: undefined;
@@ -925,6 +934,15 @@ function PlayerStackNavigator() {
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.text,
           headerBackTitle: "Back",
+        }}
+      />
+      <Stack.Screen
+        name="BookingConfirmed"
+        component={BookingConfirmedScreen}
+        options={{
+          presentation: "modal",
+          headerShown: false,
+          animation: "slide_from_bottom",
         }}
       />
       <Stack.Screen 

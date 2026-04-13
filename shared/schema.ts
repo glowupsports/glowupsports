@@ -2504,6 +2504,13 @@ export const coachSettings = pgTable("coach_settings", {
   
   availabilityPaused: boolean("availability_paused").default(false),
   
+  // Booking response window (minutes): 30 / 60 / 120 / 360 / 1440
+  bookingResponseWindowMinutes: integer("booking_response_window_minutes").default(120),
+  
+  // Auto-approve rules
+  autoApproveReturningPlayers: boolean("auto_approve_returning_players").default(false),
+  autoApproveAdvancedBookings: boolean("auto_approve_advanced_bookings").default(false), // booked 48h+ in advance
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -3092,6 +3099,24 @@ export const bookingRequests = pgTable("booking_requests", {
   
   sessionId: varchar("session_id").references(() => sessions.id), // Set when approved
   
+  // Booking approval flow enhancements
+  expiresAt: timestamp("expires_at"), // When coach's response window expires
+  declineReason: text("decline_reason"), // Preset reason: schedule_conflict | skill_mismatch | court_unavailable | personal | response_timeout
+  coachWelcomeMessage: text("coach_welcome_message"), // Optional welcome msg when approving
+  
+  // Counter-proposal fields
+  counterProposedStart: timestamp("counter_proposed_start"),
+  counterProposedEnd: timestamp("counter_proposed_end"),
+  counterProposedAt: timestamp("counter_proposed_at"),
+  counterProposalStatus: text("counter_proposal_status"), // pending | accepted | declined
+  
+  // Pre-confirm quick message
+  coachPreConfirmMessage: text("coach_pre_confirm_message"),
+  playerPreConfirmReply: text("player_pre_confirm_reply"),
+  
+  // Deduplication for 24h pre-lesson reminder push
+  preLessonReminderSentAt: timestamp("pre_lesson_reminder_sent_at"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

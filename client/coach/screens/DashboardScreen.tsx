@@ -28,7 +28,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -67,6 +67,8 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
+import { Modal, TextInput, KeyboardAvoidingView } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface Player {
   id: string;
@@ -742,6 +744,1034 @@ const matchReviewStyles = StyleSheet.create({
   },
 });
 
+// =====================================================================
+// BOOKING APPROVAL FLOW COMPONENTS
+// =====================================================================
+
+function useCountdown(expiresAt: string | null | undefined) {
+  const [remaining, setRemaining] = useState<number>(0);
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      setRemaining(Math.max(0, diff));
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return remaining;
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Expired";
+  const totalSecs = Math.floor(ms / 1000);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  if (h > 0) return `${h}h ${m}m left`;
+  if (m > 0) return `${m}m ${s}s left`;
+  return `${s}s left`;
+}
+
+const LEVEL_COLORS: Record<string, string> = {
+  red: "#EF4444",
+  orange: "#F97316",
+  green: "#22C55E",
+  yellow: "#EAB308",
+  purple: "#A855F7",
+  blue: "#3B82F6",
+  black: "#1F2937",
+  white: "#F3F4F6",
+};
+
+const DECLINE_REASONS = [
+  { key: "schedule_conflict", label: "Schedule conflict" },
+  { key: "skill_mismatch", label: "Skill level mismatch" },
+  { key: "court_unavailable", label: "Court unavailable" },
+  { key: "personal", label: "Personal reason" },
+];
+
+interface PendingBookingRequest {
+  id: string;
+  playerId: string;
+  coachId?: string | null;
+  academyId: string;
+  requestedStart: string;
+  requestedEnd: string;
+  duration: number;
+  sessionType: string;
+  status: string;
+  playerNote?: string | null;
+  expiresAt?: string | null;
+  coachWelcomeMessage?: string | null;
+  coachPreConfirmMessage?: string | null;
+  // Enriched player context
+  playerName?: string | null;
+  playerPhotoUrl?: string | null;
+  playerLevel?: string | null;
+  playerXp?: number | null;
+  lessonsWithCoach?: number;
+}
+
+function BookingRequestCard({
+  req,
+  onApproved,
+  onDeclined,
+}: {
+  req: PendingBookingRequest;
+  onApproved: () => void;
+  onDeclined: () => void;
+}) {
+  const remaining = useCountdown(req.expiresAt);
+  const [showActions, setShowActions] = useState(false);
+  const [showDeclineSheet, setShowDeclineSheet] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [showCounterModal, setShowCounterModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState<string | null>(null);
+  const [declineNote, setDeclineNote] = useState("");
+  const [welcomeMsg, setWelcomeMsg] = useState("");
+  const [preConfirmMsg, setPreConfirmMsg] = useState("");
+  // Counter-proposal: use Date state and native date/time pickers
+  const defaultCounterStart = () => {
+    const d = new Date(req.requestedStart);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+  const [counterStartDate, setCounterStartDate] = useState<Date>(defaultCounterStart());
+  const [counterEndDate, setCounterEndDate] = useState<Date>(() => {
+    const d = new Date(req.requestedEnd);
+    return isNaN(d.getTime()) ? new Date(defaultCounterStart().getTime() + 60 * 60 * 1000) : d;
+  });
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [loadingApprove, setLoadingApprove] = useState(false);
+  const [loadingDecline, setLoadingDecline] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState(false);
+  const [loadingCounter, setLoadingCounter] = useState(false);
+
+  const start = new Date(req.requestedStart);
+  const end = new Date(req.requestedEnd);
+  const dateStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const timeStr = `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+  const sessionTypeLabel =
+    req.sessionType === "private" ? "Private Lesson" :
+    req.sessionType === "semi_private" ? "Semi-Private" :
+    req.sessionType === "group" ? "Group Session" : "Open Play";
+
+  const levelColor = req.playerLevel ? (LEVEL_COLORS[req.playerLevel] || Colors.dark.primary) : Colors.dark.primary;
+  const isExpiringSoon = remaining > 0 && remaining < 30 * 60 * 1000; // < 30 min
+  const isExpired = remaining === 0 && !!req.expiresAt;
+
+  const handleApprove = async () => {
+    setLoadingApprove(true);
+    try {
+      await apiRequest("POST", `/api/coach/booking-requests/${req.id}/approve`, {
+        coachWelcomeMessage: welcomeMsg || null,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onApproved();
+    } catch {
+      RNAlert.alert("Error", "Failed to approve request");
+    } finally {
+      setLoadingApprove(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!declineReason) {
+      RNAlert.alert("Select a reason", "Please select a reason for declining.");
+      return;
+    }
+    setLoadingDecline(true);
+    try {
+      await apiRequest("POST", `/api/coach/booking-requests/${req.id}/decline`, {
+        declineReason,
+        reason: declineNote.trim() || DECLINE_REASONS.find(r => r.key === declineReason)?.label || null,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setShowDeclineSheet(false);
+      onDeclined();
+    } catch {
+      RNAlert.alert("Error", "Failed to decline request");
+    } finally {
+      setLoadingDecline(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!preConfirmMsg.trim()) return;
+    setLoadingMsg(true);
+    try {
+      await apiRequest("POST", `/api/coach/booking-requests/${req.id}/message`, {
+        message: preConfirmMsg.trim(),
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setShowMessageModal(false);
+      setPreConfirmMsg("");
+      RNAlert.alert("Sent", "Your message was sent to the player.");
+    } catch {
+      RNAlert.alert("Error", "Failed to send message");
+    } finally {
+      setLoadingMsg(false);
+    }
+  };
+
+  const handleCounterPropose = async () => {
+    if (counterEndDate <= counterStartDate) {
+      RNAlert.alert("Invalid range", "End time must be after start time");
+      return;
+    }
+    setLoadingCounter(true);
+    try {
+      await apiRequest("POST", `/api/coach/booking-requests/${req.id}/counter-propose`, {
+        counterProposedStart: counterStartDate.toISOString(),
+        counterProposedEnd: counterEndDate.toISOString(),
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setShowCounterModal(false);
+      RNAlert.alert("Sent", "Your alternative time was sent to the player.");
+      onDeclined();
+    } catch {
+      RNAlert.alert("Error", "Failed to send counter-proposal");
+    } finally {
+      setLoadingCounter(false);
+    }
+  };
+
+  return (
+    <View style={bStyles.card}>
+      {/* Countdown bar */}
+      {!!req.expiresAt && (
+        <View style={[bStyles.countdownBar, isExpiringSoon && bStyles.countdownBarUrgent]}>
+          <Ionicons
+            name="time-outline"
+            size={12}
+            color={isExpiringSoon ? "#FF6B35" : Colors.dark.textSecondary}
+          />
+          <Text style={[bStyles.countdownText, isExpiringSoon && bStyles.countdownTextUrgent]}>
+            {isExpired ? "Response window expired" : formatCountdown(remaining)}
+          </Text>
+        </View>
+      )}
+
+      {/* Player info row */}
+      <View style={bStyles.playerRow}>
+        <View style={bStyles.avatarWrap}>
+          {req.playerPhotoUrl ? (
+            <Image source={{ uri: req.playerPhotoUrl }} style={bStyles.avatar} contentFit="cover" />
+          ) : (
+            <View style={[bStyles.avatarFallback, { backgroundColor: levelColor + "30" }]}>
+              <Ionicons name="person" size={20} color={levelColor} />
+            </View>
+          )}
+          {req.playerLevel ? (
+            <View style={[bStyles.levelDot, { backgroundColor: levelColor }]} />
+          ) : null}
+        </View>
+        <View style={bStyles.playerInfo}>
+          <Text style={bStyles.playerName} numberOfLines={1}>
+            {req.playerName || "Player"}
+          </Text>
+          <View style={bStyles.playerMeta}>
+            {req.playerLevel ? (
+              <View style={[bStyles.levelBadge, { backgroundColor: levelColor + "20", borderColor: levelColor + "60" }]}>
+                <View style={[bStyles.levelDotInline, { backgroundColor: levelColor }]} />
+                <Text style={[bStyles.levelText, { color: levelColor }]}>
+                  {req.playerLevel.charAt(0).toUpperCase() + req.playerLevel.slice(1)} ball
+                </Text>
+              </View>
+            ) : null}
+            {(req.lessonsWithCoach ?? 0) > 0 ? (
+              <View style={bStyles.returningBadge}>
+                <Ionicons name="star" size={10} color={Colors.dark.xpCyan} />
+                <Text style={bStyles.returningText}>{req.lessonsWithCoach} sessions</Text>
+              </View>
+            ) : (
+              <View style={bStyles.newBadge}>
+                <Text style={bStyles.newText}>New player</Text>
+              </View>
+            )}
+            {(req.playerXp ?? 0) > 0 ? (
+              <View style={bStyles.xpBadge}>
+                <Ionicons name="flash" size={10} color={Colors.dark.primary} />
+                <Text style={bStyles.xpBadgeText}>{((req.playerXp ?? 0) / 1000).toFixed(1)}k XP</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        <Pressable
+          style={bStyles.expandBtn}
+          onPress={() => setShowActions(v => !v)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name={showActions ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={Colors.dark.textSecondary}
+          />
+        </Pressable>
+      </View>
+
+      {/* Session details */}
+      <View style={bStyles.sessionRow}>
+        <View style={bStyles.sessionTypePill}>
+          <Text style={bStyles.sessionTypeText}>{sessionTypeLabel}</Text>
+        </View>
+        <Text style={bStyles.sessionDateTime}>{dateStr}</Text>
+        <Text style={bStyles.sessionTime}>{timeStr}</Text>
+        <Text style={bStyles.sessionDuration}>{req.duration} min</Text>
+      </View>
+
+      {req.playerNote ? (
+        <View style={bStyles.focusRow}>
+          <Ionicons name="chatbubble-ellipses-outline" size={12} color={Colors.dark.xpCyan} />
+          <Text style={bStyles.focusText} numberOfLines={2}>{req.playerNote}</Text>
+        </View>
+      ) : null}
+
+      {/* Quick action row */}
+      <View style={bStyles.quickActions}>
+        <View style={bStyles.secondaryActions}>
+          <Pressable
+            style={bStyles.msgBtn}
+            onPress={() => setShowMessageModal(true)}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
+            <Ionicons name="chatbubble-outline" size={14} color={Colors.dark.textSecondary} />
+            <Text style={bStyles.msgBtnText}>Message</Text>
+          </Pressable>
+          <Pressable
+            style={bStyles.counterBtn}
+            onPress={() => setShowCounterModal(true)}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
+            <Ionicons name="swap-horizontal" size={14} color={Colors.dark.orange || "#F97316"} />
+            <Text style={bStyles.counterBtnText}>Counter</Text>
+          </Pressable>
+        </View>
+        <View style={bStyles.mainActions}>
+          <Pressable
+            style={bStyles.declineBtn}
+            onPress={() => setShowDeclineSheet(true)}
+          >
+            <Ionicons name="close" size={16} color="#FFF" />
+            <Text style={bStyles.declineBtnText}>Decline</Text>
+          </Pressable>
+          <Pressable
+            style={[bStyles.approveBtn, loadingApprove ? { opacity: 0.7 } : null]}
+            onPress={() => showActions ? handleApprove() : setShowActions(true)}
+            disabled={loadingApprove}
+          >
+            {loadingApprove ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark" size={16} color="#FFF" />
+                <Text style={bStyles.approveBtnText}>Approve</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Expanded: welcome message field */}
+      {showActions ? (
+        <View style={bStyles.welcomeMsgWrap}>
+          <Text style={bStyles.welcomeMsgLabel}>Add a welcome message (optional)</Text>
+          <TextInput
+            style={bStyles.welcomeMsgInput}
+            placeholder="e.g. Looking forward to it! Bring water."
+            placeholderTextColor={Colors.dark.textSecondary}
+            value={welcomeMsg}
+            onChangeText={setWelcomeMsg}
+            maxLength={300}
+            multiline
+          />
+          <Pressable
+            style={[bStyles.confirmApproveBtn, loadingApprove && { opacity: 0.7 }]}
+            onPress={handleApprove}
+            disabled={loadingApprove}
+          >
+            {loadingApprove ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={bStyles.confirmApproveBtnText}>Confirm Approval</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Decline reason sheet (Modal) */}
+      <Modal visible={showDeclineSheet} transparent animationType="slide" onRequestClose={() => setShowDeclineSheet(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <Pressable style={bStyles.sheetOverlay} onPress={() => setShowDeclineSheet(false)}>
+            <View style={bStyles.sheetContainer}>
+              <View style={bStyles.sheetHandle} />
+              <Text style={bStyles.sheetTitle}>Reason for declining</Text>
+              <Text style={bStyles.sheetSubtitle}>The player will see this reason</Text>
+              {DECLINE_REASONS.map(r => (
+                <Pressable
+                  key={r.key}
+                  style={[bStyles.reasonOption, declineReason === r.key ? bStyles.reasonOptionSelected : null]}
+                  onPress={() => setDeclineReason(r.key)}
+                >
+                  <View style={[bStyles.reasonRadio, declineReason === r.key ? bStyles.reasonRadioSelected : null]}>
+                    {declineReason === r.key ? <View style={bStyles.reasonRadioDot} /> : null}
+                  </View>
+                  <Text style={[bStyles.reasonText, declineReason === r.key ? bStyles.reasonTextSelected : null]}>
+                    {r.label}
+                  </Text>
+                </Pressable>
+              ))}
+              <TextInput
+                style={bStyles.messageInput}
+                placeholder="Add a personal note (optional)"
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={declineNote}
+                onChangeText={setDeclineNote}
+                maxLength={300}
+                multiline
+              />
+              <Pressable
+                style={[bStyles.declineConfirmBtn, loadingDecline ? { opacity: 0.7 } : null]}
+                onPress={handleDecline}
+                disabled={loadingDecline}
+              >
+                {loadingDecline ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={bStyles.declineConfirmBtnText}>Decline Request</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Pre-confirm message modal */}
+      <Modal visible={showMessageModal} transparent animationType="slide" onRequestClose={() => setShowMessageModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <Pressable style={bStyles.sheetOverlay} onPress={() => setShowMessageModal(false)}>
+            <View style={bStyles.sheetContainer}>
+              <View style={bStyles.sheetHandle} />
+              <Text style={bStyles.sheetTitle}>Message player</Text>
+              <Text style={bStyles.sheetSubtitle}>Send a quick note before confirming</Text>
+              <TextInput
+                style={bStyles.messageInput}
+                placeholder="e.g. Can you confirm your skill level?"
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={preConfirmMsg}
+                onChangeText={setPreConfirmMsg}
+                maxLength={400}
+                multiline
+                autoFocus
+              />
+              <Pressable
+                style={[bStyles.sendMsgBtn, (!preConfirmMsg.trim() || loadingMsg) ? { opacity: 0.5 } : null]}
+                onPress={handleSendMessage}
+                disabled={!preConfirmMsg.trim() || loadingMsg}
+              >
+                {loadingMsg ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={bStyles.sendMsgBtnText}>Send Message</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Counter-propose modal */}
+      <Modal visible={showCounterModal} transparent animationType="slide" onRequestClose={() => setShowCounterModal(false)}>
+        <Pressable style={bStyles.sheetOverlay} onPress={() => setShowCounterModal(false)}>
+          <View style={bStyles.sheetContainer}>
+            <View style={bStyles.sheetHandle} />
+            <Text style={bStyles.sheetTitle}>Suggest alternative time</Text>
+            <Text style={bStyles.sheetSubtitle}>Player will see your proposed time and can accept or decline</Text>
+
+            {/* Start date/time pickers */}
+            <Text style={bStyles.counterInputLabel}>New start time</Text>
+            <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.sm }}>
+              <Pressable
+                style={[bStyles.messageInput, { flex: 1, justifyContent: "center" }]}
+                onPress={() => { setShowStartDatePicker(true); setShowStartTimePicker(false); setShowEndTimePicker(false); }}
+              >
+                <Text style={{ color: Colors.dark.text }}>
+                  {counterStartDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[bStyles.messageInput, { flex: 1, justifyContent: "center" }]}
+                onPress={() => { setShowStartTimePicker(true); setShowStartDatePicker(false); setShowEndTimePicker(false); }}
+              >
+                <Text style={{ color: Colors.dark.text }}>
+                  {counterStartDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              </Pressable>
+            </View>
+
+            {showStartDatePicker ? (
+              <DateTimePicker
+                value={counterStartDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={new Date()}
+                onChange={(_, selected) => {
+                  setShowStartDatePicker(false);
+                  if (selected) {
+                    const newStart = new Date(selected);
+                    newStart.setHours(counterStartDate.getHours(), counterStartDate.getMinutes());
+                    setCounterStartDate(newStart);
+                    if (counterEndDate <= newStart) {
+                      setCounterEndDate(new Date(newStart.getTime() + 60 * 60 * 1000));
+                    }
+                  }
+                }}
+              />
+            ) : null}
+            {showStartTimePicker ? (
+              <DateTimePicker
+                value={counterStartDate}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, selected) => {
+                  setShowStartTimePicker(false);
+                  if (selected) {
+                    setCounterStartDate(selected);
+                    if (counterEndDate <= selected) {
+                      setCounterEndDate(new Date(selected.getTime() + 60 * 60 * 1000));
+                    }
+                  }
+                }}
+              />
+            ) : null}
+
+            {/* End time picker */}
+            <Text style={bStyles.counterInputLabel}>New end time</Text>
+            <Pressable
+              style={[bStyles.messageInput, { justifyContent: "center", marginBottom: Spacing.sm }]}
+              onPress={() => { setShowEndTimePicker(true); setShowStartDatePicker(false); setShowStartTimePicker(false); }}
+            >
+              <Text style={{ color: Colors.dark.text }}>
+                {counterEndDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {" (same day)"}
+              </Text>
+            </Pressable>
+
+            {showEndTimePicker ? (
+              <DateTimePicker
+                value={counterEndDate}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, selected) => {
+                  setShowEndTimePicker(false);
+                  if (selected) {
+                    // Apply same date as counterStartDate
+                    const end = new Date(selected);
+                    end.setFullYear(counterStartDate.getFullYear(), counterStartDate.getMonth(), counterStartDate.getDate());
+                    setCounterEndDate(end);
+                  }
+                }}
+              />
+            ) : null}
+
+            <Pressable
+              style={[bStyles.sendMsgBtn, { backgroundColor: Colors.dark.orange || "#F97316" }, loadingCounter ? { opacity: 0.7 } : null]}
+              onPress={handleCounterPropose}
+              disabled={loadingCounter}
+            >
+              {loadingCounter ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={bStyles.sendMsgBtnText}>Send Alternative Time</Text>
+              )}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBookingRequest[]; queryClient: QueryClient }) {
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+  };
+  return (
+    <View style={bStyles.section}>
+      <View style={bStyles.sectionHeader}>
+        <View style={bStyles.sectionTitleRow}>
+          <Ionicons name="calendar-number" size={18} color={Colors.dark.primary} />
+          <Text style={bStyles.sectionTitle}>Booking Requests</Text>
+          <View style={bStyles.badge}>
+            <Text style={bStyles.badgeText}>{requests.length}</Text>
+          </View>
+        </View>
+      </View>
+      {requests.slice(0, 5).map(req => (
+        <BookingRequestCard key={req.id} req={req} onApproved={invalidate} onDeclined={invalidate} />
+      ))}
+    </View>
+  );
+}
+
+const bStyles = StyleSheet.create({
+  section: {
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+  },
+  sectionHeader: {
+    marginBottom: Spacing.md,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  badge: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  card: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "25",
+    overflow: "hidden",
+  },
+  countdownBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    backgroundColor: Colors.dark.background + "80",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "15",
+  },
+  countdownBarUrgent: {
+    backgroundColor: "#FF6B3510",
+    borderBottomColor: "#FF6B3530",
+  },
+  countdownText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  countdownTextUrgent: {
+    color: "#FF6B35",
+  },
+  playerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  avatarWrap: {
+    position: "relative",
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  avatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  levelDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  playerInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  playerName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  playerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  levelDotInline: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  levelText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  returningBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  returningText: {
+    fontSize: 11,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  newBadge: {
+    backgroundColor: Colors.dark.primary + "15",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  newText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  expandBtn: {
+    padding: 4,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  sessionTypePill: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  sessionTypeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  sessionDateTime: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  sessionTime: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  sessionDuration: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  focusRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 5,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.xpCyan + "10",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  focusText: {
+    fontSize: 12,
+    color: Colors.dark.xpCyan,
+    flex: 1,
+    lineHeight: 16,
+  },
+  quickActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  msgBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.background + "60",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+  },
+  msgBtnText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  mainActions: {
+    flex: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "flex-end",
+  },
+  secondaryActions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    alignItems: "center",
+  },
+  counterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: (Colors.dark.orange || "#F97316") + "15",
+    borderWidth: 1,
+    borderColor: (Colors.dark.orange || "#F97316") + "30",
+  },
+  counterBtnText: {
+    fontSize: 12,
+    color: Colors.dark.orange || "#F97316",
+    fontWeight: "600",
+  },
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  xpBadgeText: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  counterInputLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    marginBottom: -4,
+  },
+  declineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "#FF3B3020",
+    borderWidth: 1,
+    borderColor: "#FF3B3040",
+  },
+  declineBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FF6B6B",
+  },
+  approveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary,
+  },
+  approveBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  welcomeMsgWrap: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  welcomeMsgLabel: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  welcomeMsgInput: {
+    backgroundColor: Colors.dark.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: Colors.dark.text,
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+  confirmApproveBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  confirmApproveBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  sheetContainer: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: Spacing.xl,
+    paddingBottom: Spacing.xl + 16,
+    gap: Spacing.sm,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.dark.textSecondary + "60",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  reasonOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "20",
+    backgroundColor: Colors.dark.background + "60",
+  },
+  reasonOptionSelected: {
+    borderColor: Colors.dark.primary + "70",
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  reasonRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.dark.textSecondary + "60",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  reasonRadioSelected: {
+    borderColor: Colors.dark.primary,
+  },
+  reasonRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.dark.primary,
+  },
+  reasonText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  reasonTextSelected: {
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  declineConfirmBtn: {
+    marginTop: Spacing.sm,
+    backgroundColor: "#FF3B30",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  declineConfirmBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  messageInput: {
+    backgroundColor: Colors.dark.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.dark.text,
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  sendMsgBtn: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  sendMsgBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+});
+
+// =====================================================================
+// END BOOKING APPROVAL FLOW COMPONENTS
+// =====================================================================
+
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -780,7 +1810,7 @@ export default function DashboardScreen() {
     pendingAttendance: PendingAttendanceSession[];
     pendingAttendanceCount: number;
     pendingFeedback: PendingFeedbackSession[];
-    pendingBookingRequests: any[];
+    pendingBookingRequests: PendingBookingRequest[];
     pendingBookingCount: number;
     nextSessionEta: {
       sessionId?: string;
@@ -1745,71 +2775,10 @@ export default function DashboardScreen() {
 
         {/* === PENDING BOOKING REQUESTS === */}
         {pendingBookingRequests.length > 0 && (
-          <View style={styles.bookingRequestsSection}>
-            <View style={styles.bookingRequestsHeader}>
-              <View style={styles.bookingRequestsTitleRow}>
-                <Ionicons name="calendar-number" size={18} color={Colors.dark.primary} />
-                <Text style={styles.bookingRequestsTitle}>
-                  Booking Requests
-                </Text>
-                <View style={styles.bookingRequestsBadge}>
-                  <Text style={styles.bookingRequestsBadgeText}>{pendingBookingRequests.length}</Text>
-                </View>
-              </View>
-            </View>
-            {pendingBookingRequests.slice(0, 3).map((req: any) => {
-              const start = new Date(req.requestedStart);
-              const end = new Date(req.requestedEnd);
-              const dateStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-              const timeStr = `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-              return (
-                <View key={req.id} style={styles.bookingRequestCard}>
-                  <View style={styles.bookingRequestCardLeft}>
-                    <Text style={styles.bookingRequestSessionType}>
-                      {req.sessionType === "private" ? "Private Lesson" : req.sessionType === "semi_private" ? "Semi-Private" : req.sessionType === "group" ? "Group Session" : "Open Play"}
-                    </Text>
-                    <Text style={styles.bookingRequestDateTime}>{dateStr} · {timeStr}</Text>
-                    <Text style={styles.bookingRequestDuration}>{req.duration} min</Text>
-                    {!!req.playerNote && (
-                      <View style={styles.bookingRequestFocusTag}>
-                        <Ionicons name="sparkles" size={12} color={Colors.dark.xpCyan} />
-                        <Text style={styles.bookingRequestFocusText} numberOfLines={2}>{req.playerNote}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.bookingRequestActions}>
-                    <Pressable
-                      style={[styles.bookingRequestBtn, styles.bookingRequestApproveBtn]}
-                      onPress={async () => {
-                        try {
-                          await apiRequest("POST", `/api/coach/booking-requests/${req.id}/approve`, {});
-                          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
-                          queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-                        } catch (e) {
-                          RNAlert.alert("Error", "Failed to approve request");
-                        }
-                      }}
-                    >
-                      <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
-                    </Pressable>
-                    <Pressable
-                      style={[styles.bookingRequestBtn, styles.bookingRequestDeclineBtn]}
-                      onPress={async () => {
-                        try {
-                          await apiRequest("POST", `/api/coach/booking-requests/${req.id}/decline`, {});
-                          queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
-                        } catch (e) {
-                          RNAlert.alert("Error", "Failed to decline request");
-                        }
-                      }}
-                    >
-                      <Ionicons name="close" size={16} color="#FFF" />
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+          <BookingRequestsPanel
+            requests={pendingBookingRequests}
+            queryClient={queryClient}
+          />
         )}
 
         {/* === LOCATION DENIED BANNER === */}

@@ -9042,6 +9042,10 @@ export const storage = {
       
       const bookingData = request[0];
       
+      const startMs = new Date(bookingData.requestedStart as string | Date).getTime();
+      const endMs = new Date(bookingData.requestedEnd as string | Date).getTime();
+      const durationMinutes = Math.round((endMs - startMs) / 60000);
+
       const sessionData: InsertSession = {
         academyId: bookingData.academyId,
         coachId: bookingData.coachId || coachId,
@@ -9049,6 +9053,7 @@ export const storage = {
         courtId: bookingData.courtId,
         startTime: bookingData.requestedStart,
         endTime: bookingData.requestedEnd,
+        duration: durationMinutes > 0 ? durationMinutes : 60,
         sessionType: bookingData.sessionType,
         status: "scheduled",
         notes: bookingData.playerNote,

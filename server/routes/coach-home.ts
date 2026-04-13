@@ -11,6 +11,9 @@ import {
   coachingSeries,
   players,
   sessionSkillFeedback,
+  bookingRequests,
+  coachSettings,
+  xpTransactions,
 } from "@shared/schema";
 import {
   eq,
@@ -24,6 +27,8 @@ import {
   lt,
   desc,
   gte as greaterThanOrEqual,
+  count,
+  sql,
 } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -340,8 +345,81 @@ async function fetchPendingBookingRequests(
       academyId: academyId || undefined,
       status: "pending",
     });
-    return Array.isArray(requests) ? requests : [];
-  } catch {
+    if (!Array.isArray(requests) || requests.length === 0) return [];
+
+    // Get coach settings for response window
+    const [coachSetting] = await db
+      .select({
+        bookingResponseWindowMinutes: coachSettings.bookingResponseWindowMinutes,
+      })
+      .from(coachSettings)
+      .where(eq(coachSettings.coachId, coachId))
+      .limit(1);
+    const responseWindowMinutes = coachSetting?.bookingResponseWindowMinutes ?? 120;
+
+    // Enrich with player data
+    const playerIds = [...new Set(requests.map((r: any) => r.playerId).filter(Boolean))];
+    const playerRows = playerIds.length > 0
+      ? await db
+          .select({
+            id: players.id,
+            name: players.name,
+            ballLevel: players.ballLevel,
+            skillLevel: players.skillLevel,
+            profilePhotoUrl: players.profilePhotoUrl,
+          })
+          .from(players)
+          .where(inArray(players.id, playerIds))
+      : [];
+
+    const playerMap = new Map(playerRows.map((p: any) => [p.id, p]));
+
+    // Count past sessions between each player and this coach
+    const pastSessionCounts: Record<string, number> = {};
+    for (const playerId of playerIds) {
+      const rows = await db
+        .select({ cnt: count(sessionPlayers.sessionId) })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+        .where(
+          and(
+            eq(sessionPlayers.playerId, playerId),
+            eq(sessions.coachId, coachId),
+            sql`${sessions.status} = 'completed'`
+          )
+        );
+      pastSessionCounts[playerId] = Number(rows[0]?.cnt ?? 0);
+    }
+
+    // Get player XP streak (total XP as proxy)
+    const xpRows = playerIds.length > 0
+      ? await db
+          .select({ playerId: xpTransactions.playerId, total: sql<number>`SUM(${xpTransactions.xpAmount})` })
+          .from(xpTransactions)
+          .where(inArray(xpTransactions.playerId, playerIds))
+          .groupBy(xpTransactions.playerId)
+      : [];
+    const xpMap = new Map(xpRows.map((r: any) => [r.playerId, Number(r.total ?? 0)]));
+
+    return requests.map((req: any) => {
+      const player = playerMap.get(req.playerId);
+      const createdAt = new Date(req.createdAt);
+      const expiresAt = req.expiresAt
+        ? new Date(req.expiresAt)
+        : new Date(createdAt.getTime() + responseWindowMinutes * 60 * 1000);
+      return {
+        ...req,
+        expiresAt: expiresAt.toISOString(),
+        playerName: player?.name || null,
+        playerPhotoUrl: player?.profilePhotoUrl || null,
+        playerLevel: player?.ballLevel || null,
+        playerSkillLevel: player?.skillLevel || null,
+        lessonsWithCoach: pastSessionCounts[req.playerId] ?? 0,
+        playerXp: xpMap.get(req.playerId) ?? 0,
+      };
+    });
+  } catch (err) {
+    console.error("[coach-home] fetchPendingBookingRequests error:", err);
     return [];
   }
 }

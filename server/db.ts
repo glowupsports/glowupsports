@@ -784,6 +784,32 @@ pool.query('SELECT 1').then(async () => {
     console.log('[AcademyGeoCheck] Skipped:', e.message);
   }
 
+  // Booking approval flow columns migration
+  try {
+    await pool.query(`
+      ALTER TABLE booking_requests
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS decline_reason TEXT,
+        ADD COLUMN IF NOT EXISTS coach_welcome_message TEXT,
+        ADD COLUMN IF NOT EXISTS counter_proposed_start TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS counter_proposed_end TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS counter_proposed_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS counter_proposal_status TEXT,
+        ADD COLUMN IF NOT EXISTS coach_pre_confirm_message TEXT,
+        ADD COLUMN IF NOT EXISTS player_pre_confirm_reply TEXT,
+        ADD COLUMN IF NOT EXISTS pre_lesson_reminder_sent_at TIMESTAMP
+    `);
+    await pool.query(`
+      ALTER TABLE coach_settings
+        ADD COLUMN IF NOT EXISTS booking_response_window_minutes INTEGER DEFAULT 120,
+        ADD COLUMN IF NOT EXISTS auto_approve_returning_players BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS auto_approve_advanced_bookings BOOLEAN DEFAULT false
+    `);
+    console.log('[Database] booking_requests approval flow columns migration applied');
+  } catch (e: any) {
+    console.log('[Database] booking_requests approval flow migration skipped:', e.message);
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");

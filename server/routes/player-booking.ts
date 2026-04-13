@@ -90,6 +90,16 @@ const bookingRequestSchema = z.object({
 
 const bookingDeclineSchema = z.object({
   reason: z.string().max(500).optional().nullable(),
+  declineReason: z.enum(["schedule_conflict", "skill_mismatch", "court_unavailable", "personal", "response_timeout"]).optional().nullable(),
+});
+
+const bookingApproveSchema = z.object({
+  coachWelcomeMessage: z.string().max(500).optional().nullable(),
+});
+
+const counterProposeSchema = z.object({
+  counterProposedStart: z.string().min(1),
+  counterProposedEnd: z.string().min(1),
 });
 
 const router = Router();
@@ -443,6 +453,22 @@ function toDubaiTime(utcDate: Date): Date {
       try {
         await db.transaction(async (tx) => {
           // 1. Insert the booking request
+          // Compute expiresAt from coach's response window setting
+          let expiresAt: Date | null = null;
+          if (coachId) {
+            try {
+              const [cSetting] = await tx
+                .select({ bookingResponseWindowMinutes: coachSettings.bookingResponseWindowMinutes })
+                .from(coachSettings)
+                .where(eq(coachSettings.coachId, coachId))
+                .limit(1);
+              const windowMins = cSetting?.bookingResponseWindowMinutes ?? 120;
+              expiresAt = new Date(Date.now() + windowMins * 60 * 1000);
+            } catch {
+              expiresAt = new Date(Date.now() + 120 * 60 * 1000);
+            }
+          }
+
           const newRequests = await tx.insert(bookingRequests).values({
             academyId: player.academyId,
             playerId,
@@ -456,6 +482,7 @@ function toDubaiTime(utcDate: Date): Date {
             sessionType,
             playerNote: playerNote || null,
             status: "pending",
+            expiresAt: expiresAt || undefined,
           }).returning();
           
           request = newRequests[0];
@@ -536,6 +563,66 @@ function toDubaiTime(utcDate: Date): Date {
         performedBy: playerId,
         performedByRole: "player",
       });
+
+      // Check auto-approve rules (non-blocking, best-effort)
+      if (coachId && !isJoinRequest) {
+        try {
+          const [cSetting] = await db
+            .select({
+              autoApproveReturningPlayers: coachSettings.autoApproveReturningPlayers,
+              autoApproveAdvancedBookings: coachSettings.autoApproveAdvancedBookings,
+            })
+            .from(coachSettings)
+            .where(eq(coachSettings.coachId, coachId))
+            .limit(1);
+
+          let shouldAutoApprove = false;
+
+          if (cSetting?.autoApproveReturningPlayers) {
+            // Check if player has had prior completed sessions with this coach
+            const priorSessions = await db
+              .select({ cnt: count(sessionPlayers.sessionId) })
+              .from(sessionPlayers)
+              .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+              .where(
+                and(
+                  eq(sessionPlayers.playerId, playerId),
+                  eq(sessions.coachId, coachId),
+                  sql`${sessions.status} = 'completed'`
+                )
+              );
+            if (Number(priorSessions[0]?.cnt ?? 0) > 0) shouldAutoApprove = true;
+          }
+
+          if (!shouldAutoApprove && cSetting?.autoApproveAdvancedBookings) {
+            // Check if booking is 48h+ in advance
+            const hoursUntilSession = (new Date(requestedStart).getTime() - Date.now()) / (1000 * 60 * 60);
+            if (hoursUntilSession >= 48) shouldAutoApprove = true;
+          }
+
+          if (shouldAutoApprove) {
+            await storage.approveBookingRequest(request.id, coachId);
+            request = { ...request, status: "approved" };
+            // Send immediate confirmation push to player
+            try {
+              const playerTokens = await getPlayerPushTokens(playerId);
+              if (playerTokens.length > 0) {
+                const autoDate = new Date(requestedStart).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+                const autoTime = new Date(requestedStart).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                await sendPushNotification(
+                  playerTokens,
+                  "Booking confirmed",
+                  `Your session on ${autoDate} at ${autoTime} has been automatically approved.`,
+                  { type: "booking_approved", bookingRequestId: request.id },
+                  playerId
+                );
+              }
+            } catch { /* non-fatal */ }
+          }
+        } catch (autoApproveErr) {
+          console.error("[Booking] Auto-approve check failed (non-fatal):", autoApproveErr);
+        }
+      }
 
       // Send push notification to coach (non-blocking)
       try {
@@ -2179,6 +2266,16 @@ Return only the JSON array, nothing else.`;
         return res.status(400).json({ error: "Only pending requests can be approved" });
       }
 
+      // Optional welcome message
+      const parsedApprove = bookingApproveSchema.safeParse(req.body);
+      const coachWelcomeMessage = parsedApprove.success ? parsedApprove.data.coachWelcomeMessage || null : null;
+
+      if (coachWelcomeMessage) {
+        await db.update(bookingRequests)
+          .set({ coachWelcomeMessage })
+          .where(eq(bookingRequests.id, id));
+      }
+
       const result = await storage.approveBookingRequest(id, coachId);
 
       // Update court availability from "blocked" to "booked" when approved
@@ -2206,6 +2303,8 @@ Return only the JSON array, nothing else.`;
         performedByRole: "coach",
       });
 
+      // 24h pre-lesson reminders are handled by the polling job (bookingExpiryJob.ts)
+
       res.json(result);
     } catch (error) {
       console.error("Approve booking request error:", error);
@@ -2223,7 +2322,7 @@ Return only the JSON array, nothing else.`;
       if (!parsedDecline.success) {
         return res.status(400).json({ error: fromZodError(parsedDecline.error).message });
       }
-      const { reason } = parsedDecline.data;
+      const { reason, declineReason } = parsedDecline.data;
       
       if (!coachId || !academyId) {
         return res.status(403).json({ error: "Coach access required" });
@@ -2251,6 +2350,7 @@ Return only the JSON array, nothing else.`;
         respondedBy: coachId,
         respondedAt: new Date(),
         responseNote: reason || null,
+        declineReason: declineReason || null,
       });
 
       // Unblock court if there was a court blocked for this request
@@ -2280,6 +2380,179 @@ Return only the JSON array, nothing else.`;
     } catch (error) {
       console.error("Decline booking request error:", error);
       res.status(500).json({ error: "Failed to decline booking request" });
+    }
+  });
+
+  // ==================== BOOKING APPROVAL FLOW - NEW ENDPOINTS ====================
+
+  // Send a pre-confirm message to the player before approving
+  router.post("/api/coach/booking-requests/:id/message", authMiddleware, requireAcademy, async (req: AuthRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { id } = req.params;
+      const { message } = req.body;
+      if (!coachId) return res.status(403).json({ error: "Coach access required" });
+      if (!message || typeof message !== "string") return res.status(400).json({ error: "message is required" });
+
+      const request = await storage.getBookingRequest(id);
+      if (!request || request.coachId !== coachId) return res.status(404).json({ error: "Booking request not found" });
+      if (request.status !== "pending" && request.status !== "awaiting_player_reply") return res.status(400).json({ error: "Cannot message on this request" });
+
+      const updated = await storage.updateBookingRequest(id, {
+        coachPreConfirmMessage: message.substring(0, 500),
+        status: "awaiting_player_reply",
+      });
+
+      // Notify player
+      try {
+        const playerTokens = await getPlayerPushTokens(request.playerId);
+        if (playerTokens.length > 0) {
+          await sendPushNotification(playerTokens, "Your coach has a question", message.substring(0, 100), { type: "booking_message", bookingRequestId: id }, request.playerId);
+        }
+      } catch { /* non-fatal */ }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Booking message error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // Player replies to coach pre-confirm message
+  router.post("/api/player/booking-requests/:id/reply", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { id } = req.params;
+      const { reply } = req.body;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+      if (!reply || typeof reply !== "string") return res.status(400).json({ error: "reply is required" });
+
+      const request = await storage.getBookingRequest(id);
+      if (!request || request.playerId !== playerId) return res.status(404).json({ error: "Booking request not found" });
+      if (request.status !== "awaiting_player_reply") return res.status(400).json({ error: "No message to reply to" });
+
+      const updated = await storage.updateBookingRequest(id, {
+        playerPreConfirmReply: reply.substring(0, 500),
+        status: "pending",
+      });
+
+      // Notify coach
+      try {
+        if (request.coachId) {
+          const coachTokens = await getCoachPushTokens(request.coachId);
+          if (coachTokens.length > 0) {
+            await sendPushNotification(coachTokens, "Player replied to your message", reply.substring(0, 100), { type: "booking_player_reply", bookingRequestId: id });
+          }
+        }
+      } catch { /* non-fatal */ }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Player reply error:", error);
+      res.status(500).json({ error: "Failed to send reply" });
+    }
+  });
+
+  // Coach proposes an alternative time slot
+  router.post("/api/coach/booking-requests/:id/counter-propose", authMiddleware, requireAcademy, async (req: AuthRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { id } = req.params;
+      if (!coachId) return res.status(403).json({ error: "Coach access required" });
+
+      const parsed = counterProposeSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: fromZodError(parsed.error).message });
+      const { counterProposedStart, counterProposedEnd } = parsed.data;
+
+      const request = await storage.getBookingRequest(id);
+      if (!request || request.coachId !== coachId) return res.status(404).json({ error: "Booking request not found" });
+      if (request.status !== "pending") return res.status(400).json({ error: "Can only counter-propose on pending requests" });
+
+      const updated = await storage.updateBookingRequest(id, {
+        counterProposedStart: new Date(counterProposedStart),
+        counterProposedEnd: new Date(counterProposedEnd),
+        counterProposedAt: new Date(),
+        counterProposalStatus: "pending",
+        status: "pending",
+      });
+
+      // Notify player of counter-proposal
+      try {
+        const playerTokens = await getPlayerPushTokens(request.playerId);
+        if (playerTokens.length > 0) {
+          const altDate = new Date(counterProposedStart).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+          const altTime = new Date(counterProposedStart).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          await sendPushNotification(playerTokens, "Your coach suggested a new time", `Alternative slot: ${altDate} at ${altTime}`, { type: "counter_proposal", bookingRequestId: id }, request.playerId);
+        }
+      } catch { /* non-fatal */ }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Counter-propose error:", error);
+      res.status(500).json({ error: "Failed to submit counter-proposal" });
+    }
+  });
+
+  // Player accepts or declines a counter-proposal
+  router.post("/api/player/booking-requests/:id/counter-response", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { id } = req.params;
+      const { accept } = req.body;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+      if (typeof accept !== "boolean") return res.status(400).json({ error: "accept (boolean) is required" });
+
+      const request = await storage.getBookingRequest(id);
+      if (!request || request.playerId !== playerId) return res.status(404).json({ error: "Booking request not found" });
+      if (!request.counterProposedStart) return res.status(400).json({ error: "No counter-proposal to respond to" });
+      if (request.counterProposalStatus !== "pending") return res.status(400).json({ error: "Counter-proposal already responded to" });
+
+      if (accept) {
+        // Accept: immediately approve — create a session at the counter-proposed times
+        if (!request.counterProposedStart || !request.counterProposedEnd) {
+          return res.status(400).json({ error: "Counter-proposed times are missing" });
+        }
+
+        // Shift requested times to the counter-proposed times, then call approveBookingRequest
+        await storage.updateBookingRequest(id, {
+          requestedStart: request.counterProposedStart,
+          requestedEnd: request.counterProposedEnd,
+          counterProposalStatus: "accepted",
+        });
+
+        // Get the coach ID (may be null for academy-wide requests)
+        const effectiveCoachId = request.coachId || "";
+        const result = await storage.approveBookingRequest(id, effectiveCoachId);
+
+        // 24h pre-lesson reminders are handled by the polling job (bookingExpiryJob.ts)
+
+        // Notify coach their counter-proposal was accepted and session is confirmed
+        if (request.coachId) {
+          try {
+            const coachTokens = await getCoachPushTokens(request.coachId);
+            if (coachTokens.length > 0) {
+              await sendPushNotification(coachTokens, "Booking confirmed", "Player accepted your proposed time. Session is now scheduled.", { type: "counter_accepted_approved", bookingRequestId: id }, request.coachId);
+            }
+          } catch { /* non-fatal */ }
+        }
+        res.json(result);
+      } else {
+        // Decline: cancel the request
+        const updated = await storage.updateBookingRequest(id, {
+          counterProposalStatus: "declined",
+          status: "cancelled",
+        });
+        // Unblock court
+        if (request.courtId) {
+          try {
+            await db.delete(courtAvailability).where(and(eq(courtAvailability.courtId, request.courtId), eq(courtAvailability.blockedReason, `booking_request:${id}`)));
+          } catch { /* non-fatal */ }
+        }
+        res.json(updated);
+      }
+    } catch (error) {
+      console.error("Counter-response error:", error);
+      res.status(500).json({ error: "Failed to respond to counter-proposal" });
     }
   });
 
@@ -2456,21 +2729,32 @@ Return only the JSON array, nothing else.`;
   router.get("/api/coaches/:coachId/settings", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const { coachId } = req.params;
-      
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (callerCoachId !== coachId && callerRole !== "admin" && callerRole !== "platform_owner" && callerRole !== "academy_owner") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
       const [settings] = await db.select().from(coachSettings).where(eq(coachSettings.coachId, coachId));
-      
+
       if (!settings) {
         return res.json({
           minSessionLength: 60,
           bufferBetweenSessions: 0,
           availabilityPaused: false,
+          bookingResponseWindowMinutes: 120,
+          autoApproveReturningPlayers: false,
+          autoApproveAdvancedBookings: false,
         });
       }
-      
+
       res.json({
         minSessionLength: settings.minSessionLength || 60,
         bufferBetweenSessions: settings.bufferBetweenSessions || 0,
         availabilityPaused: settings.availabilityPaused || false,
+        bookingResponseWindowMinutes: settings.bookingResponseWindowMinutes ?? 120,
+        autoApproveReturningPlayers: settings.autoApproveReturningPlayers ?? false,
+        autoApproveAdvancedBookings: settings.autoApproveAdvancedBookings ?? false,
       });
     } catch (error) {
       console.error("Coach settings error:", error);
@@ -2482,7 +2766,12 @@ Return only the JSON array, nothing else.`;
   router.put("/api/coaches/:coachId/settings", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const { coachId } = req.params;
-      const { minSessionLength, bufferBetweenSessions, availabilityPaused } = req.body;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (callerCoachId !== coachId && callerRole !== "admin" && callerRole !== "platform_owner" && callerRole !== "academy_owner") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { minSessionLength, bufferBetweenSessions, availabilityPaused, bookingResponseWindowMinutes, autoApproveReturningPlayers, autoApproveAdvancedBookings } = req.body;
       
       const [existing] = await db.select().from(coachSettings).where(eq(coachSettings.coachId, coachId));
       
@@ -2492,6 +2781,9 @@ Return only the JSON array, nothing else.`;
             minSessionLength: minSessionLength ?? existing.minSessionLength,
             bufferBetweenSessions: bufferBetweenSessions ?? existing.bufferBetweenSessions,
             availabilityPaused: availabilityPaused ?? existing.availabilityPaused,
+            bookingResponseWindowMinutes: bookingResponseWindowMinutes ?? existing.bookingResponseWindowMinutes,
+            autoApproveReturningPlayers: autoApproveReturningPlayers ?? existing.autoApproveReturningPlayers,
+            autoApproveAdvancedBookings: autoApproveAdvancedBookings ?? existing.autoApproveAdvancedBookings,
             updatedAt: new Date(),
           })
           .where(eq(coachSettings.coachId, coachId));
@@ -2502,6 +2794,9 @@ Return only the JSON array, nothing else.`;
           minSessionLength: minSessionLength ?? 60,
           bufferBetweenSessions: bufferBetweenSessions ?? 0,
           availabilityPaused: availabilityPaused ?? false,
+          bookingResponseWindowMinutes: bookingResponseWindowMinutes ?? 120,
+          autoApproveReturningPlayers: autoApproveReturningPlayers ?? false,
+          autoApproveAdvancedBookings: autoApproveAdvancedBookings ?? false,
           createdAt: new Date(),
           updatedAt: new Date(),
         });

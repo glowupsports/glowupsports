@@ -217,6 +217,13 @@ export default function SettingsScreen() {
   const [fromLocationId, setFromLocationId] = useState<string>('');
   const [toLocationId, setToLocationId] = useState<string>('');
 
+  // Booking approval settings
+  const [bookingSettingsCollapsed, setBookingSettingsCollapsed] = useState(true);
+  const [bookingResponseWindow, setBookingResponseWindow] = useState(120);
+  const [autoApproveReturning, setAutoApproveReturning] = useState(false);
+  const [autoApproveAdvanced, setAutoApproveAdvanced] = useState(false);
+  const [savingBookingSettings, setSavingBookingSettings] = useState(false);
+
   const queryClient = useQueryClient();
   const tabBarHeight = insets.bottom + 60;
 
@@ -230,6 +237,39 @@ export default function SettingsScreen() {
   const { data: travelTimes = [] } = useQuery<any[]>({
     queryKey: ['/api/coach/travel-times'],
   });
+
+  // Load coach booking settings from server
+  const { data: coachServerSettings } = useQuery<any>({
+    queryKey: ["/api/coaches", coach?.id, "settings"],
+    enabled: !!coach?.id,
+  });
+
+  React.useEffect(() => {
+    if (coachServerSettings) {
+      if (coachServerSettings.bookingResponseWindowMinutes != null) {
+        setBookingResponseWindow(coachServerSettings.bookingResponseWindowMinutes);
+      }
+      if (coachServerSettings.autoApproveReturningPlayers != null) {
+        setAutoApproveReturning(coachServerSettings.autoApproveReturningPlayers);
+      }
+      if (coachServerSettings.autoApproveAdvancedBookings != null) {
+        setAutoApproveAdvanced(coachServerSettings.autoApproveAdvancedBookings);
+      }
+    }
+  }, [coachServerSettings]);
+
+  const saveBookingSettings = async (patch: { bookingResponseWindowMinutes?: number; autoApproveReturningPlayers?: boolean; autoApproveAdvancedBookings?: boolean }) => {
+    if (!coach?.id) return;
+    setSavingBookingSettings(true);
+    try {
+      await apiRequest("PUT", `/api/coaches/${coach.id}/settings`, patch);
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach.id, "settings"] });
+    } catch {
+      Alert.alert("Error", "Failed to save booking settings");
+    } finally {
+      setSavingBookingSettings(false);
+    }
+  };
 
   const reorderCourtsMutation = useMutation({
     mutationFn: async (data: { courtId: string; direction: string }) => {
@@ -861,6 +901,117 @@ export default function SettingsScreen() {
           </> : null}
         </View>
 
+        {/* ====== BOOKING APPROVAL SETTINGS ====== */}
+        <View style={styles.section}>
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setBookingSettingsCollapsed(!bookingSettingsCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Booking Approval" icon="calendar-number-outline" />
+              <Ionicons
+                name={bookingSettingsCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+
+          {!bookingSettingsCollapsed ? (
+            <>
+              {/* Response window */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <View style={styles.settingIconWrapper}>
+                    <Ionicons name="hourglass-outline" size={20} color={Colors.dark.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.settingLabel}>Response window</Text>
+                    <Text style={styles.settingDescription}>Time to approve or decline</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={{ paddingHorizontal: Spacing.xl, paddingBottom: Spacing.sm }}>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+                  {[30, 60, 120, 360, 1440].map(mins => {
+                    const label = mins < 60 ? `${mins}m` : mins === 1440 ? "24h" : `${mins / 60}h`;
+                    const active = bookingResponseWindow === mins;
+                    return (
+                      <Pressable
+                        key={mins}
+                        style={[
+                          styles.optionButton,
+                          active && styles.optionButtonActive,
+                          { minWidth: 52 },
+                        ]}
+                        onPress={() => {
+                          setBookingResponseWindow(mins);
+                          saveBookingSettings({ bookingResponseWindowMinutes: mins });
+                        }}
+                      >
+                        <Text style={[styles.optionButtonText, active && styles.optionButtonTextActive]}>
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Auto-approve returning players */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <View style={styles.settingIconWrapper}>
+                    <Ionicons name="star-outline" size={20} color={Colors.dark.xpCyan} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settingLabel}>Auto-approve returning players</Text>
+                    <Text style={styles.settingDescription}>Players who completed a session with you</Text>
+                  </View>
+                </View>
+                <GlowSwitch
+                  value={autoApproveReturning}
+                  onValueChange={val => {
+                    setAutoApproveReturning(val);
+                    saveBookingSettings({ autoApproveReturningPlayers: val });
+                  }}
+                />
+              </View>
+
+              {/* Auto-approve advanced bookings */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <View style={styles.settingIconWrapper}>
+                    <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settingLabel}>Auto-approve advance bookings</Text>
+                    <Text style={styles.settingDescription}>Requests made 48h+ before the session</Text>
+                  </View>
+                </View>
+                <GlowSwitch
+                  value={autoApproveAdvanced}
+                  onValueChange={val => {
+                    setAutoApproveAdvanced(val);
+                    saveBookingSettings({ autoApproveAdvancedBookings: val });
+                  }}
+                />
+              </View>
+
+              {savingBookingSettings ? (
+                <View style={{ alignItems: "center", paddingVertical: Spacing.sm }}>
+                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                </View>
+              ) : null}
+            </>
+          ) : null}
+        </View>
+
+        {/* ====== NOTIFICATIONS ====== */}
         <View style={styles.section}>
           <Pressable
             style={styles.sectionHeaderRow}
