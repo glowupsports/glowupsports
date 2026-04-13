@@ -91,6 +91,8 @@ export interface SeriesDetail {
   pausedAt?: string | null;
   maxPlayers: number;
   xpPerSession: number;
+  isPublic?: boolean;
+  publicDropInPrice?: string | null;
   locationName?: string | null;
   locationAddress?: string | null;
   locationLat?: number | null;

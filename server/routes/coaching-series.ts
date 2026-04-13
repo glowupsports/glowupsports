@@ -1389,6 +1389,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           "price",
           "seriesEndDate",
           "isPublic",
+          "publicDropInPrice",
         ];
 
         const validSessionTypes = ["private", "semi_private", "group", "physical", "activity"];
@@ -1397,6 +1398,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           if (req.body[field] !== undefined) {
             if (field === "sessionType" && !validSessionTypes.includes(req.body[field])) {
               return res.status(400).json({ error: "Invalid sessionType value" });
+            }
+            if (field === "publicDropInPrice" && req.body[field] !== null) {
+              const raw = String(req.body[field]).trim();
+              const price = Number(raw);
+              if (!/^\d+(\.\d+)?$/.test(raw) || isNaN(price) || price < 0) {
+                return res.status(400).json({ error: "publicDropInPrice must be a non-negative number or null" });
+              }
+              // Normalize to string representation of the valid numeric value
+              updates["publicDropInPrice"] = String(price);
+              continue;
             }
             updates[field] =
               field === "title"

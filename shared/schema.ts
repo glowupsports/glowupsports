@@ -1660,7 +1660,8 @@ export const coachingSeries = pgTable("coaching_series", {
   sport: text("sport").default("tennis"), // tennis | padel | pickleball
   
   // Marketplace / public drop-in
-  isPublic: boolean("is_public").default(false), // Whether this group is publicly listed for drop-in bookings
+  isPublic: boolean("is_public").notNull().default(false), // Whether this group is publicly listed for drop-in bookings
+  publicDropInPrice: numeric("public_drop_in_price"), // Optional drop-in price per session
   
   createdAt: timestamp("created_at").defaultNow(),
 });

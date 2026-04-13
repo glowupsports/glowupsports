@@ -503,6 +503,40 @@ export default function SeriesDetailDrawer({
     }
   };
 
+  // Mutation to toggle public visibility / drop-in price
+  const updateVisibilityMutation = useMutation({
+    mutationFn: async (payload: { isPublic: boolean; publicDropInPrice?: string | null }) => {
+      return apiRequest("PATCH", `/api/coach/series/${seriesId}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const handleTogglePublic = (value: boolean) => {
+    updateVisibilityMutation.mutate({
+      isPublic: value,
+      publicDropInPrice: series?.publicDropInPrice ?? null,
+    });
+  };
+
+  const handleSaveDropInPrice = (price: string): boolean => {
+    const trimmed = price.trim();
+    if (trimmed) {
+      const numeric = parseFloat(trimmed);
+      if (isNaN(numeric) || numeric < 0) {
+        Alert.alert("Invalid Price", "Please enter a valid positive number for the drop-in price, or leave it blank for free / price on request.");
+        return false;
+      }
+    }
+    updateVisibilityMutation.mutate({
+      isPublic: series?.isPublic ?? false,
+      publicDropInPrice: trimmed || null,
+    });
+    return true;
+  };
+
   // Mutation to pause a player
   const pausePlayerMutation = useMutation({
     mutationFn: async ({ playerId, pauseFrom, pauseUntil, reason }: { 
@@ -1430,6 +1464,9 @@ export default function SeriesDetailDrawer({
         handleCompleteSeries={handleCompleteSeries}
         deletingSeries={deletingSeries}
         handleDeleteSeries={handleDeleteSeries}
+        handleTogglePublic={handleTogglePublic}
+        handleSaveDropInPrice={handleSaveDropInPrice}
+        updatingVisibility={updateVisibilityMutation.isPending}
       />
     );
   };

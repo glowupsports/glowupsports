@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Switch } from "react-native";
 import { openDirections } from "@/lib/maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -44,6 +44,9 @@ interface SeriesOverviewTabProps {
   handleCompleteSeries: () => void;
   deletingSeries: boolean;
   handleDeleteSeries: () => void;
+  handleTogglePublic: (value: boolean) => void;
+  handleSaveDropInPrice: (price: string) => boolean;
+  updatingVisibility: boolean;
 }
 
 export function SeriesOverviewTab({
@@ -81,7 +84,13 @@ export function SeriesOverviewTab({
   handleCompleteSeries,
   deletingSeries,
   handleDeleteSeries,
+  handleTogglePublic,
+  handleSaveDropInPrice,
+  updatingVisibility,
 }: SeriesOverviewTabProps) {
+  const [editingDropInPrice, setEditingDropInPrice] = useState(false);
+  const [dropInPriceInput, setDropInPriceInput] = useState("");
+
   return (
     <View style={styles.tabContent}>
       <View style={styles.statsGrid}>
@@ -193,6 +202,74 @@ export function SeriesOverviewTab({
           <Ionicons name="trophy-outline" size={16} color={Colors.dark.textMuted} />
           <Text style={styles.infoText}>{series.xpPerSession} XP per session</Text>
         </View>
+      </View>
+
+      <View style={styles.infoSection}>
+        <Text style={styles.sectionTitle}>Visibility</Text>
+        <View style={publicStyles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={publicStyles.toggleLabel}>Open to public</Text>
+            <Text style={publicStyles.toggleSubLabel}>Public lessons appear to all players in your region.</Text>
+          </View>
+          {updatingVisibility ? (
+            <ActivityIndicator size="small" color={Colors.dark.successNeon} />
+          ) : (
+            <Switch
+              value={series.isPublic ?? false}
+              onValueChange={handleTogglePublic}
+              trackColor={{ false: Colors.dark.disabled, true: Colors.dark.successNeon }}
+              thumbColor={Colors.dark.text}
+            />
+          )}
+        </View>
+        {series.isPublic ? (
+          <View style={publicStyles.priceRow}>
+            <Ionicons name="pricetag-outline" size={16} color={Colors.dark.textMuted} />
+            {editingDropInPrice ? (
+              <View style={publicStyles.priceEditRow}>
+                <TextInput
+                  style={publicStyles.priceInput}
+                  value={dropInPriceInput}
+                  onChangeText={setDropInPriceInput}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 20"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  autoFocus
+                />
+                <Pressable
+                  onPress={() => {
+                    const ok = handleSaveDropInPrice(dropInPriceInput);
+                    if (ok !== false) setEditingDropInPrice(false);
+                  }}
+                  style={publicStyles.priceSaveBtn}
+                >
+                  <Ionicons name="checkmark" size={18} color={Colors.dark.successNeon} />
+                </Pressable>
+                <Pressable
+                  onPress={() => setEditingDropInPrice(false)}
+                  style={publicStyles.priceCancelBtn}
+                >
+                  <Ionicons name="close" size={18} color={Colors.dark.error} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => {
+                  setDropInPriceInput(series.publicDropInPrice ?? "");
+                  setEditingDropInPrice(true);
+                }}
+                style={publicStyles.priceDisplayRow}
+              >
+                <Text style={publicStyles.priceText}>
+                  {series.publicDropInPrice
+                    ? `Drop-in price: ${series.publicDropInPrice}`
+                    : "Free / Price on request"}
+                </Text>
+                <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+              </Pressable>
+            )}
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.infoSection, { overflow: "visible" }]}>
@@ -590,6 +667,67 @@ export function SeriesOverviewTab({
     </View>
   );
 }
+
+const publicStyles = StyleSheet.create({
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    gap: 12,
+  },
+  toggleLabel: {
+    fontSize: 15,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  toggleSubLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+  },
+  priceDisplayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  priceText: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+  },
+  priceEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 6,
+  },
+  priceInput: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  priceSaveBtn: {
+    padding: 6,
+  },
+  priceCancelBtn: {
+    padding: 6,
+  },
+});
 
 const reviewBannerStyles = StyleSheet.create({
   banner: {
