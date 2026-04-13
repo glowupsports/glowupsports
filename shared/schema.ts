@@ -6403,6 +6403,7 @@ export const tournaments = pgTable("tournaments", {
   venueLat: numeric("venue_lat"), // latitude for distance calculation
   venueLng: numeric("venue_lng"), // longitude for distance calculation
   xpReward: integer("xp_reward").default(100), // XP awarded to tournament winner
+  isPublic: boolean("is_public").notNull().default(false),
   status: text("status").notNull().default("upcoming"), // upcoming | registration_open | registration_closed | in_progress | completed | cancelled
   drawPublished: boolean("draw_published").default(false),
   americanoStandings: jsonb("americano_standings").$type<{ playerId: string; name: string; points: number; played: number }[]>(),

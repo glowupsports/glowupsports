@@ -60,6 +60,7 @@ interface Tournament {
   status: string;
   drawPublished: boolean;
   winnerId: string | null;
+  isPublic: boolean;
 }
 
 interface TournamentMatch {
@@ -106,6 +107,7 @@ interface CreateTournamentPayload {
   spotsTotal: number;
   categories: string[];
   xpReward: number;
+  isPublic: boolean;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -142,6 +144,7 @@ function CreateTournamentModal({ visible, onClose, onSuccess }: { visible: boole
   const [xpReward, setXpReward] = useState("100");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: (data: CreateTournamentPayload) => apiRequest("POST", "/api/tournaments", data),
@@ -161,7 +164,7 @@ function CreateTournamentModal({ visible, onClose, onSuccess }: { visible: boole
     setName(""); setSport("tennis"); setType("singles"); setFormat("knockout");
     setStartDate(""); setEndDate(""); setRegDeadline(""); setLocation("");
     setDescription(""); setSpotsTotal("16"); setXpReward("100");
-    setCategories([]); setCategory("");
+    setCategories([]); setCategory(""); setIsPublic(false);
   };
 
   const addCategory = () => {
@@ -190,6 +193,7 @@ function CreateTournamentModal({ visible, onClose, onSuccess }: { visible: boole
       spotsTotal: parseInt(spotsTotal) || 16,
       xpReward: parseInt(xpReward) || 100,
       categories,
+      isPublic,
     });
   };
 
@@ -342,6 +346,21 @@ function CreateTournamentModal({ visible, onClose, onSuccess }: { visible: boole
               ))}
             </View>
           ) : null}
+
+          <View style={styles.publicToggleRow}>
+            <View style={styles.publicToggleInfo}>
+              <Text style={styles.publicToggleLabel}>Open to all players</Text>
+              <Text style={styles.publicToggleSubtitle}>
+                Public tournaments appear in the player discovery calendar. Players outside your academy can register.
+              </Text>
+            </View>
+            <Switch
+              value={isPublic}
+              onValueChange={setIsPublic}
+              trackColor={{ false: "rgba(255,255,255,0.12)", true: GlowColors.primary + "60" }}
+              thumbColor={isPublic ? GlowColors.primary : "rgba(255,255,255,0.5)"}
+            />
+          </View>
 
           <Pressable
             style={[styles.createBtn, createMutation.isPending ? styles.createBtnDisabled : null]}
@@ -638,6 +657,16 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
     onError: (e: Error) => Alert.alert("Error", e.message),
   });
 
+  const togglePublicMutation = useMutation({
+    mutationFn: (isPublic: boolean) => apiRequest("PUT", `/api/tournaments/${tournamentId}`, { isPublic }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments", tournamentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    onError: (e: Error) => Alert.alert("Error", e.message),
+  });
+
   const resultMutation = useMutation({
     mutationFn: ({ matchId, winnerId, score }: { matchId: string; winnerId: string; score: string }) =>
       apiRequest("POST", `/api/tournaments/${tournamentId}/matches/${matchId}/result`, { winnerId, score }),
@@ -709,6 +738,24 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
             <Text style={styles.metaText}>{tournament.xpReward} XP reward for winner</Text>
           </View>
         </View>
+      </View>
+
+      <View style={styles.publicToggleRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.publicToggleLabel}>Open to all players</Text>
+          <Text style={styles.publicToggleSubtitle}>
+            {tournament.isPublic
+              ? "Visible in public discovery — any player can register"
+              : "Academy-only — only your players can register"}
+          </Text>
+        </View>
+        <Switch
+          value={tournament.isPublic}
+          onValueChange={(val) => togglePublicMutation.mutate(val)}
+          trackColor={{ false: "rgba(255,255,255,0.1)", true: GlowColors.primary + "88" }}
+          thumbColor={tournament.isPublic ? GlowColors.primary : "rgba(255,255,255,0.5)"}
+          disabled={togglePublicMutation.isPending}
+        />
       </View>
 
       {tournament.status === "upcoming" ? (
@@ -1209,6 +1256,14 @@ const styles = StyleSheet.create({
   },
   createBtnDisabled: { opacity: 0.6 },
   createBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  publicToggleRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 14,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginTop: 16, gap: 12,
+  },
+  publicToggleInfo: { flex: 1 },
+  publicToggleLabel: { fontSize: 14, fontWeight: "600", color: TextColors.primary, marginBottom: 3 },
+  publicToggleSubtitle: { fontSize: 12, color: TextColors.muted, lineHeight: 17 },
 
   // Detail
   detailContainer: { flex: 1 },

@@ -60,6 +60,71 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ==================== PUBLIC TOURNAMENT DISCOVERY ====================
+
+router.get("/api/tournaments/public", async (req: Request, res: Response) => {
+  try {
+    const sport = req.query.sport as string | undefined;
+    const city = req.query.city as string | undefined;
+
+    const activeStatuses = ["upcoming", "registration_open", "in_progress"];
+
+    const rows = await db.select({
+      id: tournaments.id,
+      name: tournaments.name,
+      sport: tournaments.sport,
+      type: tournaments.type,
+      format: tournaments.format,
+      startDate: tournaments.startDate,
+      endDate: tournaments.endDate,
+      location: tournaments.location,
+      address: tournaments.address,
+      entryFee: tournaments.entryFee,
+      spotsTotal: tournaments.spotsTotal,
+      categories: tournaments.categories,
+      levelMin: tournaments.levelMin,
+      levelMax: tournaments.levelMax,
+      status: tournaments.status,
+      academyId: tournaments.academyId,
+      venueLat: tournaments.venueLat,
+      venueLng: tournaments.venueLng,
+      academyName: academies.name,
+    })
+      .from(tournaments)
+      .leftJoin(academies, eq(tournaments.academyId, academies.id))
+      .where(
+        and(
+          eq(tournaments.isPublic, true),
+          inArray(tournaments.status, activeStatuses),
+          sport ? eq(tournaments.sport, sport) : undefined,
+          city ? sql`LOWER(${tournaments.location}) LIKE LOWER(${"%" + city + "%"})` : undefined,
+        )
+      )
+      .orderBy(asc(tournaments.startDate));
+
+    const tournamentIds = rows.map(r => r.id);
+    let spotsTakenMap = new Map<string, number>();
+    if (tournamentIds.length > 0) {
+      const counts = await db.select({
+        tournamentId: tournamentParticipants.tournamentId,
+      }).from(tournamentParticipants).where(inArray(tournamentParticipants.tournamentId, tournamentIds));
+      for (const c of counts) {
+        spotsTakenMap.set(c.tournamentId, (spotsTakenMap.get(c.tournamentId) || 0) + 1);
+      }
+    }
+
+    const result = rows.map(r => ({
+      ...r,
+      spotsTaken: spotsTakenMap.get(r.id) || 0,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching public tournaments:", error);
+    res.status(500).json({ error: "Failed to fetch public tournaments" });
+  }
+});
+
 // ==================== PLAYER TOURNAMENT ENDPOINTS ====================
 
 router.get("/api/player/tournaments", authMiddleware, async (req: AuthRequest, res: Response) => {
@@ -204,8 +269,10 @@ router.post("/api/player/tournaments/:id/register", authMiddleware, async (req: 
       return res.status(404).json({ error: "Tournament not found" });
     }
 
-    // Players can only register for tournaments within their own academy
-    if (academyId && tournament.academyId !== academyId) {
+    // Cross-academy or non-academy registration allowed only for public tournaments
+    const isSameAcademy = academyId && tournament.academyId === academyId;
+    const isExternalPlayer = !isSameAcademy; // different academy or no academy at all
+    if (isExternalPlayer && !tournament.isPublic) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -239,10 +306,15 @@ router.post("/api/player/tournaments/:id/register", authMiddleware, async (req: 
 
     const { category } = req.body;
 
+    // For external (non-same-academy) registrations on paid public tournaments, use pending_payment
+    const hasFee = tournament.entryFee && Number(tournament.entryFee) > 0;
+    const participantStatus = (isExternalPlayer && hasFee) ? "pending_payment" : "registered";
+
     const [participant] = await db.insert(tournamentParticipants).values({
       tournamentId: id,
       playerId,
       category: category || null,
+      status: participantStatus,
     }).returning();
 
     res.status(201).json(participant);
@@ -983,7 +1055,7 @@ router.post("/api/tournaments", authMiddleware, async (req: AuthRequest, res: Re
       return res.status(400).json({ error: "Academy context required" });
     }
 
-    const { name, sport, type, format, startDate, endDate, registrationDeadline, location, address, description, entryFee, spotsTotal, categories, xpReward } = req.body;
+    const { name, sport, type, format, startDate, endDate, registrationDeadline, location, address, description, entryFee, spotsTotal, categories, xpReward, isPublic } = req.body;
 
     if (!name || !type || !format || !startDate || !endDate || !location) {
       return res.status(400).json({ error: "Missing required fields: name, type, format, startDate, endDate, location" });
@@ -1005,6 +1077,7 @@ router.post("/api/tournaments", authMiddleware, async (req: AuthRequest, res: Re
       spotsTotal: spotsTotal || 32,
       categories: categories || [],
       xpReward: xpReward || 100,
+      isPublic: isPublic === true,
       status: "upcoming",
       createdBy: userId,
     }).returning();
@@ -1036,7 +1109,7 @@ router.put("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res:
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const { name, sport, type, format, startDate, endDate, registrationDeadline, location, address, description, entryFee, spotsTotal, categories, xpReward, status } = req.body;
+    const { name, sport, type, format, startDate, endDate, registrationDeadline, location, address, description, entryFee, spotsTotal, categories, xpReward, status, isPublic } = req.body;
 
     const [updated] = await db.update(tournaments)
       .set({
@@ -1055,6 +1128,7 @@ router.put("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res:
         ...(categories !== undefined && { categories }),
         ...(xpReward !== undefined && { xpReward }),
         ...(status !== undefined && { status }),
+        ...(isPublic !== undefined && { isPublic: isPublic === true }),
         updatedAt: new Date(),
       })
       .where(eq(tournaments.id, id))

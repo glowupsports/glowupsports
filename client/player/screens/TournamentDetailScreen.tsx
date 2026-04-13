@@ -7,6 +7,9 @@ import {
   Pressable,
   Dimensions,
   ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -112,6 +115,8 @@ interface TournamentDetail {
   nextMatch: any | null;
   participants: ParticipantEntry[];
   matches: any[];
+  categories?: string[];
+  isPublic?: boolean;
 }
 
 interface AmericanoStanding {
@@ -503,6 +508,11 @@ export default function TournamentDetailScreen() {
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<ViewMode>("draw");
   const [viewModeInitialized, setViewModeInitialized] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [showRegForm, setShowRegForm] = useState(false);
+  const [regPhone, setRegPhone] = useState("");
+  const [regPartner, setRegPartner] = useState("");
+  const [regCategory, setRegCategory] = useState("");
 
   const tournamentId = route.params.tournamentId;
 
@@ -534,6 +544,72 @@ export default function TournamentDetailScreen() {
     queryKey: ["/api/player/tournaments", tournamentId, "americano-standings"],
     enabled: tournament?.format === "americano" && (viewMode === "standings" || viewMode === "schedule"),
   });
+
+  const { data: profileData } = useQuery<{ player: { name: string } | null }>({
+    queryKey: ["/api/player/me/profile"],
+    enabled: showRegForm,
+  });
+  const currentPlayerName = profileData?.player?.name;
+
+  const registerMutation = useMutation({
+    mutationFn: (payload: { category?: string; phone?: string; partner?: string }) =>
+      apiRequest("POST", `/api/player/tournaments/${tournamentId}/register`, payload),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowRegForm(false);
+      setRegisterSuccess(true);
+    },
+    onError: (error: Error) => {
+      Alert.alert(t("common.error"), error.message || "Could not register for this tournament.");
+    },
+  });
+
+  const handleRegister = () => {
+    if (!tournament) return;
+    if (tournament.isPublic) {
+      // Public tournament: show full registration form (phone, partner, category)
+      setRegPhone("");
+      setRegPartner("");
+      setRegCategory(tournament.categories?.[0] || "");
+      setShowRegForm(true);
+    } else {
+      // Academy-internal tournament: existing simple flow
+      if (tournament.categories && tournament.categories.length > 0) {
+        Alert.alert(
+          "Select Category",
+          "Choose your registration category:",
+          [
+            ...tournament.categories.map((cat: string) => ({
+              text: cat,
+              onPress: () => registerMutation.mutate({ category: cat }),
+            })),
+            { text: t("common.cancel"), style: "cancel" as const },
+          ]
+        );
+      } else {
+        registerMutation.mutate({});
+      }
+    }
+  };
+
+  const handleSubmitRegistration = () => {
+    if (!tournament) return;
+    if (!regPhone.trim()) {
+      Alert.alert("Phone Required", "Please enter your phone number so the academy can contact you.");
+      return;
+    }
+    const isDoubles = tournament.type === "doubles" || tournament.type === "mixed_doubles";
+    if (isDoubles && !regPartner.trim()) {
+      Alert.alert("Partner Required", "Please enter your partner's name for this doubles tournament.");
+      return;
+    }
+    const payload: { category?: string; phone?: string; partner?: string } = {
+      phone: regPhone.trim(),
+    };
+    if (isDoubles && regPartner.trim()) payload.partner = regPartner.trim();
+    if (regCategory) payload.category = regCategory;
+    registerMutation.mutate(payload);
+  };
 
   useEffect(() => {
     if (tournament && !viewModeInitialized) {
@@ -812,6 +888,43 @@ export default function TournamentDetailScreen() {
         </View>
       ) : null}
 
+      {!tournament.isRegistered && ["upcoming", "registration_open"].includes(tournament.status) ? (
+        <View style={detailRegStyles.registerSection}>
+          {registerSuccess ? (
+            <View style={detailRegStyles.successBox}>
+              <Ionicons name="checkmark-circle" size={20} color="#00C853" />
+              <View style={{ flex: 1 }}>
+                <Text style={detailRegStyles.successTitle}>Registered!</Text>
+                {tournament.entryFee && Number(tournament.entryFee) > 0 ? (
+                  <Text style={detailRegStyles.successNote}>
+                    Entry fee of AED {Number(tournament.entryFee)} will be collected by the hosting academy.
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              style={[detailRegStyles.registerBtn, registerMutation.isPending ? detailRegStyles.registerBtnDisabled : null]}
+              onPress={handleRegister}
+              disabled={registerMutation.isPending}
+            >
+              {registerMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="trophy-outline" size={16} color="#fff" />
+                  <Text style={detailRegStyles.registerBtnText}>
+                    {tournament.entryFee && Number(tournament.entryFee) > 0
+                      ? `Register — AED ${Number(tournament.entryFee)} (pay at academy)`
+                      : "Register Now (Free)"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
+      ) : null}
+
       <View style={styles.tabBar}>
         {tabs.map((tab) => (
           <Pressable
@@ -832,6 +945,119 @@ export default function TournamentDetailScreen() {
       </View>
 
       <View style={styles.content}>{renderContent()}</View>
+
+      <Modal
+        visible={showRegForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowRegForm(false)}
+      >
+        <View style={detailRegStyles.formModalContainer}>
+          <View style={detailRegStyles.formModalHeader}>
+            <Text style={detailRegStyles.formModalTitle} numberOfLines={2}>
+              Register: {tournament.name}
+            </Text>
+            <Pressable onPress={() => setShowRegForm(false)} style={detailRegStyles.formCloseBtn}>
+              <Ionicons name="close" size={22} color={TextColors.secondary} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={detailRegStyles.formModalContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {tournament.entryFee && Number(tournament.entryFee) > 0 ? (
+              <View style={detailRegStyles.paymentNote}>
+                <Ionicons name="information-circle-outline" size={16} color="#FBBF24" />
+                <Text style={detailRegStyles.paymentNoteText}>
+                  Entry fee of AED {Number(tournament.entryFee)} will be collected by the hosting academy. Your spot will be held as "pending payment."
+                </Text>
+              </View>
+            ) : null}
+
+            {currentPlayerName ? (
+              <>
+                <Text style={detailRegStyles.fieldLabel}>Your name</Text>
+                <View style={detailRegStyles.fieldReadOnly}>
+                  <Text style={detailRegStyles.fieldReadOnlyText}>{currentPlayerName}</Text>
+                </View>
+              </>
+            ) : null}
+
+            <Text style={detailRegStyles.fieldLabel}>Phone number *</Text>
+            <TextInput
+              style={detailRegStyles.field}
+              value={regPhone}
+              onChangeText={setRegPhone}
+              placeholder="+971 50 000 0000"
+              placeholderTextColor={TextColors.muted}
+              keyboardType="phone-pad"
+              returnKeyType="next"
+            />
+
+            {(tournament.type === "doubles" || tournament.type === "mixed_doubles") ? (
+              <>
+                <Text style={detailRegStyles.fieldLabel}>Partner's name *</Text>
+                <TextInput
+                  style={detailRegStyles.field}
+                  value={regPartner}
+                  onChangeText={setRegPartner}
+                  placeholder="Partner's full name"
+                  placeholderTextColor={TextColors.muted}
+                  returnKeyType="done"
+                />
+              </>
+            ) : null}
+
+            {tournament.categories && tournament.categories.length > 0 ? (
+              <>
+                <Text style={detailRegStyles.fieldLabel}>Category</Text>
+                <View style={detailRegStyles.categoryRow}>
+                  {tournament.categories.map((cat: string) => (
+                    <Pressable
+                      key={cat}
+                      style={[
+                        detailRegStyles.categoryChip,
+                        regCategory === cat ? detailRegStyles.categoryChipActive : null,
+                      ]}
+                      onPress={() => setRegCategory(cat)}
+                    >
+                      <Text
+                        style={[
+                          detailRegStyles.categoryChipText,
+                          regCategory === cat ? detailRegStyles.categoryChipTextActive : null,
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            <Pressable
+              style={[
+                detailRegStyles.submitBtn,
+                registerMutation.isPending ? detailRegStyles.submitBtnDisabled : null,
+              ]}
+              onPress={handleSubmitRegistration}
+              disabled={registerMutation.isPending}
+            >
+              {registerMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={detailRegStyles.submitBtnText}>
+                  {tournament.entryFee && Number(tournament.entryFee) > 0
+                    ? `Register — Pay AED ${Number(tournament.entryFee)} at academy`
+                    : "Register Now (Free)"}
+                </Text>
+              )}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1616,5 +1842,166 @@ const readinessStyles = StyleSheet.create({
     fontSize: 12,
     color: TextColors.secondary,
     lineHeight: 18,
+  },
+});
+
+const detailRegStyles = StyleSheet.create({
+  registerSection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: 8,
+  },
+  registerBtn: {
+    backgroundColor: "#00C853",
+    borderRadius: 12,
+    paddingVertical: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  registerBtnDisabled: {
+    opacity: 0.6,
+  },
+  registerBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  successBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(0, 200, 83, 0.1)",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 200, 83, 0.25)",
+  },
+  successTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#00C853",
+  },
+  successNote: {
+    fontSize: 12,
+    color: TextColors.secondary,
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  formModalContainer: {
+    flex: 1,
+    backgroundColor: Backgrounds.card,
+  },
+  formModalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    paddingTop: Spacing.xl,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+    gap: 10,
+  },
+  formModalTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: TextColors.primary,
+  },
+  formCloseBtn: {
+    padding: 4,
+  },
+  formModalContent: {
+    padding: Spacing.md,
+    gap: 0,
+  },
+  paymentNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(251, 191, 36, 0.1)",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.25)",
+    marginBottom: 16,
+  },
+  paymentNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#FCD34D",
+    lineHeight: 18,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: TextColors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  field: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: TextColors.primary,
+  },
+  fieldReadOnly: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  fieldReadOnlyText: {
+    fontSize: 14,
+    color: TextColors.secondary,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  categoryChipActive: {
+    backgroundColor: GlowColors.primary + "33",
+    borderColor: GlowColors.primary,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    color: TextColors.secondary,
+    fontWeight: "500",
+  },
+  categoryChipTextActive: {
+    color: GlowColors.primary,
+    fontWeight: "700",
+  },
+  submitBtn: {
+    backgroundColor: "#00C853",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 24,
+  },
+  submitBtnDisabled: {
+    opacity: 0.6,
+  },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
   },
 });
