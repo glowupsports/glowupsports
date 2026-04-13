@@ -283,6 +283,23 @@ export default function AdminPlayersScreen() {
     }
   };
 
+  const regenerateInviteCodeMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedPlayerId) throw new Error("No player selected");
+      const res = await apiRequest("POST", `/api/players/${selectedPlayerId}/invite/regenerate`);
+      return res.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (selectedPlayerId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/players/${selectedPlayerId}/invite`] });
+      }
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not generate new code. Try again.");
+    },
+  });
+
   const handleSubmit = () => {
     if (!formData.name.trim()) {
       if (Platform.OS === "web") {
@@ -1228,6 +1245,8 @@ export default function AdminPlayersScreen() {
         uniqueSeries={uniqueSeries}
         filteredSessions={filteredSessions}
         handleCopyInviteCode={handleCopyInviteCode}
+        handleRegenerateInviteCode={() => regenerateInviteCodeMutation.mutate()}
+        isRegeneratingInviteCode={regenerateInviteCodeMutation.isPending}
         playerInvite={playerInvite}
         inviteLoading={inviteLoading}
         inviteError={inviteError}

@@ -96,6 +96,35 @@ export function AdminInlinePlayerProfile({
     }
   };
 
+  const regenerateInviteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/players/${selectedPlayerId}/invite/regenerate`);
+      return res.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/players", selectedPlayerId, "invite"] });
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not generate new code. Try again.");
+    },
+  });
+
+  const handleRegenerateInviteCode = () => {
+    Alert.alert(
+      "Generate New Code?",
+      "The current invite code will stop working immediately. Anyone holding the old code will no longer be able to use it. Are you sure you want to generate a new code?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Generate New Code",
+          style: "destructive",
+          onPress: () => regenerateInviteMutation.mutate(),
+        },
+      ]
+    );
+  };
+
   const ATTENDANCE_STATUSES = ["pending", "present", "late", "absent", "holiday"] as const;
 
   const updateAttendanceMutation = useMutation({
@@ -720,6 +749,18 @@ export function AdminInlinePlayerProfile({
                   <Ionicons name={inviteCopied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.buttonText} />
                   <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.buttonText }}>{inviteCopied ? "Copied!" : "Copy Code"}</Text>
                 </LinearGradient>
+              </Pressable>
+              <Pressable
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: `${Colors.dark.error}40`, backgroundColor: Colors.dark.backgroundTertiary }}
+                onPress={handleRegenerateInviteCode}
+                disabled={regenerateInviteMutation.isPending}
+              >
+                {regenerateInviteMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                ) : (
+                  <Ionicons name="refresh-outline" size={16} color={Colors.dark.error} />
+                )}
+                <Text style={{ fontSize: 14, fontWeight: "600", color: Colors.dark.error }}>{regenerateInviteMutation.isPending ? "Generating..." : "Generate New Code"}</Text>
               </Pressable>
             </View>
           ) : null}

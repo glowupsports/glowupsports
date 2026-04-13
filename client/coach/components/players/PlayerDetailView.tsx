@@ -258,11 +258,15 @@ function ProminentInviteCard({
   playerName,
   onSendEmail,
   isSendingEmail,
+  onGenerateNewCode,
+  isGeneratingNewCode,
 }: {
   inviteCode: string;
   playerName: string;
   onSendEmail?: () => void;
   isSendingEmail?: boolean;
+  onGenerateNewCode?: () => void;
+  isGeneratingNewCode?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -287,6 +291,20 @@ function ProminentInviteCard({
         title: "Invite Code",
       });
     } catch {}
+  };
+  const handleGenerateNewCode = () => {
+    Alert.alert(
+      "Generate New Code?",
+      "The current invite code will stop working immediately. Anyone holding the old code will no longer be able to use it. Are you sure you want to generate a new code?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Generate New Code",
+          style: "destructive",
+          onPress: () => onGenerateNewCode?.(),
+        },
+      ]
+    );
   };
   return (
     <View style={styles.prominentInviteCard}>
@@ -325,6 +343,22 @@ function ProminentInviteCard({
           )}
           <Text style={[styles.prominentShareButtonText, { color: Colors.dark.tabIconDefault }]}>
             {isSendingEmail ? "Sending..." : "Send invite by email"}
+          </Text>
+        </Pressable>
+      ) : null}
+      {onGenerateNewCode ? (
+        <Pressable
+          style={[styles.prominentShareButton, { marginTop: 4, borderColor: Colors.dark.error + "40", backgroundColor: Colors.dark.backgroundTertiary }]}
+          onPress={handleGenerateNewCode}
+          disabled={isGeneratingNewCode}
+        >
+          {isGeneratingNewCode ? (
+            <ActivityIndicator size="small" color={Colors.dark.error} />
+          ) : (
+            <Ionicons name="refresh-outline" size={16} color={Colors.dark.error} />
+          )}
+          <Text style={[styles.prominentShareButtonText, { color: Colors.dark.error }]}>
+            {isGeneratingNewCode ? "Generating..." : "Generate New Code"}
           </Text>
         </Pressable>
       ) : null}
@@ -526,6 +560,22 @@ export function PlayerDetailView({
     onError: (error: Error) => {
       setTimeout(() => {
         Alert.alert("Failed", error.message || "Could not send invite. Try again.");
+      }, 350);
+    },
+  });
+
+  const regenerateInviteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/players/${player.id}/invite/regenerate`);
+      return res.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/players", player.id, "invite"] });
+    },
+    onError: (error: Error) => {
+      setTimeout(() => {
+        Alert.alert("Failed", error.message || "Could not generate new code. Try again.");
       }, 350);
     },
   });
@@ -1206,7 +1256,7 @@ export function PlayerDetailView({
 
         {isInvitePending && inviteData?.inviteCode ? (
           <CollapsibleSection title="Invite Code" icon="mail-outline" iconColor={Colors.dark.xpCyan}>
-            <ProminentInviteCard inviteCode={inviteData.inviteCode} playerName={localPlayer.name} onSendEmail={() => sendInviteEmailMutation.mutate()} isSendingEmail={sendInviteEmailMutation.isPending} />
+            <ProminentInviteCard inviteCode={inviteData.inviteCode} playerName={localPlayer.name} onSendEmail={() => sendInviteEmailMutation.mutate()} isSendingEmail={sendInviteEmailMutation.isPending} onGenerateNewCode={() => regenerateInviteMutation.mutate()} isGeneratingNewCode={regenerateInviteMutation.isPending} />
           </CollapsibleSection>
         ) : null}
 

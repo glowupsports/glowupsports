@@ -43,6 +43,8 @@ interface AdminPlayerDetailModalProps {
   uniqueSeries: Array<{ id: string; name: string }>;
   filteredSessions: AdminPlayerSessionItem[];
   handleCopyInviteCode: () => void;
+  handleRegenerateInviteCode?: () => void;
+  isRegeneratingInviteCode?: boolean;
   playerInvite: { inviteCode: string; status: string } | undefined;
   inviteLoading: boolean;
   inviteError: boolean;
@@ -89,6 +91,8 @@ export function AdminPlayerDetailModal({
   uniqueSeries,
   filteredSessions,
   handleCopyInviteCode,
+  handleRegenerateInviteCode,
+  isRegeneratingInviteCode,
   playerInvite,
   inviteLoading,
   inviteError,
@@ -863,6 +867,29 @@ export function AdminPlayerDetailModal({
                       <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.buttonText }}>{inviteCopied ? "Copied!" : "Copy Code"}</Text>
                     </LinearGradient>
                   </Pressable>
+                  {handleRegenerateInviteCode ? (
+                    <Pressable
+                      style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: `${Colors.dark.error}40`, backgroundColor: Colors.dark.backgroundTertiary }}
+                      onPress={() => {
+                        Alert.alert(
+                          "Generate New Code?",
+                          "The current invite code will stop working immediately. Anyone holding the old code will no longer be able to use it. Are you sure you want to generate a new code?",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "Generate New Code", style: "destructive", onPress: handleRegenerateInviteCode },
+                          ]
+                        );
+                      }}
+                      disabled={isRegeneratingInviteCode}
+                    >
+                      {isRegeneratingInviteCode ? (
+                        <ActivityIndicator size="small" color={Colors.dark.error} />
+                      ) : (
+                        <Ionicons name="refresh-outline" size={16} color={Colors.dark.error} />
+                      )}
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: Colors.dark.error }}>{isRegeneratingInviteCode ? "Generating..." : "Generate New Code"}</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ) : null}
 
