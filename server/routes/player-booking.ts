@@ -888,11 +888,18 @@ Return only the JSON array, nothing else.`;
 
       const seriesIds = [...new Set(sessions.map(s => s.seriesId).filter(Boolean))];
       const seriesLevelMap = new Map<string, string>();
+      const seriesDropInMap = new Map<string, { isPublic: boolean; publicDropInPrice: number | null }>();
       for (const sid of seriesIds) {
         try {
           const series = await storage.getCoachingSeriesById(sid as string);
           if (series?.ballLevel) {
             seriesLevelMap.set(sid as string, series.ballLevel.toLowerCase());
+          }
+          if (series) {
+            seriesDropInMap.set(sid as string, {
+              isPublic: series.isPublic ?? false,
+              publicDropInPrice: series.publicDropInPrice ? parseFloat(series.publicDropInPrice.toString()) : null,
+            });
           }
         } catch (e) {}
       }
@@ -1040,11 +1047,14 @@ Return only the JSON array, nothing else.`;
         const offeredAt = myWaitlistEntry?.offeredAt?.toISOString() || null;
         const claimWindowMinutes = myWaitlistEntry?.claimWindowMinutes || 30;
 
-        // Calculate publicDropInPrice: use academyPrice if set, otherwise price
-        const publicDropInPrice = session.academyPrice
-          ? parseFloat(session.academyPrice.toString())
-          : session.price
-          ? parseFloat(session.price.toString())
+        // Calculate publicDropInPrice: only expose when coaching_series.isPublic = true
+        // Use series.publicDropInPrice as the authoritative price for drop-in players
+        const seriesDropIn = session.seriesId ? seriesDropInMap.get(session.seriesId) : null;
+        const isPublicSeries = seriesDropIn?.isPublic ?? false;
+        const publicDropInPrice = isPublicSeries
+          ? (seriesDropIn?.publicDropInPrice
+              ?? (session.academyPrice ? parseFloat(session.academyPrice.toString()) : null)
+              ?? (session.price ? parseFloat(session.price.toString()) : null))
           : null;
 
         return {
@@ -1362,6 +1372,112 @@ Return only the JSON array, nothing else.`;
     } catch (error) {
       console.error("Join session error:", error);
       res.status(500).json({ error: "Failed to join session" });
+    }
+  });
+
+  // Drop-in booking for public sessions — creates a Stripe Checkout session and returns URL
+  router.post("/api/play/sessions/:sessionId/drop-in-book", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { sessionId } = req.params;
+
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check if already joined
+      const existingPlayer = await db.query.sessionPlayers.findFirst({
+        where: (sp, { and, eq }) => and(eq(sp.sessionId, sessionId), eq(sp.playerId, playerId)),
+      });
+      if (existingPlayer) {
+        return res.status(400).json({ error: "Already joined this session" });
+      }
+
+      // Check capacity
+      const maxPlayers = session.maxPlayers || 6;
+      const effectiveJoinCount = await getEffectivePlayerCount(sessionId);
+      if (effectiveJoinCount >= maxPlayers) {
+        return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
+      }
+
+      // Get coaching series to determine isPublic + publicDropInPrice
+      let seriesPublicDropInPrice: number | null = null;
+      if (session.seriesId) {
+        const series = await storage.getCoachingSeriesById(session.seriesId);
+        if (!series?.isPublic) {
+          return res.status(400).json({ error: "This session is not open for drop-in bookings." });
+        }
+        if (series.publicDropInPrice) {
+          seriesPublicDropInPrice = parseFloat(series.publicDropInPrice.toString());
+        }
+      }
+
+      // Determine price (fall back to session academyPrice / price)
+      const dropInPrice = seriesPublicDropInPrice
+        ?? (session.academyPrice ? parseFloat(session.academyPrice.toString()) : null)
+        ?? (session.price ? parseFloat(session.price.toString()) : null);
+
+      if (!dropInPrice || dropInPrice <= 0) {
+        return res.status(400).json({ error: "This session has no drop-in price configured." });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Players from the same academy use the normal credit flow (join endpoint)
+      if (player.academyId && session.academyId && player.academyId === session.academyId) {
+        return res.status(400).json({ error: "Academy members should use the regular join flow." });
+      }
+
+      // Create Stripe Checkout session
+      const { getUncachableStripeClient } = await import("../stripeClient");
+      const stripe = await getUncachableStripeClient();
+
+      const forwardedProto = req.header("x-forwarded-proto") || req.protocol || "https";
+      const forwardedHost = req.header("x-forwarded-host") || req.get("host") || "localhost";
+      const baseUrl = `${forwardedProto}://${forwardedHost}`;
+
+      const sessionTitle = session.title || `Group Session Drop-In`;
+      const priceInHalalas = Math.round(dropInPrice * 100); // AED smallest unit
+
+      const checkoutSession = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: "aed",
+              product_data: { name: sessionTitle },
+              unit_amount: priceInHalalas,
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${baseUrl}/?drop_in_success=true&session_id=${sessionId}`,
+        cancel_url: `${baseUrl}/?drop_in_cancelled=true`,
+        metadata: {
+          type: "drop_in_session",
+          sessionId,
+          playerId,
+        },
+        customer_email: player.email || undefined,
+      });
+
+      return res.json({
+        checkoutUrl: checkoutSession.url,
+        sessionId,
+        price: dropInPrice,
+      });
+    } catch (error) {
+      console.error("Drop-in book error:", error);
+      res.status(500).json({ error: "Failed to create drop-in booking" });
     }
   });
 

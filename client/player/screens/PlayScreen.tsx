@@ -30,6 +30,7 @@ import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
 import { useSport, getSportLabel, getSportColor, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
+import * as WebBrowser from "expo-web-browser";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -645,6 +646,36 @@ export default function PlayScreen() {
     },
   });
 
+  const dropInBookMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("POST", `/api/play/sessions/${sessionId}/drop-in-book`);
+      return await response.json();
+    },
+    onSuccess: async (data: { checkoutUrl?: string; sessionId?: string; price?: number }) => {
+      setJoiningSessionId(null);
+      if (data.checkoutUrl) {
+        await WebBrowser.openBrowserAsync(data.checkoutUrl, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        });
+        queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/play/sessions") });
+        Alert.alert("Booked! See you there.", "Payment complete — you are in the session.");
+      }
+    },
+    onError: (error: Error) => {
+      const errorMessage = error.message.includes(": ")
+        ? error.message.split(": ").slice(1).join(": ")
+        : error.message;
+      Alert.alert("Oops", errorMessage || "Could not start drop-in booking");
+      setJoiningSessionId(null);
+    },
+  });
+
+  const handleDropInBook = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setJoiningSessionId(sessionId);
+    dropInBookMutation.mutate(sessionId);
+  };
+
   const handleLeaveSession = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJoiningSessionId(sessionId);
@@ -736,6 +767,9 @@ export default function PlayScreen() {
     const backgroundImage = session.courtImageUrl ? { uri: session.courtImageUrl } : courtBackground;
     const sessionLevelColor = getBallLevelColor(session.ballLevel || "");
     const isOffered = session.isOnWaitlist && session.waitlistStatus === "offered";
+    // Drop-in: session has a price AND player is not from the same academy
+    const isDropInSession = session.publicDropInPrice != null &&
+      !(playerAcademyId && session.sessionAcademyId && playerAcademyId === session.sessionAcademyId);
 
     return (
       <View 
@@ -929,24 +963,46 @@ export default function PlayScreen() {
                       </Pressable>
                     </View>
                   ) : !isFull ? (
-                    <Pressable 
-                      style={[styles.epicJoinButton, isJoining && styles.buttonDisabled]}
-                      onPress={() => {
-                        logger.log("[PlayScreen] Join button pressed for session:", session.id);
-                        if (!isJoining) {
-                          handleJoinSession(session.id);
-                        }
-                      }}
-                    >
-                      {isJoining ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
-                      ) : (
-                        <>
-                          <Ionicons name="enter-outline" size={18} color={Colors.dark.buttonText} />
-                          <Text style={styles.epicJoinButtonText}>Join Session</Text>
-                        </>
-                      )}
-                    </Pressable>
+                    isDropInSession ? (
+                      <Pressable
+                        style={[styles.epicDropInButton, isJoining && styles.buttonDisabled]}
+                        onPress={() => {
+                          if (!isJoining) {
+                            handleDropInBook(session.id);
+                          }
+                        }}
+                      >
+                        {isJoining ? (
+                          <ActivityIndicator size="small" color="#000" />
+                        ) : (
+                          <>
+                            <Ionicons name="card-outline" size={18} color="#000" />
+                            <Text style={styles.epicDropInButtonText}>
+                              Book & Pay — AED {session.publicDropInPrice!.toFixed(0)}
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+                    ) : (
+                      <Pressable 
+                        style={[styles.epicJoinButton, isJoining && styles.buttonDisabled]}
+                        onPress={() => {
+                          logger.log("[PlayScreen] Join button pressed for session:", session.id);
+                          if (!isJoining) {
+                            handleJoinSession(session.id);
+                          }
+                        }}
+                      >
+                        {isJoining ? (
+                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        ) : (
+                          <>
+                            <Ionicons name="enter-outline" size={18} color={Colors.dark.buttonText} />
+                            <Text style={styles.epicJoinButtonText}>Join Session</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    )
                   ) : (
                     <Pressable 
                       style={[styles.epicWaitlistButton, isJoining && styles.buttonDisabled]}
@@ -971,10 +1027,28 @@ export default function PlayScreen() {
               </View>
 
               {/* Price + Spots chip */}
-              {session.publicDropInPrice != null ? (
+              {isDropInSession ? (
                 <View style={styles.priceChipRow}>
                   <View style={styles.priceChip}>
-                    <Text style={styles.priceChipText}>AED {session.publicDropInPrice.toFixed(0)} / session</Text>
+                    <Ionicons name="cash-outline" size={12} color="#39FF14" style={{ marginRight: 2 }} />
+                    <Text style={[styles.priceChipText, { color: "#39FF14" }]}>
+                      AED {session.publicDropInPrice!.toFixed(0)} / session
+                    </Text>
+                  </View>
+                  {(session.academyName || session.sessionAcademyName) ? (
+                    <View style={styles.spotsChip}>
+                      <Text style={styles.spotsChipText}>at {session.academyName || session.sessionAcademyName}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.spotsChip}>
+                      <Text style={styles.spotsChipText}>{Math.max(0, session.maxPlayers - session.currentPlayers)} spots left</Text>
+                    </View>
+                  )}
+                </View>
+              ) : session.publicDropInPrice === 0 ? (
+                <View style={styles.priceChipRow}>
+                  <View style={styles.priceChip}>
+                    <Text style={styles.priceChipText}>Free</Text>
                   </View>
                   <View style={styles.spotsChip}>
                     <Text style={styles.spotsChipText}>{Math.max(0, session.maxPlayers - session.currentPlayers)} spots left</Text>
@@ -982,15 +1056,17 @@ export default function PlayScreen() {
                 </View>
               ) : null}
 
-              {/* Credit Cost Indicator */}
-              <View style={styles.creditCostRow}>
-                <Ionicons name="ticket-outline" size={14} color={hasCorporateCredits ? Colors.dark.xpCyan : Colors.dark.textMuted} />
-                <Text style={[styles.creditCostText, hasCorporateCredits ? { color: Colors.dark.xpCyan } : {}]}>
-                  {hasCorporateCredits
-                    ? `Company credit (${corporateData?.corporateAccount?.companyName})`
-                    : `1 ${session.sessionType === "group" ? "Group" : "Semi-Private"} Credit`}
-                </Text>
-              </View>
+              {/* Credit Cost Indicator — only shown for academy members using credits, not drop-in players */}
+              {!isDropInSession ? (
+                <View style={styles.creditCostRow}>
+                  <Ionicons name="ticket-outline" size={14} color={hasCorporateCredits ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                  <Text style={[styles.creditCostText, hasCorporateCredits ? { color: Colors.dark.xpCyan } : {}]}>
+                    {hasCorporateCredits
+                      ? `Company credit (${corporateData?.corporateAccount?.companyName})`
+                      : `1 ${session.sessionType === "group" ? "Group" : "Semi-Private"} Credit`}
+                  </Text>
+                </View>
+              ) : null}
 
               {/* Participants Section - Below buttons */}
               {session.players.length > 0 ? (
@@ -2947,6 +3023,22 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  epicDropInButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "#39FF14",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#39FF14",
+  },
+  epicDropInButtonText: {
+    ...Typography.body,
+    color: "#000",
+    fontWeight: "700",
+  },
   waitlistStatusContainer: {
     alignItems: "flex-end",
     gap: Spacing.xs,
@@ -3100,6 +3192,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   priceChip: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.dark.primary + "25",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
