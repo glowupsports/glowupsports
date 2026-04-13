@@ -250,11 +250,18 @@ export default function FamilyLobbyScreen() {
   const [showControls, setShowControls] = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
-  const [addChildTab, setAddChildTab] = useState<"email" | "code">("email");
+  const [addChildTab, setAddChildTab] = useState<"email" | "code" | "enter">("email");
   const [childEmail, setChildEmail] = useState("");
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [inviteExpiry, setInviteExpiry] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+
+  const [enterCodeValue, setEnterCodeValue] = useState("");
+  const [enterCodePreview, setEnterCodePreview] = useState<{ playerName: string; academyName: string } | null>(null);
+  const [enterCodeError, setEnterCodeError] = useState<string | null>(null);
+  const [enterCodeLoading, setEnterCodeLoading] = useState(false);
+  const [enterCodeClaiming, setEnterCodeClaiming] = useState(false);
+  const [enterCodeClaimed, setEnterCodeClaimed] = useState(false);
 
   const controlsMutation = useMutation({
     mutationFn: async ({ playerId, field, value }: { playerId: string; field: string; value: boolean }) => {
@@ -329,14 +336,73 @@ export default function FamilyLobbyScreen() {
     setInviteExpiry(null);
     setCodeCopied(false);
     setAddChildTab("email");
+    setEnterCodeValue("");
+    setEnterCodePreview(null);
+    setEnterCodeError(null);
+    setEnterCodeClaimed(false);
     setShowAddChild(true);
   };
 
-  const handleTabChange = (tab: "email" | "code") => {
+  const handleTabChange = (tab: "email" | "code" | "enter") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAddChildTab(tab);
     if (tab === "code" && !inviteCode) {
       inviteCodeMutation.mutate();
+    }
+  };
+
+  const handleEnterCodeLookup = async () => {
+    const code = enterCodeValue.trim().toUpperCase();
+    if (!code) return;
+    setEnterCodeLoading(true);
+    setEnterCodePreview(null);
+    setEnterCodeError(null);
+    try {
+      const baseUrl = getApiUrl();
+      const url = new URL(`/api/player-invites/${code}/preview`, baseUrl).toString();
+      const res = await fetch(url);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setEnterCodeError(data.message || data.error || "Code not found. Please check and try again.");
+      } else {
+        const data = await res.json();
+        setEnterCodePreview({ playerName: data.playerName, academyName: data.academyName });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setEnterCodeError("Could not reach the server. Please try again.");
+    } finally {
+      setEnterCodeLoading(false);
+    }
+  };
+
+  const handleEnterCodeClaim = async () => {
+    if (!enterCodePreview) return;
+    const userId = user?.id;
+    if (!userId) {
+      setEnterCodeError("You must be signed in to claim an invite.");
+      return;
+    }
+    setEnterCodeClaiming(true);
+    try {
+      await apiRequest("POST", "/api/player-invite/claim", {
+        inviteCode: enterCodeValue.trim().toUpperCase(),
+        userId,
+      });
+      setEnterCodeClaimed(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => {
+        setShowAddChild(false);
+        setEnterCodeClaimed(false);
+        setEnterCodeValue("");
+        setEnterCodePreview(null);
+        refreshFamily();
+      }, 2000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Could not claim the invite. Please try again.";
+      setEnterCodeError(message);
+    } finally {
+      setEnterCodeClaiming(false);
     }
   };
 
@@ -646,6 +712,14 @@ export default function FamilyLobbyScreen() {
                 <Ionicons name="share-social-outline" size={16} color={addChildTab === "code" ? Colors.dark.primary : Colors.dark.textMuted} />
                 <Text style={[styles.tabText, addChildTab === "code" ? styles.tabTextActive : null]}>By Invite Code</Text>
               </Pressable>
+              <Pressable
+                style={[styles.tab, addChildTab === "enter" ? styles.tabActive : null]}
+                onPress={() => handleTabChange("enter")}
+                accessibilityRole="button"
+              >
+                <Ionicons name="key-outline" size={16} color={addChildTab === "enter" ? Colors.dark.primary : Colors.dark.textMuted} />
+                <Text style={[styles.tabText, addChildTab === "enter" ? styles.tabTextActive : null]}>Enter Code</Text>
+              </Pressable>
             </View>
 
             {addChildTab === "email" ? (
@@ -682,7 +756,7 @@ export default function FamilyLobbyScreen() {
                   )}
                 </Pressable>
               </View>
-            ) : (
+            ) : addChildTab === "code" ? (
               <View style={styles.tabContent}>
                 <Text style={styles.modalSubtitle}>
                   Share this code with the player. They can enter it in Settings to join your family.
@@ -720,6 +794,83 @@ export default function FamilyLobbyScreen() {
                     </Pressable>
                   </>
                 ) : null}
+              </View>
+            ) : (
+              <View style={styles.tabContent}>
+                <Text style={styles.modalSubtitle}>
+                  Enter the 6-character code your coach shared with you to link a player profile instantly.
+                </Text>
+                {enterCodeClaimed && enterCodePreview ? (
+                  <View style={styles.enterCodeSuccess}>
+                    <Ionicons name="checkmark-circle" size={40} color={Colors.dark.primary} />
+                    <Text style={styles.enterCodeSuccessTitle}>Linked!</Text>
+                    <Text style={styles.enterCodeSuccessText}>
+                      {enterCodePreview.playerName} has been added to your family.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.enterCodeRow}>
+                      <TextInput
+                        style={styles.enterCodeInput}
+                        value={enterCodeValue}
+                        onChangeText={(t) => {
+                          setEnterCodeValue(t.toUpperCase());
+                          setEnterCodePreview(null);
+                          setEnterCodeError(null);
+                        }}
+                        autoCapitalize="characters"
+                        maxLength={8}
+                        placeholder="ABC123"
+                        placeholderTextColor={Colors.dark.textMuted}
+                        autoCorrect={false}
+                        returnKeyType="done"
+                        onSubmitEditing={handleEnterCodeLookup}
+                      />
+                      <Pressable
+                        style={[styles.enterCodeLookupBtn, (!enterCodeValue.trim() || enterCodeLoading) ? styles.enterCodeLookupBtnDisabled : null]}
+                        onPress={handleEnterCodeLookup}
+                        disabled={!enterCodeValue.trim() || enterCodeLoading}
+                        accessibilityRole="button"
+                        accessibilityLabel="Look up invite code"
+                      >
+                        {enterCodeLoading ? (
+                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        ) : (
+                          <Text style={styles.enterCodeLookupBtnText}>Look up</Text>
+                        )}
+                      </Pressable>
+                    </View>
+
+                    {enterCodeError ? (
+                      <Text style={styles.enterCodeErrorText}>{enterCodeError}</Text>
+                    ) : null}
+
+                    {enterCodePreview ? (
+                      <View style={styles.enterCodePreviewCard}>
+                        <View style={styles.enterCodePreviewRow}>
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                          <Text style={styles.enterCodePreviewLabel}>Player found:</Text>
+                        </View>
+                        <Text style={styles.enterCodePreviewName}>{enterCodePreview.playerName}</Text>
+                        <Text style={styles.enterCodePreviewAcademy}>{enterCodePreview.academyName}</Text>
+                        <Pressable
+                          style={[styles.addButton, enterCodeClaiming ? styles.addButtonDisabled : null]}
+                          onPress={handleEnterCodeClaim}
+                          disabled={enterCodeClaiming}
+                          accessibilityRole="button"
+                          accessibilityLabel="Confirm and link player"
+                        >
+                          {enterCodeClaiming ? (
+                            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                          ) : (
+                            <Text style={styles.addButtonText}>Add {enterCodePreview.playerName} to Family</Text>
+                          )}
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -1256,4 +1407,68 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
+  enterCodeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    alignItems: "center",
+  },
+  enterCodeInput: {
+    flex: 1,
+    backgroundColor: `${Colors.dark.primary}10`,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 4,
+    textAlign: "center",
+  },
+  enterCodeLookupBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 80,
+  },
+  enterCodeLookupBtnDisabled: { opacity: 0.5 },
+  enterCodeLookupBtnText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
+  enterCodeErrorText: {
+    fontSize: FontSizes.sm,
+    color: "#FF5C5C",
+    textAlign: "center",
+    marginTop: Spacing.xs,
+  },
+  enterCodePreviewCard: {
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  enterCodePreviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  enterCodePreviewLabel: { fontSize: FontSizes.sm, color: Colors.dark.textMuted },
+  enterCodePreviewName: { fontSize: FontSizes.lg, fontWeight: "700", color: Colors.dark.text },
+  enterCodePreviewAcademy: { fontSize: FontSizes.sm, color: Colors.dark.textMuted, marginBottom: Spacing.xs },
+  enterCodeSuccess: {
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.xl,
+  },
+  enterCodeSuccessTitle: { fontSize: FontSizes.xl, fontWeight: "700", color: Colors.dark.text },
+  enterCodeSuccessText: { fontSize: FontSizes.md, color: Colors.dark.textMuted, textAlign: "center" },
 });

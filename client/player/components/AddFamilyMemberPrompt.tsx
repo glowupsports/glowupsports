@@ -127,8 +127,13 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
       setInviteClaimed(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       claimTimerRef.current = setTimeout(() => {
-        onDone();
-      }, 2000);
+        setAddedCount((prev) => prev + 1);
+        setShowInviteCode(false);
+        setInviteCode("");
+        setInvitePreview(null);
+        setInviteError(null);
+        setInviteClaimed(false);
+      }, 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Could not claim the invite. Please try again.";
       setInviteError(message);
@@ -161,9 +166,9 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
         </Pressable>
 
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <Text style={styles.title}>Enter your coach's invite code</Text>
+          <Text style={styles.title}>Enter your invite code</Text>
           <Text style={styles.subtitle}>
-            Your coach should have shared a 6-character code with you
+            Enter the 6-character code your coach or academy shared with you
           </Text>
         </Animated.View>
 
@@ -290,7 +295,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
                     accessibilityLabel="I have a coach invite code"
                   >
                     <Ionicons name="key-outline" size={20} color={Colors.dark.xpCyan} />
-                    <Text style={styles.coachCodeBtnText}>I have a coach code</Text>
+                    <Text style={styles.coachCodeBtnText}>I have an invite code</Text>
                   </Pressable>
 
                   <Pressable
