@@ -133,10 +133,10 @@ function PremiumCoachCard({ coach, onPress, index }: { coach: CoachDirectoryEntr
                   </Text>
                 </View>
               ) : null}
-              {coach.rating ? (
+              {!isNaN(Number(coach.rating)) && Number(coach.rating) > 0 ? (
                 <View style={styles.statItem}>
                   <Ionicons name="star" size={12} color="#FFD700" />
-                  <Text style={styles.statText}>{coach.rating.toFixed(1)}</Text>
+                  <Text style={styles.statText}>{Number(coach.rating).toFixed(1)}</Text>
                 </View>
               ) : null}
             </View>

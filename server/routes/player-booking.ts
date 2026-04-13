@@ -77,8 +77,8 @@ async function notifyWaitlistPlayerSpotOffered(
 
 const bookingRequestSchema = z.object({
   coachId: z.string().min(1).optional(),
-  locationId: z.string().optional(),
-  courtId: z.string().optional(),
+  locationId: z.string().nullish(),
+  courtId: z.string().nullish(),
   requestedStart: z.string().min(1),
   requestedEnd: z.string().min(1),
   duration: z.number().int().positive(),

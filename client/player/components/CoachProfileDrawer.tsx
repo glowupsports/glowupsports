@@ -160,10 +160,10 @@ export default function CoachProfileDrawer({
                   </Text>
                 </View>
               )}
-              {coach.rating && (
+              {!isNaN(Number(coach.rating)) && Number(coach.rating) > 0 && (
                 <View style={styles.quickStatCard}>
                   <Ionicons name="star" size={20} color="#FFD700" />
-                  <Text style={styles.quickStatValue}>{coach.rating.toFixed(1)} rating</Text>
+                  <Text style={styles.quickStatValue}>{Number(coach.rating).toFixed(1)} rating</Text>
                 </View>
               )}
               {coach.totalStudents && coach.totalStudents > 0 && (

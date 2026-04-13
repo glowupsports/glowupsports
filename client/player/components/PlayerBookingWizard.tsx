@@ -962,12 +962,12 @@ export default function PlayerBookingWizard({
             )}
 
             {/* Available Slots for New Booking */}
-            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).length > 0 && (
+            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).length > 0 && (
               <>
                 <Text style={styles.sessionSectionTitle}>
                   {showJoinable ? "Or Request New Session" : "Available Times"}
                 </Text>
-                {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).map((slot, index) => {
+                {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).map((slot, index) => {
                   const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
                   return (
                     <Pressable
@@ -1011,7 +1011,7 @@ export default function PlayerBookingWizard({
               </>
             )}
 
-            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).length === 0 && joinableSessions.length === 0 && !isLoading && (
+            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).length === 0 && joinableSessions.length === 0 && !isLoading && (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
                 <Text style={styles.emptyStateTitle}>
