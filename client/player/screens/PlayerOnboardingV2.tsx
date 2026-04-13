@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { Image as ExpoImage } from "expo-image";
 import { File } from "expo-file-system";
 import Animated, {
   FadeIn,
@@ -40,18 +41,26 @@ import {
   Spacing,
   Typography,
   BorderRadius,
+  FontSizes,
   CardStyles,
   GlowColors,
   BallLevelColors,
   Shadows,
  Backgrounds, } from "@/constants/theme";
-import { apiRequest, getApiUrl, apiFetch } from "@/lib/query-client";
+import { apiRequest, getApiUrl, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize, childTshirtSizes, adultTshirtSizes } from "@shared/schema";
 import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import * as Localization from "expo-localization";
 import * as Location from "expo-location";
+
+const SPORT_LABELS: Record<string, string> = {
+  tennis: "Tennis",
+  padel: "Padel",
+  pickleball: "Pickleball",
+  squash: "Squash",
+};
 
 const ISO_TO_COUNTRY: Record<string, string> = {
   AE: "United Arab Emirates",
@@ -182,6 +191,10 @@ interface Academy {
   playerCount: number;
   city?: string | null;
   country?: string | null;
+  logoUrl?: string | null;
+  description?: string | null;
+  averageRating?: number | null;
+  sports?: string[];
 }
 
 interface AcademyCountry {
@@ -1607,6 +1620,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showingAll, setShowingAll] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(true);
+  const [previewAcademy, setPreviewAcademy] = useState<Academy | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1676,11 +1690,77 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
   const isLoading = isLoadingFiltered || (hasNoLocalAcademies && isLoadingAll);
   const displayedAcademies = hasNoLocalAcademies ? allAcademies : filteredAcademies.slice(0, 5);
 
-  const handleSelectAcademy = (academy: { id: string; name: string }) => {
+  const handleSelectAcademy = (academy: Academy) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPreviewAcademy(academy);
+  };
+
+  const handleConfirmAcademy = (academy: Academy) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setData((prev) => ({ ...prev, academyId: academy.id, academyName: academy.name }));
     setTimeout(onNext, 300);
   };
+
+  if (previewAcademy) {
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={FadeInDown.delay(0).duration(350)} style={styles.academyDetailContainer}>
+          {previewAcademy.logoUrl ? (
+            <ExpoImage
+              source={{ uri: buildPhotoUrl(previewAcademy.logoUrl)! }}
+              style={styles.academyDetailLogo}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={styles.academyDetailLogoPlaceholder}>
+              <Ionicons name="tennisball-outline" size={40} color={Colors.dark.textMuted} />
+            </View>
+          )}
+
+          <Text style={styles.academyDetailName}>{previewAcademy.name}</Text>
+
+          <View style={[styles.academySportRow, { justifyContent: "center" }]}>
+            {(previewAcademy.sports ?? ["tennis"]).map(sport => (
+              <View key={sport} style={styles.academySportChip}>
+                <Text style={styles.academySportChipText}>{SPORT_LABELS[sport] ?? sport}</Text>
+              </View>
+            ))}
+            {previewAcademy.averageRating && previewAcademy.averageRating > 0 ? (
+              <View style={styles.academyRatingChip}>
+                <Ionicons name="star" size={10} color={Colors.dark.primary} />
+                <Text style={styles.academyRatingText}>{previewAcademy.averageRating.toFixed(1)}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.academyDetailStats}>
+            {[previewAcademy.city, `${previewAcademy.coachCount} coach${previewAcademy.coachCount !== 1 ? "es" : ""}`, `${previewAcademy.playerCount} players`].filter(Boolean).join(" · ")}
+          </Text>
+
+          {previewAcademy.description ? (
+            <Text style={styles.academyDetailDescription}>{previewAcademy.description}</Text>
+          ) : null}
+
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => handleConfirmAcademy(previewAcademy)}
+          >
+            <Text style={styles.primaryButtonText}>Join {previewAcademy.name}</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.skipLink}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPreviewAcademy(null);
+            }}
+          >
+            <Text style={styles.skipLinkText}>Back to list</Text>
+          </Pressable>
+        </Animated.View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
@@ -1763,28 +1843,49 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
               style={[styles.academyCard, data.academyId === academy.id ? styles.academyCardActive : null]}
               onPress={() => handleSelectAcademy(academy)}
             >
-              <View style={styles.academyIconContainer}>
-                <Ionicons
-                  name="tennisball-outline"
-                  size={28}
-                  color={data.academyId === academy.id ? GlowColors.primary : Colors.dark.textMuted}
-                />
+              <View style={styles.academyLogoContainer}>
+                {academy.logoUrl ? (
+                  <ExpoImage
+                    source={{ uri: buildPhotoUrl(academy.logoUrl)! }}
+                    style={styles.academyLogo}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={[styles.academyLogoPlaceholder, data.academyId === academy.id ? styles.academyLogoPlaceholderActive : null]}>
+                    <Ionicons name="tennisball-outline" size={24} color={data.academyId === academy.id ? GlowColors.primary : Colors.dark.textMuted} />
+                  </View>
+                )}
               </View>
               <View style={styles.academyInfo}>
-                <Text style={[styles.academyName, data.academyId === academy.id ? styles.academyNameActive : null]}>
+                <Text style={[styles.academyName, data.academyId === academy.id ? styles.academyNameActive : null]} numberOfLines={1}>
                   {academy.name}
                 </Text>
-                <Text style={styles.academyStats}>
-                  {academy.coachCount} coaches · {academy.playerCount} players
-                  {academy.city ? ` · ${academy.city}` : ""}
+                <View style={styles.academySportRow}>
+                  {(academy.sports ?? ["tennis"]).slice(0, 3).map(sport => (
+                    <View key={sport} style={styles.academySportChip}>
+                      <Text style={styles.academySportChipText}>{SPORT_LABELS[sport] ?? sport}</Text>
+                    </View>
+                  ))}
+                  {academy.averageRating && academy.averageRating > 0 ? (
+                    <View style={styles.academyRatingChip}>
+                      <Ionicons name="star" size={10} color={Colors.dark.primary} />
+                      <Text style={styles.academyRatingText}>{academy.averageRating.toFixed(1)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.academyStats} numberOfLines={1}>
+                  {[academy.city, `${academy.coachCount} coach${academy.coachCount !== 1 ? "es" : ""}`, `${academy.playerCount} players`].filter(Boolean).join(" · ")}
                 </Text>
+                {academy.description ? (
+                  <Text style={styles.academyDescription} numberOfLines={2}>{academy.description}</Text>
+                ) : null}
               </View>
               {data.academyId === academy.id ? (
                 <View style={styles.checkIcon}>
                   <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                 </View>
               ) : (
-                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} style={{ alignSelf: "flex-start", marginTop: 4 }} />
               )}
             </Pressable>
           ))
@@ -3140,41 +3241,127 @@ const styles = StyleSheet.create({
   },
   academyCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: Spacing.md,
-    padding: Spacing.lg,
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.border}60`,
+    padding: Spacing.md,
   },
   academyCardActive: {
     borderColor: GlowColors.primary,
     backgroundColor: `${GlowColors.primary}10`,
   },
-  academyIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Backgrounds.surface,
-    justifyContent: "center",
+  academyLogoContainer: {
+    flexShrink: 0,
+  },
+  academyLogo: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+  },
+  academyLogoPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: `${Colors.dark.textMuted}20`,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  academyLogoPlaceholderActive: {
+    backgroundColor: `${GlowColors.primary}20`,
   },
   academyInfo: {
     flex: 1,
-    gap: Spacing.xs,
+    gap: 4,
   },
   academyName: {
-    ...Typography.body,
+    fontSize: FontSizes.md,
+    fontWeight: "700",
     color: Colors.dark.text,
-    fontWeight: "600",
   },
   academyNameActive: {
     color: GlowColors.primary,
   },
-  academyStats: {
-    ...Typography.small,
+  academySportRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    alignItems: "center",
+  },
+  academySportChip: {
+    backgroundColor: `${Colors.dark.textMuted}15`,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  academySportChipText: {
+    fontSize: 10,
     color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  academyRatingChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  academyRatingText: {
+    fontSize: 10,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  academyStats: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+  },
+  academyDescription: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    lineHeight: 16,
+    opacity: 0.8,
+  },
+  academyDetailContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.md,
+  },
+  academyDetailLogo: {
+    width: 96,
+    height: 96,
+    borderRadius: 20,
+    marginBottom: Spacing.sm,
+  },
+  academyDetailLogoPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 20,
+    backgroundColor: `${Colors.dark.textMuted}20`,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+  academyDetailName: {
+    fontSize: FontSizes["2xl"],
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  academyDetailStats: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  academyDetailDescription: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    lineHeight: 20,
+    textAlign: "center",
+    paddingHorizontal: Spacing.lg,
   },
   emptyText: {
     ...Typography.body,
