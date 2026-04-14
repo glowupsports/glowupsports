@@ -609,11 +609,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
     const charWidth = 7.8;
     const singleWidth = (tickerContent.length + TICKER_SEP.length) * charWidth;
-    tickerOffset.value = 0;
+    tickerOffset.value = -singleWidth;
     tickerOffset.value = withDelay(
       1500,
       withRepeat(
-        withTiming(-singleWidth, { duration: singleWidth * 55, easing: Easing.linear }),
+        withTiming(0, { duration: singleWidth * 55, easing: Easing.linear }),
         -1,
         false
       )
@@ -1591,9 +1591,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         // ── COLLAPSED: ticker flows left pill → Play gap → right pill → [^] ──
         <>
           <View style={styles.pillRow} pointerEvents="box-none">
-            {/* Balancing spacer: mirrors the 46px collapseBtn so the gap stays screen-centered */}
-            <View style={styles.pillBalancer} pointerEvents="none" />
-
             {/* LEFT pill — clipped window + fixed dot overlay */}
             <Pressable
               style={styles.leftPill}
@@ -1964,9 +1961,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
     overflow: "hidden",
-  },
-  pillBalancer: {
-    width: 46,
   },
   pillGap: {
     width: 90,
