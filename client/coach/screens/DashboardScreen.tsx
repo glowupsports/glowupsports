@@ -1138,7 +1138,7 @@ function BookingRequestCard({
   onDeclined,
 }: {
   req: PendingBookingRequest;
-  onApproved: () => void;
+  onApproved: (id: string) => void;
   onDeclined: () => void;
 }) {
   const remaining = useCountdown(req.expiresAt);
@@ -1189,8 +1189,9 @@ function BookingRequestCard({
         coachWelcomeMessage: welcomeMsg || null,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onApproved();
-    } catch {
+      onApproved(req.id);
+    } catch (err) {
+      console.error("Failed to approve booking request:", err);
       RNAlert.alert("Error", "Failed to approve request");
     } finally {
       setLoadingApprove(false);
@@ -1532,9 +1533,29 @@ function BookingRequestCard({
 }
 
 function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBookingRequest[]; queryClient: QueryClient }) {
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+  const onApproved = (approvedId: string) => {
+    queryClient.setQueryData<{
+      pendingBookingRequests: PendingBookingRequest[];
+      pendingBookingCount: number;
+      [key: string]: unknown;
+    }>(["/api/coach/me/home-data"], (old) => {
+      if (!old) return old;
+      const filtered = old.pendingBookingRequests.filter(
+        (r) => r.id !== approvedId
+      );
+      const removed = old.pendingBookingRequests.length - filtered.length;
+      return {
+        ...old,
+        pendingBookingRequests: filtered,
+        pendingBookingCount: Math.max(0, old.pendingBookingCount - removed),
+      };
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"], refetchType: "all" });
+    queryClient.invalidateQueries({ queryKey: ["/api/sessions"], refetchType: "all" });
+  };
+  const onDeclined = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"], refetchType: "all" });
+    queryClient.invalidateQueries({ queryKey: ["/api/sessions"], refetchType: "all" });
   };
   return (
     <View style={bStyles.section}>
@@ -1548,7 +1569,7 @@ function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBook
         </View>
       </View>
       {requests.slice(0, 5).map(req => (
-        <BookingRequestCard key={req.id} req={req} onApproved={invalidate} onDeclined={invalidate} />
+        <BookingRequestCard key={req.id} req={req} onApproved={onApproved} onDeclined={onDeclined} />
       ))}
     </View>
   );
