@@ -29,6 +29,50 @@ import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 
+function SectionEmptyState({
+  icon,
+  iconColor,
+  iconBg,
+  title,
+  subtitle,
+  ctaLabel,
+  onCta,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  onCta: () => void;
+}) {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.07, { duration: 1400 }),
+        withTiming(1.0, { duration: 1400 })
+      ),
+      -1,
+      false
+    );
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <View style={styles.sectionEmptyCard}>
+      <Animated.View style={[styles.sectionEmptyIconWrap, { backgroundColor: iconBg }, animStyle]}>
+        <Ionicons name={icon} size={32} color={iconColor} />
+      </Animated.View>
+      <Text style={styles.sectionEmptyTitle}>{title}</Text>
+      <Text style={styles.sectionEmptySubtitle}>{subtitle}</Text>
+      <Pressable style={styles.sectionEmptyCta} onPress={onCta}>
+        <Text style={styles.sectionEmptyCtaText}>{ctaLabel}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // Helper to get color for ball level
 function getBallLevelColor(level: string): string {
   const levelLower = level.toLowerCase();
@@ -371,13 +415,15 @@ export function GroupLessonsRow() {
           onAction={handleSeeAll}
           accentColor={ballLevelColor}
         />
-        <View style={styles.emptyRow}>
-          <Feather name="users" size={24} color={ProTennisColors.textMuted} />
-          <Text style={styles.emptyText}>{t("empty.noSessions")}</Text>
-          <Pressable style={styles.emptyButton} onPress={handleSeeAll}>
-            <Text style={styles.emptyButtonText}>{t("player.home.browseAllLessons")}</Text>
-          </Pressable>
-        </View>
+        <SectionEmptyState
+          icon="school-outline"
+          iconColor={GlowColors.primary}
+          iconBg={GlowColors.primary + "22"}
+          title={t("empty.noSessions")}
+          subtitle="Your coach hasn't scheduled lessons yet — or explore what's available"
+          ctaLabel={t("player.home.browseAllLessons")}
+          onCta={handleSeeAll}
+        />
       </View>
     );
   }
@@ -630,13 +676,15 @@ export function OpenMatchesRow() {
           onAction={handleSeeAll}
           accentColor={GlowColors.primary}
         />
-        <View style={styles.emptyRow}>
-          <Feather name="target" size={24} color={ProTennisColors.textMuted} />
-          <Text style={styles.emptyText}>{t("player.home.noOpenMatches")}</Text>
-          <Pressable style={styles.emptyButton} onPress={handleCreateMatch}>
-            <Text style={styles.emptyButtonText}>{t("player.home.createMatch")}</Text>
-          </Pressable>
-        </View>
+        <SectionEmptyState
+          icon="radio-button-on-outline"
+          iconColor="#A855F7"
+          iconBg="#A855F722"
+          title={t("player.home.noOpenMatches")}
+          subtitle="No one has challenged you yet — start one yourself"
+          ctaLabel={t("player.home.createMatch")}
+          onCta={handleCreateMatch}
+        />
       </View>
     );
   }
@@ -892,10 +940,15 @@ export function TournamentsDiscoveryRow() {
       />
 
       {openTournaments.length === 0 ? (
-        <View style={styles.tournamentEmptyState}>
-          <Ionicons name="trophy-outline" size={28} color={Colors.dark.textMuted} />
-          <Text style={styles.tournamentEmptyText}>No tournaments right now — check back soon</Text>
-        </View>
+        <SectionEmptyState
+          icon="trophy-outline"
+          iconColor="#FFD700"
+          iconBg="#FFD70022"
+          title="No tournaments nearby"
+          subtitle="Check back soon or explore tournaments in your area"
+          ctaLabel="See All Tournaments"
+          onCta={handleSeeAll}
+        />
       ) : (
         <ScrollView
           horizontal
@@ -2347,5 +2400,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  sectionEmptyCard: {
+    alignItems: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: "#1A1A2A",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#FFFFFF0A",
+  },
+  sectionEmptyIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  sectionEmptyTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  sectionEmptySubtitle: {
+    color: "#FFFFFF55",
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  sectionEmptyCta: {
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  sectionEmptyCtaText: {
+    color: "#000000",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
