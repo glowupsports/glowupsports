@@ -1579,9 +1579,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         styles.container,
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
-          bottom: (!isExpanded && !isFullscreen)
-            ? TAB_BAR_HEIGHT + insets.bottom - 20
-            : TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION,
+          bottom: TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION,
           paddingTop: isFullscreen ? insets.top : 0,
         },
         desktopWebStyle,
