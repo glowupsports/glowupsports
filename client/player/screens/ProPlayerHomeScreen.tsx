@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/query-client";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
@@ -545,7 +546,14 @@ function PlayerHomeContent() {
 
   const { data: socialPosts } = useQuery<any[]>({
     queryKey: ["/api/social/feed", "dashboard-preview"],
+    queryFn: async () => {
+      const response = await apiFetch("/api/social/feed?filter=for_you");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
     enabled: !isGuest,
+    staleTime: 60000,
   });
 
   const { data: shopData } = useQuery<{ featuredProducts?: any[] }>({
