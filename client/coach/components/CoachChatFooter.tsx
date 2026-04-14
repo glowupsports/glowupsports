@@ -596,18 +596,24 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return items.join("   •   ");
   }, [conversations]);
 
+  const repeatedContent = useMemo(() => {
+    const sep = "               •               ";
+    return tickerContent + sep + tickerContent;
+  }, [tickerContent]);
+
   useEffect(() => {
     if (!tickerContent || isExpanded || isFullscreen) {
       tickerOffset.value = 0;
       return;
     }
     const charWidth = 7.8;
-    const totalWidth = tickerContent.length * charWidth;
-    tickerOffset.value = -totalWidth;
+    const sep = "               •               ";
+    const singleWidth = (tickerContent.length + sep.length) * charWidth;
+    tickerOffset.value = 0;
     tickerOffset.value = withDelay(
       1500,
       withRepeat(
-        withTiming(0, { duration: 14000, easing: Easing.linear }),
+        withTiming(-singleWidth, { duration: singleWidth * 55, easing: Easing.linear }),
         -1,
         false
       )
@@ -1599,8 +1605,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               {/* Ticker text clips inside this container */}
               <View style={styles.tickerWindow}>
                 <Animated.View style={[styles.tickerTrack, leftTickerStyle]}>
-                  <ThemedText style={styles.tickerText}>
-                    {tickerContent}
+                  <ThemedText style={styles.tickerText} numberOfLines={1}>
+                    {repeatedContent}
                   </ThemedText>
                 </Animated.View>
               </View>
@@ -1619,8 +1625,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               onPress={() => setIsExpanded(true)}
             >
               <Animated.View style={[styles.tickerTrack, rightTickerStyle]}>
-                <ThemedText style={styles.tickerText}>
-                  {tickerContent}
+                <ThemedText style={styles.tickerText} numberOfLines={1}>
+                  {repeatedContent}
                 </ThemedText>
               </Animated.View>
             </Pressable>
@@ -1999,6 +2005,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
+    width: 9999,
   },
   tickerText: {
     fontSize: 13,
