@@ -1065,7 +1065,7 @@ function BookingRequestCard({
             disabled={loadingApprove}
           >
             {loadingApprove ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
                 <Ionicons name="checkmark" size={16} color="#000" />
