@@ -1585,6 +1585,24 @@ export default function PlayScreen() {
 
             {/* Unified Play Hub */}
             <View style={styles.quickActions}>
+              <Pressable
+                style={styles.lessonsButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setActiveTab("Group Lessons");
+                }}
+              >
+                <LinearGradient
+                  colors={["#1E1E30", "#13131F"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.findMatchGradient}
+                >
+                  <Ionicons name="school-outline" size={18} color={GlowColors.primary} />
+                  <Text style={[styles.findMatchText, { color: GlowColors.primary }]}>Lessons</Text>
+                </LinearGradient>
+              </Pressable>
+
               <Pressable 
                 style={styles.findMatchButton}
                 onPress={() => {
@@ -1600,9 +1618,7 @@ export default function PlayScreen() {
                   style={styles.findMatchGradient}
                 >
                   <Ionicons name="flame" size={20} color={Colors.dark.buttonText} />
-                  <Text style={styles.findMatchText}>
-                    {isMultiSport ? `Play ${getSportLabel(activeSport)}` : t("player.play.findMatch")}
-                  </Text>
+                  <Text style={styles.findMatchText}>Find Match</Text>
                 </LinearGradient>
               </Pressable>
 
@@ -1620,7 +1636,7 @@ export default function PlayScreen() {
                   style={styles.findMatchGradient}
                 >
                   <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
-                  <Text style={styles.findMatchText}>{t("player.play.openMatches")}</Text>
+                  <Text style={styles.findMatchText}>Open Match</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -2514,7 +2530,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   quickActions: {
-    flexDirection: "column",
+    flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
@@ -2523,6 +2539,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   findMatchButton: {
+    flex: 1,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,
@@ -2595,17 +2612,25 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   openMatchesButton: {
+    flex: 1,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: Colors.dark.xpCyan + "60",
+  },
+  lessonsButton: {
+    flex: 1,
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: GlowColors.primary + "40",
   },
   findMatchGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    paddingVertical: 10,
   },
   findMatchText: {
     ...Typography.h4,
