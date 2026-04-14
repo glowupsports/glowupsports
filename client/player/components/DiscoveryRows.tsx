@@ -50,8 +50,8 @@ function SectionEmptyState({
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.07, { duration: 1400 }),
-        withTiming(1.0, { duration: 1400 })
+        withTiming(1.06, { duration: 1000 }),
+        withTiming(1.0, { duration: 1000 })
       ),
       -1,
       false
@@ -60,7 +60,12 @@ function SectionEmptyState({
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <View style={styles.sectionEmptyCard}>
+    <LinearGradient
+      colors={["#1E1E30", "#13131F"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.sectionEmptyCard}
+    >
       <Animated.View style={[styles.sectionEmptyIconWrap, { backgroundColor: iconBg }, animStyle]}>
         <Ionicons name={icon} size={32} color={iconColor} />
       </Animated.View>
@@ -69,7 +74,7 @@ function SectionEmptyState({
       <Pressable style={styles.sectionEmptyCta} onPress={onCta}>
         <Text style={styles.sectionEmptyCtaText}>{ctaLabel}</Text>
       </Pressable>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -2407,10 +2412,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    backgroundColor: "#1A1A2A",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#FFFFFF0A",
+    overflow: "hidden",
   },
   sectionEmptyIconWrap: {
     width: 68,
