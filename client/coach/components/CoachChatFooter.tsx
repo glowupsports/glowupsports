@@ -603,11 +603,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
     const charWidth = 7.8;
     const totalWidth = tickerContent.length * charWidth;
-    tickerOffset.value = 0;
+    tickerOffset.value = -totalWidth;
     tickerOffset.value = withDelay(
       1500,
       withRepeat(
-        withTiming(-totalWidth, { duration: 14000, easing: Easing.linear }),
+        withTiming(0, { duration: 14000, easing: Easing.linear }),
         -1,
         false
       )
@@ -1584,7 +1584,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       {(!isExpanded && !isFullscreen) ? (
         // ── COLLAPSED: ticker flows left pill → Play gap → right pill → [^] ──
         <>
-          <View style={styles.pillRow}>
+          <View style={styles.pillRow} pointerEvents="box-none">
+            {/* Balancing spacer: mirrors the 46px collapseBtn so the gap stays screen-centered */}
+            <View style={styles.pillBalancer} pointerEvents="none" />
+
             {/* LEFT pill — clipped window + fixed dot overlay */}
             <Pressable
               style={styles.leftPill}
@@ -1607,8 +1610,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               </View>
             </Pressable>
 
-            {/* CENTER gap — 60px Play button circle sits here */}
-            <View style={styles.pillGap} />
+            {/* CENTER gap — Play button lives here; must not capture touches */}
+            <View style={styles.pillGap} pointerEvents="none" />
 
             {/* RIGHT pill — continuation of same ticker text stream */}
             <Pressable
@@ -1955,6 +1958,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
     overflow: "hidden",
+  },
+  pillBalancer: {
+    width: 46,
   },
   pillGap: {
     width: 90,
