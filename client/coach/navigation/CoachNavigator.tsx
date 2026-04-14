@@ -63,11 +63,11 @@ export type CoachTabParamList = {
 };
 
 const BASE_COACH_TABS: Omit<TabConfig, 'label'>[] = [
-  { key: "Dashboard", icon: "home-outline", iconFocused: "home", component: DashboardScreen },
-  { key: "Calendar", icon: "calendar-outline", iconFocused: "calendar", component: CalendarScreen },
-  { key: "Players", icon: "people-outline", iconFocused: "people", component: PlayersScreen },
-  { key: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard", component: CoachingScreen },
-  { key: "Settings", icon: "settings-outline", iconFocused: "settings", component: SettingsScreen },
+  { key: "Dashboard", icon: "home-outline",     iconFocused: "home",      component: DashboardScreen },
+  { key: "Players",   icon: "people-outline",   iconFocused: "people",    component: PlayersScreen },
+  { key: "Calendar",  icon: "calendar-outline", iconFocused: "calendar",  component: CalendarScreen },
+  { key: "Coaching",  icon: "clipboard-outline",iconFocused: "clipboard", component: CoachingScreen },
+  { key: "Settings",  icon: "settings-outline", iconFocused: "settings",  component: SettingsScreen },
 ];
 
 export type CoachStackParamList = {
@@ -186,6 +186,14 @@ function CoachTabs() {
     label: TAB_LABELS[tab.key] || tab.key,
   })), [TAB_LABELS]);
 
+  const calendarCenterButton = useMemo(() => ({
+    icon: "calendar-outline" as const,
+    iconFocused: "calendar" as const,
+    label: TAB_LABELS["Calendar"] || t("coach.calendar.title"),
+    color: Colors.dark.primary,
+    pagerIndex: 2,
+  }), [TAB_LABELS, t]);
+
   const renderOverlay = useCallback((tabKey: string) => {
     if (aiChatVisible) return null;
     if (intakeVisible) return null;
@@ -201,6 +209,7 @@ function CoachTabs() {
       secondaryColor={Colors.dark.xpCyan}
       renderOverlay={isDesktop ? undefined : renderOverlay}
       hideTabBar={isDesktop}
+      centerButtonConfig={calendarCenterButton}
     />
   );
 
