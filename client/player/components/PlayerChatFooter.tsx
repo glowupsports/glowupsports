@@ -481,9 +481,7 @@ export function PlayerChatFooter() {
               ) : null}
             </View>
             <ThemedText numberOfLines={1} style={styles.headerPreview}>
-              {latestConversation?.lastMessagePreview
-                ? `${selectedConversation?.coachName ?? "Messages"}: ${latestConversation.lastMessagePreview}`
-                : "Messages"}
+              {latestConversation?.lastMessagePreview ?? "Messages"}
             </ThemedText>
           </Pressable>
 
@@ -493,13 +491,12 @@ export function PlayerChatFooter() {
             style={styles.rightPill}
             onPress={() => setIsExpanded(true)}
           >
+            <Ionicons name="chevron-up" size={20} color={Colors.dark.text} />
             {unreadCount > 0 ? (
               <View style={styles.rightPillBadge}>
                 <ThemedText style={styles.rightPillBadgeText}>{unreadCount}</ThemedText>
               </View>
-            ) : (
-              <Ionicons name="chevron-up" size={20} color={Colors.dark.text} />
-            )}
+            ) : null}
           </Pressable>
         </View>
       ) : (
@@ -752,16 +749,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   rightPillBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
     backgroundColor: Colors.dark.primary,
-    borderRadius: 12,
-    minWidth: 22,
-    height: 22,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
   },
   rightPillBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: Colors.dark.background,
   },
