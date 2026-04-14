@@ -1541,39 +1541,37 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         // ── COLLAPSED: two pills flanking the center Play button ──
         <>
           <View style={styles.pillRow}>
+            {/* LEFT pill — flex:1 so gap lands at screen center */}
             <Pressable
               style={styles.leftPill}
               onPress={() => setIsExpanded(true)}
             >
-              <View style={styles.chatIconContainer}>
-                <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
-                <View style={styles.connectionIndicator}>
-                  <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
-                </View>
-                {unreadCount > 0 ? (
-                  <View style={styles.unreadBadge}>
-                    <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
-                  </View>
-                ) : null}
+              <Ionicons name="chatbubble" size={16} color={Colors.dark.primary} />
+              <View style={styles.connectionIndicator}>
+                <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
               </View>
               <ThemedText numberOfLines={1} style={styles.previewText}>
                 {latestConversation?.lastMessagePreview ?? "Glow Chat"}
               </ThemedText>
             </Pressable>
 
+            {/* CENTER gap — Play button lives here */}
             <View style={styles.pillGap} />
 
-            <Pressable
-              style={styles.rightPill}
-              onPress={() => setIsExpanded(true)}
-            >
-              <Ionicons name="chevron-up-outline" size={20} color={Colors.dark.text} />
-              {unreadCount > 0 ? (
-                <View style={styles.rightPillBadge}>
-                  <ThemedText style={styles.rightPillBadgeText}>{unreadCount}</ThemedText>
-                </View>
-              ) : null}
-            </Pressable>
+            {/* RIGHT section — flex:1 mirrors the left so gap is centered */}
+            <View style={styles.rightSection}>
+              <Pressable
+                style={styles.rightPill}
+                onPress={() => setIsExpanded(true)}
+              >
+                <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
+                {unreadCount > 0 ? (
+                  <View style={styles.rightPillBadge}>
+                    <ThemedText style={styles.rightPillBadgeText}>{unreadCount}</ThemedText>
+                  </View>
+                ) : null}
+              </Pressable>
+            </View>
           </View>
         </>
       ) : (
@@ -1883,27 +1881,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: FOOTER_COLLAPSED,
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
+    paddingHorizontal: 8,
   },
   leftPill: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: 8,
     backgroundColor: "rgba(17, 20, 26, 0.92)",
     borderRadius: 999,
-    paddingHorizontal: Spacing.md,
-    height: 48,
+    paddingHorizontal: 12,
+    height: 40,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+    overflow: "hidden",
   },
   pillGap: {
-    width: 76,
+    width: 90,
+  },
+  rightSection: {
+    flex: 1,
+    alignItems: "flex-end",
   },
   rightPill: {
-    width: 52,
-    height: 48,
+    width: 44,
+    height: 40,
     borderRadius: 999,
     backgroundColor: "rgba(17, 20, 26, 0.92)",
     justifyContent: "center",
