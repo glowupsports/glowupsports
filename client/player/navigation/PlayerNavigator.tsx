@@ -792,6 +792,14 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
     { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
   ], [t]);
+
+  const playCenterButton = useMemo(() => ({
+    icon: "game-controller-outline" as const,
+    iconFocused: "game-controller" as const,
+    label: "Play",
+    color: Colors.dark.primary,
+    pagerIndex: 2,
+  }), []);
   
   const hideChat = HIDE_CHAT_TABS.includes(currentTabKey);
 
@@ -829,7 +837,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
       onEdgeSwipeLeft={onEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
-      dividerAfterIndices={[2]}
+      centerButtonConfig={playCenterButton}
     />
   );
 }

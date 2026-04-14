@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, Pressable, useWindowDimensions, ScrollView } from "react-native";
+import { StyleSheet, View, Platform, Pressable, useWindowDimensions, Text } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +16,14 @@ export interface TabConfig {
   icon: keyof typeof Ionicons.glyphMap;
   iconFocused: keyof typeof Ionicons.glyphMap;
   component: React.ComponentType<any>;
+}
+
+export interface CenterButtonConfig {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconFocused: keyof typeof Ionicons.glyphMap;
+  label: string;
+  color: string;
+  pagerIndex: number;
 }
 
 interface SwipeableTabItemProps {
@@ -79,19 +87,82 @@ function SwipeableTabItem({
   );
 }
 
+interface CenterButtonProps {
+  config: CenterButtonConfig;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+function CenterButton({ config, isActive, onPress }: CenterButtonProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.88, { damping: 15, stiffness: 350 });
+  }, [scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 300 });
+  }, [scale]);
+
+  const iconName = isActive ? config.iconFocused : config.icon;
+
+  return (
+    <Animated.View style={[styles.centerButtonAnimWrapper, animatedStyle]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        android_ripple={{ color: "rgba(0,0,0,0.2)", borderless: true, radius: 32 }}
+        style={[
+          styles.centerButton,
+          { backgroundColor: config.color },
+          isActive && styles.centerButtonActive,
+          Platform.OS === "ios" && {
+            shadowColor: config.color,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isActive ? 0.7 : 0.45,
+            shadowRadius: isActive ? 12 : 8,
+          },
+          Platform.OS === "android" && { elevation: 10 },
+          Platform.OS === "web" && {
+            boxShadow: isActive
+              ? `0px 4px 20px rgba(200, 255, 61, 0.6), 0px 2px 8px rgba(0,0,0,0.4)`
+              : `0px 4px 14px rgba(200, 255, 61, 0.35), 0px 2px 6px rgba(0,0,0,0.35)`,
+          } as any,
+        ]}
+      >
+        <Ionicons name={iconName} size={28} color="#000000" />
+      </Pressable>
+      <Text style={[styles.centerButtonLabel, { color: isActive ? config.color : Colors.dark.tabIconDefault }]}>
+        {config.label}
+      </Text>
+    </Animated.View>
+  );
+}
+
 interface TabIndicatorProps {
   scrollOffset: SharedValue<number>;
   tabCount: number;
   primaryColor: string;
   secondaryColor: string;
   containerWidth: number;
+  centerButtonPagerIndex?: number;
 }
 
-function TabIndicator({ scrollOffset, tabCount, primaryColor, secondaryColor, containerWidth }: TabIndicatorProps) {
+function TabIndicator({ scrollOffset, tabCount, primaryColor, secondaryColor, containerWidth, centerButtonPagerIndex }: TabIndicatorProps) {
   const tabWidth = containerWidth / tabCount;
   
   const animatedStyle = useAnimatedStyle(() => {
+    const isCenterActive = centerButtonPagerIndex !== undefined
+      ? Math.abs(scrollOffset.value - centerButtonPagerIndex) < 0.5
+      : false;
+    const opacity = isCenterActive ? 0 : 1;
     return {
+      opacity,
       transform: [{ translateX: withSpring(scrollOffset.value * tabWidth, { damping: 20, stiffness: 200 }) }],
     };
   });
@@ -120,6 +191,7 @@ interface SwipeableTabBarProps {
   onPageChange?: (index: number, key: string) => void;
   dividerAfterIndices?: number[];
   hideTabBar?: boolean;
+  centerButtonConfig?: CenterButtonConfig;
 }
 
 export function SwipeableTabBar({ 
@@ -133,6 +205,7 @@ export function SwipeableTabBar({
   onPageChange,
   dividerAfterIndices = [],
   hideTabBar = false,
+  centerButtonConfig,
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -232,7 +305,9 @@ export function SwipeableTabBar({
     }), [tabs, currentIndex]
   );
 
-  const tabBarContent = (
+  const centerPagerIndex = centerButtonConfig?.pagerIndex;
+
+  const regularTabBarContent = (
     <>
       <TabIndicator 
         scrollOffset={scrollOffset} 
@@ -262,6 +337,39 @@ export function SwipeableTabBar({
       </View>
     </>
   );
+
+  const centerTabBarContent = centerButtonConfig ? (
+    <>
+      <TabIndicator 
+        scrollOffset={scrollOffset} 
+        tabCount={tabs.length}
+        primaryColor={primaryColor}
+        secondaryColor={secondaryColor}
+        containerWidth={containerWidth}
+        centerButtonPagerIndex={centerPagerIndex}
+      />
+
+      <View style={styles.swipeTabRow}>
+        {tabs.map((tab, index) => {
+          if (index === centerPagerIndex) {
+            return <View key={tab.key} style={styles.swipeTabItem} />;
+          }
+          return (
+            <SwipeableTabItem
+              key={tab.key}
+              tab={tab}
+              index={index}
+              currentIndex={currentIndex}
+              scrollOffset={scrollOffset}
+              onPress={() => navigateToPage(index)}
+              activeColor={primaryColor}
+              inactiveColor={inactiveColor}
+            />
+          );
+        })}
+      </View>
+    </>
+  ) : null;
 
   const bottomPadding = insets.bottom > 0 ? insets.bottom : 16;
 
@@ -302,7 +410,17 @@ export function SwipeableTabBar({
             )}
           </View>
           
-          {tabBarContent}
+          {centerButtonConfig ? centerTabBarContent : regularTabBarContent}
+
+          {centerButtonConfig ? (
+            <View style={styles.centerButtonContainer} pointerEvents="box-none">
+              <CenterButton
+                config={centerButtonConfig}
+                isActive={currentIndex === centerButtonConfig.pagerIndex}
+                onPress={() => navigateToPage(centerButtonConfig.pagerIndex)}
+              />
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -328,6 +446,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingTop: 8,
+    overflow: "visible",
   },
   swipeTabBarBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -396,5 +515,36 @@ const styles = StyleSheet.create({
     height: 28,
     backgroundColor: "rgba(255,255,255,0.08)",
     alignSelf: "center",
+  },
+  centerButtonContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  centerButtonAnimWrapper: {
+    alignItems: "center",
+    marginTop: -30,
+  },
+  centerButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  centerButtonActive: {
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  centerButtonLabel: {
+    fontSize: Platform.OS === "web" ? 10 : 9,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    marginTop: 4,
   },
 });
