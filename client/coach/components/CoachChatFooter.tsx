@@ -19,6 +19,11 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withRepeat,
+  withDelay,
+  useDerivedValue,
+  Easing,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -197,6 +202,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const height = useSharedValue(FOOTER_COLLAPSED);
+  const tickerOffset = useSharedValue(0);
+  const leftPillWidthSV = useSharedValue(0);
+  const [leftPillWidth, setLeftPillWidth] = useState(0);
 
   useEffect(() => {
     AsyncStorage.getItem("@glow_safety_banner_dismissed").then(val => {
@@ -577,6 +585,44 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const displayConversations = filteredConversations;
   const latestConversation = conversations.find(c => c.lastMessagePreview) || conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
+
+  const tickerContent = useMemo(() => {
+    const items = conversations
+      .filter(c => c.lastMessagePreview)
+      .slice(0, 6)
+      .map(c => {
+        const name = c.squadName || c.title || (c.playerId ? "Player" : c.coachId ? "Coach" : "Chat");
+        return `${name}: ${c.lastMessagePreview}`;
+      });
+    if (items.length === 0) return "Glow Chat — tap to open your messages";
+    return items.join("   •   ");
+  }, [conversations]);
+
+  useEffect(() => {
+    if (!tickerContent || isExpanded || isFullscreen) {
+      tickerOffset.value = 0;
+      return;
+    }
+    const charWidth = 7.8;
+    const totalWidth = tickerContent.length * charWidth;
+    tickerOffset.value = 0;
+    tickerOffset.value = withDelay(
+      1200,
+      withRepeat(
+        withTiming(-totalWidth, { duration: Math.max(totalWidth * 55, 8000), easing: Easing.linear }),
+        -1,
+        false
+      )
+    );
+  }, [tickerContent, isExpanded, isFullscreen]);
+
+  const rightTickerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tickerOffset.value - leftPillWidthSV.value - 90 }],
+  }));
+
+  const leftTickerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tickerOffset.value }],
+  }));
 
   const recentContacts = useMemo(() => {
     const sorted = [...conversations]
@@ -1529,7 +1575,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
           bottom: (!isExpanded && !isFullscreen)
-            ? TAB_BAR_HEIGHT + insets.bottom
+            ? TAB_BAR_HEIGHT + insets.bottom - 20
             : TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION,
           paddingTop: isFullscreen ? insets.top : 0,
         },
@@ -1538,40 +1584,60 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       ]}
     >
       {(!isExpanded && !isFullscreen) ? (
-        // ── COLLAPSED: two pills flanking the center Play button ──
+        // ── COLLAPSED: ticker flows left pill → Play gap → right pill → [^] ──
         <>
           <View style={styles.pillRow}>
-            {/* LEFT pill — flex:1 so gap lands at screen center */}
+            {/* LEFT pill — clipped window + fixed dot overlay */}
             <Pressable
               style={styles.leftPill}
               onPress={() => setIsExpanded(true)}
+              onLayout={e => {
+                const w = e.nativeEvent.layout.width;
+                setLeftPillWidth(w);
+                leftPillWidthSV.value = w;
+              }}
             >
-              <Ionicons name="chatbubble" size={16} color={Colors.dark.primary} />
-              <View style={styles.connectionIndicator}>
+              {/* Ticker text clips inside this container */}
+              <View style={styles.tickerWindow}>
+                <Animated.View style={[styles.tickerTrack, leftTickerStyle]}>
+                  <ThemedText style={styles.tickerText}>
+                    {tickerContent}
+                  </ThemedText>
+                </Animated.View>
+              </View>
+              {/* Connection dot overlaid on left so text scrolls under it */}
+              <View style={styles.tickerDotOverlay}>
                 <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
               </View>
-              <ThemedText numberOfLines={1} style={styles.previewText}>
-                {latestConversation?.lastMessagePreview ?? "Glow Chat"}
-              </ThemedText>
             </Pressable>
 
-            {/* CENTER gap — Play button lives here */}
+            {/* CENTER gap — 60px Play button circle sits here */}
             <View style={styles.pillGap} />
 
-            {/* RIGHT section — flex:1 mirrors the left so gap is centered */}
-            <View style={styles.rightSection}>
-              <Pressable
-                style={styles.rightPill}
-                onPress={() => setIsExpanded(true)}
-              >
-                <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
-                {unreadCount > 0 ? (
-                  <View style={styles.rightPillBadge}>
-                    <ThemedText style={styles.rightPillBadgeText}>{unreadCount}</ThemedText>
-                  </View>
-                ) : null}
-              </Pressable>
-            </View>
+            {/* RIGHT pill — continuation of same ticker text stream */}
+            <Pressable
+              style={styles.rightPill}
+              onPress={() => setIsExpanded(true)}
+            >
+              <Animated.View style={[styles.tickerTrack, rightTickerStyle]}>
+                <ThemedText style={styles.tickerText}>
+                  {tickerContent}
+                </ThemedText>
+              </Animated.View>
+            </Pressable>
+
+            {/* [^] collapse button */}
+            <Pressable
+              style={styles.collapseBtn}
+              onPress={() => setIsExpanded(true)}
+            >
+              <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
+              {unreadCount > 0 ? (
+                <View style={styles.collapseBadge}>
+                  <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
         </>
       ) : (
@@ -1887,10 +1953,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     backgroundColor: "rgba(17, 20, 26, 0.92)",
     borderRadius: 999,
-    paddingHorizontal: 12,
     height: 40,
     borderWidth: 1,
     borderColor: Colors.dark.border,
@@ -1899,12 +1963,47 @@ const styles = StyleSheet.create({
   pillGap: {
     width: 90,
   },
-  rightSection: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
   rightPill: {
-    width: 44,
+    flex: 1,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "rgba(17, 20, 26, 0.92)",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    overflow: "hidden",
+  },
+  tickerWindow: {
+    flex: 1,
+    overflow: "hidden",
+    alignSelf: "stretch",
+    justifyContent: "center",
+  },
+  tickerDotOverlay: {
+    position: "absolute",
+    left: 10,
+    top: 0,
+    bottom: 0,
+    width: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  tickerTrack: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    top: 0,
+    bottom: 0,
+    left: 0,
+  },
+  tickerText: {
+    fontSize: 13,
+    color: Colors.dark.text,
+  },
+  collapseBtn: {
+    width: 40,
     height: 40,
     borderRadius: 999,
     backgroundColor: "rgba(17, 20, 26, 0.92)",
@@ -1912,20 +2011,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.dark.border,
+    marginLeft: 6,
   },
-  rightPillBadge: {
+  collapseBadge: {
     position: "absolute",
-    top: -6,
-    right: -6,
+    top: -5,
+    right: -5,
     backgroundColor: Colors.dark.primary,
     borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    minWidth: 16,
+    height: 16,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 3,
   },
-  rightPillBadgeText: {
+  collapseBadgeText: {
     fontSize: 10,
     fontWeight: "700",
     color: Colors.dark.background,
