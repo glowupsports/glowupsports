@@ -1574,6 +1574,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
   return (
     <Animated.View
+      pointerEvents={(!isExpanded && !isFullscreen) ? "box-none" : "auto"}
       style={[
         styles.container,
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
