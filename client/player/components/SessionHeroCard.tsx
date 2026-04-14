@@ -1970,9 +1970,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowCancelModal(false)}
           >
-            <View style={styles.modalOverlay}>
+            <View style={styles.modalOverlay} pointerEvents="box-none">
               <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCancelModal(false)} />
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { zIndex: 1 }]}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -2307,9 +2307,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowCancelModal(false)}
           >
-            <View style={styles.modalOverlay}>
+            <View style={styles.modalOverlay} pointerEvents="box-none">
               <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCancelModal(false)} />
-              <View style={styles.modalContent}>
+              <View style={[styles.modalContent, { zIndex: 1 }]}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
