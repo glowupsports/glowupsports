@@ -461,7 +461,7 @@ export function PlayerChatFooter() {
       style={[
         styles.container,
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
-        { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 },
+        { bottom: (!isExpanded && !isFullscreen) ? insets.bottom : tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 },
         animatedStyle,
       ]}
     >
