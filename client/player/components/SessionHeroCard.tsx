@@ -1,7 +1,7 @@
 import logger from "@/lib/logger";
 import React, { useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -385,7 +385,10 @@ export function SessionHeroCard({
 
   const cancelSessionMutation = useMutation({
     mutationFn: async ({ reason, reasonText }: { reason: string; reasonText?: string }) => {
-      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/cancel`, { reason, reasonText });
+      const endpoint = sessionType === "group"
+        ? `/api/player/me/sessions/${sessionId}/mark-unavailable`
+        : `/api/player/me/sessions/${sessionId}/cancel`;
+      return apiRequest("POST", endpoint, { reason, reasonText });
     },
     onSuccess: (response: any) => {
       setShowCancelModal(false);
@@ -581,30 +584,7 @@ export function SessionHeroCard({
       return;
     }
     
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(t("player.home.confirmCancelMsg"));
-      if (confirmed) {
-        cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
-      }
-    } else {
-      Alert.alert(
-        t("player.home.confirmCancellation"),
-        t("player.home.confirmCancelMsg"),
-        [
-          {
-            text: t("player.home.goBack"),
-            style: "cancel",
-          },
-          {
-            text: t("player.home.yesCancelSession"),
-            style: "destructive",
-            onPress: () => {
-              cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
-            },
-          },
-        ]
-      );
-    }
+    cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
   };
 
   const handleLate = () => {
