@@ -27,6 +27,7 @@ import {
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
+import { localHHMMToUtc, utcToLocalTime } from "../utils/timezone";
 import { playerNotifications } from "@shared/schema";
 import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
 
@@ -2450,6 +2451,100 @@ Return only the JSON array, nothing else.`;
     } catch (error) {
       console.error("Player reply error:", error);
       res.status(500).json({ error: "Failed to send reply" });
+    }
+  });
+
+  // Get available 30-min slots for coach on a given date (for counter-proposal slot picker)
+  router.get("/api/coach/booking-requests/:id/available-slots", authMiddleware, requireAcademy, async (req: AuthRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      const { id } = req.params;
+      const dateParam = req.query.date as string;
+      const sessionDurationStr = req.query.duration as string | undefined;
+
+      if (!coachId || !academyId) return res.status(403).json({ error: "Coach access required" });
+      if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        return res.status(400).json({ error: "date query param required (YYYY-MM-DD)" });
+      }
+
+      const request = await storage.getBookingRequest(id);
+      if (!request || request.coachId !== coachId) return res.status(404).json({ error: "Booking request not found" });
+
+      const sessionDurationMinutes = sessionDurationStr
+        ? Math.max(30, parseInt(sessionDurationStr, 10) || 30)
+        : Math.round((new Date(request.requestedEnd).getTime() - new Date(request.requestedStart).getTime()) / 60000) || 60;
+
+      // Get academy timezone (default to UTC)
+      const academyRow = await db.select({ timezone: academies.timezone }).from(academies).where(eq(academies.id, academyId)).limit(1);
+      const academyTimezone: string = (academyRow[0]?.timezone as string) ?? "UTC";
+
+      // Build UTC day boundaries for the local date in the academy's timezone
+      const [yyyy, mm, dd] = dateParam.split("-").map(Number);
+      const dayStartUtc = localHHMMToUtc(yyyy, mm - 1, dd, 0, 0, academyTimezone);
+      const dayEndUtc = localHHMMToUtc(yyyy, mm - 1, dd, 23, 59, academyTimezone);
+
+      // Fetch existing non-cancelled sessions for this coach that overlap the local day
+      const existingSessions = await storage.getSessionsByCoach(coachId, dayStartUtc, dayEndUtc);
+
+      // Fetch time blocks for coach on this local date
+      const timeBlocks = await storage.getCoachTimeBlocksForDate(coachId, dateParam, academyId);
+
+      // Build busy intervals as UTC milliseconds
+      const busyMs: Array<{ start: number; end: number }> = [];
+
+      for (const session of existingSessions) {
+        busyMs.push({
+          start: new Date(session.startTime).getTime(),
+          end: new Date(session.endTime).getTime(),
+        });
+      }
+
+      // Time blocks store HH:MM in the academy's local timezone → convert to UTC
+      for (const block of timeBlocks) {
+        const [bsh, bsm] = (block.start_time as string).split(":").map(Number);
+        const [beh, bem] = (block.end_time as string).split(":").map(Number);
+        const blockStartUtc = localHHMMToUtc(yyyy, mm - 1, dd, bsh, bsm, academyTimezone);
+        const blockEndUtc = localHHMMToUtc(yyyy, mm - 1, dd, beh, bem, academyTimezone);
+        busyMs.push({ start: blockStartUtc.getTime(), end: blockEndUtc.getTime() });
+      }
+
+      const now = Date.now();
+      const SLOT_START_HOUR = 7;
+      const SLOT_END_HOUR = 22;
+      const SLOT_STEP = 30; // minutes between start slots
+      const slots: Array<{ time: string; startIso: string; endIso: string; available: boolean }> = [];
+
+      for (let h = SLOT_START_HOUR; h < SLOT_END_HOUR; h++) {
+        for (let m = 0; m < 60; m += SLOT_STEP) {
+          const slotStartUtc = localHHMMToUtc(yyyy, mm - 1, dd, h, m, academyTimezone);
+          const slotEndUtc = new Date(slotStartUtc.getTime() + sessionDurationMinutes * 60000);
+          const slotStartMs = slotStartUtc.getTime();
+          const slotEndMs = slotEndUtc.getTime();
+
+          // Skip if full session extends past 22:00 local (check end hour)
+          const endLocal = utcToLocalTime(slotEndUtc, academyTimezone);
+          const endTotalMin = parseInt(endLocal.time.split(":")[0]) * 60 + parseInt(endLocal.time.split(":")[1]);
+          if (endTotalMin > SLOT_END_HOUR * 60) continue;
+
+          const isPast = slotStartMs <= now;
+          // Check if the full session window overlaps ANY busy interval
+          const isBusy = busyMs.some(b => slotStartMs < b.end && slotEndMs > b.start);
+
+          const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          slots.push({
+            time: timeStr,
+            startIso: slotStartUtc.toISOString(),
+            endIso: slotEndUtc.toISOString(),
+            available: !isPast && !isBusy,
+          });
+        }
+      }
+
+      res.json({ slots });
+    } catch (error) {
+      console.error("Available slots error:", error);
+      res.status(500).json({ error: "Failed to fetch available slots" });
     }
   });
 

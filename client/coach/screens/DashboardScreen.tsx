@@ -68,7 +68,6 @@ import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
 import { Modal, TextInput, KeyboardAvoidingView } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface Player {
   id: string;
@@ -792,6 +791,325 @@ const DECLINE_REASONS = [
   { key: "personal", label: "Personal reason" },
 ];
 
+// ---- CounterProposeModal: cross-platform day + slot chip picker ----
+
+interface AvailableSlot {
+  time: string;
+  startIso: string;
+  endIso: string;
+  available: boolean;
+}
+
+function buildDayChips(count: number): Array<{ label: string; dateStr: string }> {
+  const chips: Array<{ label: string; dateStr: string }> = [];
+  const today = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    // Use local date parts (not UTC) to match the coach's device timezone
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${mo}-${da}`;
+    const label = i === 0
+      ? "Today"
+      : i === 1
+      ? "Tomorrow"
+      : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    chips.push({ label, dateStr });
+  }
+  return chips;
+}
+
+const DAY_CHIPS = buildDayChips(14);
+
+function CounterProposeModal({
+  visible,
+  bookingRequestId,
+  sessionDurationMinutes,
+  counterSelectedDate,
+  setCounterSelectedDate,
+  counterStartSlotIso,
+  counterEndSlotIso,
+  setCounterStartSlotIso,
+  setCounterEndSlotIso,
+  onClose,
+  onSend,
+  loadingCounter,
+}: {
+  visible: boolean;
+  bookingRequestId: string;
+  sessionDurationMinutes: number;
+  counterSelectedDate: string;
+  setCounterSelectedDate: (d: string) => void;
+  counterStartSlotIso: string | null;
+  counterEndSlotIso: string | null;
+  setCounterStartSlotIso: (s: string | null) => void;
+  setCounterEndSlotIso: (s: string | null) => void;
+  onClose: () => void;
+  onSend: () => void;
+  loadingCounter: boolean;
+}) {
+  const apiUrl = getApiUrl();
+  const { data, isFetching } = useQuery<{ slots: AvailableSlot[] }>({
+    queryKey: [`/api/coach/booking-requests/${bookingRequestId}/available-slots`, counterSelectedDate],
+    queryFn: async () => {
+      const url = new URL(`/api/coach/booking-requests/${bookingRequestId}/available-slots`, apiUrl);
+      url.searchParams.set("date", counterSelectedDate);
+      const res = await fetch(url.toString(), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch slots");
+      return res.json();
+    },
+    enabled: visible,
+  });
+
+  const slots = data?.slots ?? [];
+
+  const handleSlotPress = (slot: AvailableSlot) => {
+    if (!slot.available) return;
+    // Each slot's endIso is already start + sessionDuration (set by server)
+    setCounterStartSlotIso(slot.startIso);
+    setCounterEndSlotIso(slot.endIso);
+  };
+
+  const canSend = !!counterStartSlotIso && !!counterEndSlotIso && counterEndSlotIso > counterStartSlotIso;
+
+  const formatSlotLabel = (iso: string | null) => {
+    if (!iso) return "--:--";
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={bStyles.sheetOverlay} onPress={onClose}>
+        <Pressable style={[bStyles.sheetContainer, { maxHeight: "85%" }]} onPress={() => {}}>
+          <View style={bStyles.sheetHandle} />
+          <Text style={bStyles.sheetTitle}>Suggest alternative time</Text>
+          <Text style={bStyles.sheetSubtitle}>Player will see your proposed time and can accept or decline</Text>
+
+          {/* Day chips */}
+          <Text style={bStyles.counterInputLabel}>Select date</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={cpStyles.dayRow}
+            style={{ marginBottom: Spacing.md }}
+          >
+            {DAY_CHIPS.map((chip) => {
+              const selected = chip.dateStr === counterSelectedDate;
+              return (
+                <Pressable
+                  key={chip.dateStr}
+                  style={[cpStyles.dayChip, selected ? cpStyles.dayChipSelected : null]}
+                  onPress={() => setCounterSelectedDate(chip.dateStr)}
+                >
+                  <Text style={[cpStyles.dayChipText, selected ? cpStyles.dayChipTextSelected : null]} numberOfLines={1}>
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Slot chips */}
+          <Text style={bStyles.counterInputLabel}>Select start time</Text>
+          {isFetching ? (
+            <View style={cpStyles.loadingRow}>
+              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <Text style={cpStyles.loadingText}>Loading available slots...</Text>
+            </View>
+          ) : slots.length === 0 ? (
+            <Text style={cpStyles.noSlotsText}>No slots available for this date</Text>
+          ) : (
+            <ScrollView
+              style={{ maxHeight: 180 }}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={cpStyles.slotsGrid}
+            >
+              {slots.map((slot) => {
+                const isStart = slot.startIso === counterStartSlotIso;
+                const isInRange = counterStartSlotIso && counterEndSlotIso
+                  ? slot.startIso > counterStartSlotIso && slot.startIso < counterEndSlotIso
+                  : false;
+                return (
+                  <Pressable
+                    key={slot.startIso}
+                    style={[
+                      cpStyles.slotChip,
+                      !slot.available ? cpStyles.slotChipBusy : null,
+                      isStart ? cpStyles.slotChipStart : null,
+                      isInRange ? cpStyles.slotChipRange : null,
+                    ]}
+                    onPress={() => handleSlotPress(slot)}
+                    disabled={!slot.available}
+                  >
+                    <Text style={[
+                      cpStyles.slotChipText,
+                      !slot.available ? cpStyles.slotChipTextBusy : null,
+                      (isStart || isInRange) ? cpStyles.slotChipTextSelected : null,
+                    ]}>
+                      {slot.time}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {/* Selection summary */}
+          {(counterStartSlotIso || counterEndSlotIso) ? (
+            <View style={cpStyles.summaryRow}>
+              <View style={cpStyles.summaryItem}>
+                <Text style={cpStyles.summaryLabel}>Start</Text>
+                <Text style={cpStyles.summaryValue}>{formatSlotLabel(counterStartSlotIso)}</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={16} color={Colors.dark.textSecondary} />
+              <View style={cpStyles.summaryItem}>
+                <Text style={cpStyles.summaryLabel}>End</Text>
+                <Text style={cpStyles.summaryValue}>{formatSlotLabel(counterEndSlotIso)}</Text>
+              </View>
+              <Text style={cpStyles.summaryDuration}>({sessionDurationMinutes} min)</Text>
+            </View>
+          ) : null}
+
+          <Pressable
+            style={[
+              bStyles.sendMsgBtn,
+              { backgroundColor: Colors.dark.orange || "#F97316" },
+              (!canSend || loadingCounter) ? { opacity: 0.5 } : null,
+            ]}
+            onPress={onSend}
+            disabled={!canSend || loadingCounter}
+          >
+            {loadingCounter ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={bStyles.sendMsgBtnText}>Send Alternative Time</Text>
+            )}
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const cpStyles = StyleSheet.create({
+  dayRow: {
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dayChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  dayChipSelected: {
+    backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary,
+  },
+  dayChipText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  dayChipTextSelected: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  slotsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+    paddingBottom: Spacing.sm,
+  },
+  slotChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    minWidth: 60,
+    alignItems: "center",
+  },
+  slotChipBusy: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderColor: Colors.dark.border,
+  },
+  slotChipStart: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  slotChipRange: {
+    backgroundColor: Colors.dark.primary + "40",
+    borderColor: Colors.dark.primary + "80",
+  },
+  slotChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  slotChipTextBusy: {
+    color: Colors.dark.textMuted,
+    fontWeight: "400",
+  },
+  slotChipTextSelected: {
+    color: Colors.dark.text,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  noSlotsText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    paddingVertical: Spacing.md,
+    textAlign: "center",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 10,
+    marginBottom: Spacing.md,
+  },
+  summaryItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginBottom: 2,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  summaryDuration: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+});
+
+// ---- End CounterProposeModal ----
+
 interface PendingBookingRequest {
   id: string;
   playerId: string;
@@ -832,19 +1150,19 @@ function BookingRequestCard({
   const [declineNote, setDeclineNote] = useState("");
   const [welcomeMsg, setWelcomeMsg] = useState("");
   const [preConfirmMsg, setPreConfirmMsg] = useState("");
-  // Counter-proposal: use Date state and native date/time pickers
-  const defaultCounterStart = () => {
+  // Counter-proposal: day + slot chip pickers (cross-platform)
+  const defaultCounterDateStr = () => {
     const d = new Date(req.requestedStart);
-    return isNaN(d.getTime()) ? new Date() : d;
+    const base = isNaN(d.getTime()) ? new Date() : d;
+    // Use local date (not UTC) so the selected date matches the coach's timezone
+    const y = base.getFullYear();
+    const mo = String(base.getMonth() + 1).padStart(2, "0");
+    const da = String(base.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${da}`;
   };
-  const [counterStartDate, setCounterStartDate] = useState<Date>(defaultCounterStart());
-  const [counterEndDate, setCounterEndDate] = useState<Date>(() => {
-    const d = new Date(req.requestedEnd);
-    return isNaN(d.getTime()) ? new Date(defaultCounterStart().getTime() + 60 * 60 * 1000) : d;
-  });
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [counterSelectedDate, setCounterSelectedDate] = useState<string>(defaultCounterDateStr());
+  const [counterStartSlotIso, setCounterStartSlotIso] = useState<string | null>(null);
+  const [counterEndSlotIso, setCounterEndSlotIso] = useState<string | null>(null);
   const [loadingApprove, setLoadingApprove] = useState(false);
   const [loadingDecline, setLoadingDecline] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(false);
@@ -919,15 +1237,19 @@ function BookingRequestCard({
   };
 
   const handleCounterPropose = async () => {
-    if (counterEndDate <= counterStartDate) {
+    if (!counterStartSlotIso || !counterEndSlotIso) {
+      RNAlert.alert("Select a time", "Please select a start and end slot");
+      return;
+    }
+    if (counterEndSlotIso <= counterStartSlotIso) {
       RNAlert.alert("Invalid range", "End time must be after start time");
       return;
     }
     setLoadingCounter(true);
     try {
       await apiRequest("POST", `/api/coach/booking-requests/${req.id}/counter-propose`, {
-        counterProposedStart: counterStartDate.toISOString(),
-        counterProposedEnd: counterEndDate.toISOString(),
+        counterProposedStart: counterStartSlotIso,
+        counterProposedEnd: counterEndSlotIso,
       });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setShowCounterModal(false);
@@ -1185,113 +1507,26 @@ function BookingRequestCard({
       </Modal>
 
       {/* Counter-propose modal */}
-      <Modal visible={showCounterModal} transparent animationType="slide" onRequestClose={() => setShowCounterModal(false)}>
-        <Pressable style={bStyles.sheetOverlay} onPress={() => setShowCounterModal(false)}>
-          <Pressable style={bStyles.sheetContainer} onPress={() => {}}>
-            <View style={bStyles.sheetHandle} />
-            <Text style={bStyles.sheetTitle}>Suggest alternative time</Text>
-            <Text style={bStyles.sheetSubtitle}>Player will see your proposed time and can accept or decline</Text>
-
-            {/* Start date/time pickers */}
-            <Text style={bStyles.counterInputLabel}>New start time</Text>
-            <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.sm }}>
-              <Pressable
-                style={[bStyles.messageInput, { flex: 1, justifyContent: "center" }]}
-                onPress={() => { setShowStartDatePicker(true); setShowStartTimePicker(false); setShowEndTimePicker(false); }}
-              >
-                <Text style={{ color: Colors.dark.text }}>
-                  {counterStartDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[bStyles.messageInput, { flex: 1, justifyContent: "center" }]}
-                onPress={() => { setShowStartTimePicker(true); setShowStartDatePicker(false); setShowEndTimePicker(false); }}
-              >
-                <Text style={{ color: Colors.dark.text }}>
-                  {counterStartDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </Text>
-              </Pressable>
-            </View>
-
-            {showStartDatePicker ? (
-              <DateTimePicker
-                value={counterStartDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                minimumDate={new Date()}
-                onChange={(_, selected) => {
-                  setShowStartDatePicker(false);
-                  if (selected) {
-                    const newStart = new Date(selected);
-                    newStart.setHours(counterStartDate.getHours(), counterStartDate.getMinutes());
-                    setCounterStartDate(newStart);
-                    if (counterEndDate <= newStart) {
-                      setCounterEndDate(new Date(newStart.getTime() + 60 * 60 * 1000));
-                    }
-                  }
-                }}
-              />
-            ) : null}
-            {showStartTimePicker ? (
-              <DateTimePicker
-                value={counterStartDate}
-                mode="time"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(_, selected) => {
-                  setShowStartTimePicker(false);
-                  if (selected) {
-                    setCounterStartDate(selected);
-                    if (counterEndDate <= selected) {
-                      setCounterEndDate(new Date(selected.getTime() + 60 * 60 * 1000));
-                    }
-                  }
-                }}
-              />
-            ) : null}
-
-            {/* End time picker */}
-            <Text style={bStyles.counterInputLabel}>New end time</Text>
-            <Pressable
-              style={[bStyles.messageInput, { justifyContent: "center", marginBottom: Spacing.sm }]}
-              onPress={() => { setShowEndTimePicker(true); setShowStartDatePicker(false); setShowStartTimePicker(false); }}
-            >
-              <Text style={{ color: Colors.dark.text }}>
-                {counterEndDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                {" (same day)"}
-              </Text>
-            </Pressable>
-
-            {showEndTimePicker ? (
-              <DateTimePicker
-                value={counterEndDate}
-                mode="time"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(_, selected) => {
-                  setShowEndTimePicker(false);
-                  if (selected) {
-                    // Apply same date as counterStartDate
-                    const end = new Date(selected);
-                    end.setFullYear(counterStartDate.getFullYear(), counterStartDate.getMonth(), counterStartDate.getDate());
-                    setCounterEndDate(end);
-                  }
-                }}
-              />
-            ) : null}
-
-            <Pressable
-              style={[bStyles.sendMsgBtn, { backgroundColor: Colors.dark.orange || "#F97316" }, loadingCounter ? { opacity: 0.7 } : null]}
-              onPress={handleCounterPropose}
-              disabled={loadingCounter}
-            >
-              {loadingCounter ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={bStyles.sendMsgBtnText}>Send Alternative Time</Text>
-              )}
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {showCounterModal ? (
+        <CounterProposeModal
+          visible={showCounterModal}
+          bookingRequestId={req.id}
+          sessionDurationMinutes={req.duration}
+          counterSelectedDate={counterSelectedDate}
+          setCounterSelectedDate={(d) => {
+            setCounterSelectedDate(d);
+            setCounterStartSlotIso(null);
+            setCounterEndSlotIso(null);
+          }}
+          counterStartSlotIso={counterStartSlotIso}
+          counterEndSlotIso={counterEndSlotIso}
+          setCounterStartSlotIso={setCounterStartSlotIso}
+          setCounterEndSlotIso={setCounterEndSlotIso}
+          onClose={() => setShowCounterModal(false)}
+          onSend={handleCounterPropose}
+          loadingCounter={loadingCounter}
+        />
+      ) : null}
     </View>
   );
 }
