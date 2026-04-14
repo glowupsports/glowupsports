@@ -12,6 +12,8 @@ import {
   Dimensions,
   ScrollView,
   FlatList,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { openDirections } from "@/lib/maps";
 import { Image } from "expo-image";
@@ -315,6 +317,14 @@ export default function PlayerBookingWizard({
     enabled: !!availableCourtsUrl && visible,
   });
 
+  // Auto-select when the location has exactly one court — no need to make the player choose
+  useEffect(() => {
+    if (availableCourts.length === 1 && !selectedCourtId) {
+      setSelectedCourtId(availableCourts[0].id);
+      setSelectedCourtName(availableCourts[0].name);
+    }
+  }, [availableCourts]);
+
   // Fetch coaches for "browse by coach" mode
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
@@ -583,10 +593,11 @@ export default function PlayerBookingWizard({
       bookingMutation.mutate(bookingData);
     } else if (selectedSlot) {
       // Request new session slot (use player-selected court if overridden, else slot's pre-assigned court)
+      // Convert null → undefined so optional Zod fields are treated as absent (null fails z.string())
       const bookingData = {
-        coachId: selectedSlot.coachId,
-        locationId: selectedSlot.locationId,
-        courtId: selectedCourtId ?? selectedSlot.courtId,
+        coachId: selectedSlot.coachId ?? undefined,
+        locationId: selectedSlot.locationId ?? undefined,
+        courtId: (selectedCourtId ?? selectedSlot.courtId) ?? undefined,
         requestedStart: selectedSlot.startTime,
         requestedEnd: selectedSlot.endTime,
         duration: selectedSlot.duration,
@@ -1174,6 +1185,7 @@ export default function PlayerBookingWizard({
 
   // SLIDE 3: Details
   const renderDetailsSlide = () => (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <Animated.View entering={FadeIn} style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
 
@@ -1267,6 +1279,9 @@ export default function PlayerBookingWizard({
             placeholderTextColor={Colors.dark.textSecondary}
             multiline
             numberOfLines={3}
+            blurOnSubmit
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
         </View>
 
@@ -1300,6 +1315,7 @@ export default function PlayerBookingWizard({
         )}
       </View>
     </Animated.View>
+    </TouchableWithoutFeedback>
   );
 
   // SLIDE 4: Confirm & Rewards
