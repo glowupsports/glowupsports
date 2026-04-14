@@ -794,8 +794,8 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   ], [t]);
 
   const playCenterButton = useMemo(() => ({
-    icon: "game-controller-outline" as const,
-    iconFocused: "game-controller" as const,
+    icon: "tennisball-outline" as const,
+    iconFocused: "tennisball" as const,
     label: "Play",
     color: Colors.dark.primary,
     pagerIndex: 2,

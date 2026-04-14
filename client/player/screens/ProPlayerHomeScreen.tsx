@@ -543,6 +543,17 @@ function PlayerHomeContent() {
 
   const { data: questsData } = useQuests(!isGuest);
 
+  const { data: socialPosts } = useQuery<any[]>({
+    queryKey: ["/api/social/feed", "dashboard-preview"],
+    enabled: !isGuest,
+  });
+
+  const { data: shopData } = useQuery<{ featuredProducts?: any[] }>({
+    queryKey: ["/api/player/shop"],
+    enabled: !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
   const { data: unreadData } = useQuery<{ count: number }>({
@@ -994,11 +1005,11 @@ function PlayerHomeContent() {
           </>
         ) : null}
 
-        {/* ── COMMUNITY ── Social feed (has its own header) */}
-        <MiniFeed />
+        {/* ── COMMUNITY ── only show when there are real social posts */}
+        {!isGuest && socialPosts && socialPosts.length > 0 && <MiniFeed />}
 
-        {/* ── SHOP ── Marketplace (has its own header) */}
-        <GlowMarketSpotlight />
+        {/* ── SHOP ── only show when there are marketplace products */}
+        {!isGuest && shopData?.featuredProducts && shopData.featuredProducts.length > 0 && <GlowMarketSpotlight />}
       </ScrollView>
 
       <BetaFeedbackButton
