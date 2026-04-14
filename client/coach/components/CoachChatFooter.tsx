@@ -21,7 +21,6 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
@@ -1530,7 +1529,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
           bottom: (!isExpanded && !isFullscreen)
-            ? insets.bottom
+            ? TAB_BAR_HEIGHT + insets.bottom
             : TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION,
           paddingTop: isFullscreen ? insets.top : 0,
         },
@@ -1539,14 +1538,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       ]}
     >
       {(!isExpanded && !isFullscreen) ? (
-        // ── COLLAPSED: rainbow + two pills flanking the center Play button ──
+        // ── COLLAPSED: two pills flanking the center Play button ──
         <>
-          <LinearGradient
-            colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#8B00FF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.rainbow}
-          />
           <View style={styles.pillRow}>
             <Pressable
               style={styles.leftPill}
@@ -1885,15 +1878,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderTopWidth: 0,
     overflow: "visible",
-  },
-  rainbow: {
-    position: "absolute",
-    top: -12,
-    left: 0,
-    right: 0,
-    height: 10,
-    borderRadius: 5,
-    zIndex: 101,
   },
   pillRow: {
     flexDirection: "row",
