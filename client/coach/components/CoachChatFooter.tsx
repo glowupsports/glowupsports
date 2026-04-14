@@ -46,7 +46,6 @@ interface ChatFooterProps {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
-const FOOTER_EXPANDED = SCREEN_HEIGHT - 120;
 const FOOTER_FULLSCREEN = SCREEN_HEIGHT;
 const LEFT_PANEL_WIDTH = 94;
 
@@ -172,6 +171,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === "web" && screenWidth >= 1024;
+  const isSmallScreen = screenWidth < 360 || SCREEN_HEIGHT < 700;
+  const footerExpandedHeight = useMemo(
+    () => SCREEN_HEIGHT - TAB_BAR_HEIGHT - CENTER_BUTTON_PROTRUSION - insets.bottom - insets.top - 8,
+    [insets.top, insets.bottom]
+  );
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { user } = useAuth();
@@ -510,10 +514,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     const targetHeight = isFullscreen
       ? safeFullscreenHeight
       : isExpanded
-        ? FOOTER_EXPANDED
+        ? footerExpandedHeight
         : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
-  }, [isExpanded, isFullscreen, isDesktopWeb, insets.top]);
+  }, [isExpanded, isFullscreen, isDesktopWeb, insets.top, footerExpandedHeight]);
 
   useEffect(() => {
     setChatExpanded(isExpanded || isFullscreen);
@@ -1713,8 +1717,36 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
       {isExpanded ? (
         <View style={styles.expandedContent}>
-          {renderVerticalTabs()}
-          <View style={styles.rightPanel}>
+          {!isSmallScreen && renderVerticalTabs()}
+          <View style={[styles.rightPanel, isSmallScreen && { flex: 1 }]}>
+            {isSmallScreen && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.horizontalTabStrip}
+                contentContainerStyle={styles.horizontalTabStripContent}
+              >
+                {CHAT_TABS.map((tab) => {
+                  const isActive = currentTab === tab.id;
+                  return (
+                    <Pressable
+                      key={tab.id}
+                      onPress={() => handleTabChange(tab.id)}
+                      style={[styles.horizontalTabChip, isActive && styles.horizontalTabChipActive]}
+                    >
+                      <Ionicons
+                        name={tab.icon}
+                        size={13}
+                        color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
+                      />
+                      <ThemedText style={[styles.horizontalTabChipText, isActive && styles.horizontalTabChipTextActive]}>
+                        {tab.name}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
             {renderRightPanel()}
           </View>
         </View>
@@ -2768,5 +2800,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.textSecondary,
     fontWeight: "500",
+  },
+  horizontalTabStrip: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "20",
+    backgroundColor: Backgrounds.card + "60",
+    flexShrink: 0,
+  },
+  horizontalTabStripContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  horizontalTabChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  horizontalTabChipActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary + "60",
+  },
+  horizontalTabChipText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  horizontalTabChipTextActive: {
+    color: Colors.dark.primary,
   },
 });
