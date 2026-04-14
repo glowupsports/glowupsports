@@ -167,7 +167,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === "web" && screenWidth >= 1024;
-  const tabBarHeight = isDesktopWeb ? 0 : TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { user } = useAuth();
@@ -498,13 +497,16 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   }, [blockStatusData, senderUserIdForBlockCheck]);
 
   useEffect(() => {
-    const targetHeight = isFullscreen
+    const safeFullscreenHeight = isDesktopWeb
       ? FOOTER_FULLSCREEN
+      : SCREEN_HEIGHT - TAB_BAR_HEIGHT - insets.top;
+    const targetHeight = isFullscreen
+      ? safeFullscreenHeight
       : isExpanded
         ? FOOTER_EXPANDED
         : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
-  }, [isExpanded, isFullscreen]);
+  }, [isExpanded, isFullscreen, isDesktopWeb, insets.top]);
 
   useEffect(() => {
     setChatExpanded(isExpanded || isFullscreen);
@@ -1517,7 +1519,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
   const desktopWebStyle = isDesktopWeb
     ? { position: "fixed" as any, left: 220, right: 0, bottom: 0 }
-    : { bottom: tabBarHeight };
+    : {};
 
   return (
     <Animated.View style={[styles.container, { paddingTop: isFullscreen ? insets.top : 0 }, desktopWebStyle, animatedStyle]}>
@@ -1795,7 +1797,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 0,
+    bottom: TAB_BAR_HEIGHT,
     left: 0,
     right: 0,
     backgroundColor: "rgba(17, 20, 26, 0.90)",

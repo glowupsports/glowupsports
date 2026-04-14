@@ -14,8 +14,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -25,9 +23,9 @@ import { ChatMessage, CHAT_CHANNELS, REACTION_EMOJIS, ChatChannel } from "@/cons
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.6, 450);
+const TAB_BAR_HEIGHT = 85;
 
 export function ChatFooter() {
-  const insets = useSafeAreaInsets();
   const {
     messages,
     currentChannel,
@@ -41,17 +39,17 @@ export function ChatFooter() {
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  const height = useSharedValue(FOOTER_COLLAPSED + insets.bottom);
+  const height = useSharedValue(FOOTER_COLLAPSED);
 
   const filteredMessages = messages.filter((m) => m.channel === currentChannel);
   const latestMessage = filteredMessages[filteredMessages.length - 1];
 
   useEffect(() => {
     height.value = withSpring(
-      isExpanded ? FOOTER_EXPANDED + insets.bottom : FOOTER_COLLAPSED + insets.bottom,
+      isExpanded ? FOOTER_EXPANDED : FOOTER_COLLAPSED,
       { damping: 20, stiffness: 200 }
     );
-  }, [isExpanded, insets.bottom]);
+  }, [isExpanded]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
@@ -151,7 +149,7 @@ export function ChatFooter() {
   };
 
   return (
-    <Animated.View style={[styles.container, { paddingBottom: insets.bottom }, animatedStyle]}>
+    <Animated.View style={[styles.container, animatedStyle]}>
       <Pressable
         onPress={() => setIsExpanded(!isExpanded)}
         style={styles.header}
@@ -248,7 +246,7 @@ export function ChatFooter() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 0,
+    bottom: TAB_BAR_HEIGHT,
     left: 0,
     right: 0,
     backgroundColor: Colors.dark.backgroundDefault,
