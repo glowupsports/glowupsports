@@ -22,7 +22,6 @@ import Animated, {
   withTiming,
   withRepeat,
   withDelay,
-  useDerivedValue,
   Easing,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
@@ -204,7 +203,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const height = useSharedValue(FOOTER_COLLAPSED);
   const tickerOffset = useSharedValue(0);
   const leftPillWidthSV = useSharedValue(0);
-  const [leftPillWidth, setLeftPillWidth] = useState(0);
 
   useEffect(() => {
     AsyncStorage.getItem("@glow_safety_banner_dismissed").then(val => {
@@ -1592,9 +1590,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               style={styles.leftPill}
               onPress={() => setIsExpanded(true)}
               onLayout={e => {
-                const w = e.nativeEvent.layout.width;
-                setLeftPillWidth(w);
-                leftPillWidthSV.value = w;
+                leftPillWidthSV.value = e.nativeEvent.layout.width;
               }}
             >
               {/* Ticker text clips inside this container */}
