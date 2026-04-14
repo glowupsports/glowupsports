@@ -596,9 +596,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return items.join("   •   ");
   }, [conversations]);
 
+  const TICKER_SEP = "               •               ";
+
   const repeatedContent = useMemo(() => {
-    const sep = "               •               ";
-    return tickerContent + sep + tickerContent;
+    return tickerContent + TICKER_SEP + tickerContent;
   }, [tickerContent]);
 
   useEffect(() => {
@@ -607,8 +608,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       return;
     }
     const charWidth = 7.8;
-    const sep = "               •               ";
-    const singleWidth = (tickerContent.length + sep.length) * charWidth;
+    const singleWidth = (tickerContent.length + TICKER_SEP.length) * charWidth;
     tickerOffset.value = 0;
     tickerOffset.value = withDelay(
       1500,
