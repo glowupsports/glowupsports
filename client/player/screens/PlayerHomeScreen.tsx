@@ -1354,17 +1354,6 @@ export default function PlayerHomeScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* TEST RAINBOW BANNER - Always visible */}
-        <LinearGradient
-          colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{ padding: 16, marginHorizontal: 16, marginBottom: 12, borderRadius: 12 }}
-        >
-          <Text style={{ color: "#FFF", fontWeight: "bold", fontSize: 18, textAlign: "center", textShadowColor: "#000", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }}>
-            🌈 RAINBOW TEST - isBirthday: {isBirthday ? "TRUE" : "FALSE"} 🎂
-          </Text>
-        </LinearGradient>
         
         {/* Birthday Banner - Shows festive header on birthday */}
         {isBirthday && (
