@@ -12,6 +12,8 @@ import {
   useWindowDimensions,
   Modal,
   Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -686,6 +688,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
 
   const handleTabChange = (tab: ChatTab) => {
+    Keyboard.dismiss();
     setCurrentTab(tab);
 
     setShowNewMessage(false);
@@ -1537,6 +1540,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               style={styles.input}
               onSubmitEditing={handleSend}
               returnKeyType="send"
+              blurOnSubmit={false}
               editable={!isSampleConversation}
             />
             <Pressable
@@ -1716,6 +1720,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       )}
 
       {isExpanded ? (
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.expandedContent}>
           {!isSmallScreen && renderVerticalTabs()}
           <View style={[styles.rightPanel, isSmallScreen && { flex: 1 }]}>
@@ -1750,6 +1755,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             {renderRightPanel()}
           </View>
         </View>
+        </TouchableWithoutFeedback>
       ) : null}
 
       <Modal
