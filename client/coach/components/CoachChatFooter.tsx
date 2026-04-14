@@ -21,6 +21,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
@@ -1523,71 +1524,134 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     : {};
 
   return (
-    <Animated.View style={[styles.container, { bottom: TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION, paddingTop: isFullscreen ? insets.top : 0 }, desktopWebStyle, animatedStyle]}>
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => {
-            if (isFullscreen) {
-              setIsFullscreen(false);
-            } else {
-              setIsExpanded(!isExpanded);
-            }
-          }}
-          style={styles.headerTouchable}
-        >
-          <View style={styles.headerLeft}>
-            <View style={styles.chatIconContainer}>
-              <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
-              <View style={styles.connectionIndicator}>
-                <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
+    <Animated.View
+      style={[
+        styles.container,
+        (!isExpanded && !isFullscreen) && styles.containerCollapsed,
+        {
+          bottom: (!isExpanded && !isFullscreen)
+            ? insets.bottom
+            : TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION,
+          paddingTop: isFullscreen ? insets.top : 0,
+        },
+        desktopWebStyle,
+        animatedStyle,
+      ]}
+    >
+      {(!isExpanded && !isFullscreen) ? (
+        // ── COLLAPSED: rainbow + two pills flanking the center Play button ──
+        <>
+          <LinearGradient
+            colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#8B00FF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.rainbow}
+          />
+          <View style={styles.pillRow}>
+            <Pressable
+              style={styles.leftPill}
+              onPress={() => setIsExpanded(true)}
+            >
+              <View style={styles.chatIconContainer}>
+                <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
+                <View style={styles.connectionIndicator}>
+                  <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
+                </View>
+                {unreadCount > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
+                  </View>
+                ) : null}
               </View>
+              <ThemedText numberOfLines={1} style={styles.previewText}>
+                {latestConversation?.lastMessagePreview ?? "Glow Chat"}
+              </ThemedText>
+            </Pressable>
+
+            <View style={styles.pillGap} />
+
+            <Pressable
+              style={styles.rightPill}
+              onPress={() => setIsExpanded(true)}
+            >
+              <Ionicons name="chevron-up-outline" size={20} color={Colors.dark.text} />
               {unreadCount > 0 ? (
-                <View style={styles.unreadBadge}>
-                  <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
+                <View style={styles.rightPillBadge}>
+                  <ThemedText style={styles.rightPillBadgeText}>{unreadCount}</ThemedText>
                 </View>
               ) : null}
-            </View>
-            {latestConversation && latestConversation.lastMessagePreview && !isExpanded ? (
-              <ThemedText numberOfLines={1} style={styles.previewText}>
-                <ThemedText style={styles.previewSender}>
-                  {getConvDisplayName(latestConversation)}:{" "}
-                </ThemedText>
-                {latestConversation.lastMessagePreview}
-              </ThemedText>
-            ) : (
-              <ThemedText style={styles.headerTitle}>Glow Chat</ThemedText>
-            )}
-          </View>
-        </Pressable>
-        <View style={styles.headerButtons}>
-          {isExpanded ? (
-            <Pressable onPress={toggleFullscreen} style={styles.fullscreenButton}>
-              <Ionicons
-                name={isFullscreen ? "contract-outline" : "expand-outline"}
-                size={20}
-                color={Colors.dark.text}
-              />
             </Pressable>
-          ) : null}
-          <Pressable
-            onPress={() => {
-              if (isFullscreen) {
-                setIsFullscreen(false);
-              } else {
-                setIsExpanded(!isExpanded);
-              }
-            }}
-            style={styles.chevronButton}
-          >
-            <Ionicons
-              name={isExpanded || isFullscreen ? "chevron-down-outline" : "chevron-up-outline"}
-              size={20}
-              color={Colors.dark.text}
-            />
-          </Pressable>
-        </View>
-      </View>
+          </View>
+        </>
+      ) : (
+        // ── EXPANDED / FULLSCREEN: original header ──
+        <>
+          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => {
+                if (isFullscreen) {
+                  setIsFullscreen(false);
+                } else {
+                  setIsExpanded(!isExpanded);
+                }
+              }}
+              style={styles.headerTouchable}
+            >
+              <View style={styles.headerLeft}>
+                <View style={styles.chatIconContainer}>
+                  <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
+                  <View style={styles.connectionIndicator}>
+                    <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
+                  </View>
+                  {unreadCount > 0 ? (
+                    <View style={styles.unreadBadge}>
+                      <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
+                    </View>
+                  ) : null}
+                </View>
+                {latestConversation && latestConversation.lastMessagePreview && !isExpanded ? (
+                  <ThemedText numberOfLines={1} style={styles.previewText}>
+                    <ThemedText style={styles.previewSender}>
+                      {getConvDisplayName(latestConversation)}:{" "}
+                    </ThemedText>
+                    {latestConversation.lastMessagePreview}
+                  </ThemedText>
+                ) : (
+                  <ThemedText style={styles.headerTitle}>Glow Chat</ThemedText>
+                )}
+              </View>
+            </Pressable>
+            <View style={styles.headerButtons}>
+              {isExpanded ? (
+                <Pressable onPress={toggleFullscreen} style={styles.fullscreenButton}>
+                  <Ionicons
+                    name={isFullscreen ? "contract-outline" : "expand-outline"}
+                    size={20}
+                    color={Colors.dark.text}
+                  />
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  if (isFullscreen) {
+                    setIsFullscreen(false);
+                  } else {
+                    setIsExpanded(!isExpanded);
+                  }
+                }}
+                style={styles.chevronButton}
+              >
+                <Ionicons
+                  name={isExpanded || isFullscreen ? "chevron-down-outline" : "chevron-up-outline"}
+                  size={20}
+                  color={Colors.dark.text}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </>
+      )}
 
       {isExpanded ? (
         <View style={styles.expandedContent}>
@@ -1816,6 +1880,69 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
     }),
+  },
+  containerCollapsed: {
+    backgroundColor: "transparent",
+    borderTopWidth: 0,
+    overflow: "visible",
+  },
+  rainbow: {
+    position: "absolute",
+    top: -12,
+    left: 0,
+    right: 0,
+    height: 10,
+    borderRadius: 5,
+    zIndex: 101,
+  },
+  pillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: FOOTER_COLLAPSED,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  leftPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(17, 20, 26, 0.92)",
+    borderRadius: 999,
+    paddingHorizontal: Spacing.md,
+    height: 48,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  pillGap: {
+    width: 76,
+  },
+  rightPill: {
+    width: 52,
+    height: 48,
+    borderRadius: 999,
+    backgroundColor: "rgba(17, 20, 26, 0.92)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  rightPillBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+  },
+  rightPillBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.background,
   },
   header: {
     flexDirection: "row",

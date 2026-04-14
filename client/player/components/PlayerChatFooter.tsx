@@ -11,7 +11,6 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -462,19 +461,13 @@ export function PlayerChatFooter() {
       style={[
         styles.container,
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
-        { bottom: (!isExpanded && !isFullscreen) ? insets.bottom : tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 },
+        { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 },
         animatedStyle,
       ]}
     >
       {(!isExpanded && !isFullscreen) ? (
         // ── COLLAPSED: two pills flanking the center Play button ──
         <>
-          <LinearGradient
-            colors={["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#8B00FF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.rainbow}
-          />
         <View style={styles.pillRow}>
           <Pressable
             style={styles.leftPill}
@@ -724,14 +717,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderTopWidth: 0,
     overflow: "visible",
-  },
-  rainbow: {
-    position: "absolute",
-    top: -12,
-    left: 0,
-    right: 0,
-    height: 10,
-    borderRadius: 5,
   },
   pillRow: {
     flexDirection: "row",
