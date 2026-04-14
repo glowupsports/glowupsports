@@ -1599,7 +1599,7 @@ export default function PlayScreen() {
                   style={styles.findMatchGradient}
                 >
                   <Ionicons name="school-outline" size={18} color={GlowColors.primary} />
-                  <Text style={[styles.findMatchText, { color: GlowColors.primary }]}>Lessons</Text>
+                  <Text style={[styles.findMatchText, { color: GlowColors.primary }]} numberOfLines={1}>Lessons</Text>
                 </LinearGradient>
               </Pressable>
 
@@ -1618,7 +1618,7 @@ export default function PlayScreen() {
                   style={styles.findMatchGradient}
                 >
                   <Ionicons name="flame" size={20} color={Colors.dark.buttonText} />
-                  <Text style={styles.findMatchText}>Find Match</Text>
+                  <Text style={styles.findMatchText} numberOfLines={1}>Find Match</Text>
                 </LinearGradient>
               </Pressable>
 
@@ -1636,7 +1636,7 @@ export default function PlayScreen() {
                   style={styles.findMatchGradient}
                 >
                   <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
-                  <Text style={styles.findMatchText}>Open Match</Text>
+                  <Text style={styles.findMatchText} numberOfLines={1}>Open Match</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -2633,7 +2633,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   findMatchText: {
-    ...Typography.h4,
+    fontSize: 13,
     color: Colors.dark.buttonText,
     fontWeight: "700",
   },

@@ -16,7 +16,8 @@ import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow, TournamentsDiscoveryRow } from "@/player/components/DiscoveryRows";
+import { PlayersNearYouRow, GroupLessonsRow, OpenMatchesRow, TrainingSessionsRow, TournamentsDiscoveryRow } from "@/player/components/DiscoveryRows";
+import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
@@ -512,6 +513,7 @@ function PlayerHomeContent() {
   const { navigateToTab } = useTabNavigation();
   const { guardAction, promptProps } = useGuestGuard();
   const { isMultiSport, activeSports, activeSport } = useSport();
+  const { state: playerState } = usePlayerState();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
@@ -561,6 +563,21 @@ function PlayerHomeContent() {
     enabled: !isGuest,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: tournamentsGateData } = useQuery<{ upcoming: any[] }>({
+    queryKey: ["/api/player/tournaments", "registration_open"],
+    enabled: !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const _now = new Date();
+  const hasGroupLessons = !isGuest && (playerState.openSessions ?? []).some(s => s.type === "group");
+  const hasOpenMatches = !isGuest && (playerState.openSessions ?? []).some(s => {
+    if (s.type !== "open_match") return false;
+    const matchDate = (s as any).date || (s as any).startTime || (s as any).scheduledTime;
+    return !matchDate || new Date(matchDate) > _now;
+  });
+  const hasTournaments = !isGuest && (tournamentsGateData?.upcoming?.length ?? 0) > 0;
 
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
@@ -969,8 +986,9 @@ function PlayerHomeContent() {
         </View>
 
         <TrainingSessionsRow />
-        <OpenSessionsRow />
-        <TournamentsDiscoveryRow />
+        {hasGroupLessons ? <GroupLessonsRow /> : null}
+        {hasOpenMatches ? <OpenMatchesRow /> : null}
+        {hasTournaments ? <TournamentsDiscoveryRow /> : null}
         <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── shown only when player has real content: feedback received OR skill progress data (ball level assigned) */}
