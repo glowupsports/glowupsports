@@ -162,6 +162,7 @@ interface SenderProfile {
 }
 
 const TAB_BAR_HEIGHT = 85;
+const CENTER_BUTTON_PROTRUSION = 30;
 
 export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
@@ -1522,7 +1523,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     : {};
 
   return (
-    <Animated.View style={[styles.container, { paddingTop: isFullscreen ? insets.top : 0 }, desktopWebStyle, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION, paddingTop: isFullscreen ? insets.top : 0 }, desktopWebStyle, animatedStyle]}>
       <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <Pressable
@@ -1797,7 +1798,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: TAB_BAR_HEIGHT,
     left: 0,
     right: 0,
     backgroundColor: "rgba(17, 20, 26, 0.90)",
