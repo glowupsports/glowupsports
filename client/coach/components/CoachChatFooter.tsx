@@ -591,10 +591,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       .filter(c => c.lastMessagePreview)
       .slice(0, 6)
       .map(c => {
-        const name = c.squadName || c.title || (c.playerId ? "Player" : c.coachId ? "Coach" : "Chat");
+        const name = c.title || c.playerName || c.coachName || (c.playerId ? "Player" : c.coachId ? "Coach" : "Chat");
         return `${name}: ${c.lastMessagePreview}`;
       });
-    if (items.length === 0) return "Glow Chat — tap to open your messages";
+    if (items.length === 0) return "Glow Chat — tap to open";
     return items.join("   •   ");
   }, [conversations]);
 
@@ -607,9 +607,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     const totalWidth = tickerContent.length * charWidth;
     tickerOffset.value = 0;
     tickerOffset.value = withDelay(
-      1200,
+      1500,
       withRepeat(
-        withTiming(-totalWidth, { duration: Math.max(totalWidth * 55, 8000), easing: Easing.linear }),
+        withTiming(-totalWidth, { duration: 14000, easing: Easing.linear }),
         -1,
         false
       )
