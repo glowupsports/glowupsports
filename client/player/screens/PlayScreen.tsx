@@ -1589,7 +1589,7 @@ export default function PlayScreen() {
                 style={styles.lessonsButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setActiveTab("Group Lessons");
+                  navigation.navigate("LessonBooking");
                 }}
               >
                 <LinearGradient
