@@ -1068,7 +1068,7 @@ function BookingRequestCard({
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
               <>
-                <Ionicons name="checkmark" size={16} color="#FFF" />
+                <Ionicons name="checkmark" size={16} color="#000" />
                 <Text style={bStyles.approveBtnText}>Approve</Text>
               </>
             )}
@@ -1524,11 +1524,10 @@ const bStyles = StyleSheet.create({
     lineHeight: 16,
   },
   quickActions: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   msgBtn: {
     flexDirection: "row",
@@ -1547,15 +1546,14 @@ const bStyles = StyleSheet.create({
     fontWeight: "600",
   },
   mainActions: {
-    flex: 1,
     flexDirection: "row",
     gap: Spacing.sm,
-    justifyContent: "flex-end",
   },
   secondaryActions: {
     flexDirection: "row",
     gap: Spacing.xs,
     alignItems: "center",
+    flexWrap: "wrap",
   },
   counterBtn: {
     flexDirection: "row",
@@ -1594,8 +1592,10 @@ const bStyles = StyleSheet.create({
     marginBottom: -4,
   },
   declineBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1610,8 +1610,10 @@ const bStyles = StyleSheet.create({
     color: "#FF6B6B",
   },
   approveBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -1621,7 +1623,7 @@ const bStyles = StyleSheet.create({
   approveBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFF",
+    color: "#000",
   },
   welcomeMsgWrap: {
     marginHorizontal: Spacing.md,
@@ -1654,7 +1656,7 @@ const bStyles = StyleSheet.create({
   confirmApproveBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#FFF",
+    color: "#000",
   },
   sheetOverlay: {
     flex: 1,
