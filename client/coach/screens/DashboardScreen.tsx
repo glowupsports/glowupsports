@@ -1107,7 +1107,7 @@ function BookingRequestCard({
       <Modal visible={showDeclineSheet} transparent animationType="slide" onRequestClose={() => setShowDeclineSheet(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
           <Pressable style={bStyles.sheetOverlay} onPress={() => setShowDeclineSheet(false)}>
-            <View style={bStyles.sheetContainer}>
+            <Pressable style={bStyles.sheetContainer} onPress={() => {}}>
               <View style={bStyles.sheetHandle} />
               <Text style={bStyles.sheetTitle}>Reason for declining</Text>
               <Text style={bStyles.sheetSubtitle}>The player will see this reason</Text>
@@ -1145,7 +1145,7 @@ function BookingRequestCard({
                   <Text style={bStyles.declineConfirmBtnText}>Decline Request</Text>
                 )}
               </Pressable>
-            </View>
+            </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
@@ -1154,7 +1154,7 @@ function BookingRequestCard({
       <Modal visible={showMessageModal} transparent animationType="slide" onRequestClose={() => setShowMessageModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
           <Pressable style={bStyles.sheetOverlay} onPress={() => setShowMessageModal(false)}>
-            <View style={bStyles.sheetContainer}>
+            <Pressable style={bStyles.sheetContainer} onPress={() => {}}>
               <View style={bStyles.sheetHandle} />
               <Text style={bStyles.sheetTitle}>Message player</Text>
               <Text style={bStyles.sheetSubtitle}>Send a quick note before confirming</Text>
@@ -1179,7 +1179,7 @@ function BookingRequestCard({
                   <Text style={bStyles.sendMsgBtnText}>Send Message</Text>
                 )}
               </Pressable>
-            </View>
+            </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
@@ -1187,7 +1187,7 @@ function BookingRequestCard({
       {/* Counter-propose modal */}
       <Modal visible={showCounterModal} transparent animationType="slide" onRequestClose={() => setShowCounterModal(false)}>
         <Pressable style={bStyles.sheetOverlay} onPress={() => setShowCounterModal(false)}>
-          <View style={bStyles.sheetContainer}>
+          <Pressable style={bStyles.sheetContainer} onPress={() => {}}>
             <View style={bStyles.sheetHandle} />
             <Text style={bStyles.sheetTitle}>Suggest alternative time</Text>
             <Text style={bStyles.sheetSubtitle}>Player will see your proposed time and can accept or decline</Text>
@@ -1289,7 +1289,7 @@ function BookingRequestCard({
                 <Text style={bStyles.sendMsgBtnText}>Send Alternative Time</Text>
               )}
             </Pressable>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
     </View>
