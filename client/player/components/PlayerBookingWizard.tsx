@@ -2423,13 +2423,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "visible",
   },
-  nextButtonHoldGlow: {
-    shadowColor: Colors.dark.primary,
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
-  },
   emptyState: {
     flex: 1,
     alignItems: "center",
