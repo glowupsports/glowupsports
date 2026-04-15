@@ -60,9 +60,10 @@ const CREDIT_TYPE_ICONS: Record<CreditType, string> = {
   semi_private: "people-outline",
 };
 
-function PackageItemRow({ pkg, onDelete }: { pkg: Package; onDelete: (pkg: Package) => void }) {
+function PackageItemRow({ pkg, onDelete, effectiveRemaining }: { pkg: Package; onDelete: (pkg: Package) => void; effectiveRemaining?: number }) {
   const creditType = (pkg.creditType || "group") as CreditType;
-  const safeRemaining = Math.max(0, pkg.remainingCredits);
+  const displayRemaining = effectiveRemaining !== undefined ? Math.max(0, effectiveRemaining) : Math.max(0, pkg.remainingCredits);
+  const safeRemaining = displayRemaining;
   const progressPercent = pkg.totalCredits > 0 ? (safeRemaining / pkg.totalCredits) * 100 : 0;
   const isDepleted = safeRemaining <= 0;
   const expired = pkg.expiryDate ? new Date(pkg.expiryDate) < new Date() : false;
@@ -272,6 +273,32 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     });
     return byType;
   }, [pastPackages]);
+
+  const effectiveRemainingByPkgId = useMemo(() => {
+    const result: Record<string, number> = {};
+    if (!creditBalance) {
+      activePackages.forEach((p) => { result[p.id] = p.remainingCredits; });
+      return result;
+    }
+    const debtByType: Record<CreditType, number> = {
+      group: Math.max(0, creditsByType.group - creditBalance.group),
+      private: Math.max(0, creditsByType.private - creditBalance.private),
+      semi_private: Math.max(0, creditsByType.semi_private - creditBalance.semi_private),
+    };
+    const remainingDebt = { ...debtByType };
+    const sortedPackages = [...activePackages].sort((a, b) => {
+      const aDate = a.purchaseDate ? new Date(a.purchaseDate).getTime() : 0;
+      const bDate = b.purchaseDate ? new Date(b.purchaseDate).getTime() : 0;
+      return aDate - bDate;
+    });
+    sortedPackages.forEach((p) => {
+      const type = (p.creditType || "group") as CreditType;
+      const debt = Math.min(remainingDebt[type], Math.max(0, p.remainingCredits));
+      result[p.id] = p.remainingCredits - debt;
+      remainingDebt[type] -= debt;
+    });
+    return result;
+  }, [activePackages, creditBalance, creditsByType]);
 
   const createMutation = useMutation({
     mutationFn: async (data: { 
@@ -566,6 +593,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
               key={pkg.id}
               pkg={pkg}
               onDelete={handleDeletePackage}
+              effectiveRemaining={effectiveRemainingByPkgId[pkg.id]}
             />
           ))}
 
