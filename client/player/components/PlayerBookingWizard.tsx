@@ -35,6 +35,7 @@ import Animated, {
   SlideInRight,
   SlideOutLeft,
   withSequence,
+  withRepeat,
   withDelay,
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
