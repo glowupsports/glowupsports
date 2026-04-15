@@ -90,11 +90,12 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     ? attendanceHistory
     : attendanceHistory.filter(r => normalizeSessionType(r.sessionType) === typeFilter);
 
+  const seriesIdKey = seriesAttendanceSummaries.map(s => s.seriesId).sort().join(',');
   useEffect(() => {
     if (seriesAttendanceSummaries.length > 0) {
       setExpandedSeriesIds(new Set(seriesAttendanceSummaries.map(s => s.seriesId)));
     }
-  }, [seriesAttendanceSummaries.length]);
+  }, [seriesIdKey]);
 
   useEffect(() => {
     setShowAllHistory(false);
