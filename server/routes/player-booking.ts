@@ -5659,6 +5659,8 @@ Return only the JSON array, nothing else.`;
         requiredBallLevel,
         maxPlayers,
         sport,
+        invitedPlayerId,
+        matchIntent,
       } = req.body;
 
       const [request] = await db.insert(matchRequests).values({
