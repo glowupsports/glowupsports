@@ -28,6 +28,7 @@ import ActiveSessionScreen from "@/coach/screens/glow/ActiveSessionScreen";
 import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
 import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
+import { FeedbackPill } from "@/coach/components/FeedbackPill";
 import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
 import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibraryScreen";
 import WellbeingDetailScreen from "@/coach/screens/WellbeingDetailScreen";
@@ -197,9 +198,14 @@ function CoachTabs() {
   const renderOverlay = useCallback((tabKey: string) => {
     if (aiChatVisible) return null;
     if (intakeVisible) return null;
-    const shouldShowChat = tabKey === "Dashboard";
-    if (!shouldShowChat) return null;
-    return <CoachChatFooter />;
+    const isDashboard = tabKey === "Dashboard";
+    if (!isDashboard) return null;
+    return (
+      <>
+        <CoachChatFooter />
+        <FeedbackPill />
+      </>
+    );
   }, [aiChatVisible, intakeVisible]);
 
   const tabBar = (
