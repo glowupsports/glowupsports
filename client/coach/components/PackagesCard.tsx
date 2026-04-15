@@ -166,7 +166,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [packageToDelete, setPackageToDelete] = useState<Package | null>(null);
   const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
-  const [forceDeleteInfo, setForceDeleteInfo] = useState<{ packageId: string; creditsUsed: number } | null>(null);
+  const [forceDeleteInfo, setForceDeleteInfo] = useState<{ packageId: string; creditsUsed: number; remainingCredits?: number } | null>(null);
   
   // Credit Store accordion state
   const [expandedType, setExpandedType] = useState<CreditType | null>(null);
@@ -350,9 +350,11 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       return { success: true };
     },
     onSuccess: (data, variables) => {
-      if (!data.success && data.creditsUsed) {
+      if (!data.success && data.creditsUsed !== undefined) {
         // Show force delete confirmation modal (works on web unlike Alert.alert)
-        setForceDeleteInfo({ packageId: variables.packageId, creditsUsed: data.creditsUsed });
+        const remainingMatch = data.error?.match(/Cannot delete: (\d+) unused/);
+        const remainingCredits = remainingMatch ? parseInt(remainingMatch[1], 10) : undefined;
+        setForceDeleteInfo({ packageId: variables.packageId, creditsUsed: data.creditsUsed, remainingCredits });
         setShowForceDeleteModal(true);
         return;
       }
@@ -819,10 +821,12 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       <Modal visible={showForceDeleteModal} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.deleteModalContent}>
-            <Text style={styles.modalTitle}>Sessions Become Debts</Text>
+            <Text style={styles.modalTitle}>{forceDeleteInfo && forceDeleteInfo.creditsUsed === 0 ? "Remove Unused Credits" : "Sessions Become Debts"}</Text>
             {forceDeleteInfo && (
               <Text style={styles.deleteMessage}>
-                {forceDeleteInfo.creditsUsed} used credit{forceDeleteInfo.creditsUsed !== 1 ? "s" : ""} will be converted to a debt for {playerName}. They will need a new package to settle it. This also removes any associated billing records.
+                {forceDeleteInfo.creditsUsed === 0
+                  ? `This will permanently remove ${forceDeleteInfo.remainingCredits !== undefined ? forceDeleteInfo.remainingCredits : "the"} unused credit${forceDeleteInfo.remainingCredits !== 1 ? "s" : ""}.`
+                  : `${forceDeleteInfo.creditsUsed} used credit${forceDeleteInfo.creditsUsed !== 1 ? "s" : ""} will be converted to a debt for ${playerName}. They will need a new package to settle it. This also removes any associated billing records.`}
               </Text>
             )}
             <View style={styles.modalButtons}>
