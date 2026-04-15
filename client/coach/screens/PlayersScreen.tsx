@@ -150,6 +150,9 @@ const NOTE_CATEGORIES = [
 import { GamingPlayerCard } from "@/coach/components/players/GamingPlayerCard";
 import { PlayerDetailView } from "@/coach/components/players/PlayerDetailView";
 import { styles } from "@/coach/components/players/playersStyles";
+
+let persistedPlayerId: string | null = null;
+
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -344,6 +347,7 @@ export default function PlayersScreen() {
         if (players.length > 0) {
           const player = players.find((p) => p.id === params.playerId || p.id === String(params.playerId));
           if (player) {
+            persistedPlayerId = player.id;
             setSelectedPlayer(player);
           }
         } else {
@@ -355,12 +359,20 @@ export default function PlayersScreen() {
   }, [registerTabCallback, players]);
 
   useEffect(() => {
-    if (pendingPlayerIdRef.current && players.length > 0) {
-      const player = players.find((p) => p.id === pendingPlayerIdRef.current || p.id === String(pendingPlayerIdRef.current));
-      if (player) {
-        setSelectedPlayer(player);
+    if (players.length > 0) {
+      if (pendingPlayerIdRef.current) {
+        const player = players.find((p) => p.id === pendingPlayerIdRef.current || p.id === String(pendingPlayerIdRef.current));
+        if (player) {
+          persistedPlayerId = player.id;
+          setSelectedPlayer(player);
+        }
+        pendingPlayerIdRef.current = null;
+      } else if (persistedPlayerId) {
+        const player = players.find((p) => p.id === persistedPlayerId);
+        if (player) {
+          setSelectedPlayer(player);
+        }
       }
-      pendingPlayerIdRef.current = null;
     }
   }, [players]);
 
@@ -512,6 +524,7 @@ export default function PlayersScreen() {
   };
   const handleSelectPlayer = (player: Player) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    persistedPlayerId = player.id;
     setSelectedPlayer(player);
   };
 
@@ -519,12 +532,17 @@ export default function PlayersScreen() {
     return (
       <PlayerDetailView
         player={selectedPlayer}
-        onBack={() => setSelectedPlayer(null)}
+        onBack={() => {
+          persistedPlayerId = null;
+          setSelectedPlayer(null);
+        }}
         onNavigateToPlayer={(targetId) => {
           const target = players.find((p) => p.id === targetId) || pastPlayers.find((p) => p.id === targetId);
           if (target) {
+            persistedPlayerId = target.id;
             setSelectedPlayer(target);
           } else {
+            persistedPlayerId = null;
             setSelectedPlayer(null);
           }
         }}
