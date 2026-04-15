@@ -9,7 +9,7 @@ import {
   sessionRatings, coachReviews, coachReviewStats,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
-import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte } from "drizzle-orm";
+import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte, gt } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -574,6 +574,25 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
       const updates = req.body;
       const updatedSeries = await storage.updateCoachingSeries(id, updates);
+
+      if (updates.sessionType) {
+        await db
+          .update(sessions)
+          .set({ sessionType: updates.sessionType })
+          .where(
+            and(
+              or(
+                eq(sessions.seriesId, id),
+                eq(sessions.recurringGroupId, id),
+              ),
+              eq(sessions.status, "scheduled"),
+              gt(sessions.startTime, new Date()),
+            ),
+          );
+        console.log(
+          `[AdminSeriesUpdate] Propagated sessionType=${updates.sessionType} to future scheduled sessions in series ${id}`,
+        );
+      }
 
       res.json(updatedSeries);
     } catch (error) {

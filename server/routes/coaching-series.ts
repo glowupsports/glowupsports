@@ -1465,6 +1465,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        if (updates.sessionType) {
+          await db
+            .update(sessions)
+            .set({ sessionType: updates.sessionType })
+            .where(
+              and(
+                or(
+                  eq(sessions.seriesId, id),
+                  eq(sessions.recurringGroupId, id),
+                ),
+                eq(sessions.status, "scheduled"),
+                gt(sessions.startTime, new Date()),
+              ),
+            );
+          console.log(
+            `[SeriesUpdate] Propagated sessionType=${updates.sessionType} to future scheduled sessions in series ${id}`,
+          );
+        }
+
         res.json(updated);
       } catch (error) {
         console.error("Error updating coaching series:", error);
