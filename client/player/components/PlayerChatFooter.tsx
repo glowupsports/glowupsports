@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     height: FOOTER_COLLAPSED,
   },
   leftPill: {
-    flex: 1,
+    flex: 2,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
