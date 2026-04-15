@@ -1229,9 +1229,13 @@ export default function PlayerBookingWizard({
                   </Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Ionicons name="person-outline" size={15} color={Colors.dark.xpCyan} />
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: typeCard.color + "30", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ color: typeCard.color, fontSize: 13, fontWeight: "700" }}>
+                      {(("coachName" in sessionInfo ? sessionInfo.coachName : null) || "C").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
                   <Text style={[styles.confirmText, { fontSize: 14 }]}>
-                    Coach: {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
+                    {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
                   </Text>
                 </View>
               </LinearGradient>
