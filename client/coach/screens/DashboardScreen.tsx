@@ -863,7 +863,7 @@ function CounterProposeModal({
     enabled: visible,
   });
 
-  const slots = data?.slots ?? [];
+  const slots = (data?.slots ?? []).filter((slot) => slot.available);
 
   const handleSlotPress = (slot: AvailableSlot) => {
     if (!slot.available) return;
