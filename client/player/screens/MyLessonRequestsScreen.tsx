@@ -245,11 +245,12 @@ function CounterProposalCard({
   const navigation = useNavigation<any>();
 
   const origStart = new Date(item.requestedStart);
+  const origEnd = new Date(item.requestedEnd);
   const altStart = new Date(item.counterProposedStart!);
   const altEnd = new Date(item.counterProposedEnd!);
 
   const origDateStr = origStart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  const origTimeStr = origStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const origTimeStr = `${origStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${origEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 
   const altDateStr = altStart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const altTimeStr = `${altStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${altEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;

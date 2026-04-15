@@ -2497,11 +2497,17 @@ Return only the JSON array, nothing else.`;
       // Build busy intervals as UTC milliseconds
       const busyMs: Array<{ start: number; end: number }> = [];
 
+      // The pending booking request itself has NOT been confirmed as a session yet.
+      // Exclude any session whose times exactly match the pending request's requested
+      // window so the coach can counter-propose that same slot if it is otherwise free.
+      const requestStartMs = new Date(request.requestedStart).getTime();
+      const requestEndMs = new Date(request.requestedEnd).getTime();
+
       for (const session of existingSessions) {
-        busyMs.push({
-          start: new Date(session.startTime).getTime(),
-          end: new Date(session.endTime).getTime(),
-        });
+        const sessStart = new Date(session.startTime).getTime();
+        const sessEnd = new Date(session.endTime).getTime();
+        if (sessStart === requestStartMs && sessEnd === requestEndMs) continue;
+        busyMs.push({ start: sessStart, end: sessEnd });
       }
 
       // Time blocks store HH:MM in the academy's local timezone → convert to UTC

@@ -821,8 +821,6 @@ function buildDayChips(count: number): Array<{ label: string; dateStr: string }>
   return chips;
 }
 
-const DAY_CHIPS = buildDayChips(14);
-
 function CounterProposeModal({
   visible,
   bookingRequestId,
@@ -851,6 +849,8 @@ function CounterProposeModal({
   loadingCounter: boolean;
 }) {
   const apiUrl = getApiUrl();
+  // Compute fresh every time the modal becomes visible so "Today" always reflects the real date
+  const dayChips = useMemo(() => buildDayChips(14), [visible]);
   const { data, isFetching } = useQuery<{ slots: AvailableSlot[] }>({
     queryKey: [`/api/coach/booking-requests/${bookingRequestId}/available-slots`, counterSelectedDate],
     queryFn: async () => {
@@ -896,7 +896,7 @@ function CounterProposeModal({
             contentContainerStyle={cpStyles.dayRow}
             style={{ marginBottom: Spacing.md }}
           >
-            {DAY_CHIPS.map((chip) => {
+            {dayChips.map((chip) => {
               const selected = chip.dateStr === counterSelectedDate;
               return (
                 <Pressable
