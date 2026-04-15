@@ -48,16 +48,7 @@ function BirthdayFullSheet({ onClose, coachId }: { onClose: () => void; coachId:
   const insets = useSafeAreaInsets();
 
   const { data, isLoading } = useQuery<BirthdayUpcomingData>({
-    queryKey: ["/api/coach/birthdays/upcoming", { days: 60 }],
-    queryFn: async () => {
-      const { getApiUrl, getAuthHeaders } = await import("@/lib/query-client");
-      const res = await fetch(
-        new URL("/api/coach/birthdays/upcoming?days=60", getApiUrl()).toString(),
-        { headers: await getAuthHeaders() }
-      );
-      if (!res.ok) throw new Error("Failed to fetch birthdays");
-      return res.json();
-    },
+    queryKey: ["/api/coach/birthdays/upcoming?days=60"],
     enabled: !!coachId,
     staleTime: 1000 * 60 * 10,
   });
