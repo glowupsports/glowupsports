@@ -560,7 +560,9 @@ function PendingRequestCard({ request }: { request: PendingRequestData }) {
     accentColor = Colors.dark.error;
     iconName = "close-circle-outline";
     statusLabel = "Declined";
-    const reason = request.declineReason ? DECLINE_REASON_LABELS[request.declineReason] : request.responseNote;
+    const reason = request.declineReason
+      ? (DECLINE_REASON_LABELS[request.declineReason] ?? request.declineReason)
+      : request.responseNote;
     statusDetail = reason ? `Reason: ${reason}` : "Your lesson request was declined";
   }
 

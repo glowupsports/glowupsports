@@ -87,7 +87,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Task #573 v2: decline push (with reason label), countdown on home card, no any-casts\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Task #573 v3: counter-propose push with coach name + decline reason fallback fix\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"

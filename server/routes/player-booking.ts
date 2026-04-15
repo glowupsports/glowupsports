@@ -2623,11 +2623,21 @@ Return only the JSON array, nothing else.`;
 
       // Notify player of counter-proposal
       try {
-        const playerTokens = await getPlayerPushTokens(request.playerId);
+        const [playerTokens, coachProfile] = await Promise.all([
+          getPlayerPushTokens(request.playerId),
+          storage.getCoach(coachId),
+        ]);
         if (playerTokens.length > 0) {
+          const coachName = coachProfile?.name || "Your coach";
           const altDate = new Date(counterProposedStart).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
           const altTime = new Date(counterProposedStart).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-          await sendPushNotification(playerTokens, "Your coach suggested a new time", `Alternative slot: ${altDate} at ${altTime}`, { type: "counter_proposal", bookingRequestId: id }, request.playerId);
+          await sendPushNotification(
+            playerTokens,
+            `${coachName} suggested a new time`,
+            `New slot: ${altDate} at ${altTime} — open the app to accept or decline.`,
+            { type: "counter_proposal", bookingRequestId: id },
+            request.playerId
+          );
         }
       } catch { /* non-fatal */ }
 
