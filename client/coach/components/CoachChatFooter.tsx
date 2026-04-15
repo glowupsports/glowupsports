@@ -627,7 +627,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   }, [tickerContent, isExpanded, isFullscreen]);
 
   const rightTickerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tickerOffset.value - leftPillWidthSV.value - 110 }],
+    transform: [{ translateX: tickerOffset.value }],
   }));
 
   const leftTickerStyle = useAnimatedStyle(() => ({
@@ -1598,32 +1598,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         // ── COLLAPSED: ticker flows left pill → Play gap → right pill → [^] ──
         <>
           <View style={styles.pillRow} pointerEvents="box-none">
-            {/* LEFT pill — clipped window + fixed dot overlay */}
-            <Pressable
-              style={styles.leftPill}
-              onPress={() => setIsExpanded(true)}
-              onLayout={e => {
-                leftPillWidthSV.value = e.nativeEvent.layout.width;
-              }}
-            >
-              {/* Ticker text clips inside this container */}
-              <View style={styles.tickerWindow}>
-                <Animated.View style={[styles.tickerTrack, leftTickerStyle]}>
-                  <ThemedText style={styles.tickerText} numberOfLines={1}>
-                    {repeatedContent}
-                  </ThemedText>
-                </Animated.View>
-              </View>
-              {/* Connection dot overlaid on left so text scrolls under it */}
-              <View style={styles.tickerDotOverlay}>
-                <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
-              </View>
-            </Pressable>
+            {/* LEFT spacer — keeps FAB centred; no visible pill */}
+            <View style={{ flex: 1 }} pointerEvents="none" />
 
             {/* CENTER gap — Play button lives here; must not capture touches */}
             <View style={styles.pillGap} pointerEvents="none" />
 
-            {/* RIGHT pill — continuation of same ticker text stream */}
+            {/* RIGHT pill — only pill, with connection dot */}
             <Pressable
               style={styles.rightPill}
               onPress={() => setIsExpanded(true)}
@@ -1633,6 +1614,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   {repeatedContent}
                 </ThemedText>
               </Animated.View>
+              <View style={styles.tickerDotOverlay}>
+                <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
+              </View>
               {/* [^] collapse button — inside rightPill so pillRow stays symmetric */}
               <Pressable
                 style={styles.collapseBtn}
