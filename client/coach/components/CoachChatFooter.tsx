@@ -627,7 +627,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   }, [tickerContent, isExpanded, isFullscreen]);
 
   const rightTickerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tickerOffset.value - leftPillWidthSV.value - 90 }],
+    transform: [{ translateX: tickerOffset.value - leftPillWidthSV.value - 110 }],
   }));
 
   const leftTickerStyle = useAnimatedStyle(() => ({
@@ -1998,9 +1998,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
     overflow: "hidden",
+    paddingLeft: 12,
   },
   pillGap: {
-    width: 90,
+    width: 110,
     backgroundColor: Colors.dark.backgroundRoot,
   },
   rightPill: {
@@ -2013,6 +2014,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
     overflow: "hidden",
+    paddingLeft: 12,
     paddingRight: 50,
   },
   tickerWindow: {
