@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, LinearTransition } from "react-native-reanimated";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
@@ -21,8 +21,38 @@ export function TodayAtAGlance() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
+  const nearbyAvailable = state.nearbyPlayers.filter((p) => p.status === "available").length;
+  const isEmpty =
+    state.availability.groupSessions === 0 &&
+    nearbyAvailable === 0 &&
+    (!state.nextEventTime || state.nextEventTime === "");
+
   const formIcon = state.formStatus === "rising" ? "trending-up" : state.formStatus === "declining" ? "trending-down" : "remove";
   const formColor = state.formStatus === "rising" ? ProTennisColors.electricGreen : state.formStatus === "declining" ? "#FF6B6B" : ProTennisColors.textMuted;
+
+  if (isEmpty) {
+    return (
+      <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedStyles.pill}>
+        <View style={[collapsedStyles.iconWrap, { backgroundColor: "rgba(200, 255, 61, 0.08)" }]}>
+          <Ionicons name="calendar-outline" size={18} color={GlowColors.primary} />
+        </View>
+        <View style={collapsedStyles.textGroup}>
+          <Text style={collapsedStyles.label}>Today</Text>
+          <Text style={collapsedStyles.hint}>Nothing scheduled</Text>
+        </View>
+        <Pressable
+          style={collapsedStyles.ctaButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("Schedule");
+          }}
+        >
+          <Text style={collapsedStyles.ctaText}>View</Text>
+          <Ionicons name="chevron-forward" size={14} color={ProTennisColors.textMuted} />
+        </Pressable>
+      </Animated.View>
+    );
+  }
 
   const glanceItems: GlanceItem[] = [
     {
@@ -67,7 +97,7 @@ export function TodayAtAGlance() {
   };
 
   return (
-    <Animated.View entering={FadeInDown.duration(400)} style={styles.container}>
+    <Animated.View entering={FadeInDown.duration(400)} layout={LinearTransition.springify()} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>TODAY AT A GLANCE</Text>
         <View style={styles.liveIndicator}>
@@ -171,5 +201,54 @@ const styles = StyleSheet.create({
   itemValue: {
     fontSize: 13,
     fontWeight: "600",
+  },
+});
+
+const collapsedStyles = StyleSheet.create({
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  hint: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  ctaText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: ProTennisColors.textSecondary,
   },
 });

@@ -33,6 +33,10 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MatchReadinessCard } from "@/player/components/MatchReadinessCard";
+import { SessionHeroCard } from "@/player/components/SessionHeroCard";
+import { ChallengeCard } from "@/player/components/ChallengeCard";
+import { MiniFeed } from "@/player/components/MiniFeed";
+import { TodayAtAGlance } from "@/player/components/TodayAtAGlance";
 import LessonRatingModal from "@/player/components/LessonRatingModal";
 
 interface VacationData {
@@ -1432,6 +1436,12 @@ export default function PlayerHomeScreen() {
 
         {/* Match Readiness Card - shows when tournament match is within 24h */}
         {player?.id ? <MatchReadinessCard playerId={player.id} /> : null}
+
+        {/* Lessons, Match, Social Feed, Today cards - always visible with collapsed pill when no data */}
+        <SessionHeroCard />
+        <ChallengeCard />
+        <MiniFeed />
+        <TodayAtAGlance />
 
         {/* C) Daily Quests - Always show with empty state */}
         <QuestTrackerCard 

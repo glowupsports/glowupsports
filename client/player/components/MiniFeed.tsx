@@ -4,6 +4,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { 
   FadeInUp, 
   FadeInRight,
+  FadeIn,
+  LinearTransition,
   useSharedValue, 
   useAnimatedStyle, 
   withRepeat, 
@@ -310,10 +312,31 @@ export function MiniFeed() {
 
   const events = state.communityEvents.slice(0, 2);
 
-  if (!latestPost) return null;
+  if (!latestPost) {
+    return (
+      <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedStyles.pill}>
+        <View style={[collapsedStyles.iconWrap, { backgroundColor: "rgba(200, 255, 61, 0.1)" }]}>
+          <Ionicons name="people-outline" size={18} color={GlowColors.primary} />
+        </View>
+        <View style={collapsedStyles.textGroup}>
+          <Text style={collapsedStyles.label}>Community</Text>
+          <Text style={collapsedStyles.hint}>Nothing new yet</Text>
+        </View>
+        <Pressable
+          style={collapsedStyles.ctaButton}
+          onPress={() => {
+            handleSeeAll();
+          }}
+        >
+          <Text style={collapsedStyles.ctaText}>Open</Text>
+          <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+        </Pressable>
+      </Animated.View>
+    );
+  }
 
   return (
-    <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.outerCard}>
+    <Animated.View entering={FadeInUp.delay(150).duration(400)} layout={LinearTransition.springify()} style={styles.outerCard}>
       <View style={styles.accentLine} />
       <View
         style={[styles.container, { backgroundColor: "#0F141B" }]}
@@ -566,5 +589,54 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
     fontWeight: "500",
+  },
+});
+
+const collapsedStyles = StyleSheet.create({
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  hint: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  ctaText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: ProTennisColors.textSecondary,
   },
 });

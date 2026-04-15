@@ -2,12 +2,13 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, LinearTransition } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
 interface Challenge {
@@ -255,6 +256,7 @@ function UpcomingMatchCard({ challenge, playerId }: { challenge: Challenge; play
 export function ChallengeCard() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const { data: challenges = [] } = useQuery<Challenge[]>({
     queryKey: ["/api/matches/challenges", user?.playerId],
@@ -274,7 +276,6 @@ export function ChallengeCard() {
   });
 
   const playerId = getEffectivePlayerId(user?.playerId);
-  if (!playerId) return null;
 
   const incoming = challenges.filter(
     (c) => c.status === "pending" && String(c.opponentId) === String(playerId)
@@ -286,23 +287,46 @@ export function ChallengeCard() {
       (String(c.challengerId) === String(playerId) || String(c.opponentId) === String(playerId))
   );
 
-  if (incoming.length === 0 && upcoming.length === 0) return null;
+  if (incoming.length === 0 && upcoming.length === 0) {
+    return (
+      <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedStyles.pill}>
+        <View style={[collapsedStyles.iconWrap, { backgroundColor: "rgba(77, 163, 255, 0.12)" }]}>
+          <Ionicons name="tennisball-outline" size={18} color="#4DA3FF" />
+        </View>
+        <View style={collapsedStyles.textGroup}>
+          <Text style={collapsedStyles.label}>Match</Text>
+          <Text style={collapsedStyles.hint}>No upcoming matches</Text>
+        </View>
+        <Pressable
+          style={collapsedStyles.ctaButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
+          }}
+        >
+          <Text style={collapsedStyles.ctaText}>Find</Text>
+          <Ionicons name="chevron-forward" size={14} color={TextColors.muted} />
+        </Pressable>
+      </Animated.View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <Animated.View layout={LinearTransition.springify()} style={styles.container}>
       {incoming.map((c) => (
         <IncomingChallengeCard key={c.id} challenge={c} playerId={String(playerId)} />
       ))}
       {upcoming.map((c) => (
         <UpcomingMatchCard key={c.id} challenge={c} playerId={String(playerId)} />
       ))}
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.md,
+    marginHorizontal: Spacing.lg,
   },
   challengeCard: {
     backgroundColor: Backgrounds.card,
@@ -453,6 +477,55 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontSize: FontSizes.sm,
     fontWeight: "500",
+    color: TextColors.secondary,
+  },
+});
+
+const collapsedStyles = StyleSheet.create({
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TextColors.primary,
+  },
+  hint: {
+    fontSize: 11,
+    color: TextColors.muted,
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  ctaText: {
+    fontSize: 12,
+    fontWeight: "600",
     color: TextColors.secondary,
   },
 });
