@@ -47,7 +47,7 @@ interface ChatFooterProps {
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const FOOTER_COLLAPSED = 60;
+const FOOTER_COLLAPSED = 44;
 const FOOTER_FULLSCREEN = SCREEN_HEIGHT;
 const LEFT_PANEL_WIDTH = 94;
 
@@ -1985,7 +1985,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   pillGap: {
-    width: 110,
+    width: 120,
     backgroundColor: Colors.dark.backgroundRoot,
   },
   rightPill: {
