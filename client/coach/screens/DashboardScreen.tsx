@@ -1584,10 +1584,12 @@ function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBook
     });
     queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"], refetchType: "all" });
     queryClient.invalidateQueries({ queryKey: ["/api/sessions"], refetchType: "all" });
+    queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
   };
   const onDeclined = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/coach/me/home-data"], refetchType: "all" });
     queryClient.invalidateQueries({ queryKey: ["/api/sessions"], refetchType: "all" });
+    queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
   };
   return (
     <View style={bStyles.section}>
