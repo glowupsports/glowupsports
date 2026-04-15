@@ -2608,14 +2608,25 @@ export const storage = {
       if (creditsUsed > 0 && pkg.playerId) {
         // Only convert pre-paid session consumption reasons: session_booking and session_consumed.
         // Intentionally excludes debt/settlement rows to prevent double-accounting.
+        // Guards:
+        //   1. session_id IS NOT NULL — skip phantom sessions with no real session record
+        //   2. NOT EXISTS holiday/vacation in session_players — holiday sessions must never become debt
+        //   3. Inside loop: cancel pre-existing legacy session_booking for same session to prevent double-counting
         const consumptionTxs = await tx.execute(sql`
-          SELECT id, player_id, academy_id, session_id, session_player_id,
-                 credit_type, amount, metadata
-          FROM credit_transactions
-          WHERE package_id = ${id}
-            AND amount < 0
-            AND reason IN ('session_booking', 'session_consumed')
-            AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+          SELECT ct.id, ct.player_id, ct.academy_id, ct.session_id, ct.session_player_id,
+                 ct.credit_type, ct.amount, ct.metadata
+          FROM credit_transactions ct
+          WHERE ct.package_id = ${id}
+            AND ct.amount < 0
+            AND ct.reason IN ('session_booking', 'session_consumed')
+            AND ct.session_id IS NOT NULL
+            AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+            AND NOT EXISTS (
+              SELECT 1 FROM session_players sp
+              WHERE sp.session_id = ct.session_id
+                AND sp.player_id = ct.player_id
+                AND sp.attendance_status IN ('holiday', 'vacation')
+            )
         `);
 
         if (consumptionTxs.rows.length > 0) {
@@ -2626,6 +2637,23 @@ export const storage = {
             const eventKey = `debt_from_booking:${bookingTx.id}`;
             const creditType = bookingTx.credit_type || pkg.creditType || "group";
             try {
+              // Cancel any pre-existing legacy session_booking debts for the same session
+              // to prevent double-counting (once as session_booking + once as new session_debt)
+              await tx.execute(sql`
+                UPDATE credit_transactions
+                SET metadata = metadata || ${JSON.stringify({
+                  cancelled: true,
+                  cancelledAt: new Date().toISOString(),
+                  cancelledReason: 'superseded_by_package_delete_debt',
+                })}::jsonb
+                WHERE player_id = ${bookingTx.player_id}
+                  AND session_id = ${bookingTx.session_id}
+                  AND reason IN ('session_booking', 'session_consumed')
+                  AND package_id IS NULL
+                  AND (metadata->>'packageId') IS NULL
+                  AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+                  AND id != ${bookingTx.id}
+              `);
               await tx.execute(sql`
                 INSERT INTO credit_transactions (
                   id, player_id, academy_id, session_id, session_player_id, package_id,
