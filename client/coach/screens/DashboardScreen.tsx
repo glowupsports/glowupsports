@@ -851,16 +851,19 @@ function CounterProposeModal({
   const apiUrl = getApiUrl();
   // Compute fresh every time the modal becomes visible so "Today" always reflects the real date
   const dayChips = useMemo(() => buildDayChips(14), [visible]);
-  const { data, isFetching } = useQuery<{ slots: AvailableSlot[] }>({
+  const { data, isFetching, isError, refetch } = useQuery<{ slots: AvailableSlot[] }>({
     queryKey: [`/api/coach/booking-requests/${bookingRequestId}/available-slots`, counterSelectedDate],
     queryFn: async () => {
       const url = new URL(`/api/coach/booking-requests/${bookingRequestId}/available-slots`, apiUrl);
       url.searchParams.set("date", counterSelectedDate);
+      url.searchParams.set("duration", String(sessionDurationMinutes || 60));
       const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch slots");
       return res.json();
     },
     enabled: visible,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const slots = (data?.slots ?? []).filter((slot) => slot.available);
@@ -918,6 +921,13 @@ function CounterProposeModal({
             <View style={cpStyles.loadingRow}>
               <ActivityIndicator size="small" color={Colors.dark.primary} />
               <Text style={cpStyles.loadingText}>Loading available slots...</Text>
+            </View>
+          ) : isError ? (
+            <View style={cpStyles.errorRow}>
+              <Text style={cpStyles.errorText}>Could not load available times</Text>
+              <Pressable onPress={() => refetch()} style={cpStyles.retryBtn}>
+                <Text style={cpStyles.retryBtnText}>Retry</Text>
+              </Pressable>
             </View>
           ) : slots.length === 0 ? (
             <Text style={cpStyles.noSlotsText}>No slots available for this date</Text>
@@ -1077,6 +1087,28 @@ const cpStyles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     paddingVertical: Spacing.md,
     textAlign: "center",
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  retryBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  retryBtnText: {
+    color: "#000",
+    fontWeight: "700",
+    fontSize: 13,
   },
   summaryRow: {
     flexDirection: "row",

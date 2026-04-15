@@ -407,8 +407,12 @@ async function fetchPendingBookingRequests(
       const expiresAt = req.expiresAt
         ? new Date(req.expiresAt)
         : new Date(createdAt.getTime() + responseWindowMinutes * 60 * 1000);
+      const duration = Math.round(
+        (new Date(req.requestedEnd).getTime() - new Date(req.requestedStart).getTime()) / 60000
+      );
       return {
         ...req,
+        duration: isNaN(duration) ? 60 : duration,
         expiresAt: expiresAt.toISOString(),
         playerName: player?.name || null,
         playerPhotoUrl: player?.profilePhotoUrl || null,
