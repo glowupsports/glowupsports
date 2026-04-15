@@ -2416,7 +2416,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     // ensureCreditProcessed is idempotent — it checks credit_deducted_at
                     // and existing transactions before acting.  Calling it here even when
                     // isNewAttendance=false closes the gap where old processAutoAttendance
-                    // code set attendance but failed to create the credit transaction.
+                    // code set attendance but failed to create the credit transaction
+                    // (regression: private session + present + no package → credit_deducted_at=NULL
+                    // because markAttendance returned isNewAttendance=false on re-trigger).
                     const { ensureCreditProcessed } = await import("../storage");
                     await ensureCreditProcessed(attendanceResult.record.id);
                     if (attendanceResult.isNewAttendance && session) {
