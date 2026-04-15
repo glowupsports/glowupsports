@@ -243,6 +243,7 @@ export default function PlayerBookingWizard({
 
   // Animation values
   const slideProgress = useSharedValue(0);
+  const holdGlowOpacity = useSharedValue(0);
   const glowPulse = useSharedValue(0);
   const xpGain = useSharedValue(0);
 
@@ -393,6 +394,30 @@ export default function PlayerBookingWizard({
     }, 1000);
     return () => clearInterval(tick);
   }, [reservationExpiresAt]);
+
+  // Drive pulsing glow on the Next button while a slot hold is active
+  useEffect(() => {
+    if (reservationId && selectedSlot) {
+      holdGlowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.85, { duration: 700 }),
+          withTiming(0.2, { duration: 700 }),
+        ),
+        -1,
+        true,
+      );
+    } else {
+      holdGlowOpacity.value = withTiming(0, { duration: 250 });
+    }
+  }, [reservationId, selectedSlot]);
+
+  const holdGlowAnimStyle = useAnimatedStyle(() => ({
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: holdGlowOpacity.value,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  }));
 
   // Persist active reservation to AsyncStorage whenever it becomes set
   useEffect(() => {
@@ -1156,6 +1181,7 @@ export default function PlayerBookingWizard({
                         // Release any previous reservation before claiming a new slot
                         const prevId = activeReservationRef.current;
                         if (prevId) {
+                          AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
                           apiRequest("DELETE", `/api/player/reserve-slot/${prevId}`, undefined).catch(() => {});
                           activeReservationRef.current = null;
                           setReservationId(null);
@@ -1655,12 +1681,12 @@ export default function PlayerBookingWizard({
               </Pressable>
             )}
 
+            <Animated.View style={[styles.nextButtonWrapper, holdGlowAnimStyle]}>
             <Pressable
               style={[
                 styles.nextButton,
                 !canProceed && styles.nextButtonDisabled,
                 currentSlide === getTotalSlides() - 1 && styles.confirmButton,
-                reservationId && selectedSlot && currentSlide === 2 && styles.nextButtonHoldGlow,
               ]}
               onPress={currentSlide === getTotalSlides() - 1 ? handleBook : goNext}
               disabled={!canProceed || bookingMutation.isPending}
@@ -1682,6 +1708,7 @@ export default function PlayerBookingWizard({
                 </>
               )}
             </Pressable>
+            </Animated.View>
           </View>
         )}
 
@@ -2390,6 +2417,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textSecondary,
     marginTop: 1,
+  },
+  nextButtonWrapper: {
+    borderRadius: BorderRadius.md,
+    overflow: "visible",
   },
   nextButtonHoldGlow: {
     shadowColor: Colors.dark.primary,
