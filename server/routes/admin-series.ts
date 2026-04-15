@@ -3350,33 +3350,37 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       let pendingRequest = null;
       try {
         const reqs = await storage.getBookingRequests({ playerId });
-        // Priority: counter-proposed awaiting reply → pending → recently declined (< 24h)
+        // Priority: counter-proposed awaiting reply → plain pending → recently declined (< 24h)
         const active =
-          reqs.find(r => r.status === "awaiting_player_reply" ||
-            (r.status === "pending" && (r as any).counterProposedStart && (r as any).counterProposalStatus === "pending")) ||
+          reqs.find(r =>
+            r.status === "awaiting_player_reply" ||
+            (r.status === "pending" && r.counterProposedStart && r.counterProposalStatus === "pending")
+          ) ||
           reqs.find(r => r.status === "pending") ||
           reqs.find(r => {
             if (r.status !== "declined") return false;
-            const t = (r as any).respondedAt ? new Date((r as any).respondedAt).getTime() : 0;
+            const t = r.respondedAt ? new Date(r.respondedAt).getTime() : 0;
             return t > 0 && Date.now() - t < 24 * 60 * 60 * 1000;
           });
         if (active) {
-          const reqCoach = (active as any).coachId ? await storage.getCoach((active as any).coachId) : null;
+          const reqCoach = active.coachId ? await storage.getCoach(active.coachId) : null;
           pendingRequest = {
             id: active.id,
-            status: active.status,
-            sessionType: (active as any).sessionType,
-            requestedStart: (active as any).requestedStart,
-            requestedEnd: (active as any).requestedEnd,
+            status: active.status as "pending" | "awaiting_player_reply" | "declined",
+            sessionType: active.sessionType,
+            requestedStart: active.requestedStart,
+            requestedEnd: active.requestedEnd,
             coachName: reqCoach?.name || null,
-            expiresAt: (active as any).expiresAt || null,
-            counterProposedStart: (active as any).counterProposedStart || null,
-            counterProposedEnd: (active as any).counterProposedEnd || null,
-            responseNote: (active as any).responseNote || null,
-            declineReason: (active as any).declineReason || null,
+            expiresAt: active.expiresAt || null,
+            counterProposedStart: active.counterProposedStart || null,
+            counterProposedEnd: active.counterProposedEnd || null,
+            responseNote: active.responseNote || null,
+            declineReason: active.declineReason || null,
           };
         }
-      } catch { /* non-fatal */ }
+      } catch (pendingReqErr) {
+        console.error("[Dashboard] Failed to load pending booking request (non-fatal):", pendingReqErr);
+      }
 
       res.json({
         isOnboarding: needsOnboarding,

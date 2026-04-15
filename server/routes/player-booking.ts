@@ -2359,13 +2359,24 @@ Return only the JSON array, nothing else.`;
       invalidateHomeDataCache(coachId);
 
       // Notify player of decline (push + in-app)
+      const DECLINE_LABELS: Record<string, string> = {
+        schedule_conflict: "Schedule conflict",
+        skill_mismatch: "Skill level mismatch",
+        court_unavailable: "Court unavailable",
+        personal: "Personal reason",
+        response_timeout: "Response timeout",
+      };
       try {
         const [coachProfile, playerTokens] = await Promise.all([
           storage.getCoach(coachId),
           getPlayerPushTokens(request.playerId),
         ]);
         const coachName = coachProfile?.name || "Your coach";
-        const declineDetail = reason ? ` Reason: ${reason}` : "";
+        const declineDetail = reason
+          ? ` Reason: ${reason}`
+          : declineReason
+            ? ` Reason: ${DECLINE_LABELS[declineReason] ?? declineReason}`
+            : "";
         const pushBody = `${coachName} declined your lesson request.${declineDetail}`;
         if (playerTokens.length > 0) {
           await sendPushNotification(

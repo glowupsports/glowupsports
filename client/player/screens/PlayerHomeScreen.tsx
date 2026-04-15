@@ -507,8 +507,33 @@ const DECLINE_REASON_LABELS: Record<string, string> = {
   response_timeout: "Coach didn't respond in time",
 };
 
+function useRequestCountdown(expiresAt: string | null | undefined) {
+  const [remaining, setRemaining] = useState<number>(0);
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => setRemaining(Math.max(0, new Date(expiresAt).getTime() - Date.now()));
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return remaining;
+}
+
+function formatRequestCountdown(ms: number): string | null {
+  if (ms <= 0) return null;
+  const h = Math.floor(ms / (1000 * 60 * 60));
+  const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (h > 0) return `Coach has ${h}h ${m}m to respond`;
+  if (m > 0) return `Coach has ${m}m to respond`;
+  return "Coach response deadline soon";
+}
+
 function PendingRequestCard({ request }: { request: PendingRequestData }) {
   const navigation = useNavigation<any>();
+  const remainingMs = useRequestCountdown(request.expiresAt);
+  const countdownLabel = request.status === "pending" && !request.counterProposedStart
+    ? formatRequestCountdown(remainingMs)
+    : null;
 
   const isCounterProposed = request.status === "pending" && !!request.counterProposedStart;
   const isAwaiting = request.status === "awaiting_player_reply";
@@ -518,10 +543,10 @@ function PendingRequestCard({ request }: { request: PendingRequestData }) {
   const dateStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const timeStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  let accentColor = Colors.dark.orange;
+  let accentColor: string = Colors.dark.orange;
   let iconName: keyof typeof Ionicons.glyphMap = "time-outline";
   let statusLabel = "Pending";
-  let statusDetail = `Waiting for coach response · ${dateStr} ${timeStr}`;
+  let statusDetail = `Waiting for coach · ${dateStr} at ${timeStr}`;
 
   if (isCounterProposed || isAwaiting) {
     accentColor = Colors.dark.xpCyan ?? Colors.dark.primary;
@@ -557,7 +582,9 @@ function PendingRequestCard({ request }: { request: PendingRequestData }) {
           </Text>
         </View>
         <Text style={pendingReqStyles.detailText} numberOfLines={1}>{statusDetail}</Text>
-        {request.coachName ? (
+        {countdownLabel ? (
+          <Text style={[pendingReqStyles.coachText, { color: accentColor }]} numberOfLines={1}>{countdownLabel}</Text>
+        ) : request.coachName ? (
           <Text style={pendingReqStyles.coachText} numberOfLines={1}>{request.coachName}</Text>
         ) : null}
       </View>
