@@ -72,6 +72,7 @@ interface PlaySession {
   xpReward: number;
   maxPlayers: number;
   currentPlayers: number;
+  enrolledCount?: number;
   players: SessionPlayer[];
   squadName?: string;
   squadXpBonus?: number;
@@ -727,7 +728,8 @@ export default function PlayScreen() {
   const getStatusBadge = (session: PlaySession) => {
     const effectiveMax = session.sessionType === "semi_private" ? Math.min(session.maxPlayers, 2) : session.maxPlayers;
     const spotsLeft = effectiveMax - session.currentPlayers;
-    const playerCount = `${session.currentPlayers}/${effectiveMax}`;
+    const enrolledForDisplay = session.enrolledCount ?? session.currentPlayers;
+    const playerCount = `${enrolledForDisplay}/${effectiveMax}`;
     
     if (spotsLeft <= 0) {
       return { text: `Full (${playerCount})`, color: Colors.dark.error, bgColor: Colors.dark.error + "40" };
@@ -946,7 +948,7 @@ export default function PlayScreen() {
                       <View style={styles.waitlistPositionBadge}>
                         <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
                         <Text style={styles.waitlistPositionText}>
-                          {session.waitlistPosition != null ? `#${session.waitlistPosition} on waitlist` : "On waitlist"}
+                          {session.waitlistPosition != null ? `#${session.waitlistPosition} on waitlist — you'll get a notification when a spot opens` : "On waitlist — you'll get a notification when a spot opens"}
                         </Text>
                       </View>
                       <Pressable
@@ -1083,13 +1085,13 @@ export default function PlayScreen() {
                         {player.avatarUrl ? (
                           Platform.OS === 'web' ? (
                             <RNImage 
-                              source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }} 
+                              source={{ uri: buildPhotoUrl(player.avatarUrl)! }} 
                               style={styles.epicAvatarImage}
                               resizeMode="cover"
                             />
                           ) : (
                             <ExpoImage 
-                              source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }} 
+                              source={{ uri: buildPhotoUrl(player.avatarUrl)! }} 
                               style={styles.epicAvatarImage}
                               contentFit="cover"
                             />
@@ -2306,6 +2308,73 @@ export default function PlayScreen() {
                     <Ionicons name="close" size={22} color={Colors.dark.textMuted} />
                   </Pressable>
                 </View>
+
+                {/* Ball level + XP badges row */}
+                <View style={styles.sessionInfoBadgesRow}>
+                  {selectedSession.ballLevel && getBallLevelLabel(selectedSession.ballLevel) ? (
+                    <View style={[styles.sessionInfoLevelBadge, { backgroundColor: getBallLevelColor(selectedSession.ballLevel) + "30", borderColor: getBallLevelColor(selectedSession.ballLevel) + "80" }]}>
+                      <Text style={[styles.sessionInfoLevelBadgeText, { color: getBallLevelColor(selectedSession.ballLevel) }]}>
+                        {getBallLevelLabel(selectedSession.ballLevel)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.sessionInfoXpBadge}>
+                    <Ionicons name="flame" size={13} color={Colors.dark.orange} />
+                    <Text style={styles.sessionInfoXpText}>+{selectedSession.xpReward} XP</Text>
+                  </View>
+                </View>
+
+                {/* Capacity */}
+                <View style={styles.sessionInfoCapacityRow}>
+                  <Ionicons name="people-outline" size={15} color={Colors.dark.textSecondary} />
+                  <Text style={styles.sessionInfoCapacityText}>
+                    {selectedSession.enrolledCount ?? selectedSession.currentPlayers} enrolled / {selectedSession.maxPlayers} max
+                  </Text>
+                </View>
+
+                {/* Enrolled players avatar stack */}
+                {selectedSession.players.length > 0 ? (
+                  <View style={styles.sessionInfoPlayersRow}>
+                    <View style={styles.epicAvatarStack}>
+                      {selectedSession.players.slice(0, 6).map((player, index) => (
+                        <View
+                          key={player.id}
+                          style={[styles.epicAvatarCircle, { marginLeft: index > 0 ? -16 : 0, zIndex: 6 - index }]}
+                        >
+                          {player.avatarUrl ? (
+                            <ExpoImage
+                              source={{ uri: buildPhotoUrl(player.avatarUrl)! }}
+                              style={styles.epicAvatarImage}
+                              contentFit="cover"
+                            />
+                          ) : (
+                            <LinearGradient
+                              colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
+                              style={styles.epicAvatarPlaceholder}
+                            >
+                              <Text style={styles.epicAvatarInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+                            </LinearGradient>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                    <Text style={styles.sessionInfoPlayerNames}>
+                      {selectedSession.players.slice(0, 3).map(p => p.name.split(" ")[0]).join(", ")}
+                      {selectedSession.players.length > 3 ? ` +${selectedSession.players.length - 3}` : ""}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Waitlist position (if player is on waitlist) */}
+                {selectedSession.isOnWaitlist && selectedSession.waitlistPosition != null ? (
+                  <View style={styles.sessionInfoWaitlistRow}>
+                    <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
+                    <Text style={styles.sessionInfoWaitlistText}>
+                      #{selectedSession.waitlistPosition} on waitlist
+                    </Text>
+                  </View>
+                ) : null}
+
                 {/* Venue photo from Google Place (proxy, no key exposure) */}
                 {sessionPlaceDetails?.photoRef ? (
                   <ExpoImage
@@ -2383,7 +2452,7 @@ export default function PlayScreen() {
                 <View style={[styles.friendModalAvatarRing, { borderColor: getBallLevelColor(friendRequestPlayer.ballLevel || "") }]}>
                   {friendRequestPlayer.avatarUrl ? (
                     <ExpoImage
-                      source={{ uri: `${getStaticAssetsUrl()}${friendRequestPlayer.avatarUrl}` }}
+                      source={{ uri: buildPhotoUrl(friendRequestPlayer.avatarUrl)! }}
                       style={styles.friendModalAvatar}
                       contentFit="cover"
                     />
@@ -3005,6 +3074,7 @@ const styles = StyleSheet.create({
   },
   epicStatusSection: {
     gap: Spacing.sm,
+    flex: 1,
   },
   epicStatusBadge: {
     paddingHorizontal: Spacing.md,
@@ -3070,7 +3140,7 @@ const styles = StyleSheet.create({
   },
   waitlistPositionBadge: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 4,
     backgroundColor: Colors.dark.xpCyan + "20",
     paddingHorizontal: Spacing.sm,
@@ -3078,11 +3148,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: Colors.dark.xpCyan + "40",
+    flexShrink: 1,
   },
   waitlistPositionText: {
     ...Typography.caption,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+    flexShrink: 1,
   },
   epicLeaveWaitlistButton: {
     backgroundColor: "rgba(255, 107, 107, 0.12)",
@@ -4187,6 +4259,70 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  sessionInfoBadgesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  sessionInfoLevelBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  sessionInfoLevelBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sessionInfoXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.orange + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  sessionInfoXpText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.orange,
+  },
+  sessionInfoCapacityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  sessionInfoCapacityText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  sessionInfoPlayersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  sessionInfoPlayerNames: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    flexShrink: 1,
+  },
+  sessionInfoWaitlistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.sm,
+  },
+  sessionInfoWaitlistText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
   },
   scopeToggleContainer: {
     flexDirection: "row",

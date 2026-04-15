@@ -1270,6 +1270,7 @@ Return only the JSON array, nothing else.`;
           xpReward: session.xpReward || 20,
           maxPlayers,
           currentPlayers: effectiveCount,
+          enrolledCount: currentPlayers,
           players: players.map(p => ({
             id: p.id,
             name: p.name,
