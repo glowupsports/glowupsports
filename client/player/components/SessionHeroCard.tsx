@@ -14,8 +14,6 @@ import Animated, {
   useSharedValue,
   interpolateColor,
   withSpring,
-  FadeIn,
-  LinearTransition,
   Easing,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
@@ -1623,24 +1621,53 @@ export function SessionHeroCard({
 
   if (sessionStatus === "none" || sessionStatus === "ended" || !sessionStatus) {
     return (
-      <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedCardStyles.pill}>
-        <View style={[collapsedCardStyles.iconWrap, { backgroundColor: "rgba(200, 255, 61, 0.1)" }]}>
-          <Feather name="calendar" size={18} color={GlowColors.primary} />
+      <View style={styles.coachStyleCard}>
+        <View style={styles.coachCardAccentLine} />
+        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={styles.commandIconWrap}>
+                <Feather name="calendar" size={14} color={GlowColors.primary} />
+              </View>
+              <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
+            </View>
+          </View>
+          <View style={styles.commandDisplay}>
+            <Text style={styles.commandPrimary}>{t("player.home.noSessionsToday")}</Text>
+            <Text style={styles.commandSecondary}>{t("player.home.hitTheCourt")}</Text>
+          </View>
+          <View style={styles.commandActions}>
+            <SwipeBlocker>
+              <Pressable style={({ pressed }) => [styles.cleanPrimaryButton, pressed && styles.buttonPressed]} onPress={handleBookSession}>
+                <LinearGradient colors={[GlowColors.primary, GlowColors.soft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cleanPrimaryGradient}>
+                  <Feather name="calendar" size={18} color={Backgrounds.root} />
+                  <Text style={styles.cleanPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </SwipeBlocker>
+            <SwipeBlocker>
+              <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleBookCourt}>
+                <Feather name="grid" size={16} color={GlowColors.primary} />
+                <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
+              </Pressable>
+            </SwipeBlocker>
+            <View style={styles.commandLinkRow}>
+              <SwipeBlocker>
+                <Pressable style={({ pressed }) => [styles.commandLink, pressed && { opacity: 0.6 }]} onPress={handleFindMatch} hitSlop={16}>
+                  <Feather name="users" size={14} color="#B8BCC6" />
+                  <Text style={styles.commandLinkText}>{t("player.home.findPlayers")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+              <SwipeBlocker>
+                <Pressable style={({ pressed }) => [styles.commandLink, pressed && { opacity: 0.6 }]} onPress={handleJoinOpenGroup} hitSlop={16}>
+                  <Feather name="play-circle" size={14} color="#B8BCC6" />
+                  <Text style={styles.commandLinkText}>{t("player.home.joinOpenGroup")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
+          </View>
         </View>
-        <View style={collapsedCardStyles.textGroup}>
-          <Text style={collapsedCardStyles.label}>{t("player.home.courtTime")}</Text>
-          <Text style={collapsedCardStyles.hint}>{t("player.home.noSessionsToday")}</Text>
-        </View>
-        <SwipeBlocker>
-          <Pressable
-            style={collapsedCardStyles.ctaButton}
-            onPress={handleBookSession}
-          >
-            <Text style={collapsedCardStyles.ctaText}>Book</Text>
-            <Feather name="chevron-right" size={14} color="#8A8F9E" />
-          </Pressable>
-        </SwipeBlocker>
-      </Animated.View>
+      </View>
     );
   }
 
@@ -3697,54 +3724,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 12,
     letterSpacing: 0.3,
-  },
-});
-
-const collapsedCardStyles = StyleSheet.create({
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    marginHorizontal: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  textGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: ProTennisColors.white,
-  },
-  hint: {
-    fontSize: 11,
-    color: ProTennisColors.textMuted,
-  },
-  ctaButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-  },
-  ctaText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: ProTennisColors.textSecondary,
   },
 });
