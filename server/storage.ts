@@ -2531,6 +2531,112 @@ export const storage = {
     return result[0];
   },
 
+  // Convert session_booking/session_consumed transactions for a depleted/non-active package into
+  // session_debt records so they surface correctly in the balance calculation.
+  // This mirrors the conversion already performed inside deletePackage, but without destroying
+  // the package row — used when a package naturally depletes to 0 credits.
+  //
+  // GUARD: If the package is still 'active' (i.e. depletion hasn't committed yet), this is a
+  // no-op. This makes it safe to call immediately after the credit-deduction transaction
+  // commits from any path (deductTypedCreditsForSession, ensureCreditProcessed, etc.).
+  async convertPackageConsumptionToDebt(packageId: string, playerId?: string): Promise<{ converted: number }> {
+    // Only convert when the package is genuinely no longer active
+    const pkgStatus = await db.execute(sql`
+      SELECT status FROM packages WHERE id = ${packageId} LIMIT 1
+    `);
+    if (pkgStatus.rows.length === 0) return { converted: 0 };
+    const status = (pkgStatus.rows[0] as any).status;
+    if (status === 'active') return { converted: 0 };
+
+    const consumptionTxs = await db.execute(sql`
+      SELECT ct.id, ct.player_id, ct.academy_id, ct.session_id, ct.session_player_id,
+             ct.credit_type, ct.amount, ct.metadata
+      FROM credit_transactions ct
+      WHERE ct.package_id = ${packageId}
+        AND ct.amount < 0
+        AND ct.reason IN ('session_booking', 'session_consumed')
+        AND ct.session_id IS NOT NULL
+        AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+        AND NOT EXISTS (
+          SELECT 1 FROM session_players sp
+          WHERE sp.session_id = ct.session_id
+            AND sp.player_id = ct.player_id
+            AND sp.attendance_status IN ('holiday', 'vacation')
+        )
+    `);
+
+    if (consumptionTxs.rows.length === 0) return { converted: 0 };
+
+    console.log(`[ConvertToDebt] Package ${packageId}: converting ${consumptionTxs.rows.length} session_booking/session_consumed tx(s) to session_debt`);
+    let converted = 0;
+
+    for (const bookingTx of consumptionTxs.rows as any[]) {
+      const debtAmount = Math.abs(Number(bookingTx.amount)) || 1;
+      const debtTxId = crypto.randomUUID();
+      const eventKey = `debt_from_booking:${bookingTx.id}`;
+      const creditType = bookingTx.credit_type || "group";
+      try {
+        // Cancel any pre-existing unlinked legacy session_booking debts for the same session
+        await db.execute(sql`
+          UPDATE credit_transactions
+          SET metadata = metadata || ${JSON.stringify({
+            cancelled: true,
+            cancelledAt: new Date().toISOString(),
+            cancelledReason: 'superseded_by_package_depletion_debt',
+          })}::jsonb
+          WHERE player_id = ${bookingTx.player_id}
+            AND session_id = ${bookingTx.session_id}
+            AND reason IN ('session_booking', 'session_consumed')
+            AND package_id IS NULL
+            AND (metadata->>'packageId') IS NULL
+            AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+            AND id != ${bookingTx.id}
+        `);
+
+        await db.execute(sql`
+          INSERT INTO credit_transactions (
+            id, player_id, academy_id, session_id, session_player_id, package_id,
+            type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
+          ) VALUES (
+            ${debtTxId}, ${bookingTx.player_id}, ${bookingTx.academy_id},
+            ${bookingTx.session_id}, ${bookingTx.session_player_id}, NULL,
+            'debit', ${creditType}, ${-debtAmount}, 'session_debt', ${eventKey}, 0, ${-debtAmount},
+            ${JSON.stringify({
+              isDebt: true,
+              convertedFromBooking: bookingTx.id,
+              packageDepleted: packageId,
+              description: `Debt: package depleted, pre-paid session became unpaid`,
+            })}::jsonb
+          )
+          ON CONFLICT (event_key) WHERE event_key IS NOT NULL DO NOTHING
+        `);
+
+        // Mark the original booking transaction as cancelled to prevent double-accounting
+        await db.execute(sql`
+          UPDATE credit_transactions
+          SET metadata = metadata || ${JSON.stringify({
+            cancelled: true,
+            cancelledAt: new Date().toISOString(),
+            cancelledReason: 'package_depleted_converted_to_debt',
+            debtTransactionId: debtTxId,
+          })}::jsonb
+          WHERE id = ${bookingTx.id}
+        `);
+
+        converted++;
+      } catch (err: any) {
+        if (err.code === '23505') {
+          console.log(`[ConvertToDebt] Duplicate event_key for tx ${bookingTx.id}, skipping`);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    console.log(`[ConvertToDebt] Package ${packageId}: converted ${converted} tx(s) to session_debt for player ${playerId}`);
+    return { converted };
+  },
+
   async deletePackage(id: string, academyId?: string, force: boolean = false): Promise<{ success: boolean; error?: string; creditsUsed?: number }> {
     const pkg = await this.getPackage(id, academyId);
     if (!pkg) {
@@ -2748,6 +2854,7 @@ export const storage = {
       })
       .where(eq(packages.id, packageId))
       .returning();
+
     return result[0];
   },
 
@@ -2871,6 +2978,17 @@ export const storage = {
         creditTransactionId: transaction.id,
       })
       .where(whereClause);
+
+    // If the package just depleted, convert ALL its consumption txs (including this new one)
+    // to session_debt records so they surface correctly in the balance calculation.
+    // The conversion guard in convertPackageConsumptionToDebt skips non-depleted packages.
+    if (balanceAfter <= 0) {
+      try {
+        await this.convertPackageConsumptionToDebt(packageToUse.id, playerId);
+      } catch (err) {
+        console.error(`[deductTypedCredits] Failed to convert depleted package ${packageToUse.id} to debt:`, err);
+      }
+    }
     
     return { 
       success: true, 
@@ -7247,10 +7365,12 @@ export const storage = {
     //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid)
     //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
     //               no package in column or metadata, amount < 0
+    //   depleted:   session_booking/session_consumed linked to a non-active package (safety net for
+    //               cases not yet converted by convertPackageConsumptionToDebt or the backfill)
     // NOTE: isDebt metadata flag is NOT required — legacy records predate that field.
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
-      FROM credit_transactions
+      FROM credit_transactions ct
       WHERE player_id = ${playerId}
         AND amount < 0
         AND COALESCE(metadata->>'settled', 'false') != 'true'
@@ -7268,6 +7388,23 @@ export const storage = {
             AND reason IN ('attendance_correction_deduct', 'refund_reversal')
             AND COALESCE(metadata->>'settled', 'false') != 'true'
             AND COALESCE(metadata->>'cancelled', 'false') != 'true')
+          OR
+          (reason IN ('session_booking', 'session_consumed')
+            AND amount < 0
+            AND session_id IS NOT NULL
+            AND package_id IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM packages p
+              WHERE p.id = ct.package_id
+                AND p.player_id = ${playerId}
+                AND p.status != 'active'
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM session_players sp
+              WHERE sp.session_id = ct.session_id
+                AND sp.player_id = ${playerId}
+                AND sp.attendance_status IN ('holiday', 'vacation')
+            ))
         )
       GROUP BY credit_type
     `);
@@ -11949,6 +12086,28 @@ export const storage = {
         }
       }
       
+      // Step 5: Backfill — convert session_booking/session_consumed transactions linked to
+      // non-active (depleted) packages into session_debt records so they surface as debt.
+      // This fixes existing players like Alex whose sessions became invisible after their
+      // package was exhausted without being explicitly deleted.
+      const nonActivePlayerPackages = await db.select({ id: packages.id, creditType: packages.creditType })
+        .from(packages)
+        .where(and(
+          eq(packages.playerId, playerId),
+          ne(packages.status, "active"),
+        ));
+
+      for (const pkg of nonActivePlayerPackages) {
+        try {
+          const { converted } = await storage.convertPackageConsumptionToDebt(pkg.id, playerId);
+          if (converted > 0) {
+            details.push(`Package ${pkg.id} (${pkg.creditType}): backfilled ${converted} depleted session(s) as debt`);
+          }
+        } catch (err) {
+          details.push(`Package ${pkg.id}: backfill failed — ${err}`);
+        }
+      }
+
       console.log(`[RepairCredits] Player ${playerId}: ${packagesRepaired} packages, ${debtsMarkedSettled} debts, ${sessionPlayersFixed} session_players`);
       
       return {
@@ -12112,7 +12271,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
   error?: string;
 }> {
   try {
-    return await db.transaction(async (tx) => {
+    const txResult = await db.transaction(async (tx) => {
       // STEP 1: Lock the session_player row with FOR UPDATE
       const spResult = await tx.execute(sql`
         SELECT 
@@ -12444,8 +12603,22 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         transactionId: consumeTxId,
         packageId: pkg.id,
         creditType,
+        _depleted: balanceAfter <= 0,
       };
     });
+
+    // After the transaction commits: if the package just depleted, convert all its consumption
+    // transactions (including the one just written) into session_debt records so they surface
+    // correctly in the player's balance calculation. The guard inside the function skips
+    // non-depleted packages, making this safe to call for every "consumed" result.
+    if (txResult.action === "consumed" && txResult.packageId && txResult._depleted) {
+      storage.convertPackageConsumptionToDebt(txResult.packageId).catch(err => {
+        console.error(`[EnsureCredit] Failed to convert depleted package ${txResult.packageId} to debt:`, err);
+      });
+    }
+
+    const { _depleted: _, ...resultToReturn } = txResult;
+    return resultToReturn;
   } catch (error: any) {
     console.error(`[EnsureCredit] Error processing session_player ${sessionPlayerId}:`, error);
     return { success: false, action: "error" as const, error: error.message };
