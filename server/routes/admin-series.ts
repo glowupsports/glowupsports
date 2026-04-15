@@ -1050,6 +1050,10 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       }
 
       const results = [];
+      const { ensureCreditProcessed } = await import("../storage");
+      const isGroupSession = session.sessionType === "group" || session.sessionType === "group_adjusted";
+      const isSemiPrivate = session.sessionType === "semi_private";
+
       for (const record of attendance) {
         const updated = await storage.updateAttendance(
           id,
@@ -1059,16 +1063,36 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           record.absentReason
         );
         results.push(updated);
-          
-          // When attendance changes to holiday/vacation, cancel any debt for this session
-          // Note: updateAttendance() now also handles this internally — this is a safety net
-          if (record.status === "vacation" || record.status === "holiday") {
-            const cancelReason = record.status === "vacation" ? "attendance_changed_to_vacation" : "attendance_changed_to_holiday";
-            const cancelResult = await storage.cancelSessionDebt(record.playerId, id, cancelReason);
-            if (cancelResult.cancelled) {
-              console.log(`[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`);
-            }
+
+        // When attendance changes to holiday/vacation, cancel any debt for this session
+        // Note: updateAttendance() now also handles this internally — this is a safety net
+        if (record.status === "vacation" || record.status === "holiday") {
+          const cancelReason = record.status === "vacation" ? "attendance_changed_to_vacation" : "attendance_changed_to_holiday";
+          const cancelResult = await storage.cancelSessionDebt(record.playerId, id, cancelReason);
+          if (cancelResult.cancelled) {
+            console.log(`[AdminAttendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`);
           }
+        }
+
+        // Process credits immediately — same rules as the coach attendance route:
+        // GROUP: present/late/absent all charged  |  PRIVATE: present/late only  |  SEMI-PRIVATE: absent NOT charged
+        const isChargeable =
+          (record.status === "present" || record.status === "late") ||
+          (record.status === "absent" && isGroupSession);
+        const skipAbsentSemi = record.status === "absent" && isSemiPrivate;
+
+        if (isChargeable && !skipAbsentSemi && updated) {
+          try {
+            const creditResult = await ensureCreditProcessed(updated.id);
+            if (creditResult.action === "consumed") {
+              console.log(`[AdminAttendance] Consumed credit for player ${record.playerId} in session ${id}`);
+            } else if (creditResult.action === "debt_created") {
+              console.log(`[AdminAttendance] Created debt for player ${record.playerId} in session ${id} (no package)`);
+            }
+          } catch (creditErr) {
+            console.error(`[AdminAttendance] Credit processing failed for player ${record.playerId}:`, creditErr);
+          }
+        }
       }
 
       // Mark session as completed if all attendance is marked

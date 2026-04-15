@@ -355,64 +355,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           console.log(`[Package] No outstanding debts to settle for player ${playerId} (${creditType})`);
         }
 
-        // Settle sessions where credit_deducted_at IS NULL and no debt transaction exists.
-        // This covers sessions attended before the debt system was introduced.
-        const unpaidSettlement = await storage.settleUnpaidSessions(
-          playerId,
-          creditType,
-          pkg.id,
-          academyId,
-        );
-        if (unpaidSettlement.settledCount > 0) {
-          console.log(
-            `[Package] Settled ${unpaidSettlement.settledCount} unpaid session(s) for player ${playerId}, deducted ${unpaidSettlement.totalDeducted} credit(s) from package ${pkg.id}`,
-          );
-        }
-
-        // Retroactively charge any "stuck" sessions: sessions that have credit_deducted_at set
-        // but no credit_transaction_id and no existing debit transaction. These occur when the
-        // system previously set credit_deducted_at (e.g. via old code with no package available)
-        // but never actually created a credit_transaction. Now that a package exists, charge them.
-        try {
-          const { ensureCreditProcessed } = await import("../storage");
-          // Map creditType to all session_type values that normalize to it (same logic as ensureCreditProcessed)
-          const sessionTypesForCreditType: Record<string, string[]> = {
-            private: ["private", "private_adjusted"],
-            semi_private: ["semi", "semi_private", "semi-private", "semi_private_adjusted"],
-            group: ["group", "group_adjusted"],
-          };
-          const matchingSessionTypes = sessionTypesForCreditType[creditType] ?? [creditType];
-          const stuckResult = await db.execute(sql`
-            SELECT sp.id
-            FROM session_players sp
-            JOIN sessions s ON s.id = sp.session_id
-            WHERE sp.player_id = ${playerId}
-              AND sp.credit_deducted_at IS NOT NULL
-              AND sp.credit_transaction_id IS NULL
-              AND s.session_type = ANY(${matchingSessionTypes})
-              AND s.status != 'cancelled'
-              AND NOT EXISTS (
-                SELECT 1 FROM credit_transactions ct
-                WHERE ct.player_id = sp.player_id
-                  AND ct.session_id = sp.session_id
-                  AND ct.amount < 0
-                  AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
-              )
-            ORDER BY s.start_time ASC
-          `);
-          if (stuckResult.rows.length > 0) {
-            console.log(`[Package] Found ${stuckResult.rows.length} stuck sessions for player ${playerId} (${creditType}) — retroactively charging`);
-            let retroCharged = 0;
-            for (const row of stuckResult.rows) {
-              const spId = (row as any).id;
-              const result = await ensureCreditProcessed(spId);
-              if (result.action === "consumed") retroCharged++;
-            }
-            console.log(`[Package] Retroactively charged ${retroCharged} of ${stuckResult.rows.length} stuck sessions`);
-          }
-        } catch (retroErr: any) {
-          console.error(`[Package] Error in retroactive stuck-session charge:`, retroErr.message);
-        }
 
         // Audit log
         if (coachId) {

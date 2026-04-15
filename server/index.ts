@@ -44,7 +44,7 @@ import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit, fixDebtDoubleCountingFor31Players } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
 import { startBookingExpiryJob } from "./bookingExpiryJob";
 
 if (process.env.SENTRY_DSN) {
@@ -1055,12 +1055,6 @@ function setupErrorHandler(app: express.Application) {
         // See fixRouzbehGhostCredit() in pushNotifications.ts for full context.
         await fixRouzbehGhostCredit();
 
-        // One-time data fix: Task #597 — mark session_debt entries as settled
-        // for the 31 players whose debt_settlement transactions already deducted
-        // from their packages but left the original debts unsettled (double-count).
-        log("[DebtDoubleCountingFix] Fixing session_debt double-counting for affected players...");
-        await fixDebtDoubleCountingFor31Players();
-        
         // SAFETY: Debts must NEVER be auto-cancelled — they track what players owe until a package is purchased
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);

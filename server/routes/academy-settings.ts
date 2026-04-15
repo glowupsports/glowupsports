@@ -1542,19 +1542,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           );
         }
 
-        // Settle sessions where credit_deducted_at IS NULL and no debt transaction exists.
-        const pkgUnpaidSettlement = await storage.settleUnpaidSessions(
-          playerId,
-          pkgCreditType,
-          pkg.id,
-          academyId,
-        );
-        if (pkgUnpaidSettlement.settledCount > 0) {
-          console.log(
-            `[AssignPackage] Settled ${pkgUnpaidSettlement.settledCount} unpaid session(s) for player ${playerId}, deducted ${pkgUnpaidSettlement.totalDeducted} credit(s) from package ${pkg.id}`,
-          );
-        }
-
         // Generate invoice for the package
         const invoiceNumber = await storage.generateInvoiceNumber(academyId);
         const settings = await storage.getAcademySettings(academyId);
