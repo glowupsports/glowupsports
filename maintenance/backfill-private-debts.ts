@@ -10,17 +10,25 @@ import { db } from "../server/db";
 import { sql } from "drizzle-orm";
 import { ensureCreditProcessed } from "../server/storage";
 
+interface CountRow {
+  count: string;
+}
+
+interface IdRow {
+  id: string;
+}
+
 async function main() {
   console.log("=== Backfill Private Session Debts (comprehensive) ===\n");
 
   // ─── STEP 1: Fix all mistyped credit transactions ─────────────────────────
-  // Finds ALL records where credit_type doesn't match the actual session_type.
-  // Root cause: legacy auto-attendance code hardcoded credit_type='group' for
-  // every debit regardless of session_type.  ensureCreditProcessed (current
-  // code) correctly normalises the type, so this only affects old records.
-  console.log("STEP 1: Correcting mistyped credit_type on debit transactions...");
+  // Finds ALL records where a private session debit was stored with credit_type='group'.
+  // Root cause: legacy auto-attendance code hardcoded credit_type='group' for every
+  // debit regardless of session_type.  ensureCreditProcessed (current code) correctly
+  // normalises the type via normalizeType(), so this only affects old records.
+  console.log("STEP 1: Correcting private sessions stored with credit_type='group'...");
 
-  const fixGroupForPrivate = await db.execute(sql`
+  const fixResult = await db.execute(sql`
     UPDATE credit_transactions ct
     SET credit_type = 'private'
     FROM sessions s
@@ -31,22 +39,8 @@ async function main() {
       AND ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking', 'session_consumed')
       AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
   `);
-  const groupFixed = (fixGroupForPrivate as any).rowCount ?? 0;
-  console.log(`  Fixed group→private: ${groupFixed} record(s)`);
-
-  const fixGroupForSemi = await db.execute(sql`
-    UPDATE credit_transactions ct
-    SET credit_type = 'semi_private'
-    FROM sessions s
-    WHERE ct.session_id = s.id
-      AND ct.amount < 0
-      AND ct.credit_type = 'group'
-      AND s.session_type IN ('semi_private', 'semi_private_adjusted')
-      AND ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking', 'session_consumed')
-      AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
-  `);
-  const semiFixed = (fixGroupForSemi as any).rowCount ?? 0;
-  console.log(`  Fixed group→semi_private: ${semiFixed} record(s)\n`);
+  const fixedCount = (fixResult as { rowCount: number }).rowCount ?? 0;
+  console.log(`  Fixed: ${fixedCount} record(s) updated group → private\n`);
 
   // ─── STEP 2: Backfill ALL unprocessed private sessions ────────────────────
   // Selects all session_players where:
@@ -57,7 +51,7 @@ async function main() {
   //   - session is in the past
   console.log("STEP 2: Discovering all unprocessed private sessions...");
 
-  const unprocessed = await db.execute(sql`
+  const unprocessedResult = await db.execute(sql`
     SELECT sp.id
     FROM session_players sp
     JOIN sessions s ON s.id = sp.session_id
@@ -69,10 +63,10 @@ async function main() {
     ORDER BY s.start_time ASC
   `);
 
-  const ids = unprocessed.rows.map((r) => (r as any).id as string);
-  console.log(`  Found ${ids.length} unprocessed session_player row(s)`);
+  const rows = unprocessedResult.rows as IdRow[];
+  console.log(`  Found ${rows.length} unprocessed session_player row(s)`);
 
-  if (ids.length === 0) {
+  if (rows.length === 0) {
     console.log("  ✓ Nothing to backfill.\n");
   } else {
     let consumed = 0;
@@ -80,7 +74,8 @@ async function main() {
     let alreadyDone = 0;
     let errors = 0;
 
-    for (const spId of ids) {
+    for (const row of rows) {
+      const spId = row.id;
       const result = await ensureCreditProcessed(spId);
       if (result.action === "consumed") {
         console.log(`  ✓ [consumed]     ${spId}`);
@@ -103,7 +98,7 @@ async function main() {
   // ─── STEP 3: Verification ─────────────────────────────────────────────────
   console.log("STEP 3: Verifying clean state...");
 
-  const remaining = await db.execute(sql`
+  const remainingResult = await db.execute(sql`
     SELECT COUNT(*) as count
     FROM session_players sp
     JOIN sessions s ON s.id = sp.session_id
@@ -113,10 +108,10 @@ async function main() {
       AND s.status != 'cancelled'
       AND s.start_time < NOW()
   `);
-  const remainingCount = Number((remaining.rows[0] as any)?.count ?? 0);
+  const remainingCount = Number((remainingResult.rows[0] as CountRow).count);
   console.log(`  Unprocessed private sessions remaining: ${remainingCount} ${remainingCount === 0 ? "✓" : "⚠"}`);
 
-  const mismatchRemaining = await db.execute(sql`
+  const mismatchResult = await db.execute(sql`
     SELECT COUNT(*) as count
     FROM credit_transactions ct
     JOIN sessions s ON s.id = ct.session_id
@@ -126,8 +121,13 @@ async function main() {
       AND s.session_type IN ('private', 'private_adjusted')
       AND ct.credit_type = 'group'
   `);
-  const mismatchCount = Number((mismatchRemaining.rows[0] as any)?.count ?? 0);
+  const mismatchCount = Number((mismatchResult.rows[0] as CountRow).count);
   console.log(`  credit_type mismatches remaining: ${mismatchCount} ${mismatchCount === 0 ? "✓" : "⚠"}`);
+
+  if (remainingCount > 0 || mismatchCount > 0) {
+    console.error("\n⚠ Verification failed — check output above for details");
+    process.exit(1);
+  }
 
   console.log("\n=== Done ===");
   process.exit(0);

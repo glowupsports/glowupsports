@@ -2411,10 +2411,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     true,
                     academyId,
                   );
-                  if (attendanceResult && attendanceResult.isNewAttendance) {
+                  if (attendanceResult) {
+                    // Always run credit processing regardless of isNewAttendance.
+                    // ensureCreditProcessed is idempotent — it checks credit_deducted_at
+                    // and existing transactions before acting.  Calling it here even when
+                    // isNewAttendance=false closes the gap where old processAutoAttendance
+                    // code set attendance but failed to create the credit transaction.
                     const { ensureCreditProcessed } = await import("../storage");
                     await ensureCreditProcessed(attendanceResult.record.id);
-                    if (session) {
+                    if (attendanceResult.isNewAttendance && session) {
                       const xpAmount = session.xpValue || 20;
                       await storage.addPlayerXP(
                         playerId,
