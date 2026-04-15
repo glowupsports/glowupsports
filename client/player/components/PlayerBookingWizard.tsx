@@ -13,7 +13,6 @@ import {
   ScrollView,
   FlatList,
   Keyboard,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { openDirections } from "@/lib/maps";
 import { Image } from "expo-image";
@@ -1184,8 +1183,8 @@ export default function PlayerBookingWizard({
   };
 
   // SLIDE 3: Details
-  const renderDetailsSlide = () => (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+  const renderDetailsSlide = () => {
+    const content = (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
 
@@ -1315,8 +1314,14 @@ export default function PlayerBookingWizard({
         )}
       </View>
     </Animated.View>
-    </TouchableWithoutFeedback>
-  );
+    );
+    if (Platform.OS === "web") return content;
+    return (
+      <Pressable onPress={Keyboard.dismiss} accessible={false}>
+        {content}
+      </Pressable>
+    );
+  };
 
   // SLIDE 4: Confirm & Rewards
   const renderConfirmSlide = () => {
