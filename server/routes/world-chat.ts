@@ -27,6 +27,7 @@ import {
   coachingSeries,
   coachSettings,
   users,
+  bookingRequests,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -2206,6 +2207,9 @@ async function autoCancel(
         deleteCalendarEvent(session.googleCalendarEventId)
           .catch(err => console.error('[GoogleCalendar] Delete sync error:', err));
       }
+
+      // Nullify session references in booking_requests
+      await db.update(bookingRequests).set({ sessionId: null }).where(eq(bookingRequests.sessionId, id));
 
       // Finally delete the session itself
       await db.delete(sessions).where(eq(sessions.id, id));
