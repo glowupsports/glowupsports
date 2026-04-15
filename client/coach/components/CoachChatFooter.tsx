@@ -2002,6 +2002,7 @@ const styles = StyleSheet.create({
   },
   pillGap: {
     width: 90,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   rightPill: {
     flex: 1,

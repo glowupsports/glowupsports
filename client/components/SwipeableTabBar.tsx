@@ -528,6 +528,8 @@ const styles = StyleSheet.create({
   centerButtonAnimWrapper: {
     alignItems: "center",
     marginTop: -30,
+    zIndex: 200,
+    elevation: 200,
   },
   centerButton: {
     width: 60,
