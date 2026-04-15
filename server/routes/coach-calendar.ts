@@ -573,6 +573,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             .where(
               and(
                 eq(slotReservations.coachId, coachId as string),
+                academyId ? eq(slotReservations.academyId, academyId) : undefined,
                 gt(slotReservations.expiresAt, new Date()),
                 gte(slotReservations.startTime, startDate),
                 lte(slotReservations.startTime, endDate),
