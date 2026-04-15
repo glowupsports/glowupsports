@@ -1513,6 +1513,7 @@ export default function CalendarScreen() {
           nowPosition={nowPosition}
           isToday={isToday}
           START_HOUR={START_HOUR}
+          slotReservations={slotReservations}
         />
       )}
       {/* WEEK VIEW - OVERVIEW MODE (Week Calendar Grid - sessions only, no empty slots) */}

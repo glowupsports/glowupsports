@@ -12,8 +12,9 @@ import {
   getTimeInTimezone,
 } from "@/lib/dateUtils";
 import { getSessionTypeGradient } from "./calendarUtils";
-import { DraggableSessionBlock, PulsingDot } from "./SessionBlocks";
+import { DraggableSessionBlock, PulsingDot, SlotReservationBlock } from "./SessionBlocks";
 import { CalendarFilterOverlay } from "./CalendarFilterOverlay";
+import type { SlotReservation } from "@/coach/context/CoachContext";
 
 interface SessionPlayer {
   name: string;
@@ -117,6 +118,7 @@ interface CalendarDayViewSlotsProps {
   nowPosition: number | null;
   isToday: boolean;
   START_HOUR: number;
+  slotReservations?: SlotReservation[];
 }
 
 export function CalendarDayViewSlots({
@@ -161,6 +163,7 @@ export function CalendarDayViewSlots({
   nowPosition,
   isToday,
   START_HOUR,
+  slotReservations = [],
 }: CalendarDayViewSlotsProps) {
   return (
     <>
@@ -384,6 +387,25 @@ export function CalendarDayViewSlots({
                           <Text style={[styles.coachBlockText, { fontWeight: "400", fontSize: 8 }]}>{block.blockReason}</Text>
                         ) : null}
                       </View>
+                    );
+                  })}
+
+                {courtIndex === 0 && slotReservations
+                  .filter((r) => {
+                    const rDateStr = getLocalDateString(r.startTime, academyTimezone);
+                    const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
+                    return rDateStr === selectedDateStr;
+                  })
+                  .map((r) => {
+                    const { top, height } = getSessionPosition(r);
+                    return (
+                      <SlotReservationBlock
+                        key={r.id}
+                        top={top}
+                        height={height}
+                        playerName={r.playerName}
+                        expiresAt={r.expiresAt}
+                      />
                     );
                   })}
 
