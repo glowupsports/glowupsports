@@ -30,6 +30,7 @@ import { sanitizeMessage } from "../utils/sanitize";
 import { localHHMMToUtc, utcToLocalTime } from "../utils/timezone";
 import { playerNotifications } from "@shared/schema";
 import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
+import { invalidateHomeDataCache } from "./coach-home";
 
 async function getEffectivePlayerCount(sessionId: string): Promise<number> {
   const [enrolledRows, offeredRows] = await Promise.all([
@@ -2278,6 +2279,7 @@ Return only the JSON array, nothing else.`;
       }
 
       const result = await storage.approveBookingRequest(id, coachId);
+      invalidateHomeDataCache(coachId);
 
       // Update court availability from "blocked" to "booked" when approved
       if (request.courtId) {
@@ -2353,6 +2355,7 @@ Return only the JSON array, nothing else.`;
         responseNote: reason || null,
         declineReason: declineReason || null,
       });
+      invalidateHomeDataCache(coachId);
 
       // Unblock court if there was a court blocked for this request
       if (request.courtId) {
@@ -2618,6 +2621,7 @@ Return only the JSON array, nothing else.`;
         // Get the coach ID (may be null for academy-wide requests)
         const effectiveCoachId = request.coachId || "";
         const result = await storage.approveBookingRequest(id, effectiveCoachId);
+        if (effectiveCoachId) invalidateHomeDataCache(effectiveCoachId);
 
         // 24h pre-lesson reminders are handled by the polling job (bookingExpiryJob.ts)
 
