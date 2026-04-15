@@ -1339,8 +1339,28 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await client.query(`UPDATE player_notifications SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 
           // Feedback & observations
-          await client.query(`UPDATE session_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // NOTE: session_feedback has no player_id column — it is session-level data (intensity/mood/coach_notes).
+          // in_session_feedback: dedup ai_session_note first (partial unique on session_id+player_id WHERE feedback_type='ai_session_note')
+          await client.query(
+            `DELETE FROM in_session_feedback
+             WHERE player_id = $1
+               AND feedback_type = 'ai_session_note'
+               AND session_id IN (
+                 SELECT session_id FROM in_session_feedback
+                 WHERE player_id = $2 AND feedback_type = 'ai_session_note'
+               )`,
+            [sourceId, targetId]
+          );
           await client.query(`UPDATE in_session_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // session_skill_feedback: dedup first (unique on session_id+player_id)
+          await client.query(
+            `DELETE FROM session_skill_feedback
+             WHERE player_id = $1
+               AND session_id IN (
+                 SELECT session_id FROM session_skill_feedback WHERE player_id = $2
+               )`,
+            [sourceId, targetId]
+          );
           await client.query(`UPDATE session_skill_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE session_skill_observations SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE skill_evidence SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
