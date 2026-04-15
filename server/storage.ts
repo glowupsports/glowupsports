@@ -7216,9 +7216,10 @@ export const storage = {
 
     // Debt = unsettled debt transactions (player used sessions with no package available)
     // Includes:
-    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
+    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid)
     //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
     //               no package in column or metadata, amount < 0
+    // NOTE: isDebt metadata flag is NOT required — legacy records predate that field.
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
@@ -7367,8 +7368,7 @@ export const storage = {
           inArray(creditTransactions.creditType, matchingCreditTypes),
           ne(sessions.status, "cancelled"),
           sql`COALESCE(${creditTransactions.metadata}->>'cancelled', 'false') != 'true'`,
-          sql`COALESCE(${creditTransactions.metadata}->>'settled', 'false') != 'true'`,
-          sql`COALESCE(${creditTransactions.metadata}->>'isDebt', 'false') = 'true'`
+          sql`COALESCE(${creditTransactions.metadata}->>'settled', 'false') != 'true'`
         ))
         .orderBy(creditTransactions.createdAt);
 
@@ -7754,9 +7754,10 @@ export const storage = {
 
     // Debt = unsettled debt transactions (sessions without a package)
     // Includes:
-    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid), isDebt=true
+    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid)
     //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
     //               no package in column or metadata, amount < 0
+    // NOTE: isDebt metadata flag is NOT required — legacy records predate that field.
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
