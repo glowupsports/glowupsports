@@ -28,7 +28,6 @@ import * as Linking from "expo-linking";
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
-  withSpring,
   withTiming,
   withSequence,
   interpolate,
@@ -54,6 +53,7 @@ import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
+import { ActionSheet } from "@/components/ActionSheet";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -413,6 +413,7 @@ export function PlayerDetailView({
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<Player | null>(null);
   const [mergeSearch, setMergeSearch] = useState("");
+  const [showActionSheet, setShowActionSheet] = useState(false);
 
   useEffect(() => {
     setLocalPlayer(player);
@@ -639,15 +640,10 @@ export function PlayerDetailView({
   const [localAuditVerified, setLocalAuditVerified] = useState<boolean>(!!player.auditVerifiedAt);
   const [verifyFlashText, setVerifyFlashText] = useState<string | null>(null);
   const verifyFlashOpacity = useSharedValue(0);
-  const verifyButtonScale = useSharedValue(1);
 
   const verifyFlashStyle = useAnimatedStyle(() => ({
     opacity: verifyFlashOpacity.value,
     transform: [{ translateY: interpolate(verifyFlashOpacity.value, [0, 1], [8, 0]) }],
-  }));
-
-  const verifyButtonAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: verifyButtonScale.value }],
   }));
 
   const auditVerifyMutation = useMutation({
@@ -660,10 +656,6 @@ export function PlayerDetailView({
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      verifyButtonScale.value = withSequence(
-        withSpring(1.3, { damping: 8 }),
-        withSpring(1, { damping: 12 })
-      );
       setVerifyFlashText(data.auditVerified ? "Verified" : "Unverified");
       verifyFlashOpacity.value = withSequence(
         withTiming(1, { duration: 150 }),
@@ -925,129 +917,68 @@ export function PlayerDetailView({
           <Pressable style={styles.premiumBackButton} onPress={onBack}>
             <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
           </Pressable>
-          <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-            <Pressable
-              style={styles.premiumExportButton}
-              onPress={handleDeletePlayer}
-              disabled={deletePlayerMutation.isPending}
-            >
-              {deletePlayerMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.error} />
-              ) : (
-                <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-              )}
-            </Pressable>
-            <Pressable
-              style={styles.premiumExportButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                Alert.alert(
-                  "Player Actions",
-                  `More options for ${localPlayer.name}`,
-                  [
-                    {
-                      text: "Merge into another player",
-                      onPress: () => {
-                        setMergeSearch("");
-                        setMergeTarget(null);
-                        setShowMergeModal(true);
-                      },
-                    },
-                    { text: "Cancel", style: "cancel" },
-                  ]
-                );
-              }}
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color={Colors.dark.tabIconDefault} />
-            </Pressable>
-            <Pressable
-              style={styles.premiumExportButton}
-              onPress={() => {
-                setEditName(localPlayer.name);
-                setEditEmail(localPlayer.email ?? "");
-                setEditPhone(localPlayer.phone ?? "");
-                setEditBallLevel(localPlayer.ballLevel ?? "");
-                setEditParentEmail(localPlayer.parentEmail ?? "");
-                setEditParentReporting(localPlayer.parentReporting ?? false);
-                setShowEditPlayer(true);
-              }}
-            >
-              <Ionicons name="pencil-outline" size={22} color={Colors.dark.tabIconDefault} />
-            </Pressable>
-            <View style={{ alignItems: "center" }}>
-              <Animated.View style={verifyButtonAnimStyle}>
-                <Pressable 
-                  style={[
-                    styles.premiumExportButton,
-                    localAuditVerified ? { backgroundColor: Colors.dark.primary + "30", borderColor: Colors.dark.primary, borderWidth: 1 } : null,
-                  ]} 
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    auditVerifyMutation.mutate();
-                  }}
-                  disabled={auditVerifyMutation.isPending}
-                >
-                  {auditVerifyMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
-                  ) : (
-                    <Ionicons 
-                      name={localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline"} 
-                      size={22} 
-                      color={localAuditVerified ? Colors.dark.primary : Colors.dark.tabIconDefault} 
-                    />
-                  )}
-                </Pressable>
-              </Animated.View>
-              {verifyFlashText ? (
-                <Animated.Text style={[{
-                  position: "absolute",
-                  top: 44,
-                  fontSize: 11,
-                  fontWeight: "700",
-                  color: verifyFlashText === "Error" ? Colors.dark.error : 
-                         verifyFlashText === "Unverified" ? Colors.dark.warning : Colors.dark.primary,
-                  textAlign: "center",
-                  width: 80,
-                }, verifyFlashStyle]}>
-                  {verifyFlashText}
-                </Animated.Text>
-              ) : null}
-            </View>
-            <Pressable 
-              style={styles.premiumExportButton} 
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowDeepAssessment(true);
-              }}
-            >
-              <Ionicons name="analytics" size={22} color={Colors.dark.xpCyan} />
-            </Pressable>
-            <Pressable 
-              style={styles.premiumExportButton} 
-              onPress={handleExportProgressReport}
-              disabled={isExportingReport}
-            >
-              {isExportingReport ? (
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-              ) : (
-                <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
-              )}
-            </Pressable>
-            <Pressable
-              style={styles.premiumExportButton}
-              onPress={() => navigation.navigate("VideoFeedback", { playerId: player.id })}
-            >
-              <Ionicons name="videocam-outline" size={22} color="#4DA3FF" />
-            </Pressable>
-            <Pressable
-              style={styles.premiumExportButton}
-              onPress={() => navigation.navigate("PlayerMatchHistory", { playerId: player.id, playerName: player.name })}
-            >
-              <Ionicons name="trophy-outline" size={22} color="#CCFF00" />
-            </Pressable>
-          </View>
+          <Pressable
+            style={styles.premiumActionsButton}
+            onPress={() => {
+              if (deletePlayerMutation.isPending) return;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowActionSheet(true);
+            }}
+          >
+            {deletePlayerMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <Text style={styles.premiumActionsButtonText}>Actions</Text>
+            )}
+          </Pressable>
         </View>
       </LinearGradient>
+
+      {/* Verify result toast */}
+      {verifyFlashText ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.verifyToast,
+            {
+              backgroundColor:
+                verifyFlashText === "Error"
+                  ? Colors.dark.error + "EE"
+                  : verifyFlashText === "Unverified"
+                  ? Colors.dark.warning + "EE"
+                  : Colors.dark.primary + "EE",
+            },
+            verifyFlashStyle,
+          ]}
+        >
+          <Ionicons
+            name={
+              verifyFlashText === "Error"
+                ? "alert-circle"
+                : verifyFlashText === "Unverified"
+                ? "close-circle"
+                : "checkmark-circle"
+            }
+            size={16}
+            color={verifyFlashText === "Error" || verifyFlashText === "Unverified" ? "#fff" : "#000"}
+          />
+          <Text
+            style={[
+              styles.verifyToastText,
+              {
+                color:
+                  verifyFlashText === "Error" || verifyFlashText === "Unverified" ? "#fff" : "#000",
+              },
+            ]}
+          >
+            {verifyFlashText === "Verified"
+              ? "Player verified"
+              : verifyFlashText === "Unverified"
+              ? "Verification removed"
+              : "Verification failed"}
+          </Text>
+        </Animated.View>
+      ) : null}
 
       <ScrollView
         style={styles.detailContent}
@@ -1803,6 +1734,94 @@ export function PlayerDetailView({
           setLastJuniorAssessmentResult(result);
           onAssessmentComplete?.(result);
         }}
+      />
+
+      <ActionSheet
+        visible={showActionSheet}
+        onClose={() => setShowActionSheet(false)}
+        actions={[
+          {
+            id: "edit",
+            label: "Edit Player",
+            icon: "pencil-outline",
+            color: Colors.dark.tabIconDefault,
+            onPress: () => {
+              setEditName(localPlayer.name);
+              setEditEmail(localPlayer.email ?? "");
+              setEditPhone(localPlayer.phone ?? "");
+              setEditBallLevel(localPlayer.ballLevel ?? "");
+              setEditParentEmail(localPlayer.parentEmail ?? "");
+              setEditParentReporting(localPlayer.parentReporting ?? false);
+              setShowEditPlayer(true);
+            },
+          },
+          {
+            id: "verify",
+            label: localAuditVerified ? "Unverify Player" : "Verify Player",
+            icon: localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline",
+            color: localAuditVerified ? Colors.dark.primary : Colors.dark.tabIconDefault,
+            isLoading: auditVerifyMutation.isPending,
+            keepOpenWhileLoading: true,
+            onPress: () => {
+              auditVerifyMutation.mutate();
+            },
+          },
+          {
+            id: "deep-assessment",
+            label: "Deep Assessment",
+            icon: "analytics",
+            color: Colors.dark.xpCyan,
+            onPress: () => {
+              setShowDeepAssessment(true);
+            },
+          },
+          {
+            id: "progress-report",
+            label: "Progress Report",
+            icon: "document-text-outline",
+            color: Colors.dark.xpCyan,
+            isLoading: isExportingReport,
+            keepOpenWhileLoading: true,
+            onPress: handleExportProgressReport,
+          },
+          {
+            id: "video-feedback",
+            label: "Video Feedback",
+            icon: "videocam-outline",
+            color: "#4DA3FF",
+            onPress: () => {
+              navigation.navigate("VideoFeedback", { playerId: player.id });
+            },
+          },
+          {
+            id: "match-history",
+            label: "Match History",
+            icon: "trophy-outline",
+            color: "#CCFF00",
+            onPress: () => {
+              navigation.navigate("PlayerMatchHistory", { playerId: player.id, playerName: player.name });
+            },
+          },
+          {
+            id: "merge",
+            label: "Merge Player",
+            icon: "git-merge-outline",
+            color: Colors.dark.tabIconDefault,
+            onPress: () => {
+              setMergeSearch("");
+              setMergeTarget(null);
+              setShowMergeModal(true);
+            },
+          },
+          {
+            id: "delete",
+            label: "Delete Player",
+            icon: "trash-outline",
+            isLoading: deletePlayerMutation.isPending,
+            isDestructive: true,
+            onPress: handleDeletePlayer,
+          },
+        ]}
       />
 
       <MergePlayerModal
