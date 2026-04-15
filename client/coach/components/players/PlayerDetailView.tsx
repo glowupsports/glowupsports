@@ -369,11 +369,13 @@ function ProminentInviteCard({
 export function PlayerDetailView({
   player,
   onBack,
+  onNavigateToPlayer,
   insets,
   onAssessmentComplete,
 }: {
   player: Player;
   onBack: () => void;
+  onNavigateToPlayer?: (playerId: string) => void;
   insets: { top: number; bottom: number };
   onAssessmentComplete?: (result: JuniorAssessmentResult) => void;
 }) {
@@ -406,6 +408,11 @@ export function PlayerDetailView({
 
 
   const [localPlayer, setLocalPlayer] = useState(player);
+
+  // Merge player state
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<Player | null>(null);
+  const [mergeSearch, setMergeSearch] = useState("");
 
   useEffect(() => {
     setLocalPlayer(player);
@@ -447,6 +454,55 @@ export function PlayerDetailView({
           text: "Delete",
           style: "destructive",
           onPress: () => deletePlayerMutation.mutate(),
+        },
+      ]
+    );
+  };
+
+  const mergePlayerMutation = useMutation({
+    mutationFn: async (targetId: string) => {
+      const res = await apiRequest("POST", `/api/players/${player.id}/merge-into/${targetId}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to merge players");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      setShowMergeModal(false);
+      setMergeTarget(null);
+      if (data.userWarning) {
+        setTimeout(() => {
+          Alert.alert("Merge Complete", `Players merged successfully.\n\nNote: ${data.userWarning}`);
+        }, 300);
+      }
+      if (onNavigateToPlayer && data.targetId) {
+        onNavigateToPlayer(data.targetId);
+      } else {
+        onBack();
+      }
+    },
+    onError: (error: Error) => {
+      setTimeout(() => {
+        Alert.alert("Error", error.message || "Failed to merge players");
+      }, 350);
+    },
+  });
+
+  const handleMergeConfirm = (target: Player) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Alert.alert(
+      "Merge Players",
+      `All attendance, credits, groups, and notes from ${localPlayer.name} will be moved to ${target.name}. ${localPlayer.name} will then be deleted.\n\nThis cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Merge",
+          style: "destructive",
+          onPress: () => mergePlayerMutation.mutate(target.id),
         },
       ]
     );
@@ -880,6 +936,29 @@ export function PlayerDetailView({
               ) : (
                 <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
               )}
+            </Pressable>
+            <Pressable
+              style={styles.premiumExportButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                Alert.alert(
+                  "Player Actions",
+                  `More options for ${localPlayer.name}`,
+                  [
+                    {
+                      text: "Merge into another player",
+                      onPress: () => {
+                        setMergeSearch("");
+                        setMergeTarget(null);
+                        setShowMergeModal(true);
+                      },
+                    },
+                    { text: "Cancel", style: "cancel" },
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color={Colors.dark.tabIconDefault} />
             </Pressable>
             <Pressable
               style={styles.premiumExportButton}
@@ -1726,7 +1805,175 @@ export function PlayerDetailView({
         }}
       />
 
+      <MergePlayerModal
+        visible={showMergeModal}
+        sourcePlayer={localPlayer}
+        search={mergeSearch}
+        onSearchChange={setMergeSearch}
+        onClose={() => setShowMergeModal(false)}
+        onSelect={(target) => {
+          setShowMergeModal(false);
+          handleMergeConfirm(target);
+        }}
+        isMerging={mergePlayerMutation.isPending}
+      />
+
     </View>
+  );
+}
+
+function MergePlayerModal({
+  visible,
+  sourcePlayer,
+  search,
+  onSearchChange,
+  onClose,
+  onSelect,
+  isMerging,
+}: {
+  visible: boolean;
+  sourcePlayer: Player;
+  search: string;
+  onSearchChange: (s: string) => void;
+  onClose: () => void;
+  onSelect: (p: Player) => void;
+  isMerging: boolean;
+}) {
+  const { data: allPlayers } = useQuery<Player[]>({
+    queryKey: ["/api/players?withCredits=true"],
+    enabled: visible,
+  });
+
+  const filtered = (allPlayers || []).filter(
+    (p) =>
+      p.id !== sourcePlayer.id &&
+      (search.trim() === "" ||
+        p.name.toLowerCase().includes(search.trim().toLowerCase()) ||
+        (p.email || "").toLowerCase().includes(search.trim().toLowerCase()))
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View
+          style={{
+            backgroundColor: Colors.dark.backgroundDefault,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            paddingBottom: 32,
+            maxHeight: "80%",
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 12,
+              gap: 12,
+            }}
+          >
+            <Ionicons name="git-merge-outline" size={22} color={Colors.dark.warning} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.dark.text, fontWeight: "700", fontSize: 17 }}>
+                Merge into another player
+              </Text>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
+                History from {sourcePlayer.name} will move to the selected player
+              </Text>
+            </View>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <Ionicons name="close" size={22} color={Colors.dark.tabIconDefault} />
+            </Pressable>
+          </View>
+
+          <View
+            style={{
+              marginHorizontal: 20,
+              marginBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: Colors.dark.backgroundSecondary,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              gap: 8,
+            }}
+          >
+            <Ionicons name="search-outline" size={16} color={Colors.dark.tabIconDefault} />
+            <TextInput
+              value={search}
+              onChangeText={onSearchChange}
+              placeholder="Search players..."
+              placeholderTextColor={Colors.dark.tabIconDefault}
+              style={{
+                flex: 1,
+                color: Colors.dark.text,
+                fontSize: 15,
+                paddingVertical: 10,
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {filtered.length === 0 ? (
+              <View style={{ alignItems: "center", paddingVertical: 32 }}>
+                <Ionicons name="people-outline" size={32} color={Colors.dark.tabIconDefault} />
+                <Text style={{ color: Colors.dark.textSecondary, marginTop: 10, fontSize: 14 }}>
+                  No other players found
+                </Text>
+              </View>
+            ) : (
+              filtered.map((p) => (
+                <Pressable
+                  key={p.id}
+                  onPress={() => onSelect(p)}
+                  disabled={isMerging}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingHorizontal: 20,
+                    paddingVertical: 14,
+                    gap: 12,
+                    opacity: pressed ? 0.7 : 1,
+                    backgroundColor: pressed ? Colors.dark.backgroundSecondary : "transparent",
+                  })}
+                >
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      backgroundColor: Colors.dark.primary + "30",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ color: Colors.dark.primary, fontWeight: "700", fontSize: 15 }}>
+                      {p.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: Colors.dark.text, fontWeight: "600", fontSize: 15 }}>
+                      {p.name}
+                    </Text>
+                    {p.email ? (
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 12 }} numberOfLines={1}>
+                        {p.email}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.tabIconDefault} />
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
-  import { db } from "../db";
+  import { db, pool } from "../db";
   import { storage } from "../storage";
   import {
     eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
@@ -29,6 +29,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
     sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
     coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
+    playerNotes, playerProgress, playerSubscriptions, playerLevelEvents,
     coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
     courtAvailability, courtAvailabilitySnapshots,
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
@@ -1233,6 +1234,297 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       } catch (error) {
         console.error("Error deleting player:", error);
         res.status(500).json({ error: "Failed to delete player" });
+      }
+    },
+  );
+
+  // Merge player accounts — moves all data from source into target, then deletes source
+  router.post(
+    "/api/players/:sourceId/merge-into/:targetId",
+    authMiddleware,
+    requireRole("academy_owner", "platform_owner", "admin", "coach"),
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { sourceId, targetId } = req.params;
+        const academyId = req.user!.academyId!;
+        const coachId = req.user!.coachId;
+
+        if (sourceId === targetId) {
+          return res.status(400).json({ error: "Source and target players must be different" });
+        }
+
+        const { valid: sourceValid, player: sourcePlayer } = await validatePlayerOwnership(sourceId, academyId, storage);
+        if (!sourceValid || !sourcePlayer) {
+          return res.status(404).json({ error: "Source player not found" });
+        }
+
+        const { valid: targetValid, player: targetPlayer } = await validatePlayerOwnership(targetId, academyId, storage);
+        if (!targetValid || !targetPlayer) {
+          return res.status(404).json({ error: "Target player not found" });
+        }
+
+        // Check for user account conflicts
+        const [sourceUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, sourceId));
+        const [targetUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, targetId));
+
+        const userWarning = sourceUser && targetUser
+          ? `Both players had user accounts; the source account link was removed.`
+          : null;
+
+        // Single atomic transaction: transfer all historical data to target, delete all
+        // non-transferable source rows in the correct FK order, then delete source player.
+        // MAINTENANCE: When new player_* tables are added to the schema, mirror them in
+        // Part A (reassign) or Part B (delete) below, following the same FK ordering used
+        // in storage.deletePlayer to avoid FK violations on the final DELETE FROM players.
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+
+          // ================================================================
+          // PART A — Transfer historical/coaching data from source to target
+          // ================================================================
+
+          // session_players: dedup-first (unique on session_id + player_id)
+          await client.query(
+            `DELETE FROM session_players WHERE player_id = $1 AND session_id IN (
+               SELECT session_id FROM session_players WHERE player_id = $2
+             )`,
+            [sourceId, targetId]
+          );
+          await client.query(`UPDATE session_players SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // series_players: dedup-first (unique on series_id + player_id)
+          await client.query(
+            `DELETE FROM series_players WHERE player_id = $1 AND series_id IN (
+               SELECT series_id FROM series_players WHERE player_id = $2
+             )`,
+            [sourceId, targetId]
+          );
+          await client.query(`UPDATE series_players SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // packages before credit_transactions (credit_transactions.package_id → packages.id)
+          await client.query(`UPDATE packages SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE credit_transactions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE invoices SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE payments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Core coaching records
+          await client.query(`UPDATE player_notes SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_subscriptions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_level_events SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_progress SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_holidays SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_session_cancellations SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Gamification, skill & progress
+          await client.query(`UPDATE player_badges SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_titles SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_quests SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE daily_quest_slots SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_streaks SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_ball_levels SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_pillar_progress SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_baselines SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_baseline_skill_scores SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE xp_transactions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_xp_events SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_level_up_celebrations SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_feature_unlock_history SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_skill_state SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_progress_flags SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_skill_scores SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_deep_assessments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE deep_assessment_pillar_summaries SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_notifications SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Feedback & observations
+          await client.query(`UPDATE session_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE in_session_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE session_skill_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE session_skill_observations SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE skill_evidence SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Assessments & group membership
+          await client.query(`UPDATE domain_assessments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE lesson_group_members SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE adult_skill_assessments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Level events & trials
+          await client.query(`UPDATE level_up_events SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE level_trials SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Player connections: delete both sides to avoid self/duplicate links
+          await client.query(`DELETE FROM player_connections WHERE player1_id = $1 OR player2_id = $1`, [sourceId]);
+
+          // ================================================================
+          // PART B — Delete non-transferable source rows (FK-ordered)
+          // Mirrors storage.deletePlayer ordering to ensure safe deletion.
+          // Tables already updated in Part A are no-ops here (0 rows matched).
+          // ================================================================
+
+          // Leaf tables with no outbound FKs to other player-owned tables
+          // player_invites: reassign to target (historical invite record)
+          await client.query(`UPDATE player_invites SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`DELETE FROM booking_requests WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM join_requests WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM academy_transfer_requests WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM conversation_participants WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM message_reactions WHERE reactor_player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM coach_reviews WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM review_prompts WHERE player_id = $1`, [sourceId]);
+          // player_matches: reassign both sides; delete if source and target matched each other
+          await client.query(
+            `DELETE FROM player_matches WHERE
+               (initiator_id = $1 AND receiver_id = $2) OR
+               (initiator_id = $2 AND receiver_id = $1)`,
+            [sourceId, targetId]
+          );
+          await client.query(`UPDATE player_matches SET initiator_id = $1 WHERE initiator_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE player_matches SET receiver_id = $1 WHERE receiver_id = $2`, [targetId, sourceId]);
+          await client.query(`DELETE FROM booking_invite_guests WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM open_match_slots WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM play_request_participants WHERE player_id = $1`, [sourceId]);
+          await client.query(
+            `DELETE FROM match_requests WHERE player_id = $1 OR invited_player_id = $1 OR matched_with_player_id = $1`,
+            [sourceId]
+          );
+          // player_booking_preferences: dedup then reassign
+          await client.query(
+            `DELETE FROM player_booking_preferences WHERE player_id = $1 AND EXISTS (
+               SELECT 1 FROM player_booking_preferences WHERE player_id = $2
+             )`,
+            [sourceId, targetId]
+          );
+          await client.query(`UPDATE player_booking_preferences SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`DELETE FROM adult_glow_matches WHERE player_id = $1 OR opponent_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM session_waitlist WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM squad_members WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM shop_wishlist WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM match_logs WHERE player_id = $1 OR opponent_player_id = $1`, [sourceId]);
+          await client.query(
+            `DELETE FROM match_challenges WHERE challenger_id = $1 OR opponent_id = $1 OR winner_player_id = $1`,
+            [sourceId]
+          );
+          await client.query(`DELETE FROM tournament_participants WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM ladder_players WHERE player_id = $1`, [sourceId]);
+          await client.query(
+            `DELETE FROM ladder_challenges WHERE challenger_id = $1 OR challenged_id = $1 OR winner_id = $1`,
+            [sourceId]
+          );
+
+          // Tables referencing other player-owned rows (delete in dependent order)
+          // daily_quest_slots → player_quests (already transferred, so 0-row no-ops)
+          // level_trials referenced by level_up_events (already transferred, so 0-row no-ops)
+
+          // match sub-tables before matches
+          await client.query(`DELETE FROM match_pillar_scores WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM match_reflections WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM coach_match_reviews WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM match_training_suggestions WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM match_plans WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM matches WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM match_opponents WHERE player_id = $1`, [sourceId]);
+
+          // Marketplace
+          await client.query(`DELETE FROM marketplace_listings WHERE seller_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM seller_profiles WHERE player_id = $1`, [sourceId]);
+
+          // Play requests: delete other participants on source-created requests first
+          await client.query(
+            `DELETE FROM play_request_participants WHERE request_id IN (
+               SELECT id FROM play_requests WHERE creator_id = $1
+             )`,
+            [sourceId]
+          );
+          await client.query(`DELETE FROM play_requests WHERE creator_id = $1`, [sourceId]);
+
+          // Live matches
+          await client.query(`UPDATE live_matches SET winner_id = NULL WHERE winner_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM live_matches WHERE creator_id = $1`, [sourceId]);
+
+          // Tournament matches & tournaments (SET NULL, don't delete tournament rows)
+          await client.query(`UPDATE tournament_matches SET winner_id = NULL WHERE winner_id = $1`, [sourceId]);
+          await client.query(`UPDATE tournament_matches SET player1_id = NULL WHERE player1_id = $1`, [sourceId]);
+          await client.query(`UPDATE tournament_matches SET player2_id = NULL WHERE player2_id = $1`, [sourceId]);
+          await client.query(`UPDATE tournaments SET winner_id = NULL WHERE winner_id = $1`, [sourceId]);
+
+          // Booking invites where source is host
+          await client.query(
+            `DELETE FROM booking_invite_guests WHERE invite_id IN (
+               SELECT id FROM booking_invites WHERE host_player_id = $1
+             )`,
+            [sourceId]
+          );
+          await client.query(`DELETE FROM booking_invites WHERE host_player_id = $1`, [sourceId]);
+
+          // Open matches where source is host
+          await client.query(
+            `DELETE FROM open_match_slots WHERE match_id IN (
+               SELECT id FROM open_matches WHERE host_player_id = $1
+             )`,
+            [sourceId]
+          );
+          await client.query(`DELETE FROM open_matches WHERE host_player_id = $1`, [sourceId]);
+
+          // Court bookings (after booking_invites and open_matches)
+          await client.query(`DELETE FROM court_bookings WHERE player_id = $1`, [sourceId]);
+
+          // Chat messages and conversations
+          await client.query(`DELETE FROM messages WHERE sender_player_id = $1`, [sourceId]);
+          await client.query(`UPDATE conversations SET player_id = NULL WHERE player_id = $1`, [sourceId]);
+          await client.query(`DELETE FROM parent_player_relations WHERE player_id = $1`, [sourceId]);
+
+          // Billing (payments already transferred, so refund subquery returns 0 rows)
+          await client.query(`DELETE FROM payment_reminders WHERE player_id = $1`, [sourceId]);
+          await client.query(
+            `DELETE FROM refunds WHERE payment_id IN (
+               SELECT id FROM payments WHERE player_id = $1
+             )`,
+            [sourceId]
+          );
+          // Shop orders (not transferred — delete with items first)
+          await client.query(
+            `DELETE FROM shop_order_items WHERE order_id IN (
+               SELECT id FROM shop_orders WHERE player_id = $1
+             )`,
+            [sourceId]
+          );
+          await client.query(`DELETE FROM shop_orders WHERE player_id = $1`, [sourceId]);
+
+          // ================================================================
+          // PART C — User link & source player deletion
+          // ================================================================
+
+          if (sourceUser && !targetUser) {
+            await client.query(`UPDATE users SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          } else {
+            // Both have users, or source has no user: unlink source to clear FK
+            await client.query(`UPDATE users SET player_id = NULL WHERE player_id = $1`, [sourceId]);
+          }
+
+          await client.query(`DELETE FROM players WHERE id = $1`, [sourceId]);
+
+          await client.query("COMMIT");
+        } catch (txError) {
+          await client.query("ROLLBACK");
+          throw txError;
+        } finally {
+          client.release();
+        }
+
+        await storage.createAuditLog({
+          entityType: "player",
+          entityId: sourceId,
+          action: "merge",
+          performedBy: coachId!,
+          metadata: JSON.stringify({ mergedIntoPlayerId: targetId, academyId, userWarning }),
+        });
+
+        res.json({ success: true, targetId, userWarning });
+      } catch (error) {
+        console.error("Error merging players:", error);
+        res.status(500).json({ error: "Failed to merge players" });
       }
     },
   );

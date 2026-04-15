@@ -520,6 +520,14 @@ export default function PlayersScreen() {
       <PlayerDetailView
         player={selectedPlayer}
         onBack={() => setSelectedPlayer(null)}
+        onNavigateToPlayer={(targetId) => {
+          const target = players.find((p) => p.id === targetId) || pastPlayers.find((p) => p.id === targetId);
+          if (target) {
+            setSelectedPlayer(target);
+          } else {
+            setSelectedPlayer(null);
+          }
+        }}
         insets={insets}
         onAssessmentComplete={(result) => {
           setAssessmentBadges((prev) => ({
