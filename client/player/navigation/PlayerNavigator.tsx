@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text, AppState } from "react-native";
-import { secureGet, secureDelete } from "@/lib/auth";
+import { secureGet, secureDelete, clearAuthState } from "@/lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -158,6 +158,8 @@ function FamilySwitchBackBanner() {
     try {
       await secureDelete(FAMILY_SWITCH_KEY);
       if (switchInfo.hasOwnAccount && switchInfo.originalToken) {
+        // Full clean logout before restoring original account — removes child's refresh token and cache.
+        await clearAuthState();
         const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
           headers: { Authorization: `Bearer ${switchInfo.originalToken}` },
         });

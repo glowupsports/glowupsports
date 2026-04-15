@@ -26,7 +26,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
-import { getAuthToken, secureSet } from "@/lib/auth";
+import { getAuthToken, secureSet, clearAuthState } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 
 export const FAMILY_SWITCH_KEY = "family_switch";
@@ -437,6 +437,10 @@ export default function FamilyLobbyScreen() {
           FAMILY_SWITCH_KEY,
           JSON.stringify({ originalToken, switchedPlayerName: member.name, hasOwnAccount: true })
         );
+        // Full clean logout before switching — clears old refresh token, auth keys, and cache.
+        // We do NOT call context logout() to avoid flashing the login screen.
+        await clearAuthState();
+        queryClient.clear();
         const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
           headers: { Authorization: `Bearer ${result.token}` },
         });
