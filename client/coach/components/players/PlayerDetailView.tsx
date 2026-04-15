@@ -55,6 +55,8 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
 import { ActionSheet } from "@/components/ActionSheet";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
+import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
+import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -414,6 +416,7 @@ export function PlayerDetailView({
   const [mergeTarget, setMergeTarget] = useState<Player | null>(null);
   const [mergeSearch, setMergeSearch] = useState("");
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
 
   useEffect(() => {
     setLocalPlayer(player);
@@ -1264,6 +1267,12 @@ export function PlayerDetailView({
           <PackagesCard playerId={player.id} playerName={localPlayer.name} />
         </CollapsibleSection>
 
+        <PlayerPaymentsSection
+          playerStats={playerStats}
+          playerId={player.id}
+          playerName={localPlayer.name}
+        />
+
         {isInvitePending && inviteData?.inviteCode ? (
           <CollapsibleSection title="Invite Code" icon="mail-outline" iconColor={Colors.dark.xpCyan}>
             <ProminentInviteCard inviteCode={inviteData.inviteCode} playerName={localPlayer.name} onSendEmail={() => sendInviteEmailMutation.mutate()} isSendingEmail={sendInviteEmailMutation.isPending} onGenerateNewCode={() => regenerateInviteMutation.mutate()} isGeneratingNewCode={regenerateInviteMutation.isPending} />
@@ -1814,6 +1823,15 @@ export function PlayerDetailView({
             },
           },
           {
+            id: "create-invoice",
+            label: "Create Invoice",
+            icon: "document-text-outline",
+            color: Colors.dark.successNeon,
+            onPress: () => {
+              setShowCreateInvoiceModal(true);
+            },
+          },
+          {
             id: "delete",
             label: "Delete Player",
             icon: "trash-outline",
@@ -1835,6 +1853,29 @@ export function PlayerDetailView({
           handleMergeConfirm(target);
         }}
         isMerging={mergePlayerMutation.isPending}
+      />
+
+      <CreateInvoiceModal
+        visible={showCreateInvoiceModal}
+        onClose={() => setShowCreateInvoiceModal(false)}
+        player={playerStats?.player ? {
+          id: playerStats.player.id,
+          name: playerStats.player.name,
+          email: playerStats.player.email,
+          phone: playerStats.player.phone,
+          parentName: playerStats.player.parentName,
+          parentEmail: localPlayer.parentEmail ?? undefined,
+          parentPhone: playerStats.player.parentPhone,
+        } : {
+          id: player.id,
+          name: localPlayer.name,
+          email: localPlayer.email ?? undefined,
+          phone: localPlayer.phone ?? undefined,
+          parentEmail: localPlayer.parentEmail ?? undefined,
+        }}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/players", player.id, "stats"] });
+        }}
       />
 
     </View>
