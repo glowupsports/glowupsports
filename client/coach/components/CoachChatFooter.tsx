@@ -1633,19 +1633,18 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   {repeatedContent}
                 </ThemedText>
               </Animated.View>
-            </Pressable>
-
-            {/* [^] collapse button */}
-            <Pressable
-              style={styles.collapseBtn}
-              onPress={() => setIsExpanded(true)}
-            >
-              <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
-              {unreadCount > 0 ? (
-                <View style={styles.collapseBadge}>
-                  <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
-                </View>
-              ) : null}
+              {/* [^] collapse button — inside rightPill so pillRow stays symmetric */}
+              <Pressable
+                style={styles.collapseBtn}
+                onPress={() => setIsExpanded(true)}
+              >
+                <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
+                {unreadCount > 0 ? (
+                  <View style={styles.collapseBadge}>
+                    <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
+                  </View>
+                ) : null}
+              </Pressable>
             </Pressable>
           </View>
         </>
@@ -2057,8 +2056,8 @@ const styles = StyleSheet.create({
   },
   collapseBadge: {
     position: "absolute",
-    top: -5,
-    right: -5,
+    top: 8,
+    right: 4,
     backgroundColor: Colors.dark.primary,
     borderRadius: 10,
     minWidth: 16,
