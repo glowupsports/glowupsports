@@ -7228,8 +7228,7 @@ export const storage = {
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
         AND (
           (type = 'debit'
-            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-            AND COALESCE(metadata->>'isDebt', 'false') = 'true')
+            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid'))
           OR
           (type IN ('debit', 'session_booking', 'session_consumed')
             AND reason IN ('session_booking', 'session_consumed')
@@ -7767,8 +7766,7 @@ export const storage = {
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
         AND (
           (type = 'debit'
-            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-            AND COALESCE(metadata->>'isDebt', 'false') = 'true')
+            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid'))
           OR
           (type IN ('debit', 'session_booking', 'session_consumed')
             AND reason IN ('session_booking', 'session_consumed')

@@ -44,7 +44,7 @@ import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
-import { getApiUrl, apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { getApiUrl, apiRequest, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
@@ -852,12 +852,12 @@ function CounterProposeModal({
   // Compute fresh every time the modal becomes visible so "Today" always reflects the real date
   const dayChips = useMemo(() => buildDayChips(14), [visible]);
   const { data, isFetching, isError, refetch } = useQuery<{ slots: AvailableSlot[] }>({
-    queryKey: [`/api/coach/booking-requests/${bookingRequestId}/available-slots`, counterSelectedDate],
+    queryKey: [`/api/coach/booking-requests/${bookingRequestId}/available-slots`, counterSelectedDate, sessionDurationMinutes],
     queryFn: async () => {
       const url = new URL(`/api/coach/booking-requests/${bookingRequestId}/available-slots`, apiUrl);
       url.searchParams.set("date", counterSelectedDate);
       url.searchParams.set("duration", String(sessionDurationMinutes || 60));
-      const res = await fetch(url.toString(), { credentials: "include" });
+      const res = await fetch(url.toString(), { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch slots");
       return res.json();
     },

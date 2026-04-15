@@ -87,7 +87,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Counter-propose: fix stale slot cache, add error handling + retry button, show duration on booking cards\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Fix counter-propose: add Authorization header to available-slots fetch (slots now load)\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"
