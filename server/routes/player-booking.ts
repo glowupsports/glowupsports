@@ -2358,6 +2358,35 @@ Return only the JSON array, nothing else.`;
       });
       invalidateHomeDataCache(coachId);
 
+      // Notify player of decline (push + in-app)
+      try {
+        const [coachProfile, playerTokens] = await Promise.all([
+          storage.getCoach(coachId),
+          getPlayerPushTokens(request.playerId),
+        ]);
+        const coachName = coachProfile?.name || "Your coach";
+        const declineDetail = reason ? ` Reason: ${reason}` : "";
+        const pushBody = `${coachName} declined your lesson request.${declineDetail}`;
+        if (playerTokens.length > 0) {
+          await sendPushNotification(
+            playerTokens,
+            "Lesson request declined",
+            pushBody,
+            { type: "booking_declined", bookingRequestId: id },
+            request.playerId
+          );
+        }
+        await db.insert(playerNotifications).values({
+          playerId: request.playerId,
+          title: "Lesson request declined",
+          body: pushBody,
+          type: "booking_declined",
+          data: { bookingRequestId: id, declineReason: declineReason || null, responseNote: reason || null },
+        });
+      } catch (notifyErr) {
+        console.error("[Booking] Failed to notify player of decline (non-fatal):", notifyErr);
+      }
+
       // Unblock court if there was a court blocked for this request
       if (request.courtId) {
         try {

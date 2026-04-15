@@ -57,7 +57,22 @@ interface OwnerProfileData {
   } | null;
 }
 
+interface PendingRequestData {
+  id: string;
+  status: "pending" | "awaiting_player_reply" | "declined";
+  sessionType: string;
+  requestedStart: string;
+  requestedEnd: string;
+  coachName: string | null;
+  expiresAt: string | null;
+  counterProposedStart: string | null;
+  counterProposedEnd: string | null;
+  responseNote: string | null;
+  declineReason: string | null;
+}
+
 interface DashboardData {
+  pendingRequest?: PendingRequestData | null;
   player: {
     id: string;
     name: string;
@@ -483,6 +498,129 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140, on
     </View>
   );
 }
+
+const DECLINE_REASON_LABELS: Record<string, string> = {
+  schedule_conflict: "Schedule conflict",
+  skill_mismatch: "Skill level mismatch",
+  court_unavailable: "Court unavailable",
+  personal: "Personal reason",
+  response_timeout: "Coach didn't respond in time",
+};
+
+function PendingRequestCard({ request }: { request: PendingRequestData }) {
+  const navigation = useNavigation<any>();
+
+  const isCounterProposed = request.status === "pending" && !!request.counterProposedStart;
+  const isAwaiting = request.status === "awaiting_player_reply";
+  const isDeclined = request.status === "declined";
+
+  const start = new Date(request.requestedStart);
+  const dateStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const timeStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  let accentColor = Colors.dark.orange;
+  let iconName: keyof typeof Ionicons.glyphMap = "time-outline";
+  let statusLabel = "Pending";
+  let statusDetail = `Waiting for coach response · ${dateStr} ${timeStr}`;
+
+  if (isCounterProposed || isAwaiting) {
+    accentColor = Colors.dark.xpCyan ?? Colors.dark.primary;
+    iconName = "swap-horizontal-outline";
+    statusLabel = "Reply needed";
+    const altStart = request.counterProposedStart ? new Date(request.counterProposedStart) : null;
+    statusDetail = altStart
+      ? `Coach suggested ${altStart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at ${altStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      : "Coach suggested a new time";
+  } else if (isDeclined) {
+    accentColor = Colors.dark.error;
+    iconName = "close-circle-outline";
+    statusLabel = "Declined";
+    const reason = request.declineReason ? DECLINE_REASON_LABELS[request.declineReason] : request.responseNote;
+    statusDetail = reason ? `Reason: ${reason}` : "Your lesson request was declined";
+  }
+
+  return (
+    <Pressable
+      style={[pendingReqStyles.card, { borderColor: accentColor + "50" }]}
+      onPress={() => navigation.navigate("MyLessonRequests")}
+    >
+      <View style={pendingReqStyles.iconCol}>
+        <Ionicons name={iconName} size={22} color={accentColor} />
+      </View>
+      <View style={pendingReqStyles.textCol}>
+        <View style={pendingReqStyles.topRow}>
+          <View style={[pendingReqStyles.badge, { backgroundColor: accentColor + "20" }]}>
+            <Text style={[pendingReqStyles.badgeText, { color: accentColor }]}>{statusLabel}</Text>
+          </View>
+          <Text style={pendingReqStyles.sessionType}>
+            {request.sessionType.replace("_", " ").toUpperCase()}
+          </Text>
+        </View>
+        <Text style={pendingReqStyles.detailText} numberOfLines={1}>{statusDetail}</Text>
+        {request.coachName ? (
+          <Text style={pendingReqStyles.coachText} numberOfLines={1}>{request.coachName}</Text>
+        ) : null}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+    </Pressable>
+  );
+}
+
+const pendingReqStyles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#11141A",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  iconCol: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textCol: {
+    flex: 1,
+    gap: 3,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  sessionType: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  detailText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  coachText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+});
 
 const RATING_DISMISSED_KEY = (sessionId: string) => `session_rating_dismissed_${sessionId}`;
 
@@ -1313,7 +1451,7 @@ export default function PlayerHomeScreen() {
     );
   }
 
-  const { player, coach, academy, nextSession, lastFeedback } = data;
+  const { player, coach, academy, nextSession, lastFeedback, pendingRequest } = data;
 
   const isVacationActive = vacationData?.active || false;
   const upcomingVacation = vacationData?.upcomingVacation;
@@ -1374,6 +1512,11 @@ export default function PlayerHomeScreen() {
           lastFeedback={lastFeedback}
           onAvatarPress={openDrawer}
         />
+
+        {/* Pending booking request status card */}
+        {pendingRequest ? (
+          <PendingRequestCard request={pendingRequest} />
+        ) : null}
         
         {/* Birthday XP Bonus Card - Shows 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}

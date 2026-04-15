@@ -87,7 +87,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Fix collapsed chat pill alignment: wider gap (110px), left+right pill inset padding\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Task #573: decline push notification + counter-propose in-app notif + pending request home card\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"

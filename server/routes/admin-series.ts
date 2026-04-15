@@ -3346,9 +3346,42 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const onboardingCompleted = player.onboardingCompleted ?? false;
       const needsOnboarding = !onboardingCompleted;
       
+      // Get most recent active / recently-declined booking request for home card
+      let pendingRequest = null;
+      try {
+        const reqs = await storage.getBookingRequests({ playerId });
+        // Priority: counter-proposed awaiting reply → pending → recently declined (< 24h)
+        const active =
+          reqs.find(r => r.status === "awaiting_player_reply" ||
+            (r.status === "pending" && (r as any).counterProposedStart && (r as any).counterProposalStatus === "pending")) ||
+          reqs.find(r => r.status === "pending") ||
+          reqs.find(r => {
+            if (r.status !== "declined") return false;
+            const t = (r as any).respondedAt ? new Date((r as any).respondedAt).getTime() : 0;
+            return t > 0 && Date.now() - t < 24 * 60 * 60 * 1000;
+          });
+        if (active) {
+          const reqCoach = (active as any).coachId ? await storage.getCoach((active as any).coachId) : null;
+          pendingRequest = {
+            id: active.id,
+            status: active.status,
+            sessionType: (active as any).sessionType,
+            requestedStart: (active as any).requestedStart,
+            requestedEnd: (active as any).requestedEnd,
+            coachName: reqCoach?.name || null,
+            expiresAt: (active as any).expiresAt || null,
+            counterProposedStart: (active as any).counterProposedStart || null,
+            counterProposedEnd: (active as any).counterProposedEnd || null,
+            responseNote: (active as any).responseNote || null,
+            declineReason: (active as any).declineReason || null,
+          };
+        }
+      } catch { /* non-fatal */ }
+
       res.json({
         isOnboarding: needsOnboarding,
         isFreePlayer: !player.academyId,
+        pendingRequest,
         player: {
           id: player.id,
           name: player.name,
