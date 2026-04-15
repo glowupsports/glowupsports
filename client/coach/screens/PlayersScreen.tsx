@@ -162,6 +162,7 @@ export default function PlayersScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [assessmentBadges, setAssessmentBadges] = useState<Record<string, { passed: boolean; percentage: number; assessedAt?: string }>>({});
   const pendingPlayerIdRef = useRef<string | null>(null);
+  const hasRestoredRef = useRef(false);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "nameDesc" | "credits" | "creditsDesc" | "negative" | "nonDebt" | "lastLesson" | "oldestLesson" | "newest" | "oldest" | "notActivated" | "appActive">("name");
@@ -367,10 +368,12 @@ export default function PlayersScreen() {
           setSelectedPlayer(player);
         }
         pendingPlayerIdRef.current = null;
-      } else if (persistedPlayerId) {
+        hasRestoredRef.current = true;
+      } else if (persistedPlayerId && !hasRestoredRef.current) {
         const player = players.find((p) => p.id === persistedPlayerId);
         if (player) {
           setSelectedPlayer(player);
+          hasRestoredRef.current = true;
         }
       }
     }
