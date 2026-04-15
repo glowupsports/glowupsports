@@ -137,6 +137,7 @@ function FamilySwitchBackBanner() {
   const { setActivePlayer } = useFamily();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [switchInfo, setSwitchInfo] = useState<FamilySwitchInfo | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -160,6 +161,7 @@ function FamilySwitchBackBanner() {
       if (switchInfo.hasOwnAccount && switchInfo.originalToken) {
         // Full clean logout before restoring original account — removes child's refresh token and cache.
         await clearAuthState();
+        queryClient.clear();
         const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
           headers: { Authorization: `Bearer ${switchInfo.originalToken}` },
         });
