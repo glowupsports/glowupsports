@@ -353,8 +353,10 @@ export default function PlayerBookingWizard({
 
   // Reservation mutation — atomically locks the slot for 5 min on the server
   const reserveSlotMutation = useMutation({
-    mutationFn: (data: { coachId: string; startTime: string; endTime: string }) =>
-      apiRequest("POST", "/api/player/reserve-slot", data),
+    mutationFn: async (data: { coachId: string; startTime: string; endTime: string }) => {
+      const res = await apiRequest("POST", "/api/player/reserve-slot", data);
+      return res.json() as Promise<{ reservationId: string; expiresAt: string }>;
+    },
     onSuccess: (data: { reservationId: string; expiresAt: string }) => {
       const id = data.reservationId;
       activeReservationRef.current = id;
