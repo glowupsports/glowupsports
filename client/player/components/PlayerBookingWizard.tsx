@@ -14,6 +14,7 @@ import {
   FlatList,
   Keyboard,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { openDirections } from "@/lib/maps";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
@@ -166,6 +167,8 @@ const SESSION_TYPE_CARDS: {
     gradient: [Colors.dark.gold + "40", Colors.dark.gold + "10"],
   },
 ];
+
+const HOLD_STORAGE_KEY = "glowup:activeSlotReservation";
 
 const TOTAL_SLIDES = 5;
 const SLIDE_TITLES = [
@@ -385,10 +388,26 @@ export default function PlayerBookingWizard({
         setSelectedSlot(null);
         setReservationError("Your hold expired — please pick a slot again.");
         queryClient.invalidateQueries({ queryKey: [availabilityQueryUrl] });
+        AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
       }
     }, 1000);
     return () => clearInterval(tick);
   }, [reservationExpiresAt]);
+
+  // Persist active reservation to AsyncStorage whenever it becomes set
+  useEffect(() => {
+    if (reservationId && reservationExpiresAt && selectedSlot) {
+      const holdData = {
+        reservationId,
+        expiresAt: reservationExpiresAt.toISOString(),
+        slot: selectedSlot,
+        selectedDate: selectedDateString,
+        duration,
+        sessionType,
+      };
+      AsyncStorage.setItem(HOLD_STORAGE_KEY, JSON.stringify(holdData)).catch(() => {});
+    }
+  }, [reservationId, reservationExpiresAt, selectedSlot]);
 
   // Dynamic slide count - add extra slide when browsing by coach
   const getTotalSlides = () => browseMode === "by_coach" ? 6 : 5;
@@ -400,14 +419,10 @@ export default function PlayerBookingWizard({
     return SLIDE_TITLES[slide] || "";
   };
 
-  // Reset form on close — also releases any active slot reservation
+  // Reset form on close — does NOT release the server hold (5-min TTL handles cleanup)
+  // so the player can reopen the wizard and still see their slot held
   const resetForm = useCallback(() => {
-    // Release reservation fire-and-forget (ref avoids stale closure dep)
-    const holdId = activeReservationRef.current;
-    if (holdId) {
-      apiRequest("DELETE", `/api/player/reserve-slot/${holdId}`, undefined).catch(() => {});
-      activeReservationRef.current = null;
-    }
+    activeReservationRef.current = null;
     setCurrentSlide(0);
     setSessionType("private");
     setBrowseMode("by_time");
@@ -437,6 +452,33 @@ export default function PlayerBookingWizard({
   useEffect(() => {
     if (visible) {
       slideProgress.value = 0;
+      // Restore an active reservation from AsyncStorage (if still valid)
+      AsyncStorage.getItem(HOLD_STORAGE_KEY).then((raw) => {
+        if (!raw) return;
+        try {
+          const stored = JSON.parse(raw);
+          if (!stored?.expiresAt || !stored?.slot || !stored?.reservationId) return;
+          const expiresAt = new Date(stored.expiresAt);
+          if (expiresAt.getTime() <= Date.now()) {
+            AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
+            return;
+          }
+          // Rehydrate all relevant state and jump to the time-selection slide
+          activeReservationRef.current = stored.reservationId;
+          setReservationId(stored.reservationId);
+          setReservationExpiresAt(expiresAt);
+          setSelectedSlot(stored.slot);
+          if (stored.selectedDate) {
+            const [y, m, d] = stored.selectedDate.split("-").map(Number);
+            setSelectedDate(new Date(y, m - 1, d));
+          }
+          if (stored.duration) setDuration(stored.duration);
+          if (stored.sessionType) setSessionType(stored.sessionType as any);
+          setCurrentSlide(2);
+        } catch {
+          // corrupted entry — ignore
+        }
+      }).catch(() => {});
     } else {
       resetForm();
     }
@@ -541,6 +583,7 @@ export default function PlayerBookingWizard({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
       setShowSuccess(true);
       xpGain.value = withSequence(
         withTiming(1, { duration: 500 }),
@@ -926,7 +969,19 @@ export default function PlayerBookingWizard({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setSelectedLocationId(loc.id);
-                      setSelectedSlot(null);
+                      // Only clear the selected slot if it belongs to a DIFFERENT specific location.
+                      // Slots with locationId === null (any-location) are compatible with all filters.
+                      if (selectedSlot?.locationId && selectedSlot.locationId !== loc.id) {
+                        const prevId = activeReservationRef.current;
+                        if (prevId) {
+                          apiRequest("DELETE", `/api/player/reserve-slot/${prevId}`, undefined).catch(() => {});
+                          activeReservationRef.current = null;
+                          setReservationId(null);
+                          setReservationExpiresAt(null);
+                          AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
+                        }
+                        setSelectedSlot(null);
+                      }
                     }}
                   >
                     <Text style={[styles.locationChipText, selectedLocationId === loc.id && styles.locationChipTextSelected]}>
@@ -1042,15 +1097,28 @@ export default function PlayerBookingWizard({
               </View>
             ) : null}
 
-            {/* Reserved slot confirmation banner */}
+            {/* Prominent SLOT LOCKED banner */}
             {reservationId && selectedSlot && !reservationLoading ? (
-              <View style={styles.reservationSuccessBanner}>
-                <Ionicons name="lock-closed" size={14} color={Colors.dark.primary} />
-                <Text style={styles.reservationSuccessText}>
-                  Slot held for you —{" "}
-                  {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}{" "}
-                  remaining
-                </Text>
+              <View style={styles.slotLockedCard}>
+                <View style={styles.slotLockedAccent} />
+                <View style={styles.slotLockedBody}>
+                  <View style={styles.slotLockedTop}>
+                    <View style={styles.slotLockedTitleRow}>
+                      <Ionicons name="lock-closed" size={16} color={Colors.dark.primary} />
+                      <Text style={styles.slotLockedTitle}>SLOT LOCKED</Text>
+                    </View>
+                    <View style={styles.slotLockedCountdownBox}>
+                      <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
+                      <Text style={styles.slotLockedCountdown}>
+                        {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.slotLockedInfo} numberOfLines={1}>
+                    {selectedSlot.coachName} · {formatTime(selectedSlot.startTime)} ({selectedSlot.duration}min)
+                  </Text>
+                  <Text style={styles.slotLockedHint}>Tap Next to confirm your booking</Text>
+                </View>
               </View>
             ) : null}
 
@@ -1581,6 +1649,7 @@ export default function PlayerBookingWizard({
                 styles.nextButton,
                 !canProceed && styles.nextButtonDisabled,
                 currentSlide === getTotalSlides() - 1 && styles.confirmButton,
+                reservationId && selectedSlot && currentSlide === 2 && styles.nextButtonHoldGlow,
               ]}
               onPress={currentSlide === getTotalSlides() - 1 ? handleBook : goNext}
               disabled={!canProceed || bookingMutation.isPending}
@@ -2250,6 +2319,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.primary,
     fontWeight: 600,
+  },
+  slotLockedCard: {
+    flexDirection: "row",
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  slotLockedAccent: {
+    width: 4,
+    backgroundColor: Colors.dark.primary,
+  },
+  slotLockedBody: {
+    flex: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    gap: 3,
+  },
+  slotLockedTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  slotLockedTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  slotLockedTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
+  },
+  slotLockedCountdownBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary + "22",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  slotLockedCountdown: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+    fontVariant: ["tabular-nums"],
+  },
+  slotLockedInfo: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  slotLockedHint: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 1,
+  },
+  nextButtonHoldGlow: {
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
   emptyState: {
     flex: 1,
