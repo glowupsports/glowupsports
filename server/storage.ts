@@ -4226,15 +4226,20 @@ export const storage = {
     
     // Step 2: Delete future sessions and their related data (credits not yet used)
     if (futureSessionIds.length > 0) {
-      // Delete credit transactions for future sessions (these are pending/unused)
-      await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, futureSessionIds));
-      
-      // Delete session players for future sessions
-      await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, futureSessionIds));
-      
-      // Delete the future sessions themselves
-      await db.delete(sessions).where(inArray(sessions.id, futureSessionIds));
-      
+      await db.transaction(async (tx) => {
+        // Delete credit transactions for future sessions (these are pending/unused)
+        await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, futureSessionIds));
+
+        // Delete session players for future sessions
+        await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, futureSessionIds));
+
+        // Nullify booking_requests.sessionId before deleting future sessions (FK constraint)
+        await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, futureSessionIds));
+
+        // Delete the future sessions themselves
+        await tx.delete(sessions).where(inArray(sessions.id, futureSessionIds));
+      });
+
       console.log(`[EndSeries] Deleted ${futureSessionIds.length} future scheduled sessions for series ${id}`);
     }
     
@@ -4266,6 +4271,8 @@ export const storage = {
         await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
         await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+        // Nullify booking_requests.sessionId before deleting sessions (FK constraint)
+        await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
         await tx.delete(sessions).where(inArray(sessions.id, sessionIds));
       }
       

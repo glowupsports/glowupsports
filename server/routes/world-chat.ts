@@ -2156,19 +2156,13 @@ async function autoCancel(
         console.log(`[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`);
       }
 
-      // Nullify session references in related tables
-      await db.update(creditTransactions).set({ sessionId: null }).where(eq(creditTransactions.sessionId, id));
-      await db.update(xpTransactions).set({ sessionId: null }).where(eq(xpTransactions.sessionId, id));
-      await db.update(coachXpTransactions).set({ sessionId: null }).where(eq(coachXpTransactions.sessionId, id));
-      await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq(playerPillarProgress.lastSessionId, id));
-      
       // Get players for notification before deleting session_players
       const playersInSession = await db.select({ playerId: sessionPlayers.playerId })
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, id));
       const coachData = coachId ? await storage.getCoach(coachId) : null;
       const coachName = coachData?.name || "Your coach";
-      
+
       for (const p of playersInSession) {
         if (p.playerId) {
           sendSessionCancelledNotification(
@@ -2181,23 +2175,39 @@ async function autoCancel(
         }
       }
 
-      // Get all session_player IDs for this session and nullify references in credit_transactions
-      // This is required because credit_transactions has a foreign key to session_players
-      const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
-      if (sessionPlayerRecords.length > 0) {
-        const spIds = sessionPlayerRecords.map(sp => sp.id);
-        await db.update(creditTransactions)
-          .set({ sessionPlayerId: null })
-          .where(inArray(creditTransactions.sessionPlayerId, spIds));
-      }
-      // Delete related records
-      await db.delete(inSessionFeedback).where(eq(inSessionFeedback.sessionId, id));
-      await db.delete(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
-      await db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.sessionId, id));
-      await db.delete(sessionSkillFeedback).where(eq(sessionSkillFeedback.sessionId, id));
-      await db.delete(sessionPlans).where(eq(sessionPlans.sessionId, id));
-      await db.delete(playerSessionCancellations).where(eq(playerSessionCancellations.sessionId, id));
-      await db.delete(sessionWaitlist).where(eq(sessionWaitlist.sessionId, id));
+      // Wrap all DB nullification and deletion in a transaction for atomicity
+      await db.transaction(async (tx) => {
+        // Nullify session references in related tables
+        await tx.update(creditTransactions).set({ sessionId: null }).where(eq(creditTransactions.sessionId, id));
+        await tx.update(xpTransactions).set({ sessionId: null }).where(eq(xpTransactions.sessionId, id));
+        await tx.update(coachXpTransactions).set({ sessionId: null }).where(eq(coachXpTransactions.sessionId, id));
+        await tx.update(playerPillarProgress).set({ lastSessionId: null }).where(eq(playerPillarProgress.lastSessionId, id));
+
+        // Nullify sessionPlayerId references in credit_transactions before deleting session_players
+        // This is required because credit_transactions has a foreign key to session_players
+        const sessionPlayerRecords = await tx.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
+        if (sessionPlayerRecords.length > 0) {
+          const spIds = sessionPlayerRecords.map(sp => sp.id);
+          await tx.update(creditTransactions)
+            .set({ sessionPlayerId: null })
+            .where(inArray(creditTransactions.sessionPlayerId, spIds));
+        }
+
+        // Delete related records
+        await tx.delete(inSessionFeedback).where(eq(inSessionFeedback.sessionId, id));
+        await tx.delete(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
+        await tx.delete(sessionSkillObservations).where(eq(sessionSkillObservations.sessionId, id));
+        await tx.delete(sessionSkillFeedback).where(eq(sessionSkillFeedback.sessionId, id));
+        await tx.delete(sessionPlans).where(eq(sessionPlans.sessionId, id));
+        await tx.delete(playerSessionCancellations).where(eq(playerSessionCancellations.sessionId, id));
+        await tx.delete(sessionWaitlist).where(eq(sessionWaitlist.sessionId, id));
+
+        // Nullify booking_requests.sessionId before deleting the session (FK constraint)
+        await tx.update(bookingRequests).set({ sessionId: null }).where(eq(bookingRequests.sessionId, id));
+
+        // Delete the session itself
+        await tx.delete(sessions).where(eq(sessions.id, id));
+      });
 
       // Delete the unified time block to free up this time slot
       await storage.deleteCoachTimeBlockBySession(id);
@@ -2207,12 +2217,6 @@ async function autoCancel(
         deleteCalendarEvent(session.googleCalendarEventId)
           .catch(err => console.error('[GoogleCalendar] Delete sync error:', err));
       }
-
-      // Nullify session references in booking_requests
-      await db.update(bookingRequests).set({ sessionId: null }).where(eq(bookingRequests.sessionId, id));
-
-      // Finally delete the session itself
-      await db.delete(sessions).where(eq(sessions.id, id));
 
       await storage.createAuditLog({
         entityType: "session",
