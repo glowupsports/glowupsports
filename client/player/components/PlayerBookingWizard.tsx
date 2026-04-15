@@ -1184,141 +1184,193 @@ export default function PlayerBookingWizard({
 
   // SLIDE 3: Details
   const renderDetailsSlide = () => {
-    const content = (
-    <Animated.View entering={FadeIn} style={styles.slideContent}>
-      <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
+    const sessionInfo = selectedSlot ?? selectedSession;
+    const typeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType);
 
-      {/* Court Selection - shown only for new slot requests with available courts */}
-      {selectedSlot && !isJoining && availableCourts.length > 0 && (
-        <View style={styles.courtSelectionSection}>
-          <View style={styles.aiFocusHeader}>
-            <Ionicons name="tennisball" size={15} color={Colors.dark.primary} />
-            <Text style={[styles.aiFocusLabel, { color: Colors.dark.primary }]}>Court Selection</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.aiFocusChips}>
-              {availableCourts.map((court) => {
-                const isPreassigned = court.id === selectedSlot.courtId;
-                const isSelected = (selectedCourtId ?? selectedSlot.courtId) === court.id;
-                return (
-                  <Pressable
-                    key={court.id}
-                    style={[
-                      styles.aiFocusChip,
-                      isSelected && styles.aiFocusChipSelected,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedCourtId(court.id);
-                      setSelectedCourtName(court.name);
-                    }}
-                  >
-                    <Text style={[
-                      styles.aiFocusChipText,
-                      isSelected && styles.aiFocusChipTextSelected,
-                    ]}>
-                      {court.name}{isPreassigned ? " (suggested)" : ""}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+    const inner = (
+      <Animated.View entering={FadeIn} style={styles.slideContent}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: Spacing.xl }}
+        >
+          <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
+
+          {/* Booking Summary Card */}
+          {sessionInfo && typeCard ? (
+            <View style={[styles.confirmCard, { marginBottom: Spacing.lg }]}>
+              <LinearGradient colors={typeCard.gradient} style={styles.confirmCardGradient}>
+                <View style={styles.confirmTypeBadge}>
+                  <Ionicons name={typeCard.icon} size={15} color={typeCard.color} />
+                  <Text style={[styles.confirmTypeText, { color: typeCard.color, fontSize: 15 }]}>
+                    {typeCard.label}
+                  </Text>
+                  <View style={{ flex: 1 }} />
+                  {"duration" in sessionInfo ? (
+                    <View style={{ backgroundColor: typeCard.color + "22", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                      <Text style={{ color: typeCard.color, fontSize: 11, fontWeight: "600" }}>
+                        {sessionInfo.duration} min
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.confirmRow}>
+                  <Ionicons name="time-outline" size={15} color={Colors.dark.xpCyan} />
+                  <Text style={[styles.confirmText, { fontSize: 14 }]}>
+                    {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} – {formatTime(sessionInfo.endTime)}
+                  </Text>
+                </View>
+                <View style={styles.confirmRow}>
+                  <Ionicons name="location-outline" size={15} color={Colors.dark.xpCyan} />
+                  <Text style={[styles.confirmText, { fontSize: 14 }]}>
+                    {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
+                    {" · "}
+                    {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
+                  </Text>
+                </View>
+                <View style={styles.confirmRow}>
+                  <Ionicons name="person-outline" size={15} color={Colors.dark.xpCyan} />
+                  <Text style={[styles.confirmText, { fontSize: 14 }]}>
+                    Coach: {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
+                  </Text>
+                </View>
+              </LinearGradient>
             </View>
-          </ScrollView>
-        </View>
-      )}
-
-      {/* AI Focus Suggestions */}
-      <View style={styles.aiFocusSection}>
-        <View style={styles.aiFocusHeader}>
-          <Ionicons name="sparkles" size={15} color={Colors.dark.xpCyan} />
-          <Text style={styles.aiFocusLabel}>AI Focus Suggestions</Text>
-          {aiFocusLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginLeft: 4 }} />
           ) : null}
-        </View>
-        {aiFocusSuggestions.length > 0 ? (
-          <View style={styles.aiFocusChips}>
-            {aiFocusSuggestions.map((s, i) => (
-              <Pressable
-                key={i}
-                style={[
-                  styles.aiFocusChip,
-                  playerNote === s && styles.aiFocusChipSelected,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setPlayerNote(playerNote === s ? "" : s);
-                }}
-              >
-                <Text style={[
-                  styles.aiFocusChipText,
-                  playerNote === s && styles.aiFocusChipTextSelected,
-                ]}>
-                  {s}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : !aiFocusLoading ? (
-          <Text style={styles.aiFocusEmpty}>Add a custom note below</Text>
-        ) : null}
-      </View>
 
-      <View style={styles.detailsForm}>
-        <View style={styles.inputGroup}>
-          <View style={styles.inputLabel}>
-            <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.xpCyan} />
-            <Text style={styles.inputLabelText}>Note for Coach</Text>
-          </View>
-          <TextInput
-            style={styles.textInput}
-            value={playerNote}
-            onChangeText={setPlayerNote}
-            placeholder="E.g., Working on backhand this week"
-            placeholderTextColor={Colors.dark.textSecondary}
-            multiline
-            numberOfLines={3}
-            blurOnSubmit
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-          />
-        </View>
-
-        {(sessionType === "semi_private" || sessionType === "group") && (
-          <View style={styles.inputGroup}>
-            <View style={styles.inputLabel}>
-              <Ionicons name="person-add-outline" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.inputLabelText}>Invite a Friend</Text>
+          {/* Court Selection - shown only for new slot requests with available courts */}
+          {selectedSlot && !isJoining && availableCourts.length > 0 ? (
+            <View style={styles.courtSelectionSection}>
+              <View style={styles.aiFocusHeader}>
+                <Ionicons name="tennisball" size={15} color={Colors.dark.primary} />
+                <Text style={[styles.aiFocusLabel, { color: Colors.dark.primary }]}>Court Selection</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.aiFocusChips}>
+                  {availableCourts.map((court) => {
+                    const isPreassigned = court.id === selectedSlot.courtId;
+                    const isSelected = (selectedCourtId ?? selectedSlot.courtId) === court.id;
+                    return (
+                      <Pressable
+                        key={court.id}
+                        style={[
+                          styles.aiFocusChip,
+                          isSelected && styles.aiFocusChipSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedCourtId(court.id);
+                          setSelectedCourtName(court.name);
+                        }}
+                      >
+                        <Text style={[
+                          styles.aiFocusChipText,
+                          isSelected && styles.aiFocusChipTextSelected,
+                        ]}>
+                          {court.name}{isPreassigned ? " (suggested)" : ""}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
             </View>
-            <TextInput
-              style={styles.textInput}
-              value={friendEmail}
-              onChangeText={setFriendEmail}
-              placeholder="Enter friend's email"
-              placeholderTextColor={Colors.dark.textSecondary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <Pressable
-              style={styles.browseFriendsButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onClose();
-                navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
-              }}
-            >
-              <Ionicons name="people-outline" size={16} color={GlowColors.primary} />
-              <Text style={styles.browseFriendsText}>Browse Friends on Glow</Text>
-            </Pressable>
+          ) : null}
+
+          {/* AI Focus Suggestions — only shown when loading or has results */}
+          {(aiFocusLoading || aiFocusSuggestions.length > 0) ? (
+            <View style={styles.aiFocusSection}>
+              <View style={styles.aiFocusHeader}>
+                <Ionicons name="sparkles" size={15} color={Colors.dark.xpCyan} />
+                <Text style={styles.aiFocusLabel}>AI Focus Suggestions</Text>
+                {aiFocusLoading ? (
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginLeft: 4 }} />
+                ) : null}
+              </View>
+              {aiFocusSuggestions.length > 0 ? (
+                <View style={styles.aiFocusChips}>
+                  {aiFocusSuggestions.map((s, i) => (
+                    <Pressable
+                      key={i}
+                      style={[
+                        styles.aiFocusChip,
+                        playerNote === s && styles.aiFocusChipSelected,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setPlayerNote(playerNote === s ? "" : s);
+                      }}
+                    >
+                      <Text style={[
+                        styles.aiFocusChipText,
+                        playerNote === s && styles.aiFocusChipTextSelected,
+                      ]}>
+                        {s}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.detailsForm}>
+            <View style={styles.inputGroup}>
+              <View style={styles.inputLabel}>
+                <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.xpCyan} />
+                <Text style={styles.inputLabelText}>Note for Coach</Text>
+              </View>
+              <TextInput
+                style={styles.textInput}
+                value={playerNote}
+                onChangeText={setPlayerNote}
+                placeholder="E.g., Working on backhand this week"
+                placeholderTextColor={Colors.dark.textSecondary}
+                multiline
+                numberOfLines={3}
+                blurOnSubmit
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+              />
+            </View>
+
+            {(sessionType === "semi_private" || sessionType === "group") ? (
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabel}>
+                  <Ionicons name="person-add-outline" size={18} color={Colors.dark.xpCyan} />
+                  <Text style={styles.inputLabelText}>Invite a Friend</Text>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  value={friendEmail}
+                  onChangeText={setFriendEmail}
+                  placeholder="Enter friend's email"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <Pressable
+                  style={styles.browseFriendsButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
+                  }}
+                >
+                  <Ionicons name="people-outline" size={16} color={GlowColors.primary} />
+                  <Text style={styles.browseFriendsText}>Browse Friends on Glow</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
-        )}
-      </View>
-    </Animated.View>
+        </ScrollView>
+      </Animated.View>
     );
-    if (Platform.OS === "web") return content;
+
+    if (Platform.OS === "web") return inner;
     return (
       <Pressable onPress={Keyboard.dismiss} accessible={false}>
-        {content}
+        {inner}
       </Pressable>
     );
   };
