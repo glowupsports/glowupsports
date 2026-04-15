@@ -12160,11 +12160,12 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         isOriginallyPrivate = playerCount <= 1;
       }
       
-      // Group sessions: absent = still charged (lesson happened regardless of attendance)
-      // Private sessions: absent = NOT charged (player didn't show up for 1-on-1)
-      // Semi-private sessions: absent = NOT charged (only present player is charged as private)
-      // Private sessions: absent = charged (player didn't cancel in time, coach was there)
-      const isGroupSession = sessionType === "group";
+      // Charge rules by session type:
+      //   GROUP:       absent = CHARGED  (lesson ran regardless)
+      //   PRIVATE:     absent = NOT charged (1-on-1 didn't happen for the player)
+      //   SEMI-PRIVATE: absent = NOT charged (only the present player is charged as private)
+      // Therefore: present/late always triggers a charge; absent only triggers charge for group sessions.
+      const isGroupSession = sessionType === "group" || sessionType === "group_adjusted";
       const isChargeable = isGroupSession
         ? ["present", "late", "absent"].includes(attendanceStatus || "")
         : ["present", "late"].includes(attendanceStatus || "");
