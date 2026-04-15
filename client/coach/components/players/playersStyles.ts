@@ -3308,6 +3308,45 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.primary + "50",
   },
+  typeFilterChipScroll: {
+    marginBottom: Spacing.sm,
+  },
+  typeFilterChipContent: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    paddingVertical: 2,
+  },
+  typeFilterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  typeFilterChipActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  typeFilterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.3,
+  },
+  typeFilterChipTextActive: {
+    color: "#000000",
+    fontWeight: "700",
+  },
 });
 
 export const strokeTimelineStyles = StyleSheet.create({

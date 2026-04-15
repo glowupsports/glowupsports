@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -55,6 +55,14 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   const queryClient = useQueryClient();
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = useState<"all" | "private" | "semi" | "group">("all");
+
+  const normalizeSessionType = (raw: string): "private" | "semi" | "group" => {
+    const lower = (raw ?? "").toLowerCase();
+    if (lower === "group") return "group";
+    if (lower.startsWith("semi") || lower.includes("semi")) return "semi";
+    return "private";
+  };
   const [editingAttendance, setEditingAttendance] = useState<AttendanceHistoryRecord | null>(null);
   const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
   const [isExportingAttendanceReport, setIsExportingAttendanceReport] = useState(false);
@@ -77,6 +85,20 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     enabled: attendanceHistory.length > 0,
   });
   const sessionRatingsMap = sessionRatingsData?.ratings ?? {};
+
+  const filteredHistory = typeFilter === "all"
+    ? attendanceHistory
+    : attendanceHistory.filter(r => normalizeSessionType(r.sessionType) === typeFilter);
+
+  useEffect(() => {
+    setShowAllHistory(false);
+    if (typeFilter !== "all" && seriesAttendanceSummaries.length > 1) {
+      const matchingSeriesIds = new Set(
+        filteredHistory.map(r => r.seriesId).filter(Boolean) as string[]
+      );
+      setExpandedSeriesIds(matchingSeriesIds);
+    }
+  }, [typeFilter, filteredHistory.length, seriesAttendanceSummaries.length]);
 
   const formatAttendanceDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -214,7 +236,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     }
   };
 
-  const displayedHistory = showAllHistory ? attendanceHistory : attendanceHistory.slice(0, 5);
+  const displayedHistory = showAllHistory ? filteredHistory : filteredHistory.slice(0, 5);
 
   const renderAttendanceRow = (record: AttendanceHistoryRecord, showTime = false) => {
     const sessionRating = sessionRatingsMap[record.sessionId];
@@ -382,6 +404,32 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
           </View>
         ) : (
           <View style={styles.attendanceHistoryList}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.typeFilterChipScroll}
+              contentContainerStyle={styles.typeFilterChipContent}
+            >
+              {(["all", "private", "semi", "group"] as const).map((chip) => {
+                const isActive = typeFilter === chip;
+                const label = chip === "all" ? "All" : chip === "private" ? "Private" : chip === "semi" ? "Semi" : "Group";
+                return (
+                  <Pressable
+                    key={chip}
+                    style={[styles.typeFilterChip, isActive && styles.typeFilterChipActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setTypeFilter(chip);
+                    }}
+                  >
+                    <Text style={[styles.typeFilterChipText, isActive && styles.typeFilterChipTextActive]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
             {seriesAttendanceSummaries.length > 1 && (
               <View style={styles.seriesSummaryContainer}>
                 <Text style={styles.seriesSummaryTitle}>Per Lesson Group</Text>
@@ -420,10 +468,13 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
 
             {seriesAttendanceSummaries.length > 1 ? (
               seriesAttendanceSummaries.map((summary) => {
-                const seriesRecords = displayedHistory
+                const displayedSeriesRecords = displayedHistory
                   .filter(r => r.seriesId === summary.seriesId)
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                if (seriesRecords.length === 0) return null;
+                if (displayedSeriesRecords.length === 0) return null;
+                const filteredSeriesCount = typeFilter !== "all"
+                  ? filteredHistory.filter(r => r.seriesId === summary.seriesId).length
+                  : displayedSeriesRecords.length;
                 const isExpanded = expandedSeriesIds.has(summary.seriesId);
                 const toggleExpanded = () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -444,12 +495,12 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
                         <Text style={styles.seriesGroupDay}>{summary.dayName}</Text>
                         <Text style={styles.seriesGroupTime}>{formatSeriesTime(summary.startTime)}</Text>
                         <View style={styles.seriesGroupCount}>
-                          <Text style={styles.seriesGroupCountText}>{seriesRecords.length}</Text>
+                          <Text style={styles.seriesGroupCountText}>{filteredSeriesCount}</Text>
                         </View>
                       </View>
                       <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color={Colors.dark.xpCyan} />
                     </Pressable>
-                    {isExpanded && seriesRecords.map((record) => renderAttendanceRow(record, false))}
+                    {isExpanded && displayedSeriesRecords.map((record) => renderAttendanceRow(record, false))}
                   </View>
                 );
               })
@@ -459,7 +510,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
                 .map((record) => renderAttendanceRow(record, true))
             )}
 
-            {attendanceHistory.length > 5 ? (
+            {filteredHistory.length > 5 ? (
               <Pressable
                 style={styles.showMoreHistoryButton}
                 onPress={() => {
@@ -468,7 +519,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
                 }}
               >
                 <Text style={styles.showMoreHistoryText}>
-                  {showAllHistory ? "Show Less" : `Show All (${attendanceHistory.length} sessions)`}
+                  {showAllHistory ? "Show Less" : `Show All (${filteredHistory.length} sessions)`}
                 </Text>
                 <Ionicons name={showAllHistory ? "chevron-up" : "chevron-down"} size={16} color={Colors.dark.xpCyan} />
               </Pressable>
