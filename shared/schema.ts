@@ -2856,6 +2856,9 @@ export const invoices = pgTable("invoices", {
   notes: text("notes"),
   paymentMethod: text("payment_method").default("cash"), // cash | bank_transfer | stripe
   
+  billToName: text("bill_to_name"),
+  billToEmail: text("bill_to_email"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

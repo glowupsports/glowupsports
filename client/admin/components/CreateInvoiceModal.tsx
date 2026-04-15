@@ -889,6 +889,16 @@ export default function CreateInvoiceModal({
     };
   }, []);
 
+  const [billToName, setBillToName] = useState(player?.name || "");
+  const [billToEmail, setBillToEmail] = useState(player?.email || "");
+
+  useEffect(() => {
+    if (visible) {
+      setBillToName(player?.name || "");
+      setBillToEmail(player?.email || "");
+    }
+  }, [visible, player?.id]);
+
   const [showTerms, setShowTerms] = useState(true);
 
   const defaultTerms = [
@@ -957,8 +967,8 @@ export default function CreateInvoiceModal({
     try {
       const html = generateInvoicePDF({
         invoiceNumber,
-        playerName: player?.name || "",
-        playerEmail: player?.email,
+        playerName: billToName || player?.name || "",
+        playerEmail: billToEmail || undefined,
         academyName: academy?.name || "Glow Up Tennis",
         academyAddress: academy?.address,
         academyEmail: academy?.email,
@@ -1046,6 +1056,8 @@ export default function CreateInvoiceModal({
       taxRate,
       taxAmount,
       subtotal,
+      billToName: billToName || player?.name || undefined,
+      billToEmail: billToEmail || undefined,
     });
   };
 
@@ -1110,14 +1122,28 @@ export default function CreateInvoiceModal({
                 </Text>
               </View>
               <View style={styles.playerInfo}>
-                <Text style={styles.playerName}>{player?.name || "Unknown"}</Text>
-                {player?.email && <Text style={styles.playerEmail}>{player.email}</Text>}
-                {player?.coachName && (
+                <TextInput
+                  style={styles.billToInput}
+                  value={billToName}
+                  onChangeText={setBillToName}
+                  placeholder="Billing name"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+                <TextInput
+                  style={[styles.billToInput, styles.billToEmailInput]}
+                  value={billToEmail}
+                  onChangeText={setBillToEmail}
+                  placeholder="Billing email (optional)"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                {player?.coachName ? (
                   <View style={styles.coachRow}>
                     <Ionicons name="fitness-outline" size={12} color={Colors.dark.orange} />
                     <Text style={styles.coachName}>Coach: {player.coachName}</Text>
                   </View>
-                )}
+                ) : null}
               </View>
             </View>
           </View>
@@ -1797,6 +1823,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+  billToInput: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(200, 255, 61, 0.3)",
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    marginBottom: 4,
+  },
+  billToEmailInput: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "400",
+    color: Colors.dark.textMuted,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   dateRow: {
     flexDirection: "row",

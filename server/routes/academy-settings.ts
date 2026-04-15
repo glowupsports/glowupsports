@@ -1625,6 +1625,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           taxRate,
           taxAmount,
           subtotal,
+          billToName,
+          billToEmail,
         } = req.body;
 
         // Validate required fields
@@ -1674,6 +1676,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           dueDate,
           lineItems: enrichedLineItems,
           notes,
+          billToName: billToName || null,
+          billToEmail: billToEmail || null,
         });
 
         res.status(201).json(invoice);
@@ -1752,8 +1756,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             vatRegistrationNumber: (settings as any)?.vatRegistrationNumber || undefined,
           },
           player: {
-            name: player?.name || "Customer",
-            email: player?.email || undefined,
+            name: invoice.billToName || player?.name || "Customer",
+            email: invoice.billToEmail || player?.email || undefined,
             phone: player?.phone || undefined,
           },
           lineItems:
