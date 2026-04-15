@@ -564,21 +564,6 @@ function PlayerHomeContent() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: tournamentsGateData } = useQuery<{ upcoming: any[] }>({
-    queryKey: ["/api/player/tournaments", "registration_open"],
-    enabled: !isGuest,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const _now = new Date();
-  const hasGroupLessons = !isGuest && (playerState.openSessions ?? []).some(s => s.type === "group");
-  const hasOpenMatches = !isGuest && (playerState.openSessions ?? []).some(s => {
-    if (s.type !== "open_match") return false;
-    const matchDate = (s as any).date || (s as any).startTime || (s as any).scheduledTime;
-    return !matchDate || new Date(matchDate) > _now;
-  });
-  const hasTournaments = !isGuest && (tournamentsGateData?.upcoming?.length ?? 0) > 0;
-
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
   const { data: unreadData } = useQuery<{ count: number }>({
@@ -986,9 +971,9 @@ function PlayerHomeContent() {
         </View>
 
         <TrainingSessionsRow />
-        {hasGroupLessons ? <GroupLessonsRow /> : null}
-        {hasOpenMatches ? <OpenMatchesRow /> : null}
-        {hasTournaments ? <TournamentsDiscoveryRow /> : null}
+        <GroupLessonsRow />
+        <OpenMatchesRow />
+        <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── shown only when player has real content: feedback received OR skill progress data (ball level assigned) */}
