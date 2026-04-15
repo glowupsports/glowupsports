@@ -2,7 +2,7 @@ import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections, playerMatchReadiness } from "@shared/schema";
 import { buildMatchReadinessScore } from "./services/ai-progress-engine";
-import { storage, ensureCreditProcessed } from "./storage";
+import { storage, ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
 
@@ -2629,10 +2629,8 @@ async function processAutoSessionCompletion(): Promise<void> {
               .limit(1);
             
             if (existingDebt.length === 0) {
-              // Map session type to credit type
-              const creditType = session.sessionType.includes("semi") ? "semi_private" : 
-                                 session.sessionType.includes("group") ? "group" : 
-                                 session.sessionType === "private_adjusted" ? "private" : "private";
+              // Use shared canonical normalizer (storage.ts) — safe default is "group", never "private".
+              const creditType = normalizeSessionTypeToCreditType(session.sessionType);
               
               await db.insert(creditTransactions).values({
                 id: debtId,

@@ -13217,6 +13217,22 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; failur
   return { created, failures };
 }
 
+/**
+ * Canonical session-type → credit-type normalizer.
+ * Used by ensureCreditProcessed, auto-completion debt creation, and any other
+ * code path that needs to map a raw session_type string to one of the three
+ * credit bucket keys ("group" | "semi_private" | "private").
+ *
+ * Handles null/undefined/empty and hyphen/space variants safely.
+ * IMPORTANT: defaults to "group" for any unrecognised type — never "private".
+ */
+export function normalizeSessionTypeToCreditType(sessionType: string | null | undefined): "group" | "semi_private" | "private" {
+  const st = (sessionType || "").toLowerCase().replace(/-/g, "_").replace(/ /g, "_");
+  if (st === "semi_private" || st === "semi" || st === "semi_private_adjusted") return "semi_private";
+  if (st === "private" || st === "private_adjusted") return "private";
+  return "group";
+}
+
 export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits, repairOrphanedSessionPlayers };
 
 // ==================== VIDEO FEEDBACK ====================
