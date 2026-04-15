@@ -68,11 +68,22 @@ interface BlockedSession {
   isCourtBlock?: boolean;
 }
 
+export interface SlotReservation {
+  id: string;
+  coachId: string;
+  playerId: string;
+  playerName: string;
+  startTime: string;
+  endTime: string;
+  expiresAt: string;
+}
+
 interface CalendarData {
   ownSessions: Session[];
   blockedSessions: BlockedSession[];
   courts: Court[];
   locations: Location[];
+  slotReservations?: SlotReservation[];
   dateRange: { start: string; end: string };
 }
 

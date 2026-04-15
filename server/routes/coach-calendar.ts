@@ -34,6 +34,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
     matchRequests, playerBookingPreferences,
     courtBookings, matchLogs, playerCreditPackages, playerBallLevels,
+    slotReservations,
     playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
     levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
     spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
@@ -545,6 +546,51 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Get courts - filtered by academy
         const courts = await storage.getAllCourts(academyId ?? undefined);
         const locations = await storage.getAllLocations(academyId ?? undefined);
+
+        // Get active slot reservations for this coach within the date range
+        let slotReservationsForResponse: {
+          id: string;
+          coachId: string;
+          playerId: string;
+          playerName: string;
+          startTime: string;
+          endTime: string;
+          expiresAt: string;
+        }[] = [];
+        try {
+          const rawReservations = await db
+            .select({
+              id: slotReservations.id,
+              coachId: slotReservations.coachId,
+              playerId: slotReservations.playerId,
+              playerName: players.name,
+              startTime: slotReservations.startTime,
+              endTime: slotReservations.endTime,
+              expiresAt: slotReservations.expiresAt,
+            })
+            .from(slotReservations)
+            .innerJoin(players, eq(players.id, slotReservations.playerId))
+            .where(
+              and(
+                eq(slotReservations.coachId, coachId as string),
+                gt(slotReservations.expiresAt, new Date()),
+                gte(slotReservations.startTime, startDate),
+                lte(slotReservations.startTime, endDate),
+              ),
+            );
+          slotReservationsForResponse = rawReservations.map((r) => ({
+            id: r.id,
+            coachId: r.coachId,
+            playerId: r.playerId,
+            playerName: r.playerName,
+            startTime: new Date(r.startTime).toISOString(),
+            endTime: new Date(r.endTime).toISOString(),
+            expiresAt: new Date(r.expiresAt).toISOString(),
+          }));
+        } catch (_e) {
+          // Table might not exist in all environments
+        }
+
         res.json({
           ownSessions: sessionsWithPlayers,
           blockedSessions: [
@@ -553,6 +599,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           ],
           externalBlocks,
           coachBlocks: coachPersonalBlocks,
+          slotReservations: slotReservationsForResponse,
           courts,
           locations,
           dateRange: { start: startDate, end: endDate },

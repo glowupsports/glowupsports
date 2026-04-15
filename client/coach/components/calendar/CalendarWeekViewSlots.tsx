@@ -9,7 +9,8 @@ import {
   getTimeInTimezone,
 } from "@/lib/dateUtils";
 import { getSessionTypeGradient } from "./calendarUtils";
-import { WeekDraggableSessionBlock } from "./SessionBlocks";
+import { WeekDraggableSessionBlock, SlotReservationBlock } from "./SessionBlocks";
+import type { SlotReservation } from "@/coach/context/CoachContext";
 
 interface SessionPlayer {
   name: string;
@@ -70,6 +71,7 @@ interface CalendarWeekViewSlotsProps {
     startTime: string | Date;
     endTime: string | Date;
   }[];
+  slotReservations?: SlotReservation[];
 }
 
 export function CalendarWeekViewSlots({
@@ -94,6 +96,7 @@ export function CalendarWeekViewSlots({
   setSelectedSlot,
   setShowCreateDrawer,
   coachBlocks,
+  slotReservations = [],
 }: CalendarWeekViewSlotsProps) {
   const weekHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
 
@@ -217,6 +220,25 @@ export function CalendarWeekViewSlots({
                         <View key={block.id + "-week"} style={[styles.coachBlockStyle, { top, height: Math.max(height - 2, 16) }]}>
                           <Text style={[styles.coachBlockText, { fontSize: 7 }]}>MY BLOCK</Text>
                         </View>
+                      );
+                    })}
+
+                  {slotReservations
+                    .filter((r) => {
+                      const rDateStr = getLocalDateString(r.startTime, academyTimezone);
+                      const colDateStr = formatDateObjectInTimezone(date, academyTimezone);
+                      return rDateStr === colDateStr;
+                    })
+                    .map((r) => {
+                      const { top, height } = getWeekSessionPosition(r);
+                      return (
+                        <SlotReservationBlock
+                          key={r.id}
+                          top={top}
+                          height={height}
+                          playerName={r.playerName}
+                          expiresAt={r.expiresAt}
+                        />
                       );
                     })}
 

@@ -236,6 +236,46 @@ export function WeekDraggableSessionBlock({ session, top, height, isPast, isActi
   );
 }
 
+interface SlotReservationBlockProps {
+  top: number;
+  height: number;
+  playerName: string;
+  expiresAt: string;
+}
+
+export function SlotReservationBlock({ top, height, playerName, expiresAt }: SlotReservationBlockProps) {
+  const minsLeft = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 60000));
+  const firstName = playerName.split(" ")[0];
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top,
+        left: 1,
+        right: 1,
+        height: Math.max(height - 1, 16),
+        borderRadius: 4,
+        backgroundColor: "rgba(139,92,246,0.18)",
+        borderWidth: 1,
+        borderColor: "rgba(139,92,246,0.7)",
+        borderStyle: "dashed",
+        padding: 2,
+        justifyContent: "center",
+        zIndex: 2,
+      }}
+    >
+      <Text style={{ color: "rgba(192,132,252,0.95)", fontSize: 7, fontWeight: "700", letterSpacing: 0.5 }} numberOfLines={1}>
+        HOLD
+      </Text>
+      {height > 22 ? (
+        <Text style={{ color: "rgba(192,132,252,0.75)", fontSize: 7 }} numberOfLines={1}>
+          {firstName} · {minsLeft}m
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function PulsingDot() {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);

@@ -526,6 +526,7 @@ export default function CalendarScreen() {
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
   const coachBlocks = calendarData?.coachBlocks || [];
+  const slotReservations = calendarData?.slotReservations || [];
 
   // Compute cross-location busy blocks - show "Busy Elsewhere" on courts where coach is unavailable
   // because they have a session at another location at the same time
@@ -1555,6 +1556,7 @@ export default function CalendarScreen() {
           setSelectedSlot={setSelectedSlot}
           setShowCreateDrawer={setShowCreateDrawer}
           coachBlocks={coachBlocks}
+          slotReservations={slotReservations}
         />
       )}
       {/* MONTH VIEW */}
