@@ -1944,6 +1944,199 @@ export async function fixRouzbehGhostCredit(): Promise<void> {
   }
 }
 
+/**
+ * One-time data fix: Task #597 — Fix credit double-counting (31 players).
+ *
+ * Root cause: the old package-purchase code path created `debt_settlement`
+ * credit_transactions (reducing packages.remaining_credits) but did NOT mark
+ * the original `session_debt` entries as settled=true.  Both the session_debt
+ * entries (counted as ongoing debt) and the package deduction (already applied)
+ * were in effect simultaneously, inflating players' negative balances.
+ *
+ * Fix: for every player who has `debt_settlement` transactions, find the
+ * oldest unsettled session_debt entries created ON OR BEFORE the latest
+ * debt_settlement transaction, and mark them settled=true — up to the amount
+ * already covered by those debt_settlements.  No credits are added or removed.
+ *
+ * Idempotency / resume-safety:
+ *   - Per-player: we subtract the amount already marked by this script from
+ *     the coverage cap, then only process whatever remains.  A partial run
+ *     (or repeated boots) will correctly pick up from where it left off.
+ *   - Per-row: the debt query explicitly excludes rows already marked by this
+ *     script (metadata->>'settledByScript' = SCRIPT_TAG), so updating the same
+ *     row twice is impossible.
+ *
+ * Date boundary: only session_debt entries created <= MAX(debt_settlement.created_at)
+ * are candidates, protecting legitimate post-package-purchase debts from being
+ * incorrectly settled.
+ *
+ * Scope: targets all players with `reason='debt_settlement'` transactions.
+ * This is intentionally broader than the nominal "31 players" — it matches
+ * exactly the set of players affected by the old code path (that reason was
+ * only ever written by the legacy package-purchase flow).  If there are players
+ * outside the incident cohort with that reason, the date-boundary and amount-
+ * cap guards prevent any harm (they would simply find no eligible debts).
+ */
+export async function fixDebtDoubleCountingFor31Players(): Promise<void> {
+  const SCRIPT_TAG = "fix_debt_double_counting_597";
+
+  const normSql = `
+    CASE
+      WHEN credit_type IN ('semi', 'semi_private', 'semi_private_adjusted') THEN 'semi_private'
+      WHEN credit_type IN ('private', 'private_adjusted') THEN 'private'
+      ELSE 'group'
+    END`;
+
+  try {
+    // Fast short-circuit on subsequent boots: if no unsettled pre-date-boundary
+    // debts remain for any player that has debt_settlement transactions, there
+    // is nothing left to do and we skip the full loop entirely.
+    const pendingCheckRes = await pool.query(
+      `SELECT 1
+       FROM credit_transactions ds_outer
+       WHERE ds_outer.reason = 'debt_settlement'
+         AND ds_outer.amount < 0
+         AND EXISTS (
+           SELECT 1
+           FROM credit_transactions ct
+           WHERE ct.player_id = ds_outer.player_id
+             AND ct.type   = 'debit'
+             AND ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+             AND COALESCE(ct.metadata->>'settled',   'false') != 'true'
+             AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+             AND (ct.metadata->>'settledByScript' IS DISTINCT FROM $1)
+             AND ct.created_at <= (
+               SELECT MAX(ds2.created_at)
+               FROM credit_transactions ds2
+               WHERE ds2.player_id = ds_outer.player_id
+                 AND ds2.reason = 'debt_settlement'
+                 AND ds2.amount < 0
+             )
+         )
+       LIMIT 1`,
+      [SCRIPT_TAG]
+    );
+    if (pendingCheckRes.rows.length === 0) {
+      console.log("[DebtDoubleCountingFix] No pending debts to settle — skipping");
+      return;
+    }
+
+    // Step 1 — Gather all (player_id, norm_credit_type) pairs that have
+    //           debt_settlement transactions, plus the total amount covered
+    //           and the date of the latest settlement (used as a date fence).
+    const debtSettlementRes = await pool.query(
+      `SELECT player_id,
+              (${normSql}) AS norm_credit_type,
+              SUM(ABS(amount::numeric)) AS total_covered,
+              MAX(created_at)           AS latest_settlement_at
+       FROM credit_transactions
+       WHERE reason = 'debt_settlement'
+         AND amount < 0
+       GROUP BY player_id, norm_credit_type`
+    );
+
+    if (debtSettlementRes.rows.length === 0) {
+      console.log("[DebtDoubleCountingFix] No debt_settlement transactions found — nothing to do");
+      return;
+    }
+
+    console.log(`[DebtDoubleCountingFix] Found ${debtSettlementRes.rows.length} player+type pair(s) with debt_settlement`);
+
+    let totalEntriesFixed = 0;
+    let totalPlayersFixed = 0;
+
+    for (const row of debtSettlementRes.rows) {
+      const { player_id, norm_credit_type, total_covered, latest_settlement_at } = row;
+      const maxCoverage = Number(total_covered);
+      if (maxCoverage <= 0) continue;
+
+      // Step 2 — Per-player resume-ability: how much has this script already settled?
+      //           Subtract that from the cap so interrupted runs complete correctly.
+      const alreadyFixedRes = await pool.query(
+        `SELECT COALESCE(SUM(ABS(amount::numeric)), 0) AS already_fixed
+         FROM credit_transactions
+         WHERE player_id = $1
+           AND (${normSql}) = $2
+           AND metadata->>'settledByScript' = $3`,
+        [player_id, norm_credit_type, SCRIPT_TAG]
+      );
+      const alreadyFixed = Number(alreadyFixedRes.rows[0].already_fixed);
+      let remaining = maxCoverage - alreadyFixed;
+
+      if (remaining <= 0) {
+        console.log(`[DebtDoubleCountingFix] Player ${player_id} (${norm_credit_type}): already fully fixed — skipping`);
+        continue;
+      }
+
+      // Step 3 — Fetch the oldest unsettled session_debt entries for this
+      //           player+type that pre-date the debt_settlement transactions.
+      //           Exclude rows already touched by this script and any that are
+      //           settled/cancelled by any other means.
+      const debtRes = await pool.query(
+        `SELECT id, amount::numeric AS amount
+         FROM credit_transactions
+         WHERE player_id = $1
+           AND type = 'debit'
+           AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+           AND (${normSql}) = $2
+           AND COALESCE(metadata->>'settled',   'false') != 'true'
+           AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+           AND (metadata->>'settledByScript' IS DISTINCT FROM $3)
+           AND created_at <= $4
+         ORDER BY created_at ASC`,
+        [player_id, norm_credit_type, SCRIPT_TAG, latest_settlement_at]
+      );
+
+      if (debtRes.rows.length === 0) continue;
+
+      const client = await pool.connect();
+      let fixedCount = 0;
+      try {
+        await client.query("BEGIN");
+
+        for (const debt of debtRes.rows) {
+          const debtAmount = Math.abs(Number(debt.amount));
+          if (remaining <= 0 || remaining < debtAmount) break;
+
+          await client.query(
+            `UPDATE credit_transactions
+             SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
+             WHERE id = $2`,
+            [
+              JSON.stringify({
+                settled: true,
+                settledByScript: SCRIPT_TAG,
+                settledAt: new Date().toISOString(),
+              }),
+              debt.id,
+            ]
+          );
+
+          remaining -= debtAmount;
+          fixedCount++;
+        }
+
+        await client.query("COMMIT");
+
+        if (fixedCount > 0) {
+          console.log(`[DebtDoubleCountingFix] Player ${player_id} (${norm_credit_type}): +${fixedCount} session_debt entries marked settled`);
+          totalEntriesFixed += fixedCount;
+          totalPlayersFixed++;
+        }
+      } catch (txErr: unknown) {
+        await client.query("ROLLBACK");
+        console.error(`[DebtDoubleCountingFix] Error for player ${player_id}:`, txErr instanceof Error ? txErr.message : String(txErr));
+      } finally {
+        client.release();
+      }
+    }
+
+    console.log(`[DebtDoubleCountingFix] Complete: ${totalEntriesFixed} debt entries settled for ${totalPlayersFixed} players`);
+  } catch (err: unknown) {
+    console.error("[DebtDoubleCountingFix] Unexpected error:", err instanceof Error ? err.message : String(err));
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");
