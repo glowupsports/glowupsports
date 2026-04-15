@@ -473,7 +473,10 @@ export default function PlayerBookingWizard({
             setSelectedDate(new Date(y, m - 1, d));
           }
           if (stored.duration) setDuration(stored.duration);
-          if (stored.sessionType) setSessionType(stored.sessionType as any);
+          const validSessionTypes = ["private", "semi_private", "group", "open_play"] as const;
+          if (stored.sessionType && validSessionTypes.includes(stored.sessionType)) {
+            setSessionType(stored.sessionType as typeof validSessionTypes[number]);
+          }
           setCurrentSlide(2);
         } catch {
           // corrupted entry — ignore
@@ -583,6 +586,14 @@ export default function PlayerBookingWizard({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Explicitly release the server-side hold on booking success
+      const holdId = activeReservationRef.current;
+      if (holdId) {
+        apiRequest("DELETE", `/api/player/reserve-slot/${holdId}`, undefined).catch(() => {});
+        activeReservationRef.current = null;
+      }
+      setReservationId(null);
+      setReservationExpiresAt(null);
       AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
       setShowSuccess(true);
       xpGain.value = withSequence(
@@ -884,6 +895,31 @@ export default function PlayerBookingWizard({
     return (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          {/* Prominent SLOT LOCKED banner — shown at the top when a hold is active */}
+          {reservationId && selectedSlot && !reservationLoading ? (
+            <View style={styles.slotLockedCard}>
+              <View style={styles.slotLockedAccent} />
+              <View style={styles.slotLockedBody}>
+                <View style={styles.slotLockedTop}>
+                  <View style={styles.slotLockedTitleRow}>
+                    <Ionicons name="lock-closed" size={16} color={Colors.dark.primary} />
+                    <Text style={styles.slotLockedTitle}>SLOT LOCKED</Text>
+                  </View>
+                  <View style={styles.slotLockedCountdownBox}>
+                    <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
+                    <Text style={styles.slotLockedCountdown}>
+                      {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.slotLockedInfo} numberOfLines={1}>
+                  {selectedSlot.coachName} · {formatTime(selectedSlot.startTime)} ({selectedSlot.duration}min)
+                </Text>
+                <Text style={styles.slotLockedHint}>Tap Next to confirm your booking</Text>
+              </View>
+            </View>
+          ) : null}
+
           {/* Date Selector */}
           <View style={styles.sectionHeader}>
             <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
@@ -1094,31 +1130,6 @@ export default function PlayerBookingWizard({
               <View style={styles.reservationErrorBanner}>
                 <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
                 <Text style={styles.reservationErrorText}>{reservationError}</Text>
-              </View>
-            ) : null}
-
-            {/* Prominent SLOT LOCKED banner */}
-            {reservationId && selectedSlot && !reservationLoading ? (
-              <View style={styles.slotLockedCard}>
-                <View style={styles.slotLockedAccent} />
-                <View style={styles.slotLockedBody}>
-                  <View style={styles.slotLockedTop}>
-                    <View style={styles.slotLockedTitleRow}>
-                      <Ionicons name="lock-closed" size={16} color={Colors.dark.primary} />
-                      <Text style={styles.slotLockedTitle}>SLOT LOCKED</Text>
-                    </View>
-                    <View style={styles.slotLockedCountdownBox}>
-                      <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
-                      <Text style={styles.slotLockedCountdown}>
-                        {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.slotLockedInfo} numberOfLines={1}>
-                    {selectedSlot.coachName} · {formatTime(selectedSlot.startTime)} ({selectedSlot.duration}min)
-                  </Text>
-                  <Text style={styles.slotLockedHint}>Tap Next to confirm your booking</Text>
-                </View>
               </View>
             ) : null}
 
