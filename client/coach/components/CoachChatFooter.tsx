@@ -1979,6 +1979,10 @@ const styles = StyleSheet.create({
   },
   containerCollapsed: {
     borderTopWidth: 0,
+    overflow: "visible",
+    backgroundColor: "transparent",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   pillRow: {
     flexDirection: "row",
