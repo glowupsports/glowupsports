@@ -1587,7 +1587,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         styles.container,
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
-          bottom: TAB_BAR_HEIGHT + insets.bottom + CENTER_BUTTON_PROTRUSION,
+          bottom: TAB_BAR_HEIGHT + insets.bottom,
           paddingTop: isFullscreen ? insets.top : 0,
         },
         desktopWebStyle,
@@ -1978,9 +1978,9 @@ const styles = StyleSheet.create({
     }),
   },
   containerCollapsed: {
-    backgroundColor: "transparent",
+    backgroundColor: "#11141A",
     borderTopWidth: 0,
-    overflow: "visible",
+    overflow: "hidden",
   },
   pillRow: {
     flexDirection: "row",
@@ -1992,7 +1992,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(17, 20, 26, 0.92)",
+    backgroundColor: "#11141A",
     borderRadius: 999,
     height: 40,
     borderWidth: 1,
@@ -2006,7 +2006,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     borderRadius: 999,
-    backgroundColor: "rgba(17, 20, 26, 0.92)",
+    backgroundColor: "#11141A",
     justifyContent: "center",
     alignItems: "flex-start",
     borderWidth: 1,
