@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -66,11 +66,16 @@ export function GlowAvatar({
   status,
   style,
 }: GlowAvatarProps) {
+  const [imageError, setImageError] = useState(false);
   const pulseValue = useSharedValue(0);
   const sizeValue = getSizeValue(size);
   const glowSize = getGlowSize(size);
 
   const resolvedGlowColor = glowColor || getPlayerLevelColor(ballLevel);
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [source]);
 
   React.useEffect(() => {
     if (pulsing && showGlow) {
@@ -147,7 +152,7 @@ export function GlowAvatar({
           },
         ]}
       >
-        {source ? (
+        {source && !imageError ? (
           <Image
             source={{ uri: source }}
             style={[
@@ -160,6 +165,7 @@ export function GlowAvatar({
             ]}
             contentFit="cover"
             cachePolicy="memory-disk"
+            onError={() => setImageError(true)}
           />
         ) : (
           <LinearGradient
