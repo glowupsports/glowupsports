@@ -423,10 +423,12 @@ function PlayerDetailSheet({
   player,
   onClose,
   onPlayerUpdated,
+  onDeleted,
 }: {
   player: DirectoryPlayer;
   onClose: () => void;
   onPlayerUpdated: () => void;
+  onDeleted?: (player: DirectoryPlayer) => void;
 }) {
   const lastSeen = player.lastSessionAt || player.lastActiveAt || player.lastLoginAt;
   const ballCfg = BALL_CONFIG[player.ballLevel?.toLowerCase()] ?? { color: Colors.dark.textMuted, label: player.ballLevel ?? "?" };
@@ -450,6 +452,7 @@ function PlayerDetailSheet({
             try {
               await apiRequest("DELETE", `/api/platform/players/${player.id}`);
               onPlayerUpdated();
+              onDeleted?.(player);
               onClose();
             } catch {
               Alert.alert("Delete failed", "Could not delete this player. Please try again.");
@@ -740,8 +743,17 @@ export default function PlayerHealthScreen() {
     staleTime: 0,
   });
 
+  // Mirror the backend cleanup predicate as closely as the directory shape
+  // allows (see /api/platform/players/cleanup-deleted): name='Deleted User'
+  // AND email IS NULL AND academyId IS NULL. The directory exposes the
+  // joined academy *name* (`academy`) rather than the raw academyId, but
+  // a null academyId always projects to a null academy name, so `!p.academy`
+  // is a faithful proxy. Otherwise the banner would overstate how many rows
+  // the "Clear all" action actually removes.
   const ghostCount = useMemo(
-    () => (data?.allPlayers ?? []).filter((p) => p.name === "Deleted User").length,
+    () => (data?.allPlayers ?? []).filter(
+      (p) => p.name === "Deleted User" && !p.email && !p.academy,
+    ).length,
     [data?.allPlayers],
   );
 
@@ -1105,6 +1117,7 @@ export default function PlayerHealthScreen() {
           player={selectedPlayer}
           onClose={() => setSelectedPlayer(null)}
           onPlayerUpdated={handlePlayerUpdated}
+          onDeleted={(p) => showToast(`Deleted ${p.name}`, "success")}
         />
       ) : null}
 
