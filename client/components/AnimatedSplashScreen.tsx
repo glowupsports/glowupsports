@@ -1,382 +1,635 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View, Text, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSequence,
-  withDelay,
-  withSpring,
   withRepeat,
+  withDelay,
   Easing,
   runOnJS,
-  interpolate,
 } from "react-native-reanimated";
-import { Image } from "expo-image";
-import * as SplashScreen from "expo-splash-screen";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient as SvgGradient,
+  Stop,
+} from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { Colors } from "@/constants/theme";
+import * as SplashScreen from "expo-splash-screen";
 
 SplashScreen.preventAutoHideAsync();
 
 const { width, height } = Dimensions.get("window");
 
-const SYSTEM_MESSAGES = [
-  "INITIALIZING GLOW PROTOCOL...",
-  "SCANNING PLAYER DATABASE...",
-  "CALIBRATING GLOW RANK...",
-  "LOADING QUEST ENGINE...",
-  "SYNCING ACADEMY NETWORK...",
-  "COURT SYSTEMS ONLINE.",
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const G = {
+  bg0:    "#04060A",
+  bg1:    "#07111F",
+  bg2:    "#0B1830",
+  purple: "#A855F7",
+  green:  "#B7FF3C",
+  cyan:   "#39D5FF",
+  white:  "#F8FAFC",
+  muted:  "#9FB0C7",
+  bloom:  "rgba(106,63,255,0.10)",
+} as const;
+
+// Ring geometry
+const RING_SIZE   = 192;
+const RING_STROKE = 3;
+const RING_R      = RING_SIZE / 2 - RING_STROKE / 2;
+
+// Progress track
+const TRACK_W  = width * 0.65;
+const DOT_SIZE = 8;
+
+// Wordmark sweep width
+const SWEEP_RANGE = width * 0.62;
+
+// Status messages
+const STATUS_MESSAGES = [
+  "INITIALIZING GLOW OS",
+  "SYNCING PLAYER PROFILE",
+  "LOADING AI COACH",
+  "PREPARING PERFORMANCE DATA",
+  "COURT SYSTEMS ONLINE",
+];
+const STATUS_FINAL = "SYSTEM READY";
+
+// Particle definitions (8 particles, 3 colors, varied positions + drift)
+const PARTICLES: { color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number }[] = [
+  { color: G.purple, xFrac: 0.14, yFrac: 0.19, delay: 0,   dx: 8,   dy: -15 },
+  { color: G.cyan,   xFrac: 0.79, yFrac: 0.13, delay: 180, dx: -10, dy: -18 },
+  { color: G.green,  xFrac: 0.08, yFrac: 0.67, delay: 360, dx: 12,  dy: 10  },
+  { color: G.purple, xFrac: 0.83, yFrac: 0.71, delay: 540, dx: -8,  dy: 14  },
+  { color: G.cyan,   xFrac: 0.46, yFrac: 0.89, delay: 720, dx: 6,   dy: -12 },
+  { color: G.green,  xFrac: 0.24, yFrac: 0.39, delay: 270, dx: -14, dy: -8  },
+  { color: G.purple, xFrac: 0.68, yFrac: 0.44, delay: 450, dx: 10,  dy: 11  },
+  { color: G.cyan,   xFrac: 0.56, yFrac: 0.24, delay: 630, dx: -6,  dy: 16  },
 ];
 
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface AnimatedSplashScreenProps {
   isReady: boolean;
   onComplete: () => void;
   children: React.ReactNode;
 }
 
-export function AnimatedSplashScreen({ isReady, onComplete, children }: AnimatedSplashScreenProps) {
-  const [showSplash, setShowSplash] = useState(true);
-  const [messageIdx, setMessageIdx] = useState(0);
-  const hasHiddenNativeSplash = useRef(false);
+// ─── Main component ───────────────────────────────────────────────────────────
+export function AnimatedSplashScreen({
+  isReady,
+  onComplete,
+  children,
+}: AnimatedSplashScreenProps) {
+  const [showSplash, setShowSplash]           = useState(true);
+  const [isReadyInternal, setIsReadyInternal] = useState(false);
+  const [displayPct, setDisplayPct]           = useState(0);
+  const hasExited                             = useRef(false);
 
-  useEffect(() => {
-    if (!showSplash) return;
-    const interval = setInterval(() => {
-      setMessageIdx(prev => (prev + 1) % SYSTEM_MESSAGES.length);
-    }, 380);
-    return () => clearInterval(interval);
-  }, [showSplash]);
-  
-  const logoScale = useSharedValue(0.3);
-  const logoOpacity = useSharedValue(0);
-  const logoRotate = useSharedValue(-15);
-  const textOpacity = useSharedValue(0);
-  const textTranslateY = useSharedValue(30);
   const containerOpacity = useSharedValue(1);
-  const glowScale = useSharedValue(0.5);
-  const glowOpacity = useSharedValue(0);
-  const ringScale = useSharedValue(0.8);
-  const ringOpacity = useSharedValue(0);
-  const progressWidth = useSharedValue(0);
-  const particleOpacity = useSharedValue(0);
+  const monogramScale    = useSharedValue(1);
+  const ringRotation     = useSharedValue(0);
+  const progressFill     = useSharedValue(0); // 0 → 1
 
+  // ── Start animations on mount
   useEffect(() => {
-    logoOpacity.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
-    logoScale.value = withSpring(1, { damping: 14, stiffness: 130 });
-    logoRotate.value = withSpring(0, { damping: 16, stiffness: 100 });
-    
-    glowOpacity.value = withDelay(120, withTiming(0.6, { duration: 300 }));
-    glowScale.value = withDelay(120, withRepeat(
-      withSequence(
-        withTiming(1.2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) })
-      ),
+    // Neon ring — 1 full rotation / 10 s, linear, infinite
+    ringRotation.value = withRepeat(
+      withTiming(360, { duration: 10000, easing: Easing.linear }),
       -1,
-      true
-    ));
-    
-    ringOpacity.value = withDelay(200, withTiming(0.3, { duration: 250 }));
-    ringScale.value = withDelay(200, withRepeat(
+      false
+    );
+
+    // GU monogram pulse: 1 → 1.035 → 1 every 2 200 ms
+    monogramScale.value = withRepeat(
       withSequence(
-        withTiming(1.3, { duration: 2000, easing: Easing.out(Easing.quad) }),
-        withTiming(0.8, { duration: 0 })
+        withTiming(1.035, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.0,   { duration: 1100, easing: Easing.inOut(Easing.sin) })
       ),
       -1,
       false
-    ));
-    
-    textOpacity.value = withDelay(250, withTiming(1, { duration: 280 }));
-    textTranslateY.value = withDelay(250, withSpring(0, { damping: 16, stiffness: 120 }));
-    
-    particleOpacity.value = withDelay(150, withTiming(1, { duration: 250 }));
-    
-    // Progress bar starts immediately and fills in 700ms
-    progressWidth.value = withTiming(100, { duration: 700, easing: Easing.inOut(Easing.cubic) });
+    );
+
+    // Progress bar: fill to 88 % in 2 000 ms
+    progressFill.value = withTiming(0.88, {
+      duration: 2000,
+      easing: Easing.out(Easing.cubic),
+    });
+
+    // Mirror to JS for % readout
+    const start = Date.now();
+    const iv = setInterval(() => {
+      const pct = Math.min(88, Math.round(((Date.now() - start) / 2000) * 88));
+      setDisplayPct(pct);
+      if (pct >= 88) clearInterval(iv);
+    }, 50);
+    return () => clearInterval(iv);
   }, []);
 
+  // ── Exit sequence
   useEffect(() => {
-    if (isReady && !hasHiddenNativeSplash.current) {
-      hasHiddenNativeSplash.current = true;
-      
-      SplashScreen.hideAsync();
-      
-      setTimeout(() => {
-        logoScale.value = withTiming(1.5, { duration: 200 });
-        containerOpacity.value = withTiming(0, { duration: 280 }, () => {
-          runOnJS(setShowSplash)(false);
-          runOnJS(onComplete)();
-        });
-      }, 200);
-    }
+    if (!isReady || hasExited.current) return;
+    hasExited.current = true;
+
+    SplashScreen.hideAsync();
+
+    // Complete bar to 100 %
+    progressFill.value = withTiming(1, {
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+    });
+    const start = Date.now();
+    const iv = setInterval(() => {
+      const pct = Math.min(100, 88 + Math.round(((Date.now() - start) / 400) * 12));
+      setDisplayPct(pct);
+      if (pct >= 100) clearInterval(iv);
+    }, 30);
+
+    // Show SYSTEM READY after a brief moment
+    setTimeout(() => setIsReadyInternal(true), 200);
+
+    // Monogram exit pulse → fade entire screen → call onComplete
+    setTimeout(() => {
+      monogramScale.value = withSequence(
+        withTiming(1.08, { duration: 220 }),
+        withTiming(1.0,  { duration: 220 }, () => {
+          containerOpacity.value = withTiming(0, { duration: 350 }, () => {
+            runOnJS(setShowSplash)(false);
+            runOnJS(onComplete)();
+          });
+        })
+      );
+    }, 700);
+
+    return () => clearInterval(iv);
   }, [isReady]);
 
-  const logoAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: logoScale.value },
-      { rotate: `${logoRotate.value}deg` },
-    ],
-    opacity: logoOpacity.value,
+  // Animated styles
+  const containerStyle = useAnimatedStyle(() => ({ opacity: containerOpacity.value }));
+  const ringStyle      = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${ringRotation.value}deg` }],
+  }));
+  const monogramStyle  = useAnimatedStyle(() => ({
+    transform: [{ scale: monogramScale.value }],
+  }));
+  const barStyle = useAnimatedStyle(() => ({
+    width: progressFill.value * TRACK_W,
+  }));
+  const dotStyle = useAnimatedStyle(() => ({
+    left: progressFill.value * TRACK_W - DOT_SIZE / 2,
   }));
 
-  const glowAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: glowScale.value }],
-    opacity: glowOpacity.value,
-  }));
-
-  const ringAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringScale.value }],
-    opacity: interpolate(ringScale.value, [0.8, 1.3], [0.4, 0]),
-  }));
-
-  const textAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-    transform: [{ translateY: textTranslateY.value }],
-  }));
-
-  const containerAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: containerOpacity.value,
-  }));
-
-  const progressAnimatedStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%`,
-  }));
-
-  const particleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: particleOpacity.value,
-  }));
+  if (!showSplash) return <>{children}</>;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       {children}
-      
-      {showSplash && (
-        <Animated.View style={[StyleSheet.absoluteFill, containerAnimatedStyle]}>
-          <LinearGradient
-            colors={["#0A0F14", "#0D1820", "#0A1015", "#050A0D"]}
-            locations={[0, 0.3, 0.7, 1]}
-            style={styles.gradient}
-          >
-            <Animated.View style={[styles.particleContainer, particleAnimatedStyle]}>
-              <FloatingParticle delay={0} x={width * 0.2} y={height * 0.2} />
-              <FloatingParticle delay={200} x={width * 0.8} y={height * 0.15} />
-              <FloatingParticle delay={400} x={width * 0.15} y={height * 0.7} />
-              <FloatingParticle delay={600} x={width * 0.85} y={height * 0.65} />
-              <FloatingParticle delay={800} x={width * 0.5} y={height * 0.85} />
-              <FloatingParticle delay={300} x={width * 0.3} y={height * 0.4} />
-              <FloatingParticle delay={500} x={width * 0.7} y={height * 0.45} />
-            </Animated.View>
 
-            <View style={styles.logoWrapper}>
-              <Animated.View style={[styles.ring, ringAnimatedStyle]} />
-              <Animated.View style={[styles.glow, glowAnimatedStyle]} />
-              <Animated.View style={[styles.glowSecondary, glowAnimatedStyle]} />
-              
-              <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-                <View style={styles.logoInnerGlow} />
-                <Image
-                  source={require("../../assets/images/icon.png")}
-                  style={styles.logo}
-                  contentFit="contain"
+      <Animated.View style={[StyleSheet.absoluteFill, containerStyle]}>
+        {/* ── Layered background */}
+        <LinearGradient
+          colors={[G.bg0, G.bg1, G.bg2, G.bg0]}
+          locations={[0, 0.35, 0.65, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* ── Purple centerBloom ellipse */}
+        <View style={styles.centerBloom} />
+
+        {/* ── 8 floating particles */}
+        {PARTICLES.map((p, i) => (
+          <GlowParticle key={i} {...p} />
+        ))}
+
+        {/* ── Main content */}
+        <View style={styles.mainColumn}>
+
+          {/* ── Ring + monogram hero */}
+          <View style={styles.heroWrapper}>
+            {/* Outer green glow shadow (iOS) */}
+            <View style={styles.ringGlowShadow} />
+
+            {/* Rotating SVG neon ring */}
+            <Animated.View style={[styles.ringContainer, ringStyle]}>
+              <Svg width={RING_SIZE} height={RING_SIZE}>
+                <Defs>
+                  <SvgGradient id="glowRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%"   stopColor={G.purple} stopOpacity="1" />
+                    <Stop offset="50%"  stopColor={G.cyan}   stopOpacity="1" />
+                    <Stop offset="100%" stopColor={G.green}  stopOpacity="1" />
+                  </SvgGradient>
+                </Defs>
+                {/* Faint inner decorative ring for depth */}
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_R - 14}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.05)"
+                  strokeWidth={1}
                 />
-              </Animated.View>
-            </View>
-
-            <Animated.View style={[styles.textContainer, textAnimatedStyle]}>
-              <Text style={styles.appName}>GLOW UP</Text>
-              <View style={styles.taglineContainer}>
-                <View style={styles.taglineLine} />
-                <Text style={styles.tagline}>SPORTS</Text>
-                <View style={styles.taglineLine} />
-              </View>
+                {/* Neon gradient ring */}
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_R}
+                  fill="none"
+                  stroke="url(#glowRingGrad)"
+                  strokeWidth={RING_STROKE}
+                  strokeLinecap="round"
+                />
+              </Svg>
             </Animated.View>
 
-            <View style={styles.loadingContainer}>
+            {/* GU serif monogram — centered over ring */}
+            <Animated.Text style={[styles.monogram, monogramStyle]}>
+              GU
+            </Animated.Text>
+          </View>
+
+          {/* ── Wordmark block */}
+          <WordmarkBlock />
+        </View>
+
+        {/* ── Bottom system block (status + progress + %) */}
+        <View style={styles.systemBlock}>
+          <GlowStatusText isReady={isReadyInternal} />
+
+          {/* Progress bar row */}
+          <View style={styles.progressRow}>
+            {/* Wrapper gives room for dot to overflow track vertically */}
+            <View style={styles.progressTrackWrapper}>
+              {/* Track background + clipped fill */}
               <View style={styles.progressTrack}>
-                <Animated.View style={[styles.progressBar, progressAnimatedStyle]}>
+                <Animated.View style={[styles.progressBar, barStyle]}>
                   <LinearGradient
-                    colors={[Colors.dark.primary, Colors.dark.xpCyan, Colors.dark.primary]}
+                    colors={[G.purple, G.cyan, G.green]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={StyleSheet.absoluteFill}
                   />
                 </Animated.View>
               </View>
-              <Text style={styles.loadingText}>{SYSTEM_MESSAGES[messageIdx]}</Text>
+              {/* Glowing white dot — positioned relative to wrapper, not clipped */}
+              <Animated.View style={[styles.progressDot, dotStyle]} />
             </View>
-          </LinearGradient>
-        </Animated.View>
-      )}
+
+            {/* Green percentage readout */}
+            <Text style={styles.pctText}>{displayPct}%</Text>
+          </View>
+
+          {/* Sub-status line */}
+          <Text style={styles.subStatus}>
+            {isReadyInternal ? "READY TO PERFORM" : "BOOTING COURT SYSTEMS"}
+          </Text>
+        </View>
+      </Animated.View>
     </View>
   );
 }
 
-function FloatingParticle({ delay, x, y }: { delay: number; x: number; y: number }) {
+// ─── GlowParticle ─────────────────────────────────────────────────────────────
+function GlowParticle({
+  color,
+  xFrac,
+  yFrac,
+  delay,
+  dx,
+  dy,
+}: {
+  color: string;
+  xFrac: number;
+  yFrac: number;
+  delay: number;
+  dx: number;
+  dy: number;
+}) {
+  const opacity    = useSharedValue(0);
+  const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.5);
+  const durBase    = 2400 + delay % 600;
 
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(0.6, { duration: 600 }));
-    scale.value = withDelay(delay, withTiming(1, { duration: 600 }));
+    opacity.value = withDelay(delay, withTiming(0.75, { duration: 600 }));
+    translateX.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(dx, { duration: durBase,       easing: Easing.inOut(Easing.sin) }),
+          withTiming(0,  { duration: durBase,       easing: Easing.inOut(Easing.sin) })
+        ),
+        -1,
+        false
+      )
+    );
     translateY.value = withDelay(
       delay,
       withRepeat(
         withSequence(
-          withTiming(-20, { duration: 2000 + Math.random() * 1000, easing: Easing.inOut(Easing.sin) }),
-          withTiming(0, { duration: 2000 + Math.random() * 1000, easing: Easing.inOut(Easing.sin) })
+          withTiming(dy, { duration: durBase + 300, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0,  { duration: durBase + 300, easing: Easing.inOut(Easing.sin) })
         ),
         -1,
-        true
+        false
       )
     );
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+  const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    left: x,
-    top: y,
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
   }));
 
   return (
-    <Animated.View style={[styles.particle, animatedStyle]}>
-      <LinearGradient
-        colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-        style={styles.particleGradient}
-      />
-    </Animated.View>
+    <Animated.View
+      style={[
+        styles.particle,
+        {
+          left:        width  * xFrac,
+          top:         height * yFrac,
+          backgroundColor: color,
+          shadowColor: color,
+        },
+        style,
+      ]}
+    />
   );
 }
 
+// ─── GlowStatusText ───────────────────────────────────────────────────────────
+function GlowStatusText({ isReady }: { isReady: boolean }) {
+  const [msgIdx, setMsgIdx] = useState(0);
+  const opacity             = useSharedValue(1);
+  const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const frozenRef           = useRef(false);
+
+  const cycleFn = useCallback(() => {
+    opacity.value = withTiming(0, { duration: 150 }, () => {
+      runOnJS(setMsgIdx)(prev => (prev + 1) % STATUS_MESSAGES.length);
+      opacity.value = withTiming(1, { duration: 150 });
+    });
+  }, []);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(cycleFn, 850);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [cycleFn]);
+
+  useEffect(() => {
+    if (!isReady || frozenRef.current) return;
+    frozenRef.current = true;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    opacity.value = withTiming(0, { duration: 150 }, () => {
+      runOnJS(setMsgIdx)(STATUS_MESSAGES.length); // sentinel → SYSTEM READY
+      opacity.value = withTiming(1, { duration: 200 });
+    });
+  }, [isReady]);
+
+  const textStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const text = msgIdx >= STATUS_MESSAGES.length ? STATUS_FINAL : STATUS_MESSAGES[msgIdx];
+
+  return (
+    <Animated.Text style={[styles.statusText, textStyle]}>{text}</Animated.Text>
+  );
+}
+
+// ─── WordmarkBlock with LightSweep ───────────────────────────────────────────
+function WordmarkBlock() {
+  const sweepX = useSharedValue(-120);
+
+  useEffect(() => {
+    sweepX.value = withRepeat(
+      withSequence(
+        withTiming(SWEEP_RANGE + 20, { duration: 900, easing: Easing.out(Easing.cubic) }),
+        withDelay(2100, withTiming(-120, { duration: 0 }))
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const sweepStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: sweepX.value }],
+  }));
+
+  return (
+    <View style={styles.wordmarkOuter}>
+      {/* overflow:hidden clips the sweep line */}
+      <View style={styles.wordmarkClip}>
+        {/* Row 1: GLOW + UP */}
+        <View style={styles.wordmarkRow}>
+          <Text style={styles.wordmarkGlow}>GLOW </Text>
+          <Text style={styles.wordmarkUp}>UP</Text>
+        </View>
+        {/* Row 2: SPORTS */}
+        <Text style={styles.wordmarkSports}>SPORTS</Text>
+        {/* Row 3: Tagline */}
+        <Text style={styles.wordmarkTagline}>GLOW UP YOUR GAME</Text>
+
+        {/* LightSweep — thin purple line sliding L→R */}
+        <Animated.View style={[styles.lightSweep, sweepStyle]} />
+      </View>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  particleContainer: {
-    ...StyleSheet.absoluteFillObject,
+
+  // ── Background / bloom / particles
+  centerBloom: {
+    position:      "absolute",
+    alignSelf:     "center",
+    top:           height * 0.28,
+    width:         220,
+    height:        130,
+    backgroundColor: G.bloom,
+    borderRadius:  110,
   },
   particle: {
-    position: "absolute",
-    width: 6,
-    height: 6,
+    position:     "absolute",
+    width:        6,
+    height:       6,
     borderRadius: 3,
-    overflow: "hidden",
+    // iOS glow via shadow
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius:  6,
   },
-  particleGradient: {
-    flex: 1,
-    borderRadius: 3,
-  },
-  logoWrapper: {
-    alignItems: "center",
+
+  // ── Layout columns
+  mainColumn: {
+    flex:           1,
+    alignItems:     "center",
     justifyContent: "center",
-    width: 220,
-    height: 220,
+    paddingTop:     24,
+    gap:            32,
   },
-  ring: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 2,
-    borderColor: Colors.dark.xpCyan,
-  },
-  glow: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: Colors.dark.primary,
-    opacity: 0.3,
-  },
-  glowSecondary: {
-    position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: Colors.dark.xpCyan,
-    opacity: 0.1,
-  },
-  logoContainer: {
-    alignItems: "center",
+
+  // ── Ring hero
+  heroWrapper: {
+    width:          RING_SIZE + 20,
+    height:         RING_SIZE + 20,
+    alignItems:     "center",
     justifyContent: "center",
   },
-  logoInnerGlow: {
+  ringGlowShadow: {
+    position:      "absolute",
+    width:         RING_SIZE,
+    height:        RING_SIZE,
+    borderRadius:  RING_SIZE / 2,
+    // green outer glow on iOS
+    shadowColor:   G.green,
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius:  24,
+  },
+  ringContainer: {
     position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 32,
-    backgroundColor: Colors.dark.primary,
-    opacity: 0.4,
   },
-  logo: {
-    width: 140,
-    height: 140,
-    borderRadius: 28,
-  },
-  textContainer: {
-    alignItems: "center",
-    marginTop: 32,
-  },
-  appName: {
-    fontSize: 36,
-    fontWeight: "900",
-    color: Colors.dark.text,
-    letterSpacing: 6,
-    textShadowColor: Colors.dark.xpCyan,
+  monogram: {
+    fontSize:    38,
+    fontWeight:  "700",
+    color:       G.purple,
+    letterSpacing: 2,
+    // Purple text shadow glow
+    textShadowColor:  G.purple,
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    textShadowRadius: 14,
+    fontFamily: "serif",
   },
-  taglineContainer: {
+
+  // ── Wordmark
+  wordmarkOuter: {
+    alignItems: "center",
+  },
+  wordmarkClip: {
+    overflow:   "hidden",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  wordmarkRow: {
     flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-    gap: 12,
+    alignItems:    "baseline",
   },
-  taglineLine: {
-    width: 40,
-    height: 1,
-    backgroundColor: Colors.dark.xpCyan,
-    opacity: 0.5,
+  wordmarkGlow: {
+    fontSize:      28,
+    fontWeight:    "800",
+    color:         "#C38BFF",
+    letterSpacing: 1.3,
   },
-  tagline: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.dark.xpCyan,
-    letterSpacing: 10,
+  wordmarkUp: {
+    fontSize:      28,
+    fontWeight:    "800",
+    color:         G.green,
+    letterSpacing: 1.3,
   },
-  loadingContainer: {
+  wordmarkSports: {
+    fontSize:      13,
+    fontWeight:    "700",
+    color:         G.cyan,
+    letterSpacing: 8,
+    marginTop:     4,
+  },
+  wordmarkTagline: {
+    fontSize:      9,
+    fontWeight:    "500",
+    color:         "rgba(248,250,252,0.55)",
+    letterSpacing: 3,
+    marginTop:     6,
+    textTransform: "uppercase",
+  },
+  lightSweep: {
     position: "absolute",
-    bottom: 80,
+    top:      0,
+    bottom:   0,
+    width:    2,
+    backgroundColor: "#D8AAFF",
+    opacity:  0.7,
+    shadowColor:   G.purple,
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius:  10,
+  },
+
+  // ── Bottom system block
+  systemBlock: {
+    position:   "absolute",
+    bottom:     72,
+    left:       0,
+    right:      0,
     alignItems: "center",
-    width: width * 0.6,
+    gap:        10,
+  },
+  statusText: {
+    fontSize:      11,
+    fontWeight:    "700",
+    color:         G.muted,
+    letterSpacing: 2.5,
+    textTransform: "uppercase",
+    marginBottom:  4,
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems:    "center",
+    gap:           10,
+  },
+  progressTrackWrapper: {
+    width:          TRACK_W,
+    height:         DOT_SIZE + 4,
+    justifyContent: "center",
+    position:       "relative",
   },
   progressTrack: {
-    width: "100%",
-    height: 4,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 2,
-    overflow: "hidden",
+    width:           TRACK_W,
+    height:          3,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius:    2,
+    overflow:        "hidden",
   },
   progressBar: {
-    height: "100%",
+    position:     "absolute",
+    top:          0,
+    left:         0,
+    height:       "100%",
     borderRadius: 2,
-    overflow: "hidden",
+    overflow:     "hidden",
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 11,
-    color: Colors.dark.primary,
-    letterSpacing: 2.5,
-    fontWeight: "600",
+  progressDot: {
+    position:      "absolute",
+    top:           (DOT_SIZE + 4) / 2 - DOT_SIZE / 2,
+    width:         DOT_SIZE,
+    height:        DOT_SIZE,
+    borderRadius:  DOT_SIZE / 2,
+    backgroundColor: G.white,
+    shadowColor:    G.white,
+    shadowOffset:   { width: 0, height: 0 },
+    shadowOpacity:  0.9,
+    shadowRadius:   5,
+  },
+  pctText: {
+    fontSize:    12,
+    fontWeight:  "700",
+    color:       G.green,
+    letterSpacing: 0.5,
+    minWidth:    36,
+  },
+  subStatus: {
+    fontSize:    9,
+    fontWeight:  "500",
+    color:       "rgba(159,176,199,0.6)",
+    letterSpacing: 2,
     textTransform: "uppercase",
-    opacity: 0.85,
+    marginTop:   2,
   },
 });
