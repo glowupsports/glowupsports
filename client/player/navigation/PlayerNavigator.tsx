@@ -97,6 +97,7 @@ import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import PlayerAICoachScreen from "@/player/screens/PlayerAICoachScreen";
+import PlayerDNAWizardScreen from "@/player/screens/PlayerDNAWizard";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import PlayerEditProfileScreen from "@/player/screens/PlayerEditProfileScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
@@ -369,6 +370,7 @@ export type PlayerStackParamList = {
     playerId?: string;
   } | undefined;
   PlayerAICoach: undefined;
+  PlayerDNAWizard: undefined;
 };
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -1501,6 +1503,15 @@ function PlayerStackNavigator() {
       <Stack.Screen name="Schedule" component={LegacyScheduleRedirect} options={{ headerShown: false }} />
       <Stack.Screen name="Quests" component={LegacyQuestsRedirect} options={{ headerShown: false }} />
       <Stack.Screen name="Progress" component={LegacyProgressRedirect} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="PlayerDNAWizard"
+        component={PlayerDNAWizardScreen}
+        options={{
+          presentation: "fullScreenModal",
+          headerShown: false,
+          animation: "slide_from_bottom",
+        }}
+      />
     </Stack.Navigator>
   );
 }

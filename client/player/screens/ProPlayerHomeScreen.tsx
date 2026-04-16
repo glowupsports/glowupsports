@@ -922,6 +922,9 @@ function PlayerHomeContent() {
             />
           </View>
 
+        {/* PLAYER DNA BANNER - shows profile completion progress */}
+        {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
+
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
 
@@ -1133,6 +1136,137 @@ function PlayerHomeContent() {
     </View>
   );
 }
+
+function PlayerDNABanner({ playerId }: { playerId: string }) {
+  const navigation = useNavigation<any>();
+  const [dismissed, setDismissed] = useState(false);
+
+  const { data: profileData } = useQuery<{ player: Record<string, unknown> | null }>({
+    queryKey: ["/api/player/me/profile"],
+    enabled: !!playerId && !dismissed,
+    staleTime: 60000,
+  });
+
+  if (dismissed) return null;
+
+  const p = profileData?.player as Record<string, unknown> | null | undefined;
+  if (!p) return null;
+
+  const DNA_FIELDS = [
+    !!p.dominantHand,
+    !!p.height,
+    !!p.tshirtSize,
+    !!p.playStyle,
+    !!p.tennisIdol,
+    Array.isArray(p.enjoymentTags) && (p.enjoymentTags as unknown[]).length > 0,
+    !!p.shortTermGoal,
+    Array.isArray(p.typicalPlayTimes) && (p.typicalPlayTimes as unknown[]).length > 0,
+    !!p.profilePhotoUrl,
+  ];
+  const filled = DNA_FIELDS.filter(Boolean).length;
+  const total = DNA_FIELDS.length;
+  const pct = Math.round((filled / total) * 100);
+
+  if (pct >= 100) return null;
+
+  return (
+    <Pressable
+      style={dnaBannerStyles.card}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        navigation.navigate("PlayerDNAWizard");
+      }}
+      accessibilityLabel="Complete your player DNA profile"
+    >
+      <View style={dnaBannerStyles.row}>
+        <View style={dnaBannerStyles.iconWrap}>
+          <Ionicons name="dna" size={20} color={GlowColors.primary} />
+        </View>
+        <View style={dnaBannerStyles.textWrap}>
+          <Text style={dnaBannerStyles.title}>Complete Your Player DNA</Text>
+          <Text style={dnaBannerStyles.sub}>{filled}/{total} fields complete — {pct}%</Text>
+        </View>
+        <Pressable
+          style={dnaBannerStyles.dismissBtn}
+          onPress={e => { e.stopPropagation(); setDismissed(true); }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
+      </View>
+      <View style={dnaBannerStyles.progressTrack}>
+        <View style={[dnaBannerStyles.progressFill, { width: `${pct}%` as any }]} />
+      </View>
+      <View style={dnaBannerStyles.footer}>
+        <Text style={dnaBannerStyles.cta}>Build your profile</Text>
+        <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+      </View>
+    </Pressable>
+  );
+}
+
+const dnaBannerStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: "rgba(200,255,61,0.06)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.2)",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(200,255,61,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  textWrap: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  sub: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  dismissBtn: {
+    padding: 4,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: GlowColors.primary,
+    borderRadius: 2,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  cta: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: GlowColors.primary,
+  },
+});
 
 export default function ProPlayerHomeScreen() {
   return (

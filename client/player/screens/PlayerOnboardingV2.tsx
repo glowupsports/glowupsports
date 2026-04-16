@@ -359,6 +359,189 @@ function WelcomeStep({ onNext }: StepProps) {
   );
 }
 
+function AboutYouStep({ data, setData, playerName }: StepProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [parentEmail, setParentEmail] = useState(data.parentEmail || "");
+
+  const years = Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i);
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+  const days = selectedYear !== null && selectedMonth !== null
+    ? Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1)
+    : [];
+
+  const handleConfirmDate = () => {
+    if (selectedYear !== null && selectedMonth !== null && selectedDay !== null) {
+      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
+      setData(prev => ({ ...prev, dateOfBirth: dateStr }));
+      setShowPicker(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const age = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+  const ageGroup = age !== null ? getAgeGroup(age) : null;
+  const isMinor = age !== null && age < 16;
+
+  const formatDate = (s: string) => new Date(s).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+  const genderOptions = [
+    { id: "male", label: "Male", icon: "male-outline" },
+    { id: "female", label: "Female", icon: "female-outline" },
+    { id: "prefer_not_to_say", label: "Prefer not to say", icon: "person-outline" },
+  ];
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>
+          {playerName ? `Hey ${playerName}!` : "About You"}
+        </Text>
+        <Text style={styles.stepSubtitle}>Quick details to personalize your experience.</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.sectionContainer}>
+        <Text style={styles.sectionLabel}>Date of Birth</Text>
+        <Pressable
+          style={[styles.datePickerButton, data.dateOfBirth ? styles.datePickerButtonActive : null]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (data.dateOfBirth) {
+              const d = new Date(data.dateOfBirth);
+              setSelectedYear(d.getFullYear());
+              setSelectedMonth(d.getMonth());
+              setSelectedDay(d.getDate());
+            }
+            setShowPicker(true);
+          }}
+        >
+          <Ionicons name="calendar-outline" size={20} color={data.dateOfBirth ? GlowColors.primary : Colors.dark.textMuted} />
+          <Text style={[styles.datePickerText, data.dateOfBirth ? styles.datePickerTextActive : null]}>
+            {data.dateOfBirth ? formatDate(data.dateOfBirth) : "Tap to select your birthday"}
+          </Text>
+          {age !== null ? (
+            <View style={styles.ageBadge}><Text style={styles.ageBadgeText}>{age} yrs</Text></View>
+          ) : null}
+        </Pressable>
+        {age !== null && ageGroup ? (
+          <Animated.View entering={FadeIn.delay(100)} style={styles.ageGroupCard}>
+            <Ionicons
+              name={ageGroup === "kid" ? "happy-outline" : ageGroup === "teen" ? "flash-outline" : "person-outline"}
+              size={20} color={GlowColors.primary}
+            />
+            <Text style={styles.ageGroupText}>
+              {age < 4 ? "Little Champion" : ageGroup === "kid" ? "Junior Player" : ageGroup === "teen" ? "Rising Star" : "Adult Player"}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </Animated.View>
+
+      {data.dateOfBirth ? (
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Gender</Text>
+          <View style={styles.genderContainer}>
+            {genderOptions.map(opt => (
+              <Pressable
+                key={opt.id}
+                style={[styles.genderCard, data.gender === opt.id ? styles.genderCardActive : null]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setData(prev => ({ ...prev, gender: opt.id }));
+                }}
+              >
+                <View style={[styles.genderIcon, data.gender === opt.id ? styles.genderIconActive : null]}>
+                  <Ionicons name={opt.icon as any} size={22} color={data.gender === opt.id ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+                </View>
+                <Text style={[styles.genderText, data.gender === opt.id ? styles.genderTextActive : null]}>
+                  {opt.label}
+                </Text>
+                {data.gender === opt.id ? <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} /> : null}
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      ) : null}
+
+      {isMinor ? (
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>Parent's Email</Text>
+          <TextInput
+            style={styles.textInput}
+            value={parentEmail}
+            onChangeText={text => {
+              setParentEmail(text);
+              setData(prev => ({ ...prev, parentEmail: text }));
+            }}
+            placeholder="parent@email.com"
+            placeholderTextColor={Colors.dark.textMuted}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Text style={styles.hintText}>Required for players under 16</Text>
+        </Animated.View>
+      ) : null}
+
+      <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
+          <Pressable style={styles.datePickerModal} onPress={() => {}}>
+            <Text style={styles.datePickerModalTitle}>Select Birthday</Text>
+            <View style={styles.datePickerColumns}>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.datePickerColumnLabel}>Year</Text>
+                <ScrollView style={styles.datePickerScroll} showsVerticalScrollIndicator={false}>
+                  {years.map(year => (
+                    <Pressable key={year} style={[styles.datePickerItem, selectedYear === year ? styles.datePickerItemActive : null]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedYear(year); }}>
+                      <Text style={[styles.datePickerItemText, selectedYear === year ? styles.datePickerItemTextActive : null]}>{year}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.datePickerColumnLabel}>Month</Text>
+                <ScrollView style={styles.datePickerScroll} showsVerticalScrollIndicator={false}>
+                  {months.map((month, index) => (
+                    <Pressable key={month} style={[styles.datePickerItem, selectedMonth === index ? styles.datePickerItemActive : null]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedMonth(index); }}>
+                      <Text style={[styles.datePickerItemText, selectedMonth === index ? styles.datePickerItemTextActive : null]}>{month.substring(0, 3)}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.datePickerColumnLabel}>Day</Text>
+                <ScrollView style={styles.datePickerScroll} showsVerticalScrollIndicator={false}>
+                  {days.map(day => (
+                    <Pressable key={day} style={[styles.datePickerItem, selectedDay === day ? styles.datePickerItemActive : null]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedDay(day); }}>
+                      <Text style={[styles.datePickerItemText, selectedDay === day ? styles.datePickerItemTextActive : null]}>{day}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+            <View style={styles.datePickerActions}>
+              <Pressable style={styles.datePickerCancelButton} onPress={() => setShowPicker(false)}>
+                <Text style={styles.datePickerCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.datePickerConfirmButton, !(selectedYear && selectedMonth !== null && selectedDay) ? styles.datePickerConfirmButtonDisabled : null]}
+                onPress={handleConfirmDate}
+                disabled={!(selectedYear && selectedMonth !== null && selectedDay)}
+              >
+                <Text style={styles.datePickerConfirmText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </ScrollView>
+  );
+}
+
 function SportAndSkillStep({ data, setData }: StepProps) {
   const toggleSport = (sportKey: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -2647,8 +2830,8 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const canProceed = () => {
     switch (currentStep) {
       case 0: return true; // Welcome
-      case 1: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
-      case 2: return true; // Goals (optional)
+      case 1: return !!data.dateOfBirth; // About You — DOB required
+      case 2: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
       case 3: return true; // Academy (optional)
       case 4: return true; // Completion
       default: return false;
@@ -2660,8 +2843,8 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
 
     switch (currentStep) {
       case 0: return <WelcomeStep {...stepProps} />;
-      case 1: return <SportAndSkillStep {...stepProps} />;
-      case 2: return <GoalSettingStep {...stepProps} />;
+      case 1: return <AboutYouStep {...stepProps} />;
+      case 2: return <SportAndSkillStep {...stepProps} />;
       case 3: return <AcademySelectionStep {...stepProps} />;
       case 4: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;

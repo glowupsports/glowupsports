@@ -1125,6 +1125,8 @@ export const updatePlayerSchema = z.object({
   parentPhone: z.string().max(50).optional().nullable(),
   parentEmail: z.string().email("Invalid parent email").optional().nullable().or(z.literal("")),
   parentReporting: z.boolean().optional(),
+  enjoymentTags: z.array(z.string()).optional().nullable(),
+  gender: z.enum(["male", "female", "prefer_not_to_say"]).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,
@@ -1168,6 +1170,8 @@ export const playerSelfUpdateSchema = z.object({
   homeLng: z.number().optional().nullable(),
   parentName: z.string().max(100).optional().nullable(),
   parentPhone: z.string().max(50).optional().nullable(),
+  enjoymentTags: z.array(z.string()).optional().nullable(),
+  gender: z.enum(["male", "female", "prefer_not_to_say"]).optional().nullable(),
 });
 
 // Youth Ball Stages - Constants for skill level progression

@@ -87,7 +87,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Task #597: Document intentional scope decision in code comment (no logic change)\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Task #604: Fast Gate onboarding + Player DNA wizard + DNA banner on home\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"
