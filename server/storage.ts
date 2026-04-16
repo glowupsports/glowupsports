@@ -7404,14 +7404,15 @@ export const storage = {
       JOIN sessions s ON sp.session_id = s.id
       WHERE sp.player_id = ${playerId}
         AND sp.attendance_status = 'present'
-        AND (
-          sp.credit_transaction_id IS NULL
-          OR sp.credit_transaction_id LIKE 'debt-fix-%'
-          OR NOT EXISTS (
-            SELECT 1 FROM credit_transactions ct
-            WHERE ct.id = sp.credit_transaction_id
-              AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
-          )
+        AND NOT EXISTS (
+          SELECT 1 FROM credit_transactions ct
+          WHERE ct.id = sp.credit_transaction_id
+            AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+            AND ct.package_id IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM packages pkg
+              WHERE pkg.id = ct.package_id
+            )
         )
       GROUP BY s.session_type
     `);
