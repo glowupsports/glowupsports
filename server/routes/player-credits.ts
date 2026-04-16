@@ -139,7 +139,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         const balance = await storage.getPlayerCreditBalanceByType(playerId);
-        res.json(balance);
+        const uncoveredSessions = await storage.getUncoveredSessionsByType(playerId);
+        const hasUncoveredSessions = uncoveredSessions.group + uncoveredSessions.semi_private + uncoveredSessions.private > 0;
+        res.json({ ...balance, uncoveredSessions, hasUncoveredSessions });
       } catch (error) {
         console.error("Error fetching credit balance:", error);
         res.status(500).json({ error: "Failed to fetch credit balance" });

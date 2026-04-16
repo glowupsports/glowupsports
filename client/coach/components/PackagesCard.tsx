@@ -196,6 +196,8 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     private: number;
     totalDebt: number;
     hasDebt: boolean;
+    uncoveredSessions: { group: number; semi_private: number; private: number };
+    hasUncoveredSessions: boolean;
   }>({
     queryKey: [`/api/players/${playerId}/credit-balance`],
   });
@@ -543,7 +545,9 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
       <View style={styles.creditTypeRow}>
         {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
-          const balance = creditBalance ? creditBalance[type] : creditsByType[type];
+          const rawBalance = creditBalance ? creditBalance[type] : creditsByType[type];
+          const uncovered = creditBalance?.uncoveredSessions?.[type] ?? 0;
+          const balance = rawBalance - uncovered;
           const isDebt = balance < 0;
           const isZeroWithDepletedPackage = balance === 0 && depletedByType[type];
           const dynamicColor = isDebt
@@ -566,20 +570,24 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         })}
       </View>
 
-      {creditBalance && (creditBalance.group < 0 || creditBalance.semi_private < 0 || creditBalance.private < 0) ? (
-        <View style={styles.debtExplanation}>
-          <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
-          <Text style={styles.debtExplanationText}>
-            {(() => {
-              const parts: string[] = [];
-              if (creditBalance.group < 0) parts.push(`${Math.abs(creditBalance.group)} group`);
-              if (creditBalance.semi_private < 0) parts.push(`${Math.abs(creditBalance.semi_private)} semi-private`);
-              if (creditBalance.private < 0) parts.push(`${Math.abs(creditBalance.private)} private`);
-              return `${parts.join(", ")} session(s) attended without active package`;
-            })()}
-          </Text>
-        </View>
-      ) : null}
+      {creditBalance && (() => {
+        const effectiveGroup = creditBalance.group - (creditBalance.uncoveredSessions?.group ?? 0);
+        const effectiveSemi = creditBalance.semi_private - (creditBalance.uncoveredSessions?.semi_private ?? 0);
+        const effectivePrivate = creditBalance.private - (creditBalance.uncoveredSessions?.private ?? 0);
+        if (effectiveGroup >= 0 && effectiveSemi >= 0 && effectivePrivate >= 0) return null;
+        const parts: string[] = [];
+        if (effectiveGroup < 0) parts.push(`${Math.abs(effectiveGroup)} group`);
+        if (effectiveSemi < 0) parts.push(`${Math.abs(effectiveSemi)} semi-private`);
+        if (effectivePrivate < 0) parts.push(`${Math.abs(effectivePrivate)} private`);
+        return (
+          <View style={styles.debtExplanation}>
+            <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
+            <Text style={styles.debtExplanationText}>
+              {`${parts.join(", ")} session(s) attended without active package`}
+            </Text>
+          </View>
+        );
+      })()}
 
       {packages.length === 0 && !isLoading ? (
         <View style={styles.emptyState}>

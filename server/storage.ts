@@ -7392,6 +7392,37 @@ export const storage = {
     };
   },
 
+  async getUncoveredSessionsByType(playerId: string): Promise<{ group: number; semi_private: number; private: number }> {
+    const normalizeType = (t: string): "group" | "semi_private" | "private" => {
+      if (t === "semi_private" || t === "semi_private_adjusted") return "semi_private";
+      if (t === "private" || t === "private_adjusted") return "private";
+      return "group";
+    };
+    const result = await db.execute(sql`
+      SELECT s.session_type, count(*)::int as cnt
+      FROM session_players sp
+      JOIN sessions s ON sp.session_id = s.id
+      WHERE sp.player_id = ${playerId}
+        AND sp.attendance_status = 'present'
+        AND (
+          sp.credit_transaction_id IS NULL
+          OR sp.credit_transaction_id LIKE 'debt-fix-%'
+          OR NOT EXISTS (
+            SELECT 1 FROM credit_transactions ct
+            WHERE ct.id = sp.credit_transaction_id
+              AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+          )
+        )
+      GROUP BY s.session_type
+    `);
+    const out: { group: number; semi_private: number; private: number } = { group: 0, semi_private: 0, private: 0 };
+    for (const row of result.rows) {
+      const type = normalizeType((row as any).session_type as string);
+      out[type] += Number((row as any).cnt);
+    }
+    return out;
+  },
+
   // Cancel/reverse debt transaction when attendance changes to holiday/vacation, or when
   // a session is cancelled. Removes debt for sessions the player legitimately did not attend.
   async cancelSessionDebt(playerId: string, sessionId: string, reason: string = "attendance_changed_to_holiday"): Promise<{ cancelled: boolean; amount: number }> {
