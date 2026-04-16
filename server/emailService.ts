@@ -56,7 +56,7 @@ async function getResendClient() {
   return {
     client: new Resend(apiKey),
     // Use verified subdomain - admin.glowupsports.com is verified in Resend
-    fromEmail: 'Glow Up Sports <noreply@admin.glowupsports.com>'
+    fromEmail: 'Glow Up Sports <hello@admin.glowupsports.com>'
   };
 }
 
@@ -74,6 +74,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
     const result = await client.emails.send({
       from: fromEmail,
       to: options.to,
+      reply_to: 'support@glowupsports.com',
       subject: options.subject,
       html: options.html,
       text: options.text
@@ -335,7 +336,7 @@ export async function sendLevelUpEmail(params: {
 
   return sendEmail({
     to,
-    subject: `Congratulations! You've reached ${newLevel} level!`,
+    subject: `You reached ${newLevel} level on Glow Up Sports`,
     html,
     text: `Congratulations ${playerName}! You've reached ${newLevel} level with ${totalXP} XP. Keep up the amazing work!`
   });
@@ -397,7 +398,7 @@ export async function sendCoachInviteEmail(params: {
 
   return sendEmail({
     to,
-    subject: `You're invited to join ${academyName} on Glow Up Sports`,
+    subject: `Join ${academyName} as a coach on Glow Up Sports`,
     html,
     text: `${inviterName} has invited you to join ${academyName} as a coach on Glow Up Sports.${inviteCode ? ` Your invite code: ${inviteCode}` : ''}`
   });
@@ -510,7 +511,7 @@ export async function sendPlayerInviteEmail(params: {
 
   return sendEmail({
     to,
-    subject: `Your invite to ${academyName} on Glow Up Sports — Code: ${inviteCode}`,
+    subject: `Join ${academyName} on Glow Up Sports (${inviteCode})`,
     html,
     text: `Hi ${playerName}, you have been invited to join ${academyName} on Glow Up Sports.\n\nYour invite code: ${inviteCode}${inviteLink ? `\n\nTap this link to open the app directly: ${inviteLink}` : ""}\n\nDownload the app from TestFlight: https://testflight.apple.com/join/glowupsports\nThen tap "I have an invite code" and enter your code to get started.`,
   });
@@ -788,7 +789,7 @@ export async function sendOTPEmail(email: string): Promise<{ success: boolean; e
 
     const result = await sendEmail({
       to: email,
-      subject: `${code} - Your Glow Up Sports Verification Code`,
+      subject: `Your Glow Up Sports sign-in code: ${code}`,
       html,
       text: `Your Glow Up Sports verification code is: ${code}. This code expires in 10 minutes.`,
     });
@@ -1392,7 +1393,7 @@ export async function sendCorporateMonthlyReportEmail(params: {
 
   return sendEmail({
     to,
-    subject: `${companyName} Corporate Credit Report — ${month}`,
+    subject: `${companyName} Corporate Credit Report for ${month}`,
     html,
     text: `Monthly report for ${companyName}: Credits remaining: ${creditBalance}, Credits used: ${totalCreditsUsed}, Active members: ${activeMembers}.`,
   });
