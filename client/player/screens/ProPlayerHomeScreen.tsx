@@ -1170,7 +1170,7 @@ function TennisIQCard() {
   const [answers, setAnswers] = useState<string[]>([]);
 
   // Fetch server profile for authoritative quiz score (deduped by TanStack Query)
-  const { data: profileData } = useQuery<{ quizScore?: number | null }>({
+  const { data: profileData } = useQuery<{ player: { quizScore?: number | null } | null }>({
     queryKey: ["/api/player/me/profile"],
     staleTime: 5 * 60 * 1000,
   });
@@ -1178,7 +1178,7 @@ function TennisIQCard() {
   useEffect(() => {
     AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY).then(val => {
       // Server is source of truth — prefer it if available, fall back to local cache
-      const serverScore = profileData?.quizScore ?? null;
+      const serverScore = profileData?.player?.quizScore ?? null;
       if (serverScore !== null && serverScore !== undefined) {
         setScore(serverScore);
         AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(serverScore));
