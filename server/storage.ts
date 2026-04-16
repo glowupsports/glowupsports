@@ -1922,8 +1922,18 @@ export const storage = {
     } else if (statusFilter === "pending_payment") {
       playerWhere.push(eq(players.status, "pending_payment"));
     } else if (!statusFilter || statusFilter === "active") {
-      playerWhere.push(ne(players.status, "inactive"));
-      playerWhere.push(ne(players.status, "pending_payment"));
+      // Preserve legacy JS-side filter semantics: rows with NULL status
+      // were treated as active (because `null !== 'inactive'` is true in JS).
+      // Use OR(IS NULL, status NOT IN (...)) so SQL pushdown matches.
+      playerWhere.push(
+        or(
+          isNull(players.status),
+          and(
+            ne(players.status, "inactive"),
+            ne(players.status, "pending_payment"),
+          )!,
+        )!,
+      );
     }
     const playerList = playerWhere.length > 0
       ? await db.select().from(players).where(and(...playerWhere))

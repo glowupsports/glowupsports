@@ -260,21 +260,24 @@ export default function PlayersScreen() {
   // can hydrate from disk before the network call resolves. Keys are
   // scoped per coach + academy so cached data is never shared across
   // accounts on the same device.
+  // We persist empty arrays too (gated on isFetched / !isLoading) so a
+  // deletion or status change that empties a tab doesn't leave a stale
+  // non-empty cached list on disk.
   useEffect(() => {
-    if (players.length > 0) {
+    if (!isLoading) {
       AsyncStorage.setItem(cacheKeys.active, JSON.stringify(players)).catch(() => {});
     }
-  }, [players, cacheKeys.active]);
+  }, [players, cacheKeys.active, isLoading]);
   useEffect(() => {
-    if (pastPlayers.length > 0) {
+    if (!isPastLoading) {
       AsyncStorage.setItem(cacheKeys.past, JSON.stringify(pastPlayers)).catch(() => {});
     }
-  }, [pastPlayers, cacheKeys.past]);
+  }, [pastPlayers, cacheKeys.past, isPastLoading]);
   useEffect(() => {
-    if (pendingPaymentPlayers.length > 0) {
+    if (!isPendingPaymentLoading) {
       AsyncStorage.setItem(cacheKeys.pending, JSON.stringify(pendingPaymentPlayers)).catch(() => {});
     }
-  }, [pendingPaymentPlayers, cacheKeys.pending]);
+  }, [pendingPaymentPlayers, cacheKeys.pending, isPendingPaymentLoading]);
 
   const invalidatePlayerLists = () => {
     queryClient.invalidateQueries({

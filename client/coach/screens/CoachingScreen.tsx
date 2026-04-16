@@ -7,10 +7,10 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
@@ -49,6 +49,24 @@ export default function CoachingScreen() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const { coach } = useCoach();
   const { registerTabCallback } = useTabNavigation();
+  const queryClient = useQueryClient();
+
+  // Warm the Players-tab queries the moment the Coaching tab gains
+  // focus so tapping into Players opens instantly from cache. The
+  // staleTime on those queries (60s) keeps this cheap on rapid
+  // navigations.
+  useFocusEffect(
+    React.useCallback(() => {
+      const keys = [
+        "/api/players?withCredits=true",
+        "/api/players?withCredits=true&status=inactive",
+        "/api/players?withCredits=true&status=pending_payment",
+      ];
+      keys.forEach((k) => {
+        queryClient.prefetchQuery({ queryKey: [k] }).catch(() => {});
+      });
+    }, [queryClient]),
+  );
 
   useEffect(() => {
     const unregister = registerTabCallback("Coaching", (screen: string) => {
