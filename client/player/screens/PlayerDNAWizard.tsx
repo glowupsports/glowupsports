@@ -21,6 +21,8 @@ import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, GlowColors, BorderRadius, FontSizes, Backgrounds } from "@/constants/theme";
 import { TshirtSize } from "@shared/schema";
 import { useNavigation } from "@react-navigation/native";
+import type { NavigationProp } from "@react-navigation/native";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 const DNA_CARDS = [
   { id: "hand",  title: "Dominant Hand",   subtitle: "Which hand do you play with?",           icon: "hand-left-outline" },
@@ -100,7 +102,7 @@ interface Props {
 
 export default function PlayerDNAWizardScreen({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
   const queryClient = useQueryClient();
   const [currentCard, setCurrentCard] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -196,6 +198,8 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (currentCard < DNA_CARDS.length - 1) {
+      // Autosave in background on each card transition to preserve partial progress
+      saveMutation.mutate(buildPayload());
       setCurrentCard(prev => prev + 1);
     } else {
       handleSaveAndClose();
@@ -232,7 +236,10 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
           const filename = uri.split("/").pop() || "photo.jpg";
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1].toLowerCase().replace("jpg", "jpeg")}` : "image/jpeg";
-          (formData as any).append("photo", { uri, name: filename, type });
+          // React Native FormData accepts { uri, name, type } — cast required as web types don't include this
+          (formData.append as (key: string, value: { uri: string; name: string; type: string }) => void)(
+            "photo", { uri, name: filename, type }
+          );
         }
         const authToken = await import("@/lib/auth").then(m => m.getAuthToken());
         const uploadRes = await fetch(

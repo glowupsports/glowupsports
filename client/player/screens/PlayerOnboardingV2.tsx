@@ -2811,6 +2811,13 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const handleNext = () => {
     if (currentStep < TOTAL_STEPS - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      // Auto-calculate ball level from DOB when leaving the About You step (step 1)
+      if (currentStep === 1 && data.dateOfBirth && !data.ballLevel) {
+        const playerAge = calculateAge(data.dateOfBirth);
+        const calculated = getBallLevel(playerAge);
+        const levelToSave = playerAge >= 18 ? "glow" : calculated.level.toLowerCase();
+        setData(prev => ({ ...prev, ballLevel: levelToSave }));
+      }
       setCurrentStep((prev) => prev + 1);
     }
   };

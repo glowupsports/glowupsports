@@ -5,6 +5,8 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NavigationProp } from "@react-navigation/native";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/query-client";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
@@ -925,6 +927,9 @@ function PlayerHomeContent() {
         {/* PLAYER DNA BANNER - shows profile completion progress */}
         {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
 
+        {/* TENNIS IQ CARD - quiz relocated from onboarding to home screen */}
+        {!isGuest ? <TennisIQCard /> : null}
+
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
 
@@ -1137,29 +1142,225 @@ function PlayerHomeContent() {
   );
 }
 
+const TENNIS_IQ_SCORE_KEY = "@glow_tennis_iq_score";
+
+const TENNIS_IQ_QUESTIONS = [
+  {
+    q: "What's the score when a game starts?",
+    opts: ["0-0", "Love-Love", "15-15", "First-First"],
+    correct: "Love-Love",
+  },
+  {
+    q: "What's it called when you hit the ball before it bounces?",
+    opts: ["Smash", "Volley", "Lob", "Drop shot"],
+    correct: "Volley",
+  },
+  {
+    q: "How many sets do you need to win a match?",
+    opts: ["1", "2", "3", "Depends on the tournament"],
+    correct: "Depends on the tournament",
+  },
+];
+
+function TennisIQCard() {
+  const [score, setScore] = useState<number | null>(null);
+  const [scoreLoaded, setScoreLoaded] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY).then(val => {
+      if (val !== null) setScore(parseInt(val, 10));
+      setScoreLoaded(true);
+    });
+  }, []);
+
+  const handleAnswer = (answer: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newAnswers = [...answers, answer];
+    setAnswers(newAnswers);
+    if (currentQ < TENNIS_IQ_QUESTIONS.length - 1) {
+      setCurrentQ(prev => prev + 1);
+    } else {
+      const finalScore = newAnswers.filter((a, i) => a === TENNIS_IQ_QUESTIONS[i].correct).length;
+      setScore(finalScore);
+      AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(finalScore));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleRetake = () => {
+    setCurrentQ(0);
+    setAnswers([]);
+    setShowModal(true);
+  };
+
+  const quizComplete = answers.length === TENNIS_IQ_QUESTIONS.length;
+  const liveScore = answers.filter((a, i) => a === TENNIS_IQ_QUESTIONS[i].correct).length;
+
+  if (!scoreLoaded) return null;
+
+  return (
+    <>
+      <Pressable
+        style={iqCardStyles.card}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          if (score !== null) {
+            handleRetake();
+          } else {
+            setShowModal(true);
+          }
+        }}
+        accessibilityLabel="Test your tennis IQ"
+      >
+        <View style={iqCardStyles.row}>
+          <View style={iqCardStyles.iconWrap}>
+            <Ionicons name="bulb-outline" size={20} color="#FFD700" />
+          </View>
+          <View style={iqCardStyles.textWrap}>
+            <Text style={iqCardStyles.title}>Test Your Tennis IQ</Text>
+            {score !== null ? (
+              <Text style={iqCardStyles.sub}>Your score: {score}/{TENNIS_IQ_QUESTIONS.length} — Tap to retake</Text>
+            ) : (
+              <Text style={iqCardStyles.sub}>3 quick questions — how well do you know the game?</Text>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#FFD700" />
+        </View>
+        {score !== null ? (
+          <View style={iqCardStyles.scoreRow}>
+            {Array.from({ length: TENNIS_IQ_QUESTIONS.length }).map((_, i) => (
+              <View
+                key={i}
+                style={[iqCardStyles.scoreDot, i < score ? iqCardStyles.scoreDotFilled : iqCardStyles.scoreDotEmpty]}
+              />
+            ))}
+          </View>
+        ) : null}
+      </Pressable>
+
+      <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
+        <View style={iqCardStyles.modalOverlay}>
+          <View style={iqCardStyles.modalSheet}>
+            <View style={iqCardStyles.modalHandle} />
+            <Text style={iqCardStyles.modalTitle}>Tennis IQ Quiz</Text>
+
+            {quizComplete ? (
+              <View style={iqCardStyles.resultWrap}>
+                <View style={iqCardStyles.resultCircle}>
+                  <Text style={iqCardStyles.resultScore}>{liveScore}/{TENNIS_IQ_QUESTIONS.length}</Text>
+                </View>
+                <Text style={iqCardStyles.resultLabel}>
+                  {liveScore === 3 ? "Perfect score!" : liveScore >= 2 ? "Well done!" : "Keep learning!"}
+                </Text>
+                <Pressable
+                  style={iqCardStyles.doneBtn}
+                  onPress={() => { setShowModal(false); setCurrentQ(0); setAnswers([]); }}
+                >
+                  <Text style={iqCardStyles.doneBtnText}>Done</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={iqCardStyles.quizBody}>
+                <Text style={iqCardStyles.questionNum}>Question {currentQ + 1} of {TENNIS_IQ_QUESTIONS.length}</Text>
+                <Text style={iqCardStyles.question}>{TENNIS_IQ_QUESTIONS[currentQ].q}</Text>
+                {TENNIS_IQ_QUESTIONS[currentQ].opts.map(opt => (
+                  <Pressable key={opt} style={iqCardStyles.optionBtn} onPress={() => handleAnswer(opt)}>
+                    <Text style={iqCardStyles.optionText}>{opt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const iqCardStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: "rgba(255,215,0,0.06)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.2)",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+  iconWrap: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(255,215,0,0.12)",
+    justifyContent: "center", alignItems: "center",
+  },
+  textWrap: { flex: 1 },
+  title: { fontSize: 13, fontWeight: "700", color: Colors.dark.text },
+  sub: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 },
+  scoreRow: { flexDirection: "row", gap: 6, paddingTop: 2 },
+  scoreDot: { width: 8, height: 8, borderRadius: 4 },
+  scoreDotFilled: { backgroundColor: "#FFD700" },
+  scoreDotEmpty: { backgroundColor: "rgba(255,255,255,0.12)" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+  modalSheet: {
+    backgroundColor: "#1a1a1a", borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: Spacing.xl, paddingBottom: 48, gap: Spacing.lg,
+  },
+  modalHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "center",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.dark.text, textAlign: "center" },
+  resultWrap: { alignItems: "center", gap: Spacing.lg },
+  resultCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: "rgba(255,215,0,0.15)",
+    borderWidth: 2, borderColor: "#FFD700",
+    justifyContent: "center", alignItems: "center",
+  },
+  resultScore: { fontSize: 22, fontWeight: "800", color: "#FFD700" },
+  resultLabel: { fontSize: 16, fontWeight: "700", color: Colors.dark.text },
+  doneBtn: {
+    backgroundColor: GlowColors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md, alignSelf: "stretch",
+  },
+  doneBtnText: { textAlign: "center", fontWeight: "700", fontSize: 15, color: "#000" },
+  quizBody: { gap: Spacing.md },
+  questionNum: { fontSize: 11, color: Colors.dark.textMuted, textTransform: "uppercase", letterSpacing: 1 },
+  question: { fontSize: 16, fontWeight: "700", color: Colors.dark.text, lineHeight: 22 },
+  optionBtn: {
+    backgroundColor: "rgba(255,255,255,0.06)", borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+  },
+  optionText: { fontSize: 14, color: Colors.dark.text, fontWeight: "500" },
+});
+
 function PlayerDNABanner({ playerId }: { playerId: string }) {
-  const navigation = useNavigation<any>();
-  const [dismissed, setDismissed] = useState(false);
+  const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
 
   const { data: profileData } = useQuery<{ player: Record<string, unknown> | null }>({
     queryKey: ["/api/player/me/profile"],
-    enabled: !!playerId && !dismissed,
+    enabled: !!playerId,
     staleTime: 60000,
   });
-
-  if (dismissed) return null;
 
   const p = profileData?.player as Record<string, unknown> | null | undefined;
   if (!p) return null;
 
+  // 11 DNA fields that define a complete player profile
   const DNA_FIELDS = [
     !!p.dominantHand,
+    !!p.backhandType,
     !!p.height,
     !!p.tshirtSize,
     !!p.playStyle,
     !!p.tennisIdol,
     Array.isArray(p.enjoymentTags) && (p.enjoymentTags as unknown[]).length > 0,
     !!p.shortTermGoal,
+    !!p.longTermDream,
     Array.isArray(p.typicalPlayTimes) && (p.typicalPlayTimes as unknown[]).length > 0,
     !!p.profilePhotoUrl,
   ];
@@ -1167,7 +1368,10 @@ function PlayerDNABanner({ playerId }: { playerId: string }) {
   const total = DNA_FIELDS.length;
   const pct = Math.round((filled / total) * 100);
 
+  // Banner auto-hides when 100% complete — no manual dismiss
   if (pct >= 100) return null;
+
+  const fillWidth: DimensionValue = `${pct}%`;
 
   return (
     <Pressable
@@ -1180,27 +1384,18 @@ function PlayerDNABanner({ playerId }: { playerId: string }) {
     >
       <View style={dnaBannerStyles.row}>
         <View style={dnaBannerStyles.iconWrap}>
-          <Ionicons name="dna" size={20} color={GlowColors.primary} />
+          <Ionicons name="analytics-outline" size={20} color={GlowColors.primary} />
         </View>
         <View style={dnaBannerStyles.textWrap}>
           <Text style={dnaBannerStyles.title}>Complete Your Player DNA</Text>
           <Text style={dnaBannerStyles.sub}>{filled}/{total} fields complete — {pct}%</Text>
         </View>
-        <Pressable
-          style={dnaBannerStyles.dismissBtn}
-          onPress={e => { e.stopPropagation(); setDismissed(true); }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
-        </Pressable>
+        <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
       </View>
       <View style={dnaBannerStyles.progressTrack}>
-        <View style={[dnaBannerStyles.progressFill, { width: `${pct}%` as any }]} />
+        <View style={[dnaBannerStyles.progressFill, { width: fillWidth }]} />
       </View>
-      <View style={dnaBannerStyles.footer}>
-        <Text style={dnaBannerStyles.cta}>Build your profile</Text>
-        <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
-      </View>
+      <Text style={dnaBannerStyles.cta}>Tap to build your profile</Text>
     </Pressable>
   );
 }
@@ -1242,9 +1437,6 @@ const dnaBannerStyles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
-  dismissBtn: {
-    padding: 4,
-  },
   progressTrack: {
     height: 4,
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -1255,11 +1447,6 @@ const dnaBannerStyles = StyleSheet.create({
     height: "100%",
     backgroundColor: GlowColors.primary,
     borderRadius: 2,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
   },
   cta: {
     fontSize: 12,
