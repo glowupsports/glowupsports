@@ -64,12 +64,12 @@ export function AnimatedSplashScreen({ isReady, onComplete, children }: Animated
   const particleOpacity = useSharedValue(0);
 
   useEffect(() => {
-    logoOpacity.value = withDelay(200, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    logoScale.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 100 }));
-    logoRotate.value = withDelay(200, withSpring(0, { damping: 15, stiffness: 80 }));
+    logoOpacity.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
+    logoScale.value = withSpring(1, { damping: 14, stiffness: 130 });
+    logoRotate.value = withSpring(0, { damping: 16, stiffness: 100 });
     
-    glowOpacity.value = withDelay(300, withTiming(0.6, { duration: 600 }));
-    glowScale.value = withDelay(300, withRepeat(
+    glowOpacity.value = withDelay(120, withTiming(0.6, { duration: 300 }));
+    glowScale.value = withDelay(120, withRepeat(
       withSequence(
         withTiming(1.2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
         withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) })
@@ -78,8 +78,8 @@ export function AnimatedSplashScreen({ isReady, onComplete, children }: Animated
       true
     ));
     
-    ringOpacity.value = withDelay(500, withTiming(0.3, { duration: 400 }));
-    ringScale.value = withDelay(500, withRepeat(
+    ringOpacity.value = withDelay(200, withTiming(0.3, { duration: 250 }));
+    ringScale.value = withDelay(200, withRepeat(
       withSequence(
         withTiming(1.3, { duration: 2000, easing: Easing.out(Easing.quad) }),
         withTiming(0.8, { duration: 0 })
@@ -88,12 +88,13 @@ export function AnimatedSplashScreen({ isReady, onComplete, children }: Animated
       false
     ));
     
-    textOpacity.value = withDelay(600, withTiming(1, { duration: 500 }));
-    textTranslateY.value = withDelay(600, withSpring(0, { damping: 15, stiffness: 100 }));
+    textOpacity.value = withDelay(250, withTiming(1, { duration: 280 }));
+    textTranslateY.value = withDelay(250, withSpring(0, { damping: 16, stiffness: 120 }));
     
-    particleOpacity.value = withDelay(400, withTiming(1, { duration: 400 }));
+    particleOpacity.value = withDelay(150, withTiming(1, { duration: 250 }));
     
-    progressWidth.value = withDelay(800, withTiming(100, { duration: 1200, easing: Easing.inOut(Easing.cubic) }));
+    // Progress bar starts immediately and fills in 700ms
+    progressWidth.value = withTiming(100, { duration: 700, easing: Easing.inOut(Easing.cubic) });
   }, []);
 
   useEffect(() => {
@@ -103,12 +104,12 @@ export function AnimatedSplashScreen({ isReady, onComplete, children }: Animated
       SplashScreen.hideAsync();
       
       setTimeout(() => {
-        logoScale.value = withTiming(1.5, { duration: 300 });
-        containerOpacity.value = withTiming(0, { duration: 400 }, () => {
+        logoScale.value = withTiming(1.5, { duration: 200 });
+        containerOpacity.value = withTiming(0, { duration: 280 }, () => {
           runOnJS(setShowSplash)(false);
           runOnJS(onComplete)();
         });
-      }, 1400);
+      }, 200);
     }
   }, [isReady]);
 

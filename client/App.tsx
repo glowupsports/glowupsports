@@ -199,9 +199,6 @@ export default function App() {
     async function prepare() {
       try {
         await initializeI18n();
-        await Promise.all([
-          new Promise(resolve => setTimeout(resolve, 500)),
-        ]);
       } catch (e) {
         console.warn(e);
       } finally {

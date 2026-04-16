@@ -53,12 +53,13 @@ export const setStoredLanguage = async (lang: LanguageCode): Promise<void> => {
 };
 
 export const initializeI18n = async () => {
-  const storedLang = await getStoredLanguage();
+  // Initialize synchronously with device language so the app is never blocked
+  // waiting on AsyncStorage before i18n is ready.
   const fallbackLang = getDeviceLanguage();
 
   await i18n.use(initReactI18next).init({
     resources,
-    lng: storedLang || fallbackLang,
+    lng: fallbackLang,
     fallbackLng: "en",
     interpolation: {
       escapeValue: false,
@@ -66,6 +67,14 @@ export const initializeI18n = async () => {
     react: {
       useSuspense: false,
     },
+  });
+
+  // Check stored preference in the background; update language if needed.
+  // This won't delay app startup — it resolves asynchronously after the UI is visible.
+  getStoredLanguage().then(storedLang => {
+    if (storedLang && storedLang !== i18n.language) {
+      i18n.changeLanguage(storedLang);
+    }
   });
 
   return i18n;
