@@ -183,6 +183,29 @@ JOIN players p ON p.id = sp.player_id
 WHERE sp.credit_transaction_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM credit_transactions ct WHERE ct.id = sp.credit_transaction_id);
 
+-- Duplicate (player_id, session_id) rows: keep deterministic winner.
+-- Winner rule (in order): meaningful attendance_status > earliest credit_deducted_at >
+-- earliest id. Losers go to cleanup_dups_to_delete.
+CREATE TEMP TABLE cleanup_dups_to_delete ON COMMIT DROP AS
+WITH ranked AS (
+  SELECT
+    sp.id, sp.player_id, sp.session_id, p.academy_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY sp.player_id, sp.session_id
+      ORDER BY
+        CASE WHEN sp.attendance_status IN ('present','late') THEN 0
+             WHEN sp.attendance_status IN ('absent') THEN 1
+             ELSE 2 END,
+        sp.credit_deducted_at NULLS LAST,
+        sp.id
+    ) AS rn
+  FROM session_players sp
+  JOIN players p ON p.id = sp.player_id
+  -- Only consider rows that survive the ghost+cancelled cleanup
+  WHERE EXISTS (SELECT 1 FROM sessions s WHERE s.id = sp.session_id AND s.status <> 'cancelled')
+)
+SELECT id, player_id, session_id, academy_id FROM ranked WHERE rn > 1;
+
 -- Step 1: NULL out broken credit_transaction_id FKs on session_players
 UPDATE session_players
 SET credit_transaction_id = NULL,
@@ -197,16 +220,21 @@ SET credit_transaction_id = NULL,
 WHERE credit_transaction_id IN (SELECT id FROM cleanup_cts_to_delete);
 
 -- Step 3: UNIFIED pre-NULL — clear credit_transactions.session_player_id for
--- ALL session_players we are about to delete (ghost + cancelled). Without this
--- the DELETE on session_players would violate
+-- ALL session_players we are about to delete (ghost + cancelled + duplicates).
+-- Without this the DELETE on session_players would violate
 -- credit_transactions_session_player_id_fkey.
 UPDATE credit_transactions
 SET session_player_id = NULL
-WHERE session_player_id IN (SELECT id FROM cleanup_sps_to_delete);
+WHERE session_player_id IN (SELECT id FROM cleanup_sps_to_delete)
+   OR session_player_id IN (SELECT id FROM cleanup_dups_to_delete);
 
--- Step 4: Delete ghost + cancelled session_players in one go
+-- Step 4a: Delete ghost + cancelled session_players
 DELETE FROM session_players
 WHERE id IN (SELECT id FROM cleanup_sps_to_delete);
+
+-- Step 4b: Delete duplicate session_players (losers per (player_id, session_id))
+DELETE FROM session_players
+WHERE id IN (SELECT id FROM cleanup_dups_to_delete);
 
 -- Step 5: Delete orphan credit_transactions (audit reasons preserved)
 DELETE FROM credit_transactions
@@ -216,28 +244,41 @@ WHERE id IN (SELECT id FROM cleanup_cts_to_delete);
 \echo '=== POST-CLEANUP PER-ACADEMY CLEANED-ROW SUMMARY ==='
 SELECT
   COALESCE(a.name, '(no academy)') AS academy,
-  (SELECT COUNT(*) FROM cleanup_broken_fks bf JOIN players p ON p.id = bf.player_id WHERE p.academy_id = a.id) AS broken_fks_nulled,
+  (SELECT COUNT(*) FROM cleanup_broken_fks bf WHERE bf.academy_id = a.id) AS broken_fks_nulled,
   (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id = a.id AND sd.kind = 'ghost') AS ghost_sps_deleted,
   (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id = a.id AND sd.kind = 'cancelled') AS cancelled_sps_deleted,
+  (SELECT COUNT(*) FROM cleanup_dups_to_delete dd WHERE dd.academy_id = a.id) AS duplicate_sps_deleted,
   (SELECT COUNT(*) FROM cleanup_cts_to_delete cd WHERE cd.academy_id = a.id) AS orphan_cts_deleted
 FROM academies a
-WHERE EXISTS (SELECT 1 FROM cleanup_broken_fks bf JOIN players p ON p.id = bf.player_id WHERE p.academy_id = a.id)
+WHERE EXISTS (SELECT 1 FROM cleanup_broken_fks bf WHERE bf.academy_id = a.id)
    OR EXISTS (SELECT 1 FROM cleanup_sps_to_delete sd WHERE sd.academy_id = a.id)
+   OR EXISTS (SELECT 1 FROM cleanup_dups_to_delete dd WHERE dd.academy_id = a.id)
    OR EXISTS (SELECT 1 FROM cleanup_cts_to_delete cd WHERE cd.academy_id = a.id)
 ORDER BY a.name;
 
--- Also surface academy-less rows (defensive — rare in practice)
-SELECT
-  '(no academy)' AS academy,
-  (SELECT COUNT(*) FROM cleanup_broken_fks bf WHERE bf.academy_id IS NULL) AS broken_fks_nulled,
-  (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id IS NULL AND sd.kind = 'ghost') AS ghost_sps_deleted,
-  (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id IS NULL AND sd.kind = 'cancelled') AS cancelled_sps_deleted,
-  (SELECT COUNT(*) FROM cleanup_cts_to_delete cd WHERE cd.academy_id IS NULL) AS orphan_cts_deleted
-WHERE EXISTS (SELECT 1 FROM cleanup_broken_fks bf WHERE bf.academy_id IS NULL)
-   OR EXISTS (SELECT 1 FROM cleanup_sps_to_delete sd WHERE sd.academy_id IS NULL)
-   OR EXISTS (SELECT 1 FROM cleanup_cts_to_delete cd WHERE cd.academy_id IS NULL);
+-- Capture affected players list for cache invalidation step (after COMMIT).
+CREATE TEMP TABLE cleanup_affected_players ON COMMIT DROP AS
+SELECT DISTINCT player_id FROM (
+  SELECT player_id FROM cleanup_broken_fks
+  UNION SELECT player_id FROM cleanup_sps_to_delete
+  UNION SELECT player_id FROM cleanup_dups_to_delete
+  UNION SELECT player_id FROM cleanup_cts_to_delete WHERE player_id IS NOT NULL
+) u;
+
+\echo ''
+\echo '=== AFFECTED PLAYERS (for credit-balance cache invalidation) ==='
+SELECT COUNT(*) AS affected_players FROM cleanup_affected_players;
+\COPY (SELECT player_id FROM cleanup_affected_players ORDER BY player_id) TO '.local/cleanup-affected-players.txt'
 
 COMMIT;
+
+\echo ''
+\echo '=== CACHE INVALIDATION STEP ==='
+\echo 'Affected player IDs written to: .local/cleanup-affected-players.txt'
+\echo 'In-memory apiCache key pattern: credits:<playerId>'
+\echo 'Restarting Express to flush in-memory cache for ALL players...'
+\! bash -c 'if pgrep -f "tsx server/index" >/dev/null 2>&1; then pkill -TERM -f "tsx server/index" && echo "Sent SIGTERM to server (workflow auto-restarts)"; else echo "No server process running — workflow will start fresh"; fi'
+\echo 'Cache flushed. Next read for any player returns fresh credit-balance.'
 
 \echo ''
 \echo '=== POST-CLEANUP VERIFICATION ==='
