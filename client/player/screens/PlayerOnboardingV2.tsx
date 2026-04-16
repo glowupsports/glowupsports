@@ -2842,7 +2842,12 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const canProceed = () => {
     switch (currentStep) {
       case 0: return true; // Welcome
-      case 1: return !!data.dateOfBirth; // About You — DOB required
+      case 1: {
+        if (!data.dateOfBirth) return false;
+        const minorAge = calculateAge(data.dateOfBirth);
+        if (minorAge < 16) return !!data.parentEmail && data.parentEmail.includes("@");
+        return true;
+      }
       case 2: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
       case 3: return true; // Academy (optional)
       case 4: return true; // Completion

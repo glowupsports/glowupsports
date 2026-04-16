@@ -493,7 +493,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
               />
             </View>
             <View style={styles.subSection}>
-              <Text style={styles.subSectionLabel}>Long-term tennis dream (optional)</Text>
+              <Text style={styles.subSectionLabel}>Long-term tennis dream</Text>
               <TextInput
                 style={[styles.textInput, styles.textInputMulti]}
                 value={dna.longTermDream}
