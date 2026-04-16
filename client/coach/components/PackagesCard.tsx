@@ -575,21 +575,27 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       </View>
 
       {creditBalance?.hasUncoveredSessions ? (
-        <View style={styles.debtExplanation}>
-          <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
-          <Text style={styles.debtExplanationText}>
-            {(() => {
-              const parts: string[] = [];
-              const g = (creditBalance.uncoveredSessions?.group ?? 0) - creditBalance.group;
-              const sp = (creditBalance.uncoveredSessions?.semi_private ?? 0) - creditBalance.semi_private;
-              const pr = (creditBalance.uncoveredSessions?.private ?? 0) - creditBalance.private;
-              if (g > 0) parts.push(`${g} group`);
-              if (sp > 0) parts.push(`${sp} semi-private`);
-              if (pr > 0) parts.push(`${pr} private`);
-              return `${parts.join(", ")} session(s) attended without active package`;
-            })()}
-          </Text>
-        </View>
+        <>
+          <View style={styles.debtExplanation}>
+            <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
+            <Text style={styles.debtExplanationText}>
+              {(() => {
+                const parts: string[] = [];
+                const g = creditBalance.uncoveredSessions?.group ?? 0;
+                const sp = creditBalance.uncoveredSessions?.semi_private ?? 0;
+                const pr = creditBalance.uncoveredSessions?.private ?? 0;
+                if (g > 0) parts.push(`${g} group`);
+                if (sp > 0) parts.push(`${sp} semi-private`);
+                if (pr > 0) parts.push(`${pr} private`);
+                return parts.length > 0 ? `${parts.join(", ")} session(s) attended without active package` : "";
+              })()}
+            </Text>
+          </View>
+          <View style={styles.owedHint}>
+            <Ionicons name="alert-circle-outline" size={12} color={Colors.dark.gold} />
+            <Text style={styles.owedHintText}>Sessions attended without credit — add a package to cover these</Text>
+          </View>
+        </>
       ) : creditBalance && (creditBalance.group < 0 || creditBalance.semi_private < 0 || creditBalance.private < 0) ? (
         <View style={styles.debtExplanation}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
