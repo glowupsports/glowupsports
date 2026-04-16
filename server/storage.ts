@@ -7360,52 +7360,17 @@ export const storage = {
       balance[type] += Number(pkg.remainingCredits);
     }
 
-    // Debt = unsettled debt transactions (player used sessions with no package available)
-    // Includes:
-    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid)
-    //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
-    //               no package in column or metadata, amount < 0
-    //   depleted:   session_booking/session_consumed linked to a non-active package (safety net for
-    //               cases not yet converted by convertPackageConsumptionToDebt or the backfill)
-    // NOTE: isDebt metadata flag is NOT required — legacy records predate that field.
+    // Debt = unsettled session_debt transactions (player used sessions with no package available).
+    // Only new-style records are generated; legacy paths no longer create new records.
     const debtResult = await db.execute(sql`
       SELECT credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions ct
       WHERE player_id = ${playerId}
         AND amount < 0
-        AND COALESCE(metadata->>'settled', 'false') != 'true'
+        AND type = 'debit'
+        AND reason = 'session_debt'
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
-        AND (
-          (type = 'debit'
-            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid'))
-          OR
-          (type IN ('debit', 'session_booking', 'session_consumed')
-            AND reason IN ('session_booking', 'session_consumed')
-            AND package_id IS NULL
-            AND (metadata->>'packageId') IS NULL)
-          OR
-          (type = 'debit'
-            AND reason IN ('attendance_correction_deduct', 'refund_reversal')
-            AND COALESCE(metadata->>'settled', 'false') != 'true'
-            AND COALESCE(metadata->>'cancelled', 'false') != 'true')
-          OR
-          (reason IN ('session_booking', 'session_consumed')
-            AND amount < 0
-            AND session_id IS NOT NULL
-            AND package_id IS NOT NULL
-            AND EXISTS (
-              SELECT 1 FROM packages p
-              WHERE p.id = ct.package_id
-                AND p.player_id = ${playerId}
-                AND p.status != 'active'
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM session_players sp
-              WHERE sp.session_id = ct.session_id
-                AND sp.player_id = ${playerId}
-                AND sp.attendance_status IN ('holiday', 'vacation')
-            ))
-        )
+        AND COALESCE(metadata->>'settled', 'false') != 'true'
       GROUP BY credit_type
     `);
 

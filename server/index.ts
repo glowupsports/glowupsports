@@ -44,7 +44,7 @@ import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, processSessionMaintenance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
 import { startBookingExpiryJob } from "./bookingExpiryJob";
 
 if (process.env.SENTRY_DSN) {
@@ -990,8 +990,8 @@ function setupErrorHandler(app: express.Application) {
           console.error("[GhostCleanup] Failed:", err);
         }
         
-        log("[NullAttendanceRepair] Fixing completed sessions with NULL attendance...");
-        await repairNullAttendance();
+        log("[SessionMaintenance] Running session maintenance (repair missing players, auto-attendance, cleanup, null attendance)...");
+        await processSessionMaintenance();
 
         // Repair orphaned session_players: create records for completed series sessions after player joinedAt
         log("[OrphanedSPRepair] Checking for missing session_players in series...");

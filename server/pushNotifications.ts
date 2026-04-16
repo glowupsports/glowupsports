@@ -1401,6 +1401,23 @@ export async function repairNullAttendance(): Promise<void> {
   }
 }
 
+export async function processSessionMaintenance(): Promise<void> {
+  console.log("[SessionMaintenance] Starting maintenance sequence");
+  try {
+    console.log("[SessionMaintenance] Step 1/4: Repairing missing session_players");
+    await repairMissingSessionPlayers();
+    console.log("[SessionMaintenance] Step 2/4: Processing auto-attendance");
+    await processAutoAttendance();
+    console.log("[SessionMaintenance] Step 3/4: Cleaning up stale session_players");
+    await cleanupStaleSessionPlayers();
+    console.log("[SessionMaintenance] Step 4/4: Repairing NULL attendance");
+    await repairNullAttendance();
+    console.log("[SessionMaintenance] All steps complete");
+  } catch (error) {
+    console.error("[SessionMaintenance] Error:", error);
+  }
+}
+
 export async function fixHolidayOvercharges(): Promise<void> {
   try {
     // --- Pass 1: session_players wrongly charged while player was on holiday ---
@@ -2015,13 +2032,11 @@ export function startReminderScheduler(): void {
     try {
       await processScheduledReminders();
       await processAutoCompleteSession();
-      await processAutoAttendance();
       await processUnchargedAttendance();
       await processExpiredWaitlistSpots();
     } catch (e) { console.error("[Scheduler] Startup sequence error:", e); }
   })();
-  repairMissingSessionPlayers().catch(console.error);
-  cleanupStaleSessionPlayers().catch(console.error);
+  processSessionMaintenance().catch(console.error);
 
   reminderInterval = setInterval(async () => {
     try {
