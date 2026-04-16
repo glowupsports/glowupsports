@@ -78,8 +78,7 @@ function SectionEmptyState({
   );
 }
 
-const PILL_H = 44;
-const EXPANDED_H = 300;
+const PILL_H = 40;
 
 function CompactEmptyPill({
   icon,
@@ -107,6 +106,7 @@ function CompactEmptyPill({
   expandedSubtitle: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const measuredContentH = useRef(0);
   const heightAnim = useSharedValue(PILL_H);
   const autoCollapseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -121,7 +121,8 @@ function CompactEmptyPill({
     clearAutoCollapse();
     const next = !expanded;
     setExpanded(next);
-    heightAnim.value = withTiming(next ? EXPANDED_H : PILL_H, { duration: 280 });
+    const targetH = next ? PILL_H + (measuredContentH.current || 240) : PILL_H;
+    heightAnim.value = withTiming(targetH, { duration: 280 });
     if (next) {
       autoCollapseRef.current = setTimeout(() => {
         setExpanded(false);
@@ -141,7 +142,7 @@ function CompactEmptyPill({
     <Animated.View style={[styles.pillContainer, containerStyle]}>
       <Pressable onPress={toggle} style={styles.pillRow}>
         <View style={[styles.pillIconWrap, { backgroundColor: accentColor + "22" }]}>
-          <Ionicons name={icon} size={15} color={accentColor} />
+          <Ionicons name={icon} size={14} color={accentColor} />
         </View>
         <Text style={styles.pillTitle} numberOfLines={1}>{title}</Text>
         <Text style={styles.pillSep}>·</Text>
@@ -162,15 +163,22 @@ function CompactEmptyPill({
           style={{ marginLeft: 6 }}
         />
       </Pressable>
-      <SectionEmptyState
-        icon={expandedIcon}
-        iconColor={expandedIconColor}
-        iconBg={expandedIconBg}
-        title={expandedTitle}
-        subtitle={expandedSubtitle}
-        ctaLabel={ctaLabel}
-        onCta={onCta}
-      />
+      <View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0) measuredContentH.current = h;
+        }}
+      >
+        <SectionEmptyState
+          icon={expandedIcon}
+          iconColor={expandedIconColor}
+          iconBg={expandedIconBg}
+          title={expandedTitle}
+          subtitle={expandedSubtitle}
+          ctaLabel={ctaLabel}
+          onCta={onCta}
+        />
+      </View>
     </Animated.View>
   );
 }
@@ -2570,7 +2578,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   pillRow: {
-    height: 44,
+    height: 40,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
