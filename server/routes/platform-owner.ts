@@ -3467,164 +3467,65 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   };
 
   async function hardDeletePlayer(playerId: string): Promise<HardDeletePlayerResult> {
-    return await db.transaction(async (tx): Promise<HardDeletePlayerResult> => {
-      const [existing] = await tx
-        .select({ id: players.id })
-        .from(players)
-        .where(eq(players.id, playerId));
-      if (!existing) return { deleted: false };
+    // Verify the row exists first so we return a deterministic 404-style
+    // result instead of running cleanup on nothing.
+    const [existing] = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.id, playerId));
+    if (!existing) return { deleted: false };
 
-      const ids = [playerId];
+    // Resolve linked user(s) BEFORE we touch the player so the post-delete
+    // user cleanup knows whom to attempt to remove. We capture role +
+    // coachId + academyId so we can guard the cleanup to player-only
+    // accounts and never accidentally remove a coach or academy owner.
+    const linkedUsers = await db
+      .select({ id: users.id, role: users.role, coachId: users.coachId, academyId: users.academyId })
+      .from(users)
+      .where(eq(users.playerId, playerId));
 
-      // Dependent-table cleanup. Mirrors storage.resetAcademyData
-      // (server/storage.ts ~L807) plus tables added since. We do NOT
-      // catch per-statement: any FK / DB error must roll back the whole
-      // transaction so we never leave a half-deleted player.
+    // Spotlight tables are not covered by storage.deletePlayer; clean them
+    // up first so the FK to players doesn't block the canonical delete.
+    await db.delete(spotlightNominations).where(or(
+      eq(spotlightNominations.nominatorPlayerId, playerId),
+      eq(spotlightNominations.nominatedPlayerId, playerId),
+    ));
+    await db.delete(spotlightWeeklyWinners).where(eq(spotlightWeeklyWinners.playerId, playerId));
+    await db.delete(spotlightMonthlyWinners).where(eq(spotlightMonthlyWinners.playerId, playerId));
 
-      // ---- progress / skills / xp ----
-      await tx.delete(playerProgress).where(inArray(playerProgress.playerId, ids));
-      await tx.delete(playerSkillState).where(inArray(playerSkillState.playerId, ids));
-      await tx.delete(playerProgressFlags).where(inArray(playerProgressFlags.playerId, ids));
-      await tx.delete(domainAssessments).where(inArray(domainAssessments.playerId, ids));
-      await tx.delete(xpTransactions).where(inArray(xpTransactions.playerId, ids));
-      await tx.delete(playerXpEvents).where(inArray(playerXpEvents.playerId, ids));
-      await tx.delete(levelUpEvents).where(inArray(levelUpEvents.playerId, ids));
-      await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.playerId, ids));
+    // Reuse the canonical, well-tested full-FK cleanup path. Passing
+    // academyId=null lets the platform owner delete any player including
+    // ghost rows where academyId IS NULL. storage.deletePlayer already
+    // nulls users.playerId before removing the player row.
+    const deleted = await storage.deletePlayer(playerId, null);
+    if (!deleted) return { deleted: false };
 
-      // ---- credits / packages ----
-      await tx.delete(packages).where(inArray(packages.playerId, ids));
-      await tx.delete(creditTransactions).where(inArray(creditTransactions.playerId, ids));
-
-      // ---- requests / notes / holidays / notifications / preferences ----
-      await tx.delete(bookingRequests).where(inArray(bookingRequests.playerId, ids));
-      await tx.delete(joinRequests).where(inArray(joinRequests.playerId, ids));
-      await tx.delete(playerNotes).where(inArray(playerNotes.playerId, ids));
-      await tx.delete(playerHolidays).where(inArray(playerHolidays.playerId, ids));
-      await tx.delete(playerNotifications).where(inArray(playerNotifications.playerId, ids));
-      await tx.delete(playerBookingPreferences).where(inArray(playerBookingPreferences.playerId, ids));
-      await tx.delete(playerInvites).where(or(
-        inArray(playerInvites.playerId, ids),
-        inArray(playerInvites.invitedPlayerId, ids),
-      ));
-
-      // ---- baselines / pillar / ball levels ----
-      await tx.delete(playerBallLevels).where(inArray(playerBallLevels.playerId, ids));
-      await tx.delete(playerBaselineSkillScores).where(inArray(playerBaselineSkillScores.playerId, ids));
-      await tx.delete(playerBaselines).where(inArray(playerBaselines.playerId, ids));
-      await tx.delete(playerPillarProgress).where(inArray(playerPillarProgress.playerId, ids));
-
-      // ---- gamification ----
-      await tx.delete(playerBadgesTable).where(inArray(playerBadgesTable.playerId, ids));
-      await tx.delete(playerTitlesTable).where(inArray(playerTitlesTable.playerId, ids));
-      await tx.delete(playerQuestsTable).where(inArray(playerQuestsTable.playerId, ids));
-      await tx.delete(dailyQuestSlotsTable).where(inArray(dailyQuestSlotsTable.playerId, ids));
-
-      // ---- coaching series / sessions / waitlist / cancellations ----
-      await tx.delete(seriesPlayers).where(inArray(seriesPlayers.playerId, ids));
-      await tx.delete(sessionPlayers).where(inArray(sessionPlayers.playerId, ids));
-      await tx.delete(playerSessionCancellations).where(inArray(playerSessionCancellations.playerId, ids));
-      await tx.delete(sessionWaitlist).where(inArray(sessionWaitlist.playerId, ids));
-
-      // ---- matches / challenges ----
-      await tx.delete(playerMatches).where(or(
-        inArray(playerMatches.initiatorId, ids),
-        inArray(playerMatches.receiverId, ids),
-      ));
-      await tx.delete(adultGlowMatches).where(or(
-        inArray(adultGlowMatches.playerId, ids),
-        inArray(adultGlowMatches.opponentId, ids),
-      ));
-      await tx.delete(matchRequests).where(or(
-        inArray(matchRequests.playerId, ids),
-        inArray(matchRequests.invitedPlayerId, ids),
-      ));
-      // matchedWithPlayerId is nullable — clear ref instead of deleting the row
-      await tx.update(matchRequests)
-        .set({ matchedWithPlayerId: null })
-        .where(inArray(matchRequests.matchedWithPlayerId, ids));
-
-      // ---- social connections ----
-      await tx.delete(playerConnections).where(or(
-        inArray(playerConnections.player1Id, ids),
-        inArray(playerConnections.player2Id, ids),
-      ));
-
-      // ---- chat (messages → participants → conversation) ----
-      await tx.delete(messageReactions).where(inArray(messageReactions.reactorPlayerId, ids));
-      await tx.delete(messages).where(inArray(messages.senderPlayerId, ids));
-      await tx.delete(conversationParticipants).where(inArray(conversationParticipants.playerId, ids));
-      // conversations.playerId is nullable; null it out so coach/group threads survive.
-      await tx.update(conversations)
-        .set({ playerId: null })
-        .where(inArray(conversations.playerId, ids));
-
-      // ---- court booking / open match social play ----
-      await tx.delete(openMatchSlots).where(inArray(openMatchSlots.playerId, ids));
-      await tx.delete(openMatches).where(inArray(openMatches.hostPlayerId, ids));
-      await tx.delete(bookingInviteGuests).where(inArray(bookingInviteGuests.playerId, ids));
-      await tx.delete(bookingInvites).where(inArray(bookingInvites.hostPlayerId, ids));
-      await tx.delete(courtBookings).where(inArray(courtBookings.playerId, ids));
-
-      // ---- transfers / parent / reviews ----
-      await tx.delete(academyTransferRequests).where(inArray(academyTransferRequests.playerId, ids));
-      await tx.delete(parentPlayerRelations).where(inArray(parentPlayerRelations.playerId, ids));
-      await tx.delete(reviewPrompts).where(inArray(reviewPrompts.playerId, ids));
-      await tx.delete(coachReviews).where(inArray(coachReviews.playerId, ids));
-
-      // ---- billing ----
-      await tx.delete(paymentReminders).where(inArray(paymentReminders.playerId, ids));
-      await tx.delete(invoices).where(inArray(invoices.playerId, ids));
-      await tx.delete(playerSubscriptions).where(inArray(playerSubscriptions.playerId, ids));
-
-      // ---- spotlight (correct columns) ----
-      await tx.delete(spotlightNominations).where(or(
-        inArray(spotlightNominations.nominatorPlayerId, ids),
-        inArray(spotlightNominations.nominatedPlayerId, ids),
-      ));
-      await tx.delete(spotlightWeeklyWinners).where(inArray(spotlightWeeklyWinners.playerId, ids));
-      await tx.delete(spotlightMonthlyWinners).where(inArray(spotlightMonthlyWinners.playerId, ids));
-
-      // Nullify FKs on records we want to keep (financial records)
-      await tx.update(payments).set({ playerId: null }).where(inArray(payments.playerId, ids));
-
-      // Resolve linked user(s) BEFORE we delete the player so we can decide
-      // hard-delete vs nullify based on the user's other roles.
-      const linkedUsers = await tx
-        .select({ id: users.id, role: users.role, coachId: users.coachId, academyId: users.academyId })
-        .from(users)
-        .where(eq(users.playerId, playerId));
-
-      // Always nullify first to satisfy FK constraints on user → player.
-      await tx.update(users).set({ playerId: null }).where(eq(users.playerId, playerId));
-
-      // Finally delete the player row itself.
-      await tx.delete(players).where(eq(players.id, playerId));
-
-      // Hard-delete every linked user row so no ghost auth account survives
-      // the player deletion. The platform-owner endpoint is explicitly a
-      // "delete anyone" action, so even users that also carry a coach or
-      // academy role get removed — the operator made that call deliberately.
-      // If foreign keys (e.g. coach-owned data) prevent the user delete, the
-      // failure is captured into userCleanupError and surfaced to the API
-      // response + audit log so it is visible rather than silently swallowed.
-      let userCleanupError: string | undefined;
-      for (const u of linkedUsers) {
-        try {
-          await tx.delete(users).where(eq(users.id, u.id));
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          userCleanupError = userCleanupError
-            ? `${userCleanupError}; ${u.id}: ${msg}`
-            : `${u.id}: ${msg}`;
-          console.error(
-            `[PlatformOwnerDelete] could not hard-delete user ${u.id} for player ${playerId}:`,
-            err,
-          );
-        }
+    // Best-effort user-row cleanup, intentionally OUTSIDE the player-delete
+    // path so a failure here cannot roll back the player removal. We
+    // restrict this to truly player-only accounts (no coach role, no
+    // academy role) to avoid scope drift onto coach/academy_owner users
+    // who happened to share a playerId. Failures are captured per user and
+    // surfaced to the audit log + API response instead of being swallowed.
+    let userCleanupError: string | undefined;
+    for (const u of linkedUsers) {
+      const isPlayerOnlyAccount =
+        !u.coachId && !u.academyId && (u.role === "player" || !u.role);
+      if (!isPlayerOnlyAccount) continue;
+      try {
+        await db.delete(users).where(eq(users.id, u.id));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        userCleanupError = userCleanupError
+          ? `${userCleanupError}; ${u.id}: ${msg}`
+          : `${u.id}: ${msg}`;
+        console.error(
+          `[PlatformOwnerDelete] could not hard-delete user ${u.id} for player ${playerId}:`,
+          err,
+        );
       }
+    }
 
-      return { deleted: true, userCleanupError };
-    });
+    return { deleted: true, userCleanupError };
   }
 
   // Single hard-delete: DELETE /api/platform/players/:id

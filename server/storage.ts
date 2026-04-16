@@ -2128,11 +2128,15 @@ export const storage = {
     return result[0];
   },
 
-  async deletePlayer(id: string, academyId: string): Promise<boolean> {
-    // First verify the player belongs to this academy
-    const player = await db.select().from(players).where(
-      and(eq(players.id, id), eq(players.academyId, academyId))
-    );
+  async deletePlayer(id: string, academyId: string | null): Promise<boolean> {
+    // Academy-scoped callers (admin/coach) pass an academyId so the player
+    // can only be deleted from inside their own academy. The platform-owner
+    // delete path passes `null` to bypass the scope check ("delete anyone",
+    // including ghost rows where academyId IS NULL).
+    const scopeWhere = academyId
+      ? and(eq(players.id, id), eq(players.academyId, academyId))
+      : eq(players.id, id);
+    const player = await db.select().from(players).where(scopeWhere);
     if (player.length === 0) return false;
     
     // Use a transaction to ensure atomicity
@@ -2369,10 +2373,11 @@ export const storage = {
       // Update users table to unlink the player
       await db.update(users).set({ playerId: null }).where(eq(users.playerId, id));
       
-      // Finally delete the player
+      // Finally delete the player (using the same scope clause as the
+      // initial existence check, so platform-owner null-scope deletes work).
       const result = await db
         .delete(players)
-        .where(and(eq(players.id, id), eq(players.academyId, academyId)))
+        .where(scopeWhere)
         .returning();
       return result.length > 0;
     } catch (error) {
