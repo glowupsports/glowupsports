@@ -56,6 +56,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     paymentReminders, reviewPrompts, coachReviews, parentPlayerRelations,
     academyTransferRequests, conversationParticipants, messages, messageReactions,
     playerMatches, conversations, adultGlowMatches, playerInvites,
+    type InsertAuditLog,
   } from "@shared/schema";
   import { awardXP } from "../services/xp-service";
   import { sendSessionReminderEmail } from "../emailService";
@@ -3455,13 +3456,23 @@ import { Router, type Request, type Response, type NextFunction } from "express"
    *    the user row is hard-deleted too (cleans up ghost auth records).
    *  - Otherwise users.playerId is nullified so the user account survives.
    */
-  async function hardDeletePlayer(playerId: string): Promise<boolean> {
-    return await db.transaction(async (tx) => {
+  /** Result of hardDeletePlayer. `deleted` is true when the player row
+   *  itself was removed. `userCleanupError` is non-null when the player
+   *  was deleted successfully but the linked user row could not be
+   *  hard-deleted (e.g. unknown FK still references it); the caller can
+   *  surface that as a partial-success warning. */
+  type HardDeletePlayerResult = {
+    deleted: boolean;
+    userCleanupError?: string;
+  };
+
+  async function hardDeletePlayer(playerId: string): Promise<HardDeletePlayerResult> {
+    return await db.transaction(async (tx): Promise<HardDeletePlayerResult> => {
       const [existing] = await tx
         .select({ id: players.id })
         .from(players)
         .where(eq(players.id, playerId));
-      if (!existing) return false;
+      if (!existing) return { deleted: false };
 
       const ids = [playerId];
 
@@ -3591,13 +3602,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
       // Hard-delete users that have no remaining role/linkage. This cleans
       // up the ghost auth rows behind anonymized "Deleted User" players.
+      // Failures are surfaced as a partial-success warning rather than
+      // silently swallowed: the player has already been removed, but the
+      // platform owner deserves to know if a stale auth row remains.
+      let userCleanupError: string | undefined;
       for (const u of linkedUsers) {
         if (!u.coachId && !u.academyId && (u.role === "player" || !u.role)) {
-          await tx.delete(users).where(eq(users.id, u.id)).catch(() => {});
+          try {
+            await tx.delete(users).where(eq(users.id, u.id));
+          } catch (err) {
+            userCleanupError = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[PlatformOwnerDelete] could not hard-delete user ${u.id} for player ${playerId}:`,
+              err,
+            );
+          }
         }
       }
 
-      return true;
+      return { deleted: true, userCleanupError };
     });
   }
 
@@ -3629,24 +3652,32 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Player not found" });
         }
 
-        const deleted = await hardDeletePlayer(id);
+        const result = await hardDeletePlayer(id);
 
         // Audit log — best-effort, must not block the response on failure.
-        await storage
-          .createAuditLog({
-            entityType: "player",
-            entityId: id,
-            action: "platform_owner_delete",
-            performedBy: req.user!.userId,
-            beforeState: snapshot,
-            afterState: null,
-            academyId: snapshot.academyId ?? null,
-          } as any)
-          .catch((auditErr: unknown) => {
-            console.error("[PlatformOwnerDelete] audit log failed:", auditErr);
-          });
+        const auditPayload: InsertAuditLog = {
+          entityType: "player",
+          entityId: id,
+          action: "platform_owner_delete",
+          performedBy: req.user!.userId,
+          performedByRole: "platform_owner",
+          beforeState: snapshot,
+          afterState: null,
+          academyId: snapshot.academyId ?? null,
+          metadata: result.userCleanupError
+            ? JSON.stringify({ userCleanupError: result.userCleanupError })
+            : null,
+          ipAddress: req.ip ?? null,
+        };
+        await storage.createAuditLog(auditPayload).catch((auditErr: unknown) => {
+          console.error("[PlatformOwnerDelete] audit log failed:", auditErr);
+        });
 
-        return res.json({ success: deleted, deletedCount: deleted ? 1 : 0 });
+        return res.json({
+          success: result.deleted,
+          deletedCount: result.deleted ? 1 : 0,
+          userCleanupError: result.userCleanupError ?? null,
+        });
       } catch (err) {
         console.error("[PlatformOwnerDelete] error:", err);
         return res.status(500).json({ error: "Failed to delete player" });
@@ -3676,12 +3707,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           ));
 
         const failures: { id: string; error: string }[] = [];
+        const userCleanupWarnings: { id: string; error: string }[] = [];
 
         let deletedCount = 0;
         for (const g of ghosts) {
           try {
-            const ok = await hardDeletePlayer(g.id);
-            if (ok) deletedCount += 1;
+            const r = await hardDeletePlayer(g.id);
+            if (r.deleted) deletedCount += 1;
+            if (r.userCleanupError) {
+              userCleanupWarnings.push({ id: g.id, error: r.userCleanupError });
+            }
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error(`[PlatformOwnerDelete] ghost ${g.id} failed:`, err);
@@ -3689,19 +3724,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        await storage
-          .createAuditLog({
-            entityType: "player",
-            entityId: "bulk_deleted_users",
-            action: "platform_owner_bulk_delete_ghosts",
-            performedBy: req.user!.userId,
-            beforeState: { ghostCount: ghosts.length },
-            afterState: { deletedCount, failures },
-            academyId: null,
-          } as any)
-          .catch((auditErr: unknown) => {
-            console.error("[PlatformOwnerDelete] bulk audit log failed:", auditErr);
-          });
+        const bulkAuditPayload: InsertAuditLog = {
+          entityType: "player",
+          entityId: "bulk_deleted_users",
+          action: "platform_owner_bulk_delete_ghosts",
+          performedBy: req.user!.userId,
+          performedByRole: "platform_owner",
+          beforeState: { ghostCount: ghosts.length },
+          afterState: { deletedCount, failures, userCleanupWarnings },
+          academyId: null,
+          metadata: null,
+          ipAddress: req.ip ?? null,
+        };
+        await storage.createAuditLog(bulkAuditPayload).catch((auditErr: unknown) => {
+          console.error("[PlatformOwnerDelete] bulk audit log failed:", auditErr);
+        });
 
         // success is only true when every candidate was deleted; clients
         // can still read deletedCount/candidates/failures for partial runs.
@@ -3710,6 +3747,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           deletedCount,
           candidates: ghosts.length,
           failures,
+          userCleanupWarnings,
         });
       } catch (err) {
         console.error("[PlatformOwnerDelete] bulk error:", err);

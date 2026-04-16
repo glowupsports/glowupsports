@@ -19,6 +19,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
+import { SuccessToast } from "@/components/SuccessToast";
 import {
   Colors,
   Spacing,
@@ -298,12 +299,17 @@ function HealthPlayerRow({ player, isTopPerformer }: { player: HealthPlayer; isT
   );
 }
 
-function DirectoryRow({ item, onPress }: { item: DirectoryPlayer; onPress: () => void }) {
+function DirectoryRow({ item, onPress, onLongPress }: { item: DirectoryPlayer; onPress: () => void; onLongPress: () => void }) {
   const lastOpened = item.lastLoginAt;
   const sessions = Number(item.sessionsAttended) || 0;
   const matches = Number(item.totalMatchesPlayed) || 0;
   return (
-    <Pressable style={({ pressed }) => [styles.directoryRow, pressed ? { opacity: 0.7 } : {}]} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.directoryRow, pressed ? { opacity: 0.7 } : {}]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
+    >
       <PlayerAvatar name={item.name} photoUrl={item.profilePhotoUrl} size={42} />
       <View style={styles.directoryInfo}>
         <View style={styles.directoryNameRow}>
@@ -694,6 +700,40 @@ export default function PlayerHealthScreen() {
   const [sortBy, setSortBy] = useState<SortBy>("name_az");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [cleaningGhosts, setCleaningGhosts] = useState(false);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    variant: "success" | "error" | "info" | "warning";
+  }>({ visible: false, message: "", variant: "success" });
+
+  function showToast(message: string, variant: "success" | "error" | "info" | "warning" = "success") {
+    // Remount the toast each time so successive calls re-trigger the animation.
+    setToast({ visible: false, message: "", variant });
+    requestAnimationFrame(() => setToast({ visible: true, message, variant }));
+  }
+
+  function handleRowLongPress(p: DirectoryPlayer) {
+    Alert.alert(
+      "Delete player?",
+      `${p.name} will be permanently removed. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiRequest("DELETE", `/api/platform/players/${p.id}`);
+              await queryClient.invalidateQueries({ queryKey: ["/api/platform/player-health"] });
+              showToast(`Deleted ${p.name}`, "success");
+            } catch {
+              showToast("Could not delete player", "error");
+            }
+          },
+        },
+      ],
+    );
+  }
 
   const { data, isLoading, error } = useQuery<PlayerHealthData>({
     queryKey: ["/api/platform/player-health"],
@@ -718,11 +758,17 @@ export default function PlayerHealthScreen() {
             setCleaningGhosts(true);
             try {
               const res = await apiRequest("POST", "/api/platform/players/cleanup-deleted");
-              const body = await res.json().catch(() => ({}));
+              const body = await res.json().catch(() => ({} as { deletedCount?: number; failures?: unknown[] }));
               await queryClient.invalidateQueries({ queryKey: ["/api/platform/player-health"] });
-              Alert.alert("Cleanup complete", `Removed ${body?.deletedCount ?? 0} deleted user rows.`);
+              const removed = body?.deletedCount ?? 0;
+              const failed = Array.isArray(body?.failures) ? body.failures.length : 0;
+              if (failed > 0) {
+                showToast(`Removed ${removed}, ${failed} failed`, "warning");
+              } else {
+                showToast(`Removed ${removed} deleted ${removed === 1 ? "user" : "users"}`, "success");
+              }
             } catch {
-              Alert.alert("Cleanup failed", "Could not clear deleted users. Please try again.");
+              showToast("Could not clear deleted users", "error");
             } finally {
               setCleaningGhosts(false);
             }
@@ -1034,7 +1080,11 @@ export default function PlayerHealthScreen() {
             data={filteredDirectory}
             keyExtractor={(item, i) => item.id ?? String(i)}
             renderItem={({ item }) => (
-              <DirectoryRow item={item} onPress={() => setSelectedPlayer(item)} />
+              <DirectoryRow
+                item={item}
+                onPress={() => setSelectedPlayer(item)}
+                onLongPress={() => handleRowLongPress(item)}
+              />
             )}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.divider} />}
@@ -1087,6 +1137,13 @@ export default function PlayerHealthScreen() {
           </Pressable>
         </Modal>
       ) : null}
+
+      <SuccessToast
+        visible={toast.visible}
+        message={toast.message}
+        variant={toast.variant}
+        onHide={() => setToast((t) => ({ ...t, visible: false }))}
+      />
     </View>
   );
 }
