@@ -927,9 +927,6 @@ function PlayerHomeContent() {
         {/* PLAYER DNA BANNER - shows profile completion progress */}
         {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
 
-        {/* TENNIS IQ CARD - quiz relocated from onboarding to home screen */}
-        {!isGuest ? <TennisIQCard /> : null}
-
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
 
@@ -967,6 +964,9 @@ function PlayerHomeContent() {
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
         {!isGuest ? <UpcomingProviderSessionCard /> : null}
 
+        {/* AI COACH ENTRY - Below Court Time, above PLAY */}
+        {!isGuest ? <AICoachEntryCard /> : null}
+
         {/* ── PLAY SECTION ── Book, find players, join matches */}
         <View style={styles.playDivider}>
           <View style={styles.playDividerLeft}>
@@ -996,7 +996,7 @@ function PlayerHomeContent() {
               <WeeklyAIFocusCard playerId={player.id} />
             ) : null}
 
-            <AICoachEntryCard />
+            <TennisIQCard />
 
             <RecentFeedbackCard />
 
