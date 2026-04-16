@@ -74,7 +74,7 @@ async function generateOrGetCachedQuestions(): Promise<QuizQuestion[]> {
         },
         {
           role: "user",
-          content: `Generate 5 multiple-choice tennis quiz questions. Mix difficulty: 2 easy, 2 medium, 1 hard. Cover: rules, scoring, technique, Grand Slams, history, equipment. Return a JSON array where each item has exactly these fields: "q" (question string), "opts" (array of exactly 4 answer strings), "correct" (one of the opts strings, verbatim), "explanation" (1-2 sentences explaining the correct answer).`,
+          content: `Generate exactly 5 multiple-choice tennis quiz questions. Mix difficulty: 2 easy, 2 medium, 1 hard. Cover: rules, scoring, technique, Grand Slams, history, equipment. Return a JSON array of exactly 5 items where each item has exactly these fields: "q" (question string), "opts" (array of exactly 4 answer strings), "correct" (one of the opts strings, verbatim), "explanation" (1-2 sentences explaining the correct answer).`,
         },
       ],
       max_tokens: 900,
@@ -100,12 +100,14 @@ async function generateOrGetCachedQuestions(): Promise<QuizQuestion[]> {
         typeof q.explanation === "string"
     );
 
-    if (valid.length < 3) throw new Error("Not enough valid questions");
+    if (valid.length !== 5) throw new Error(`Expected 5 valid questions, got ${valid.length}`);
 
     cachedDate = today;
-    cachedQuestions = valid.slice(0, 5);
+    cachedQuestions = valid;
     return cachedQuestions;
   } catch {
+    cachedDate = today;
+    cachedQuestions = FALLBACK_QUESTIONS;
     return FALLBACK_QUESTIONS;
   }
 }
