@@ -1,5 +1,5 @@
 import logger from "@/lib/logger";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Image as RNImage } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -75,6 +75,103 @@ function SectionEmptyState({
         <Text style={styles.sectionEmptyCtaText}>{ctaLabel}</Text>
       </Pressable>
     </LinearGradient>
+  );
+}
+
+const PILL_H = 44;
+const EXPANDED_H = 300;
+
+function CompactEmptyPill({
+  icon,
+  accentColor,
+  title,
+  emptyLabel,
+  ctaLabel,
+  onCta,
+  expandedIcon,
+  expandedIconColor,
+  expandedIconBg,
+  expandedTitle,
+  expandedSubtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  accentColor: string;
+  title: string;
+  emptyLabel: string;
+  ctaLabel: string;
+  onCta: () => void;
+  expandedIcon: keyof typeof Ionicons.glyphMap;
+  expandedIconColor: string;
+  expandedIconBg: string;
+  expandedTitle: string;
+  expandedSubtitle: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const heightAnim = useSharedValue(PILL_H);
+  const autoCollapseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAutoCollapse = () => {
+    if (autoCollapseRef.current) {
+      clearTimeout(autoCollapseRef.current);
+      autoCollapseRef.current = null;
+    }
+  };
+
+  const toggle = () => {
+    clearAutoCollapse();
+    const next = !expanded;
+    setExpanded(next);
+    heightAnim.value = withTiming(next ? EXPANDED_H : PILL_H, { duration: 280 });
+    if (next) {
+      autoCollapseRef.current = setTimeout(() => {
+        setExpanded(false);
+        heightAnim.value = withTiming(PILL_H, { duration: 280 });
+      }, 4000);
+    }
+  };
+
+  useEffect(() => () => clearAutoCollapse(), []);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    height: heightAnim.value,
+    overflow: "hidden" as const,
+  }));
+
+  return (
+    <Animated.View style={[styles.pillContainer, containerStyle]}>
+      <Pressable onPress={toggle} style={styles.pillRow}>
+        <View style={[styles.pillIconWrap, { backgroundColor: accentColor + "22" }]}>
+          <Ionicons name={icon} size={15} color={accentColor} />
+        </View>
+        <Text style={styles.pillTitle} numberOfLines={1}>{title}</Text>
+        <Text style={styles.pillSep}>·</Text>
+        <Text style={styles.pillEmptyLabel} numberOfLines={1}>{emptyLabel}</Text>
+        <View style={{ flex: 1 }} />
+        <Pressable
+          onPress={(e) => { e.stopPropagation?.(); onCta(); }}
+          hitSlop={8}
+          style={styles.pillCtaBtn}
+        >
+          <Text style={[styles.pillCtaText, { color: accentColor }]}>{ctaLabel}</Text>
+          <Feather name="arrow-right" size={11} color={accentColor} />
+        </Pressable>
+        <Feather
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={13}
+          color="#FFFFFF33"
+          style={{ marginLeft: 6 }}
+        />
+      </Pressable>
+      <SectionEmptyState
+        icon={expandedIcon}
+        iconColor={expandedIconColor}
+        iconBg={expandedIconBg}
+        title={expandedTitle}
+        subtitle={expandedSubtitle}
+        ctaLabel={ctaLabel}
+        onCta={onCta}
+      />
+    </Animated.View>
   );
 }
 
@@ -420,14 +517,18 @@ export function GroupLessonsRow() {
           onAction={handleSeeAll}
           accentColor={ballLevelColor}
         />
-        <SectionEmptyState
+        <CompactEmptyPill
           icon="school-outline"
-          iconColor={GlowColors.primary}
-          iconBg={GlowColors.primary + "22"}
-          title={t("empty.noSessions")}
-          subtitle="Your coach hasn't scheduled lessons yet — or explore what's available"
+          accentColor={ballLevelColor}
+          title={`${ballLevelLabel} Lessons`}
+          emptyLabel={t("empty.noSessions")}
           ctaLabel={t("player.home.browseAllLessons")}
           onCta={handleSeeAll}
+          expandedIcon="school-outline"
+          expandedIconColor={GlowColors.primary}
+          expandedIconBg={GlowColors.primary + "22"}
+          expandedTitle={t("empty.noSessions")}
+          expandedSubtitle="Your coach hasn't scheduled lessons yet — or explore what's available"
         />
       </View>
     );
@@ -679,16 +780,20 @@ export function OpenMatchesRow() {
           title={t("player.home.openMatches")}
           actionLabel={t("player.home.findPlayers")}
           onAction={handleSeeAll}
-          accentColor={GlowColors.primary}
+          accentColor="#A855F7"
         />
-        <SectionEmptyState
+        <CompactEmptyPill
           icon="radio-button-on-outline"
-          iconColor="#A855F7"
-          iconBg="#A855F722"
-          title={t("player.home.noOpenMatches")}
-          subtitle="No one has challenged you yet — start one yourself"
+          accentColor="#A855F7"
+          title={t("player.home.openMatches")}
+          emptyLabel={t("player.home.noOpenMatches")}
           ctaLabel={t("player.home.createMatch")}
           onCta={handleCreateMatch}
+          expandedIcon="radio-button-on-outline"
+          expandedIconColor="#A855F7"
+          expandedIconBg="#A855F722"
+          expandedTitle={t("player.home.noOpenMatches")}
+          expandedSubtitle="No one has challenged you yet — start one yourself"
         />
       </View>
     );
@@ -945,14 +1050,18 @@ export function TournamentsDiscoveryRow() {
       />
 
       {openTournaments.length === 0 ? (
-        <SectionEmptyState
+        <CompactEmptyPill
           icon="trophy-outline"
-          iconColor="#FFD700"
-          iconBg="#FFD70022"
-          title="No tournaments nearby"
-          subtitle="Check back soon or explore tournaments in your area"
-          ctaLabel="See All Tournaments"
+          accentColor="#FFD700"
+          title="Tournaments & Events"
+          emptyLabel="None nearby"
+          ctaLabel="See All"
           onCta={handleSeeAll}
+          expandedIcon="trophy-outline"
+          expandedIconColor="#FFD700"
+          expandedIconBg="#FFD70022"
+          expandedTitle="No tournaments nearby"
+          expandedSubtitle="Check back soon or explore tournaments in your area"
         />
       ) : (
         <ScrollView
@@ -2450,5 +2559,51 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 14,
     fontWeight: "700",
+  },
+  pillContainer: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderRadius: 10,
+    backgroundColor: "#13131F",
+    borderWidth: 1,
+    borderColor: "#FFFFFF0A",
+    overflow: "hidden",
+  },
+  pillRow: {
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  pillIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  pillSep: {
+    color: "#FFFFFF33",
+    fontSize: 13,
+  },
+  pillEmptyLabel: {
+    color: "#FFFFFF55",
+    fontSize: 13,
+  },
+  pillCtaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 4,
+  },
+  pillCtaText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
