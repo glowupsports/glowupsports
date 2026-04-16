@@ -12281,6 +12281,52 @@ async function recalculateSeriesCredits(
  * @param sessionPlayerId - The specific session_player record to process
  * @returns Result with success status and details
  */
+/**
+ * Per-session-type credit-charging policy (Task #624).
+ *
+ * Used by both `ensureCreditProcessed` (live charging) and
+ * `fullCreditRebuildForAcademy` (re-derives charges from attendance history)
+ * so that the rules stay in lock-step.
+ *
+ * | session_type        | present/late | absent                                   |
+ * |---------------------|--------------|------------------------------------------|
+ * | group               | charge       | charge   (lesson ran)                    |
+ * | semi_private        | charge       | NOT charged  (other player → private_adj)|
+ * | private             | charge       | charge   (no-show = late cancel)         |
+ * | private_adjusted    | charge       | depends on isOriginallyPrivate:          |
+ * |                     |              |   true  → charge (genuine private)       |
+ * |                     |              |   false → NOT charged (came from semi)   |
+ *
+ * Early cancels (≥24h) DELETE the session_player row entirely
+ * (server/routes/player-booking.ts:1734) so they cannot reach this function.
+ * If a session_player row exists with attendance_status='absent', the player
+ * either did not cancel at all (no-show) or cancelled <24h before — both are
+ * "late cancels" and credit must be retained per the academy policy.
+ */
+export function shouldChargeCredit(args: {
+  sessionType: string | null | undefined;
+  attendanceStatus: string | null | undefined;
+  isOriginallyPrivate: boolean;
+}): boolean {
+  const status = (args.attendanceStatus || "").toLowerCase();
+  if (status === "present" || status === "late") return true;
+  if (status !== "absent") return false;
+
+  const st = (args.sessionType || "")
+    .toLowerCase()
+    .replace(/-/g, "_")
+    .replace(/ /g, "_");
+
+  if (st === "group" || st === "group_adjusted") return true;
+  if (st === "semi" || st === "semi_private" || st === "semi_private_adjusted") return false;
+  if (st === "private") return true;
+  if (st === "private_adjusted") return args.isOriginallyPrivate;
+
+  // Unknown type defaults to safe behaviour: treat as group (charge absent).
+  // This matches normalizeSessionTypeToCreditType which defaults to "group".
+  return true;
+}
+
 async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
   success: boolean;
   action: "consumed" | "debt_created" | "already_processed" | "not_attended" | "error";
@@ -12338,16 +12384,22 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         isOriginallyPrivate = playerCount <= 1;
       }
       
-      // Charge rules by session type:
-      //   GROUP:       absent = CHARGED  (lesson ran regardless)
-      //   PRIVATE:     absent = NOT charged (1-on-1 didn't happen for the player)
-      //   SEMI-PRIVATE: absent = NOT charged (only the present player is charged as private)
-      // Therefore: present/late always triggers a charge; absent only triggers charge for group sessions.
-      const isGroupSession = sessionType === "group" || sessionType === "group_adjusted";
-      const isChargeable = isGroupSession
-        ? ["present", "late", "absent"].includes(attendanceStatus || "")
-        : ["present", "late"].includes(attendanceStatus || "");
-      
+      // Charge rules by session type (Task #624 — see shouldChargeCredit below):
+      //   GROUP:        present/late/absent → CHARGED (lesson ran regardless)
+      //   SEMI-PRIVATE: present/late only   → CHARGED (the other player is auto-converted
+      //                                       to private_adjusted so the absent player
+      //                                       MUST NOT be charged again)
+      //   PRIVATE:      present/late + absent → CHARGED (no-show = late cancel; an early
+      //                                       cancel would have removed the session_player
+      //                                       row entirely via /api/sessions/:id/cancel)
+      //   PRIVATE_ADJUSTED that came from a SEMI_PRIVATE series: treated as semi-private
+      //   for the absent player (isOriginallyPrivate=false ⇒ absent NOT charged).
+      const isChargeable = shouldChargeCredit({
+        sessionType,
+        attendanceStatus: attendanceStatus || null,
+        isOriginallyPrivate,
+      });
+
       if (!isChargeable) {
         return { success: true, action: "not_attended" as const };
       }

@@ -147,6 +147,11 @@ export default function AdminPlayersScreen() {
     queryKey: ["/api/players?withCredits=true"],
   });
 
+  // Used by the Rebuild button so platform_owner can supply academyId explicitly.
+  const { data: currentUser } = useQuery<{ id: string; role: string; academyId?: string }>({
+    queryKey: ["/api/me"],
+  });
+
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
   });
@@ -302,13 +307,31 @@ export default function AdminPlayersScreen() {
 
   const fullCreditRebuildMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/admin/full-credit-rebuild", {});
-      return res.json();
+      // Send academyId in body so platform_owner (who has no req.user.academyId)
+      // can still trigger the rebuild for the academy they're currently viewing.
+      const academyId = currentUser?.academyId;
+      const startedAt = Date.now();
+      const res = await apiRequest("POST", "/api/admin/full-credit-rebuild", { academyId });
+      const json = await res.json();
+      return { ...json, _elapsedMs: Date.now() - startedAt };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const msg = `${data.debts || 0} debt transactions created, ${data.consumed || 0} package deductions applied across ${data.playersProcessed || 0} players.`;
+      const consumed = data.consumed || 0;
+      const debts = data.debts || 0;
+      const players = data.playersProcessed || 0;
+      const errors = (data.errors && data.errors.length) || 0;
+      const elapsed = data._elapsedMs || 0;
+      const fast = elapsed < 100;
+      let msg = `${consumed} package deductions, ${debts} debt transactions across ${players} players.`;
+      if (errors > 0) msg += `\n\n${errors} error(s) — check server log.`;
+      if (fast) {
+        msg += `\n\nResponse in ${elapsed}ms — if no [FullCreditRebuild] entries appear in the server log, the endpoint exited early. Check console.`;
+        console.warn("[FullCreditRebuild] Suspicious fast response:", data);
+      } else {
+        console.log("[FullCreditRebuild] Result:", data);
+      }
       if (Platform.OS === "web") {
         window.alert(`Rebuild complete. ${msg}`);
       } else {
@@ -316,10 +339,12 @@ export default function AdminPlayersScreen() {
       }
     },
     onError: (err: Error) => {
+      console.error("[FullCreditRebuild] Failed:", err);
+      const message = err?.message || "Failed to rebuild credits";
       if (Platform.OS === "web") {
-        window.alert(err.message || "Failed to rebuild credits");
+        window.alert(`Rebuild failed: ${message}`);
       } else {
-        Alert.alert("Error", err.message || "Failed to rebuild credits");
+        Alert.alert("Rebuild Failed", message);
       }
     },
   });

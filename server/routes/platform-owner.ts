@@ -2896,25 +2896,53 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     requireRole("admin", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
-        if (!academyId) {
-          return res.status(400).json({ error: "No academy context found for this user" });
+        // Platform owners often have NO academyId set on req.user. Allow them
+        // to pass an explicit academyId via body or query string. For other
+        // roles, fall back to req.user.academyId (their own academy).
+        const role = req.user?.role;
+        const bodyAcademyId =
+          (typeof req.body?.academyId === "string" && req.body.academyId.trim()) ||
+          (typeof req.query?.academyId === "string" && (req.query.academyId as string).trim()) ||
+          undefined;
+
+        let academyId: string | undefined;
+        if (role === "platform_owner") {
+          academyId = bodyAcademyId || req.user?.academyId || undefined;
+        } else {
+          // admin / academy_owner: must use their own academy (cannot rebuild others)
+          academyId = req.user?.academyId || undefined;
+          if (bodyAcademyId && bodyAcademyId !== academyId) {
+            return res.status(403).json({
+              error: "You can only rebuild credits for your own academy",
+            });
+          }
         }
 
-        console.log(`[FullCreditRebuild] Triggered by user ${req.user?.id} for academy ${academyId}`);
+        if (!academyId) {
+          return res.status(400).json({
+            error:
+              role === "platform_owner"
+                ? "Platform owner must specify an academyId in the request body or query string"
+                : "No academy context found for this user",
+          });
+        }
+
+        console.log(`[FullCreditRebuild] Triggered by user ${req.user?.id} (role=${role}) for academy ${academyId}`);
 
         const { fullCreditRebuildForAcademy } = await import("../storage");
         const result = await fullCreditRebuildForAcademy(academyId);
 
-        console.log(`[FullCreditRebuild] Complete: ${result.consumed} consumed, ${result.debts} debts, ${result.errors.length} errors`);
+        console.log(`[FullCreditRebuild] Complete (academy=${academyId}): ${result.consumed} consumed, ${result.debts} debts, ${result.errors.length} errors, ${result.playersProcessed} players`);
 
         res.json({
           message: "Full credit rebuild complete",
+          academyId,
           ...result,
         });
       } catch (error) {
         console.error("Full credit rebuild error:", error);
-        res.status(500).json({ error: "Failed to run full credit rebuild" });
+        const message = error instanceof Error ? error.message : "Failed to run full credit rebuild";
+        res.status(500).json({ error: message });
       }
     },
   );
