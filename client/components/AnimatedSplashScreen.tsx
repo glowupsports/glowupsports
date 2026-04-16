@@ -16,6 +16,7 @@ import Svg, {
   LinearGradient as SvgGradient,
   Stop,
 } from "react-native-svg";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as SplashScreen from "expo-splash-screen";
 
@@ -24,15 +25,15 @@ SplashScreen.preventAutoHideAsync();
 const { width, height } = Dimensions.get("window");
 
 const G = {
-  bg0:    "#04060A",
-  bg1:    "#07111F",
-  bg2:    "#0B1830",
+  bg0:    "#030F14",
+  bg1:    "#051820",
+  bg2:    "#071E2A",
   purple: "#A855F7",
   green:  "#B7FF3C",
   cyan:   "#39D5FF",
   white:  "#F8FAFC",
   muted:  "#9FB0C7",
-  bloom:  "rgba(106,63,255,0.10)",
+  bloom:  "rgba(5,24,32,0.60)",
 } as const;
 
 const RING_SIZE   = 192;
@@ -81,7 +82,7 @@ export function AnimatedSplashScreen({
   const hasExited                             = useRef(false);
 
   const containerOpacity = useSharedValue(1);
-  const monogramScale    = useSharedValue(1);
+  const logoScale        = useSharedValue(1);
   const ringRotation     = useSharedValue(0);
   const progressFill     = useSharedValue(0);
 
@@ -92,7 +93,7 @@ export function AnimatedSplashScreen({
       false
     );
 
-    monogramScale.value = withRepeat(
+    logoScale.value = withRepeat(
       withSequence(
         withTiming(1.035, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
         withTiming(1.0,   { duration: 1100, easing: Easing.inOut(Easing.sin) })
@@ -129,7 +130,7 @@ export function AnimatedSplashScreen({
     const t1 = setTimeout(() => setIsReadyInternal(true), 200);
 
     const t2 = setTimeout(() => {
-      monogramScale.value = withSequence(
+      logoScale.value = withSequence(
         withTiming(1.08, { duration: 220 }),
         withTiming(1.0,  { duration: 220 }, () => {
           containerOpacity.value = withTiming(0, { duration: 350 }, () => {
@@ -151,8 +152,8 @@ export function AnimatedSplashScreen({
   const ringStyle      = useAnimatedStyle(() => ({
     transform: [{ rotate: `${ringRotation.value}deg` }],
   }));
-  const monogramStyle  = useAnimatedStyle(() => ({
-    transform: [{ scale: monogramScale.value }],
+  const logoStyle  = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
   }));
   const barStyle = useAnimatedStyle(() => ({
     width: progressFill.value * TRACK_W,
@@ -210,7 +211,13 @@ export function AnimatedSplashScreen({
                 />
               </Svg>
             </Animated.View>
-            <Animated.Text style={[styles.monogram, monogramStyle]}>GU</Animated.Text>
+            <Animated.View style={logoStyle}>
+              <Image
+                source={require("../../assets/images/logo.png")}
+                style={styles.logoImage}
+                contentFit="contain"
+              />
+            </Animated.View>
           </View>
 
           <WordmarkBlock />
@@ -256,7 +263,6 @@ function GlowParticle({
   const durBase    = 2400 + delay % 600;
 
   useEffect(() => {
-    // Fade in, then pulse opacity continuously
     opacity.value = withDelay(
       delay,
       withSequence(
@@ -435,15 +441,10 @@ const styles = StyleSheet.create({
   ringContainer: {
     position: "absolute",
   },
-  monogram: {
-    fontSize:         38,
-    fontWeight:       "700",
-    color:            G.purple,
-    letterSpacing:    2,
-    textShadowColor:  G.purple,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
-    fontFamily:       "serif",
+  logoImage: {
+    width:        120,
+    height:       120,
+    borderRadius: 24,
   },
   wordmarkOuter: {
     alignItems: "center",
