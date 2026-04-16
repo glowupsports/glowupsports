@@ -3600,23 +3600,26 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       // Finally delete the player row itself.
       await tx.delete(players).where(eq(players.id, playerId));
 
-      // Hard-delete users that have no remaining role/linkage. This cleans
-      // up the ghost auth rows behind anonymized "Deleted User" players.
-      // Failures are surfaced as a partial-success warning rather than
-      // silently swallowed: the player has already been removed, but the
-      // platform owner deserves to know if a stale auth row remains.
+      // Hard-delete every linked user row so no ghost auth account survives
+      // the player deletion. The platform-owner endpoint is explicitly a
+      // "delete anyone" action, so even users that also carry a coach or
+      // academy role get removed — the operator made that call deliberately.
+      // If foreign keys (e.g. coach-owned data) prevent the user delete, the
+      // failure is captured into userCleanupError and surfaced to the API
+      // response + audit log so it is visible rather than silently swallowed.
       let userCleanupError: string | undefined;
       for (const u of linkedUsers) {
-        if (!u.coachId && !u.academyId && (u.role === "player" || !u.role)) {
-          try {
-            await tx.delete(users).where(eq(users.id, u.id));
-          } catch (err) {
-            userCleanupError = err instanceof Error ? err.message : String(err);
-            console.error(
-              `[PlatformOwnerDelete] could not hard-delete user ${u.id} for player ${playerId}:`,
-              err,
-            );
-          }
+        try {
+          await tx.delete(users).where(eq(users.id, u.id));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          userCleanupError = userCleanupError
+            ? `${userCleanupError}; ${u.id}: ${msg}`
+            : `${u.id}: ${msg}`;
+          console.error(
+            `[PlatformOwnerDelete] could not hard-delete user ${u.id} for player ${playerId}:`,
+            err,
+          );
         }
       }
 
@@ -3708,12 +3711,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const failures: { id: string; error: string }[] = [];
         const userCleanupWarnings: { id: string; error: string }[] = [];
+        const deletedIds: string[] = [];
 
-        let deletedCount = 0;
         for (const g of ghosts) {
           try {
             const r = await hardDeletePlayer(g.id);
-            if (r.deleted) deletedCount += 1;
+            if (r.deleted) deletedIds.push(g.id);
             if (r.userCleanupError) {
               userCleanupWarnings.push({ id: g.id, error: r.userCleanupError });
             }
@@ -3723,15 +3726,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             failures.push({ id: g.id, error: msg });
           }
         }
+        const deletedCount = deletedIds.length;
 
+        // Audit payload includes the exact deleted player IDs (not just
+        // counts) so an operator reviewing the log can trace every removal.
         const bulkAuditPayload: InsertAuditLog = {
           entityType: "player",
           entityId: "bulk_deleted_users",
           action: "platform_owner_bulk_delete_ghosts",
           performedBy: req.user!.userId,
           performedByRole: "platform_owner",
-          beforeState: { ghostCount: ghosts.length },
-          afterState: { deletedCount, failures, userCleanupWarnings },
+          beforeState: { ghostCount: ghosts.length, candidateIds: ghosts.map((g) => g.id) },
+          afterState: { deletedCount, deletedIds, failures, userCleanupWarnings },
           academyId: null,
           metadata: null,
           ipAddress: req.ip ?? null,
