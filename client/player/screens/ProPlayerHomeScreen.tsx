@@ -1169,12 +1169,25 @@ function TennisIQCard() {
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
 
+  // Fetch server profile for authoritative quiz score (deduped by TanStack Query)
+  const { data: profileData } = useQuery<{ quizScore?: number | null }>({
+    queryKey: ["/api/player/me/profile"],
+    staleTime: 5 * 60 * 1000,
+  });
+
   useEffect(() => {
     AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY).then(val => {
-      if (val !== null) setScore(parseInt(val, 10));
+      // Server is source of truth — prefer it if available, fall back to local cache
+      const serverScore = profileData?.quizScore ?? null;
+      if (serverScore !== null && serverScore !== undefined) {
+        setScore(serverScore);
+        AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(serverScore));
+      } else if (val !== null) {
+        setScore(parseInt(val, 10));
+      }
       setScoreLoaded(true);
     });
-  }, []);
+  }, [profileData]);
 
   const handleAnswer = (answer: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

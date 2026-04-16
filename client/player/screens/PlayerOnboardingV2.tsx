@@ -1,5 +1,5 @@
 import logger from "@/lib/logger";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, type ComponentProps } from "react";
 import {
   View,
   Text,
@@ -54,6 +54,8 @@ import { TshirtSize, childTshirtSizes, adultTshirtSizes } from "@shared/schema";
 import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import * as Localization from "expo-localization";
 import * as Location from "expo-location";
+
+type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const SPORT_LABELS: Record<string, string> = {
   tennis: "Tennis",
@@ -388,7 +390,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
 
   const formatDate = (s: string) => new Date(s).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  const genderOptions = [
+  const genderOptions: Array<{ id: string; label: string; icon: IoniconName }> = [
     { id: "male", label: "Male", icon: "male-outline" },
     { id: "female", label: "Female", icon: "female-outline" },
     { id: "prefer_not_to_say", label: "Prefer not to say", icon: "person-outline" },
@@ -453,7 +455,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
                 }}
               >
                 <View style={[styles.genderIcon, data.gender === opt.id ? styles.genderIconActive : null]}>
-                  <Ionicons name={opt.icon as any} size={22} color={data.gender === opt.id ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+                  <Ionicons name={opt.icon} size={22} color={data.gender === opt.id ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
                 </View>
                 <Text style={[styles.genderText, data.gender === opt.id ? styles.genderTextActive : null]}>
                   {opt.label}
@@ -895,7 +897,7 @@ function PhotoUploadStep({ data, setData, onNext, playerName }: StepProps) {
 }
 
 function GenderStep({ data, setData, onNext, playerName }: StepProps) {
-  const genderOptions = [
+  const genderOptions: Array<{ id: string; label: string; icon: IoniconName }> = [
     { id: "male", label: "Male", icon: "male-outline" },
     { id: "female", label: "Female", icon: "female-outline" },
     { id: "prefer_not_to_say", label: "Prefer not to say", icon: "person-outline" },
@@ -923,7 +925,7 @@ function GenderStep({ data, setData, onNext, playerName }: StepProps) {
           >
             <View style={[styles.genderIcon, data.gender === option.id ? styles.genderIconActive : null]}>
               <Ionicons
-                name={option.icon as any}
+                name={option.icon}
                 size={24}
                 color={data.gender === option.id ? Colors.dark.backgroundRoot : Colors.dark.textMuted}
               />
@@ -1233,7 +1235,7 @@ function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
 }
 
 function WhyTennisStep({ data, setData, onNext, ageGroup }: StepProps) {
-  const options = {
+  const options: Record<string, Array<{ id: string; label: string; icon: IoniconName }>> = {
     kid: [
       { id: "fun", label: "Tennis is fun!", icon: "happy-outline" },
       { id: "friends", label: "My friends do it too", icon: "people-outline" },
@@ -1282,7 +1284,7 @@ function WhyTennisStep({ data, setData, onNext, ageGroup }: StepProps) {
               onPress={() => toggleMotivation(option.id)}
             >
               <Ionicons
-                name={option.icon as any}
+                name={option.icon}
                 size={28}
                 color={isSelected ? GlowColors.primary : Colors.dark.textMuted}
               />
@@ -1394,7 +1396,7 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
     ? childTshirtSizes.map((size) => ({ id: size, label: size }))
     : adultTshirtSizes.map((size) => ({ id: size, label: size }));
 
-  const handOptions = [
+  const handOptions: Array<{ id: string; label: string; icon: IoniconName }> = [
     { id: "right", label: "Right", icon: "hand-right-outline" },
     { id: "left", label: "Left", icon: "hand-left-outline" },
   ];
@@ -1465,7 +1467,7 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
               }}
             >
               <Ionicons
-                name={option.icon as any}
+                name={option.icon}
                 size={32}
                 color={data.dominantHand === option.id ? GlowColors.primary : Colors.dark.textMuted}
               />
@@ -1506,7 +1508,7 @@ const PLAY_STYLE_ARCHETYPES: Array<{
   key: PlayStyleKey;
   name: string;
   tagline: string;
-  icon: string;
+  icon: IoniconName;
   color: string;
   bgColor: string;
 }> = [
@@ -1591,7 +1593,7 @@ function PlayStyleStep({ data, setData, onNext }: StepProps) {
                 }}
               >
                 <View style={[styles.archetypeIconCircle, { backgroundColor: archetype.bgColor }]}>
-                  <Ionicons name={archetype.icon as any} size={28} color={archetype.color} />
+                  <Ionicons name={archetype.icon} size={28} color={archetype.color} />
                 </View>
                 <Text style={[styles.archetypeName, { color: isSelected ? archetype.color : Colors.dark.text }]}>
                   {archetype.name}
@@ -1723,7 +1725,7 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
 }
 
 function EnjoymentStep({ data, setData, onNext }: StepProps) {
-  const options = [
+  const options: Array<{ id: string; label: string; icon: IoniconName }> = [
     { id: "rallies", label: "Rallying", icon: "repeat-outline" },
     { id: "winning", label: "Winning points", icon: "star-outline" },
     { id: "technique", label: "Learning technique", icon: "school-outline" },
@@ -1766,7 +1768,7 @@ function EnjoymentStep({ data, setData, onNext }: StepProps) {
               onPress={() => !isDisabled && toggleSelection(option.id)}
               disabled={isDisabled}
             >
-              <Ionicons name={option.icon as any} size={32} color={isSelected ? GlowColors.primary : Colors.dark.textMuted} />
+              <Ionicons name={option.icon} size={32} color={isSelected ? GlowColors.primary : Colors.dark.textMuted} />
               <Text style={[styles.enjoymentCardText, isSelected ? styles.enjoymentCardTextActive : null]}>{option.label}</Text>
             </Pressable>
           );
@@ -1779,7 +1781,7 @@ function EnjoymentStep({ data, setData, onNext }: StepProps) {
 }
 
 function FocusGoalsStep({ data, setData, onNext }: StepProps) {
-  const options = [
+  const options: Array<{ id: string; label: string; icon: IoniconName }> = [
     { id: "technique", label: "Technique", icon: "construct-outline" },
     { id: "confidence", label: "Confidence", icon: "shield-checkmark-outline" },
     { id: "fitness", label: "Fitness", icon: "barbell-outline" },
@@ -1815,7 +1817,7 @@ function FocusGoalsStep({ data, setData, onNext }: StepProps) {
               style={[styles.enjoymentCard, isSelected ? styles.enjoymentCardActive : null]}
               onPress={() => toggleSelection(option.id)}
             >
-              <Ionicons name={option.icon as any} size={32} color={isSelected ? GlowColors.primary : Colors.dark.textMuted} />
+              <Ionicons name={option.icon} size={32} color={isSelected ? GlowColors.primary : Colors.dark.textMuted} />
               <Text style={[styles.enjoymentCardText, isSelected ? styles.enjoymentCardTextActive : null]}>{option.label}</Text>
             </Pressable>
           );
@@ -1826,7 +1828,7 @@ function FocusGoalsStep({ data, setData, onNext }: StepProps) {
 }
 
 function AvailabilityStep({ data, setData, onNext }: StepProps) {
-  const options = [
+  const options: Array<{ id: string; label: string; icon: IoniconName }> = [
     { id: "morning", label: "Morning", icon: "sunny-outline" },
     { id: "afternoon", label: "Afternoon", icon: "partly-sunny-outline" },
     { id: "evening", label: "Evening", icon: "moon-outline" },
@@ -1860,7 +1862,7 @@ function AvailabilityStep({ data, setData, onNext }: StepProps) {
               style={[styles.selectableCard, isSelected ? styles.selectableCardActive : null]}
               onPress={() => toggleSelection(option.id)}
             >
-              <Ionicons name={option.icon as any} size={28} color={isSelected ? GlowColors.primary : Colors.dark.textMuted} />
+              <Ionicons name={option.icon} size={28} color={isSelected ? GlowColors.primary : Colors.dark.textMuted} />
               <Text style={[styles.selectableCardText, isSelected ? styles.selectableCardTextActive : null]}>{option.label}</Text>
               {isSelected ? (
                 <View style={styles.checkIcon}>
@@ -2750,7 +2752,10 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
             const filename = uri.split('/').pop() || 'photo.jpg';
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1].toLowerCase().replace('jpg', 'jpeg')}` : 'image/jpeg';
-            formData.append("photo", { uri, name: filename, type } as any);
+            // React Native's FormData accepts { uri, name, type } for native file uploads.
+            // expo-file-system's File class wraps this pattern in a Blob-compatible interface.
+            const file = new File(uri, filename, { type });
+            formData.append("photo", file);
           }
           
           logger.log("[Onboarding] Uploading to server...");
