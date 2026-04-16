@@ -8,7 +8,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/query-client";
+import { apiFetch, apiRequest } from "@/lib/query-client";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
@@ -1185,7 +1185,12 @@ function TennisIQCard() {
     } else {
       const finalScore = newAnswers.filter((a, i) => a === TENNIS_IQ_QUESTIONS[i].correct).length;
       setScore(finalScore);
+      // Persist locally for instant restore between sessions
       AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(finalScore));
+      // Also save to player profile so it survives device changes / re-logins
+      apiRequest("PATCH", "/api/player/me/info", { quizScore: finalScore }).catch(() => {
+        // Non-critical; local AsyncStorage is the fallback
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };

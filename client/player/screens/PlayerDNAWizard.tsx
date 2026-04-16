@@ -10,12 +10,15 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  DimensionValue,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import type { ComponentProps } from "react";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import Animated, { FadeInDown, FadeIn, ZoomIn } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, runOnJS } from "react-native-reanimated";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, GlowColors, BorderRadius, FontSizes, Backgrounds } from "@/constants/theme";
@@ -24,24 +27,36 @@ import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
-const DNA_CARDS = [
-  { id: "hand",  title: "Dominant Hand",   subtitle: "Which hand do you play with?",           icon: "hand-left-outline" },
-  { id: "body",  title: "Your Stats",       subtitle: "Help us get the right sizes for you",     icon: "body-outline" },
-  { id: "style", title: "Play Style",       subtitle: "How would you describe your game?",       icon: "tennisball-outline" },
-  { id: "idol",  title: "Tennis Idol",      subtitle: "Who inspires your game the most?",        icon: "star-outline" },
+type IoniconName = ComponentProps<typeof Ionicons>["name"];
+
+const DNA_CARDS: Array<{ id: string; title: string; subtitle: string; icon: IoniconName }> = [
+  { id: "hand",  title: "Dominant Hand",   subtitle: "Which hand do you play with?",             icon: "hand-left-outline" },
+  { id: "body",  title: "Your Stats",       subtitle: "Help us get the right sizes for you",       icon: "body-outline" },
+  { id: "style", title: "Play Style",       subtitle: "How would you describe your game?",         icon: "tennisball-outline" },
+  { id: "idol",  title: "Tennis Idol",      subtitle: "Who inspires your game the most?",          icon: "star-outline" },
   { id: "love",  title: "What You Love",    subtitle: "Pick up to 3 things you love about tennis", icon: "heart-outline" },
-  { id: "goals", title: "Your Goals",       subtitle: "Where do you want your game to go?",      icon: "flag-outline" },
-  { id: "times", title: "When You Play",    subtitle: "When do you usually hit the courts?",     icon: "time-outline" },
-  { id: "photo", title: "Profile Photo",    subtitle: "Let coaches recognize you on court",      icon: "camera-outline" },
+  { id: "goals", title: "Your Goals",       subtitle: "Where do you want your game to go?",        icon: "flag-outline" },
+  { id: "times", title: "When You Play",    subtitle: "When do you usually hit the courts?",       icon: "time-outline" },
+  { id: "photo", title: "Profile Photo",    subtitle: "Let coaches recognize you on court",        icon: "camera-outline" },
 ];
 
-const PLAY_STYLES = [
+const PLAY_STYLES: Array<{ id: string; label: string; desc: string; icon: IoniconName }> = [
   { id: "baseline_warrior",     label: "Baseline Warrior",      desc: "Strong & consistent from the back",    icon: "shield-outline" },
   { id: "net_ninja",            label: "Net Ninja",             desc: "Quick and deadly at the net",          icon: "flash-outline" },
   { id: "serve_machine",        label: "Serve Machine",         desc: "Big serve is your greatest weapon",    icon: "arrow-up-circle-outline" },
   { id: "all_court_ace",        label: "All-Court Ace",         desc: "Adapt to any situation on court",      icon: "grid-outline" },
   { id: "counter_puncher",      label: "Counter Puncher",       desc: "Patient, waiting for opponent errors", icon: "repeat-outline" },
   { id: "tactical_mastermind",  label: "Tactical Mastermind",   desc: "Smart placement wins you points",      icon: "analytics-outline" },
+];
+
+const HAND_OPTIONS: Array<{ id: string; label: string; icon: IoniconName }> = [
+  { id: "right", label: "Right Hand", icon: "hand-right-outline" },
+  { id: "left",  label: "Left Hand",  icon: "hand-left-outline" },
+];
+
+const BACKHAND_OPTIONS: Array<{ id: string; label: string; icon: IoniconName }> = [
+  { id: "single", label: "One-Handed", icon: "hand-right-outline" },
+  { id: "double", label: "Two-Handed", icon: "people-outline" },
 ];
 
 const TENNIS_IDOLS = [
@@ -282,22 +297,31 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
   const card = DNA_CARDS[currentCard];
   const isLastCard = currentCard === DNA_CARDS.length - 1;
 
+  // Horizontal swipe gesture (fails fast on vertical scroll so ScrollView stays functional)
+  const swipeGesture = Gesture.Pan()
+    .activeOffsetX([-50, 50])
+    .failOffsetY([-15, 15])
+    .onEnd((e) => {
+      if (e.translationX < -50) {
+        runOnJS(handleNext)();
+      } else if (e.translationX > 50) {
+        runOnJS(handleBack)();
+      }
+    });
+
   const renderCardContent = () => {
     switch (card.id) {
       case "hand":
         return (
           <Animated.View key={`hand-${currentCard}`} entering={FadeInDown.duration(300)} style={styles.cardContent}>
             <View style={styles.choiceRow}>
-              {[
-                { id: "right", label: "Right Hand", icon: "hand-right-outline" },
-                { id: "left",  label: "Left Hand",  icon: "hand-left-outline" },
-              ].map(opt => (
+              {HAND_OPTIONS.map(opt => (
                 <Pressable
                   key={opt.id}
                   style={[styles.choiceCard, dna.dominantHand === opt.id && styles.choiceCardActive]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDNA(prev => ({ ...prev, dominantHand: opt.id })); }}
                 >
-                  <Ionicons name={opt.icon as any} size={36} color={dna.dominantHand === opt.id ? "#000" : Colors.dark.textMuted} />
+                  <Ionicons name={opt.icon} size={36} color={dna.dominantHand === opt.id ? "#000" : Colors.dark.textMuted} />
                   <Text style={[styles.choiceLabel, dna.dominantHand === opt.id && styles.choiceLabelActive]}>{opt.label}</Text>
                 </Pressable>
               ))}
@@ -307,16 +331,13 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
               <Animated.View entering={FadeInDown.duration(300)} style={styles.subSection}>
                 <Text style={styles.subSectionLabel}>Backhand style</Text>
                 <View style={styles.choiceRow}>
-                  {[
-                    { id: "single", label: "One-Handed", icon: "hand-right-outline" },
-                    { id: "double", label: "Two-Handed", icon: "people-outline" },
-                  ].map(opt => (
+                  {BACKHAND_OPTIONS.map(opt => (
                     <Pressable
                       key={opt.id}
                       style={[styles.choiceCard, dna.backhandType === opt.id && styles.choiceCardActive]}
                       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDNA(prev => ({ ...prev, backhandType: opt.id })); }}
                     >
-                      <Ionicons name={opt.icon as any} size={28} color={dna.backhandType === opt.id ? "#000" : Colors.dark.textMuted} />
+                      <Ionicons name={opt.icon} size={28} color={dna.backhandType === opt.id ? "#000" : Colors.dark.textMuted} />
                       <Text style={[styles.choiceLabel, dna.backhandType === opt.id && styles.choiceLabelActive]}>{opt.label}</Text>
                     </Pressable>
                   ))}
@@ -383,7 +404,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDNA(prev => ({ ...prev, playStyle: style.id })); }}
               >
                 <View style={[styles.styleIcon, dna.playStyle === style.id && styles.styleIconActive]}>
-                  <Ionicons name={style.icon as any} size={22} color={dna.playStyle === style.id ? "#000" : Colors.dark.textMuted} />
+                  <Ionicons name={style.icon} size={22} color={dna.playStyle === style.id ? "#000" : Colors.dark.textMuted} />
                 </View>
                 <View style={styles.styleTextWrap}>
                   <Text style={[styles.styleLabel, dna.playStyle === style.id && styles.styleLabelActive]}>{style.label}</Text>
@@ -568,25 +589,27 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
       </View>
 
       <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${progress}%` as any }]} />
+        <View style={[styles.progressFill, { width: `${progress}%` as DimensionValue }]} />
       </View>
 
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.cardHeader}>
-          <View style={styles.cardIconWrap}>
-            <Ionicons name={card.icon as any} size={28} color={GlowColors.primary} />
-          </View>
-          <Text style={styles.cardTitle}>{card.title}</Text>
-          <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-        </Animated.View>
+      <GestureDetector gesture={swipeGesture}>
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.cardHeader}>
+            <View style={styles.cardIconWrap}>
+              <Ionicons name={card.icon} size={28} color={GlowColors.primary} />
+            </View>
+            <Text style={styles.cardTitle}>{card.title}</Text>
+            <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+          </Animated.View>
 
-        {renderCardContent()}
-      </ScrollView>
+          {renderCardContent()}
+        </ScrollView>
+      </GestureDetector>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
         {currentCard > 0 ? (

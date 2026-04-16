@@ -1140,7 +1140,7 @@ export type Player = typeof players.$inferSelect;
 // IMPORTANT: Must remain a plain ZodObject (no .transform() at the end).
 // updatePlayerSchema ends with .transform() → becomes ZodEffects → .pick() throws at runtime.
 // This dedicated schema avoids that issue and also prevents mass-assignment of
-// sensitive fields (coachId, skillLevel, membershipType, privacyLevel, quizScore, etc.).
+// sensitive fields (coachId, skillLevel, membershipType, privacyLevel, etc.).
 export const playerSelfUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   phone: z.string().optional().nullable(),
@@ -1172,6 +1172,7 @@ export const playerSelfUpdateSchema = z.object({
   parentPhone: z.string().max(50).optional().nullable(),
   enjoymentTags: z.array(z.string()).optional().nullable(),
   gender: z.enum(["male", "female", "prefer_not_to_say"]).optional().nullable(),
+  quizScore: z.number().int().min(0).max(3).optional().nullable(),
 });
 
 // Youth Ball Stages - Constants for skill level progression
