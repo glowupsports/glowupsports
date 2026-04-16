@@ -152,7 +152,7 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
 
   const setComplete = useCallback(() => {
     setIsReady(true);
-    setTimeout(onBootComplete, 500);
+    setTimeout(onBootComplete, 300);
   }, [onBootComplete]);
 
   const checkAndComplete = useCallback(() => {
@@ -438,15 +438,11 @@ function GlowParticle({
 }
 
 function SysMsgCard({ messages }: { messages: string[] }) {
-  const [msgIdx, setMsgIdx]  = useState(0);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const opacity              = useSharedValue(1);
-  const nextIdxRef           = useRef(1);
+  const [msgIdx, setMsgIdx] = useState(0);
+  const opacity             = useSharedValue(1);
+  const nextIdxRef          = useRef(1);
 
-  const showNext = useCallback((idx: number) => {
-    setMsgIdx(idx);
-    setActiveIdx(idx % messages.length);
-  }, [messages.length]);
+  const showNext = useCallback((idx: number) => setMsgIdx(idx), []);
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -473,15 +469,9 @@ function SysMsgCard({ messages }: { messages: string[] }) {
         <Text style={styles.sysMsgStatusText}>SYSTEM NOMINAL</Text>
       </View>
       <View style={styles.tipIndicators}>
-        {messages.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.tipIndicator,
-              i === activeIdx && styles.tipIndicatorActive,
-            ]}
-          />
-        ))}
+        <View style={[styles.tipIndicator, styles.tipIndicatorActive]} />
+        <View style={styles.tipIndicator} />
+        <View style={styles.tipIndicator} />
       </View>
     </View>
   );
