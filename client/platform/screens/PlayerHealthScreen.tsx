@@ -50,7 +50,7 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
 };
 
 type FilterStatus = "all" | "active" | "inactive" | "pending";
-type SortBy = "name_az" | "name_za" | "academy" | "ball_level" | "most_sessions";
+type SortBy = "name_az" | "name_za" | "academy" | "ball_level" | "most_sessions" | "newest_members";
 
 const SORT_OPTIONS: { key: SortBy; label: string }[] = [
   { key: "name_az", label: "Name A–Z" },
@@ -58,6 +58,7 @@ const SORT_OPTIONS: { key: SortBy; label: string }[] = [
   { key: "academy", label: "Academy" },
   { key: "ball_level", label: "Ball Level" },
   { key: "most_sessions", label: "Most Sessions" },
+  { key: "newest_members", label: "Newest Members" },
 ];
 
 function getInitialsColor(name: string): string {
@@ -708,6 +709,14 @@ export default function PlayerHealthScreen() {
         }
         case "most_sessions":
           return (Number(b.sessionsAttended) || 0) - (Number(a.sessionsAttended) || 0);
+        case "newest_members": {
+          const aDate = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+          const bDate = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+          if (aDate === 0 && bDate === 0) return 0;
+          if (aDate === 0) return 1;
+          if (bDate === 0) return -1;
+          return bDate - aDate;
+        }
         default:
           return 0;
       }
