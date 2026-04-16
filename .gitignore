@@ -42,3 +42,6 @@ app-example
 /ios
 
 .env.local
+
+# User-pasted reference files (not source code)
+attached_assets/

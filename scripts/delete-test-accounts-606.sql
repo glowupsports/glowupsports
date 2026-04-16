@@ -36,6 +36,13 @@ BEGIN
     RAISE EXCEPTION 'No matching users found — aborting.';
   END IF;
 
+  -- Exact count guard: must find exactly 8 target accounts before proceeding.
+  -- If a username is misspelled or already deleted, fail loudly rather than silently.
+  IF array_length(target_user_ids, 1) != 8 THEN
+    RAISE EXCEPTION 'Expected exactly 8 target users, found %. Aborting to prevent partial delete.',
+      array_length(target_user_ids, 1);
+  END IF;
+
   -- Resolve the player profile IDs linked to these users
   SELECT ARRAY_AGG(id::uuid)
   INTO   target_player_ids
