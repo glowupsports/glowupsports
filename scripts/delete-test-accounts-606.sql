@@ -1,71 +1,86 @@
 -- Task #606: Delete 8 test accounts for ltvjeugd@gmail.com
 -- Run with: psql "$SUPABASE_DATABASE_URL" -f scripts/delete-test-accounts-606.sql
 --
--- Deletes exactly 8 test/dummy accounts tied to ltvjeugd@gmail.com.
--- KEEPS: thelaw (platform_owner) and any other accounts not in the allowed list.
+-- Deletes exactly 8 test/dummy accounts. Keeps thelaw (platform_owner) and all
+-- other ltvjeugd@gmail.com accounts not in the target list.
 --
--- Strategy: FK enforcement stays ON throughout. We delete from all child tables
--- BEFORE deleting from players, and from players BEFORE deleting from users.
--- Tables with ON DELETE CASCADE (identities, sessions, mfa_factors, push_device_tokens,
--- feature_events, group_event_rsvps, etc.) auto-clean when users are deleted.
+-- Schema note:
+--   users.player_id  → players.id   (user's linked player profile)
+--   users.coach_id   → coaches.id   (user's linked coach profile)
+--   There is NO players.user_id column.
+--
+-- Strategy: FK enforcement stays ON. We delete children before parents,
+-- in order: player-linked rows → coach-linked rows → players → coaches → users.
+-- Tables with ON DELETE CASCADE auto-clean when users row is deleted.
 
 BEGIN;
 
 DO $$
 DECLARE
-  -- Derive target user IDs from email + exact username allowlist.
-  -- thelaw is intentionally excluded from this list.
-  target_usernames text[] := ARRAY[
+  target_usernames  text[] := ARRAY[
     'test21', 'testacademy', 'test2', 'test1',
     'rolandk', 'patty', 'jokeb', 'ltvjeugd_78f8'
   ];
   target_user_ids   uuid[];
   target_player_ids uuid[];
+  target_coach_ids  uuid[];
   users_deleted     int;
   players_deleted   int;
+  coaches_deleted   int;
 BEGIN
-  -- ── DERIVE TARGET IDS FROM DATABASE ──────────────────────────────────────
+  -- ── DERIVE TARGET IDS ──────────────────────────────────────────────────
+  -- Resolve user IDs by email + username — never by hardcoded UUIDs.
   SELECT ARRAY_AGG(id::uuid)
   INTO   target_user_ids
   FROM   users
   WHERE  email    = 'ltvjeugd@gmail.com'
-    AND  username = ANY(target_usernames)
-    AND  username != 'thelaw';   -- belt-and-suspenders: never delete thelaw
+    AND  username  = ANY(target_usernames)
+    AND  username != 'thelaw';   -- belt-and-suspenders
 
+  -- Resolve player profile IDs from users.player_id (NOT players.user_id)
+  SELECT ARRAY_AGG(player_id::uuid)
+  INTO   target_player_ids
+  FROM   users
+  WHERE  id        = ANY(target_user_ids)
+    AND  player_id IS NOT NULL;
+
+  -- Resolve coach profile IDs from users.coach_id
+  SELECT ARRAY_AGG(coach_id::uuid)
+  INTO   target_coach_ids
+  FROM   users
+  WHERE  id       = ANY(target_user_ids)
+    AND  coach_id IS NOT NULL;
+
+  -- ── SAFETY GATES ─────────────────────────────────────────────────────────
   IF target_user_ids IS NULL OR array_length(target_user_ids, 1) = 0 THEN
     RAISE EXCEPTION 'No matching users found — aborting.';
   END IF;
 
-  -- Exact count guard: must find exactly 8 target accounts before proceeding.
-  -- If a username is misspelled or already deleted, fail loudly rather than silently.
+  -- Exact-count guard: fail loudly rather than silently partial-delete.
   IF array_length(target_user_ids, 1) != 8 THEN
-    RAISE EXCEPTION 'Expected exactly 8 target users, found %. Aborting to prevent partial delete.',
+    RAISE EXCEPTION
+      'Expected exactly 8 target users, found %. Aborting to prevent partial delete.',
       array_length(target_user_ids, 1);
   END IF;
 
-  -- Resolve the player profile IDs linked to these users
-  SELECT ARRAY_AGG(id::uuid)
-  INTO   target_player_ids
-  FROM   players
-  WHERE  user_id = ANY(target_user_ids);
-
-  RAISE NOTICE 'Targeting % user(s) and % player profile(s)',
-    array_length(target_user_ids, 1),
-    COALESCE(array_length(target_player_ids, 1), 0);
-
-  -- ── SAFETY GATE ──────────────────────────────────────────────────────────
+  -- Verify every target user belongs to the correct email and is not thelaw.
   IF EXISTS (
     SELECT 1 FROM users
-    WHERE id = ANY(target_user_ids)
-      AND (email != 'ltvjeugd@gmail.com' OR username = 'thelaw')
+    WHERE  id = ANY(target_user_ids)
+      AND  (email != 'ltvjeugd@gmail.com' OR username = 'thelaw')
   ) THEN
-    RAISE EXCEPTION 'SAFETY CHECK FAILED: thelaw or wrong-email account in target set.';
+    RAISE EXCEPTION 'SAFETY CHECK FAILED: wrong-email or thelaw in target set — aborting!';
   END IF;
 
-  -- ── CASCADE CLEANUP: player-linked rows (must run BEFORE deleting players) ─
-  -- These tables have NO ACTION / RESTRICT FK to players.id, so they must be
-  -- cleared first. Tables with ON DELETE CASCADE are skipped here — they clean
-  -- up automatically when we delete players or users.
+  RAISE NOTICE 'Targeting % user(s), % player profile(s), % coach profile(s)',
+    array_length(target_user_ids, 1),
+    COALESCE(array_length(target_player_ids, 1), 0),
+    COALESCE(array_length(target_coach_ids, 1), 0);
+
+  -- ── STEP 1: PLAYER-LINKED CHILD ROWS ─────────────────────────────────────
+  -- Must run before DELETE FROM players (FK: RESTRICT / NO ACTION).
+  -- Note: tables also having coach_id FKs are included here; those rows
+  -- reference the target players so they must be deleted regardless.
 
   -- XP / gamification
   DELETE FROM player_xp_events              WHERE player_id = ANY(target_player_ids);
@@ -87,7 +102,7 @@ BEGIN
   DELETE FROM player_pillar_progress        WHERE player_id = ANY(target_player_ids);
   DELETE FROM player_ball_levels            WHERE player_id = ANY(target_player_ids);
 
-  -- Baselines / assessments
+  -- Baselines / assessments / evidence
   DELETE FROM player_baseline_skill_scores  WHERE player_id = ANY(target_player_ids);
   DELETE FROM player_baselines              WHERE player_id = ANY(target_player_ids);
   DELETE FROM player_deep_assessments       WHERE player_id = ANY(target_player_ids);
@@ -97,7 +112,7 @@ BEGIN
   DELETE FROM skill_evidence                WHERE player_id = ANY(target_player_ids);
   DELETE FROM level_trials                  WHERE player_id = ANY(target_player_ids);
 
-  -- Progress / notifications / notes / holidays
+  -- Progress / notifications / notes / AI
   DELETE FROM player_progress               WHERE player_id = ANY(target_player_ids);
   DELETE FROM player_progress_flags         WHERE player_id = ANY(target_player_ids);
   DELETE FROM player_notifications          WHERE player_id = ANY(target_player_ids);
@@ -106,8 +121,9 @@ BEGIN
   DELETE FROM player_ai_insights            WHERE player_id = ANY(target_player_ids);
   DELETE FROM player_ai_training_plans      WHERE player_id = ANY(target_player_ids);
   DELETE FROM ai_coach_conversations        WHERE player_id = ANY(target_player_ids);
+  DELETE FROM video_feedback                WHERE player_id = ANY(target_player_ids);
 
-  -- Social / connections / matches (player vs player)
+  -- Social / connections
   DELETE FROM player_matches                WHERE initiator_id = ANY(target_player_ids)
                                                OR receiver_id  = ANY(target_player_ids);
   DELETE FROM player_connections            WHERE player1_id = ANY(target_player_ids)
@@ -118,7 +134,7 @@ BEGIN
   DELETE FROM spotlight_weekly_winners      WHERE player_id = ANY(target_player_ids);
   DELETE FROM spotlight_monthly_winners     WHERE player_id = ANY(target_player_ids);
 
-  -- Sessions / series / waitlist / ratings
+  -- Sessions / series / waitlist / ratings / feedback
   DELETE FROM session_players               WHERE player_id = ANY(target_player_ids);
   DELETE FROM session_waitlist              WHERE player_id = ANY(target_player_ids);
   DELETE FROM session_ratings               WHERE player_id = ANY(target_player_ids);
@@ -130,7 +146,7 @@ BEGIN
   DELETE FROM player_session_cancellations  WHERE player_id = ANY(target_player_ids);
   DELETE FROM lesson_group_members          WHERE player_id = ANY(target_player_ids);
 
-  -- Billing / credits / bookings
+  -- Billing / credits / bookings / corporate
   DELETE FROM credit_transactions           WHERE player_id = ANY(target_player_ids);
   DELETE FROM packages                      WHERE player_id = ANY(target_player_ids);
   DELETE FROM invoices                      WHERE player_id = ANY(target_player_ids);
@@ -143,12 +159,11 @@ BEGIN
   DELETE FROM booking_invites               WHERE host_player_id = ANY(target_player_ids);
   DELETE FROM court_bookings                WHERE player_id = ANY(target_player_ids);
   DELETE FROM equipment_rentals             WHERE player_id = ANY(target_player_ids);
-
-  -- Corporate
+  DELETE FROM slot_reservations             WHERE player_id = ANY(target_player_ids);
   DELETE FROM corporate_members             WHERE player_id = ANY(target_player_ids);
   DELETE FROM corporate_credit_transactions WHERE player_id = ANY(target_player_ids);
 
-  -- Match / tournament / ladder
+  -- Matches / tournaments / ladders
   DELETE FROM match_requests                WHERE player_id              = ANY(target_player_ids)
                                                OR invited_player_id     = ANY(target_player_ids)
                                                OR matched_with_player_id = ANY(target_player_ids);
@@ -175,7 +190,7 @@ BEGIN
                                                OR challenged_id = ANY(target_player_ids)
                                                OR winner_id     = ANY(target_player_ids);
 
-  -- Conversations / messaging
+  -- Messaging / conversations
   DELETE FROM message_reactions             WHERE reactor_player_id = ANY(target_player_ids);
   DELETE FROM messages                      WHERE sender_player_id  = ANY(target_player_ids);
   DELETE FROM conversation_participants     WHERE player_id = ANY(target_player_ids);
@@ -184,12 +199,10 @@ BEGIN
   DELETE FROM play_request_participants     WHERE player_id = ANY(target_player_ids);
   DELETE FROM play_requests                 WHERE creator_id = ANY(target_player_ids);
 
-  -- Reviews
+  -- Reviews / shop / marketplace / academy / parents
   DELETE FROM coach_reviews                 WHERE player_id = ANY(target_player_ids);
   DELETE FROM coach_match_reviews           WHERE player_id = ANY(target_player_ids);
   DELETE FROM review_prompts                WHERE player_id = ANY(target_player_ids);
-
-  -- Shop / marketplace
   DELETE FROM shop_orders                   WHERE player_id = ANY(target_player_ids);
   DELETE FROM shop_wishlist                 WHERE player_id = ANY(target_player_ids);
   DELETE FROM marketplace_messages          WHERE sender_id    = ANY(target_player_ids)
@@ -197,65 +210,119 @@ BEGIN
   DELETE FROM marketplace_favorites         WHERE player_id = ANY(target_player_ids);
   DELETE FROM marketplace_listings          WHERE seller_id = ANY(target_player_ids);
   DELETE FROM seller_profiles               WHERE player_id = ANY(target_player_ids);
-
-  -- Academy / transfers / parents
   DELETE FROM join_requests                 WHERE player_id = ANY(target_player_ids);
   DELETE FROM academy_transfer_requests     WHERE player_id = ANY(target_player_ids);
   DELETE FROM parent_player_relations       WHERE player_id = ANY(target_player_ids);
-
-  -- Service providers
   DELETE FROM provider_client_notes         WHERE player_id = ANY(target_player_ids);
   DELETE FROM provider_client_preferences   WHERE player_id = ANY(target_player_ids);
 
-  -- Push tokens by player_id (not cascade from users in all environments)
+  -- Push tokens keyed by player_id
   DELETE FROM push_device_tokens            WHERE player_id = ANY(target_player_ids);
 
-  -- ── DELETE PLAYER PROFILES ───────────────────────────────────────────────
+  -- ── STEP 2: COACH-LINKED CHILD ROWS ──────────────────────────────────────
+  -- Only runs if any target user had a coach profile (users.coach_id IS NOT NULL).
+  -- Must run before DELETE FROM coaches (FK: RESTRICT / NO ACTION).
+  -- Skips tables already cleared in Step 1 (e.g., session_skill_feedback,
+  -- coach_reviews, ai_coach_conversations — those rows were player-keyed).
+  IF target_coach_ids IS NOT NULL AND array_length(target_coach_ids, 1) > 0 THEN
+    DELETE FROM coach_academy_memberships  WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_availability         WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_calibration          WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_contracts            WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_court_preferences    WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_court_rules          WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_earnings             WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_freelance_profiles   WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_invitations          WHERE coach_id    = ANY(target_coach_ids)
+                                              OR invited_by  = ANY(target_coach_ids);
+    DELETE FROM coach_notifications        WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_payment_rules        WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_payouts              WHERE coach_id  = ANY(target_coach_ids)
+                                              OR paid_by   = ANY(target_coach_ids);
+    DELETE FROM coach_review_stats         WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_settings             WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_stats_rollup         WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_time_blocks          WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coach_xp_transactions      WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM notification_preferences   WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM review_responses           WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM scheduled_notifications    WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM session_intake_data        WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM session_plans              WHERE generated_by = ANY(target_coach_ids);
+    DELETE FROM session_templates          WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM lesson_templates           WHERE created_by = ANY(target_coach_ids);
+    DELETE FROM location_travel_times      WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM availability_exceptions    WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM push_device_tokens         WHERE coach_id = ANY(target_coach_ids);
+    -- Coaching series and lesson groups may have child records; session_players
+    -- already cleaned, but sessions still reference lesson_groups:
+    DELETE FROM sessions                   WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM recurring_series           WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM coaching_series            WHERE coach_id = ANY(target_coach_ids);
+    DELETE FROM lesson_groups              WHERE coach_id = ANY(target_coach_ids);
+  END IF;
+
+  -- ── STEP 3: DELETE PLAYER PROFILES ───────────────────────────────────────
   DELETE FROM players WHERE id = ANY(target_player_ids);
   GET DIAGNOSTICS players_deleted = ROW_COUNT;
   RAISE NOTICE 'Player profiles deleted: %', players_deleted;
 
-  -- ── DELETE USER ACCOUNTS ─────────────────────────────────────────────────
-  -- push_device_tokens, identities, sessions, mfa_factors, feature_events, etc.
-  -- all have ON DELETE CASCADE on user_id and will auto-delete here.
+  -- ── STEP 4: DELETE COACH PROFILES ────────────────────────────────────────
+  IF target_coach_ids IS NOT NULL AND array_length(target_coach_ids, 1) > 0 THEN
+    DELETE FROM coaches WHERE id = ANY(target_coach_ids);
+    GET DIAGNOSTICS coaches_deleted = ROW_COUNT;
+    RAISE NOTICE 'Coach profiles deleted: %', coaches_deleted;
+  END IF;
+
+  -- ── STEP 5: DELETE USER ACCOUNTS ─────────────────────────────────────────
+  -- Cascade-linked tables (identities, sessions, mfa_factors, feature_events,
+  -- push_device_tokens by user_id, etc.) auto-delete via ON DELETE CASCADE.
   DELETE FROM users
   WHERE  id       = ANY(target_user_ids)
-    AND  email    = 'ltvjeugd@gmail.com'   -- belt-and-suspenders email guard
-    AND  username != 'thelaw';             -- belt-and-suspenders username guard
+    AND  email    = 'ltvjeugd@gmail.com'
+    AND  username != 'thelaw';
   GET DIAGNOSTICS users_deleted = ROW_COUNT;
   RAISE NOTICE 'User accounts deleted: %', users_deleted;
 
-  -- ── POST-DELETE ASSERTIONS ───────────────────────────────────────────────
-  IF users_deleted != array_length(target_user_ids, 1) THEN
-    RAISE EXCEPTION 'Expected % users deleted, got %. Rolling back.',
-      array_length(target_user_ids, 1), users_deleted;
+  -- ── POST-DELETE ASSERTIONS ────────────────────────────────────────────────
+  IF users_deleted != 8 THEN
+    RAISE EXCEPTION
+      'Expected 8 users deleted, got % — rolling back.', users_deleted;
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM users WHERE username = 'thelaw' AND email = 'ltvjeugd@gmail.com'
+    SELECT 1 FROM users
+    WHERE username = 'thelaw' AND email = 'ltvjeugd@gmail.com'
   ) THEN
     RAISE EXCEPTION 'SAFETY FAILURE: thelaw account missing after delete — rolling back!';
   END IF;
 
-  -- Verify no orphaned player-linked rows remain for the deleted player IDs
+  -- Orphan checks: key child tables must be empty for the deleted IDs
   IF target_player_ids IS NOT NULL AND EXISTS (
-    SELECT 1 FROM session_players WHERE player_id = ANY(target_player_ids)
-  ) THEN
-    RAISE EXCEPTION 'Orphaned session_players rows remain — rolling back!';
-  END IF;
-
-  IF target_player_ids IS NOT NULL AND EXISTS (
+    SELECT 1 FROM session_players   WHERE player_id = ANY(target_player_ids)
+    UNION ALL
     SELECT 1 FROM credit_transactions WHERE player_id = ANY(target_player_ids)
+    UNION ALL
+    SELECT 1 FROM player_quests     WHERE player_id = ANY(target_player_ids)
   ) THEN
-    RAISE EXCEPTION 'Orphaned credit_transactions rows remain — rolling back!';
+    RAISE EXCEPTION 'Orphaned player-linked rows remain — rolling back!';
   END IF;
 
-  RAISE NOTICE 'All assertions passed. thelaw intact. % test account(s) removed.', users_deleted;
+  IF target_coach_ids IS NOT NULL AND EXISTS (
+    SELECT 1 FROM coach_notifications WHERE coach_id = ANY(target_coach_ids)
+    UNION ALL
+    SELECT 1 FROM coaching_series     WHERE coach_id = ANY(target_coach_ids)
+  ) THEN
+    RAISE EXCEPTION 'Orphaned coach-linked rows remain — rolling back!';
+  END IF;
+
+  RAISE NOTICE 'All assertions passed. thelaw intact. 8 test accounts removed cleanly.';
 END $$;
 
 COMMIT;
 
--- ── VERIFICATION QUERY (run after commit to confirm) ─────────────────────
+-- ── VERIFICATION QUERY ────────────────────────────────────────────────────
+-- Run after COMMIT to confirm surviving accounts:
 SELECT username, role
 FROM   users
 WHERE  email = 'ltvjeugd@gmail.com'
