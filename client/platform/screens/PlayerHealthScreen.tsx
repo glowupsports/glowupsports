@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   Image,
   Linking,
+  Alert,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
@@ -427,6 +428,33 @@ function PlayerDetailSheet({
   const [assigning, setAssigning] = useState(false);
   const [assignedAcademy, setAssignedAcademy] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete player?",
+      `${player.name} will be permanently removed. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await apiRequest("DELETE", `/api/platform/players/${player.id}`);
+              onPlayerUpdated();
+              onClose();
+            } catch {
+              Alert.alert("Delete failed", "Could not delete this player. Please try again.");
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   async function handleAssignAcademy(academyId: string, academyName: string) {
     setShowAcademyPicker(false);
@@ -622,6 +650,25 @@ function PlayerDetailSheet({
                   </>
                 )}
               </Pressable>
+
+              {/* Platform-owner only: hard-delete this player. The screen
+                  is platform-owner-routed and the endpoint is
+                  requireRole('platform_owner'), so other roles cannot
+                  reach this UI or the API. */}
+              <Pressable
+                style={[styles.deleteButton, deleting ? { opacity: 0.6 } : {}]}
+                onPress={confirmDelete}
+                disabled={deleting || assigning}
+              >
+                {deleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Feather name="trash-2" size={15} color="#fff" />
+                    <Text style={styles.deleteButtonText}>Delete Player</Text>
+                  </>
+                )}
+              </Pressable>
             </SafeAreaView>
           </Pressable>
         </Pressable>
@@ -646,11 +693,44 @@ export default function PlayerHealthScreen() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [sortBy, setSortBy] = useState<SortBy>("name_az");
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [cleaningGhosts, setCleaningGhosts] = useState(false);
 
   const { data, isLoading, error } = useQuery<PlayerHealthData>({
     queryKey: ["/api/platform/player-health"],
     staleTime: 0,
   });
+
+  const ghostCount = useMemo(
+    () => (data?.allPlayers ?? []).filter((p) => p.name === "Deleted User").length,
+    [data?.allPlayers],
+  );
+
+  async function handleCleanupGhosts() {
+    Alert.alert(
+      "Clear deleted users?",
+      `${ghostCount} anonymized "Deleted User" ${ghostCount === 1 ? "row" : "rows"} will be permanently removed.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear all",
+          style: "destructive",
+          onPress: async () => {
+            setCleaningGhosts(true);
+            try {
+              const res = await apiRequest("POST", "/api/platform/players/cleanup-deleted");
+              const body = await res.json().catch(() => ({}));
+              await queryClient.invalidateQueries({ queryKey: ["/api/platform/player-health"] });
+              Alert.alert("Cleanup complete", `Removed ${body?.deletedCount ?? 0} deleted user rows.`);
+            } catch {
+              Alert.alert("Cleanup failed", "Could not clear deleted users. Please try again.");
+            } finally {
+              setCleaningGhosts(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   const healthStats = data?.healthStats ?? {
     totalPlayers: 0,
@@ -929,6 +1009,26 @@ export default function PlayerHealthScreen() {
             {filteredDirectory.length} {filteredDirectory.length === 1 ? "player" : "players"}
             {filterStatus !== "all" || searchQuery.trim() ? ` of ${allPlayers.length}` : ""}
           </Text>
+
+          {ghostCount > 0 ? (
+            <View style={styles.ghostBanner}>
+              <Feather name="alert-triangle" size={14} color={Colors.dark.error} />
+              <Text style={styles.ghostBannerText}>
+                {ghostCount} anonymized "Deleted User" {ghostCount === 1 ? "row" : "rows"} found
+              </Text>
+              <Pressable
+                style={[styles.ghostBannerButton, cleaningGhosts ? { opacity: 0.6 } : {}]}
+                onPress={handleCleanupGhosts}
+                disabled={cleaningGhosts}
+              >
+                {cleaningGhosts ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.ghostBannerButtonText}>Clear all</Text>
+                )}
+              </Pressable>
+            </View>
+          ) : null}
 
           <FlatList
             data={filteredDirectory}
@@ -1583,6 +1683,50 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     marginBottom: Spacing.sm,
     textAlign: "center",
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.error,
+    borderRadius: BorderRadius.md,
+    paddingVertical: 13,
+    marginTop: Spacing.sm,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  ghostBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.error}15`,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}40`,
+    marginBottom: Spacing.sm,
+  },
+  ghostBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  ghostBannerButton: {
+    backgroundColor: Colors.dark.error,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+  },
+  ghostBannerButtonText: {
+    fontSize: 11,
+    color: "#fff",
+    fontWeight: "700",
   },
 
   // Academy picker
