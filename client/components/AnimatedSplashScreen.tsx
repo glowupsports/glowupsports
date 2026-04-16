@@ -18,6 +18,7 @@ import Svg, {
 } from "react-native-svg";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import Feather from "@expo/vector-icons/Feather";
 import * as SplashScreen from "expo-splash-screen";
 
 SplashScreen.preventAutoHideAsync();
@@ -33,37 +34,58 @@ const G = {
   cyan:   "#39D5FF",
   white:  "#F8FAFC",
   muted:  "#9FB0C7",
-  bloom:  "rgba(5,24,32,0.60)",
 } as const;
 
-const RING_SIZE   = 192;
-const RING_STROKE = 3;
+const RING_SIZE   = 280;
+const RING_STROKE = 5;
 const RING_R      = RING_SIZE / 2 - RING_STROKE / 2;
-const TRACK_W     = width * 0.65;
-const DOT_SIZE    = 8;
+const HERO_SIZE   = 340;
+const TRACK_W     = width * 0.72;
+const DOT_SIZE    = 9;
 const SWEEP_RANGE = width * 0.62;
+const HS_SIZE     = 10;
+
+function hotspotXY(angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    left: RING_SIZE / 2 + RING_R * Math.cos(rad) - HS_SIZE / 2,
+    top:  RING_SIZE / 2 + RING_R * Math.sin(rad) - HS_SIZE / 2,
+  };
+}
+
+const HS1 = hotspotXY(-60);
+const HS2 = hotspotXY(120);
 
 const STATUS_MESSAGES = [
-  "INITIALIZING GLOW OS",
-  "SYNCING PLAYER PROFILE",
-  "LOADING AI COACH",
-  "PREPARING PERFORMANCE DATA",
-  "COURT SYSTEMS ONLINE",
+  "LOADING COURT SYSTEMS...",
+  "SYNCING PLAYER PROFILE...",
+  "CALIBRATING AI COACH...",
+  "PREPARING MATCH DATA...",
+  "ACTIVATING GLOW ENGINE...",
 ];
 const STATUS_FINAL = "SYSTEM READY";
+
+const ICONS_ROW = [
+  { icon: "target",      label: "FOCUS"   },
+  { icon: "trending-up", label: "IMPROVE" },
+  { icon: "zap",         label: "PERFORM" },
+  { icon: "award",       label: "ACHIEVE" },
+] as const;
 
 const PARTICLES: {
   color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number;
 }[] = [
-  { color: G.purple, xFrac: 0.14, yFrac: 0.19, delay: 0,   dx: 8,   dy: -15 },
-  { color: G.cyan,   xFrac: 0.79, yFrac: 0.13, delay: 180, dx: -10, dy: -18 },
-  { color: G.green,  xFrac: 0.08, yFrac: 0.67, delay: 360, dx: 12,  dy: 10  },
-  { color: G.purple, xFrac: 0.83, yFrac: 0.71, delay: 540, dx: -8,  dy: 14  },
-  { color: G.cyan,   xFrac: 0.46, yFrac: 0.89, delay: 720, dx: 6,   dy: -12 },
-  { color: G.green,  xFrac: 0.24, yFrac: 0.39, delay: 270, dx: -14, dy: -8  },
-  { color: G.purple, xFrac: 0.68, yFrac: 0.44, delay: 450, dx: 10,  dy: 11  },
-  { color: G.cyan,   xFrac: 0.56, yFrac: 0.24, delay: 630, dx: -6,  dy: 16  },
+  { color: G.purple, xFrac: 0.08, yFrac: 0.12, delay: 0,   dx: 8,   dy: -12 },
+  { color: G.cyan,   xFrac: 0.82, yFrac: 0.10, delay: 180, dx: -10, dy: -14 },
+  { color: G.green,  xFrac: 0.05, yFrac: 0.60, delay: 360, dx: 10,  dy: 8   },
+  { color: G.purple, xFrac: 0.86, yFrac: 0.65, delay: 540, dx: -8,  dy: 12  },
+  { color: G.cyan,   xFrac: 0.44, yFrac: 0.88, delay: 720, dx: 6,   dy: -10 },
+  { color: G.green,  xFrac: 0.20, yFrac: 0.35, delay: 270, dx: -12, dy: -6  },
+  { color: G.purple, xFrac: 0.70, yFrac: 0.42, delay: 450, dx: 8,   dy: 9   },
+  { color: G.cyan,   xFrac: 0.54, yFrac: 0.22, delay: 630, dx: -6,  dy: 14  },
 ];
+
+const RING_OFFSET = (HERO_SIZE - RING_SIZE) / 2;
 
 interface AnimatedSplashScreenProps {
   isReady: boolean;
@@ -152,7 +174,7 @@ export function AnimatedSplashScreen({
   const ringStyle      = useAnimatedStyle(() => ({
     transform: [{ rotate: `${ringRotation.value}deg` }],
   }));
-  const logoStyle  = useAnimatedStyle(() => ({
+  const logoStyle = useAnimatedStyle(() => ({
     transform: [{ scale: logoScale.value }],
   }));
   const barStyle = useAnimatedStyle(() => ({
@@ -174,19 +196,22 @@ export function AnimatedSplashScreen({
           style={StyleSheet.absoluteFill}
         />
 
-        <View style={styles.centerBloom} />
-
         {PARTICLES.map((p, i) => (
           <GlowParticle key={i} {...p} />
         ))}
 
-        <View style={styles.mainColumn}>
+        <View style={styles.fullColumn}>
+          <View style={styles.topSpacer} />
+
           <View style={styles.heroWrapper}>
+            <View style={styles.outerAura} />
+            <View style={styles.midBloom} />
             <View style={styles.ringGlowShadow} />
+
             <Animated.View style={[styles.ringContainer, ringStyle]}>
               <Svg width={RING_SIZE} height={RING_SIZE}>
                 <Defs>
-                  <SvgGradient id="glowRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <SvgGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <Stop offset="0%"   stopColor={G.purple} stopOpacity="1" />
                     <Stop offset="50%"  stopColor={G.cyan}   stopOpacity="1" />
                     <Stop offset="100%" stopColor={G.green}  stopOpacity="1" />
@@ -195,9 +220,9 @@ export function AnimatedSplashScreen({
                 <Circle
                   cx={RING_SIZE / 2}
                   cy={RING_SIZE / 2}
-                  r={RING_R - 14}
+                  r={RING_R - 18}
                   fill="none"
-                  stroke="rgba(255,255,255,0.05)"
+                  stroke="rgba(255,255,255,0.04)"
                   strokeWidth={1}
                 />
                 <Circle
@@ -205,12 +230,17 @@ export function AnimatedSplashScreen({
                   cy={RING_SIZE / 2}
                   r={RING_R}
                   fill="none"
-                  stroke="url(#glowRingGrad)"
+                  stroke="url(#ringGrad)"
                   strokeWidth={RING_STROKE}
                   strokeLinecap="round"
                 />
               </Svg>
+              <View style={[styles.hotspot, { left: HS1.left, top: HS1.top, backgroundColor: G.cyan }]} />
+              <View style={[styles.hotspot, { left: HS2.left, top: HS2.top, backgroundColor: G.purple }]} />
             </Animated.View>
+
+            <View style={styles.logoDisk} />
+
             <Animated.View style={logoStyle}>
               <Image
                 source={require("../../assets/images/logo.png")}
@@ -220,32 +250,47 @@ export function AnimatedSplashScreen({
             </Animated.View>
           </View>
 
+          <View style={{ height: 20 }} />
           <WordmarkBlock />
-        </View>
+          <View style={{ height: 22 }} />
+          <BottomIconsRow />
 
-        <View style={styles.systemBlock}>
-          <GlowStatusText isReady={isReadyInternal} />
+          <View style={styles.midSpacer} />
 
-          <View style={styles.progressRow}>
-            <View style={styles.progressTrackWrapper}>
-              <View style={styles.progressTrack}>
-                <Animated.View style={[styles.progressBar, barStyle]}>
-                  <LinearGradient
-                    colors={[G.purple, G.cyan, G.green]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </Animated.View>
+          <View style={styles.progressSection}>
+            <GlowStatusText isReady={isReadyInternal} />
+
+            <View style={styles.progressRow}>
+              <View style={styles.progressTrackWrapper}>
+                <View style={styles.progressTrack}>
+                  <Animated.View style={[styles.progressBar, barStyle]}>
+                    <LinearGradient
+                      colors={[G.purple, G.cyan, G.green]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+                </View>
+                <Animated.View style={[styles.progressDot, dotStyle]} />
               </View>
-              <Animated.View style={[styles.progressDot, dotStyle]} />
+              <Text style={styles.pctText}>{displayPct}%</Text>
             </View>
-            <Text style={styles.pctText}>{displayPct}%</Text>
+
+            <Text style={styles.subStatus}>
+              {isReadyInternal ? "READY TO PERFORM" : "INITIALIZING GLOW OS"}
+            </Text>
+
+            <View style={styles.dotIndicatorRow}>
+              <View style={[styles.dotIndicator, styles.dotActive]} />
+              <View style={styles.dotIndicator} />
+              <View style={styles.dotIndicator} />
+            </View>
           </View>
 
-          <Text style={styles.subStatus}>
-            {isReadyInternal ? "READY TO PERFORM" : "BOOTING COURT SYSTEMS"}
-          </Text>
+          <View style={{ height: 14 }} />
+          <QuoteCard />
+          <View style={{ height: 28 }} />
         </View>
       </Animated.View>
     </View>
@@ -318,11 +363,11 @@ function GlowParticle({
 }
 
 function GlowStatusText({ isReady }: { isReady: boolean }) {
-  const [msgIdx, setMsgIdx] = useState(0);
-  const opacity             = useSharedValue(1);
-  const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null);
-  const frozenRef           = useRef(false);
-  const nextIdxRef          = useRef(1);
+  const [msgIdx, setMsgIdx]     = useState(0);
+  const opacity                 = useSharedValue(1);
+  const intervalRef             = useRef<ReturnType<typeof setInterval> | null>(null);
+  const frozenRef               = useRef(false);
+  const nextIdxRef              = useRef(1);
 
   const showNext  = useCallback((idx: number) => setMsgIdx(idx), []);
   const showReady = useCallback(() => setMsgIdx(STATUS_MESSAGES.length), []);
@@ -393,18 +438,34 @@ function WordmarkBlock() {
   );
 }
 
+function BottomIconsRow() {
+  return (
+    <View style={styles.iconsRow}>
+      {ICONS_ROW.map(({ icon, label }) => (
+        <View key={label} style={styles.iconItem}>
+          <Feather name={icon} size={15} color={G.muted} />
+          <Text style={styles.iconLabel}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function QuoteCard() {
+  return (
+    <View style={styles.quoteCard}>
+      <Text style={styles.quoteIcon}>{"\u201C"}</Text>
+      <Text style={styles.quoteText}>
+        {"Small improvements today, "}
+        <Text style={styles.quoteHighlight}>{"big wins tomorrow."}</Text>
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  centerBloom: {
-    position:        "absolute",
-    alignSelf:       "center",
-    top:             height * 0.28,
-    width:           220,
-    height:          130,
-    backgroundColor: G.bloom,
-    borderRadius:    110,
   },
   particle: {
     position:      "absolute",
@@ -415,36 +476,79 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.9,
     shadowRadius:  6,
   },
-  mainColumn: {
+  fullColumn: {
     flex:           1,
     alignItems:     "center",
-    justifyContent: "center",
-    paddingTop:     24,
-    gap:            32,
+  },
+  topSpacer: {
+    flex: 1,
+    maxHeight: 72,
+    minHeight: 40,
+  },
+  midSpacer: {
+    flex: 1,
   },
   heroWrapper: {
-    width:          RING_SIZE + 20,
-    height:         RING_SIZE + 20,
+    width:          HERO_SIZE,
+    height:         HERO_SIZE,
     alignItems:     "center",
     justifyContent: "center",
+  },
+  outerAura: {
+    position:        "absolute",
+    width:           HERO_SIZE,
+    height:          HERO_SIZE,
+    borderRadius:    HERO_SIZE / 2,
+    backgroundColor: "rgba(168,85,247,0.07)",
+  },
+  midBloom: {
+    position:        "absolute",
+    width:           HERO_SIZE - 40,
+    height:          HERO_SIZE - 40,
+    borderRadius:    (HERO_SIZE - 40) / 2,
+    left:            20,
+    top:             20,
+    backgroundColor: "rgba(57,213,255,0.05)",
   },
   ringGlowShadow: {
     position:      "absolute",
     width:         RING_SIZE,
     height:        RING_SIZE,
     borderRadius:  RING_SIZE / 2,
+    left:          RING_OFFSET,
+    top:           RING_OFFSET,
     shadowColor:   G.green,
     shadowOffset:  { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius:  24,
+    shadowOpacity: 0.55,
+    shadowRadius:  32,
   },
   ringContainer: {
     position: "absolute",
+    width:    RING_SIZE,
+    height:   RING_SIZE,
+    left:     RING_OFFSET,
+    top:      RING_OFFSET,
+  },
+  hotspot: {
+    position:      "absolute",
+    width:         HS_SIZE,
+    height:        HS_SIZE,
+    borderRadius:  HS_SIZE / 2,
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius:  8,
+  },
+  logoDisk: {
+    position:        "absolute",
+    width:           124,
+    height:          124,
+    borderRadius:    62,
+    backgroundColor: "rgba(168,85,247,0.14)",
   },
   logoImage: {
-    width:        120,
-    height:       120,
-    borderRadius: 24,
+    width:        110,
+    height:       110,
+    borderRadius: 22,
   },
   wordmarkOuter: {
     alignItems: "center",
@@ -459,30 +563,30 @@ const styles = StyleSheet.create({
     alignItems:    "baseline",
   },
   wordmarkGlow: {
-    fontSize:      28,
-    fontWeight:    "800",
+    fontSize:      42,
+    fontWeight:    "900",
     color:         "#C38BFF",
-    letterSpacing: 1.3,
+    letterSpacing: 1,
   },
   wordmarkUp: {
-    fontSize:      28,
-    fontWeight:    "800",
+    fontSize:      42,
+    fontWeight:    "900",
     color:         G.green,
-    letterSpacing: 1.3,
+    letterSpacing: 1,
   },
   wordmarkSports: {
-    fontSize:      13,
+    fontSize:      14,
     fontWeight:    "700",
     color:         G.cyan,
-    letterSpacing: 8,
+    letterSpacing: 10,
     marginTop:     4,
   },
   wordmarkTagline: {
     fontSize:      9,
     fontWeight:    "500",
-    color:         "rgba(248,250,252,0.55)",
+    color:         "rgba(248,250,252,0.45)",
     letterSpacing: 3,
-    marginTop:     6,
+    marginTop:     7,
     textTransform: "uppercase",
   },
   lightSweep: {
@@ -497,26 +601,42 @@ const styles = StyleSheet.create({
     shadowOpacity:   1,
     shadowRadius:    10,
   },
-  systemBlock: {
-    position:   "absolute",
-    bottom:     72,
-    left:       0,
-    right:      0,
+  iconsRow: {
+    flexDirection:   "row",
+    justifyContent:  "center",
+    gap:             32,
+    paddingHorizontal: 20,
+  },
+  iconItem: {
     alignItems: "center",
-    gap:        10,
+    gap:        5,
+  },
+  iconLabel: {
+    fontSize:      8,
+    fontWeight:    "700",
+    color:         G.muted,
+    letterSpacing: 1.2,
+  },
+  progressSection: {
+    alignItems:        "center",
+    width:             "100%",
+    paddingHorizontal: 24,
+    gap:               8,
   },
   statusText: {
     fontSize:      11,
     fontWeight:    "700",
     color:         G.muted,
-    letterSpacing: 2.5,
+    letterSpacing: 2,
     textTransform: "uppercase",
-    marginBottom:  4,
+    marginBottom:  2,
   },
   progressRow: {
     flexDirection: "row",
     alignItems:    "center",
     gap:           10,
+    width:         "100%",
+    justifyContent: "center",
   },
   progressTrackWrapper: {
     width:          TRACK_W,
@@ -564,6 +684,53 @@ const styles = StyleSheet.create({
     color:         "rgba(159,176,199,0.6)",
     letterSpacing: 2,
     textTransform: "uppercase",
+  },
+  dotIndicatorRow: {
+    flexDirection: "row",
+    gap:           6,
     marginTop:     2,
+  },
+  dotIndicator: {
+    width:           6,
+    height:          6,
+    borderRadius:    3,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  dotActive: {
+    backgroundColor: G.green,
+    shadowColor:     G.green,
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.8,
+    shadowRadius:    4,
+  },
+  quoteCard: {
+    flexDirection:   "row",
+    alignItems:      "center",
+    marginHorizontal: 24,
+    paddingHorizontal: 16,
+    paddingVertical:   12,
+    backgroundColor:  "rgba(255,255,255,0.04)",
+    borderRadius:      12,
+    borderWidth:       1,
+    borderColor:       "rgba(255,255,255,0.07)",
+    gap:               10,
+  },
+  quoteIcon: {
+    fontSize:   22,
+    color:      G.purple,
+    lineHeight: 24,
+    fontWeight: "900",
+    marginTop:  -2,
+  },
+  quoteText: {
+    flex:       1,
+    fontSize:   12,
+    color:      G.muted,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  quoteHighlight: {
+    color:      G.green,
+    fontWeight: "700",
   },
 });
