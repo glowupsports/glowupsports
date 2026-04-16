@@ -167,6 +167,9 @@ function FamilySwitchBackBanner() {
           headers: { Authorization: `Bearer ${switchInfo.originalToken}` },
         });
         const meData = await meResp.json();
+        if (!meData?.user) {
+          throw new Error("Could not restore original account session");
+        }
         await loginWithToken(switchInfo.originalToken, meData.user);
       } else {
         const restoreId = switchInfo.originalPlayerId || user?.playerId;

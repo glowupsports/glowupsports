@@ -161,11 +161,24 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               : null,
           });
         } else {
+          // When a family-switch synthetic token is used, tokenUser.playerId holds
+          // the child's playerId while freshUser.playerId belongs to the parent.
+          // Use the token's playerId so the session is scoped to the correct player.
+          const effectivePlayerId =
+            tokenUser.playerId && tokenUser.playerId !== freshUser.playerId
+              ? tokenUser.playerId
+              : freshUser.playerId;
+
+          const effectiveAcademyId =
+            tokenUser.playerId && tokenUser.playerId !== freshUser.playerId
+              ? (tokenUser.academyId ?? freshUser.academyId)
+              : freshUser.academyId;
+
           if (freshUser.coachId) {
             coach = await storage.getCoach(freshUser.coachId);
           }
-          if (freshUser.academyId) {
-            academy = await storage.getAcademy(freshUser.academyId);
+          if (effectiveAcademyId) {
+            academy = await storage.getAcademy(effectiveAcademyId);
           }
 
           res.json({
@@ -173,9 +186,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               id: freshUser.id,
               email: freshUser.email,
               role: freshUser.role,
-              academyId: freshUser.academyId,
+              academyId: effectiveAcademyId,
               coachId: freshUser.coachId,
-              playerId: freshUser.playerId,
+              playerId: effectivePlayerId,
             },
             coach: coach
               ? {
@@ -943,11 +956,25 @@ router.post(
         });
       }
 
-      // No user account — will use X-Active-Player-Id override on client
+      // No dedicated user account — generate a player-scoped token using the
+      // caller's user record but bound to the target player.  This lets the
+      // client do a full clean-login instead of using the X-Active-Player-Id
+      // header override, giving the family member a proper independent session.
+      // The familySwitch marker tells authMiddlewareWithFreshData to honour the
+      // token's playerId instead of falling back to the user's stored playerId.
+      const syntheticToken = generateToken({
+        userId: tokenUser.userId,
+        role: "player",
+        playerId: targetPlayerId,
+        coachId: null,
+        academyId: targetPlayer.academyId,
+        familySwitch: true,
+      });
+
       return res.json({
-        token: null,
+        token: syntheticToken,
         playerName: targetPlayer.name,
-        hasOwnAccount: false,
+        hasOwnAccount: true,
       });
     } catch (error) {
       console.error("Error switching family account:", error);

@@ -34,6 +34,7 @@ export interface JWTPayload {
   playerId: string | null;
   currentAcademyId?: string | null; // The active academy context (from X-Academy-Id header)
   type?: "access" | "refresh"; // Token type claim to distinguish access from refresh tokens
+  familySwitch?: boolean; // Marks synthetic family-switch tokens (parent userId + child playerId)
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -45,6 +46,8 @@ export interface UserStorageInterface {
   isMaintenanceMode(): Promise<boolean>;
   isUserAcademyOwner(userId: string, academyId: string): Promise<boolean>;
   getPlayerEmail(playerId: string): Promise<string | null>;
+  /** Returns true when targetPlayerId is a verified family member of callerPlayerId (supports parent↔child and sibling relationships) */
+  isFamilyMember(callerPlayerId: string, targetPlayerId: string): Promise<boolean>;
 }
 
 export interface PasswordValidationResult {
@@ -255,18 +258,43 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
         }
         
         let effectivePlayerId = freshUser.playerId;
-        const requestedPlayerId = req.headers["x-active-player-id"] as string | undefined;
-        if (requestedPlayerId && requestedPlayerId !== freshUser.playerId && freshUser.playerId) {
+
+        // Family-switch synthetic tokens: the JWT carries the child's playerId while
+        // the userId belongs to the parent.  Re-validate the family relationship
+        // against the current DB state on every request (prevents stale-auth issues
+        // if the family linkage is removed after token issuance).
+        if (payload.familySwitch && payload.playerId && freshUser.playerId &&
+            payload.playerId !== freshUser.playerId) {
           try {
-            const parentEmail = await freshUserStorage.getPlayerEmail(freshUser.playerId);
-            if (parentEmail) {
-              const childEmail = await freshUserStorage.getPlayerEmail(requestedPlayerId);
-              if (childEmail === parentEmail) {
-                effectivePlayerId = requestedPlayerId;
+            const isMember = await freshUserStorage.isFamilyMember(freshUser.playerId, payload.playerId);
+            if (isMember) {
+              effectivePlayerId = payload.playerId;
+              if (payload.academyId) {
+                effectiveAcademyId = payload.academyId;
               }
+            } else {
+              // Family link no longer valid — reject the request
+              res.status(403).json({ error: "Family relationship no longer valid. Please switch back to your own account." });
+              return;
             }
           } catch (familyErr) {
-            console.error("[Auth] Family player switch error:", familyErr);
+            console.error("[Auth] Family switch validation error:", familyErr);
+            // On DB error, fall through to use freshUser.playerId (safe default)
+          }
+        } else {
+          const requestedPlayerId = req.headers["x-active-player-id"] as string | undefined;
+          if (requestedPlayerId && requestedPlayerId !== freshUser.playerId && freshUser.playerId) {
+            try {
+              const parentEmail = await freshUserStorage.getPlayerEmail(freshUser.playerId);
+              if (parentEmail) {
+                const childEmail = await freshUserStorage.getPlayerEmail(requestedPlayerId);
+                if (childEmail === parentEmail) {
+                  effectivePlayerId = requestedPlayerId;
+                }
+              }
+            } catch (familyErr) {
+              console.error("[Auth] Family player switch error:", familyErr);
+            }
           }
         }
 
@@ -278,6 +306,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           coachId: freshUser.coachId,
           playerId: effectivePlayerId,
           currentAcademyId: effectiveAcademyId,
+          familySwitch: payload.familySwitch,
         };
 
         // Track last active time for player users (fire-and-forget, throttled to once per 5 min)

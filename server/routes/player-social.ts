@@ -3563,6 +3563,17 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
       return res.status(401).json({ error: "Authentication required" });
     }
 
+    // Safety guard for family-switch synthetic tokens: if the token's playerId
+    // differs from the user record's stored playerId, this is a switched session
+    // (parent userId + child playerId). Deleting here would wipe the parent's
+    // user account, which is not allowed.
+    if (playerId) {
+      const userRecord = await storage.getUserById(userId);
+      if (userRecord && userRecord.playerId && userRecord.playerId !== playerId) {
+        return res.status(403).json({ error: "Account deletion is not available in a family switch session" });
+      }
+    }
+
     // Capture PII before anonymizing for the confirmation email
     let playerEmailForNotification: string | null = null;
     let playerNameForNotification = "User";

@@ -244,7 +244,7 @@ export default function FamilyLobbyScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { familyData, setActivePlayer, isLoading, refreshFamily, isParent } = useFamily();
+  const { familyData, isLoading, refreshFamily, isParent } = useFamily();
   const { user, loginWithToken } = useAuth();
   const [switching, setSwitching] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -428,39 +428,32 @@ export default function FamilyLobbyScreen() {
     setSwitching(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const result: { token: string | null; playerName: string; hasOwnAccount: boolean } =
-        await apiRequest("POST", `/api/family/switch/${member.id}`, undefined);
+      const switchRes = await apiRequest("POST", `/api/family/switch/${member.id}`, undefined);
+      const result: { token: string; playerName: string; hasOwnAccount: boolean } = await switchRes.json();
 
-      if (result.hasOwnAccount && result.token) {
-        const originalToken = getAuthToken();
-        await secureSet(
-          FAMILY_SWITCH_KEY,
-          JSON.stringify({ originalToken, switchedPlayerName: member.name, hasOwnAccount: true })
-        );
-        // Full clean logout before switching — clears old refresh token, auth keys, and cache.
-        // We do NOT call context logout() to avoid flashing the login screen.
-        await clearAuthState();
-        queryClient.clear();
-        const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
-          headers: { Authorization: `Bearer ${result.token}` },
-        });
-        const meData = await meResp.json();
-        await loginWithToken(result.token, meData.user);
-      } else {
-        await secureSet(
-          FAMILY_SWITCH_KEY,
-          JSON.stringify({ originalPlayerId: user?.playerId, switchedPlayerName: member.name, hasOwnAccount: false })
-        );
-        setActivePlayer(member.id);
+      if (!result.token) {
+        throw new Error("No token returned from server");
       }
 
+      const originalToken = getAuthToken();
+      await secureSet(
+        FAMILY_SWITCH_KEY,
+        JSON.stringify({ originalToken, switchedPlayerName: member.name, hasOwnAccount: true })
+      );
+      // Full clean logout before switching — clears old refresh token, auth keys, and cache.
+      // We do NOT call context logout() to avoid flashing the login screen.
+      await clearAuthState();
+      queryClient.clear();
+      const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
+        headers: { Authorization: `Bearer ${result.token}` },
+      });
+      const meData = await meResp.json();
+      if (!meData?.user) {
+        throw new Error("Could not load profile for this family member");
+      }
+      await loginWithToken(result.token, meData.user);
+
       navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
-      setTimeout(() => {
-        Alert.alert(
-          "Now viewing as " + member.name,
-          "Account settings and deletion are disabled while viewing a family member's profile. Return to the Family Lobby to switch back."
-        );
-      }, 600);
     } catch (error: any) {
       Alert.alert("Switch Failed", parseApiError(error, "Could not switch to this account. Please try again."));
     } finally {

@@ -62,8 +62,6 @@ export default function PlayerSettingsScreen() {
   const [joinLoading, setJoinLoading] = useState(false);
   const [switchedName, setSwitchedName] = useState<string | null>(null);
 
-  const isSwitched = switchedName !== null;
-
   const { activeSports, updateActiveSports } = useSport();
 
   const toggleSport = async (sport: Sport) => {
@@ -469,14 +467,6 @@ export default function PlayerSettingsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 200 }]}
         showsVerticalScrollIndicator={false}
       >
-        {isSwitched ? (
-          <View style={styles.switchedBanner}>
-            <Ionicons name="swap-horizontal" size={16} color="#FFD700" />
-            <Text style={styles.switchedBannerText}>
-              Viewing as {switchedName} — return to Family Lobby to change account settings
-            </Text>
-          </View>
-        ) : null}
 
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -752,24 +742,22 @@ export default function PlayerSettingsScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
 
-        {!isSwitched ? (
-          <Pressable
-            style={styles.deleteAccountButton}
-            onPress={handleDeleteAccount}
-            disabled={deleteLoading}
-            accessibilityRole="button"
-            accessibilityLabel="Delete my account"
-          >
-            {deleteLoading ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
-            ) : (
-              <>
-                <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-                <Text style={styles.deleteAccountText}>Delete My Account</Text>
-              </>
-            )}
-          </Pressable>
-        ) : null}
+        <Pressable
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          disabled={deleteLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Delete my account"
+        >
+          {deleteLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.error} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+              <Text style={styles.deleteAccountText}>Delete My Account</Text>
+            </>
+          )}
+        </Pressable>
       </ScrollView>
 
       <Modal visible={showJoinFamily} transparent animationType="slide" onRequestClose={() => setShowJoinFamily(false)}>

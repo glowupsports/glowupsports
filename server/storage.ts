@@ -8912,6 +8912,28 @@ export const storage = {
     return result[0]?.email || null;
   },
 
+  async isFamilyMember(callerPlayerId: string, targetPlayerId: string): Promise<boolean> {
+    if (callerPlayerId === targetPlayerId) return true;
+    // Fetch both player records in parallel
+    const [callerRows, targetRows] = await Promise.all([
+      db.select({ email: players.email, parentEmail: players.parentEmail }).from(players).where(eq(players.id, callerPlayerId)).limit(1),
+      db.select({ email: players.email, parentEmail: players.parentEmail }).from(players).where(eq(players.id, targetPlayerId)).limit(1),
+    ]);
+    const caller = callerRows[0];
+    const target = targetRows[0];
+    if (!caller || !target) return false;
+
+    // Same email group (sub-profiles sharing the same email, e.g. parent→child)
+    if (caller.email && target.email && caller.email === target.email) return true;
+    // Caller is the parent (target.parentEmail = caller.email)
+    if (caller.email && target.parentEmail && target.parentEmail === caller.email) return true;
+    // Caller is a child and target is their parent (caller.parentEmail = target.email)
+    if (caller.parentEmail && target.email && caller.parentEmail === target.email) return true;
+    // Siblings: both share the same parentEmail
+    if (caller.parentEmail && target.parentEmail && caller.parentEmail === target.parentEmail) return true;
+    return false;
+  },
+
   async isUserAcademyOwner(userId: string, academyId: string): Promise<boolean> {
     // Check path 3 first (most common, simplest) - User's default academy with academy_owner role
     const defaultAcademyOwnership = await db
