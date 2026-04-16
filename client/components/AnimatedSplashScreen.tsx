@@ -23,7 +23,6 @@ SplashScreen.preventAutoHideAsync();
 
 const { width, height } = Dimensions.get("window");
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
 const G = {
   bg0:    "#04060A",
   bg1:    "#07111F",
@@ -36,19 +35,13 @@ const G = {
   bloom:  "rgba(106,63,255,0.10)",
 } as const;
 
-// Ring geometry
 const RING_SIZE   = 192;
 const RING_STROKE = 3;
 const RING_R      = RING_SIZE / 2 - RING_STROKE / 2;
-
-// Progress track
-const TRACK_W  = width * 0.65;
-const DOT_SIZE = 8;
-
-// Wordmark sweep width
+const TRACK_W     = width * 0.65;
+const DOT_SIZE    = 8;
 const SWEEP_RANGE = width * 0.62;
 
-// Status messages
 const STATUS_MESSAGES = [
   "INITIALIZING GLOW OS",
   "SYNCING PLAYER PROFILE",
@@ -58,8 +51,9 @@ const STATUS_MESSAGES = [
 ];
 const STATUS_FINAL = "SYSTEM READY";
 
-// Particle definitions (8 particles, 3 colors, varied positions + drift)
-const PARTICLES: { color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number }[] = [
+const PARTICLES: {
+  color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number;
+}[] = [
   { color: G.purple, xFrac: 0.14, yFrac: 0.19, delay: 0,   dx: 8,   dy: -15 },
   { color: G.cyan,   xFrac: 0.79, yFrac: 0.13, delay: 180, dx: -10, dy: -18 },
   { color: G.green,  xFrac: 0.08, yFrac: 0.67, delay: 360, dx: 12,  dy: 10  },
@@ -70,14 +64,12 @@ const PARTICLES: { color: string; xFrac: number; yFrac: number; delay: number; d
   { color: G.cyan,   xFrac: 0.56, yFrac: 0.24, delay: 630, dx: -6,  dy: 16  },
 ];
 
-// ─── Props ────────────────────────────────────────────────────────────────────
 interface AnimatedSplashScreenProps {
   isReady: boolean;
   onComplete: () => void;
   children: React.ReactNode;
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export function AnimatedSplashScreen({
   isReady,
   onComplete,
@@ -91,18 +83,15 @@ export function AnimatedSplashScreen({
   const containerOpacity = useSharedValue(1);
   const monogramScale    = useSharedValue(1);
   const ringRotation     = useSharedValue(0);
-  const progressFill     = useSharedValue(0); // 0 → 1
+  const progressFill     = useSharedValue(0);
 
-  // ── Start animations on mount
   useEffect(() => {
-    // Neon ring — 1 full rotation / 10 s, linear, infinite
     ringRotation.value = withRepeat(
       withTiming(360, { duration: 10000, easing: Easing.linear }),
       -1,
       false
     );
 
-    // GU monogram pulse: 1 → 1.035 → 1 every 2 200 ms
     monogramScale.value = withRepeat(
       withSequence(
         withTiming(1.035, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
@@ -112,13 +101,8 @@ export function AnimatedSplashScreen({
       false
     );
 
-    // Progress bar: fill to 88 % in 2 000 ms
-    progressFill.value = withTiming(0.88, {
-      duration: 2000,
-      easing: Easing.out(Easing.cubic),
-    });
+    progressFill.value = withTiming(0.88, { duration: 2000, easing: Easing.out(Easing.cubic) });
 
-    // Mirror to JS for % readout
     const start = Date.now();
     const iv = setInterval(() => {
       const pct = Math.min(88, Math.round(((Date.now() - start) / 2000) * 88));
@@ -128,18 +112,13 @@ export function AnimatedSplashScreen({
     return () => clearInterval(iv);
   }, []);
 
-  // ── Exit sequence
   useEffect(() => {
     if (!isReady || hasExited.current) return;
     hasExited.current = true;
 
     SplashScreen.hideAsync();
 
-    // Complete bar to 100 %
-    progressFill.value = withTiming(1, {
-      duration: 400,
-      easing: Easing.out(Easing.cubic),
-    });
+    progressFill.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
     const start = Date.now();
     const iv = setInterval(() => {
       const pct = Math.min(100, 88 + Math.round(((Date.now() - start) / 400) * 12));
@@ -147,10 +126,8 @@ export function AnimatedSplashScreen({
       if (pct >= 100) clearInterval(iv);
     }, 30);
 
-    // Show SYSTEM READY after a brief moment
     const t1 = setTimeout(() => setIsReadyInternal(true), 200);
 
-    // Monogram exit pulse → fade entire screen → call onComplete
     const t2 = setTimeout(() => {
       monogramScale.value = withSequence(
         withTiming(1.08, { duration: 220 }),
@@ -170,7 +147,6 @@ export function AnimatedSplashScreen({
     };
   }, [isReady]);
 
-  // Animated styles
   const containerStyle = useAnimatedStyle(() => ({ opacity: containerOpacity.value }));
   const ringStyle      = useAnimatedStyle(() => ({
     transform: [{ rotate: `${ringRotation.value}deg` }],
@@ -190,32 +166,22 @@ export function AnimatedSplashScreen({
   return (
     <View style={styles.root}>
       {children}
-
       <Animated.View style={[StyleSheet.absoluteFill, containerStyle]}>
-        {/* ── Layered background */}
         <LinearGradient
           colors={[G.bg0, G.bg1, G.bg2, G.bg0]}
           locations={[0, 0.35, 0.65, 1]}
           style={StyleSheet.absoluteFill}
         />
 
-        {/* ── Purple centerBloom ellipse */}
         <View style={styles.centerBloom} />
 
-        {/* ── 8 floating particles */}
         {PARTICLES.map((p, i) => (
           <GlowParticle key={i} {...p} />
         ))}
 
-        {/* ── Main content */}
         <View style={styles.mainColumn}>
-
-          {/* ── Ring + monogram hero */}
           <View style={styles.heroWrapper}>
-            {/* Outer green glow shadow (iOS) */}
             <View style={styles.ringGlowShadow} />
-
-            {/* Rotating SVG neon ring */}
             <Animated.View style={[styles.ringContainer, ringStyle]}>
               <Svg width={RING_SIZE} height={RING_SIZE}>
                 <Defs>
@@ -225,7 +191,6 @@ export function AnimatedSplashScreen({
                     <Stop offset="100%" stopColor={G.green}  stopOpacity="1" />
                   </SvgGradient>
                 </Defs>
-                {/* Faint inner decorative ring for depth */}
                 <Circle
                   cx={RING_SIZE / 2}
                   cy={RING_SIZE / 2}
@@ -234,7 +199,6 @@ export function AnimatedSplashScreen({
                   stroke="rgba(255,255,255,0.05)"
                   strokeWidth={1}
                 />
-                {/* Neon gradient ring */}
                 <Circle
                   cx={RING_SIZE / 2}
                   cy={RING_SIZE / 2}
@@ -246,26 +210,17 @@ export function AnimatedSplashScreen({
                 />
               </Svg>
             </Animated.View>
-
-            {/* GU serif monogram — centered over ring */}
-            <Animated.Text style={[styles.monogram, monogramStyle]}>
-              GU
-            </Animated.Text>
+            <Animated.Text style={[styles.monogram, monogramStyle]}>GU</Animated.Text>
           </View>
 
-          {/* ── Wordmark block */}
           <WordmarkBlock />
         </View>
 
-        {/* ── Bottom system block (status + progress + %) */}
         <View style={styles.systemBlock}>
           <GlowStatusText isReady={isReadyInternal} />
 
-          {/* Progress bar row */}
           <View style={styles.progressRow}>
-            {/* Wrapper gives room for dot to overflow track vertically */}
             <View style={styles.progressTrackWrapper}>
-              {/* Track background + clipped fill */}
               <View style={styles.progressTrack}>
                 <Animated.View style={[styles.progressBar, barStyle]}>
                   <LinearGradient
@@ -276,15 +231,11 @@ export function AnimatedSplashScreen({
                   />
                 </Animated.View>
               </View>
-              {/* Glowing white dot — positioned relative to wrapper, not clipped */}
               <Animated.View style={[styles.progressDot, dotStyle]} />
             </View>
-
-            {/* Green percentage readout */}
             <Text style={styles.pctText}>{displayPct}%</Text>
           </View>
 
-          {/* Sub-status line */}
           <Text style={styles.subStatus}>
             {isReadyInternal ? "READY TO PERFORM" : "BOOTING COURT SYSTEMS"}
           </Text>
@@ -294,21 +245,10 @@ export function AnimatedSplashScreen({
   );
 }
 
-// ─── GlowParticle ─────────────────────────────────────────────────────────────
 function GlowParticle({
-  color,
-  xFrac,
-  yFrac,
-  delay,
-  dx,
-  dy,
+  color, xFrac, yFrac, delay, dx, dy,
 }: {
-  color: string;
-  xFrac: number;
-  yFrac: number;
-  delay: number;
-  dx: number;
-  dy: number;
+  color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number;
 }) {
   const opacity    = useSharedValue(0);
   const translateX = useSharedValue(0);
@@ -316,7 +256,21 @@ function GlowParticle({
   const durBase    = 2400 + delay % 600;
 
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(0.75, { duration: 600 }));
+    // Fade in, then pulse opacity continuously
+    opacity.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(0.75, { duration: 600 }),
+        withRepeat(
+          withSequence(
+            withTiming(0.85, { duration: durBase * 0.7, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0.4,  { duration: durBase * 0.7, easing: Easing.inOut(Easing.sin) })
+          ),
+          -1,
+          false
+        )
+      )
+    );
     translateX.value = withDelay(
       delay,
       withRepeat(
@@ -343,45 +297,29 @@ function GlowParticle({
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-    ],
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
   }));
 
   return (
     <Animated.View
       style={[
         styles.particle,
-        {
-          left:        width  * xFrac,
-          top:         height * yFrac,
-          backgroundColor: color,
-          shadowColor: color,
-        },
+        { left: width * xFrac, top: height * yFrac, backgroundColor: color, shadowColor: color },
         style,
       ]}
     />
   );
 }
 
-// ─── GlowStatusText ───────────────────────────────────────────────────────────
 function GlowStatusText({ isReady }: { isReady: boolean }) {
   const [msgIdx, setMsgIdx] = useState(0);
   const opacity             = useSharedValue(1);
   const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const frozenRef           = useRef(false);
-  // Track next index as a plain ref so we can pass a concrete number to setMsgIdx
-  // (passing a function via runOnJS is unreliable across the Reanimated thread boundary)
   const nextIdxRef          = useRef(1);
 
-  const showNext = useCallback((idx: number) => {
-    setMsgIdx(idx);
-  }, []);
-
-  const showReady = useCallback(() => {
-    setMsgIdx(STATUS_MESSAGES.length); // sentinel → renders STATUS_FINAL
-  }, []);
+  const showNext  = useCallback((idx: number) => setMsgIdx(idx), []);
+  const showReady = useCallback(() => setMsgIdx(STATUS_MESSAGES.length), []);
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
@@ -416,7 +354,6 @@ function GlowStatusText({ isReady }: { isReady: boolean }) {
   );
 }
 
-// ─── WordmarkBlock with LightSweep ───────────────────────────────────────────
 function WordmarkBlock() {
   const sweepX = useSharedValue(-120);
 
@@ -437,53 +374,41 @@ function WordmarkBlock() {
 
   return (
     <View style={styles.wordmarkOuter}>
-      {/* overflow:hidden clips the sweep line */}
       <View style={styles.wordmarkClip}>
-        {/* Row 1: GLOW + UP */}
         <View style={styles.wordmarkRow}>
           <Text style={styles.wordmarkGlow}>GLOW </Text>
           <Text style={styles.wordmarkUp}>UP</Text>
         </View>
-        {/* Row 2: SPORTS */}
         <Text style={styles.wordmarkSports}>SPORTS</Text>
-        {/* Row 3: Tagline */}
         <Text style={styles.wordmarkTagline}>GLOW UP YOUR GAME</Text>
-
-        {/* LightSweep — thin purple line sliding L→R */}
         <Animated.View style={[styles.lightSweep, sweepStyle]} />
       </View>
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-
-  // ── Background / bloom / particles
   centerBloom: {
-    position:      "absolute",
-    alignSelf:     "center",
-    top:           height * 0.28,
-    width:         220,
-    height:        130,
+    position:        "absolute",
+    alignSelf:       "center",
+    top:             height * 0.28,
+    width:           220,
+    height:          130,
     backgroundColor: G.bloom,
-    borderRadius:  110,
+    borderRadius:    110,
   },
   particle: {
-    position:     "absolute",
-    width:        6,
-    height:       6,
-    borderRadius: 3,
-    // iOS glow via shadow
+    position:      "absolute",
+    width:         6,
+    height:        6,
+    borderRadius:  3,
     shadowOffset:  { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius:  6,
   },
-
-  // ── Layout columns
   mainColumn: {
     flex:           1,
     alignItems:     "center",
@@ -491,8 +416,6 @@ const styles = StyleSheet.create({
     paddingTop:     24,
     gap:            32,
   },
-
-  // ── Ring hero
   heroWrapper: {
     width:          RING_SIZE + 20,
     height:         RING_SIZE + 20,
@@ -504,7 +427,6 @@ const styles = StyleSheet.create({
     width:         RING_SIZE,
     height:        RING_SIZE,
     borderRadius:  RING_SIZE / 2,
-    // green outer glow on iOS
     shadowColor:   G.green,
     shadowOffset:  { width: 0, height: 0 },
     shadowOpacity: 0.5,
@@ -514,24 +436,21 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   monogram: {
-    fontSize:    38,
-    fontWeight:  "700",
-    color:       G.purple,
-    letterSpacing: 2,
-    // Purple text shadow glow
+    fontSize:         38,
+    fontWeight:       "700",
+    color:            G.purple,
+    letterSpacing:    2,
     textShadowColor:  G.purple,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 14,
-    fontFamily: "serif",
+    fontFamily:       "serif",
   },
-
-  // ── Wordmark
   wordmarkOuter: {
     alignItems: "center",
   },
   wordmarkClip: {
-    overflow:   "hidden",
-    alignItems: "center",
+    overflow:          "hidden",
+    alignItems:        "center",
     paddingHorizontal: 4,
   },
   wordmarkRow: {
@@ -566,19 +485,17 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   lightSweep: {
-    position: "absolute",
-    top:      0,
-    bottom:   0,
-    width:    2,
+    position:        "absolute",
+    top:             0,
+    bottom:          0,
+    width:           2,
     backgroundColor: "#D8AAFF",
-    opacity:  0.7,
-    shadowColor:   G.purple,
-    shadowOffset:  { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius:  10,
+    opacity:         0.7,
+    shadowColor:     G.purple,
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   1,
+    shadowRadius:    10,
   },
-
-  // ── Bottom system block
   systemBlock: {
     position:   "absolute",
     bottom:     72,
@@ -622,30 +539,30 @@ const styles = StyleSheet.create({
     overflow:     "hidden",
   },
   progressDot: {
-    position:      "absolute",
-    top:           (DOT_SIZE + 4) / 2 - DOT_SIZE / 2,
-    width:         DOT_SIZE,
-    height:        DOT_SIZE,
-    borderRadius:  DOT_SIZE / 2,
+    position:        "absolute",
+    top:             (DOT_SIZE + 4) / 2 - DOT_SIZE / 2,
+    width:           DOT_SIZE,
+    height:          DOT_SIZE,
+    borderRadius:    DOT_SIZE / 2,
     backgroundColor: G.white,
-    shadowColor:    G.white,
-    shadowOffset:   { width: 0, height: 0 },
-    shadowOpacity:  0.9,
-    shadowRadius:   5,
+    shadowColor:     G.white,
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.9,
+    shadowRadius:    5,
   },
   pctText: {
-    fontSize:    12,
-    fontWeight:  "700",
-    color:       G.green,
+    fontSize:      12,
+    fontWeight:    "700",
+    color:         G.green,
     letterSpacing: 0.5,
-    minWidth:    36,
+    minWidth:      36,
   },
   subStatus: {
-    fontSize:    9,
-    fontWeight:  "500",
-    color:       "rgba(159,176,199,0.6)",
+    fontSize:      9,
+    fontWeight:    "500",
+    color:         "rgba(159,176,199,0.6)",
     letterSpacing: 2,
     textTransform: "uppercase",
-    marginTop:   2,
+    marginTop:     2,
   },
 });
