@@ -21,10 +21,14 @@ const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getCurrentAcademyId } from "@/lib/auth";
 
-const PLAYERS_CACHE_KEY = "@coach.playersList.v1";
-const PAST_PLAYERS_CACHE_KEY = "@coach.pastPlayersList.v1";
-const PENDING_PLAYERS_CACHE_KEY = "@coach.pendingPlayersList.v1";
+// Cache key prefixes (v1). Real keys are namespaced per coach + academy
+// at runtime so a different coach or switched-academy on the same device
+// can never see another roster's cached data.
+const PLAYERS_CACHE_PREFIX = "@coach.playersList.v1";
+const PAST_PLAYERS_CACHE_PREFIX = "@coach.pastPlayersList.v1";
+const PENDING_PLAYERS_CACHE_PREFIX = "@coach.pendingPlayersList.v1";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
@@ -187,17 +191,31 @@ export default function PlayersScreen() {
   // Active/Past/Pending Payment tab switcher
   const [rosterTab, setRosterTab] = useState<"active" | "past" | "pending_payment">("active");
 
+  // Build cache keys scoped per coach + academy so we never hydrate one
+  // account's roster into another's view (data-isolation requirement).
+  const cacheKeys = useMemo(() => {
+    const coachId = coach?.id ?? "anon";
+    const academyId = getCurrentAcademyId() ?? "noacademy";
+    const suffix = `:${coachId}:${academyId}`;
+    return {
+      active: `${PLAYERS_CACHE_PREFIX}${suffix}`,
+      past: `${PAST_PLAYERS_CACHE_PREFIX}${suffix}`,
+      pending: `${PENDING_PLAYERS_CACHE_PREFIX}${suffix}`,
+    };
+  }, [coach?.id]);
+
   // Hydrate react-query cache from AsyncStorage on mount so opening the
   // Players tab from a cold start renders instantly (no spinner) while
-  // the network refetch happens in the background.
+  // the network refetch happens in the background. Hydration only
+  // happens for the current coach + academy scope.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const [activeRaw, pastRaw, pendingRaw] = await Promise.all([
-          AsyncStorage.getItem(PLAYERS_CACHE_KEY),
-          AsyncStorage.getItem(PAST_PLAYERS_CACHE_KEY),
-          AsyncStorage.getItem(PENDING_PLAYERS_CACHE_KEY),
+          AsyncStorage.getItem(cacheKeys.active),
+          AsyncStorage.getItem(cacheKeys.past),
+          AsyncStorage.getItem(cacheKeys.pending),
         ]);
         if (cancelled) return;
         if (activeRaw && !queryClient.getQueryData(["/api/players?withCredits=true"])) {
@@ -214,7 +232,7 @@ export default function PlayersScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [queryClient]);
+  }, [queryClient, cacheKeys]);
 
   // Use stale-while-revalidate: cached data renders instantly while a
   // background refetch happens. placeholderData keeps the previous list
@@ -239,22 +257,24 @@ export default function PlayersScreen() {
   });
 
   // Persist successful responses to AsyncStorage so a future cold start
-  // can hydrate from disk before the network call resolves.
+  // can hydrate from disk before the network call resolves. Keys are
+  // scoped per coach + academy so cached data is never shared across
+  // accounts on the same device.
   useEffect(() => {
     if (players.length > 0) {
-      AsyncStorage.setItem(PLAYERS_CACHE_KEY, JSON.stringify(players)).catch(() => {});
+      AsyncStorage.setItem(cacheKeys.active, JSON.stringify(players)).catch(() => {});
     }
-  }, [players]);
+  }, [players, cacheKeys.active]);
   useEffect(() => {
     if (pastPlayers.length > 0) {
-      AsyncStorage.setItem(PAST_PLAYERS_CACHE_KEY, JSON.stringify(pastPlayers)).catch(() => {});
+      AsyncStorage.setItem(cacheKeys.past, JSON.stringify(pastPlayers)).catch(() => {});
     }
-  }, [pastPlayers]);
+  }, [pastPlayers, cacheKeys.past]);
   useEffect(() => {
     if (pendingPaymentPlayers.length > 0) {
-      AsyncStorage.setItem(PENDING_PLAYERS_CACHE_KEY, JSON.stringify(pendingPaymentPlayers)).catch(() => {});
+      AsyncStorage.setItem(cacheKeys.pending, JSON.stringify(pendingPaymentPlayers)).catch(() => {});
     }
-  }, [pendingPaymentPlayers]);
+  }, [pendingPaymentPlayers, cacheKeys.pending]);
 
   const invalidatePlayerLists = () => {
     queryClient.invalidateQueries({
