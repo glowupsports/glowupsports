@@ -88,6 +88,7 @@ interface Conversation {
   playerFirstName?: string | null;
   playerPhoto?: string | null;
   coachName?: string | null;
+  coachPhoto?: string | null;
   providerName?: string | null;
   providerPhoto?: string | null;
   otherPlayerId?: string | null;
@@ -218,6 +219,49 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const pendingChallengeRef = useRef<{ opponentId: string; opponentName: string; opponentPhoto?: string } | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // P3–P7: mute map, mark-unread set, world-hype counts, quick-phrase bar, jump-to-unread, ticker rotation
+  const [mutedConvMap, setMutedConvMap] = useState<Record<string, number>>({});
+  const [markedUnreadSet, setMarkedUnreadSet] = useState<Set<string>>(new Set());
+  const [worldHypeMap, setWorldHypeMap] = useState<Record<string, { mine: boolean; count: number }>>({});
+  const [tickerIndex, setTickerIndex] = useState(0);
+  const tickerFade = useSharedValue(1);
+  const [showJumpUnread, setShowJumpUnread] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("@glow_muted_conv").then(v => {
+      if (!v) return;
+      try { setMutedConvMap(JSON.parse(v) || {}); } catch {}
+    });
+    AsyncStorage.getItem("@glow_marked_unread").then(v => {
+      if (!v) return;
+      try {
+        const arr: string[] = JSON.parse(v) || [];
+        setMarkedUnreadSet(new Set(arr));
+      } catch {}
+    });
+    AsyncStorage.getItem("@glow_world_hype").then(v => {
+      if (!v) return;
+      try { setWorldHypeMap(JSON.parse(v) || {}); } catch {}
+    });
+  }, []);
+
+  const persistMuted = useCallback((m: Record<string, number>) => {
+    AsyncStorage.setItem("@glow_muted_conv", JSON.stringify(m)).catch(() => {});
+  }, []);
+  const persistMarkedUnread = useCallback((s: Set<string>) => {
+    AsyncStorage.setItem("@glow_marked_unread", JSON.stringify(Array.from(s))).catch(() => {});
+  }, []);
+  const persistWorldHype = useCallback((m: Record<string, { mine: boolean; count: number }>) => {
+    AsyncStorage.setItem("@glow_world_hype", JSON.stringify(m)).catch(() => {});
+  }, []);
+
+  const isConvMuted = useCallback((convId: string) => {
+    const until = mutedConvMap[convId];
+    if (!until) return false;
+    if (until < Date.now()) return false;
+    return true;
+  }, [mutedConvMap]);
 
   const height = useSharedValue(FOOTER_COLLAPSED);
   const tickerOffset = useSharedValue(0);
@@ -746,6 +790,42 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return items.join("   •   ");
   }, [conversations]);
 
+  // Player-mode ticker items (one discrete message preview at a time, rotates every 3.5s)
+  const tickerItems = useMemo(() => {
+    return conversations
+      .filter(c => c.lastMessagePreview)
+      .slice(0, 8)
+      .map(c => ({
+        id: c.id,
+        name: c.title || c.playerName || c.coachName || (c.playerId ? "Player" : c.coachId ? "Coach" : "Chat"),
+        preview: c.lastMessagePreview || "",
+        photo: c.playerPhoto || c.coachPhoto || c.providerPhoto || null,
+      }));
+  }, [conversations]);
+
+  // Rotate ticker in player mode every ~3.5s with a fade-swap
+  useEffect(() => {
+    if (!isPlayerMode || isExpanded || isFullscreen) return;
+    if (tickerItems.length <= 1) return;
+    const interval = setInterval(() => {
+      tickerFade.value = withTiming(0, { duration: 220 }, () => {});
+      setTimeout(() => {
+        setTickerIndex(i => (i + 1) % Math.max(1, tickerItems.length));
+        tickerFade.value = withTiming(1, { duration: 220 });
+      }, 230);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [isPlayerMode, isExpanded, isFullscreen, tickerItems.length]);
+
+  // Keep tickerIndex in range when items change
+  useEffect(() => {
+    if (tickerIndex >= tickerItems.length && tickerItems.length > 0) {
+      setTickerIndex(0);
+    }
+  }, [tickerItems.length, tickerIndex]);
+
+  const tickerFadeStyle = useAnimatedStyle(() => ({ opacity: tickerFade.value }));
+
   const TICKER_SEP = "               •               ";
 
   const repeatedContent = useMemo(() => {
@@ -923,7 +1003,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
   }, [currentTab, conversations, selectedConversation, isPlayerMode]);
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item }: { item: Message & { _showAvatar?: boolean; _showTimestamp?: boolean } }) => {
+    const showAvatar = item._showAvatar !== false;
+    const showTimestamp = item._showTimestamp !== false;
     const isProviderConv = selectedConversation?.type === "provider_player";
     const isOwn = isPlayerMode
       ? (item.senderType === "player" && item.senderPlayerId === userId)
@@ -1045,10 +1127,12 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             marginVertical: 2,
             maxWidth: "78%",
           },
+          !showAvatar && { marginTop: 1 },
+          item.reactions.length >= 5 && styles.viralGlow,
           isPending && { opacity: 0.6 },
         ]}
       >
-        {!isOwn && isPlayerMode ? (
+        {showAvatar && !isOwn && isPlayerMode ? (
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
             {senderPhoto ? (
               <Image
@@ -1062,7 +1146,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             )}
             <ThemedText style={[styles.senderName, { color: NEON_GREEN + "CC", fontSize: 11 }]}>{senderName}</ThemedText>
           </View>
-        ) : !isOwn ? (
+        ) : showAvatar && !isOwn ? (
           <View style={styles.senderInfo}>
             <View style={styles.playerAvatar}>
               <Ionicons name="person" size={10} color={Colors.dark.text} />
@@ -1082,7 +1166,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </ThemedText>
           {isPending ? (
             <Ionicons name="time-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} style={{ marginLeft: 4 }} />
-          ) : (
+          ) : showTimestamp ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
               <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp, isPlayerMode && { color: isOwn ? "#00000066" : "#FFFFFF66" }]}>
                 {formatTime(item.createdAt)}
@@ -1091,7 +1175,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 <Ionicons name="checkmark-done-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
               )}
             </View>
-          )}
+          ) : null}
         </View>
 
         {Object.keys(reactionGroups).length > 0 ? (
@@ -1156,6 +1240,121 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         ) : null}
       </Pressable>
     );
+  };
+
+  const formatDateSeparator = (d: Date): string => {
+    const now = new Date();
+    const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: now.getFullYear() === d.getFullYear() ? undefined : "numeric" });
+  };
+
+  type MessageRow =
+    | { _rowType: "date"; id: string; label: string }
+    | ({ _rowType: "msg"; _showAvatar: boolean; _showTimestamp: boolean } & Message);
+
+  const messageRows = useMemo<MessageRow[]>(() => {
+    const rows: MessageRow[] = [];
+    let lastDayKey = "";
+    const sameSender = (a: Message, b: Message) =>
+      a.senderType === b.senderType &&
+      (a.senderCoachId ?? null) === (b.senderCoachId ?? null) &&
+      (a.senderPlayerId ?? null) === (b.senderPlayerId ?? null);
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      const d = new Date(m.createdAt);
+      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (dayKey !== lastDayKey) {
+        rows.push({ _rowType: "date", id: `sep-${dayKey}-${m.id}`, label: formatDateSeparator(d) });
+        lastDayKey = dayKey;
+      }
+      const prev = i > 0 ? messages[i - 1] : null;
+      const next = i < messages.length - 1 ? messages[i + 1] : null;
+      const prevSameDay = prev ? (() => {
+        const pd = new Date(prev.createdAt);
+        return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth() && pd.getDate() === d.getDate();
+      })() : false;
+      const nextSameDay = next ? (() => {
+        const nd = new Date(next.createdAt);
+        return nd.getFullYear() === d.getFullYear() && nd.getMonth() === d.getMonth() && nd.getDate() === d.getDate();
+      })() : false;
+      const showAvatar = !prev || !prevSameDay || !sameSender(prev, m);
+      const showTimestamp = !next || !nextSameDay || !sameSender(next, m) ||
+        (new Date(next.createdAt).getTime() - d.getTime()) > 5 * 60 * 1000;
+      rows.push({ ...m, _rowType: "msg", _showAvatar: showAvatar, _showTimestamp: showTimestamp });
+    }
+    return rows;
+  }, [messages]);
+
+  const renderMessageRow = ({ item }: { item: MessageRow }) => {
+    if (item._rowType === "date") {
+      return (
+        <View style={styles.dateSeparator}>
+          <ThemedText style={styles.dateSeparatorText}>{item.label}</ThemedText>
+        </View>
+      );
+    }
+    return renderMessage({ item });
+  };
+
+  const QUICK_PHRASES = isPlayerMode
+    ? ["GG 🏆", "On my way", "Nice play!", "Let's go 🔥"]
+    : ["Great job!", "Keep it up", "Let's review", "On my way"];
+
+  const handleConvLongPress = (conv: Conversation) => {
+    const name = getConvDisplayName(conv);
+    const muteOpt = (hours: number) => ({
+      text: `Mute ${hours}h`,
+      onPress: () => {
+        setMutedConvMap(prev => {
+          const next = { ...prev, [conv.id]: Date.now() + hours * 3600 * 1000 };
+          persistMuted(next);
+          return next;
+        });
+      },
+    });
+    const unmuteOpt = {
+      text: "Unmute",
+      onPress: () => {
+        setMutedConvMap(prev => {
+          const next = { ...prev };
+          delete next[conv.id];
+          persistMuted(next);
+          return next;
+        });
+      },
+    };
+    const markUnreadOpt = {
+      text: markedUnreadSet.has(conv.id) ? "Mark read" : "Mark unread",
+      onPress: () => {
+        setMarkedUnreadSet(prev => {
+          const next = new Set(prev);
+          if (next.has(conv.id)) next.delete(conv.id); else next.add(conv.id);
+          persistMarkedUnread(next);
+          return next;
+        });
+      },
+    };
+    type AlertOpt = { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void };
+    const opts: AlertOpt[] = [];
+    if (isConvMuted(conv.id)) {
+      opts.push(unmuteOpt);
+    } else {
+      opts.push(muteOpt(1), muteOpt(8), muteOpt(24));
+    }
+    opts.push(markUnreadOpt);
+    if (isPlayerMode && conv.type === "player_player") {
+      opts.push({
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deleteConversationMutation.mutate(conv.id),
+      });
+    }
+    opts.push({ text: "Cancel", style: "cancel" });
+    Alert.alert(name, "Conversation options", opts);
   };
 
   const handleStartNewPlayerChat = (player: Player) => {
@@ -1476,6 +1675,32 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
             <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
           </View>
+          {(() => {
+            const hype = worldHypeMap[item.id];
+            const count = hype?.count ?? 0;
+            const mine = hype?.mine ?? false;
+            return (
+              <Pressable
+                onPress={() => {
+                  setWorldHypeMap(prev => {
+                    const current = prev[item.id] ?? { mine: false, count: 0 };
+                    const nextEntry = current.mine
+                      ? { mine: false, count: Math.max(0, current.count - 1) }
+                      : { mine: true, count: current.count + 1 };
+                    const next = { ...prev, [item.id]: nextEntry };
+                    persistWorldHype(next);
+                    return next;
+                  });
+                }}
+                style={[styles.worldHypeBtn, mine && { borderColor: "#FF6B35", backgroundColor: "#FF6B3522" }]}
+              >
+                <ThemedText style={{ fontSize: 12 }}>🔥</ThemedText>
+                {count > 0 ? (
+                  <ThemedText style={{ fontSize: 11, color: mine ? "#FF6B35" : Colors.dark.textMuted, fontWeight: "700" }}>{count}</ThemedText>
+                ) : null}
+              </Pressable>
+            );
+          })()}
         </View>
       </View>
     );
@@ -1654,23 +1879,18 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => handleSelectConversation(item)}
-            onLongPress={() => {
-              if (isPlayerMode && item.type === "player_player") {
-                Alert.alert(
-                  "Delete Conversation",
-                  `Remove your conversation with ${getConvDisplayName(item)}?`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: () => deleteConversationMutation.mutate(item.id),
-                    },
-                  ]
-                );
+            onPress={() => {
+              if (markedUnreadSet.has(item.id)) {
+                setMarkedUnreadSet(prev => {
+                  const next = new Set(prev);
+                  next.delete(item.id);
+                  persistMarkedUnread(next);
+                  return next;
+                });
               }
+              handleSelectConversation(item);
             }}
+            onLongPress={() => handleConvLongPress(item)}
             style={styles.conversationItem}
           >
             <View style={styles.conversationAvatar}>
@@ -1688,9 +1908,17 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               })()}
             </View>
             <View style={styles.conversationInfo}>
-              <ThemedText style={styles.conversationName}>
-                {getConvDisplayName(item)}
-              </ThemedText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <ThemedText style={[styles.conversationName, { flexShrink: 1 }]} numberOfLines={1}>
+                  {getConvDisplayName(item)}
+                </ThemedText>
+                {isConvMuted(item.id) ? (
+                  <Ionicons name="notifications-off-outline" size={12} color={Colors.dark.textMuted} />
+                ) : null}
+                {markedUnreadSet.has(item.id) ? (
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: NEON_GREEN }} />
+                ) : null}
+              </View>
               {item.lastMessagePreview ? (
                 <ThemedText numberOfLines={1} style={styles.conversationPreview}>
                   {item.lastMessagePreview}
@@ -1817,6 +2045,21 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   {getConvDisplayName(selectedConversation)}
                 </ThemedText>
               </Pressable>
+              {isPlayerMode && selectedConversation.type === "player_player" && selectedConversation.otherPlayerId && onChallenge ? (
+                <Pressable
+                  onPress={() => {
+                    onChallenge(
+                      selectedConversation.otherPlayerId!,
+                      selectedConversation.playerName || "Player",
+                      undefined
+                    );
+                  }}
+                  style={styles.dmChallengeBtn}
+                >
+                  <Ionicons name="flash" size={14} color="#000" />
+                  <ThemedText style={{ fontSize: 11, fontWeight: "700", color: "#000" }}>Challenge</ThemedText>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
@@ -1827,15 +2070,38 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               <ActivityIndicator color={Colors.dark.primary} />
             </View>
           ) : (
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={(item) => item.id}
-              renderItem={renderMessage}
-              style={styles.messageList}
-              contentContainerStyle={styles.messageListContent}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-            />
+            <View style={{ flex: 1 }}>
+              <FlatList
+                ref={flatListRef}
+                data={messageRows}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMessageRow}
+                style={styles.messageList}
+                contentContainerStyle={styles.messageListContent}
+                onContentSizeChange={() => {
+                  if (!showJumpUnread) flatListRef.current?.scrollToEnd({ animated: false });
+                }}
+                onScroll={(e) => {
+                  const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+                  const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+                  const notAtBottom = distanceFromBottom > 120;
+                  if (notAtBottom !== showJumpUnread) setShowJumpUnread(notAtBottom);
+                }}
+                scrollEventThrottle={100}
+              />
+              {showJumpUnread ? (
+                <Pressable
+                  style={styles.jumpUnreadPill}
+                  onPress={() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                    setShowJumpUnread(false);
+                  }}
+                >
+                  <Ionicons name="arrow-down" size={14} color="#000" />
+                  <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>Jump to latest</ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
           )}
 
           {isOtherTyping ? (
@@ -1860,6 +2126,24 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 <Ionicons name="close-outline" size={16} color={Colors.dark.textMuted} />
               </Pressable>
             </View>
+          ) : null}
+          {!isSampleConversation ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.quickPhrasesStrip}
+              contentContainerStyle={{ paddingHorizontal: 8, gap: 6 }}
+            >
+              {QUICK_PHRASES.map((phrase) => (
+                <Pressable
+                  key={phrase}
+                  onPress={() => setInputText(inputText ? `${inputText} ${phrase}` : phrase)}
+                  style={styles.quickPhraseChip}
+                >
+                  <ThemedText style={{ fontSize: 12, color: isPlayerMode ? NEON_GREEN : Colors.dark.text }}>{phrase}</ThemedText>
+                </Pressable>
+              ))}
+            </ScrollView>
           ) : null}
           <View style={[styles.inputContainer, isPlayerMode && { backgroundColor: "#0D1525CC", borderWidth: 1, borderColor: NEON_GREEN + "22" }]}>
             {isConnected ? (
@@ -1931,11 +2215,55 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       ]}
     >
       {(!isExpanded && !isFullscreen) ? (
-        // ── COLLAPSED: player mode → no pill (player uses fullscreen only); coach mode → ticker pill ──
+        // ── COLLAPSED: player mode → neon ticker pill; coach mode → existing ticker ──
         <>
           {isPlayerMode ? (
-            // Player mode has no collapsed strip — a FAB is rendered below for entry
-            null
+            <View style={styles.playerPillRow} pointerEvents="box-none">
+              <Pressable
+                style={styles.playerTickerPill}
+                onPress={() => { setIsExpanded(true); setIsFullscreen(true); }}
+                hitSlop={6}
+              >
+                <Animated.View style={[styles.playerTickerInner, tickerFadeStyle]}>
+                  {tickerItems.length > 0 ? (() => {
+                    const t = tickerItems[Math.min(tickerIndex, tickerItems.length - 1)];
+                    return (
+                      <>
+                        <View style={styles.playerTickerAvatar}>
+                          {t.photo ? (
+                            <Image source={{ uri: t.photo }} style={styles.playerTickerAvatarImg} contentFit="cover" />
+                          ) : (
+                            <Ionicons name="person" size={14} color={NEON_GREEN} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <ThemedText numberOfLines={1} style={styles.playerTickerName}>{t.name}</ThemedText>
+                          <ThemedText numberOfLines={1} style={styles.playerTickerPreview}>{t.preview}</ThemedText>
+                        </View>
+                      </>
+                    );
+                  })() : (
+                    <>
+                      <View style={styles.playerTickerAvatar}>
+                        <Ionicons name="chatbubbles-outline" size={14} color={NEON_GREEN} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.playerTickerName}>Glow Chat</ThemedText>
+                        <ThemedText style={styles.playerTickerPreview}>Tap to open</ThemedText>
+                      </View>
+                    </>
+                  )}
+                </Animated.View>
+                <View style={styles.playerTickerRight}>
+                  {unreadCount > 0 ? (
+                    <View style={styles.playerTickerBadge}>
+                      <ThemedText style={styles.playerTickerBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</ThemedText>
+                    </View>
+                  ) : null}
+                  <Ionicons name="chevron-up" size={18} color={NEON_GREEN} />
+                </View>
+              </Pressable>
+            </View>
           ) : (
             <View style={styles.pillRow} pointerEvents="box-none">
               <View style={{ flex: 1 }} pointerEvents="none" />
@@ -2036,22 +2364,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </View>
         </>
       )}
-
-      {/* Player-mode FAB: shown when chat is fully closed (neither expanded nor fullscreen) */}
-      {isPlayerMode && !isExpanded && !isFullscreen ? (
-        <Pressable
-          onPress={() => { setIsExpanded(true); setIsFullscreen(true); }}
-          style={styles.playerFab}
-          hitSlop={10}
-        >
-          <Ionicons name="chatbubbles-outline" size={20} color="#000" />
-          {unreadCount > 0 ? (
-            <View style={styles.collapseBadge}>
-              <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
-            </View>
-          ) : null}
-        </Pressable>
-      ) : null}
 
       {(isExpanded || isFullscreen) ? (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -2322,6 +2634,184 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: FOOTER_COLLAPSED,
+  },
+  playerPillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    height: 60,
+  },
+  playerTickerPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#0D1525EE",
+    borderWidth: 1.5,
+    borderColor: NEON_GREEN + "99",
+    paddingLeft: 8,
+    paddingRight: 14,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: NEON_GREEN,
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  playerTickerInner: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  },
+  playerTickerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#1A2535",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: NEON_GREEN + "44",
+  },
+  playerTickerAvatarImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  playerTickerName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: NEON_GREEN,
+  },
+  playerTickerPreview: {
+    fontSize: 13,
+    color: "#E7ECF5",
+    marginTop: 1,
+  },
+  playerTickerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 8,
+  },
+  playerTickerBadge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    backgroundColor: NEON_GREEN,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerTickerBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#000",
+  },
+  dateSeparator: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  dateSeparatorText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  viralGlow: {
+    borderWidth: 2,
+    borderColor: NEON_GREEN,
+    shadowColor: NEON_GREEN,
+    shadowOpacity: 0.7,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  jumpUnreadPill: {
+    position: "absolute",
+    right: 16,
+    bottom: 74,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: NEON_GREEN,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    zIndex: 50,
+    ...Platform.select({
+      ios: {
+        shadowColor: NEON_GREEN,
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  jumpUnreadText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#000",
+  },
+  quickPhrasesStrip: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  quickPhraseChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: "#1A2535",
+    borderWidth: 1,
+    borderColor: NEON_GREEN + "40",
+  },
+  quickPhraseChipText: {
+    fontSize: 12,
+    color: NEON_GREEN,
+    fontWeight: "600",
+  },
+  worldHypeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: "#1A2535",
+    borderWidth: 1,
+    borderColor: "#FF6B3540",
+  },
+  worldHypeBtnActive: {
+    backgroundColor: "#FF6B3522",
+    borderColor: "#FF6B35",
+  },
+  worldHypeCount: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FF6B35",
+  },
+  dmChallengeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: NEON_GREEN,
+    marginLeft: 8,
   },
   leftPill: {
     flex: 1,
