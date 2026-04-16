@@ -539,15 +539,17 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{activePackages.length}</Text>
-          <Text style={styles.summaryLabel}>Active Packages</Text>
+          <Text style={styles.summaryLabel}>
+            {activePackages.length === 0 && creditBalance?.hasUncoveredSessions
+              ? `0 Packages — ${(creditBalance.uncoveredSessions?.group ?? 0) + (creditBalance.uncoveredSessions?.semi_private ?? 0) + (creditBalance.uncoveredSessions?.private ?? 0)} sessions owed`
+              : "Active Packages"}
+          </Text>
         </View>
       </View>
 
       <View style={styles.creditTypeRow}>
         {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
-          const rawBalance = creditBalance ? creditBalance[type] : creditsByType[type];
-          const uncovered = creditBalance?.uncoveredSessions?.[type] ?? 0;
-          const balance = rawBalance - uncovered;
+          const balance = creditBalance ? creditBalance[type] : creditsByType[type];
           const isDebt = balance < 0;
           const isZeroWithDepletedPackage = balance === 0 && depletedByType[type];
           const dynamicColor = isDebt
@@ -570,27 +572,51 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         })}
       </View>
 
-      {creditBalance && (() => {
-        const effectiveGroup = creditBalance.group - (creditBalance.uncoveredSessions?.group ?? 0);
-        const effectiveSemi = creditBalance.semi_private - (creditBalance.uncoveredSessions?.semi_private ?? 0);
-        const effectivePrivate = creditBalance.private - (creditBalance.uncoveredSessions?.private ?? 0);
-        if (effectiveGroup >= 0 && effectiveSemi >= 0 && effectivePrivate >= 0) return null;
-        const parts: string[] = [];
-        if (effectiveGroup < 0) parts.push(`${Math.abs(effectiveGroup)} group`);
-        if (effectiveSemi < 0) parts.push(`${Math.abs(effectiveSemi)} semi-private`);
-        if (effectivePrivate < 0) parts.push(`${Math.abs(effectivePrivate)} private`);
-        return (
-          <View style={styles.debtExplanation}>
-            <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
-            <Text style={styles.debtExplanationText}>
-              {`${parts.join(", ")} session(s) attended without active package`}
-            </Text>
+      {creditBalance && (creditBalance.group < 0 || creditBalance.semi_private < 0 || creditBalance.private < 0) ? (
+        <View style={styles.debtExplanation}>
+          <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
+          <Text style={styles.debtExplanationText}>
+            {(() => {
+              const parts: string[] = [];
+              if (creditBalance.group < 0) parts.push(`${Math.abs(creditBalance.group)} group`);
+              if (creditBalance.semi_private < 0) parts.push(`${Math.abs(creditBalance.semi_private)} semi-private`);
+              if (creditBalance.private < 0) parts.push(`${Math.abs(creditBalance.private)} private`);
+              return `${parts.join(", ")} session(s) attended without active package`;
+            })()}
+          </Text>
+        </View>
+      ) : null}
+
+      {creditBalance?.hasUncoveredSessions ? (
+        <View style={styles.owedSessionsSection}>
+          <View style={styles.owedSessionsRow}>
+            {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
+              const count = creditBalance.uncoveredSessions?.[type] ?? 0;
+              if (count === 0) return null;
+              return (
+                <View key={type} style={styles.owedChip}>
+                  <Text style={styles.owedChipText}>-{count} {CREDIT_TYPE_LABELS[type]}</Text>
+                </View>
+              );
+            })}
           </View>
-        );
-      })()}
+          <View style={styles.owedHint}>
+            <Ionicons name="alert-circle-outline" size={12} color={Colors.dark.gold} />
+            <Text style={styles.owedHintText}>Sessions attended without credit — add a package to cover these</Text>
+          </View>
+        </View>
+      ) : null}
 
       {packages.length === 0 && !isLoading ? (
         <View style={styles.emptyState}>
+          {creditBalance?.hasUncoveredSessions ? (
+            <View style={styles.owedBanner}>
+              <Ionicons name="warning-outline" size={16} color={Colors.dark.gold} />
+              <Text style={styles.owedBannerText}>
+                {`This player attended ${(creditBalance.uncoveredSessions?.group ?? 0) + (creditBalance.uncoveredSessions?.semi_private ?? 0) + (creditBalance.uncoveredSessions?.private ?? 0)} session(s) without credit coverage. Add a package to settle the balance.`}
+              </Text>
+            </View>
+          ) : null}
           <Text style={styles.emptyText}>No packages</Text>
           <Pressable onPress={() => setShowAddModal(true)} style={styles.emptyButton}>
             <Text style={styles.emptyButtonText}>Add Package</Text>
@@ -1273,6 +1299,59 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     fontSize: 11,
     flex: 1,
+  },
+  owedSessionsSection: {
+    marginBottom: Spacing.md,
+    gap: 6,
+  },
+  owedSessionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  owedChip: {
+    backgroundColor: "#EF444430",
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  owedChipText: {
+    ...Typography.caption,
+    color: "#EF4444",
+    fontSize: 12,
+    fontWeight: "600" as const,
+  },
+  owedHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  owedHintText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontSize: 11,
+    flex: 1,
+  },
+  owedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: Colors.dark.gold + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  owedBannerText: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 17,
   },
   packageTypeBadge: {
     paddingHorizontal: Spacing.sm,
