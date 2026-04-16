@@ -590,6 +590,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         let playerList: any[];
         let total = 0;
 
+        // Normalize status filter to a known value (push down into SQL where supported).
+        const normalizedStatus: "active" | "inactive" | "pending_payment" | "all" =
+          playerStatusFilter === "inactive"
+            ? "inactive"
+            : playerStatusFilter === "pending_payment"
+              ? "pending_payment"
+              : playerStatusFilter === "all"
+                ? "all"
+                : "active";
+
         if (usePagination) {
           const { limit, offset } = parsePagination(req.query as any);
           if (search) {
@@ -610,6 +620,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             playerList = result.players;
             total = result.total;
           }
+          // Pagination paths still apply in-memory status filtering (legacy behavior).
+          if (normalizedStatus === "inactive") {
+            playerList = playerList.filter((p) => p.status === "inactive");
+          } else if (normalizedStatus === "pending_payment") {
+            playerList = playerList.filter((p) => p.status === "pending_payment");
+          } else if (normalizedStatus === "active") {
+            playerList = playerList.filter(
+              (p) => p.status !== "inactive" && p.status !== "pending_payment"
+            );
+          }
         } else {
           // Backward compatible: return all players as array
           if (search) {
@@ -617,69 +637,71 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               search as string,
               effectiveAcademyId,
             );
+            if (normalizedStatus === "inactive") {
+              playerList = playerList.filter((p) => p.status === "inactive");
+            } else if (normalizedStatus === "pending_payment") {
+              playerList = playerList.filter((p) => p.status === "pending_payment");
+            } else if (normalizedStatus === "active") {
+              playerList = playerList.filter(
+                (p) => p.status !== "inactive" && p.status !== "pending_payment"
+              );
+            }
           } else if (includeCredits) {
-            playerList =
-              await storage.getAllPlayersWithCredits(effectiveAcademyId);
+            playerList = await storage.getAllPlayersWithCredits(
+              effectiveAcademyId,
+              normalizedStatus,
+            );
           } else {
             playerList = await storage.getAllPlayers(effectiveAcademyId);
+            if (normalizedStatus === "inactive") {
+              playerList = playerList.filter((p) => p.status === "inactive");
+            } else if (normalizedStatus === "pending_payment") {
+              playerList = playerList.filter((p) => p.status === "pending_payment");
+            } else if (normalizedStatus === "active") {
+              playerList = playerList.filter(
+                (p) => p.status !== "inactive" && p.status !== "pending_payment"
+              );
+            }
           }
         }
 
-        // Filter by player status if requested
-        if (playerStatusFilter === "inactive") {
-          playerList = playerList.filter((p) => p.status === "inactive");
-        } else if (playerStatusFilter === "pending_payment") {
-          playerList = playerList.filter((p) => p.status === "pending_payment");
-        } else if (!playerStatusFilter || playerStatusFilter === "active") {
-          // Default: exclude inactive (past) and pending_payment players
-          playerList = playerList.filter(
-            (p) => p.status !== "inactive" && p.status !== "pending_payment"
-          );
-        }
-        // If playerStatusFilter === "all", no additional filter applied
-
-        // Batch fetch last lesson dates for all players at once (performance optimization)
+        // Batch fetch supplementary data for all players in PARALLEL.
+        // Combine active+paused group counts into one query that groups by status.
         const playerIds = playerList.map((p) => p.id);
-        const lastLessonMap = await storage.getPlayersLastSessions(playerIds);
-
-        // Batch fetch active group counts per player
-        const activeGroupRows = playerIds.length > 0
-          ? await db
-              .select({ playerId: seriesPlayers.playerId, cnt: count() })
-              .from(seriesPlayers)
-              .innerJoin(coachingSeries, eq(seriesPlayers.seriesId, coachingSeries.id))
-              .where(
-                and(
-                  inArray(seriesPlayers.playerId, playerIds),
-                  eq(seriesPlayers.status, "active"),
-                  eq(coachingSeries.status, "active"),
+        const [lastLessonMap, groupRows] = await Promise.all([
+          storage.getPlayersLastSessions(playerIds),
+          playerIds.length > 0
+            ? db
+                .select({
+                  playerId: seriesPlayers.playerId,
+                  status: seriesPlayers.status,
+                  cnt: count(),
+                })
+                .from(seriesPlayers)
+                .innerJoin(
+                  coachingSeries,
+                  eq(seriesPlayers.seriesId, coachingSeries.id),
                 )
-              )
-              .groupBy(seriesPlayers.playerId)
-          : [];
+                .where(
+                  and(
+                    inArray(seriesPlayers.playerId, playerIds),
+                    inArray(seriesPlayers.status, ["active", "paused"]),
+                    eq(coachingSeries.status, "active"),
+                  ),
+                )
+                .groupBy(seriesPlayers.playerId, seriesPlayers.status)
+            : Promise.resolve([] as Array<{ playerId: string | null; status: string | null; cnt: number }>),
+        ]);
+
         const activeGroupMap = new Map<string, number>();
-        for (const row of activeGroupRows) {
-          if (row.playerId) activeGroupMap.set(row.playerId, Number(row.cnt));
-        }
-
-        // Batch fetch paused series counts (for "paused in all series" holiday detection)
-        const pausedGroupRows = playerIds.length > 0
-          ? await db
-              .select({ playerId: seriesPlayers.playerId, cnt: count() })
-              .from(seriesPlayers)
-              .innerJoin(coachingSeries, eq(seriesPlayers.seriesId, coachingSeries.id))
-              .where(
-                and(
-                  inArray(seriesPlayers.playerId, playerIds),
-                  eq(seriesPlayers.status, "paused"),
-                  eq(coachingSeries.status, "active"),
-                )
-              )
-              .groupBy(seriesPlayers.playerId)
-          : [];
         const pausedGroupMap = new Map<string, number>();
-        for (const row of pausedGroupRows) {
-          if (row.playerId) pausedGroupMap.set(row.playerId, Number(row.cnt));
+        for (const row of groupRows) {
+          if (!row.playerId) continue;
+          if (row.status === "active") {
+            activeGroupMap.set(row.playerId, Number(row.cnt));
+          } else if (row.status === "paused") {
+            pausedGroupMap.set(row.playerId, Number(row.cnt));
+          }
         }
 
         // Map player data with last lesson dates and lesson-status fields

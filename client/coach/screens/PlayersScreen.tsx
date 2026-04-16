@@ -19,7 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
@@ -182,17 +182,26 @@ export default function PlayersScreen() {
   // Active/Past/Pending Payment tab switcher
   const [rosterTab, setRosterTab] = useState<"active" | "past" | "pending_payment">("active");
 
+  // Use stale-while-revalidate: cached data renders instantly while a
+  // background refetch happens. placeholderData keeps the previous list
+  // visible during refetches/tab switches so no spinner flashes.
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true"],
+    staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: pastPlayers = [], isLoading: isPastLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true&status=inactive"],
     enabled: rosterTab === "past",
+    staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: pendingPaymentPlayers = [], isLoading: isPendingPaymentLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true&status=pending_payment"],
+    staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const invalidatePlayerLists = () => {

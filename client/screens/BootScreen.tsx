@@ -185,7 +185,10 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
         prefetchPromises.push(
           queryClient.prefetchQuery({ queryKey: [`/api/coach/calendar?date=${todayStr}&view=week`], staleTime: 2 * 60 * 1000 }),
           queryClient.prefetchQuery({ queryKey: ["/api/coach/series"],           staleTime: 5 * 60 * 1000 }),
-          queryClient.prefetchQuery({ queryKey: ["/api/coach/earnings/summary"], staleTime: 5 * 60 * 1000 })
+          queryClient.prefetchQuery({ queryKey: ["/api/coach/earnings/summary"], staleTime: 5 * 60 * 1000 }),
+          // Warm the Players list so the Players tab opens instantly.
+          queryClient.prefetchQuery({ queryKey: ["/api/players?withCredits=true"], staleTime: 60 * 1000 }),
+          queryClient.prefetchQuery({ queryKey: ["/api/players?withCredits=true&status=pending_payment"], staleTime: 60 * 1000 })
         );
       } else if (currentRole === "player") {
         prefetchPromises.push(

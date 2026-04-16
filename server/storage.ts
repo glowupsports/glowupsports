@@ -1910,29 +1910,51 @@ export const storage = {
     return db.select().from(players);
   },
   
-  async getAllPlayersWithCredits(academyId?: string): Promise<(Player & { remainingCredits: number; totalCredits: number; creditsByType: { private: number; group: number; semiPrivate: number }; primaryCreditType: string | null })[]> {
-    const playerList = academyId 
-      ? await db.select().from(players).where(eq(players.academyId, academyId))
+  async getAllPlayersWithCredits(
+    academyId?: string,
+    statusFilter?: "active" | "inactive" | "pending_payment" | "all",
+  ): Promise<(Player & { remainingCredits: number; totalCredits: number; creditsByType: { private: number; group: number; semiPrivate: number }; primaryCreditType: string | null })[]> {
+    // Push status filter into SQL instead of in-memory filtering by caller.
+    const playerWhere: any[] = [];
+    if (academyId) playerWhere.push(eq(players.academyId, academyId));
+    if (statusFilter === "inactive") {
+      playerWhere.push(eq(players.status, "inactive"));
+    } else if (statusFilter === "pending_payment") {
+      playerWhere.push(eq(players.status, "pending_payment"));
+    } else if (!statusFilter || statusFilter === "active") {
+      playerWhere.push(
+        and(
+          ne(players.status, "inactive"),
+          ne(players.status, "pending_payment"),
+        ) as any,
+      );
+    }
+    const playerList = playerWhere.length > 0
+      ? await db.select().from(players).where(and(...playerWhere))
       : await db.select().from(players);
-    
+
     if (playerList.length === 0) return [];
-    
+
     const playerIds = playerList.map(p => p.id);
-    
-    // Use the batch credit balance function which includes debt calculations
-    const balances = await this.getPlayersCreditBalances(playerIds);
-    
-    // Also get total credits from packages for display
+
+    // Run credit balance fetch and total-credits package fetch in parallel.
     const packageConditions = [
       inArray(packages.playerId, playerIds),
-      eq(packages.status, "active")
+      eq(packages.status, "active"),
     ];
     if (academyId) {
       packageConditions.push(eq(packages.academyId, academyId));
     }
-    const activePackages = await db.select()
-      .from(packages)
-      .where(and(...packageConditions));
+    const [balances, activePackages] = await Promise.all([
+      this.getPlayersCreditBalances(playerIds),
+      db
+        .select({
+          playerId: packages.playerId,
+          totalCredits: packages.totalCredits,
+        })
+        .from(packages)
+        .where(and(...packageConditions)),
+    ]);
     
     // Calculate total credits purchased per player
     const totalsByPlayer = new Map<string, number>();
