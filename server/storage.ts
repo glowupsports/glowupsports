@@ -13220,7 +13220,130 @@ export function normalizeSessionTypeToCreditType(sessionType: string | null | un
   return "group";
 }
 
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits, repairOrphanedSessionPlayers };
+interface RebuildAttendanceRow {
+  id: string;
+  player_id: string;
+  player_name: string;
+  session_type: string;
+  start_time: string;
+}
+
+/**
+ * Full Credit Rebuild for an entire academy.
+ * (a) Deletes all credit_transactions for all players in the academy.
+ * (b) Resets session_players.credit_deducted_at and credit_transaction_id to NULL for all
+ *     attendance records belonging to sessions in that academy.
+ * (c) Resets packages.remaining_credits = packages.total_credits for all packages of
+ *     players in that academy. Only previously-depleted packages that still have a valid
+ *     expiry (or no expiry) have their status reset to 'active'; truly expired packages
+ *     keep status='expired' so ensureCreditProcessed (which filters status='active') cannot
+ *     accidentally consume from them.
+ * (d) Fetches all chargeable attendance records ordered by session date ascending.
+ * (e) Calls ensureCreditProcessed for each one in order so credits are consumed /
+ *     debt is created correctly according to actual packages held at the time.
+ */
+async function fullCreditRebuildForAcademy(academyId: string): Promise<{
+  debts: number;
+  consumed: number;
+  errors: string[];
+  playersProcessed: number;
+}> {
+  const result: { debts: number; consumed: number; errors: string[]; playersProcessed: number } = {
+    debts: 0,
+    consumed: 0,
+    errors: [],
+    playersProcessed: 0,
+  };
+
+  console.log(`[FullCreditRebuild] Starting full rebuild for academy ${academyId}`);
+
+  // --- Step (a): Delete all credit_transactions for players in this academy ---
+  await db.execute(sql`
+    DELETE FROM credit_transactions
+    WHERE player_id IN (
+      SELECT id FROM players WHERE academy_id = ${academyId}
+    )
+  `);
+  console.log(`[FullCreditRebuild] Deleted credit transactions for academy ${academyId}`);
+
+  // --- Step (b): Reset session_players for all sessions in this academy ---
+  await db.execute(sql`
+    UPDATE session_players
+    SET credit_deducted_at = NULL,
+        credit_transaction_id = NULL
+    WHERE session_id IN (
+      SELECT id FROM sessions WHERE academy_id = ${academyId}
+    )
+  `);
+  console.log(`[FullCreditRebuild] Reset session_players for academy ${academyId}`);
+
+  // --- Step (c): Reset remaining_credits = total_credits for all academy packages ---
+  // Only set status='active' for packages that are NOT past their expiry date.
+  // ensureCreditProcessed selects packages with status='active' only — it does not
+  // apply an additional expiry_date filter in its SQL. So a blanket status reset to
+  // 'active' would allow genuinely expired packages to be consumed during rebuild,
+  // which would be incorrect. We therefore preserve 'expired' for past-expiry packages.
+  await db.execute(sql`
+    UPDATE packages
+    SET remaining_credits = total_credits,
+        status = CASE
+          WHEN total_credits > 0
+               AND (expiry_date IS NULL OR expiry_date > NOW())
+          THEN 'active'
+          WHEN total_credits > 0
+               AND expiry_date <= NOW()
+          THEN 'expired'
+          ELSE status
+        END
+    WHERE player_id IN (
+      SELECT id FROM players WHERE academy_id = ${academyId}
+    )
+  `);
+  console.log(`[FullCreditRebuild] Reset package balances for academy ${academyId}`);
+
+  // --- Step (d): Fetch all chargeable attendance records ordered by session date ---
+  const attendanceRows = await db.execute(sql`
+    SELECT sp.id, sp.player_id, p.name as player_name, s.session_type, s.start_time
+    FROM session_players sp
+    JOIN players p ON p.id = sp.player_id
+    JOIN sessions s ON s.id = sp.session_id
+    WHERE p.academy_id = ${academyId}
+      AND s.status != 'cancelled'
+      AND (
+        sp.attendance_status IN ('present', 'late')
+        OR sp.attendance_status = 'absent'
+      )
+    ORDER BY s.start_time ASC, sp.id ASC
+  `);
+
+  const playerIds = new Set<string>();
+  console.log(`[FullCreditRebuild] Processing ${attendanceRows.rows.length} chargeable attendance records`);
+
+  // --- Step (e): Call ensureCreditProcessed for each record in chronological order ---
+  for (const row of attendanceRows.rows) {
+    const sp = row as RebuildAttendanceRow;
+    playerIds.add(sp.player_id);
+    try {
+      const creditResult = await ensureCreditProcessed(sp.id);
+      if (creditResult.action === "consumed") {
+        result.consumed++;
+      } else if (creditResult.action === "debt_created") {
+        result.debts++;
+      } else if (creditResult.action === "error") {
+        result.errors.push(`${sp.player_name}: ${creditResult.error ?? "unknown error"}`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      result.errors.push(`${sp.player_name}: ${message}`);
+    }
+  }
+
+  result.playersProcessed = playerIds.size;
+  console.log(`[FullCreditRebuild] Complete: ${result.consumed} consumed, ${result.debts} debts, ${result.errors.length} errors, ${result.playersProcessed} players`);
+  return result;
+}
+
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits, repairOrphanedSessionPlayers, fullCreditRebuildForAcademy };
 
 // ==================== VIDEO FEEDBACK ====================
 import { videoFeedback, type VideoFeedback, type InsertVideoFeedback } from "@shared/schema";

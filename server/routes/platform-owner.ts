@@ -2888,6 +2888,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // FULL CREDIT REBUILD: Reset and recalculate all credits for all players in academy
+  router.post(
+    "/api/admin/full-credit-rebuild",
+    adminRepairLimiter,
+    authMiddleware,
+    requireRole("admin", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "No academy context found for this user" });
+        }
+
+        console.log(`[FullCreditRebuild] Triggered by user ${req.user?.id} for academy ${academyId}`);
+
+        const { fullCreditRebuildForAcademy } = await import("../storage");
+        const result = await fullCreditRebuildForAcademy(academyId);
+
+        console.log(`[FullCreditRebuild] Complete: ${result.consumed} consumed, ${result.debts} debts, ${result.errors.length} errors`);
+
+        res.json({
+          message: "Full credit rebuild complete",
+          ...result,
+        });
+      } catch (error) {
+        console.error("Full credit rebuild error:", error);
+        res.status(500).json({ error: "Failed to run full credit rebuild" });
+      }
+    },
+  );
+
   // Admin: Set player XP/Level for testing
   router.post(
     "/api/admin/players/:id/set-level",

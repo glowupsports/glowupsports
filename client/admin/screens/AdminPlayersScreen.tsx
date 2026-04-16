@@ -300,6 +300,48 @@ export default function AdminPlayersScreen() {
     },
   });
 
+  const fullCreditRebuildMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/full-credit-rebuild", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const msg = `${data.debts || 0} debt transactions created, ${data.consumed || 0} package deductions applied across ${data.playersProcessed || 0} players.`;
+      if (Platform.OS === "web") {
+        window.alert(`Rebuild complete. ${msg}`);
+      } else {
+        Alert.alert("Rebuild Complete", msg);
+      }
+    },
+    onError: (err: Error) => {
+      if (Platform.OS === "web") {
+        window.alert(err.message || "Failed to rebuild credits");
+      } else {
+        Alert.alert("Error", err.message || "Failed to rebuild credits");
+      }
+    },
+  });
+
+  const handleFullCreditRebuild = () => {
+    const confirm = () => fullCreditRebuildMutation.mutate();
+    if (Platform.OS === "web") {
+      if (window.confirm("This will RESET all credit transactions for every player and recalculate from scratch based on actual session attendance. This cannot be undone. Continue?")) {
+        confirm();
+      }
+    } else {
+      Alert.alert(
+        "Rebuild All Credits",
+        "This will RESET all credit transactions for every player and recalculate from scratch based on actual session attendance.\n\nThis cannot be undone. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Rebuild", style: "destructive", onPress: confirm },
+        ]
+      );
+    }
+  };
+
   const handleSubmit = () => {
     if (!formData.name.trim()) {
       if (Platform.OS === "web") {
@@ -682,6 +724,20 @@ export default function AdminPlayersScreen() {
           <Text style={dtStyles.countText}>
             {desktopSortedPlayers.length} of {players.length} players
           </Text>
+          <Pressable
+            onPress={handleFullCreditRebuild}
+            disabled={fullCreditRebuildMutation.isPending}
+            style={[dtStyles.addBtn, { backgroundColor: `${Colors.dark.error}18`, borderWidth: 1, borderColor: `${Colors.dark.error}40` }]}
+          >
+            {fullCreditRebuildMutation.isPending ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <Ionicons name="refresh-circle-outline" size={14} color={Colors.dark.error} />
+            )}
+            <Text style={[dtStyles.addBtnText, { color: Colors.dark.error }]}>
+              {fullCreditRebuildMutation.isPending ? "Rebuilding..." : "Rebuild Credits"}
+            </Text>
+          </Pressable>
           <Pressable style={dtStyles.addBtn} onPress={openAddModal}>
             <Ionicons name="add" size={16} color="#0B0D10" />
             <Text style={dtStyles.addBtnText}>Add Player</Text>
@@ -1199,7 +1255,34 @@ export default function AdminPlayersScreen() {
         </View>
       ) : null}
 
-      
+      <Pressable
+        onPress={handleFullCreditRebuild}
+        disabled={fullCreditRebuildMutation.isPending}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          marginHorizontal: Spacing.lg,
+          marginBottom: Spacing.sm,
+          paddingHorizontal: Spacing.md,
+          paddingVertical: 8,
+          borderRadius: 8,
+          backgroundColor: `${Colors.dark.error}12`,
+          borderWidth: 1,
+          borderColor: `${Colors.dark.error}30`,
+          alignSelf: "flex-start",
+        }}
+      >
+        {fullCreditRebuildMutation.isPending ? (
+          <ActivityIndicator size="small" color={Colors.dark.error} />
+        ) : (
+          <Ionicons name="refresh-circle-outline" size={14} color={Colors.dark.error} />
+        )}
+        <Text style={{ color: Colors.dark.error, fontSize: 12, fontWeight: "700" }}>
+          {fullCreditRebuildMutation.isPending ? "Rebuilding..." : "Rebuild All Credits"}
+        </Text>
+      </Pressable>
+
         <FlatList
           data={filteredPlayers}
           keyExtractor={(item) => item.id}
