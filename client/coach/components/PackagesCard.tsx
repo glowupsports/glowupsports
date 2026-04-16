@@ -549,7 +549,9 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
       <View style={styles.creditTypeRow}>
         {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
-          const balance = creditBalance ? creditBalance[type] : creditsByType[type];
+          const rawBalance = creditBalance ? creditBalance[type] : creditsByType[type];
+          const uncovered = creditBalance?.uncoveredSessions?.[type] ?? 0;
+          const balance = rawBalance - uncovered;
           const isDebt = balance < 0;
           const isZeroWithDepletedPackage = balance === 0 && depletedByType[type];
           const dynamicColor = isDebt
@@ -572,7 +574,23 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         })}
       </View>
 
-      {creditBalance && (creditBalance.group < 0 || creditBalance.semi_private < 0 || creditBalance.private < 0) ? (
+      {creditBalance?.hasUncoveredSessions ? (
+        <View style={styles.debtExplanation}>
+          <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
+          <Text style={styles.debtExplanationText}>
+            {(() => {
+              const parts: string[] = [];
+              const g = (creditBalance.uncoveredSessions?.group ?? 0) - creditBalance.group;
+              const sp = (creditBalance.uncoveredSessions?.semi_private ?? 0) - creditBalance.semi_private;
+              const pr = (creditBalance.uncoveredSessions?.private ?? 0) - creditBalance.private;
+              if (g > 0) parts.push(`${g} group`);
+              if (sp > 0) parts.push(`${sp} semi-private`);
+              if (pr > 0) parts.push(`${pr} private`);
+              return `${parts.join(", ")} session(s) attended without active package`;
+            })()}
+          </Text>
+        </View>
+      ) : creditBalance && (creditBalance.group < 0 || creditBalance.semi_private < 0 || creditBalance.private < 0) ? (
         <View style={styles.debtExplanation}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
           <Text style={styles.debtExplanationText}>
@@ -584,26 +602,6 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
               return `${parts.join(", ")} session(s) attended without active package`;
             })()}
           </Text>
-        </View>
-      ) : null}
-
-      {creditBalance?.hasUncoveredSessions ? (
-        <View style={styles.owedSessionsSection}>
-          <View style={styles.owedSessionsRow}>
-            {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
-              const count = creditBalance.uncoveredSessions?.[type] ?? 0;
-              if (count === 0) return null;
-              return (
-                <View key={type} style={styles.owedChip}>
-                  <Text style={styles.owedChipText}>-{count} {CREDIT_TYPE_LABELS[type]}</Text>
-                </View>
-              );
-            })}
-          </View>
-          <View style={styles.owedHint}>
-            <Ionicons name="alert-circle-outline" size={12} color={Colors.dark.gold} />
-            <Text style={styles.owedHintText}>Sessions attended without credit — add a package to cover these</Text>
-          </View>
         </View>
       ) : null}
 
