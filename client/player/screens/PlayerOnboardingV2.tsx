@@ -2486,6 +2486,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     mutationFn: async (onboardingData: OnboardingData) => {
       const payload = {
         dateOfBirth: onboardingData.dateOfBirth,
+        gender: onboardingData.gender,
         ballLevel: onboardingData.ballLevel,
         motivationType: onboardingData.motivationType,
         experienceLevel: onboardingData.experienceLevel,
@@ -2502,6 +2503,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         longTermDream: onboardingData.longTermDream,
         quizScore: onboardingData.quizScore,
         playStyle: onboardingData.playStyle,
+        parentEmail: onboardingData.parentEmail,
         sportProfiles: onboardingData.selectedSports.reduce<Record<string, {}>>((acc, sport) => {
           acc[sport] = {};
           return acc;

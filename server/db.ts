@@ -698,6 +698,12 @@ pool.query('SELECT 1').then(async () => {
     console.log('[PlayerNameRepair] Skipped:', e.message);
   }
   try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gender TEXT`);
+    console.log('[Database] players gender column migration applied');
+  } catch (e: any) {
+    console.log('[Database] players gender migration skipped:', e.message);
+  }
+  try {
     await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS coach_reviewed_at TIMESTAMP`);
     console.log('[Database] sessions coach_reviewed_at migration applied');
   } catch (e: any) {

@@ -1046,6 +1046,7 @@ export const players = pgTable("players", {
   nickname: text("nickname"), // Fun nickname for the app
   quizScore: integer("quiz_score"), // Mini tennis rules quiz score
   playStyle: varchar("play_style"), // Tennis archetype: baseline_warrior | net_ninja | serve_machine | all_court_ace | counter_puncher | tactical_mastermind
+  gender: text("gender"), // male | female | prefer_not_to_say
   
   auditVerifiedAt: timestamp("audit_verified_at"),
   auditVerifiedBy: varchar("audit_verified_by"),

@@ -3273,6 +3273,13 @@ import fs from "fs";
           enjoymentTags,
           focusGoals,
           selfConfidenceFlags,
+          gender,
+          parentEmail,
+          typicalPlayTimes,
+          tennisIdol,
+          shortTermGoal,
+          longTermDream,
+          quizScore,
         } = req.body;
 
         // Academy selection is now optional - players can skip it
@@ -3352,6 +3359,13 @@ import fs from "fs";
           focusGoals,
           ballLevel,
           selfConfidenceFlags,
+          gender: gender || null,
+          parentEmail: parentEmail || null,
+          typicalPlayTimes: Array.isArray(typicalPlayTimes) ? typicalPlayTimes : undefined,
+          tennisIdol: tennisIdol || null,
+          shortTermGoal: shortTermGoal || null,
+          longTermDream: longTermDream || null,
+          quizScore: typeof quizScore === "number" ? quizScore : undefined,
           sportProfiles: Object.keys(updatedSportProfiles).length > 0 ? updatedSportProfiles : undefined,
           playStyle: (() => {
             const VALID_PLAY_STYLES = ["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"];
