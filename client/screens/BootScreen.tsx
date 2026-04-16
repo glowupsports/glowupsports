@@ -1,24 +1,69 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Dimensions,
-  Image,
-} from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet, View, Text, Dimensions } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withRepeat,
+  withDelay,
+  Easing,
+  runOnJS,
+} from "react-native-reanimated";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient as SvgGradient,
+  Stop,
+} from "react-native-svg";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import Feather from "@expo/vector-icons/Feather";
 import { useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Spacing, FontSizes } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { getApiUrl } from "@/lib/query-client";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+const G = {
+  bg0:    "#030F14",
+  bg1:    "#051820",
+  bg2:    "#071E2A",
+  purple: "#A855F7",
+  green:  "#B7FF3C",
+  cyan:   "#39D5FF",
+  white:  "#F8FAFC",
+  muted:  "#9FB0C7",
+} as const;
+
+const RING_SIZE   = 280;
+const RING_STROKE = 5;
+const RING_R      = RING_SIZE / 2 - RING_STROKE / 2;
+const HERO_SIZE   = 340;
+const TRACK_W     = width * 0.72;
+const DOT_SIZE    = 9;
+const SWEEP_RANGE = width * 0.62;
+const HS_SIZE     = 10;
+const RING_OFFSET = (HERO_SIZE - RING_SIZE) / 2;
+
+function hotspotXY(angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    left: RING_SIZE / 2 + RING_R * Math.cos(rad) - HS_SIZE / 2,
+    top:  RING_SIZE / 2 + RING_R * Math.sin(rad) - HS_SIZE / 2,
+  };
+}
+
+const HS1 = hotspotXY(-60);
+const HS2 = hotspotXY(120);
+
+const MIN_BOOT_TIME = 1800;
+const MAX_BOOT_TIME = 4500;
 
 type UserRole = "coach" | "player" | "academy_owner" | "admin" | "platform" | "service_provider";
 
-const GAME_MESSAGES_BY_ROLE: Record<UserRole, string[]> = {
+const MESSAGES_BY_ROLE: Record<UserRole, string[]> = {
   coach: [
     "CALIBRATING LESSON ENGINE...",
     "SYNCING PLAYER PROFILES...",
@@ -63,111 +108,105 @@ const GAME_MESSAGES_BY_ROLE: Record<UserRole, string[]> = {
   ],
 };
 
-const MIN_BOOT_TIME = 1800;
-const MAX_BOOT_TIME = 4500;
+const ROLE_LABELS: Record<UserRole, string> = {
+  coach:            "COACH MODE ACTIVE",
+  player:           "PLAYER MODE ACTIVE",
+  academy_owner:    "ACADEMY MODE ACTIVE",
+  admin:            "ADMIN MODE ACTIVE",
+  platform:         "PLATFORM MODE ACTIVE",
+  service_provider: "PROVIDER MODE ACTIVE",
+};
+
+const PARTICLES: {
+  color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number;
+}[] = [
+  { color: G.purple, xFrac: 0.08, yFrac: 0.12, delay: 0,   dx: 8,   dy: -12 },
+  { color: G.cyan,   xFrac: 0.82, yFrac: 0.10, delay: 200, dx: -10, dy: -14 },
+  { color: G.green,  xFrac: 0.05, yFrac: 0.62, delay: 400, dx: 10,  dy: 8   },
+  { color: G.purple, xFrac: 0.86, yFrac: 0.68, delay: 600, dx: -8,  dy: 12  },
+];
 
 interface BootScreenProps {
   onBootComplete: () => void;
 }
 
 export default function BootScreen({ onBootComplete }: BootScreenProps) {
-  const queryClient = useQueryClient();
-  const { user, isGuest } = useAuth();
-  const { mode } = useAppMode();
-  
-  const [currentTipIndex, setCurrentTipIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [bootPhase, setBootPhase] = useState<"loading" | "ready">("loading");
-  
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const tipFadeAnim = useRef(new Animated.Value(1)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  
-  const bootStartTime = useRef(Date.now());
-  const prefetchComplete = useRef(false);
-  const timeoutReached = useRef(false);
+  const queryClient                         = useQueryClient();
+  const { user, isGuest }                   = useAuth();
+  const { mode }                            = useAppMode();
 
-  const currentRole = (mode || "player") as UserRole;
-  const messages = GAME_MESSAGES_BY_ROLE[currentRole] || GAME_MESSAGES_BY_ROLE.player;
-  const shuffledTips = useRef(
-    [...messages].sort(() => Math.random() - 0.5)
-  ).current;
+  const [displayPct, setDisplayPct]         = useState(0);
+  const [isReady, setIsReady]               = useState(false);
+
+  const bootStartTime     = useRef(Date.now());
+  const prefetchComplete  = useRef(false);
+  const timeoutReached    = useRef(false);
+
+  const currentRole   = (mode || "player") as UserRole;
+  const messages      = MESSAGES_BY_ROLE[currentRole] ?? MESSAGES_BY_ROLE.player;
+  const roleLabel     = ROLE_LABELS[currentRole] ?? "GLOW MODE ACTIVE";
+
+  const containerOpacity = useSharedValue(0);
+  const logoScale        = useSharedValue(1);
+  const ringRotation     = useSharedValue(0);
+  const progressFill     = useSharedValue(0);
+
+  const setComplete = useCallback(() => {
+    setIsReady(true);
+    setTimeout(onBootComplete, 500);
+  }, [onBootComplete]);
 
   const checkAndComplete = useCallback(() => {
     const elapsed = Date.now() - bootStartTime.current;
-    
     if (prefetchComplete.current && elapsed >= MIN_BOOT_TIME) {
-      setBootPhase("ready");
-      setTimeout(onBootComplete, 300);
+      setComplete();
     } else if (elapsed >= MAX_BOOT_TIME) {
       timeoutReached.current = true;
-      setBootPhase("ready");
-      setTimeout(onBootComplete, 300);
+      setComplete();
     }
-  }, [onBootComplete]);
+  }, [setComplete]);
+
+  const updateProgress = useCallback((pct: number) => {
+    setDisplayPct(pct);
+    progressFill.value = withTiming(pct / 100, { duration: 300, easing: Easing.out(Easing.cubic) });
+  }, [progressFill]);
 
   const prefetchCriticalData = useCallback(async () => {
-    const apiUrl = getApiUrl();
     const prefetchPromises: Promise<any>[] = [];
-
-    setProgress(10);
+    updateProgress(10);
 
     try {
       prefetchPromises.push(
-        queryClient.prefetchQuery({
-          queryKey: ["/api/me"],
-          staleTime: 5 * 60 * 1000,
-        })
+        queryClient.prefetchQuery({ queryKey: ["/api/me"], staleTime: 5 * 60 * 1000 })
       );
-      setProgress(25);
+      updateProgress(25);
 
       if (currentRole === "coach") {
         const todayStr = new Date().toISOString().split("T")[0];
         prefetchPromises.push(
-          queryClient.prefetchQuery({
-            queryKey: [`/api/coach/calendar?date=${todayStr}&view=week`],
-            staleTime: 2 * 60 * 1000,
-          }),
-          queryClient.prefetchQuery({
-            queryKey: ["/api/coach/series"],
-            staleTime: 5 * 60 * 1000,
-          }),
-          queryClient.prefetchQuery({
-            queryKey: ["/api/coach/earnings/summary"],
-            staleTime: 5 * 60 * 1000,
-          })
+          queryClient.prefetchQuery({ queryKey: [`/api/coach/calendar?date=${todayStr}&view=week`], staleTime: 2 * 60 * 1000 }),
+          queryClient.prefetchQuery({ queryKey: ["/api/coach/series"],           staleTime: 5 * 60 * 1000 }),
+          queryClient.prefetchQuery({ queryKey: ["/api/coach/earnings/summary"], staleTime: 5 * 60 * 1000 })
         );
       } else if (currentRole === "player") {
         prefetchPromises.push(
-          queryClient.prefetchQuery({
-            queryKey: ["/api/player/me/social"],
-            staleTime: 2 * 60 * 1000,
-          }),
-          queryClient.prefetchQuery({
-            queryKey: ["/api/play/sessions"],
-            staleTime: 2 * 60 * 1000,
-          })
+          queryClient.prefetchQuery({ queryKey: ["/api/player/me/social"],  staleTime: 2 * 60 * 1000 }),
+          queryClient.prefetchQuery({ queryKey: ["/api/play/sessions"],     staleTime: 2 * 60 * 1000 })
         );
       }
 
-      setProgress(50);
-
+      updateProgress(50);
       await Promise.allSettled(prefetchPromises);
-      
-      setProgress(90);
-      
+      updateProgress(90);
       await new Promise(resolve => setTimeout(resolve, 200));
-      
-      setProgress(100);
+      updateProgress(100);
       prefetchComplete.current = true;
       checkAndComplete();
-    } catch (error) {
-      console.warn("[Boot] Prefetch error:", error);
+    } catch {
       prefetchComplete.current = true;
       checkAndComplete();
     }
-  }, [currentRole, queryClient, checkAndComplete]);
+  }, [currentRole, queryClient, checkAndComplete, updateProgress]);
 
   useEffect(() => {
     if (isGuest) {
@@ -175,26 +214,22 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
       return;
     }
 
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
+    containerOpacity.value = withTiming(1, { duration: 400 });
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+    ringRotation.value = withRepeat(
+      withTiming(360, { duration: 10000, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    logoScale.value = withRepeat(
+      withSequence(
+        withTiming(1.035, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.0,   { duration: 1100, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
 
     prefetchCriticalData();
 
@@ -206,261 +241,544 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
     }, MAX_BOOT_TIME);
 
     const minTimeout = setTimeout(() => {
-      if (prefetchComplete.current) {
-        checkAndComplete();
-      }
+      if (prefetchComplete.current) checkAndComplete();
     }, MIN_BOOT_TIME);
 
     return () => {
       clearTimeout(maxTimeout);
       clearTimeout(minTimeout);
     };
-  }, [fadeAnim, pulseAnim, prefetchCriticalData, checkAndComplete]);
+  }, []);
 
-  useEffect(() => {
-    const tipInterval = setInterval(() => {
-      Animated.timing(tipFadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentTipIndex((prev) => (prev + 1) % shuffledTips.length);
-        Animated.timing(tipFadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      });
-    }, 2500);
-
-    return () => clearInterval(tipInterval);
-  }, [tipFadeAnim, shuffledTips.length]);
-
-  useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [progress, progressAnim]);
-
-  const currentTip = shuffledTips[currentTipIndex];
+  const containerStyle = useAnimatedStyle(() => ({ opacity: containerOpacity.value }));
+  const ringStyle      = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${ringRotation.value}deg` }],
+  }));
+  const logoStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+  }));
+  const barStyle = useAnimatedStyle(() => ({
+    width: progressFill.value * TRACK_W,
+  }));
+  const dotStyle = useAnimatedStyle(() => ({
+    left: progressFill.value * TRACK_W - DOT_SIZE / 2,
+  }));
 
   return (
-    <LinearGradient
-      colors={[Colors.dark.backgroundRoot, "#0a1a1a", Colors.dark.backgroundRoot]}
-      style={styles.container}
-    >
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <Animated.View style={[styles.logoContainer, { transform: [{ scale: pulseAnim }] }]}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>GS</Text>
-          </View>
-          <Text style={styles.appName}>Glow Up Sports</Text>
-          <Text style={styles.tagline}>GLOW PROTOCOL ACTIVE</Text>
-        </Animated.View>
+    <Animated.View style={[styles.root, containerStyle]}>
+      <LinearGradient
+        colors={[G.bg0, G.bg1, G.bg2, G.bg0]}
+        locations={[0, 0.35, 0.65, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <View style={styles.tipContainer}>
-          <Animated.View style={[styles.tipCard, { opacity: tipFadeAnim }]}>
-            <Text style={styles.systemLabel}>SYS.MSG</Text>
-            <Text style={styles.systemMessage}>{shuffledTips[currentTipIndex]}</Text>
-            <View style={styles.statusDotRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusDotText}>SYSTEM NOMINAL</Text>
-            </View>
+      {PARTICLES.map((p, i) => (
+        <GlowParticle key={i} {...p} />
+      ))}
+
+      <View style={styles.fullColumn}>
+        <View style={styles.topSpacer} />
+
+        <View style={styles.heroWrapper}>
+          <View style={styles.outerAura} />
+          <View style={styles.midBloom} />
+          <View style={styles.ringGlowShadow} />
+
+          <Animated.View style={[styles.ringContainer, ringStyle]}>
+            <Svg width={RING_SIZE} height={RING_SIZE}>
+              <Defs>
+                <SvgGradient id="bootRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%"   stopColor={G.purple} stopOpacity="1" />
+                  <Stop offset="50%"  stopColor={G.cyan}   stopOpacity="1" />
+                  <Stop offset="100%" stopColor={G.green}  stopOpacity="1" />
+                </SvgGradient>
+              </Defs>
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_R - 18}
+                fill="none"
+                stroke="rgba(255,255,255,0.04)"
+                strokeWidth={1}
+              />
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_R}
+                fill="none"
+                stroke="url(#bootRingGrad)"
+                strokeWidth={RING_STROKE}
+                strokeLinecap="round"
+              />
+            </Svg>
+            <View style={[styles.hotspot, { left: HS1.left, top: HS1.top, backgroundColor: G.cyan }]} />
+            <View style={[styles.hotspot, { left: HS2.left, top: HS2.top, backgroundColor: G.purple }]} />
+          </Animated.View>
+
+          <View style={styles.logoDisk} />
+
+          <Animated.View style={logoStyle}>
+            <Image
+              source={require("../../assets/images/logo.png")}
+              style={styles.logoImage}
+              contentFit="contain"
+            />
           </Animated.View>
         </View>
 
-        <View style={styles.tipIndicators}>
-          {shuffledTips.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.tipIndicator,
-                index === currentTipIndex && styles.tipIndicatorActive,
-              ]}
-            />
-          ))}
-        </View>
+        <View style={{ height: 20 }} />
+        <WordmarkBlock roleLabel={roleLabel} />
 
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <Animated.View
-              style={[
-                styles.progressFill,
-                {
-                  width: progressAnim.interpolate({
-                    inputRange: [0, 100],
-                    outputRange: ["0%", "100%"],
-                  }),
-                },
-              ]}
-            />
+        <View style={styles.midSpacer} />
+
+        <View style={styles.progressSection}>
+          <BootStatusText messages={messages} isReady={isReady} />
+
+          <View style={styles.progressRow}>
+            <View style={styles.progressTrackWrapper}>
+              <View style={styles.progressTrack}>
+                <Animated.View style={[styles.progressBar, barStyle]}>
+                  <LinearGradient
+                    colors={[G.purple, G.cyan, G.green]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </Animated.View>
+              </View>
+              <Animated.View style={[styles.progressDot, dotStyle]} />
+            </View>
+            <Text style={styles.pctText}>{displayPct}%</Text>
           </View>
-          <Text style={styles.progressText}>
-            {bootPhase === "ready" ? "SYSTEMS READY." : "BOOTING GLOW OS..."}
+
+          <Text style={styles.subStatus}>
+            {isReady ? "READY TO PERFORM" : "INITIALIZING GLOW OS"}
           </Text>
+
+          <View style={styles.dotIndicatorRow}>
+            <View style={[styles.dotIndicator, styles.dotActive]} />
+            <View style={styles.dotIndicator} />
+            <View style={styles.dotIndicator} />
+          </View>
         </View>
 
-        <Text style={styles.roleLabel}>
-          {currentRole === "coach" && "Coach Mode"}
-          {currentRole === "player" && "Player Mode"}
-          {currentRole === "academy_owner" && "Academy Owner"}
-          {currentRole === "admin" && "Admin Mode"}
-          {currentRole === "platform" && "Platform Mode"}
-          {currentRole === "service_provider" && "Provider Mode"}
-        </Text>
-      </Animated.View>
-    </LinearGradient>
+        <View style={{ height: 14 }} />
+        <QuoteCard />
+        <View style={{ height: 28 }} />
+      </View>
+    </Animated.View>
+  );
+}
+
+function GlowParticle({
+  color, xFrac, yFrac, delay, dx, dy,
+}: {
+  color: string; xFrac: number; yFrac: number; delay: number; dx: number; dy: number;
+}) {
+  const opacity    = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const durBase    = 2400 + delay % 600;
+
+  useEffect(() => {
+    opacity.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(0.75, { duration: 600 }),
+        withRepeat(
+          withSequence(
+            withTiming(0.85, { duration: durBase * 0.7, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0.4,  { duration: durBase * 0.7, easing: Easing.inOut(Easing.sin) })
+          ),
+          -1,
+          false
+        )
+      )
+    );
+    translateX.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(dx, { duration: durBase,       easing: Easing.inOut(Easing.sin) }),
+          withTiming(0,  { duration: durBase,       easing: Easing.inOut(Easing.sin) })
+        ),
+        -1,
+        false
+      )
+    );
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(dy, { duration: durBase + 300, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0,  { duration: durBase + 300, easing: Easing.inOut(Easing.sin) })
+        ),
+        -1,
+        false
+      )
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        { left: width * xFrac, top: height * yFrac, backgroundColor: color, shadowColor: color },
+        style,
+      ]}
+    />
+  );
+}
+
+function BootStatusText({
+  messages,
+  isReady,
+}: {
+  messages: string[];
+  isReady: boolean;
+}) {
+  const [msgIdx, setMsgIdx] = useState(0);
+  const opacity             = useSharedValue(1);
+  const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const frozenRef           = useRef(false);
+  const nextIdxRef          = useRef(1);
+
+  const showNext  = useCallback((idx: number) => setMsgIdx(idx), []);
+  const showReady = useCallback(() => setMsgIdx(messages.length), [messages.length]);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      if (frozenRef.current) return;
+      const next = nextIdxRef.current;
+      nextIdxRef.current = (next + 1) % messages.length;
+      opacity.value = withTiming(0, { duration: 150 }, () => {
+        runOnJS(showNext)(next);
+        opacity.value = withTiming(1, { duration: 150 });
+      });
+    }, 850);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [showNext, messages.length]);
+
+  useEffect(() => {
+    if (!isReady || frozenRef.current) return;
+    frozenRef.current = true;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    opacity.value = withTiming(0, { duration: 150 }, () => {
+      runOnJS(showReady)();
+      opacity.value = withTiming(1, { duration: 200 });
+    });
+  }, [isReady, showReady]);
+
+  const textStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const text = msgIdx >= messages.length ? "SYSTEM READY" : messages[msgIdx];
+
+  return (
+    <Animated.Text style={[styles.statusText, textStyle]}>{text}</Animated.Text>
+  );
+}
+
+function WordmarkBlock({ roleLabel }: { roleLabel: string }) {
+  const sweepX = useSharedValue(-120);
+
+  useEffect(() => {
+    sweepX.value = withRepeat(
+      withSequence(
+        withTiming(SWEEP_RANGE + 20, { duration: 900, easing: Easing.out(Easing.cubic) }),
+        withDelay(2100, withTiming(-120, { duration: 0 }))
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const sweepStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: sweepX.value }],
+  }));
+
+  return (
+    <View style={styles.wordmarkOuter}>
+      <View style={styles.wordmarkClip}>
+        <View style={styles.wordmarkRow}>
+          <Text style={styles.wordmarkGlow}>GLOW </Text>
+          <Text style={styles.wordmarkUp}>UP</Text>
+        </View>
+        <Text style={styles.wordmarkSports}>SPORTS</Text>
+        <Text style={styles.wordmarkTagline}>{roleLabel}</Text>
+        <Animated.View style={[styles.lightSweep, sweepStyle]} />
+      </View>
+    </View>
+  );
+}
+
+function QuoteCard() {
+  return (
+    <View style={styles.quoteCard}>
+      <Text style={styles.quoteIcon}>{"\u201C"}</Text>
+      <Text style={styles.quoteText}>
+        {"Small improvements today, "}
+        <Text style={styles.quoteHighlight}>{"big wins tomorrow."}</Text>
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    justifyContent: "center",
+  },
+  particle: {
+    position:      "absolute",
+    width:         6,
+    height:        6,
+    borderRadius:  3,
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius:  6,
+  },
+  fullColumn: {
+    flex:       1,
     alignItems: "center",
   },
-  content: {
+  topSpacer: {
+    flex:      1,
+    maxHeight: 72,
+    minHeight: 40,
+  },
+  midSpacer: {
     flex: 1,
+  },
+  heroWrapper: {
+    width:          HERO_SIZE,
+    height:         HERO_SIZE,
+    alignItems:     "center",
     justifyContent: "center",
+  },
+  outerAura: {
+    position:        "absolute",
+    width:           HERO_SIZE,
+    height:          HERO_SIZE,
+    borderRadius:    HERO_SIZE / 2,
+    backgroundColor: "rgba(168,85,247,0.07)",
+  },
+  midBloom: {
+    position:        "absolute",
+    width:           HERO_SIZE - 40,
+    height:          HERO_SIZE - 40,
+    borderRadius:    (HERO_SIZE - 40) / 2,
+    left:            20,
+    top:             20,
+    backgroundColor: "rgba(57,213,255,0.05)",
+  },
+  ringGlowShadow: {
+    position:      "absolute",
+    width:         RING_SIZE,
+    height:        RING_SIZE,
+    borderRadius:  RING_SIZE / 2,
+    left:          RING_OFFSET,
+    top:           RING_OFFSET,
+    shadowColor:   "#B7FF3C",
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius:  32,
+  },
+  ringContainer: {
+    position: "absolute",
+    width:    RING_SIZE,
+    height:   RING_SIZE,
+    left:     RING_OFFSET,
+    top:      RING_OFFSET,
+  },
+  hotspot: {
+    position:      "absolute",
+    width:         HS_SIZE,
+    height:        HS_SIZE,
+    borderRadius:  HS_SIZE / 2,
+    shadowOffset:  { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius:  8,
+  },
+  logoDisk: {
+    position:        "absolute",
+    width:           124,
+    height:          124,
+    borderRadius:    62,
+    backgroundColor: "rgba(168,85,247,0.14)",
+  },
+  logoImage: {
+    width:        110,
+    height:       110,
+    borderRadius: 22,
+  },
+  wordmarkOuter: {
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-    width: "100%",
   },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: Spacing["2xl"],
+  wordmarkClip: {
+    overflow:          "hidden",
+    alignItems:        "center",
+    paddingHorizontal: 4,
   },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.dark.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems:    "baseline",
   },
-  logoText: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: Colors.dark.buttonText,
+  wordmarkGlow: {
+    fontSize:      42,
+    fontWeight:    "900",
+    color:         "#C38BFF",
+    letterSpacing: 1,
   },
-  appName: {
-    fontSize: FontSizes["2xl"],
-    fontWeight: "bold",
-    color: Colors.dark.text,
-    marginTop: Spacing.lg,
+  wordmarkUp: {
+    fontSize:      42,
+    fontWeight:    "900",
+    color:         "#B7FF3C",
+    letterSpacing: 1,
   },
-  tagline: {
-    fontSize: 11,
-    color: Colors.dark.primary,
-    marginTop: Spacing.xs,
-    letterSpacing: 3,
-    fontWeight: "700",
+  wordmarkSports: {
+    fontSize:      14,
+    fontWeight:    "700",
+    color:         "#39D5FF",
+    letterSpacing: 10,
+    marginTop:     4,
+  },
+  wordmarkTagline: {
+    fontSize:      9,
+    fontWeight:    "600",
+    color:         "rgba(183,255,60,0.6)",
+    letterSpacing: 2.5,
+    marginTop:     7,
     textTransform: "uppercase",
   },
-  tipContainer: {
-    height: 120,
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
+  lightSweep: {
+    position:        "absolute",
+    top:             0,
+    bottom:          0,
+    width:           2,
+    backgroundColor: "#D8AAFF",
+    opacity:         0.7,
+    shadowColor:     "#A855F7",
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   1,
+    shadowRadius:    10,
   },
-  tipCard: {
-    backgroundColor: "rgba(200, 255, 61, 0.05)",
-    borderRadius: 12,
-    padding: Spacing.lg,
-    alignItems: "flex-start",
-    width: "100%",
-    maxWidth: 320,
-    borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.2)",
+  progressSection: {
+    alignItems:        "center",
+    width:             "100%",
+    paddingHorizontal: 24,
+    gap:               8,
   },
-  systemLabel: {
-    fontSize: 10,
-    color: Colors.dark.primary,
+  statusText: {
+    fontSize:      11,
+    fontWeight:    "700",
+    color:         "#9FB0C7",
     letterSpacing: 2,
-    fontWeight: "700",
-    marginBottom: Spacing.sm,
-    opacity: 0.7,
+    textTransform: "uppercase",
+    marginBottom:  2,
   },
-  systemMessage: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    letterSpacing: 1.5,
-    marginBottom: Spacing.md,
+  progressRow: {
+    flexDirection:  "row",
+    alignItems:     "center",
+    gap:            10,
+    width:          "100%",
+    justifyContent: "center",
   },
-  statusDotRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  progressTrackWrapper: {
+    width:          TRACK_W,
+    height:         DOT_SIZE + 4,
+    justifyContent: "center",
+    position:       "relative",
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.dark.primary,
-  },
-  statusDotText: {
-    fontSize: 10,
-    color: Colors.dark.primary,
-    letterSpacing: 1.5,
-    fontWeight: "600",
-    opacity: 0.7,
-  },
-  tipIndicators: {
-    flexDirection: "row",
-    marginTop: Spacing.lg,
-    marginBottom: Spacing["2xl"],
-  },
-  tipIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    marginHorizontal: 4,
-  },
-  tipIndicatorActive: {
-    backgroundColor: Colors.dark.primary,
-    width: 24,
-  },
-  progressContainer: {
-    width: "100%",
-    maxWidth: 280,
-    alignItems: "center",
+  progressTrack: {
+    width:           TRACK_W,
+    height:          3,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius:    2,
+    overflow:        "hidden",
   },
   progressBar: {
-    width: "100%",
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    position:     "absolute",
+    top:          0,
+    left:         0,
+    height:       "100%",
     borderRadius: 2,
-    overflow: "hidden",
+    overflow:     "hidden",
   },
-  progressFill: {
-    height: "100%",
-    backgroundColor: Colors.dark.primary,
-    borderRadius: 2,
+  progressDot: {
+    position:        "absolute",
+    top:             (DOT_SIZE + 4) / 2 - DOT_SIZE / 2,
+    width:           DOT_SIZE,
+    height:          DOT_SIZE,
+    borderRadius:    DOT_SIZE / 2,
+    backgroundColor: "#F8FAFC",
+    shadowColor:     "#F8FAFC",
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.9,
+    shadowRadius:    5,
   },
-  progressText: {
-    fontSize: 10,
-    color: Colors.dark.primary,
-    marginTop: Spacing.sm,
+  pctText: {
+    fontSize:      12,
+    fontWeight:    "700",
+    color:         "#B7FF3C",
+    letterSpacing: 0.5,
+    minWidth:      36,
+  },
+  subStatus: {
+    fontSize:      9,
+    fontWeight:    "500",
+    color:         "rgba(159,176,199,0.6)",
     letterSpacing: 2,
-    fontWeight: "600",
     textTransform: "uppercase",
-    opacity: 0.75,
   },
-  roleLabel: {
-    position: "absolute",
-    bottom: 40,
-    fontSize: FontSizes.xs,
-    color: Colors.dark.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 2,
+  dotIndicatorRow: {
+    flexDirection: "row",
+    gap:           6,
+    marginTop:     2,
+  },
+  dotIndicator: {
+    width:           6,
+    height:          6,
+    borderRadius:    3,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  dotActive: {
+    backgroundColor: "#B7FF3C",
+    shadowColor:     "#B7FF3C",
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.8,
+    shadowRadius:    4,
+  },
+  quoteCard: {
+    flexDirection:     "row",
+    alignItems:        "center",
+    marginHorizontal:  24,
+    paddingHorizontal: 16,
+    paddingVertical:   12,
+    backgroundColor:   "rgba(255,255,255,0.04)",
+    borderRadius:      12,
+    borderWidth:       1,
+    borderColor:       "rgba(255,255,255,0.07)",
+    gap:               10,
+  },
+  quoteIcon: {
+    fontSize:   22,
+    color:      "#A855F7",
+    lineHeight: 24,
+    fontWeight: "900",
+    marginTop:  -2,
+  },
+  quoteText: {
+    flex:       1,
+    fontSize:   12,
+    color:      "#9FB0C7",
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  quoteHighlight: {
+    color:      "#B7FF3C",
+    fontWeight: "700",
   },
 });
