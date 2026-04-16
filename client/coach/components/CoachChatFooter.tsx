@@ -38,7 +38,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/consta
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
+import { useWebSocket, type NewMessagePayload, type TypingPayload, type OnlineStatusPayload } from "@/lib/useWebSocket";
 import { useChatState } from "@/coach/context/ChatStateContext";
 
 interface ChatFooterProps {
@@ -57,6 +57,9 @@ interface Message {
   senderType: string | null;
   senderCoachId: string | null;
   senderPlayerId: string | null;
+  senderName?: string | null;
+  senderPhotoUrl?: string | null;
+  senderBallLevel?: string | null;
   body: string;
   messageType: string | null;
   createdAt: string;
@@ -67,6 +70,8 @@ interface Message {
     reactorCoachId: string | null;
     reactorPlayerId: string | null;
   }>;
+  _optimistic?: true;
+  _failed?: true;
 }
 
 interface Conversation {
@@ -80,17 +85,23 @@ interface Conversation {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   playerName?: string | null;
+  playerFirstName?: string | null;
+  playerPhoto?: string | null;
   coachName?: string | null;
   providerName?: string | null;
   providerPhoto?: string | null;
   otherPlayerId?: string | null;
   otherPlayerUserId?: string | null;
+  receiverPlayerId?: string | null;
+  senderPlayerId?: string | null;
   isBlockedByMe?: boolean;
 }
 
-const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
+const REACTION_EMOJIS = ["🔥", "❤️", "👍", "🏆", "⚡", "😂"];
+const NEON_GREEN = "#C8FF3D";
+const DARK_BUBBLE = "#1A2535";
 
-type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin" | "world" | "providers";
+type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin" | "world" | "providers" | "series_group";
 
 const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["direct_message", "coach_player"] },
@@ -103,12 +114,11 @@ const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.
 ];
 
 const PLAYER_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
+  { id: "world", name: "World", icon: "globe-outline", types: ["world"] },
+  { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
+  { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group", "series_group"] },
   { id: "players", name: "Players", icon: "people-outline", types: ["player_player"] },
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
-  { id: "providers", name: "Providers", icon: "storefront-outline", types: ["provider_player"] },
-  { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
-  { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
-  { id: "world", name: "World", icon: "globe-outline", types: ["world"] },
 ];
 
 interface Player {
@@ -193,7 +203,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [inputText, setInputText] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showReactions, setShowReactions] = useState<string | null>(null);
-  const [currentTab, setCurrentTab] = useState<ChatTab>("players");
+  const [currentTab, setCurrentTab] = useState<ChatTab>(isPlayerMode ? "world" : "players");
+  const [replyTo, setReplyTo] = useState<{ id: string; body: string; senderName: string } | null>(null);
+  const [onlinePlayerIds, setOnlinePlayerIds] = useState<Set<string>>(new Set());
+  const [playerLastSeenMap, setPlayerLastSeenMap] = useState<Record<string, string>>({});
   const [showNewMessage, setShowNewMessage] = useState(false);
   const [showSquadSelector, setShowSquadSelector] = useState(false);
   const [showCoachSelector, setShowCoachSelector] = useState(false);
@@ -236,15 +249,41 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   }, []);
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
+    const msgKey = isPlayerMode
+      ? ["/api/player/me/conversations", payload.conversationId, "messages"]
+      : ["/api/conversations", payload.conversationId, "messages"];
+
+    // Directly inject the incoming WS message into the cache for zero-latency display
+    queryClient.setQueryData<Message[]>(msgKey, (prev = []) => {
+      const already = prev.find(m => m.id === payload.message.id);
+      if (already) return prev;
+      const newMsg: Message = {
+        id: payload.message.id,
+        body: payload.message.content,
+        conversationId: payload.conversationId,
+        messageType: payload.message.messageType ?? "text",
+        senderType: payload.message.senderType,
+        senderCoachId: payload.message.senderType === "coach" ? (payload.message.senderId ?? null) : null,
+        senderPlayerId: payload.message.senderType === "player" ? (payload.message.senderId ?? null) : null,
+        senderName: payload.message.senderName ?? null,
+        senderPhotoUrl: payload.message.senderPhotoUrl ?? null,
+        senderBallLevel: payload.message.senderBallLevel ?? null,
+        createdAt: payload.message.createdAt,
+        reactions: [],
+      };
+      // Append the real message; optimistic messages for this user's sends
+      // are removed individually in onSuccess by optimisticId — don't touch them here
+      return [...prev, newMsg];
+    });
+
     if (isPlayerMode) {
-      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations", payload.conversationId, "messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
     } else {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", payload.conversationId, "messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "conversations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "unread-count"] });
     }
+
     if (selectedConversation?.id === payload.conversationId) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -269,9 +308,46 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     });
   }, [userId]);
 
+  const handleWorldMessage = useCallback((payload: unknown) => {
+    const wm = payload as WorldMessage;
+    if (!wm?.id) return;
+    queryClient.setQueryData<WorldMessage[]>(["/api/world-chat/messages"], (prev = []) => {
+      const already = prev.find(m => m.id === wm.id);
+      if (already) return prev;
+      return [...prev, wm];
+    });
+  }, [queryClient]);
+
+  const handleOnlineStatus = useCallback((payload: OnlineStatusPayload) => {
+    if (!isPlayerMode || !payload.playerId) return;
+    setOnlinePlayerIds(prev => {
+      const next = new Set(prev);
+      if (payload.isOnline) {
+        next.add(payload.playerId!);
+      } else {
+        next.delete(payload.playerId!);
+      }
+      return next;
+    });
+    if (!payload.isOnline && payload.lastSeenAt) {
+      setPlayerLastSeenMap(prev => ({ ...prev, [payload.playerId!]: payload.lastSeenAt! }));
+    }
+  }, [isPlayerMode]);
+
+  const handleNewConversation = useCallback((_payload: { conversationId: string; type: string }) => {
+    // Refresh conversation list when a new DM is created (e.g. someone DMed the current user)
+    const qk = isPlayerMode
+      ? ["/api/player/me/conversations"]
+      : ["/api/coaches", userId, "conversations"];
+    queryClient.invalidateQueries({ queryKey: qk });
+  }, [isPlayerMode, userId]);
+
   const { isConnected, sendTyping, sendReadReceipt } = useWebSocket({
     onNewMessage: handleNewMessage,
     onTyping: handleTyping,
+    onOnlineStatus: handleOnlineStatus,
+    onWorldMessage: handleWorldMessage,
+    onNewConversation: handleNewConversation,
   });
 
   const handleInputChange = useCallback((text: string) => {
@@ -308,6 +384,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const { data: rawConversations, isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: conversationsQueryKey,
     enabled: !!userId,
+    // WS events invalidate on new messages; only poll as fallback when disconnected
+    refetchInterval: isConnected ? false : 30000,
   });
   const conversations = Array.isArray(rawConversations) ? rawConversations : [];
 
@@ -315,11 +393,37 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     ? ["/api/player/me/conversations", selectedConversation?.id, "messages"]
     : ["/api/conversations", selectedConversation?.id, "messages"];
 
+  const CACHE_KEY = selectedConversation?.id ? `chat_messages_${selectedConversation.id}` : null;
+
+  // Load cached messages from AsyncStorage when conversation changes, pre-populating query cache
+  useEffect(() => {
+    if (!CACHE_KEY || !selectedConversation?.id) return;
+    AsyncStorage.getItem(CACHE_KEY).then(raw => {
+      if (!raw) return;
+      try {
+        const cached: Message[] = JSON.parse(raw);
+        if (Array.isArray(cached) && cached.length > 0) {
+          queryClient.setQueryData<Message[]>(messagesQueryKey, (prev) => {
+            if (prev && prev.length > 0) return prev;
+            return cached;
+          });
+        }
+      } catch {}
+    });
+  }, [selectedConversation?.id]);
+
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
     queryKey: messagesQueryKey,
     enabled: !!selectedConversation?.id,
-    refetchInterval: isConnected ? 30000 : 5000,
+    refetchInterval: isConnected ? false : 30000,
   });
+
+  // Persist last 50 messages to AsyncStorage whenever data updates
+  useEffect(() => {
+    if (!CACHE_KEY || messages.length === 0) return;
+    const toCache = messages.slice(-50);
+    AsyncStorage.setItem(CACHE_KEY, JSON.stringify(toCache)).catch(() => {});
+  }, [messages, CACHE_KEY]);
 
   const unreadQueryKey = isPlayerMode
     ? ["/api/player/me/unread-count"]
@@ -375,26 +479,61 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (body: string) => {
+    mutationFn: async ({ body, optimisticId }: { body: string; optimisticId: string }) => {
       if (!selectedConversation || !userId) return;
       if (isPlayerMode) {
-        return apiRequest("POST", `/api/player/me/conversations/${selectedConversation.id}/messages`, {
+        const res = await apiRequest("POST", `/api/player/me/conversations/${selectedConversation.id}/messages`, {
           body,
           messageType: "text",
         });
+        return res.json();
       } else {
-        return apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
+        const res = await apiRequest("POST", `/api/conversations/${selectedConversation.id}/messages`, {
           senderType: userType,
           senderCoachId: userId,
           body,
           messageType: "text",
         });
+        return res.json();
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    onMutate: async ({ body, optimisticId }) => {
+      await queryClient.cancelQueries({ queryKey: messagesQueryKey });
+      const prev = queryClient.getQueryData<Message[]>(messagesQueryKey) ?? [];
+      const now = new Date().toISOString();
+      const optimistic: Message = {
+        id: optimisticId,
+        body,
+        conversationId: selectedConversation?.id ?? "",
+        messageType: "text",
+        senderType: isPlayerMode ? "player" : "coach",
+        senderCoachId: isPlayerMode ? null : userId ?? null,
+        senderPlayerId: isPlayerMode ? userId ?? null : null,
+        senderName: null,
+        createdAt: now,
+        reactions: [],
+        _optimistic: true,
+      };
+      queryClient.setQueryData<Message[]>(messagesQueryKey, [...prev, optimistic]);
+      return { prev };
+    },
+    onSuccess: (_data, { optimisticId }) => {
+      // Remove the specific optimistic placeholder; real message arrives via WS inject
+      queryClient.setQueryData<Message[]>(messagesQueryKey, (prev = []) =>
+        prev.filter(m => m.id !== optimisticId)
+      );
+      // Only refetch messages when WS is offline (WS injects confirmed message when connected)
+      if (!isConnected) {
+        queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+      }
       queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
       queryClient.invalidateQueries({ queryKey: unreadQueryKey });
+    },
+    onError: (_err, { optimisticId }) => {
+      // Mark the specific optimistic message as failed so user can see and retry
+      queryClient.setQueryData<Message[]>(messagesQueryKey, (prev = []) =>
+        prev.map(m => m.id === optimisticId ? { ...m, _optimistic: undefined, _failed: true as const } : m)
+      );
     },
   });
 
@@ -542,8 +681,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       return;
     }
     if (selectedConversation && !isSampleConversation) {
-      sendMessageMutation.mutate(inputText.trim());
+      const body = replyTo
+        ? `↩ ${replyTo.senderName}: "${replyTo.body}"\n\n${inputText.trim()}`
+        : inputText.trim();
+      const optimisticId = `optimistic_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      sendMessageMutation.mutate({ body, optimisticId });
       setInputText("");
+      setReplyTo(null);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -586,7 +730,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
     return currentTabConfig?.types.includes(conv.type) ?? false;
   });
-  const displayConversations = filteredConversations;
+  // Note: lessonGroupChats is merged into displayConversations below (defined after hook calls)
   const latestConversation = conversations.find(c => c.lastMessagePreview) || conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
 
@@ -667,8 +811,38 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const { data: worldMessages = [], isLoading: loadingWorldMessages } = useQuery<WorldMessage[]>({
     queryKey: ["/api/world-chat/messages"],
     enabled: !!userId && currentTab === "world",
-    refetchInterval: isConnected ? 15000 : 5000,
+    // WS push provides real-time updates; only poll when disconnected as fallback
+    refetchInterval: isConnected ? false : 30000,
   });
+
+  const { data: lessonGroupChats = [] } = useQuery<Conversation[]>({
+    queryKey: ["/api/player/me/lesson-group-chats"],
+    enabled: isPlayerMode && currentTab === "squad",
+    refetchInterval: false,
+  });
+
+  const displayConversations = currentTab === "squad" && isPlayerMode
+    ? [...filteredConversations, ...lessonGroupChats.filter(lgc => !filteredConversations.find(c => c.id === lgc.id))]
+    : filteredConversations;
+
+  // Initial fetch of online players on mount; WS events keep this up to date in real-time
+  useEffect(() => {
+    if (!isPlayerMode) return;
+    apiRequest("GET", "/api/player/me/online-players")
+      .then(res => res.json())
+      .then(data => {
+        if (data?.onlinePlayerIds) setOnlinePlayerIds(new Set(data.onlinePlayerIds));
+        // Seed lastSeenAt for recently offline players from presence map
+        if (data?.presence && typeof data.presence === "object") {
+          const seen: Record<string, string> = {};
+          Object.entries(data.presence as Record<string, { isOnline: boolean; lastSeenAt?: string }>).forEach(([pid, info]) => {
+            if (!info.isOnline && info.lastSeenAt) seen[pid] = info.lastSeenAt;
+          });
+          if (Object.keys(seen).length > 0) setPlayerLastSeenMap(prev => ({ ...prev, ...seen }));
+        }
+      })
+      .catch(() => {});
+  }, [isPlayerMode]);
 
   const sendWorldMessageMutation = useMutation({
     mutationFn: async (body: string) => {
@@ -679,11 +853,15 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       return res.json();
     },
     onSuccess: (newMessage: WorldMessage) => {
-      queryClient.setQueryData<WorldMessage[]>(["/api/world-chat/messages"], (prev = []) => [
-        ...prev,
-        newMessage,
-      ]);
-      queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
+      // Deduplication: WS world_message event may have already injected this message
+      queryClient.setQueryData<WorldMessage[]>(["/api/world-chat/messages"], (prev = []) => {
+        if (prev.find(m => m.id === newMessage.id)) return prev;
+        return [...prev, newMessage];
+      });
+      // Only refetch as fallback when WS is not connected
+      if (!isConnected) {
+        queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
+      }
     },
   });
 
@@ -811,42 +989,121 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       );
     }
 
+    const senderName = isOwn ? "You" : (
+      isProviderConv
+        ? (selectedConversation?.providerName || "Provider")
+        : (selectedConversation?.playerName || selectedConversation?.playerFirstName || item.senderName || "Player")
+    );
+    const senderPhoto = !isOwn ? (selectedConversation?.playerPhoto || null) : null;
+
+    const reactionGroups = item.reactions.reduce((acc, r) => {
+      acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const isPending = item._optimistic === true;
+    const isFailed = item._failed === true;
+
+    // Pending and failed message indicators
+    if (isFailed) {
+      return (
+        <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage, { borderWidth: 1, borderColor: "#FF4444", opacity: 0.9, flexDirection: "row", alignItems: "center", gap: 8 }]}>
+          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
+          <Pressable
+            onPress={() => {
+              const body = item.body;
+              const optimisticId = `retry_${item.id}_${Date.now()}`;
+              // Remove the failed message first, then re-send
+              queryClient.setQueryData<Message[]>(messagesQueryKey, (prev = []) => prev.filter(m => m.id !== item.id));
+              sendMessageMutation.mutate({ body, optimisticId });
+            }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FF444422", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 }}
+          >
+            <Ionicons name="refresh-outline" size={12} color="#FF4444" />
+            <ThemedText style={{ fontSize: 10, color: "#FF4444" }}>Retry</ThemedText>
+          </Pressable>
+        </View>
+      );
+    }
+
     return (
       <Pressable
-        onLongPress={() => setShowReactions(showReactions === item.id ? null : item.id)}
-        style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}
+        onLongPress={() => {
+          if (!isPending) setShowReactions(showReactions === item.id ? null : item.id);
+        }}
+        onPress={() => {
+          if (showReactions) setShowReactions(null);
+        }}
+        style={[
+          styles.messageBubble,
+          isOwn ? styles.ownMessage : styles.otherMessage,
+          isPlayerMode && {
+            backgroundColor: isOwn ? NEON_GREEN : DARK_BUBBLE,
+            borderRadius: 18,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            marginVertical: 2,
+            maxWidth: "78%",
+          },
+          isPending && { opacity: 0.6 },
+        ]}
       >
-        {!isOwn ? (
+        {!isOwn && isPlayerMode ? (
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+            {senderPhoto ? (
+              <Image
+                source={{ uri: senderPhoto }}
+                style={{ width: 24, height: 24, borderRadius: 12, marginRight: 6 }}
+              />
+            ) : (
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#2A3550", alignItems: "center", justifyContent: "center", marginRight: 6 }}>
+                <Ionicons name="person" size={12} color={Colors.dark.textMuted} />
+              </View>
+            )}
+            <ThemedText style={[styles.senderName, { color: NEON_GREEN + "CC", fontSize: 11 }]}>{senderName}</ThemedText>
+          </View>
+        ) : !isOwn ? (
           <View style={styles.senderInfo}>
             <View style={styles.playerAvatar}>
               <Ionicons name="person" size={10} color={Colors.dark.text} />
             </View>
-            <ThemedText style={styles.senderName}>
-              {isProviderConv
-                ? (selectedConversation?.providerName || "Provider")
-                : (selectedConversation?.playerName || "Player")}
-            </ThemedText>
+            <ThemedText style={styles.senderName}>{senderName}</ThemedText>
           </View>
         ) : null}
+
         <View style={styles.messageRow}>
-          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
-          <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
+          <ThemedText style={[
+            styles.messageText,
+            isOwn && styles.ownMessageText,
+            isPlayerMode && isOwn && { color: "#000000" },
+            isPlayerMode && !isOwn && { color: "#FFFFFF" },
+          ]}>
+            {item.body}
+          </ThemedText>
+          {isPending ? (
+            <Ionicons name="time-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} style={{ marginLeft: 4 }} />
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+              <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp, isPlayerMode && { color: isOwn ? "#00000066" : "#FFFFFF66" }]}>
+                {formatTime(item.createdAt)}
+              </ThemedText>
+              {isOwn && (
+                <Ionicons name="checkmark-done-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
+              )}
+            </View>
+          )}
         </View>
-        {item.reactions.length > 0 ? (
+
+        {Object.keys(reactionGroups).length > 0 ? (
           <View style={styles.reactions}>
-            {Object.entries(
-              item.reactions.reduce((acc, r) => {
-                acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>)
-            ).map(([emoji, count]) => {
+            {Object.entries(reactionGroups).map(([emoji, count]) => {
               const myReaction = isPlayerMode
                 ? item.reactions.find(r => r.emoji === emoji && r.reactorPlayerId === userId)
                 : item.reactions.find(r => r.emoji === emoji && r.reactorCoachId === userId);
               return (
                 <Pressable
                   key={emoji}
-                  style={[styles.reactionBadge, myReaction ? { backgroundColor: Colors.dark.primary + "30" } : undefined]}
+                  style={[styles.reactionBadge, myReaction ? { backgroundColor: NEON_GREEN + "30", borderColor: NEON_GREEN + "60" } : undefined]}
                   onPress={() => {
                     if (myReaction) {
                       removeReactionMutation.mutate({ messageId: item.id, emoji });
@@ -855,15 +1112,16 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                     }
                   }}
                 >
-                  <Ionicons name={getReactionIcon(emoji)} size={12} color={myReaction ? Colors.dark.primary : Colors.dark.text} />
-                  <ThemedText style={[styles.reactionCount, myReaction ? { color: Colors.dark.primary } : undefined]}>{count}</ThemedText>
+                  <ThemedText style={{ fontSize: 13 }}>{emoji}</ThemedText>
+                  <ThemedText style={[styles.reactionCount, myReaction ? { color: NEON_GREEN } : undefined]}>{count}</ThemedText>
                 </Pressable>
               );
             })}
           </View>
         ) : null}
+
         {showReactions === item.id ? (
-          <View style={styles.reactionPicker}>
+          <View style={[styles.reactionPicker, { flexDirection: "row", flexWrap: "wrap" }]}>
             {REACTION_EMOJIS.map((emoji) => {
               const myReaction = isPlayerMode
                 ? item.reactions.find(r => r.emoji === emoji && r.reactorPlayerId === userId)
@@ -879,12 +1137,21 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                     }
                     setShowReactions(null);
                   }}
-                  style={[styles.reactionOption, myReaction ? { backgroundColor: Colors.dark.primary + "30" } : undefined]}
+                  style={[styles.reactionOption, myReaction ? { backgroundColor: NEON_GREEN + "30" } : undefined]}
                 >
-                  <Ionicons name={getReactionIcon(emoji)} size={18} color={myReaction ? Colors.dark.primary : Colors.dark.text} />
+                  <ThemedText style={{ fontSize: 20 }}>{emoji}</ThemedText>
                 </Pressable>
               );
             })}
+            <Pressable
+              style={[styles.reactionOption]}
+              onPress={() => {
+                setReplyTo({ id: item.id, body: item.body.slice(0, 80), senderName: senderName });
+                setShowReactions(null);
+              }}
+            >
+              <Ionicons name="arrow-undo-outline" size={18} color={Colors.dark.textMuted} />
+            </Pressable>
           </View>
         ) : null}
       </Pressable>
@@ -1025,13 +1292,41 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   };
 
   const renderVerticalTabs = () => (
-    <View style={styles.verticalTabPanel}>
+    <View style={[styles.verticalTabPanel, isPlayerMode && { width: 52, paddingHorizontal: 4 }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.verticalTabScroll}
+        contentContainerStyle={[styles.verticalTabScroll, isPlayerMode && { alignItems: "center" }]}
       >
         {CHAT_TABS.map((tab) => {
           const isActive = currentTab === tab.id;
+          const tabUnread = 0;
+          if (isPlayerMode) {
+            return (
+              <Pressable
+                key={tab.id}
+                onPress={() => handleTabChange(tab.id)}
+                style={[
+                  {
+                    width: 42,
+                    height: 42,
+                    borderRadius: 21,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                    backgroundColor: isActive ? NEON_GREEN + "22" : "transparent",
+                    borderWidth: isActive ? 1.5 : 0,
+                    borderColor: isActive ? NEON_GREEN : "transparent",
+                  }
+                ]}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={20}
+                  color={isActive ? NEON_GREEN : Colors.dark.textMuted}
+                />
+              </Pressable>
+            );
+          }
           return (
             <Pressable
               key={tab.id}
@@ -1380,6 +1675,17 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           >
             <View style={styles.conversationAvatar}>
               <Ionicons name={getConvIcon(item)} size={20} color={Colors.dark.text} />
+              {/* Online dot for player-to-player DMs in player mode */}
+              {isPlayerMode && item.type === "player_player" && (() => {
+                const pid = item.otherPlayerId ?? null;
+                if (!pid) return null;
+                const isOnline = onlinePlayerIds.has(pid);
+                const lastSeen = playerLastSeenMap[pid];
+                if (!isOnline && !lastSeen) return null;
+                return (
+                  <View style={[styles.onlineDot, { backgroundColor: isOnline ? NEON_GREEN : "#555" }]} />
+                );
+              })()}
             </View>
             <View style={styles.conversationInfo}>
               <ThemedText style={styles.conversationName}>
@@ -1390,6 +1696,23 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   {item.lastMessagePreview}
                 </ThemedText>
               ) : null}
+              {isPlayerMode && item.type === "player_player" && item.otherPlayerId && (() => {
+                const pid = item.otherPlayerId!;
+                const isOnline = onlinePlayerIds.has(pid);
+                const lastSeen = playerLastSeenMap[pid];
+                if (isOnline) return (
+                  <ThemedText style={{ fontSize: 10, color: NEON_GREEN }}>Online</ThemedText>
+                );
+                if (lastSeen) {
+                  const diff = Date.now() - new Date(lastSeen).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  const hrs = Math.floor(mins / 60);
+                  const days = Math.floor(hrs / 24);
+                  const label = days > 0 ? `Seen ${days}d ago` : hrs > 0 ? `Seen ${hrs}h ago` : mins > 1 ? `Seen ${mins}m ago` : "Seen just now";
+                  return <ThemedText style={{ fontSize: 10, color: Colors.dark.textMuted }}>{label}</ThemedText>;
+                }
+                return null;
+              })()}
             </View>
           </Pressable>
         )}
@@ -1526,18 +1849,30 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             </View>
           ) : null}
 
-          <View style={styles.inputContainer}>
+          {replyTo ? (
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: DARK_BUBBLE, borderRadius: 10, marginHorizontal: 8, marginBottom: 4, paddingHorizontal: 12, paddingVertical: 6 }}>
+              <Ionicons name="arrow-undo-outline" size={14} color={NEON_GREEN} style={{ marginRight: 6 }} />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={{ fontSize: 11, color: NEON_GREEN, fontWeight: "600" }}>{replyTo.senderName}</ThemedText>
+                <ThemedText style={{ fontSize: 11, color: Colors.dark.textMuted }} numberOfLines={1}>{replyTo.body}</ThemedText>
+              </View>
+              <Pressable onPress={() => setReplyTo(null)} style={{ padding: 4 }}>
+                <Ionicons name="close-outline" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+          ) : null}
+          <View style={[styles.inputContainer, isPlayerMode && { backgroundColor: "#0D1525CC", borderWidth: 1, borderColor: NEON_GREEN + "22" }]}>
             {isConnected ? (
               <View style={styles.inputConnectionIndicator}>
-                <View style={styles.connectionDot} />
+                <View style={[styles.connectionDot, isPlayerMode && { backgroundColor: NEON_GREEN }]} />
               </View>
             ) : null}
             <TextInput
               value={inputText}
               onChangeText={handleInputChange}
-              placeholder={isSampleConversation ? "Demo chat - read only" : "Type a message..."}
+              placeholder={isSampleConversation ? "Demo chat - read only" : "Message..."}
               placeholderTextColor={Colors.dark.textMuted}
-              style={styles.input}
+              style={[styles.input, isPlayerMode && { color: Colors.dark.text }]}
               onSubmitEditing={handleSend}
               returnKeyType="send"
               blurOnSubmit={false}
@@ -1548,10 +1883,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               disabled={sendMessageMutation.isPending || isSampleConversation}
               style={({ pressed }) => [
                 styles.sendButton,
+                isPlayerMode && { backgroundColor: NEON_GREEN, borderRadius: 20, width: 36, height: 36, alignItems: "center", justifyContent: "center" },
                 { opacity: pressed || sendMessageMutation.isPending || isSampleConversation ? 0.5 : 1 },
               ]}
             >
-              <Ionicons name="send-outline" size={18} color={Colors.dark.buttonText} />
+              <Ionicons name="send-outline" size={18} color={isPlayerMode ? "#000000" : Colors.dark.buttonText} />
             </Pressable>
           </View>
         </>
@@ -1595,42 +1931,41 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       ]}
     >
       {(!isExpanded && !isFullscreen) ? (
-        // ── COLLAPSED: ticker flows left pill → Play gap → right pill → [^] ──
+        // ── COLLAPSED: player mode → no pill (player uses fullscreen only); coach mode → ticker pill ──
         <>
-          <View style={styles.pillRow} pointerEvents="box-none">
-            {/* LEFT spacer — keeps FAB centred; no visible pill */}
-            <View style={{ flex: 1 }} pointerEvents="none" />
-
-            {/* CENTER gap — Play button lives here; must not capture touches */}
-            <View style={styles.pillGap} pointerEvents="none" />
-
-            {/* RIGHT pill — only pill, with connection dot */}
-            <Pressable
-              style={styles.rightPill}
-              onPress={() => setIsExpanded(true)}
-            >
-              <Animated.View style={[styles.tickerTrack, rightTickerStyle]}>
-                <ThemedText style={styles.tickerText} numberOfLines={1}>
-                  {repeatedContent}
-                </ThemedText>
-              </Animated.View>
-              <View style={styles.tickerDotOverlay}>
-                <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
-              </View>
-              {/* [^] collapse button — inside rightPill so pillRow stays symmetric */}
+          {isPlayerMode ? (
+            // Player mode has no collapsed strip — a FAB is rendered below for entry
+            null
+          ) : (
+            <View style={styles.pillRow} pointerEvents="box-none">
+              <View style={{ flex: 1 }} pointerEvents="none" />
+              <View style={styles.pillGap} pointerEvents="none" />
               <Pressable
-                style={styles.collapseBtn}
+                style={styles.rightPill}
                 onPress={() => setIsExpanded(true)}
               >
-                <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
-                {unreadCount > 0 ? (
-                  <View style={styles.collapseBadge}>
-                    <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
-                  </View>
-                ) : null}
+                <Animated.View style={[styles.tickerTrack, rightTickerStyle]}>
+                  <ThemedText style={styles.tickerText} numberOfLines={1}>
+                    {repeatedContent}
+                  </ThemedText>
+                </Animated.View>
+                <View style={styles.tickerDotOverlay}>
+                  <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
+                </View>
+                <Pressable
+                  style={styles.collapseBtn}
+                  onPress={() => setIsExpanded(true)}
+                >
+                  <Ionicons name="chevron-up-outline" size={18} color={Colors.dark.text} />
+                  {unreadCount > 0 ? (
+                    <View style={styles.collapseBadge}>
+                      <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
+                    </View>
+                  ) : null}
+                </Pressable>
               </Pressable>
-            </Pressable>
-          </View>
+            </View>
+          )}
         </>
       ) : (
         // ── EXPANDED / FULLSCREEN: original header ──
@@ -1702,7 +2037,23 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         </>
       )}
 
-      {isExpanded ? (
+      {/* Player-mode FAB: shown when chat is fully closed (neither expanded nor fullscreen) */}
+      {isPlayerMode && !isExpanded && !isFullscreen ? (
+        <Pressable
+          onPress={() => { setIsExpanded(true); setIsFullscreen(true); }}
+          style={styles.playerFab}
+          hitSlop={10}
+        >
+          <Ionicons name="chatbubbles-outline" size={20} color="#000" />
+          {unreadCount > 0 ? (
+            <View style={styles.collapseBadge}>
+              <ThemedText style={styles.collapseBadgeText}>{unreadCount}</ThemedText>
+            </View>
+          ) : null}
+        </Pressable>
+      ) : null}
+
+      {(isExpanded || isFullscreen) ? (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.expandedContent}>
           {!isSmallScreen && renderVerticalTabs()}
@@ -2040,6 +2391,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 10,
   },
+  playerFab: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: NEON_GREEN,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+    shadowColor: NEON_GREEN,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
   collapseBadge: {
     position: "absolute",
     top: 8,
@@ -2365,6 +2733,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.background,
+    position: "absolute",
+    bottom: 0,
+    right: 0,
   },
   conversationInfo: {
     flex: 1,

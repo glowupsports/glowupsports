@@ -8,7 +8,9 @@ interface AuthenticatedSocket extends WebSocket {
   userId: string;
   academyId: string;
   coachId?: string;
+  playerId?: string;
   isAlive: boolean;
+  lastSeenAt?: Date;
 }
 
 interface WsMessage {
@@ -35,8 +37,12 @@ interface NewMessagePayload {
   message: {
     id: string;
     content: string;
+    messageType?: string;
     senderType: "coach" | "player" | "provider" | "system";
     senderId?: string;
+    senderName?: string;
+    senderPhotoUrl?: string | null;
+    senderBallLevel?: string | null;
     createdAt: string;
   };
 }
@@ -49,6 +55,8 @@ interface OnlineStatusPayload {
 
 const academyRooms = new Map<string, Set<AuthenticatedSocket>>();
 const onlineUsers = new Map<string, Set<string>>();
+// Map: academyId -> Map<playerId, lastSeenAt>
+const playerLastSeen = new Map<string, Map<string, string>>();
 
 export function setupWebSocket(server: Server): WebSocketServer {
   const wss = new WebSocketServer({ server, path: "/ws" });
@@ -87,6 +95,7 @@ export function setupWebSocket(server: Server): WebSocketServer {
         userId: string;
         academyId?: string;
         coachId?: string;
+        playerId?: string;
       };
 
       if (!decoded.academyId || !decoded.userId) {
@@ -111,6 +120,7 @@ export function setupWebSocket(server: Server): WebSocketServer {
       socket.userId = decoded.userId;
       socket.academyId = decoded.academyId;
       socket.coachId = decoded.coachId;
+      socket.playerId = decoded.playerId || user.playerId || undefined;
 
       if (!academyRooms.has(socket.academyId)) {
         academyRooms.set(socket.academyId, new Set());
@@ -124,8 +134,14 @@ export function setupWebSocket(server: Server): WebSocketServer {
 
       if (socket.coachId) {
         broadcastToAcademy(socket.academyId, {
-          type: "online_status",
-          payload: { coachId: socket.coachId, isOnline: true },
+          type: "user_online",
+          payload: { coachId: socket.coachId, playerId: undefined, isOnline: true },
+        }, socket);
+      }
+      if (socket.playerId) {
+        broadcastToAcademy(socket.academyId, {
+          type: "user_online",
+          payload: { playerId: socket.playerId, coachId: undefined, isOnline: true },
         }, socket);
       }
 
@@ -172,9 +188,27 @@ export function setupWebSocket(server: Server): WebSocketServer {
 
         if (socket.coachId) {
           broadcastToAcademy(socket.academyId, {
-            type: "online_status",
-            payload: { coachId: socket.coachId, isOnline: false },
+            type: "user_offline",
+            payload: { coachId: socket.coachId, playerId: undefined, isOnline: false },
           });
+        }
+        if (socket.playerId) {
+          // Only broadcast offline if no other active socket for this player remains
+          const room = academyRooms.get(socket.academyId);
+          const otherSocketForPlayer = room && Array.from(room).some(
+            s => s !== socket && s.playerId === socket.playerId
+          );
+          if (!otherSocketForPlayer) {
+            const lastSeenAt = new Date().toISOString();
+            if (!playerLastSeen.has(socket.academyId)) {
+              playerLastSeen.set(socket.academyId, new Map());
+            }
+            playerLastSeen.get(socket.academyId)!.set(socket.playerId, lastSeenAt);
+            broadcastToAcademy(socket.academyId, {
+              type: "user_offline",
+              payload: { playerId: socket.playerId, coachId: undefined, isOnline: false, lastSeenAt },
+            });
+          }
         }
       }
     });
@@ -260,7 +294,7 @@ function broadcastToAcademy(
 }
 
 // Broadcast to specific connected users only (participant-scoped, no content leak to academy)
-function broadcastToUserIds(
+export function broadcastToUserIds(
   academyId: string,
   userIds: string[],
   message: WsMessage,
@@ -279,6 +313,28 @@ function broadcastToUserIds(
 export function broadcastNewMessage(academyId: string, payload: NewMessagePayload) {
   broadcastToAcademy(academyId, {
     type: "new_message",
+    payload,
+  });
+}
+
+// Broadcast a world chat message to ALL connected sockets (cross-academy)
+export function broadcastWorldMessage(payload: unknown) {
+  const data = JSON.stringify({ type: "world_message", payload });
+  academyRooms.forEach((room) => {
+    room.forEach((socket) => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(data);
+    });
+  });
+}
+
+// Notify specific users that a new conversation has been created (e.g. new DM recipient)
+export function broadcastNewConversation(
+  academyId: string,
+  participantUserIds: string[],
+  payload: { conversationId: string; type: string },
+) {
+  broadcastToUserIds(academyId, participantUserIds, {
+    type: "new_conversation",
     payload,
   });
 }
@@ -319,4 +375,25 @@ export function broadcastSessionUpdate(academyId: string, payload: { sessionId: 
 export function getOnlineUsers(academyId: string): string[] {
   const users = onlineUsers.get(academyId);
   return users ? Array.from(users) : [];
+}
+
+export function getPlayerPresence(academyId: string): Record<string, { isOnline: boolean; lastSeenAt?: string }> {
+  const result: Record<string, { isOnline: boolean; lastSeenAt?: string }> = {};
+  const room = academyRooms.get(academyId);
+  if (room) {
+    for (const socket of room) {
+      if (socket.playerId) {
+        result[socket.playerId] = { isOnline: true };
+      }
+    }
+  }
+  const lastSeen = playerLastSeen.get(academyId);
+  if (lastSeen) {
+    for (const [playerId, lastSeenAt] of lastSeen) {
+      if (!result[playerId]) {
+        result[playerId] = { isOnline: false, lastSeenAt };
+      }
+    }
+  }
+  return result;
 }

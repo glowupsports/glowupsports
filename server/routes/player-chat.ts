@@ -11,9 +11,9 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups } from "../../shared/schema";
-import { eq, and } from "drizzle-orm";
-import { broadcastProviderPlayerMessage } from "../websocket";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions } from "../../shared/schema";
+import { broadcastProviderPlayerMessage, broadcastNewMessage, broadcastToUserIds, broadcastNewConversation, getPlayerPresence } from "../websocket";
+import { eq, and, inArray, or, gt, asc } from "drizzle-orm";
 
 const router = Router();
 
@@ -370,6 +370,15 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
         canPost: true,
         academyId,
       });
+      // Notify both participants via WS so their conversation lists refresh instantly
+      if (academyId) {
+        const [creatorUser] = await db.select({ userId: users.id }).from(users).where(eq(users.playerId, playerId)).limit(1);
+        const [otherUser] = await db.select({ userId: users.id }).from(users).where(eq(users.playerId, otherPlayerId)).limit(1);
+        const participantUserIds = [creatorUser?.userId, otherUser?.userId].filter(Boolean) as string[];
+        if (participantUserIds.length > 0) {
+          broadcastNewConversation(academyId, participantUserIds, { conversationId: conversation.id, type: "player_player" });
+        }
+      }
       return res.status(201).json(conversation);
     }
 
@@ -513,8 +522,12 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
         message: {
           id: message.id,
           content: filteredBody,
+          messageType: message.messageType ?? "text",
           senderType: "player",
           senderId: playerId,
+          senderName: player.name || undefined,
+          senderPhotoUrl: player.profilePhotoUrl || null,
+          senderBallLevel: player.ballLevel || null,
           createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
         },
       });
@@ -530,6 +543,40 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
             filteredBody.substring(0, 100),
             { screen: "Messages", conversationId: id }
           ).catch(err => console.error("[PushNotification] Failed to send coach message notification:", err));
+        }
+      }
+    }
+
+    // Broadcast new_message WS event so recipients get real-time updates
+    const wsPayload = {
+      conversationId: id,
+      message: {
+        id: message.id,
+        content: filteredBody,
+        messageType: message.messageType ?? "text",
+        senderType: "player" as const,
+        senderId: playerId,
+        senderName: player.name || undefined,
+        senderPhotoUrl: player.profilePhotoUrl || null,
+        senderBallLevel: player.ballLevel || null,
+        createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+      },
+    };
+    if (academyId) {
+      if (conversation.type === "academy") {
+        // Academy-wide channel: broadcast to all academy members
+        broadcastNewMessage(academyId, wsPayload);
+      } else if (conversation.type !== "provider_player") {
+        // Private conversations: participant-scoped broadcast to avoid content leaks
+        const participantPlayerIds = participants.filter(p => p.playerId).map(p => p.playerId!);
+        const participantCoachIds = participants.filter(p => p.coachId).map(p => p.coachId!);
+        const conditions = [];
+        if (participantPlayerIds.length > 0) conditions.push(inArray(users.playerId, participantPlayerIds));
+        if (participantCoachIds.length > 0) conditions.push(inArray(users.coachId, participantCoachIds));
+        if (conditions.length > 0) {
+          const participantUsers = await db.select({ id: users.id }).from(users).where(or(...conditions));
+          const userIds = [req.user!.userId, ...participantUsers.map(u => u.id)];
+          broadcastToUserIds(academyId, userIds, { type: "new_message", payload: wsPayload });
         }
       }
     }
@@ -702,6 +749,173 @@ router.delete("/api/player/me/messages/:messageId/reactions", authMiddleware, re
   } catch (error) {
     console.error("Error removing reaction:", error);
     res.status(500).json({ error: "Failed to remove reaction" });
+  }
+});
+
+// GET /api/player/me/lesson-group-chats — auto-create series_group conversations for all active series
+router.get("/api/player/me/lesson-group-chats", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.playerId) return res.json([]);
+    const playerId = req.user!.playerId!;
+    const player = await storage.getPlayer(playerId);
+    if (!player || !player.academyId) return res.json([]);
+    const academyId = player.academyId;
+
+    // Find all series this player is actively enrolled in
+    const activeMemberships = await db.select({
+      seriesId: seriesPlayers.seriesId,
+    }).from(seriesPlayers).where(
+      and(
+        eq(seriesPlayers.playerId, playerId),
+        eq(seriesPlayers.status, "active"),
+      )
+    );
+
+    if (activeMemberships.length === 0) return res.json([]);
+
+    const seriesIds = activeMemberships.map(m => m.seriesId);
+
+    // Get series details
+    const seriesData = await db.select({
+      id: coachingSeries.id,
+      title: coachingSeries.title,
+      coachId: coachingSeries.coachId,
+    }).from(coachingSeries).where(
+      and(
+        inArray(coachingSeries.id, seriesIds),
+        eq(coachingSeries.academyId, academyId),
+      )
+    );
+
+    const result = [];
+
+    for (const series of seriesData) {
+      // Find or create conversation for this series
+      const [existing] = await db.select().from(conversations).where(
+        and(
+          eq(conversations.type, "series_group"),
+          eq(conversations.title, series.id),
+          eq(conversations.academyId, academyId),
+        )
+      ).limit(1);
+
+      let conv = existing;
+      if (!conv) {
+        const [created] = await db.insert(conversations).values({
+          type: "series_group",
+          title: series.id,
+          academyId,
+          coachId: series.coachId || null,
+          playerId: null,
+        }).returning();
+        conv = created;
+      }
+
+      // Get all active members of this series
+      const allActiveMembers = await db.select({ playerId: seriesPlayers.playerId })
+        .from(seriesPlayers).where(
+          and(
+            eq(seriesPlayers.seriesId, series.id),
+            eq(seriesPlayers.status, "active"),
+          )
+        );
+
+      // Auto-add any missing participants
+      for (const member of allActiveMembers) {
+        const [existing] = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conv.id),
+            eq(conversationParticipants.playerId, member.playerId),
+          )
+        ).limit(1);
+        if (!existing) {
+          await db.insert(conversationParticipants).values({
+            conversationId: conv.id,
+            playerId: member.playerId,
+            coachId: null,
+            role: "member",
+            participantType: "player",
+            canPost: true,
+            academyId,
+          }).catch(() => {});
+        }
+      }
+
+      // Auto-add coach if not already a participant
+      if (series.coachId) {
+        const [coachParticipant] = await db.select().from(conversationParticipants).where(
+          and(
+            eq(conversationParticipants.conversationId, conv.id),
+            eq(conversationParticipants.coachId, series.coachId),
+          )
+        ).limit(1);
+        if (!coachParticipant) {
+          await db.insert(conversationParticipants).values({
+            conversationId: conv.id,
+            coachId: series.coachId,
+            playerId: null,
+            role: "owner",
+            participantType: "coach",
+            canPost: true,
+            academyId,
+          }).catch(() => {});
+        }
+      }
+
+      // Fetch next upcoming session for this series (for Squad countdown banner)
+      const now = new Date();
+      const [nextSession] = await db.select({
+        id: sessions.id,
+        startTime: sessions.startTime,
+        endTime: sessions.endTime,
+        title: sessions.title,
+      }).from(sessions).where(
+        and(
+          eq(sessions.seriesId, series.id),
+          gt(sessions.startTime, now),
+          eq(sessions.status, "scheduled"),
+        )
+      ).orderBy(asc(sessions.startTime)).limit(1);
+
+      result.push({
+        ...conv,
+        title: series.title || conv.title,
+        seriesTitle: series.title,
+        upcomingSession: nextSession ? {
+          id: nextSession.id,
+          startTime: nextSession.startTime?.toISOString() ?? null,
+          endTime: nextSession.endTime?.toISOString() ?? null,
+          title: nextSession.title,
+        } : null,
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching lesson group chats:", error);
+    res.status(500).json({ error: "Failed to fetch lesson group chats" });
+  }
+});
+
+// GET /api/player/me/online-players — returns player presence (online IDs + lastSeen) in same academy
+router.get("/api/player/me/online-players", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.playerId) return res.json({ onlinePlayerIds: [], presence: {} });
+    const playerId = req.user!.playerId!;
+    const player = await storage.getPlayer(playerId);
+    if (!player || !player.academyId) return res.json({ onlinePlayerIds: [], presence: {} });
+    const academyId = player.academyId;
+
+    // Get presence data from WebSocket store (includes lastSeen for recently offline players)
+    const presence = getPlayerPresence(academyId);
+    const onlinePlayerIds = Object.entries(presence)
+      .filter(([pid, data]) => data.isOnline && pid !== playerId)
+      .map(([pid]) => pid);
+
+    res.json({ onlinePlayerIds, presence });
+  } catch (error) {
+    console.error("Error fetching online players:", error);
+    res.status(500).json({ error: "Failed to fetch online players" });
   }
 });
 

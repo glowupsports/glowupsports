@@ -39,7 +39,7 @@ import {
 import { sanitizeMessage } from "../utils/sanitize";
 import { ensureResolvableLocalTime } from "../utils/timezone";
 import { awardXP } from "../services/xp-service";
-import { broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "../websocket";
+import { broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate, broadcastWorldMessage } from "../websocket";
 import {
   sendFeedbackNotification,
   sendLevelUpNotification,
@@ -429,13 +429,16 @@ async function autoCancel(
         }
       }
 
-      res.status(201).json({
+      const worldMessagePayload = {
         ...result[0],
         senderName,
         academyName,
         senderPhotoUrl,
         reactions: [],
-      });
+      };
+      // Broadcast to all connected sockets so recipients get instant update
+      broadcastWorldMessage(worldMessagePayload);
+      res.status(201).json(worldMessagePayload);
     } catch (error) {
       console.error("Error posting to world chat:", error);
       res.status(500).json({ error: "Failed to post message" });

@@ -12,8 +12,12 @@ interface NewMessagePayload {
   message: {
     id: string;
     content: string;
-    senderType: "coach" | "player" | "system";
+    messageType?: string;
+    senderType: "coach" | "player" | "provider" | "system";
     senderId?: string;
+    senderName?: string;
+    senderPhotoUrl?: string | null;
+    senderBallLevel?: string | null;
     createdAt: string;
   };
 }
@@ -37,6 +41,7 @@ interface OnlineStatusPayload {
   coachId?: string;
   playerId?: string;
   isOnline: boolean;
+  lastSeenAt?: string;
 }
 
 interface NewSessionPayload {
@@ -64,6 +69,7 @@ type OnlineStatusHandler = (payload: OnlineStatusPayload) => void;
 type NewSessionHandler = (payload: NewSessionPayload) => void;
 type FeedbackReceivedHandler = (payload: FeedbackReceivedPayload) => void;
 type SessionUpdateHandler = (payload: SessionUpdatePayload) => void;
+type WorldMessageHandler = (payload: unknown) => void;
 
 interface UseWebSocketOptions {
   onNewMessage?: MessageHandler;
@@ -73,6 +79,8 @@ interface UseWebSocketOptions {
   onNewSession?: NewSessionHandler;
   onFeedbackReceived?: FeedbackReceivedHandler;
   onSessionUpdate?: SessionUpdateHandler;
+  onWorldMessage?: WorldMessageHandler;
+  onNewConversation?: (payload: { conversationId: string; type: string }) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
 }
@@ -130,6 +138,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
               optionsRef.current.onReadReceipt?.(message.payload as ReadReceiptPayload);
               break;
             case "online_status":
+            case "user_online":
+            case "user_offline": {
               const statusPayload = message.payload as OnlineStatusPayload;
               setOnlineUsers((prev) => {
                 const next = new Set(prev);
@@ -145,6 +155,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
               });
               optionsRef.current.onOnlineStatus?.(statusPayload);
               break;
+            }
             case "new_session":
               optionsRef.current.onNewSession?.(message.payload as NewSessionPayload);
               break;
@@ -153,6 +164,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
               break;
             case "session_update":
               optionsRef.current.onSessionUpdate?.(message.payload as SessionUpdatePayload);
+              break;
+            case "world_message":
+              optionsRef.current.onWorldMessage?.(message.payload);
+              break;
+            case "new_conversation":
+              optionsRef.current.onNewConversation?.(message.payload as { conversationId: string; type: string });
               break;
             case "connected":
               break;
