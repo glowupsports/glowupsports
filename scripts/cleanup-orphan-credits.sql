@@ -152,71 +152,90 @@ ORDER BY academy, player;
 \echo '=== EXECUTING CLEANUP (single transaction) ==='
 BEGIN;
 
+-- Build temp tables capturing what will be cleaned, BEFORE we touch anything,
+-- so we can produce post-cleanup per-academy summaries below.
+CREATE TEMP TABLE cleanup_sps_to_delete ON COMMIT DROP AS
+SELECT sp.id, sp.player_id, p.academy_id,
+       CASE
+         WHEN NOT EXISTS (SELECT 1 FROM sessions s WHERE s.id = sp.session_id) THEN 'ghost'
+         WHEN EXISTS (SELECT 1 FROM sessions s WHERE s.id = sp.session_id AND s.status = 'cancelled') THEN 'cancelled'
+       END AS kind
+FROM session_players sp
+JOIN players p ON p.id = sp.player_id
+WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.id = sp.session_id)
+   OR EXISTS (SELECT 1 FROM sessions s WHERE s.id = sp.session_id AND s.status = 'cancelled');
+
+CREATE TEMP TABLE cleanup_cts_to_delete ON COMMIT DROP AS
+SELECT ct.id, ct.player_id, p.academy_id
+FROM credit_transactions ct
+LEFT JOIN players p ON p.id = ct.player_id
+WHERE ct.package_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM packages pk WHERE pk.id = ct.package_id)
+  AND ct.reason NOT IN (
+    'debt_settlement', 'session_settlement', 'package_purchased',
+    'package_purchase', 'refund', 'package_deleted_refund'
+  );
+
+CREATE TEMP TABLE cleanup_broken_fks ON COMMIT DROP AS
+SELECT sp.id, sp.player_id, p.academy_id
+FROM session_players sp
+JOIN players p ON p.id = sp.player_id
+WHERE sp.credit_transaction_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM credit_transactions ct WHERE ct.id = sp.credit_transaction_id);
+
 -- Step 1: NULL out broken credit_transaction_id FKs on session_players
 UPDATE session_players
 SET credit_transaction_id = NULL,
     credit_deducted_at = NULL
-WHERE credit_transaction_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM credit_transactions ct
-    WHERE ct.id = session_players.credit_transaction_id
-  );
+WHERE id IN (SELECT id FROM cleanup_broken_fks);
 
--- Step 2: Pre-emptive NULL — clear refs to credit_transactions we'll delete
--- in step 5. Prevents introducing new broken refs.
-WITH to_delete AS (
-  SELECT ct.id FROM credit_transactions ct
-  WHERE ct.package_id IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM packages p WHERE p.id = ct.package_id)
-    AND ct.reason NOT IN (
-      'debt_settlement', 'session_settlement', 'package_purchased',
-      'package_purchase', 'refund', 'package_deleted_refund'
-    )
-)
+-- Step 2: Pre-emptive NULL — clear session_players refs to credit_transactions
+-- we'll delete in step 5. Prevents introducing new broken refs on session_players.
 UPDATE session_players
 SET credit_transaction_id = NULL,
     credit_deducted_at = NULL
-WHERE credit_transaction_id IN (SELECT id FROM to_delete);
+WHERE credit_transaction_id IN (SELECT id FROM cleanup_cts_to_delete);
 
--- Step 3: Delete ghost session_players (session row no longer exists)
-DELETE FROM session_players
-WHERE NOT EXISTS (
-  SELECT 1 FROM sessions s WHERE s.id = session_players.session_id
-);
-
--- Step 4a: NULL out credit_transactions.session_player_id where the linked
--- session_player is on a cancelled session and is about to be deleted.
--- Without this, step 4b would violate the FK
+-- Step 3: UNIFIED pre-NULL — clear credit_transactions.session_player_id for
+-- ALL session_players we are about to delete (ghost + cancelled). Without this
+-- the DELETE on session_players would violate
 -- credit_transactions_session_player_id_fkey.
-WITH sps_to_delete AS (
-  SELECT sp.id
-  FROM session_players sp
-  JOIN sessions s ON s.id = sp.session_id
-  WHERE s.status = 'cancelled'
-)
 UPDATE credit_transactions
 SET session_player_id = NULL
-WHERE session_player_id IN (SELECT id FROM sps_to_delete);
+WHERE session_player_id IN (SELECT id FROM cleanup_sps_to_delete);
 
--- Step 4b: Delete ALL session_players on cancelled sessions (per task intent).
--- Cancelled sessions should not contribute to attendance/credit calculations.
+-- Step 4: Delete ghost + cancelled session_players in one go
 DELETE FROM session_players
-WHERE session_id IN (
-  SELECT id FROM sessions WHERE status = 'cancelled'
-);
+WHERE id IN (SELECT id FROM cleanup_sps_to_delete);
 
--- Step 5: Delete orphan credit_transactions, preserving audit-trail reasons
+-- Step 5: Delete orphan credit_transactions (audit reasons preserved)
 DELETE FROM credit_transactions
-WHERE package_id IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM packages p WHERE p.id = credit_transactions.package_id)
-  AND reason NOT IN (
-    'debt_settlement',
-    'session_settlement',
-    'package_purchased',
-    'package_purchase',
-    'refund',
-    'package_deleted_refund'
-  );
+WHERE id IN (SELECT id FROM cleanup_cts_to_delete);
+
+\echo ''
+\echo '=== POST-CLEANUP PER-ACADEMY CLEANED-ROW SUMMARY ==='
+SELECT
+  COALESCE(a.name, '(no academy)') AS academy,
+  (SELECT COUNT(*) FROM cleanup_broken_fks bf JOIN players p ON p.id = bf.player_id WHERE p.academy_id = a.id) AS broken_fks_nulled,
+  (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id = a.id AND sd.kind = 'ghost') AS ghost_sps_deleted,
+  (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id = a.id AND sd.kind = 'cancelled') AS cancelled_sps_deleted,
+  (SELECT COUNT(*) FROM cleanup_cts_to_delete cd WHERE cd.academy_id = a.id) AS orphan_cts_deleted
+FROM academies a
+WHERE EXISTS (SELECT 1 FROM cleanup_broken_fks bf JOIN players p ON p.id = bf.player_id WHERE p.academy_id = a.id)
+   OR EXISTS (SELECT 1 FROM cleanup_sps_to_delete sd WHERE sd.academy_id = a.id)
+   OR EXISTS (SELECT 1 FROM cleanup_cts_to_delete cd WHERE cd.academy_id = a.id)
+ORDER BY a.name;
+
+-- Also surface academy-less rows (defensive — rare in practice)
+SELECT
+  '(no academy)' AS academy,
+  (SELECT COUNT(*) FROM cleanup_broken_fks bf WHERE bf.academy_id IS NULL) AS broken_fks_nulled,
+  (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id IS NULL AND sd.kind = 'ghost') AS ghost_sps_deleted,
+  (SELECT COUNT(*) FROM cleanup_sps_to_delete sd WHERE sd.academy_id IS NULL AND sd.kind = 'cancelled') AS cancelled_sps_deleted,
+  (SELECT COUNT(*) FROM cleanup_cts_to_delete cd WHERE cd.academy_id IS NULL) AS orphan_cts_deleted
+WHERE EXISTS (SELECT 1 FROM cleanup_broken_fks bf WHERE bf.academy_id IS NULL)
+   OR EXISTS (SELECT 1 FROM cleanup_sps_to_delete sd WHERE sd.academy_id IS NULL)
+   OR EXISTS (SELECT 1 FROM cleanup_cts_to_delete cd WHERE cd.academy_id IS NULL);
 
 COMMIT;
 
