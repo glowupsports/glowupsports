@@ -428,7 +428,7 @@ function PlayerDetailSheet({
   player: DirectoryPlayer;
   onClose: () => void;
   onPlayerUpdated: () => void;
-  onDeleted?: (player: DirectoryPlayer) => void;
+  onDeleted?: (player: DirectoryPlayer, userCleanupError: string | null) => void;
 }) {
   const lastSeen = player.lastSessionAt || player.lastActiveAt || player.lastLoginAt;
   const ballCfg = BALL_CONFIG[player.ballLevel?.toLowerCase()] ?? { color: Colors.dark.textMuted, label: player.ballLevel ?? "?" };
@@ -450,9 +450,10 @@ function PlayerDetailSheet({
           onPress: async () => {
             setDeleting(true);
             try {
-              await apiRequest("DELETE", `/api/platform/players/${player.id}`);
+              const res = await apiRequest("DELETE", `/api/platform/players/${player.id}`);
+              const body = await res.json().catch(() => ({} as { userCleanupError?: string | null }));
               onPlayerUpdated();
-              onDeleted?.(player);
+              onDeleted?.(player, body?.userCleanupError ?? null);
               onClose();
             } catch {
               Alert.alert("Delete failed", "Could not delete this player. Please try again.");
@@ -726,9 +727,14 @@ export default function PlayerHealthScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await apiRequest("DELETE", `/api/platform/players/${p.id}`);
+              const res = await apiRequest("DELETE", `/api/platform/players/${p.id}`);
+              const body = await res.json().catch(() => ({} as { userCleanupError?: string | null }));
               await queryClient.invalidateQueries({ queryKey: ["/api/platform/player-health"] });
-              showToast(`Deleted ${p.name}`, "success");
+              if (body?.userCleanupError) {
+                showToast(`Deleted ${p.name} (linked account left intact)`, "warning");
+              } else {
+                showToast(`Deleted ${p.name}`, "success");
+              }
             } catch {
               showToast("Could not delete player", "error");
             }
@@ -1117,7 +1123,11 @@ export default function PlayerHealthScreen() {
           player={selectedPlayer}
           onClose={() => setSelectedPlayer(null)}
           onPlayerUpdated={handlePlayerUpdated}
-          onDeleted={(p) => showToast(`Deleted ${p.name}`, "success")}
+          onDeleted={(p, userCleanupError) =>
+            userCleanupError
+              ? showToast(`Deleted ${p.name} (linked account left intact)`, "warning")
+              : showToast(`Deleted ${p.name}`, "success")
+          }
         />
       ) : null}
 
