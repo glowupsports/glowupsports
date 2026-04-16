@@ -13,6 +13,7 @@ import {
   Platform,
   Alert,
   Share,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -2382,79 +2383,109 @@ function ParentConnectStep({ data, setData, onNext }: StepProps) {
   );
 }
 
+interface OnboardingQuizQuestion {
+  q: string;
+  opts: string[];
+  correct: string;
+  explanation: string;
+}
+
 function TennisQuizStep({ data, setData, onNext }: StepProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
-  const questions = [
-    {
-      question: "What's the score when a game starts?",
-      options: ["0-0", "Love-Love", "15-15", "First-First"],
-      correct: "Love-Love",
-    },
-    {
-      question: "What's it called when you hit the ball before it bounces?",
-      options: ["Smash", "Volley", "Lob", "Drop shot"],
-      correct: "Volley",
-    },
-    {
-      question: "How many sets do you need to win a match?",
-      options: ["1", "2", "3", "Depends on the tournament"],
-      correct: "Depends on the tournament",
-    },
-  ];
+  const { data: quizData, isLoading: quizLoading } = useQuery<{ questions: OnboardingQuizQuestion[] }>({
+    queryKey: ["/api/quiz/tennis-iq"],
+    staleTime: 24 * 60 * 60 * 1000,
+  });
 
-  const handleAnswer = (answer: string) => {
+  const questions: OnboardingQuizQuestion[] = quizData?.questions ?? [];
+  const quizComplete = questions.length > 0 && answers.length === questions.length;
+  const score = answers.filter((a, i) => a === questions[i]?.correct).length;
+  const currentQ = questions[currentQuestion];
+
+  const handleSelectAnswer = (answer: string) => {
+    if (selectedAnswer !== null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
+    setSelectedAnswer(answer);
+  };
 
+  const handleNext = () => {
+    if (selectedAnswer === null || questions.length === 0) return;
+    const newAnswers = [...answers, selectedAnswer];
+    setAnswers(newAnswers);
+    setSelectedAnswer(null);
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((prev) => prev + 1);
     } else {
-      const score = newAnswers.filter((a, i) => a === questions[i].correct).length;
-      setData((prev) => ({ ...prev, quizScore: score, quizAnswers: newAnswers }));
+      const finalScore = newAnswers.filter((a, i) => a === questions[i].correct).length;
+      setData((prev) => ({ ...prev, quizScore: finalScore, quizAnswers: newAnswers }));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
-
-  const quizComplete = answers.length === questions.length;
-  const score = answers.filter((a, i) => a === questions[i].correct).length;
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Tennis Quiz</Text>
         <Text style={styles.stepSubtitle}>
-          {quizComplete ? "Nice try!" : `Question ${currentQuestion + 1} of ${questions.length}`}
+          {quizComplete
+            ? "Nice try!"
+            : quizLoading
+            ? "Loading questions..."
+            : `Question ${currentQuestion + 1} of ${questions.length}`}
         </Text>
       </Animated.View>
 
-      {quizComplete ? (
+      {quizLoading ? (
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.quizLoadingWrap}>
+          <ActivityIndicator color="#C8FF3D" size="small" />
+        </Animated.View>
+      ) : quizComplete ? (
         <Animated.View entering={ZoomIn} style={styles.quizResultContainer}>
           <View style={styles.quizScoreCircle}>
             <Text style={styles.quizScoreText}>{score}/{questions.length}</Text>
           </View>
           <Text style={styles.quizResultText}>
-            {score === 3 ? "Perfect!" : score >= 2 ? "Great job!" : "Keep learning!"}
+            {score === questions.length ? "Perfect!" : score >= Math.ceil(questions.length * 0.6) ? "Great job!" : "Keep learning!"}
           </Text>
         </Animated.View>
-      ) : (
+      ) : currentQ ? (
         <Animated.View entering={FadeInDown.delay(300).duration(500)}>
-          <Text style={styles.quizQuestion}>{questions[currentQuestion].question}</Text>
+          <Text style={styles.quizQuestion}>{currentQ.q}</Text>
           <View style={styles.optionsContainer}>
-            {questions[currentQuestion].options.map((option) => (
-              <Pressable
-                key={option}
-                style={styles.selectableCard}
-                onPress={() => handleAnswer(option)}
-              >
-                <Text style={styles.selectableCardText}>{option}</Text>
-              </Pressable>
-            ))}
+            {currentQ.opts.map((option) => {
+              const isSelected = selectedAnswer === option;
+              const revealed = selectedAnswer !== null;
+              const isCorrect = option === currentQ.correct;
+              let cardStyle = styles.selectableCard;
+              if (revealed && isCorrect) cardStyle = styles.quizOptionCorrect;
+              else if (revealed && isSelected && !isCorrect) cardStyle = styles.quizOptionWrong;
+              else if (revealed) cardStyle = styles.quizOptionLocked;
+              return (
+                <Pressable key={option} style={cardStyle} onPress={() => handleSelectAnswer(option)}>
+                  <Text style={[
+                    styles.selectableCardText,
+                    revealed && isCorrect && { color: "#22c55e", fontWeight: "700" },
+                    revealed && isSelected && !isCorrect && { color: "#f87171" },
+                  ]}>{option}</Text>
+                </Pressable>
+              );
+            })}
           </View>
+          {selectedAnswer !== null ? (
+            <>
+              <Text style={styles.quizExplanation}>{currentQ.explanation}</Text>
+              <Pressable style={styles.quizNextBtn} onPress={handleNext}>
+                <Text style={styles.quizNextBtnText}>
+                  {currentQuestion < questions.length - 1 ? "Next Question" : "See Results"}
+                </Text>
+              </Pressable>
+            </>
+          ) : null}
         </Animated.View>
-      )}
+      ) : null}
 
       <Pressable
         style={styles.skipLink}
@@ -3759,6 +3790,55 @@ const styles = StyleSheet.create({
     ...Typography.h2,
     color: Colors.dark.text,
     marginTop: Spacing.lg,
+  },
+  quizLoadingWrap: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+  },
+  quizOptionCorrect: {
+    backgroundColor: "rgba(34,197,94,0.12)",
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "#22c55e",
+  },
+  quizOptionWrong: {
+    backgroundColor: "rgba(248,113,113,0.12)",
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "#f87171",
+  },
+  quizOptionLocked: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+  },
+  quizExplanation: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    lineHeight: 19,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  quizNextBtn: {
+    backgroundColor: GlowColors.primary,
+    borderRadius: 12,
+    padding: Spacing.md,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  quizNextBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
   },
   completionContainer: {
     flex: 1,

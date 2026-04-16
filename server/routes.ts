@@ -255,6 +255,7 @@ import subscriptionsRouter from "./routes/subscriptions";
 import aiProRouter from "./routes/ai-pro";
 import drillsRouter from "./routes/drills";
 import coachHomeRouter from "./routes/coach-home";
+import quizRouter from "./routes/quiz";
 import { filterProfanity } from "./profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
 import { chatRateLimiter, postRateLimiter, diagnosticsLimiter, adminRepairLimiter } from "./rateLimiter";
@@ -577,6 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(aiProRouter);
   app.use(drillsRouter);
   app.use(coachHomeRouter);
+  app.use("/api/quiz", quizRouter);
 
   // ==================== USER ONBOARDING STATE ====================
 

@@ -1144,23 +1144,12 @@ function PlayerHomeContent() {
 
 const TENNIS_IQ_SCORE_KEY = "@glow_tennis_iq_score";
 
-const TENNIS_IQ_QUESTIONS = [
-  {
-    q: "What's the score when a game starts?",
-    opts: ["0-0", "Love-Love", "15-15", "First-First"],
-    correct: "Love-Love",
-  },
-  {
-    q: "What's it called when you hit the ball before it bounces?",
-    opts: ["Smash", "Volley", "Lob", "Drop shot"],
-    correct: "Volley",
-  },
-  {
-    q: "How many sets do you need to win a match?",
-    opts: ["1", "2", "3", "Depends on the tournament"],
-    correct: "Depends on the tournament",
-  },
-];
+interface IQQuestion {
+  q: string;
+  opts: string[];
+  correct: string;
+  explanation: string;
+}
 
 function TennisIQCard() {
   const [score, setScore] = useState<number | null>(null);
@@ -1168,16 +1157,22 @@ function TennisIQCard() {
   const [showModal, setShowModal] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
-  // Fetch server profile for authoritative quiz score (deduped by TanStack Query)
   const { data: profileData } = useQuery<{ player: { quizScore?: number | null } | null }>({
     queryKey: ["/api/player/me/profile"],
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: quizData, isLoading: quizLoading } = useQuery<{ questions: IQQuestion[] }>({
+    queryKey: ["/api/quiz/tennis-iq"],
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const questions: IQQuestion[] = quizData?.questions ?? [];
+
   useEffect(() => {
     AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY).then(val => {
-      // Server is source of truth — prefer it if available, fall back to local cache
       const serverScore = profileData?.player?.quizScore ?? null;
       if (serverScore !== null && serverScore !== undefined) {
         setScore(serverScore);
@@ -1189,21 +1184,24 @@ function TennisIQCard() {
     });
   }, [profileData]);
 
-  const handleAnswer = (answer: string) => {
+  const handleSelectAnswer = (answer: string) => {
+    if (selectedAnswer !== null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newAnswers = [...answers, answer];
+    setSelectedAnswer(answer);
+  };
+
+  const handleNext = () => {
+    if (selectedAnswer === null || questions.length === 0) return;
+    const newAnswers = [...answers, selectedAnswer];
     setAnswers(newAnswers);
-    if (currentQ < TENNIS_IQ_QUESTIONS.length - 1) {
+    setSelectedAnswer(null);
+    if (currentQ < questions.length - 1) {
       setCurrentQ(prev => prev + 1);
     } else {
-      const finalScore = newAnswers.filter((a, i) => a === TENNIS_IQ_QUESTIONS[i].correct).length;
+      const finalScore = newAnswers.filter((a, i) => a === questions[i].correct).length;
       setScore(finalScore);
-      // Persist locally for instant restore between sessions
       AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(finalScore));
-      // Also save to player profile so it survives device changes / re-logins
-      apiRequest("PATCH", "/api/player/me/info", { quizScore: finalScore }).catch(() => {
-        // Non-critical; local AsyncStorage is the fallback
-      });
+      apiRequest("PATCH", "/api/player/me/info", { quizScore: finalScore }).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
@@ -1211,13 +1209,17 @@ function TennisIQCard() {
   const handleRetake = () => {
     setCurrentQ(0);
     setAnswers([]);
+    setSelectedAnswer(null);
     setShowModal(true);
   };
 
-  const quizComplete = answers.length === TENNIS_IQ_QUESTIONS.length;
-  const liveScore = answers.filter((a, i) => a === TENNIS_IQ_QUESTIONS[i].correct).length;
+  const quizComplete = questions.length > 0 && answers.length === questions.length;
+  const liveScore = answers.filter((a, i) => a === questions[i]?.correct).length;
+  const totalQ = questions.length || 5;
 
   if (!scoreLoaded) return null;
+
+  const currentQuestion = questions[currentQ];
 
   return (
     <>
@@ -1240,16 +1242,16 @@ function TennisIQCard() {
           <View style={iqCardStyles.textWrap}>
             <Text style={iqCardStyles.title}>Test Your Tennis IQ</Text>
             {score !== null ? (
-              <Text style={iqCardStyles.sub}>Your score: {score}/{TENNIS_IQ_QUESTIONS.length} — Tap to retake</Text>
+              <Text style={iqCardStyles.sub}>Your score: {score}/{totalQ} — Tap to retake</Text>
             ) : (
-              <Text style={iqCardStyles.sub}>3 quick questions — how well do you know the game?</Text>
+              <Text style={iqCardStyles.sub}>{totalQ} quick questions — how well do you know the game?</Text>
             )}
           </View>
           <Ionicons name="chevron-forward" size={16} color="#FFD700" />
         </View>
         {score !== null ? (
           <View style={iqCardStyles.scoreRow}>
-            {Array.from({ length: TENNIS_IQ_QUESTIONS.length }).map((_, i) => (
+            {Array.from({ length: totalQ }).map((_, i) => (
               <View
                 key={i}
                 style={[iqCardStyles.scoreDot, i < score ? iqCardStyles.scoreDotFilled : iqCardStyles.scoreDotEmpty]}
@@ -1265,32 +1267,56 @@ function TennisIQCard() {
             <View style={iqCardStyles.modalHandle} />
             <Text style={iqCardStyles.modalTitle}>Tennis IQ Quiz</Text>
 
-            {quizComplete ? (
+            {quizLoading ? (
+              <View style={iqCardStyles.loadingWrap}>
+                <ActivityIndicator color="#FFD700" size="small" />
+                <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
+              </View>
+            ) : quizComplete ? (
               <View style={iqCardStyles.resultWrap}>
                 <View style={iqCardStyles.resultCircle}>
-                  <Text style={iqCardStyles.resultScore}>{liveScore}/{TENNIS_IQ_QUESTIONS.length}</Text>
+                  <Text style={iqCardStyles.resultScore}>{liveScore}/{questions.length}</Text>
                 </View>
                 <Text style={iqCardStyles.resultLabel}>
-                  {liveScore === 3 ? "Perfect score!" : liveScore >= 2 ? "Well done!" : "Keep learning!"}
+                  {liveScore === questions.length ? "Perfect score!" : liveScore >= questions.length * 0.6 ? "Well done!" : "Keep learning!"}
                 </Text>
                 <Pressable
                   style={iqCardStyles.doneBtn}
-                  onPress={() => { setShowModal(false); setCurrentQ(0); setAnswers([]); }}
+                  onPress={() => { setShowModal(false); setCurrentQ(0); setAnswers([]); setSelectedAnswer(null); }}
                 >
                   <Text style={iqCardStyles.doneBtnText}>Done</Text>
                 </Pressable>
               </View>
-            ) : (
+            ) : currentQuestion ? (
               <View style={iqCardStyles.quizBody}>
-                <Text style={iqCardStyles.questionNum}>Question {currentQ + 1} of {TENNIS_IQ_QUESTIONS.length}</Text>
-                <Text style={iqCardStyles.question}>{TENNIS_IQ_QUESTIONS[currentQ].q}</Text>
-                {TENNIS_IQ_QUESTIONS[currentQ].opts.map(opt => (
-                  <Pressable key={opt} style={iqCardStyles.optionBtn} onPress={() => handleAnswer(opt)}>
-                    <Text style={iqCardStyles.optionText}>{opt}</Text>
-                  </Pressable>
-                ))}
+                <Text style={iqCardStyles.questionNum}>Question {currentQ + 1} of {questions.length}</Text>
+                <Text style={iqCardStyles.question}>{currentQuestion.q}</Text>
+                {currentQuestion.opts.map(opt => {
+                  const isSelected = selectedAnswer === opt;
+                  const revealed = selectedAnswer !== null;
+                  const isCorrect = opt === currentQuestion.correct;
+                  let optStyle = iqCardStyles.optionBtn;
+                  if (revealed && isCorrect) optStyle = iqCardStyles.optionCorrect;
+                  else if (revealed && isSelected && !isCorrect) optStyle = iqCardStyles.optionWrong;
+                  else if (revealed) optStyle = iqCardStyles.optionLocked;
+                  return (
+                    <Pressable key={opt} style={optStyle} onPress={() => handleSelectAnswer(opt)}>
+                      <Text style={[iqCardStyles.optionText, revealed && isCorrect && { color: "#22c55e", fontWeight: "700" }, revealed && isSelected && !isCorrect && { color: "#f87171" }]}>{opt}</Text>
+                    </Pressable>
+                  );
+                })}
+                {selectedAnswer !== null ? (
+                  <>
+                    <Text style={iqCardStyles.explanation}>{currentQuestion.explanation}</Text>
+                    <Pressable style={iqCardStyles.nextBtn} onPress={handleNext}>
+                      <Text style={iqCardStyles.nextBtnText}>
+                        {currentQ < questions.length - 1 ? "Next Question" : "See Results"}
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : null}
               </View>
-            )}
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -1332,6 +1358,8 @@ const iqCardStyles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "center",
   },
   modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.dark.text, textAlign: "center" },
+  loadingWrap: { alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.xl },
+  loadingText: { fontSize: 13, color: Colors.dark.textMuted },
   resultWrap: { alignItems: "center", gap: Spacing.lg },
   resultCircle: {
     width: 80, height: 80, borderRadius: 40,
@@ -1353,7 +1381,29 @@ const iqCardStyles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)", borderRadius: BorderRadius.md,
     padding: Spacing.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
   },
+  optionCorrect: {
+    backgroundColor: "rgba(34,197,94,0.12)", borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: "#22c55e",
+  },
+  optionWrong: {
+    backgroundColor: "rgba(248,113,113,0.12)", borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: "#f87171",
+  },
+  optionLocked: {
+    backgroundColor: "rgba(255,255,255,0.03)", borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)",
+  },
   optionText: { fontSize: 14, color: Colors.dark.text, fontWeight: "500" },
+  explanation: {
+    fontSize: 13, color: Colors.dark.textMuted, lineHeight: 19,
+    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  nextBtn: {
+    backgroundColor: GlowColors.primary, borderRadius: BorderRadius.md,
+    padding: Spacing.md, alignItems: "center",
+  },
+  nextBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
 });
 
 function PlayerDNABanner({ playerId }: { playerId: string }) {
