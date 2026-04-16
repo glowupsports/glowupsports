@@ -569,8 +569,12 @@ export default function PlayersScreen() {
     );
   }
 
-  const currentIsLoading = rosterTab === "active" ? isLoading : rosterTab === "past" ? isPastLoading : isPendingPaymentLoading;
   const currentPlayers = rosterTab === "active" ? players : rosterTab === "past" ? pastPlayers : pendingPaymentPlayers;
+  // Only show the full-screen spinner on a true first load (no cached data
+  // yet). When react-query is refetching in the background, cached data is
+  // already rendered, so suppress the spinner.
+  const rawLoading = rosterTab === "active" ? isLoading : rosterTab === "past" ? isPastLoading : isPendingPaymentLoading;
+  const currentIsLoading = rawLoading && currentPlayers.length === 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

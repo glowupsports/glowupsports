@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { randomUUID } from "node:crypto";
 import { localHHMMToUtc } from "./utils/timezone";
-import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
 import { desc, asc } from "drizzle-orm";
 import {
   // Auth tables
@@ -1915,19 +1915,15 @@ export const storage = {
     statusFilter?: "active" | "inactive" | "pending_payment" | "all",
   ): Promise<(Player & { remainingCredits: number; totalCredits: number; creditsByType: { private: number; group: number; semiPrivate: number }; primaryCreditType: string | null })[]> {
     // Push status filter into SQL instead of in-memory filtering by caller.
-    const playerWhere: any[] = [];
+    const playerWhere: SQL<unknown>[] = [];
     if (academyId) playerWhere.push(eq(players.academyId, academyId));
     if (statusFilter === "inactive") {
       playerWhere.push(eq(players.status, "inactive"));
     } else if (statusFilter === "pending_payment") {
       playerWhere.push(eq(players.status, "pending_payment"));
     } else if (!statusFilter || statusFilter === "active") {
-      playerWhere.push(
-        and(
-          ne(players.status, "inactive"),
-          ne(players.status, "pending_payment"),
-        ) as any,
-      );
+      playerWhere.push(ne(players.status, "inactive"));
+      playerWhere.push(ne(players.status, "pending_payment"));
     }
     const playerList = playerWhere.length > 0
       ? await db.select().from(players).where(and(...playerWhere))
@@ -1938,7 +1934,7 @@ export const storage = {
     const playerIds = playerList.map(p => p.id);
 
     // Run credit balance fetch and total-credits package fetch in parallel.
-    const packageConditions = [
+    const packageConditions: SQL<unknown>[] = [
       inArray(packages.playerId, playerIds),
       eq(packages.status, "active"),
     ];
