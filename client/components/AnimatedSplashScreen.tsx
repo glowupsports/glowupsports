@@ -148,10 +148,10 @@ export function AnimatedSplashScreen({
     }, 30);
 
     // Show SYSTEM READY after a brief moment
-    setTimeout(() => setIsReadyInternal(true), 200);
+    const t1 = setTimeout(() => setIsReadyInternal(true), 200);
 
     // Monogram exit pulse → fade entire screen → call onComplete
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       monogramScale.value = withSequence(
         withTiming(1.08, { duration: 220 }),
         withTiming(1.0,  { duration: 220 }, () => {
@@ -163,7 +163,11 @@ export function AnimatedSplashScreen({
       );
     }, 700);
 
-    return () => clearInterval(iv);
+    return () => {
+      clearInterval(iv);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [isReady]);
 
   // Animated styles
@@ -367,30 +371,42 @@ function GlowStatusText({ isReady }: { isReady: boolean }) {
   const opacity             = useSharedValue(1);
   const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const frozenRef           = useRef(false);
+  // Track next index as a plain ref so we can pass a concrete number to setMsgIdx
+  // (passing a function via runOnJS is unreliable across the Reanimated thread boundary)
+  const nextIdxRef          = useRef(1);
 
-  const cycleFn = useCallback(() => {
-    opacity.value = withTiming(0, { duration: 150 }, () => {
-      runOnJS(setMsgIdx)(prev => (prev + 1) % STATUS_MESSAGES.length);
-      opacity.value = withTiming(1, { duration: 150 });
-    });
+  const showNext = useCallback((idx: number) => {
+    setMsgIdx(idx);
+  }, []);
+
+  const showReady = useCallback(() => {
+    setMsgIdx(STATUS_MESSAGES.length); // sentinel → renders STATUS_FINAL
   }, []);
 
   useEffect(() => {
-    intervalRef.current = setInterval(cycleFn, 850);
+    intervalRef.current = setInterval(() => {
+      if (frozenRef.current) return;
+      const next = nextIdxRef.current;
+      nextIdxRef.current = (next + 1) % STATUS_MESSAGES.length;
+      opacity.value = withTiming(0, { duration: 150 }, () => {
+        runOnJS(showNext)(next);
+        opacity.value = withTiming(1, { duration: 150 });
+      });
+    }, 850);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [cycleFn]);
+  }, [showNext]);
 
   useEffect(() => {
     if (!isReady || frozenRef.current) return;
     frozenRef.current = true;
     if (intervalRef.current) clearInterval(intervalRef.current);
     opacity.value = withTiming(0, { duration: 150 }, () => {
-      runOnJS(setMsgIdx)(STATUS_MESSAGES.length); // sentinel → SYSTEM READY
+      runOnJS(showReady)();
       opacity.value = withTiming(1, { duration: 200 });
     });
-  }, [isReady]);
+  }, [isReady, showReady]);
 
   const textStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const text = msgIdx >= STATUS_MESSAGES.length ? STATUS_FINAL : STATUS_MESSAGES[msgIdx];
