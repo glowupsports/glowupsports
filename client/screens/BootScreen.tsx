@@ -18,11 +18,9 @@ import Svg, {
 } from "react-native-svg";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import Feather from "@expo/vector-icons/Feather";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
-import { getApiUrl } from "@/lib/query-client";
 
 const { width, height } = Dimensions.get("window");
 
@@ -131,20 +129,21 @@ interface BootScreenProps {
 }
 
 export default function BootScreen({ onBootComplete }: BootScreenProps) {
-  const queryClient                         = useQueryClient();
-  const { user, isGuest }                   = useAuth();
-  const { mode }                            = useAppMode();
+  const queryClient = useQueryClient();
+  const { isGuest } = useAuth();
+  const { mode }    = useAppMode();
 
-  const [displayPct, setDisplayPct]         = useState(0);
-  const [isReady, setIsReady]               = useState(false);
+  const [displayPct, setDisplayPct] = useState(0);
+  const [isReady, setIsReady]       = useState(false);
 
-  const bootStartTime     = useRef(Date.now());
-  const prefetchComplete  = useRef(false);
-  const timeoutReached    = useRef(false);
+  const bootStartTime    = useRef(Date.now());
+  const prefetchComplete = useRef(false);
+  const timeoutReached   = useRef(false);
 
-  const currentRole   = (mode || "player") as UserRole;
-  const messages      = MESSAGES_BY_ROLE[currentRole] ?? MESSAGES_BY_ROLE.player;
-  const roleLabel     = ROLE_LABELS[currentRole] ?? "GLOW MODE ACTIVE";
+  const currentRole = (mode || "player") as UserRole;
+  const messages    = MESSAGES_BY_ROLE[currentRole] ?? MESSAGES_BY_ROLE.player;
+  const roleLabel   = ROLE_LABELS[currentRole] ?? "GLOW MODE ACTIVE";
+  const shuffledMessages = useRef([...messages].sort(() => Math.random() - 0.5)).current;
 
   const containerOpacity = useSharedValue(0);
   const logoScale        = useSharedValue(1);
@@ -326,13 +325,18 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
           </Animated.View>
         </View>
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: 16 }} />
         <WordmarkBlock roleLabel={roleLabel} />
+        <View style={{ height: 16 }} />
+
+        <SysMsgCard messages={shuffledMessages} />
 
         <View style={styles.midSpacer} />
 
         <View style={styles.progressSection}>
-          <BootStatusText messages={messages} isReady={isReady} />
+          <Animated.Text style={styles.statusText}>
+            {isReady ? "SYSTEMS READY." : "BOOTING GLOW OS..."}
+          </Animated.Text>
 
           <View style={styles.progressRow}>
             <View style={styles.progressTrackWrapper}>
@@ -362,9 +366,7 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
           </View>
         </View>
 
-        <View style={{ height: 14 }} />
-        <QuoteCard />
-        <View style={{ height: 28 }} />
+        <View style={{ height: 32 }} />
       </View>
     </Animated.View>
   );
@@ -435,50 +437,53 @@ function GlowParticle({
   );
 }
 
-function BootStatusText({
-  messages,
-  isReady,
-}: {
-  messages: string[];
-  isReady: boolean;
-}) {
-  const [msgIdx, setMsgIdx] = useState(0);
-  const opacity             = useSharedValue(1);
-  const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null);
-  const frozenRef           = useRef(false);
-  const nextIdxRef          = useRef(1);
+function SysMsgCard({ messages }: { messages: string[] }) {
+  const [msgIdx, setMsgIdx]  = useState(0);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const opacity              = useSharedValue(1);
+  const nextIdxRef           = useRef(1);
 
-  const showNext  = useCallback((idx: number) => setMsgIdx(idx), []);
-  const showReady = useCallback(() => setMsgIdx(messages.length), [messages.length]);
+  const showNext = useCallback((idx: number) => {
+    setMsgIdx(idx);
+    setActiveIdx(idx % messages.length);
+  }, [messages.length]);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      if (frozenRef.current) return;
-      const next = nextIdxRef.current;
-      nextIdxRef.current = (next + 1) % messages.length;
-      opacity.value = withTiming(0, { duration: 150 }, () => {
+    const iv = setInterval(() => {
+      const next = nextIdxRef.current % messages.length;
+      nextIdxRef.current = next + 1;
+      opacity.value = withTiming(0, { duration: 200 }, () => {
         runOnJS(showNext)(next);
-        opacity.value = withTiming(1, { duration: 150 });
+        opacity.value = withTiming(1, { duration: 200 });
       });
-    }, 850);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    }, 2500);
+    return () => clearInterval(iv);
   }, [showNext, messages.length]);
 
-  useEffect(() => {
-    if (!isReady || frozenRef.current) return;
-    frozenRef.current = true;
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    opacity.value = withTiming(0, { duration: 150 }, () => {
-      runOnJS(showReady)();
-      opacity.value = withTiming(1, { duration: 200 });
-    });
-  }, [isReady, showReady]);
-
   const textStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const text = msgIdx >= messages.length ? "SYSTEM READY" : messages[msgIdx];
 
   return (
-    <Animated.Text style={[styles.statusText, textStyle]}>{text}</Animated.Text>
+    <View style={styles.sysMsgCard}>
+      <Text style={styles.sysMsgLabel}>SYS.MSG</Text>
+      <Animated.Text style={[styles.sysMsgText, textStyle]}>
+        {messages[msgIdx % messages.length]}
+      </Animated.Text>
+      <View style={styles.sysMsgStatusRow}>
+        <View style={styles.sysMsgDot} />
+        <Text style={styles.sysMsgStatusText}>SYSTEM NOMINAL</Text>
+      </View>
+      <View style={styles.tipIndicators}>
+        {messages.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.tipIndicator,
+              i === activeIdx && styles.tipIndicatorActive,
+            ]}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -515,18 +520,6 @@ function WordmarkBlock({ roleLabel }: { roleLabel: string }) {
   );
 }
 
-function QuoteCard() {
-  return (
-    <View style={styles.quoteCard}>
-      <Text style={styles.quoteIcon}>{"\u201C"}</Text>
-      <Text style={styles.quoteText}>
-        {"Small improvements today, "}
-        <Text style={styles.quoteHighlight}>{"big wins tomorrow."}</Text>
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -546,8 +539,8 @@ const styles = StyleSheet.create({
   },
   topSpacer: {
     flex:      1,
-    maxHeight: 72,
-    minHeight: 40,
+    maxHeight: 60,
+    minHeight: 32,
   },
   midSpacer: {
     flex: 1,
@@ -581,7 +574,7 @@ const styles = StyleSheet.create({
     borderRadius:  RING_SIZE / 2,
     left:          RING_OFFSET,
     top:           RING_OFFSET,
-    shadowColor:   "#B7FF3C",
+    shadowColor:   G.green,
     shadowOffset:  { width: 0, height: 0 },
     shadowOpacity: 0.55,
     shadowRadius:  32,
@@ -635,13 +628,13 @@ const styles = StyleSheet.create({
   wordmarkUp: {
     fontSize:      42,
     fontWeight:    "900",
-    color:         "#B7FF3C",
+    color:         G.green,
     letterSpacing: 1,
   },
   wordmarkSports: {
     fontSize:      14,
     fontWeight:    "700",
-    color:         "#39D5FF",
+    color:         G.cyan,
     letterSpacing: 10,
     marginTop:     4,
   },
@@ -660,10 +653,75 @@ const styles = StyleSheet.create({
     width:           2,
     backgroundColor: "#D8AAFF",
     opacity:         0.7,
-    shadowColor:     "#A855F7",
+    shadowColor:     G.purple,
     shadowOffset:    { width: 0, height: 0 },
     shadowOpacity:   1,
     shadowRadius:    10,
+  },
+  sysMsgCard: {
+    width:             width * 0.82,
+    backgroundColor:   "rgba(255,255,255,0.04)",
+    borderRadius:      14,
+    borderWidth:       1,
+    borderColor:       "rgba(255,255,255,0.08)",
+    paddingHorizontal: 18,
+    paddingVertical:   14,
+    gap:               6,
+  },
+  sysMsgLabel: {
+    fontSize:      10,
+    fontWeight:    "700",
+    color:         G.green,
+    letterSpacing: 2,
+    opacity:       0.8,
+  },
+  sysMsgText: {
+    fontSize:      13,
+    fontWeight:    "700",
+    color:         G.white,
+    letterSpacing: 1.2,
+  },
+  sysMsgStatusRow: {
+    flexDirection: "row",
+    alignItems:    "center",
+    gap:           6,
+    marginTop:     2,
+  },
+  sysMsgDot: {
+    width:           7,
+    height:          7,
+    borderRadius:    3.5,
+    backgroundColor: G.green,
+    shadowColor:     G.green,
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.8,
+    shadowRadius:    4,
+  },
+  sysMsgStatusText: {
+    fontSize:      10,
+    fontWeight:    "600",
+    color:         G.green,
+    letterSpacing: 1.5,
+    opacity:       0.75,
+  },
+  tipIndicators: {
+    flexDirection: "row",
+    gap:           5,
+    marginTop:     6,
+  },
+  tipIndicator: {
+    width:           8,
+    height:          8,
+    borderRadius:    4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  tipIndicatorActive: {
+    backgroundColor: G.green,
+    width:           22,
+    shadowColor:     G.green,
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.7,
+    shadowRadius:    4,
   },
   progressSection: {
     alignItems:        "center",
@@ -674,7 +732,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize:      11,
     fontWeight:    "700",
-    color:         "#9FB0C7",
+    color:         G.muted,
     letterSpacing: 2,
     textTransform: "uppercase",
     marginBottom:  2,
@@ -713,8 +771,8 @@ const styles = StyleSheet.create({
     width:           DOT_SIZE,
     height:          DOT_SIZE,
     borderRadius:    DOT_SIZE / 2,
-    backgroundColor: "#F8FAFC",
-    shadowColor:     "#F8FAFC",
+    backgroundColor: G.white,
+    shadowColor:     G.white,
     shadowOffset:    { width: 0, height: 0 },
     shadowOpacity:   0.9,
     shadowRadius:    5,
@@ -722,7 +780,7 @@ const styles = StyleSheet.create({
   pctText: {
     fontSize:      12,
     fontWeight:    "700",
-    color:         "#B7FF3C",
+    color:         G.green,
     letterSpacing: 0.5,
     minWidth:      36,
   },
@@ -745,40 +803,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
   },
   dotActive: {
-    backgroundColor: "#B7FF3C",
-    shadowColor:     "#B7FF3C",
+    backgroundColor: G.green,
+    shadowColor:     G.green,
     shadowOffset:    { width: 0, height: 0 },
     shadowOpacity:   0.8,
     shadowRadius:    4,
-  },
-  quoteCard: {
-    flexDirection:     "row",
-    alignItems:        "center",
-    marginHorizontal:  24,
-    paddingHorizontal: 16,
-    paddingVertical:   12,
-    backgroundColor:   "rgba(255,255,255,0.04)",
-    borderRadius:      12,
-    borderWidth:       1,
-    borderColor:       "rgba(255,255,255,0.07)",
-    gap:               10,
-  },
-  quoteIcon: {
-    fontSize:   22,
-    color:      "#A855F7",
-    lineHeight: 24,
-    fontWeight: "900",
-    marginTop:  -2,
-  },
-  quoteText: {
-    flex:       1,
-    fontSize:   12,
-    color:      "#9FB0C7",
-    lineHeight: 18,
-    fontWeight: "500",
-  },
-  quoteHighlight: {
-    color:      "#B7FF3C",
-    fontWeight: "700",
   },
 });
