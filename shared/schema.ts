@@ -1074,7 +1074,11 @@ export const players = pgTable("players", {
   }>>(),
   
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Speeds up the Players list (Task #628): SQL pushdown for status filter
+  // per academy used by getAllPlayersWithCredits.
+  index("players_academy_status_idx").on(table.academyId, table.status),
+]);
 
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
 export const updatePlayerSchema = z.object({
@@ -1774,7 +1778,10 @@ export const sessionPlayers = pgTable("session_players", {
   // Credit tracking - timestamp when credits were deducted for this enrollment
   creditDeductedAt: timestamp("credit_deducted_at"),
   creditTransactionId: varchar("credit_transaction_id"), // Links to player_credit_history
-});
+}, (table) => [
+  // Speeds up getPlayersLastSessions IN(...) lookup on Players list hot path (Task #628).
+  index("session_players_player_idx").on(table.playerId),
+]);
 
 export const insertSessionPlayerSchema = createInsertSchema(sessionPlayers).omit({ id: true });
 export type InsertSessionPlayer = z.infer<typeof insertSessionPlayerSchema>;
@@ -2944,6 +2951,14 @@ export const creditTransactions = pgTable("credit_transactions", {
   index("credit_transactions_player_session_idx").on(table.playerId, table.sessionId),
   index("credit_transactions_package_idx").on(table.packageId),
   index("credit_transactions_credit_type_idx").on(table.creditType),
+  // Partial expression index to accelerate the unsettled-debt aggregation
+  // used by getPlayersCreditBalances on the Players list hot path.
+  // Created in DB via CREATE INDEX CONCURRENTLY (Task #628).
+  index("credit_transactions_unsettled_debt_idx")
+    .on(table.playerId, table.creditType)
+    .where(sql`amount < 0
+      AND COALESCE(metadata->>'settled', 'false') != 'true'
+      AND COALESCE(metadata->>'cancelled', 'false') != 'true'`),
   // BULLETPROOF: eventKey unique constraint prevents duplicate consumptions at DB level
   unique("credit_transactions_event_key_unique").on(table.eventKey),
 ]);

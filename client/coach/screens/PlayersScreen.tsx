@@ -20,6 +20,11 @@ import { LinearGradient } from "expo-linear-gradient";
 const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const PLAYERS_CACHE_KEY = "@coach.playersList.v1";
+const PAST_PLAYERS_CACHE_KEY = "@coach.pastPlayersList.v1";
+const PENDING_PLAYERS_CACHE_KEY = "@coach.pendingPlayersList.v1";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
@@ -182,6 +187,35 @@ export default function PlayersScreen() {
   // Active/Past/Pending Payment tab switcher
   const [rosterTab, setRosterTab] = useState<"active" | "past" | "pending_payment">("active");
 
+  // Hydrate react-query cache from AsyncStorage on mount so opening the
+  // Players tab from a cold start renders instantly (no spinner) while
+  // the network refetch happens in the background.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [activeRaw, pastRaw, pendingRaw] = await Promise.all([
+          AsyncStorage.getItem(PLAYERS_CACHE_KEY),
+          AsyncStorage.getItem(PAST_PLAYERS_CACHE_KEY),
+          AsyncStorage.getItem(PENDING_PLAYERS_CACHE_KEY),
+        ]);
+        if (cancelled) return;
+        if (activeRaw && !queryClient.getQueryData(["/api/players?withCredits=true"])) {
+          queryClient.setQueryData(["/api/players?withCredits=true"], JSON.parse(activeRaw));
+        }
+        if (pastRaw && !queryClient.getQueryData(["/api/players?withCredits=true&status=inactive"])) {
+          queryClient.setQueryData(["/api/players?withCredits=true&status=inactive"], JSON.parse(pastRaw));
+        }
+        if (pendingRaw && !queryClient.getQueryData(["/api/players?withCredits=true&status=pending_payment"])) {
+          queryClient.setQueryData(["/api/players?withCredits=true&status=pending_payment"], JSON.parse(pendingRaw));
+        }
+      } catch {
+        // ignore — query will fall back to network
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [queryClient]);
+
   // Use stale-while-revalidate: cached data renders instantly while a
   // background refetch happens. placeholderData keeps the previous list
   // visible during refetches/tab switches so no spinner flashes.
@@ -203,6 +237,24 @@ export default function PlayersScreen() {
     staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
   });
+
+  // Persist successful responses to AsyncStorage so a future cold start
+  // can hydrate from disk before the network call resolves.
+  useEffect(() => {
+    if (players.length > 0) {
+      AsyncStorage.setItem(PLAYERS_CACHE_KEY, JSON.stringify(players)).catch(() => {});
+    }
+  }, [players]);
+  useEffect(() => {
+    if (pastPlayers.length > 0) {
+      AsyncStorage.setItem(PAST_PLAYERS_CACHE_KEY, JSON.stringify(pastPlayers)).catch(() => {});
+    }
+  }, [pastPlayers]);
+  useEffect(() => {
+    if (pendingPaymentPlayers.length > 0) {
+      AsyncStorage.setItem(PENDING_PLAYERS_CACHE_KEY, JSON.stringify(pendingPaymentPlayers)).catch(() => {});
+    }
+  }, [pendingPaymentPlayers]);
 
   const invalidatePlayerLists = () => {
     queryClient.invalidateQueries({
