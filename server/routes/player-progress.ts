@@ -842,25 +842,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const isPrivateType = (type: string | null) =>
           type === "private" || type === "private_adjusted";
+        const isSemiPrivateType = (type: string | null) =>
+          type === "semi" || type === "semi_private";
 
-        // attendedCount excludes private sessions where the player was absent
-        // (a missed 1-on-1 session didn't happen for the player)
+        // attendedCount excludes:
+        // - private sessions where the player was absent (a missed 1-on-1 didn't happen)
+        // - semi-private sessions where the player was absent (the session auto-converts
+        //   to private_adjusted for the other player, so absent player effectively didn't have it)
         const privateAbsentCount = happenedRecords.filter(
           (r) => isPrivateType(r.sessionType) && r.attendanceStatus === "absent",
         ).length;
-        const attendedCount = totalLessons - privateAbsentCount;
+        const semiPrivateAbsentCount = happenedRecords.filter(
+          (r) =>
+            isSemiPrivateType(r.sessionType) && r.attendanceStatus === "absent",
+        ).length;
+        const attendedCount =
+          totalLessons - privateAbsentCount - semiPrivateAbsentCount;
 
         // For percentage: treat sessions without explicit attendance (but in the past/completed) as "present"
+        // Exclude semi-private absent records from the denominator so the percentage isn't skewed
+        // by sessions that don't count toward the player's totals.
         const effectivePresentCount =
           presentCount +
           happenedRecords.filter(
             (r) => !r.attendanceStatus || (r.sessionStatus === "completed" && !r.attendanceStatus),
           ).length;
 
+        const percentageDenominator = totalLessons - semiPrivateAbsentCount;
         const actuallyAttendedCount = effectivePresentCount + lateCount;
         const attendancePercentage =
-          totalLessons > 0
-            ? Math.round((effectivePresentCount / totalLessons) * 100)
+          percentageDenominator > 0
+            ? Math.round((effectivePresentCount / percentageDenominator) * 100)
             : 0;
 
         if (orphanedCompletedSessions.length > 0) {
@@ -1231,10 +1243,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
+        const isSemiPrivateType = (type: string | null) =>
+          type === "semi" || type === "semi_private";
         const pastRecords = combinedRecords.filter((record) => {
           if (!record.sessionStartTime) return false;
           const status = record.attendanceStatus;
           if (status === "holiday" || status === "vacation") return false;
+          // For semi-private sessions, hide absent and cancelled rows so the
+          // history list matches the "sessions had" total (those sessions don't
+          // count for the player — they auto-convert to private_adjusted for the
+          // remaining player).
+          if (isSemiPrivateType(record.sessionType)) {
+            if (record.sessionStatus === "cancelled") return false;
+            if (status === "absent") return false;
+          }
           return new Date(record.sessionStartTime) < now;
         });
 
