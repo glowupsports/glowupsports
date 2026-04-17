@@ -1037,15 +1037,19 @@ async function processAutoCompleteSession(): Promise<void> {
     const nowUtcStr = now.toISOString().replace("T", " ").substring(0, 19);
     const completeThreshold = new Date(now.getTime() - 10 * 60 * 1000);
     const completeThresholdStr = completeThreshold.toISOString().replace("T", " ").substring(0, 19);
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // NO 24-hour lower bound — process ALL past scheduled sessions regardless of age.
-    // Sessions older than 7 days get null attendance (pending coach review) instead of auto-present.
+    // Process ALL past scheduled sessions regardless of age. Task #669:
+    // the previous "skip auto-attendance for >7-day-old sessions" branch was
+    // silently dropping charges (Alex Lykov's missing 3 credits matched
+    // exactly). Auto-mark present + route through ensureCreditProcessed for
+    // every age — the engine is idempotent and V2-aware, so re-runs are safe.
     const result = await pool.query(
       `SELECT id, end_time, start_time, session_type, coach_id
        FROM sessions
        WHERE end_time <= $1::timestamp
-         AND status = 'scheduled'`,
+         AND status = 'scheduled'
+       ORDER BY end_time ASC
+       LIMIT 200`,
       [completeThresholdStr]
     );
 
@@ -1058,8 +1062,7 @@ async function processAutoCompleteSession(): Promise<void> {
 
     for (const row of result.rows) {
       const endUtc = new Date(row.end_time).toISOString();
-      const isOldSession = new Date(row.end_time) < sevenDaysAgo;
-      console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} | end_time(UTC): ${endUtc} | type: ${row.session_type} | old: ${isOldSession}`);
+      console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} | end_time(UTC): ${endUtc} | type: ${row.session_type}`);
       await pool.query(
         `UPDATE sessions SET status = 'completed' WHERE id = $1 AND end_time <= $2::timestamp`,
         [row.id, completeThresholdStr]
@@ -1072,27 +1075,21 @@ async function processAutoCompleteSession(): Promise<void> {
       );
 
       if (unmarkedPlayers.rows.length > 0) {
-        if (isOldSession) {
-          // Sessions older than 7 days: leave attendance as NULL for coach review.
-          // Do NOT auto-mark as present or process credits.
-          console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} is older than 7 days — skipping auto-attendance, needs coach review`);
-        } else {
-          console.log(`[AutoComplete]   Setting attendance for ${unmarkedPlayers.rows.length} players in session ${row.id.substring(0,8)}`);
-          for (const sp of unmarkedPlayers.rows) {
-            await pool.query(
-              `UPDATE session_players SET attendance_status = 'present', late_minutes = 0 WHERE id = $1`,
-              [sp.id]
-            );
-            try {
-              const creditResult = await ensureCreditProcessed(sp.id);
-              if (creditResult.action === "consumed") {
-                console.log(`[AutoComplete]   Consumed credit for player ${sp.player_id}`);
-              } else if (creditResult.action === "debt_created") {
-                console.log(`[AutoComplete]   Created debt for player ${sp.player_id}`);
-              }
-            } catch (creditError) {
-              console.error(`[AutoComplete]   Failed credit processing for player ${sp.player_id}:`, creditError);
+        console.log(`[AutoComplete]   Setting attendance for ${unmarkedPlayers.rows.length} players in session ${row.id.substring(0,8)}`);
+        for (const sp of unmarkedPlayers.rows) {
+          await pool.query(
+            `UPDATE session_players SET attendance_status = 'present', late_minutes = 0 WHERE id = $1`,
+            [sp.id]
+          );
+          try {
+            const creditResult = await ensureCreditProcessed(sp.id);
+            if (creditResult.action === "consumed") {
+              console.log(`[AutoComplete]   Consumed credit for player ${sp.player_id}`);
+            } else if (creditResult.action === "debt_created") {
+              console.log(`[AutoComplete]   Created debt for player ${sp.player_id}`);
             }
+          } catch (creditError) {
+            console.error(`[AutoComplete]   Failed credit processing for player ${sp.player_id}:`, creditError);
           }
         }
       }
@@ -2080,26 +2077,40 @@ export async function fixRouzbehGhostCredit(): Promise<void> {
  */
 async function processUnchargedAttendance(): Promise<void> {
   try {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ").substring(0, 19);
-
+    // Task #669: removed the `s.end_time >= sevenDaysAgo` cap so the safety
+    // net can chew through any backlog (213+ stale rows in prod). The query
+    // is also V2-aware: V1 academies check `credit_transactions`, V2
+    // academies check `credit_ledger_v2` for a consume row matching the
+    // session_player_id. Both paths stay idempotent because
+    // `ensureCreditProcessed` itself short-circuits on V2 academies and uses
+    // event_key-based duplicate detection.
     const unchargedResult = await pool.query(`
       SELECT sp.id, sp.player_id, sp.attendance_status, s.session_type
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
+      JOIN academies a ON a.id = s.academy_id
       WHERE s.status = 'completed'
-        AND s.end_time >= $1::timestamp
         AND sp.credit_deducted_at IS NULL
         AND sp.attendance_status IN ('present', 'late', 'absent')
-        AND NOT EXISTS (
-          SELECT 1 FROM credit_transactions ct
-          WHERE ct.player_id = sp.player_id
-            AND ct.session_id = sp.session_id
-            AND ct.amount < 0
-            AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
-        )
+        AND CASE
+          WHEN COALESCE(a.use_new_credit_system, false) THEN
+            NOT EXISTS (
+              SELECT 1 FROM credit_ledger_v2 lv
+              WHERE lv.session_player_id = sp.id
+                AND lv.reason = 'consume'
+            )
+          ELSE
+            NOT EXISTS (
+              SELECT 1 FROM credit_transactions ct
+              WHERE ct.player_id = sp.player_id
+                AND ct.session_id = sp.session_id
+                AND ct.amount < 0
+                AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+            )
+        END
       ORDER BY s.end_time ASC
       LIMIT 100
-    `, [sevenDaysAgo]);
+    `);
 
     if (unchargedResult.rows.length === 0) return;
 
