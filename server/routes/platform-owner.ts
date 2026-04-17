@@ -3729,10 +3729,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   );
 
   // Phase 3 — Task #651. Switch a single academy to Credit Engine V2.
-  // Atomically: (1) replay the academy's history into V2 ledger/lots,
-  // (2) flip `academies.use_new_credit_system = true`, (3) invalidate
-  // the per-academy feature-flag cache so the new value takes effect
-  // immediately. If replay fails, the flag is NOT flipped.
+  // Sequence (not a single DB transaction — replay is too long for that):
+  //   (1) verify the academy exists,
+  //   (2) acquire a per-academy in-process mutex so concurrent calls can't
+  //       race the replay or the flag flip,
+  //   (3) replay the academy's history into V2 ledger/lots (idempotent on
+  //       deterministic event keys, so re-runs after a crash are safe),
+  //   (4) only on stats.errors === 0 and !dryRun, flip
+  //       `academies.use_new_credit_system = true` and invalidate the
+  //       per-academy feature-flag cache so the new value takes effect
+  //       immediately on every request handler.
+  // If replay reports any error or the server crashes before the flip,
+  // the academy stays on the legacy path; no partial-state academy ever
+  // serves traffic with the flag flipped against a half-replayed ledger.
+  const switchInFlight = new Set<string>();
   router.post(
     "/api/platform/credit-system/:academyId/switch-to-v2",
     authMiddleware,
@@ -3741,7 +3751,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       const academyId = req.params.academyId;
       const dryRun = req.body?.dryRun === true;
+      if (switchInFlight.has(academyId)) {
+        return res.status(409).json({
+          academyId,
+          flagFlipped: false,
+          error: "Another switch-to-v2 is already in flight for this academy",
+        });
+      }
+      switchInFlight.add(academyId);
       try {
+        const exists = await db.execute(sql`
+          SELECT id FROM academies WHERE id = ${academyId} LIMIT 1
+        `);
+        if (exists.rows.length === 0) {
+          return res.status(404).json({
+            academyId,
+            flagFlipped: false,
+            error: "Academy not found",
+          });
+        }
         const { replayAcademy } = await import("../../scripts/credit-replay");
         const t0 = Date.now();
         const stats = await replayAcademy(academyId, dryRun);
@@ -3786,6 +3814,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           flagFlipped: false,
           error: error?.message ?? "switch-to-v2 failed",
         });
+      } finally {
+        switchInFlight.delete(academyId);
       }
     },
   );

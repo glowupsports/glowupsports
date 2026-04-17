@@ -2928,6 +2928,50 @@ export const storage = {
     academyId?: string,
     sessionPlayerId?: string // Optional: target specific session_player record
   ): Promise<{ success: boolean; package?: Package; creditType?: string; transactionId?: string; reason?: string }> {
+    // Phase 3 — Task #651. If this academy is on the new Credit Engine V2,
+    // route through credit-engine.consumeCredit and freeze the legacy
+    // package decrement + credit_transactions write-path entirely.
+    {
+      let v2AcademyId = academyId ?? null;
+      if (!v2AcademyId) {
+        const r = await db.execute(sql`
+          SELECT s.academy_id FROM sessions s WHERE s.id = ${sessionId} LIMIT 1
+        `);
+        v2AcademyId = (r.rows[0] as { academy_id?: string | null } | undefined)?.academy_id ?? null;
+      }
+      if (v2AcademyId) {
+        const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+        if (await isV2EnabledForAcademy(v2AcademyId)) {
+          let spId = sessionPlayerId ?? null;
+          if (!spId) {
+            const lookup = await db.execute(sql`
+              SELECT id FROM session_players
+              WHERE session_id = ${sessionId} AND player_id = ${playerId}
+              LIMIT 1
+            `);
+            spId = (lookup.rows[0] as { id?: string } | undefined)?.id ?? null;
+          }
+          if (!spId) {
+            return { success: false, reason: "session_player_not_found" };
+          }
+          try {
+            const { consumeCredit } = await import("./services/credit-engine");
+            const v2Result = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
+            if (v2Result.alreadyApplied) {
+              return { success: true, creditType: v2Result.type ?? undefined, reason: "already_processed" };
+            }
+            if (!v2Result.charged) {
+              return { success: false, reason: "not_chargeable", creditType: v2Result.type ?? undefined };
+            }
+            return { success: true, creditType: v2Result.type ?? undefined };
+          } catch (v2Err: any) {
+            console.error(`[deductTypedCredits][V2] consume failed for sp ${spId}:`, v2Err);
+            return { success: false, reason: v2Err?.message ?? "v2_consume_error" };
+          }
+        }
+      }
+    }
+
     // Map session types to credit types
     const sessionToCreditType: Record<string, string> = {
       private: "private",
@@ -7144,6 +7188,39 @@ export const storage = {
     // Get the series to find academyId and sessionType
     const series = await this.getCoachingSeriesById(seriesId);
     const academyId = series?.academyId || null;
+
+    // Phase 3 — Task #651. V2 short-circuit: when the academy is on the
+    // new Credit Engine, route every chargeable session_player through
+    // credit-engine.consumeCredit and freeze the legacy package
+    // decrement + credit_transactions write-path. The engine handles
+    // attendance + chargeability internally and is idempotent on
+    // `consume:<sessionPlayerId>`, so re-runs are safe.
+    if (academyId) {
+      const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+      if (await isV2EnabledForAcademy(academyId)) {
+        try {
+          const sps = await db.execute(sql`
+            SELECT id FROM session_players WHERE session_id = ${sessionId}
+          `);
+          const { consumeCredit } = await import("./services/credit-engine");
+          for (const row of sps.rows) {
+            const spId = (row as { id: string }).id;
+            try {
+              const r = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
+              if (r.charged) results.consumed += 1;
+              else results.skipped += 1;
+            } catch (err: any) {
+              results.errors.push(`sp ${spId}: ${err?.message ?? String(err)}`);
+            }
+          }
+          return results;
+        } catch (v2Err: any) {
+          console.error(`[consumeCreditsForClassSession][V2] failed for session ${sessionId}:`, v2Err);
+          results.errors.push(v2Err?.message ?? "v2_consume_error");
+          return results;
+        }
+      }
+    }
     
     // Fetch session duration for proportional credit charging
     const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
@@ -7290,6 +7367,43 @@ export const storage = {
     // Get the series to find academyId and sessionType
     const series = await this.getCoachingSeriesById(seriesId);
     const academyId = series?.academyId || null;
+
+    // Phase 3 — Task #651. V2 short-circuit. The engine handles the
+    // attendance-based "originally private" + semi→private re-classification
+    // internally, so we just hand it every session_player and let it decide
+    // chargeability. Idempotent on `consume:<sessionPlayerId>`.
+    if (academyId) {
+      const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+      if (await isV2EnabledForAcademy(academyId)) {
+        try {
+          const sps = await db.execute(sql`
+            SELECT id FROM session_players WHERE session_id = ${sessionId}
+          `);
+          const { consumeCredit } = await import("./services/credit-engine");
+          let lastType: string | null = null;
+          for (const row of sps.rows) {
+            const spId = (row as { id: string }).id;
+            try {
+              const r = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
+              if (r.charged) {
+                results.consumed += 1;
+                if (r.type) lastType = r.type;
+              } else {
+                results.skipped += 1;
+              }
+            } catch (err: any) {
+              results.errors.push(`sp ${spId}: ${err?.message ?? String(err)}`);
+            }
+          }
+          if (lastType) results.actualCreditType = lastType;
+          return results;
+        } catch (v2Err: any) {
+          console.error(`[consumeCreditsForClassSessionWithAttendance][V2] failed for session ${sessionId}:`, v2Err);
+          results.errors.push(v2Err?.message ?? "v2_consume_error");
+          return results;
+        }
+      }
+    }
     
     // Fetch session duration for proportional credit charging
     const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
