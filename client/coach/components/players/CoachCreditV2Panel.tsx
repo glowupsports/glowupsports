@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 
@@ -117,11 +118,85 @@ interface Props {
 
 export function CoachCreditV2Panel({ playerId }: Props) {
   const [showLedger, setShowLedger] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addType, setAddType] = useState<CreditType>("group");
+  const [addQty, setAddQty] = useState("4");
+  const [addPrice, setAddPrice] = useState("");
+  const [addPayment, setAddPayment] = useState<"cash" | "bank_transfer" | "already_paid">("cash");
+  const [addError, setAddError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const walletQuery = useQuery<WalletData>({
     queryKey: [`/api/v2/credits/wallet/${playerId}`],
     enabled: !!playerId,
   });
+
+  // Pull academy pricing to prefill price-per-credit. Coach app already has
+  // this endpoint mounted at /api/owner/academy/pricing.
+  const pricingQuery = useQuery<Array<{ sessionType: string; pricePerSession: string; currency: string }>>({
+    queryKey: ["/api/owner/academy/pricing"],
+    enabled: showAddModal,
+  });
+
+  const addCreditsMutation = useMutation({
+    mutationFn: async () => {
+      const qty = parseInt(addQty, 10);
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error("Enter a valid number of credits");
+      const body: Record<string, unknown> = {
+        creditType: addType,
+        credits: qty,
+        paymentMethod: addPayment,
+      };
+      if (addPrice.trim()) {
+        const p = parseFloat(addPrice);
+        if (!Number.isFinite(p) || p < 0) throw new Error("Enter a valid price");
+        body.pricePerCredit = p;
+      }
+      const res = await apiRequest("POST", `/api/coach/players/${playerId}/purchase-credits`, body);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "Failed to add credits");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/wallet/${playerId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/ledger/${playerId}`, { limit: 20 }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credits-summary`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+      setShowAddModal(false);
+      setAddError(null);
+    },
+    onError: (err: Error) => {
+      setAddError(err.message);
+    },
+  });
+
+  const openAddModal = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setAddError(null);
+    setAddQty("4");
+    setAddPrice("");
+    setAddPayment("cash");
+    setAddType("group");
+    setShowAddModal(true);
+  };
+
+  // Auto-fill price when type changes (or pricing loads).
+  React.useEffect(() => {
+    if (!showAddModal) return;
+    if (addPrice.trim()) return;
+    const lookup = addType === "semi_private" ? "semi" : addType;
+    const row = pricingQuery.data?.find((p) => p.sessionType === lookup);
+    if (row && parseFloat(row.pricePerSession) > 0) {
+      setAddPrice(parseFloat(row.pricePerSession).toFixed(2));
+    }
+  }, [addType, pricingQuery.data, showAddModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enabled = walletQuery.data?.v2Enabled === true;
 
@@ -343,35 +418,72 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         </Text>
       )}
 
-      <Pressable
-        onPress={() => setShowLedger((v) => !v)}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-          paddingVertical: Spacing.sm,
-          borderRadius: 8,
-          backgroundColor: `${Colors.dark.text}10`,
-          borderWidth: 1,
-          borderColor: `${Colors.dark.text}20`,
-        }}
-      >
-        <Ionicons
-          name={showLedger ? "chevron-up" : "list-outline"}
-          size={13}
-          color={Colors.dark.text}
-        />
-        <Text
+      <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+        <Pressable
+          onPress={openAddModal}
           style={{
-            color: Colors.dark.text,
-            fontWeight: "700",
-            fontSize: 12,
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            paddingVertical: Spacing.sm,
+            borderRadius: 8,
+            backgroundColor: Colors.dark.primary,
           }}
         >
-          {showLedger ? "Hide history" : "View history"}
-        </Text>
-      </Pressable>
+          <Ionicons name="add-circle-outline" size={14} color={Colors.dark.background} />
+          <Text style={{ color: Colors.dark.background, fontWeight: "800", fontSize: 12 }}>
+            Add credits
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setShowLedger((v) => !v)}
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            paddingVertical: Spacing.sm,
+            borderRadius: 8,
+            backgroundColor: `${Colors.dark.text}10`,
+            borderWidth: 1,
+            borderColor: `${Colors.dark.text}20`,
+          }}
+        >
+          <Ionicons
+            name={showLedger ? "chevron-up" : "list-outline"}
+            size={13}
+            color={Colors.dark.text}
+          />
+          <Text
+            style={{
+              color: Colors.dark.text,
+              fontWeight: "700",
+              fontSize: 12,
+            }}
+          >
+            {showLedger ? "Hide history" : "View history"}
+          </Text>
+        </Pressable>
+      </View>
+
+      <AddCreditsModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        addType={addType}
+        setAddType={setAddType}
+        addQty={addQty}
+        setAddQty={setAddQty}
+        addPrice={addPrice}
+        setAddPrice={setAddPrice}
+        addPayment={addPayment}
+        setAddPayment={setAddPayment}
+        onSubmit={() => addCreditsMutation.mutate()}
+        isPending={addCreditsMutation.isPending}
+        error={addError}
+      />
 
       {showLedger ? (
         <View style={{ marginTop: Spacing.sm }}>
@@ -448,5 +560,173 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         </View>
       ) : null}
     </View>
+  );
+}
+
+interface AddCreditsModalProps {
+  visible: boolean;
+  onClose: () => void;
+  addType: CreditType;
+  setAddType: (t: CreditType) => void;
+  addQty: string;
+  setAddQty: (s: string) => void;
+  addPrice: string;
+  setAddPrice: (s: string) => void;
+  addPayment: "cash" | "bank_transfer" | "already_paid";
+  setAddPayment: (p: "cash" | "bank_transfer" | "already_paid") => void;
+  onSubmit: () => void;
+  isPending: boolean;
+  error: string | null;
+}
+
+function AddCreditsModal({
+  visible, onClose, addType, setAddType, addQty, setAddQty,
+  addPrice, setAddPrice, addPayment, setAddPayment, onSubmit, isPending, error,
+}: AddCreditsModalProps) {
+  const totalNum = (() => {
+    const q = parseFloat(addQty);
+    const p = parseFloat(addPrice);
+    if (!Number.isFinite(q) || !Number.isFinite(p)) return null;
+    return q * p;
+  })();
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: Colors.dark.background, padding: Spacing.lg }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.lg }}>
+          <Text style={{ ...Typography.h2, color: Colors.dark.text }}>Add credits</Text>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+        </View>
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>Credit type</Text>
+        <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.md }}>
+          {(["group", "semi_private", "private"] as CreditType[]).map((t) => {
+            const active = addType === t;
+            return (
+              <Pressable
+                key={t}
+                onPress={() => setAddType(t)}
+                style={{
+                  flex: 1,
+                  paddingVertical: Spacing.sm,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  backgroundColor: active ? `${TYPE_COLOR[t]}30` : `${Colors.dark.text}10`,
+                  borderWidth: 1,
+                  borderColor: active ? TYPE_COLOR[t] : "transparent",
+                }}
+              >
+                <Text style={{ color: active ? TYPE_COLOR[t] : Colors.dark.text, fontWeight: "700", fontSize: 12 }}>
+                  {TYPE_LABEL[t]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>Number of credits</Text>
+        <TextInput
+          value={addQty}
+          onChangeText={setAddQty}
+          keyboardType="number-pad"
+          placeholder="4"
+          placeholderTextColor={Colors.dark.textMuted}
+          style={{
+            backgroundColor: `${Colors.dark.text}10`,
+            color: Colors.dark.text,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            fontSize: 16,
+            marginBottom: Spacing.md,
+          }}
+        />
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>Price per credit</Text>
+        <TextInput
+          value={addPrice}
+          onChangeText={setAddPrice}
+          keyboardType="decimal-pad"
+          placeholder="Auto from academy pricing"
+          placeholderTextColor={Colors.dark.textMuted}
+          style={{
+            backgroundColor: `${Colors.dark.text}10`,
+            color: Colors.dark.text,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            fontSize: 16,
+            marginBottom: Spacing.md,
+          }}
+        />
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>Payment</Text>
+        <View style={{ gap: 8, marginBottom: Spacing.md }}>
+          {([
+            { key: "cash" as const, label: "Cash (mark paid later)" },
+            { key: "bank_transfer" as const, label: "Bank transfer (mark paid later)" },
+            { key: "already_paid" as const, label: "Already paid — deposit now" },
+          ]).map((opt) => {
+            const active = addPayment === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => setAddPayment(opt.key)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: Spacing.sm,
+                  paddingHorizontal: Spacing.sm,
+                  borderRadius: 8,
+                  backgroundColor: active ? `${Colors.dark.primary}20` : `${Colors.dark.text}08`,
+                  borderWidth: 1,
+                  borderColor: active ? Colors.dark.primary : "transparent",
+                }}
+              >
+                <Ionicons
+                  name={active ? "radio-button-on" : "radio-button-off"}
+                  size={18}
+                  color={active ? Colors.dark.primary : Colors.dark.textMuted}
+                />
+                <Text style={{ color: Colors.dark.text, fontSize: 13 }}>{opt.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {totalNum !== null ? (
+          <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginBottom: Spacing.md }}>
+            Total: {totalNum.toFixed(2)}
+          </Text>
+        ) : null}
+
+        {error ? (
+          <Text style={{ color: Colors.dark.dangerRed, fontSize: 12, marginBottom: Spacing.sm }}>{error}</Text>
+        ) : null}
+
+        <Pressable
+          onPress={onSubmit}
+          disabled={isPending}
+          style={{
+            paddingVertical: 14,
+            borderRadius: 10,
+            backgroundColor: Colors.dark.primary,
+            alignItems: "center",
+            opacity: isPending ? 0.6 : 1,
+          }}
+        >
+          {isPending ? (
+            <ActivityIndicator color={Colors.dark.background} />
+          ) : (
+            <Text style={{ color: Colors.dark.background, fontWeight: "800", fontSize: 14 }}>
+              {addPayment === "already_paid" ? "Add credits now" : "Create invoice"}
+            </Text>
+          )}
+        </Pressable>
+      </View>
+    </Modal>
   );
 }

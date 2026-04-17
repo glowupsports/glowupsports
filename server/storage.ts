@@ -7077,7 +7077,41 @@ export const storage = {
 
   async updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
     const result = await db.update(invoices).set(data).where(eq(invoices.id, id)).returning();
-    return result[0];
+    const updated = result[0];
+
+    // V2 bridge (Task #665): when an invoice flips to "paid" on a V2 academy
+    // and it has a packageId, deposit a credit_lots row via the credit
+    // engine. purchasePackage is idempotent on event_key
+    // `purchase:inv:<invoiceId>`, so re-runs are safe.
+    if (updated && data.status === "paid" && updated.packageId && updated.academyId) {
+      try {
+        const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+        if (await isV2EnabledForAcademy(updated.academyId)) {
+          const pkg = await this.getPackage(updated.packageId, updated.academyId);
+          if (pkg) {
+            const { purchasePackage, normalizeSessionTypeToCreditType } = await import("./services/credit-engine");
+            const type = normalizeSessionTypeToCreditType(pkg.creditType);
+            await purchasePackage({
+              playerId: pkg.playerId,
+              academyId: pkg.academyId,
+              type,
+              qty: Number(pkg.totalCredits),
+              pricePerCredit: parseFloat(String(pkg.pricePerCredit ?? "0")),
+              currency: pkg.currency ?? "AED",
+              invoiceId: updated.id,
+              sourcePackageId: pkg.id,
+              purchasedAt: pkg.purchasedAt ?? new Date(),
+              expiresAt: pkg.expiresAt ?? null,
+              actorRole: "system",
+            });
+          }
+        }
+      } catch (bridgeErr) {
+        console.error(`[updateInvoice][V2 bridge] failed for invoice ${id}:`, bridgeErr);
+      }
+    }
+
+    return updated;
   },
 
   async createPayment(data: InsertPayment): Promise<Payment> {

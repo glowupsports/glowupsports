@@ -84,15 +84,9 @@ export default function ParentCreditStoreScreen() {
   const [pinError, setPinError] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"cash" | "bank_transfer" | null>(null);
 
-  const { data: v2WalletData } = useQuery<{ v2Enabled: boolean }>({
-    queryKey: [`/api/v2/credits/wallet/${playerId}`],
-    enabled: !!playerId,
-  });
-  const v2Enabled = v2WalletData?.v2Enabled === true;
-
   const { data: packages = [], isLoading } = useQuery<CreditPackage[]>({
     queryKey: [`/api/parent/credit-store/${playerId}`],
-    enabled: !!playerId && !v2Enabled,
+    enabled: !!playerId,
   });
 
   const { data: creditsData } = useQuery<{ credits: PlayerCredits }>({
@@ -304,15 +298,7 @@ export default function ParentCreditStoreScreen() {
 
         <Text style={styles.sectionHeaderTitle}>Available Packages</Text>
 
-        {v2Enabled ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="information-circle-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyTitle}>New Credits System</Text>
-            <Text style={styles.emptySubtitle}>
-              Your academy is on the new credits system. Please contact your academy admin to add credits — package self-purchase will return soon.
-            </Text>
-          </View>
-        ) : isLoading ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.dark.text} />
           </View>

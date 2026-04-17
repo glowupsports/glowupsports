@@ -3863,6 +3863,153 @@ Return only the JSON array, nothing else.`;
     }
   });
 
+  // Coach-initiated credit purchase for a player. Mirrors the parent purchase
+  // flow (creates a package + pending invoice) but is gated by coach role +
+  // academy membership instead of the parent PIN. When the academy is on the
+  // V2 credit engine, mark-paid on the resulting invoice deposits a lot via
+  // the same path used by player self-purchase.
+  router.post("/api/coach/players/:playerId/purchase-credits", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const role = req.user?.role;
+      const coachId = req.user?.coachId;
+      if (!role || !["coach", "academy_owner", "admin", "platform_owner"].includes(role)) {
+        return res.status(403).json({ error: "Coach role required" });
+      }
+
+      const { playerId } = req.params;
+      const { creditType, credits, pricePerCredit, currency, paymentMethod } = req.body || {};
+
+      if (!playerId || !creditType || !credits || credits <= 0) {
+        return res.status(400).json({ error: "playerId, creditType and credits are required" });
+      }
+      if (!["group", "semi_private", "private", "court"].includes(creditType)) {
+        return res.status(400).json({ error: "Invalid creditType" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      if (!player) return res.status(404).json({ error: "Player not found" });
+
+      // Academy access: staff must belong to player's academy (direct or
+      // multi-academy membership).
+      const reqAcademyId = req.user?.academyId;
+      let allowed = role === "platform_owner" || reqAcademyId === player.academyId;
+      if (!allowed && coachId) {
+        const coachesInAcademy = await storage.getCoachesByAcademy(player.academyId).catch(() => []);
+        allowed = (coachesInAcademy || []).some((c: any) => c.id === coachId);
+      }
+      if (!allowed) return res.status(403).json({ error: "Access denied" });
+
+      // Resolve price: allow override, else look up academy pricing.
+      let resolvedPrice: string;
+      let resolvedCurrency: string = currency || "AED";
+      if (pricePerCredit !== undefined && pricePerCredit !== null && pricePerCredit !== "") {
+        const p = parseFloat(String(pricePerCredit));
+        if (!Number.isFinite(p) || p < 0) {
+          return res.status(400).json({ error: "Invalid pricePerCredit" });
+        }
+        resolvedPrice = p.toFixed(2);
+      } else if (creditType === "court") {
+        resolvedPrice = "5.00";
+      } else {
+        const lookupType = creditType === "semi_private" ? "semi" : creditType;
+        const pricing = await storage.getAcademyPricing(player.academyId);
+        const sessionPricing = pricing.find((p) => p.sessionType === lookupType);
+        if (!sessionPricing || parseFloat(sessionPricing.pricePerSession) <= 0) {
+          return res.status(400).json({ error: "Pricing not configured for this session type" });
+        }
+        resolvedPrice = parseFloat(sessionPricing.pricePerSession).toFixed(2);
+        resolvedCurrency = sessionPricing.currency || resolvedCurrency;
+      }
+
+      const creditsInt = parseInt(String(credits), 10);
+      if (!Number.isFinite(creditsInt) || creditsInt <= 0) {
+        return res.status(400).json({ error: "Invalid credits" });
+      }
+
+      const typeLabel = creditType === "semi_private" ? "Semi-Private" :
+        creditType.charAt(0).toUpperCase() + creditType.slice(1);
+      const packageName = `${creditsInt} ${typeLabel} Credit${creditsInt > 1 ? "s" : ""}`;
+
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(expiresAt.getDate() + 90);
+
+      const pkg = await storage.createPackage({
+        playerId,
+        academyId: player.academyId,
+        name: packageName,
+        creditType,
+        totalCredits: creditsInt,
+        remainingCredits: creditsInt,
+        purchasedAt: now,
+        expiresAt,
+        pricePerCredit: resolvedPrice,
+        currency: resolvedCurrency,
+        status: "active",
+      });
+
+      const settle = await storage.settlePlayerDebts(playerId, creditType, pkg.id);
+      if (settle?.settledCount > 0) {
+        console.log(`[CoachPurchase] Settled ${settle.settledCount} debts for player ${playerId}`);
+      }
+
+      const totalAmount = (parseFloat(resolvedPrice) * creditsInt).toFixed(2);
+      const invoiceNumber = await storage.generateInvoiceNumber(player.academyId);
+
+      // If coach selected "already_paid", mark invoice paid immediately;
+      // otherwise leave pending so the admin can confirm cash/transfer.
+      const alreadyPaid = paymentMethod === "already_paid";
+      const invoiceStatus = alreadyPaid ? "paid" : "pending";
+      const normalizedPaymentMethod = alreadyPaid
+        ? "cash"
+        : (paymentMethod === "bank_transfer" ? "bank_transfer" : "cash");
+
+      const invoice = await storage.createInvoice({
+        playerId,
+        academyId: player.academyId,
+        packageId: pkg.id,
+        invoiceNumber,
+        type: "package_purchase",
+        amount: totalAmount,
+        currency: resolvedCurrency,
+        status: invoiceStatus,
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        paidAt: alreadyPaid ? now : undefined,
+        lineItems: [{
+          description: packageName,
+          quantity: creditsInt,
+          unitPrice: resolvedPrice,
+          total: totalAmount,
+        }],
+        paymentMethod: normalizedPaymentMethod,
+      } as any);
+
+      // For "already paid", record a payment row + flip the invoice. The
+      // V2 lot deposit (when the academy is on V2) happens inside
+      // storage.updateInvoice via the mark-paid bridge below.
+      if (alreadyPaid) {
+        try {
+          await storage.createPayment({
+            academyId: player.academyId,
+            invoiceId: invoice.id,
+            amount: parseFloat(totalAmount),
+            currency: resolvedCurrency,
+            paymentMethod: normalizedPaymentMethod,
+            status: "succeeded",
+          } as any);
+          await storage.updateInvoice(invoice.id, { status: "paid", paidAt: now });
+        } catch (markErr) {
+          console.error(`[CoachPurchase] mark-paid failed for ${invoice.id}:`, markErr);
+        }
+      }
+
+      res.json({ success: true, package: pkg, invoice });
+    } catch (error) {
+      console.error("[CoachPurchase] error:", error);
+      res.status(500).json({ error: "Failed to create purchase" });
+    }
+  });
+
   router.get("/api/players/:playerId/credits-summary", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const { playerId } = req.params;
