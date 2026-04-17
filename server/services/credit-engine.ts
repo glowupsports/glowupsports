@@ -563,6 +563,10 @@ export interface RefundCreditInput {
   actorId?: string | null;
   actorRole?: ActorRole;
   reason?: string; // free-form, stored in metadata
+  /** Logical event time. Used for ledger occurredAt and for evaluating
+   *  depleted→active vs depleted→expired lot reactivation. During replay,
+   *  pass the historical refund timestamp; live refunds default to now. */
+  occurredAt?: Date;
 }
 
 export interface RefundCreditResult {
@@ -631,6 +635,8 @@ export async function refundCredit(
       };
     }
   }
+
+  const occurredAt = input.occurredAt ?? new Date();
 
   return await db.transaction(async (tx) => {
     let type = input.type ?? null;
@@ -710,6 +716,7 @@ export async function refundCredit(
       sessionId,
       sessionPlayerId: input.sessionPlayerId,
       balanceAfter: newBalance,
+      occurredAt,
       metadata: { policy, reason: input.reason ?? null },
     });
     if (ledger === null) {
@@ -746,9 +753,9 @@ export async function refundCredit(
               ELSE qty_remaining + ${entry.qty}
             END,
             status = CASE
-              WHEN status = 'depleted' AND (expires_at IS NULL OR expires_at > NOW())
+              WHEN status = 'depleted' AND (expires_at IS NULL OR expires_at > ${occurredAt})
                 THEN 'active'
-              WHEN status = 'depleted' AND expires_at <= NOW()
+              WHEN status = 'depleted' AND expires_at <= ${occurredAt}
                 THEN 'expired'
               ELSE status
             END

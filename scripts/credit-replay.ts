@@ -318,6 +318,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
             sessionPlayerId: ev.tx.session_player_id,
             amount: Number(ev.tx.amount),
             policy: "force",
+            occurredAt: ev.at,
             actorRole: "system",
             reason: `legacy:${ev.tx.reason ?? ev.tx.type ?? "unknown"}`,
             eventKey: `refund:legacy:${ev.tx.id}`,

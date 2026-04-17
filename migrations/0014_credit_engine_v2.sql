@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS credit_lots (
   price_per_credit  NUMERIC NOT NULL DEFAULT 0,
   currency          TEXT    NOT NULL DEFAULT 'AED',
   status            TEXT    NOT NULL DEFAULT 'active', -- active | depleted | expired
-  invoice_id        VARCHAR,
+  source_invoice_id VARCHAR,
   source_package_id VARCHAR,
   purchased_at      TIMESTAMP NOT NULL DEFAULT NOW(),
   expires_at        TIMESTAMP,
