@@ -100,6 +100,15 @@ export function PlayerChatFooter() {
   const [currentTab, setCurrentTab] = useState<ChatTab>("players");
   const [showNewPlayerChat, setShowNewPlayerChat] = useState(false);
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
+  const [failedAvatarIds, setFailedAvatarIds] = useState<Set<string>>(new Set());
+  const markAvatarFailed = useCallback((id: string) => {
+    setFailedAvatarIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -378,12 +387,14 @@ export function PlayerChatFooter() {
         renderItem={({ item }) => (
           <Pressable onPress={() => handleStartPlayerChat(item)} style={styles.playerSelectItem}>
             {(() => {
+              const avatarKey = `picker:${item.id}`;
               const photoUrl = buildPhotoUrl(item.profilePhotoUrl);
-              if (photoUrl) {
+              if (photoUrl && !failedAvatarIds.has(avatarKey)) {
                 return (
                   <Image
                     source={{ uri: photoUrl }}
                     style={styles.playerSelectAvatarImage}
+                    onError={() => markAvatarFailed(avatarKey)}
                   />
                 );
               }
@@ -680,17 +691,19 @@ export function PlayerChatFooter() {
                       style={styles.conversationItem}
                     >
                       {(() => {
+                        const avatarKey = `conv:${item.id}`;
                         const photoUrl =
                           currentTab === "players"
                             ? buildPhotoUrl(item.playerPhoto)
                             : currentTab === "coaches"
                               ? buildPhotoUrl(item.coachPhoto)
                               : null;
-                        if (photoUrl) {
+                        if (photoUrl && !failedAvatarIds.has(avatarKey)) {
                           return (
                             <Image
                               source={{ uri: photoUrl }}
                               style={styles.conversationAvatarImage}
+                              onError={() => markAvatarFailed(avatarKey)}
                             />
                           );
                         }
