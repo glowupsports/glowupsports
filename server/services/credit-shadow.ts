@@ -268,7 +268,8 @@ export async function shadowRefundAfterLegacy(
           debtRemoved: legacyResult.debtRemoved,
         },
         newValue: {
-          refunded: newRefunded,
+          refunded: newDidRefund,
+          rawRefunded: newResult.refunded,
           alreadyApplied: newResult.alreadyApplied,
           amount: newResult.amount,
         },
