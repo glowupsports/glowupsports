@@ -2376,7 +2376,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
                 </Pressable>
               ) : null}
-            </View>
+            </Pressable>
           )}
 
           {isOtherTyping ? (
