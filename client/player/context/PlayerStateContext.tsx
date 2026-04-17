@@ -198,7 +198,8 @@ function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUnt
       return { status: "ended", minutesUntil: null, minutesRemaining: null };
     }
     // Session is in the future (endTime > now and startTime > now):
-    // classify by how soon it starts — card is today-focused so >24h means "none"
+    // classify by how soon it starts. Sessions >24h away surface as "future"
+    // so the home card can still show the next upcoming session.
     if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
     if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
     // Sessions further out (within the dashboard's 30-day lookahead) get a
@@ -212,6 +213,8 @@ function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUnt
   if (diffMinutes <= 0) return { status: "live", minutesUntil: 0, minutesRemaining: 60 };
   if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
   if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
+  // Sessions more than 24h away surface as "future" so the home card can
+  // still feature the next upcoming session.
   return { status: "future", minutesUntil: diffMinutes, minutesRemaining: null };
 }
 
