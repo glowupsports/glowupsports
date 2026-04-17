@@ -3096,6 +3096,8 @@ export const storage = {
     sessionId: string,
     academyId?: string
   ): Promise<{ success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean; debtRemoved?: boolean }> {
+    type RefundResult = { success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean; debtRemoved?: boolean };
+    const result: RefundResult = await (async (): Promise<RefundResult> => {
     // Find the original debit transaction for this session
     const transactions = await this.getCreditTransactionsBySession(sessionId);
     
@@ -3292,6 +3294,31 @@ export const storage = {
       success: true, 
       creditType: originalDebit.creditType || "group"
     };
+    })();
+
+    // Phase 2 — Credit shadow-mode (Task #650). Fire-and-forget; never
+    // blocks or affects the legacy result. Off by default — enable via
+    // env `CREDIT_SHADOW_MODE=on`.
+    if (result.success) {
+      void (async () => {
+        try {
+          const { isShadowModeEnabled, shadowRefundAfterLegacy } = await import("./services/credit-shadow");
+          if (!isShadowModeEnabled()) return;
+          const spRows = await db.execute(sql`
+            SELECT id FROM session_players
+            WHERE session_id = ${sessionId} AND player_id = ${playerId}
+            LIMIT 1
+          `);
+          const spRow = spRows.rows[0] as { id: string } | undefined;
+          if (!spRow) return;
+          await shadowRefundAfterLegacy(spRow.id, result);
+        } catch (err) {
+          console.error(`[RefundCredits] shadow refund failed for session ${sessionId} player ${playerId}:`, err);
+        }
+      })();
+    }
+
+    return result;
   },
 
   // ==================== PACKAGE TEMPLATES ====================
@@ -12909,6 +12936,19 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
     }
 
     const { _depleted: _, ...resultToReturn } = txResult;
+
+    // Phase 2 — Credit shadow-mode (Task #650). Fire-and-forget; never
+    // blocks or affects the legacy result. Off by default — enable via
+    // env `CREDIT_SHADOW_MODE=on`.
+    if (resultToReturn.success && resultToReturn.action !== "error") {
+      import("./services/credit-shadow").then(({ isShadowModeEnabled, shadowConsumeAfterLegacy }) => {
+        if (!isShadowModeEnabled()) return;
+        return shadowConsumeAfterLegacy(sessionPlayerId, resultToReturn);
+      }).catch((err) => {
+        console.error(`[EnsureCredit] shadow consume failed for ${sessionPlayerId}:`, err);
+      });
+    }
+
     return resultToReturn;
   } catch (error: any) {
     console.error(`[EnsureCredit] Error processing session_player ${sessionPlayerId}:`, error);

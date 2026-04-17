@@ -145,16 +145,24 @@ async function fetchConsumeContext(sessionPlayerId: string): Promise<{
 }
 
 /** Run the V2 consume after a legacy consume committed. Records a diff row
- *  if the engine's `charged` flag or post-balance disagrees with legacy.
- *  NEVER throws — failures are logged as `shadow_error` diff rows. */
+ *  if the engine's `charged` flag disagrees with legacy. NEVER throws —
+ *  context lookup failures are silently skipped (no FK-valid IDs to log
+ *  against), V2 engine errors after context is known are logged as
+ *  `shadow_error` diff rows with the real academy/player IDs. */
 export async function shadowConsumeAfterLegacy(
   sessionPlayerId: string,
   legacyResult: LegacyConsumeResult,
 ): Promise<void> {
+  let ctx: Awaited<ReturnType<typeof fetchConsumeContext>> = null;
   try {
-    const ctx = await fetchConsumeContext(sessionPlayerId);
-    if (!ctx) return;
+    ctx = await fetchConsumeContext(sessionPlayerId);
+  } catch (err) {
+    console.error("[credit-shadow] consume ctx lookup failed:", err);
+    return;
+  }
+  if (!ctx) return;
 
+  try {
     const newResult = await consumeCredit({
       sessionPlayerId,
       occurredAt: ctx.startTime ?? new Date(),
@@ -175,17 +183,23 @@ export async function shadowConsumeAfterLegacy(
         sessionId: ctx.sessionId,
         type: ctx.type,
         legacyValue: { action: legacyResult.action, creditType: legacyResult.creditType },
-        newValue: { charged: newCharged, action: newResult.alreadyApplied ? "already_applied" : newResult.charged ? "charged" : "skipped" },
+        newValue: {
+          charged: newCharged,
+          alreadyApplied: newResult.alreadyApplied,
+          amount: newResult.amount,
+        },
         suspectedCause: "charge_decision_mismatch",
         context: { legacyTransactionId: legacyResult.transactionId ?? null },
       });
     }
   } catch (err) {
     await writeDiff({
-      academyId: "",
-      playerId: "",
+      academyId: ctx.academyId,
+      playerId: ctx.playerId,
       scope: "consume",
       sessionPlayerId,
+      sessionId: ctx.sessionId,
+      type: ctx.type,
       legacyValue: { error: legacyResult.error ?? null, action: legacyResult.action },
       newValue: { error: err instanceof Error ? err.message : String(err) },
       suspectedCause: "shadow_error",
@@ -198,10 +212,16 @@ export async function shadowRefundAfterLegacy(
   sessionPlayerId: string,
   legacyResult: LegacyRefundResult,
 ): Promise<void> {
+  let ctx: Awaited<ReturnType<typeof fetchConsumeContext>> = null;
   try {
-    const ctx = await fetchConsumeContext(sessionPlayerId);
-    if (!ctx) return;
+    ctx = await fetchConsumeContext(sessionPlayerId);
+  } catch (err) {
+    console.error("[credit-shadow] refund ctx lookup failed:", err);
+    return;
+  }
+  if (!ctx) return;
 
+  try {
     const newResult = await refundCredit({
       sessionPlayerId,
       policy: "force",
@@ -238,10 +258,12 @@ export async function shadowRefundAfterLegacy(
     }
   } catch (err) {
     await writeDiff({
-      academyId: "",
-      playerId: "",
+      academyId: ctx.academyId,
+      playerId: ctx.playerId,
       scope: "refund",
       sessionPlayerId,
+      sessionId: ctx.sessionId,
+      type: ctx.type,
       legacyValue: {
         success: legacyResult.success,
         debtRemoved: legacyResult.debtRemoved,
@@ -250,6 +272,15 @@ export async function shadowRefundAfterLegacy(
       suspectedCause: "shadow_error",
     });
   }
+}
+
+/** Returns true when shadow-mode is enabled. Set `CREDIT_SHADOW_MODE=on`
+ *  in the environment to activate per-call shadow runs from the legacy
+ *  hot paths. Off by default so production behaviour is unchanged until
+ *  ops explicitly opts in. */
+export function isShadowModeEnabled(): boolean {
+  const v = (process.env.CREDIT_SHADOW_MODE ?? "").toLowerCase();
+  return v === "on" || v === "1" || v === "true";
 }
 
 export interface BalanceComparisonRow {
@@ -287,9 +318,10 @@ export async function compareBalancesForAcademy(
     const p = raw as { id: string; name: string };
 
     const legacy = await storage.getPlayerCreditBalanceByType(p.id);
+    const v2Balances = await getBalance(p.id, academyId);
 
     for (const type of types) {
-      const v2 = await getBalance(p.id, academyId, type);
+      const v2 = Number(v2Balances[type] ?? 0);
       const legacyValue = Number(legacy[type] ?? 0);
       const diff = legacyValue - v2;
       const cause = explainCause({ legacyValue, v2, hasDebt: legacy.hasDebt });
