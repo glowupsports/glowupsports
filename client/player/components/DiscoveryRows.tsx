@@ -29,157 +29,100 @@ import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 
-function SectionEmptyState({
+function PremiumEmptyCard({
   icon,
-  iconColor,
-  iconBg,
+  accentColor,
   title,
   subtitle,
   ctaLabel,
   onCta,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBg: string;
+  accentColor: string;
   title: string;
   subtitle: string;
   ctaLabel: string;
   onCta: () => void;
 }) {
-  const scale = useSharedValue(1);
+  const pulse = useSharedValue(1);
+  const glow = useSharedValue(0.35);
+
   useEffect(() => {
-    scale.value = withRepeat(
+    pulse.value = withRepeat(
       withSequence(
-        withTiming(1.06, { duration: 1000 }),
-        withTiming(1.0, { duration: 1000 })
+        withTiming(1.08, { duration: 1400 }),
+        withTiming(1.0, { duration: 1400 })
       ),
       -1,
       false
     );
+    glow.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 1400 }),
+        withTiming(0.25, { duration: 1400 })
+      ),
+      -1,
+      false
+    );
+    return () => {
+      cancelAnimation(pulse);
+      cancelAnimation(glow);
+    };
   }, []);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  return (
-    <LinearGradient
-      colors={["#1E1E30", "#13131F"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.sectionEmptyCard}
-    >
-      <Animated.View style={[styles.sectionEmptyIconWrap, { backgroundColor: iconBg }, animStyle]}>
-        <Ionicons name={icon} size={32} color={iconColor} />
-      </Animated.View>
-      <Text style={styles.sectionEmptyTitle}>{title}</Text>
-      <Text style={styles.sectionEmptySubtitle}>{subtitle}</Text>
-      <Pressable style={styles.sectionEmptyCta} onPress={onCta}>
-        <Text style={styles.sectionEmptyCtaText}>{ctaLabel}</Text>
-      </Pressable>
-    </LinearGradient>
-  );
-}
-
-const PILL_H = 40;
-
-function CompactEmptyPill({
-  icon,
-  accentColor,
-  title,
-  emptyLabel,
-  ctaLabel,
-  onCta,
-  expandedIcon,
-  expandedIconColor,
-  expandedIconBg,
-  expandedTitle,
-  expandedSubtitle,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  accentColor: string;
-  title: string;
-  emptyLabel: string;
-  ctaLabel: string;
-  onCta: () => void;
-  expandedIcon: keyof typeof Ionicons.glyphMap;
-  expandedIconColor: string;
-  expandedIconBg: string;
-  expandedTitle: string;
-  expandedSubtitle: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const measuredContentH = useRef(0);
-  const heightAnim = useSharedValue(PILL_H);
-  const autoCollapseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearAutoCollapse = () => {
-    if (autoCollapseRef.current) {
-      clearTimeout(autoCollapseRef.current);
-      autoCollapseRef.current = null;
-    }
-  };
-
-  const toggle = () => {
-    clearAutoCollapse();
-    const next = !expanded;
-    setExpanded(next);
-    const targetH = next ? PILL_H + (measuredContentH.current || 240) : PILL_H;
-    heightAnim.value = withTiming(targetH, { duration: 280 });
-    if (next) {
-      autoCollapseRef.current = setTimeout(() => {
-        setExpanded(false);
-        heightAnim.value = withTiming(PILL_H, { duration: 280 });
-      }, 4000);
-    }
-  };
-
-  useEffect(() => () => clearAutoCollapse(), []);
-
-  const containerStyle = useAnimatedStyle(() => ({
-    height: heightAnim.value,
-    overflow: "hidden" as const,
+  const iconAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+  const glowAnim = useAnimatedStyle(() => ({
+    opacity: glow.value,
   }));
 
   return (
-    <Animated.View style={[styles.pillContainer, containerStyle]}>
-      <Pressable onPress={toggle} style={styles.pillRow}>
-        <View style={[styles.pillIconWrap, { backgroundColor: accentColor + "22" }]}>
-          <Ionicons name={icon} size={14} color={accentColor} />
-        </View>
-        <Text style={styles.pillTitle} numberOfLines={1}>{title}</Text>
-        <Text style={styles.pillSep}>·</Text>
-        <Text style={styles.pillEmptyLabel} numberOfLines={1}>{emptyLabel}</Text>
-        <View style={{ flex: 1 }} />
-        <Pressable
-          onPress={(e) => { e.stopPropagation?.(); onCta(); }}
-          hitSlop={8}
-          style={styles.pillCtaBtn}
-        >
-          <Text style={[styles.pillCtaText, { color: accentColor }]}>{ctaLabel}</Text>
-          <Feather name="arrow-right" size={11} color={accentColor} />
-        </Pressable>
-        <Feather
-          name={expanded ? "chevron-up" : "chevron-down"}
-          size={13}
-          color="#FFFFFF33"
-          style={{ marginLeft: 6 }}
-        />
-      </Pressable>
-      <View
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (h > 0) measuredContentH.current = h;
-        }}
+    <View style={[styles.premiumEmptyWrap, { borderColor: accentColor + "33" }]}>
+      <LinearGradient
+        colors={[accentColor + "1A", accentColor + "08", "#13131F"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.premiumEmptyGradient}
       >
-        <SectionEmptyState
-          icon={expandedIcon}
-          iconColor={expandedIconColor}
-          iconBg={expandedIconBg}
-          title={expandedTitle}
-          subtitle={expandedSubtitle}
-          ctaLabel={ctaLabel}
-          onCta={onCta}
-        />
-      </View>
-    </Animated.View>
+        <View style={styles.premiumEmptyIconCol}>
+          <Animated.View
+            style={[
+              styles.premiumEmptyGlow,
+              { backgroundColor: accentColor },
+              glowAnim,
+            ]}
+            pointerEvents="none"
+          />
+          <Animated.View
+            style={[
+              styles.premiumEmptyIconCircle,
+              { backgroundColor: accentColor + "22", borderColor: accentColor + "55" },
+              iconAnim,
+            ]}
+          >
+            <Ionicons name={icon} size={22} color={accentColor} />
+          </Animated.View>
+        </View>
+        <View style={styles.premiumEmptyTextCol}>
+          <Text style={styles.premiumEmptyTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.premiumEmptySubtitle} numberOfLines={2}>{subtitle}</Text>
+        </View>
+        <Pressable
+          onPress={onCta}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={ctaLabel}
+          style={({ pressed }) => [
+            styles.premiumEmptyCta,
+            { backgroundColor: accentColor, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Text style={styles.premiumEmptyCtaText} numberOfLines={1}>{ctaLabel}</Text>
+          <Feather name="arrow-right" size={13} color="#0B0D10" />
+        </Pressable>
+      </LinearGradient>
+    </View>
   );
 }
 
@@ -525,18 +468,13 @@ export function GroupLessonsRow() {
           onAction={handleSeeAll}
           accentColor={ballLevelColor}
         />
-        <CompactEmptyPill
+        <PremiumEmptyCard
           icon="school-outline"
           accentColor={ballLevelColor}
-          title={`${ballLevelLabel} Lessons`}
-          emptyLabel={t("empty.noSessions")}
+          title={`No ${ballLevelLabel} lessons yet`}
+          subtitle="Your coach hasn't dropped a lesson at your level — explore what's available"
           ctaLabel={t("player.home.browseAllLessons")}
           onCta={handleSeeAll}
-          expandedIcon="school-outline"
-          expandedIconColor={GlowColors.primary}
-          expandedIconBg={GlowColors.primary + "22"}
-          expandedTitle={t("empty.noSessions")}
-          expandedSubtitle="Your coach hasn't scheduled lessons yet — or explore what's available"
         />
       </View>
     );
@@ -790,18 +728,13 @@ export function OpenMatchesRow() {
           onAction={handleSeeAll}
           accentColor="#A855F7"
         />
-        <CompactEmptyPill
-          icon="radio-button-on-outline"
+        <PremiumEmptyCard
+          icon="flash-outline"
           accentColor="#A855F7"
-          title={t("player.home.openMatches")}
-          emptyLabel={t("player.home.noOpenMatches")}
+          title="Be the first to challenge"
+          subtitle="No open matches at your level — start one and call out players nearby"
           ctaLabel={t("player.home.createMatch")}
           onCta={handleCreateMatch}
-          expandedIcon="radio-button-on-outline"
-          expandedIconColor="#A855F7"
-          expandedIconBg="#A855F722"
-          expandedTitle={t("player.home.noOpenMatches")}
-          expandedSubtitle="No one has challenged you yet — start one yourself"
         />
       </View>
     );
@@ -1058,18 +991,13 @@ export function TournamentsDiscoveryRow() {
       />
 
       {openTournaments.length === 0 ? (
-        <CompactEmptyPill
+        <PremiumEmptyCard
           icon="trophy-outline"
           accentColor="#FFD700"
-          title="Tournaments & Events"
-          emptyLabel="None nearby"
-          ctaLabel="See All"
+          title="No tournaments nearby"
+          subtitle="New events drop weekly — explore tournaments across all academies"
+          ctaLabel="Explore"
           onCta={handleSeeAll}
-          expandedIcon="trophy-outline"
-          expandedIconColor="#FFD700"
-          expandedIconBg="#FFD70022"
-          expandedTitle="No tournaments nearby"
-          expandedSubtitle="Check back soon or explore tournaments in your area"
         />
       ) : (
         <ScrollView
@@ -2523,95 +2451,68 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
-  sectionEmptyCard: {
-    alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 20,
+  premiumEmptyWrap: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#FFFFFF0A",
     overflow: "hidden",
   },
-  sectionEmptyIconWrap: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+  premiumEmptyGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    gap: 12,
+    minHeight: 96,
+  },
+  premiumEmptyIconCol: {
+    width: 52,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
   },
-  sectionEmptyTitle: {
+  premiumEmptyGlow: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    opacity: 0.35,
+  },
+  premiumEmptyIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  premiumEmptyTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  premiumEmptyTitle: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 6,
-  },
-  sectionEmptySubtitle: {
-    color: "#FFFFFF55",
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 19,
-    marginBottom: 20,
-    paddingHorizontal: 8,
-  },
-  sectionEmptyCta: {
-    backgroundColor: GlowColors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 24,
-  },
-  sectionEmptyCtaText: {
-    color: "#000000",
     fontSize: 14,
     fontWeight: "700",
+    marginBottom: 3,
   },
-  pillContainer: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-    borderRadius: 10,
-    backgroundColor: "#13131F",
-    borderWidth: 1,
-    borderColor: "#FFFFFF0A",
-    overflow: "hidden",
-  },
-  pillRow: {
-    height: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    gap: 6,
-  },
-  pillIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pillTitle: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  pillSep: {
-    color: "#FFFFFF33",
-    fontSize: 13,
-  },
-  pillEmptyLabel: {
-    color: "#FFFFFF55",
-    fontSize: 13,
-  },
-  pillCtaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 4,
-  },
-  pillCtaText: {
+  premiumEmptySubtitle: {
+    color: "#FFFFFF80",
     fontSize: 12,
-    fontWeight: "600",
+    lineHeight: 16,
+  },
+  premiumEmptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  premiumEmptyCtaText: {
+    color: "#0B0D10",
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
