@@ -3864,6 +3864,55 @@ Return only the JSON array, nothing else.`;
     }
   });
 
+  // Reconciliation: replay the V2 deposit bridge for an already-paid invoice.
+  // Used when storage.updateInvoice's credit-engine.purchasePackage call failed
+  // (logged but not surfaced) so an admin can retry without manual SQL. The
+  // engine is idempotent on event_key `purchase:inv:<invoiceId>`, so re-runs
+  // are safe — duplicate calls return the existing lot.
+  router.post("/api/admin/invoices/:invoiceId/replay-v2-deposit", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const role = req.user?.role;
+      if (!role || !["academy_owner", "admin", "platform_owner"].includes(role)) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      const { invoiceId } = req.params;
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+      if (invoice.status !== "paid") {
+        return res.status(400).json({ error: "Invoice is not paid" });
+      }
+      if (!invoice.packageId) {
+        return res.status(400).json({ error: "Invoice has no packageId — nothing to deposit" });
+      }
+      const academy = await storage.getAcademy(invoice.academyId);
+      if (!academy?.useNewCreditSystem) {
+        return res.status(400).json({ error: "Academy is not on V2 credit engine" });
+      }
+      const pkg = await storage.getPackage(invoice.packageId);
+      if (!pkg) return res.status(404).json({ error: "Package not found" });
+
+      const { purchasePackage, normalizeSessionTypeToCreditType } = await import("../services/credit-engine");
+      const type = normalizeSessionTypeToCreditType(pkg.creditType);
+      const result = await purchasePackage({
+        playerId: pkg.playerId,
+        academyId: pkg.academyId,
+        type,
+        qty: Number(pkg.totalCredits),
+        pricePerCredit: parseFloat(String(pkg.pricePerCredit ?? "0")),
+        currency: pkg.currency ?? "AED",
+        invoiceId: invoice.id,
+        sourcePackageId: pkg.id,
+        purchasedAt: pkg.purchasedAt ?? new Date(),
+        expiresAt: pkg.expiresAt ?? null,
+        actorRole: "system",
+      });
+      res.json({ success: true, lotId: result.lotId });
+    } catch (error: any) {
+      console.error("[ReplayV2Deposit] error:", error);
+      res.status(500).json({ error: error?.message || "Replay failed" });
+    }
+  });
+
   // Coach-initiated credit purchase for a player. Mirrors the parent purchase
   // flow (creates a package + pending invoice) but is gated by coach role +
   // academy membership instead of the parent PIN. When the academy is on the
