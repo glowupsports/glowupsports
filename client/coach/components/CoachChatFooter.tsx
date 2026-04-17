@@ -222,6 +222,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [safetyBannerDismissed, setSafetyBannerDismissed] = useState(false);
   const [selectedSender, setSelectedSender] = useState<SenderProfile | null>(null);
   const [blockedUserId, setBlockedUserId] = useState<string | null>(null);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [inviteState, setInviteState] = useState<"idle" | "pending" | "sent" | "error">("idle");
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const pendingChallengeRef = useRef<{ opponentId: string; opponentName: string; opponentPhoto?: string } | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -288,6 +291,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   useEffect(() => {
     if (!selectedSender) {
       setBlockedUserId(null);
+      setShowBlockConfirm(false);
+      setInviteState("idle");
+      setInviteError(null);
       if (pendingChallengeRef.current && onChallenge) {
         const { opponentId, opponentName, opponentPhoto } = pendingChallengeRef.current;
         pendingChallengeRef.current = null;
@@ -2830,6 +2836,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                         const opponentName = selectedSender.senderName;
                         const opponentPhoto = selectedSender.senderPhotoUrl ?? undefined;
                         pendingChallengeRef.current = { opponentId, opponentName, opponentPhoto };
+                        setIsFullscreen(false);
+                        setIsExpanded(false);
                         setSelectedSender(null);
                       }}
                     >
@@ -2847,12 +2855,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                         setIsExpanded(false);
                         setTimeout(() => {
                           try {
-                            navigation.navigate("PlayerTabs", {
-                              screen: "PlayStack",
-                              params: { screen: "PublicProfile", params: { playerId } },
-                            });
-                          } catch {
-                            try { navigation.navigate("PublicProfile", { playerId }); } catch {}
+                            navigation.navigate("PublicProfile", { playerId });
+                          } catch (err) {
+                            console.warn("[ChatFooter] PublicProfile navigation failed", err);
                           }
                         }, 250);
                       }}
@@ -2862,37 +2867,59 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                     </Pressable>
                   ) : null}
                   {selectedSender.senderType === "player" && selectedSender.senderUserId && isPlayerMode ? (
-                    <Pressable
-                      style={[styles.profileModalBtn, { backgroundColor: NEON_GREEN + "15", borderColor: NEON_GREEN + "50" }]}
-                      onPress={() => {
-                        Alert.alert(
-                          "Invite as Friend",
-                          `Send a friend invite to ${selectedSender.senderName}?`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Send Invite",
-                              onPress: () => {
-                                try {
-                                  apiRequest("POST", "/api/player/me/friends/invite", {
-                                    targetPlayerId: selectedSender.senderPlayerId,
-                                  }).then(() => {
-                                    Alert.alert("Invite sent", `Friend invite sent to ${selectedSender.senderName}.`);
-                                  }).catch(() => {
-                                    Alert.alert("Could not send invite", "Try again later.");
-                                  });
-                                } catch {
-                                  Alert.alert("Could not send invite", "Try again later.");
-                                }
-                              },
-                            },
-                          ]
-                        );
-                      }}
-                    >
-                      <Ionicons name="person-add-outline" size={16} color={NEON_GREEN} />
-                      <ThemedText style={[styles.profileModalBtnText, { color: NEON_GREEN }]}>Invite as Friend</ThemedText>
-                    </Pressable>
+                    (() => {
+                      const sent = inviteState === "sent";
+                      const pending = inviteState === "pending";
+                      const errored = inviteState === "error";
+                      const disabled = sent || pending;
+                      const label = sent
+                        ? "Invite sent"
+                        : pending
+                        ? "Sending…"
+                        : errored && inviteError
+                        ? inviteError
+                        : "Invite as Friend";
+                      const tint = sent ? Colors.dark.primary : errored ? "#FF9F0A" : NEON_GREEN;
+                      return (
+                        <Pressable
+                          disabled={disabled}
+                          style={[
+                            styles.profileModalBtn,
+                            { backgroundColor: tint + "15", borderColor: tint + "50", opacity: disabled ? 0.85 : 1 },
+                          ]}
+                          onPress={() => {
+                            if (!selectedSender?.senderPlayerId) return;
+                            const targetName = selectedSender.senderName;
+                            setInviteState("pending");
+                            setInviteError(null);
+                            apiRequest("POST", "/api/player/connections/request", {
+                              targetPlayerId: selectedSender.senderPlayerId,
+                            })
+                              .then(() => {
+                                setInviteState("sent");
+                                console.log(`[ChatFooter] Friend invite sent to ${targetName}`);
+                              })
+                              .catch((err: any) => {
+                                let msg = "Try again later";
+                                const raw = err?.message || "";
+                                if (/Already connected/i.test(raw)) msg = "Already friends";
+                                else if (/already pending/i.test(raw)) msg = "Invite already sent";
+                                else if (/yourself/i.test(raw)) msg = "Can’t invite yourself";
+                                else if (/Player access required/i.test(raw)) msg = "Player account required";
+                                setInviteError(msg);
+                                setInviteState("error");
+                              });
+                          }}
+                        >
+                          <Ionicons
+                            name={sent ? "checkmark-circle-outline" : errored ? "alert-circle-outline" : "person-add-outline"}
+                            size={16}
+                            color={tint}
+                          />
+                          <ThemedText style={[styles.profileModalBtnText, { color: tint }]}>{label}</ThemedText>
+                        </Pressable>
+                      );
+                    })()
                   ) : null}
                   {selectedSender.senderType === "player" && selectedSender.senderUserId && isPlayerMode ? (
                     blockedUserId === selectedSender.senderUserId ? (
@@ -2908,30 +2935,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                     ) : (
                       <Pressable
                         style={[styles.profileModalBtn, { backgroundColor: "#FF3B3010", borderColor: "#FF3B3040" }]}
-                        onPress={() => {
-                          Alert.alert(
-                            "Block Player",
-                            `Block ${selectedSender.senderName}? You won't see their messages.`,
-                            [
-                              { text: "Cancel", style: "cancel" },
-                              {
-                                text: "Block",
-                                style: "destructive",
-                                onPress: () => {
-                                  blockMutation.mutate(selectedSender.senderUserId!);
-                                  const convToDelete = conversations.find(c =>
-                                    c.type === "player_player" &&
-                                    c.otherPlayerId === selectedSender.senderPlayerId
-                                  );
-                                  if (convToDelete) {
-                                    deleteConversationMutation.mutate(convToDelete.id);
-                                  }
-                                  setSelectedSender(null);
-                                },
-                              },
-                            ]
-                          );
-                        }}
+                        onPress={() => setShowBlockConfirm(true)}
                       >
                         <Ionicons name="ban-outline" size={16} color="#FF3B30" />
                         <ThemedText style={[styles.profileModalBtnText, { color: "#FF3B30" }]}>Block</ThemedText>
@@ -2942,6 +2946,47 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 <Pressable style={styles.profileModalClose} onPress={() => setSelectedSender(null)}>
                   <ThemedText style={styles.profileModalCloseText}>Close</ThemedText>
                 </Pressable>
+                {showBlockConfirm && selectedSender?.senderUserId ? (
+                  <View style={styles.blockConfirmOverlay} pointerEvents="auto">
+                    <Pressable
+                      style={StyleSheet.absoluteFill}
+                      onPress={() => setShowBlockConfirm(false)}
+                    />
+                    <View style={styles.blockConfirmCard}>
+                      <Ionicons name="ban-outline" size={28} color="#FF3B30" style={{ alignSelf: "center", marginBottom: 8 }} />
+                      <ThemedText style={styles.blockConfirmTitle}>Block {selectedSender.senderName}?</ThemedText>
+                      <ThemedText style={styles.blockConfirmBody}>
+                        You won’t see their messages anywhere in the app.
+                      </ThemedText>
+                      <View style={styles.blockConfirmActions}>
+                        <Pressable
+                          style={[styles.blockConfirmBtn, { backgroundColor: Colors.dark.backgroundSecondary }]}
+                          onPress={() => setShowBlockConfirm(false)}
+                        >
+                          <ThemedText style={[styles.blockConfirmBtnText, { color: Colors.dark.text }]}>Cancel</ThemedText>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.blockConfirmBtn, { backgroundColor: "#FF3B30" }]}
+                          onPress={() => {
+                            const targetUserId = selectedSender.senderUserId!;
+                            const targetPlayerId = selectedSender.senderPlayerId;
+                            blockMutation.mutate(targetUserId);
+                            const convToDelete = conversations.find(
+                              (c) => c.type === "player_player" && c.otherPlayerId === targetPlayerId,
+                            );
+                            if (convToDelete) {
+                              deleteConversationMutation.mutate(convToDelete.id);
+                            }
+                            setShowBlockConfirm(false);
+                            setSelectedSender(null);
+                          }}
+                        >
+                          <ThemedText style={[styles.blockConfirmBtnText, { color: "#fff" }]}>Block</ThemedText>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
               </>
             ) : null}
           </Pressable>
@@ -4263,6 +4308,52 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: 10,
     marginBottom: 16,
+  },
+  blockConfirmOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    zIndex: 9999,
+  },
+  blockConfirmCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#FF3B3030",
+  },
+  blockConfirmTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  blockConfirmBody: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  blockConfirmActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  blockConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  blockConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   profileModalBtn: {
     flexDirection: "row",
