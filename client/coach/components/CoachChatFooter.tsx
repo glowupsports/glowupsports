@@ -2339,7 +2339,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               <ActivityIndicator color={Colors.dark.primary} />
             </View>
           ) : (
-            <View style={{ flex: 1 }}>
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => {
+                Keyboard.dismiss();
+                if (isSidebarExpanded) setIsSidebarExpanded(false);
+              }}
+            >
               <FlatList
                 ref={convStick.ref}
                 data={messageRows}
@@ -2347,6 +2353,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 renderItem={renderMessageRow}
                 style={styles.messageList}
                 contentContainerStyle={styles.messageListContent}
+                keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptyState}>
@@ -2659,13 +2666,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       )}
 
       {(isExpanded || isFullscreen) ? (
-        <TouchableWithoutFeedback
-          onPress={() => {
-            Keyboard.dismiss();
-            if (isSidebarExpanded) setIsSidebarExpanded(false);
-          }}
-          accessible={false}
-        >
         <View style={styles.expandedContent}>
           {!isSmallScreen && renderVerticalTabs()}
           <View style={[styles.rightPanel, isSmallScreen && { flex: 1 }]}>
@@ -2700,7 +2700,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             {renderRightPanel()}
           </View>
         </View>
-        </TouchableWithoutFeedback>
       ) : null}
 
       <Modal
