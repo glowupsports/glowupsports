@@ -1033,6 +1033,10 @@ async function autoCancel(
         duration,
         sessionType,
         ballLevel,
+        // Multi-level group support: optional array of ball levels for a single
+        // group session (e.g. ["red", "blue"]). When present, the legacy
+        // `ballLevel` column is set to the first entry for backward compat.
+        ballLevels: rawBallLevels,
         skillLevel,
         weekCount,
         travelTime,
@@ -1045,6 +1049,13 @@ async function autoCancel(
         notes,
         sport,
       } = req.body;
+
+      const ballLevelsArr: string[] | null = Array.isArray(rawBallLevels) && rawBallLevels.length > 0
+        ? rawBallLevels.filter((l: unknown): l is string => typeof l === "string" && l.length > 0)
+        : null;
+      const primaryBallLevel: string | null = ballLevelsArr && ballLevelsArr.length > 0
+        ? ballLevelsArr[0]
+        : (ballLevel || null);
       
       const FLEXIBLE_DAY = -1;
       const VALID_SPORTS = ["tennis", "padel", "pickleball"];
@@ -1409,7 +1420,8 @@ async function autoCancel(
             startTime: startTimeStr,
             duration,
             sessionType,
-            ballLevel: ballLevel || null,
+            ballLevel: primaryBallLevel,
+            ballLevels: ballLevelsArr ?? undefined,
             skillLevel: skillLevel || null,
             maxPlayers: maxPlayers || (sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 6),
             weekCount: effectiveWeekCount,
@@ -1491,7 +1503,8 @@ async function autoCancel(
             endTime: flexEnd,
             duration,
             sessionType,
-            ballLevel,
+            ballLevel: primaryBallLevel,
+            ballLevels: ballLevelsArr ?? undefined,
             skillLevel,
             isRecurring: false,
             recurringGroupId,
@@ -1621,7 +1634,8 @@ async function autoCancel(
           endTime: weekEnd,
           duration,
           sessionType,
-          ballLevel,
+          ballLevel: primaryBallLevel,
+          ballLevels: ballLevelsArr ?? undefined,
           skillLevel,
           isRecurring: sessionsToCreate > 1,
           recurringGroupId,
@@ -1758,6 +1772,8 @@ async function autoCancel(
         duration,
         sessionType,
         ballLevel,
+        // Multi-level group support — see comment on POST /api/coach/sessions.
+        ballLevels: rawBallLevels,
         skillLevel,
         notes,
         playerIds,
@@ -1767,6 +1783,13 @@ async function autoCancel(
         flexibleSessions, // Array of { date, time, startTime, endTime }
         sport,
       } = req.body;
+
+      const ballLevelsArr: string[] | null = Array.isArray(rawBallLevels) && rawBallLevels.length > 0
+        ? rawBallLevels.filter((l: unknown): l is string => typeof l === "string" && l.length > 0)
+        : null;
+      const primaryBallLevel: string | null = ballLevelsArr && ballLevelsArr.length > 0
+        ? ballLevelsArr[0]
+        : (ballLevel || null);
       
       if (!coachId || !courtId || !flexibleSessions || !Array.isArray(flexibleSessions) || flexibleSessions.length === 0) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -1839,7 +1862,8 @@ async function autoCancel(
           startTime: "00:00",
           duration,
           sessionType,
-          ballLevel: ballLevel || null,
+          ballLevel: primaryBallLevel,
+          ballLevels: ballLevelsArr ?? undefined,
           skillLevel: skillLevel || null,
           maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : maxPlayers || 6,
           weekCount: flexibleSessions.length,
@@ -1889,7 +1913,8 @@ async function autoCancel(
           sessionType,
           status: "scheduled",
           name: notes || null,
-          ballLevel: ballLevel || null,
+          ballLevel: primaryBallLevel,
+          ballLevels: ballLevelsArr ?? undefined,
           skillLevel: skillLevel || null,
           maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : maxPlayers || 6,
           recurringGroupId: null,

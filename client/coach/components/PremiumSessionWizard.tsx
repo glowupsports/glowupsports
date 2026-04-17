@@ -208,7 +208,10 @@ export function PremiumSessionWizard({
   const [dontShowAgain, setDontShowAgain] = useState(false);
   
   const [sessionType, setSessionType] = useState<SessionType | null>(null);
-  const [groupLevel, setGroupLevel] = useState<BallLevel | null>(null);
+  // Multi-level group support: a coach can target one OR multiple ball levels
+  // for a single group session (e.g. RED + BLUE kids together).
+  const [groupLevels, setGroupLevels] = useState<BallLevel[]>([]);
+  const primaryGroupLevel: BallLevel | null = groupLevels[0] ?? null;
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
   const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(null);
@@ -480,9 +483,12 @@ export function PremiumSessionWizard({
   const filteredPlayers = useMemo(() => {
     let result = players;
     
-    // Filter by group level for group sessions
-    if (sessionType === "group" && groupLevel && !showAllPlayers) {
-      result = result.filter(p => p.ballLevel?.toLowerCase() === groupLevel);
+    // Filter by group level(s) for group sessions — OR-match across all selected levels.
+    if (sessionType === "group" && groupLevels.length > 0 && !showAllPlayers) {
+      result = result.filter(p => {
+        const lvl = p.ballLevel?.toLowerCase();
+        return !!lvl && (groupLevels as string[]).includes(lvl);
+      });
     }
     
     // Filter by ball level filter chips (for non-group sessions or when showing all)
@@ -496,7 +502,7 @@ export function PremiumSessionWizard({
     }
     
     return result;
-  }, [players, sessionType, groupLevel, playerSearch, showAllPlayers, playerBallFilter]);
+  }, [players, sessionType, groupLevels, playerSearch, showAllPlayers, playerBallFilter]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -509,7 +515,10 @@ export function PremiumSessionWizard({
         duration,
         courtId: selectedCourtId,
         playerIds: selectedPlayers.map(p => p.id),
-        ballLevel: groupLevel || (selectedPlayers[0]?.ballLevel || "green"),
+        // Backward-compat: keep `ballLevel` as the primary level so older
+        // readers continue to work. New `ballLevels` carries the full set.
+        ballLevel: primaryGroupLevel || (selectedPlayers[0]?.ballLevel || "green"),
+        ballLevels: groupLevels.length > 0 ? groupLevels : undefined,
         coachId: effectiveCoach?.id,
         maxPlayers,
         skillLevel,
@@ -557,7 +566,7 @@ export function PremiumSessionWizard({
       const initialStep = skipIntro ? "session-type" : "intro";
       setStep(initialStep);
       setSessionType(null);
-      setGroupLevel(null);
+      setGroupLevels([]);
       setSelectedPlayers([]);
       setPlayerSearch("");
       setSelectedDate(initialDate || new Date());
@@ -716,7 +725,7 @@ export function PremiumSessionWizard({
       case "schedule-pattern": 
         if (isFlexible) return flexibleDates.length > 0;
         return true;
-      case "group-level": return groupLevel !== null;
+      case "group-level": return groupLevels.length > 0;
       case "players": 
         if (sessionType === "private") return selectedPlayers.length === 1;
         if (sessionType === "semi_private") return selectedPlayers.length >= 1 && selectedPlayers.length <= 3;
@@ -865,7 +874,7 @@ export function PremiumSessionWizard({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSessionType(type.id);
                   if (type.id !== "group") {
-                    setGroupLevel(null);
+                    setGroupLevels([]);
                   }
                 }}
               >
@@ -1120,8 +1129,16 @@ export function PremiumSessionWizard({
     </BaselineFlowCard>
   );
 
+  const formatLevelList = (levels: BallLevel[]): string => {
+    const labels = levels.map(l => l.toUpperCase());
+    if (labels.length === 0) return "";
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+    return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+  };
+
   const renderGroupLevelCard = () => {
-    const selectedLevelData = BALL_LEVELS.find(l => l.id === groupLevel);
+    const selectedLevelData = BALL_LEVELS.find(l => l.id === primaryGroupLevel);
     
     return (
       <BaselineFlowCard
@@ -1145,31 +1162,40 @@ export function PremiumSessionWizard({
           <View style={styles.ballLevelGrid}>
             {BALL_LEVELS.map((level) => {
               const playerCount = players.filter(p => p.ballLevel?.toLowerCase() === level.id).length;
+              const isSelected = groupLevels.includes(level.id);
               
               return (
                 <Pressable
                   key={level.id}
                   style={[
                     styles.ballLevelCard,
-                    groupLevel === level.id && styles.ballLevelCardSelected,
-                    groupLevel === level.id && { borderColor: level.color },
+                    isSelected && styles.ballLevelCardSelected,
+                    isSelected && { borderColor: level.color },
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setGroupLevel(level.id);
+                    setGroupLevels(prev => {
+                      const next = prev.includes(level.id)
+                        ? prev.filter(l => l !== level.id)
+                        : [...prev, level.id];
+                      return next;
+                    });
+                    // Reset selected players whenever the level set changes —
+                    // mirrors the previous single-select behaviour so no
+                    // already-picked player can stay if they no longer match.
                     setSelectedPlayers([]);
                   }}
                 >
                   <View style={[styles.ballDot, { backgroundColor: level.color }]} />
                   <Text style={[
                     styles.ballLevelLabel,
-                    groupLevel === level.id && { color: level.color }
+                    isSelected && { color: level.color }
                   ]}>
                     {level.label}
                   </Text>
                   <Text style={styles.ballLevelDesc}>{level.description}</Text>
                   <Text style={styles.playerCountBadge}>{playerCount} players</Text>
-                  {groupLevel === level.id ? (
+                  {isSelected ? (
                     <View style={[styles.ballCheck, { backgroundColor: level.color }]}>
                       <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                     </View>
@@ -1179,11 +1205,11 @@ export function PremiumSessionWizard({
             })}
           </View>
           
-          {groupLevel ? (
+          {groupLevels.length > 0 ? (
             <View style={styles.levelInfo}>
               <Ionicons name="information-circle" size={18} color={Colors.dark.textMuted} />
               <Text style={styles.levelInfoText}>
-                Only {groupLevel.toUpperCase()} players will be shown in the next step
+                Only {formatLevelList(groupLevels)} players will be shown in the next step
               </Text>
             </View>
           ) : null}
@@ -1286,12 +1312,12 @@ export function PremiumSessionWizard({
             <Text style={styles.addGuestButtonText}>Add Guest Player</Text>
           </Pressable>
 
-          {sessionType === "group" && groupLevel ? (
+          {sessionType === "group" && primaryGroupLevel ? (
             <View style={styles.filterRow}>
-              <View style={[styles.filterBadge, { backgroundColor: getLevelColor(groupLevel) + "20", flex: 1 }]}>
-                <View style={[styles.filterDot, { backgroundColor: getLevelColor(groupLevel) }]} />
-                <Text style={[styles.filterText, { color: getLevelColor(groupLevel) }]}>
-                  {showAllPlayers ? "All levels" : `${groupLevel.toUpperCase()} only`}
+              <View style={[styles.filterBadge, { backgroundColor: getLevelColor(primaryGroupLevel) + "20", flex: 1 }]}>
+                <View style={[styles.filterDot, { backgroundColor: getLevelColor(primaryGroupLevel) }]} />
+                <Text style={[styles.filterText, { color: getLevelColor(primaryGroupLevel) }]}>
+                  {showAllPlayers ? "All levels" : `${formatLevelList(groupLevels)} only`}
                 </Text>
               </View>
               <Pressable
@@ -1862,7 +1888,7 @@ export function PremiumSessionWizard({
 
   const renderSummaryCard = () => {
     const typeData = SESSION_TYPES.find(t => t.id === sessionType);
-    const levelColor = groupLevel ? getLevelColor(groupLevel) : (typeData?.color || GlowColors.primary);
+    const levelColor = primaryGroupLevel ? getLevelColor(primaryGroupLevel) : (typeData?.color || GlowColors.primary);
     const courtName = selectedCourtId ? courts.find(c => c.id === selectedCourtId)?.name : "No specific court";
     
     const getScheduleLabel = () => {
@@ -1907,15 +1933,15 @@ export function PremiumSessionWizard({
               </View>
             </View>
             
-            {sessionType === "group" && groupLevel ? (
+            {sessionType === "group" && primaryGroupLevel ? (
               <View style={styles.summaryRow}>
                 <View style={[styles.summaryIcon, { backgroundColor: levelColor + "20" }]}>
                   <View style={[styles.summaryDot, { backgroundColor: levelColor }]} />
                 </View>
                 <View style={styles.summaryInfo}>
-                  <Text style={styles.summaryLabel}>Group Level</Text>
-                  <Text style={[styles.summaryValue, { color: getLevelTextColor(groupLevel) }]}>
-                    {groupLevel.toUpperCase()}
+                  <Text style={styles.summaryLabel}>{groupLevels.length > 1 ? "Group Levels" : "Group Level"}</Text>
+                  <Text style={[styles.summaryValue, { color: getLevelTextColor(primaryGroupLevel) }]}>
+                    {formatLevelList(groupLevels)}
                   </Text>
                 </View>
               </View>

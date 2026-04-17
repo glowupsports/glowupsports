@@ -1567,6 +1567,11 @@ export const sessions = pgTable("sessions", {
   
   sessionType: text("session_type").notNull(), // private/semi/group/physical/activity
   ballLevel: text("ball_level"),
+  // Multi-level group support: when a group session targets more than one ball
+  // level (e.g. RED + BLUE kids together), we persist the full set here. The
+  // legacy `ballLevel` column is kept as the primary level (= ballLevels[0])
+  // so older readers continue to work unchanged.
+  ballLevels: jsonb("ball_levels").$type<string[]>(),
   skillLevel: integer("skill_level"),
   
   title: text("title"), // Display name like "Sunset Rally", "Glow Doubles"
@@ -1646,6 +1651,8 @@ export const coachingSeries = pgTable("coaching_series", {
   // Series details
   sessionType: text("session_type").notNull(), // private/semi/group/physical/activity
   ballLevel: text("ball_level"),
+  // Multi-level group support — see comment on `sessions.ballLevels` above.
+  ballLevels: jsonb("ball_levels").$type<string[]>(),
   skillLevel: integer("skill_level"),
   maxPlayers: integer("max_players").default(6), // Max capacity
   
