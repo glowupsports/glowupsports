@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
 interface Message {
   id: string;
@@ -41,7 +42,6 @@ export default function ProviderChatScreen() {
   const queryClient = useQueryClient();
   const orderId: string = route.params?.orderId;
   const [inputText, setInputText] = useState("");
-  const flatListRef = useRef<FlatList>(null);
 
   // Load or create conversation
   const { data: conversation, isLoading: convLoading } = useQuery<Conversation>({
@@ -63,6 +63,11 @@ export default function ProviderChatScreen() {
     },
     enabled: !!conversation?.id,
     refetchInterval: 8000,
+  });
+
+  const stick = useChatStickyBottom<Message>({
+    itemCount: messages.length,
+    resetKey: conversation?.id ?? null,
   });
 
   // Real-time WebSocket: invalidate query on incoming message for this conversation
@@ -96,7 +101,7 @@ export default function ProviderChatScreen() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/provider/conversations"] });
       setInputText("");
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(() => stick.scrollToBottom(true), 100);
     },
   });
 
@@ -106,11 +111,6 @@ export default function ProviderChatScreen() {
     sendMutation.mutate(text);
   }, [inputText, conversation?.id, sendMutation]);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
-    }
-  }, [messages.length]);
 
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isSystem = item.senderType === "system" || item.messageType === "system";
@@ -175,20 +175,31 @@ export default function ProviderChatScreen() {
           <ActivityIndicator color={Colors.dark.primary} />
         </View>
       ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.messageList}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textSecondary} />
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptySubText}>Start the conversation below</Text>
-            </View>
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={stick.ref}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messageList}
+            onContentSizeChange={stick.onContentSizeChange}
+            onScroll={stick.onScroll}
+            scrollEventThrottle={stick.scrollEventThrottle}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textSecondary} />
+                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptySubText}>Start the conversation below</Text>
+              </View>
+            }
+          />
+          {stick.hasNewBelow ? (
+            <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
+              <Ionicons name="arrow-down" size={14} color="#000" />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</Text>
+            </Pressable>
+          ) : null}
+        </View>
       )}
 
       {/* Input */}
@@ -220,6 +231,18 @@ export default function ProviderChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  jumpUnreadPill: {
+    position: "absolute",
+    bottom: Spacing.md,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.dark.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,

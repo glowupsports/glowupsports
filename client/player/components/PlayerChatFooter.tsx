@@ -26,6 +26,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
@@ -109,7 +110,6 @@ export function PlayerChatFooter() {
       return next;
     });
   }, []);
-  const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const height = useSharedValue(FOOTER_COLLAPSED);
@@ -118,11 +118,6 @@ export function PlayerChatFooter() {
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations", payload.conversationId, "messages"] });
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
-    if (selectedConversation?.id === payload.conversationId) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
   }, [queryClient, playerId, selectedConversation?.id]);
 
   const handleTyping = useCallback((payload: TypingPayload) => {
@@ -174,6 +169,11 @@ export function PlayerChatFooter() {
     queryKey: ["/api/player/me/conversations", selectedConversation?.id, "messages"],
     enabled: !!selectedConversation?.id,
     refetchInterval: isConnected ? 30000 : 5000,
+  });
+
+  const stick = useChatStickyBottom<Message>({
+    itemCount: messages.length,
+    resetKey: selectedConversation?.id ?? null,
   });
 
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
@@ -272,9 +272,7 @@ export function PlayerChatFooter() {
     if (inputText.trim() && selectedConversation) {
       sendMessageMutation.mutate(inputText.trim());
       setInputText("");
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => stick.scrollToBottom(true), 100);
     }
   };
 
@@ -631,21 +629,34 @@ export function PlayerChatFooter() {
                   <ActivityIndicator size="small" color={Colors.dark.primary} />
                 </View>
               ) : (
-                <FlatList
-                  ref={flatListRef}
-                  data={messages}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderMessage}
-                  contentContainerStyle={styles.messageList}
-                  onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                  ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                      <Ionicons name="chatbubble-outline" size={40} color={Colors.dark.tabIconDefault} />
-                      <ThemedText style={styles.emptyText}>No messages yet</ThemedText>
-                      <ThemedText style={styles.emptySubtext}>Send a message to your coach</ThemedText>
-                    </View>
-                  }
-                />
+                <View style={{ flex: 1 }}>
+                  <FlatList
+                    ref={stick.ref}
+                    data={messages}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={styles.messageList}
+                    onContentSizeChange={stick.onContentSizeChange}
+                    onScroll={stick.onScroll}
+                    scrollEventThrottle={stick.scrollEventThrottle}
+                    ListEmptyComponent={
+                      <View style={styles.emptyState}>
+                        <Ionicons name="chatbubble-outline" size={40} color={Colors.dark.tabIconDefault} />
+                        <ThemedText style={styles.emptyText}>No messages yet</ThemedText>
+                        <ThemedText style={styles.emptySubtext}>Send a message to your coach</ThemedText>
+                      </View>
+                    }
+                  />
+                  {stick.hasNewBelow ? (
+                    <Pressable
+                      style={styles.jumpUnreadPill}
+                      onPress={() => stick.scrollToBottom(true)}
+                    >
+                      <Ionicons name="arrow-down" size={14} color="#000" />
+                      <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
               )}
               {isOtherTyping ? (
                 <View style={styles.typingIndicator}>
@@ -756,6 +767,18 @@ export function PlayerChatFooter() {
 }
 
 const styles = StyleSheet.create({
+  jumpUnreadPill: {
+    position: "absolute",
+    bottom: Spacing.md,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.dark.primary,
+  },
   container: {
     position: "absolute",
     left: 0,

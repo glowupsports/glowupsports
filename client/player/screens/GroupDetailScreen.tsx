@@ -27,6 +27,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload } from "@/lib/useWebSocket";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
@@ -2001,7 +2002,10 @@ function GroupChatTab({
   const [sending, setSending] = useState(false);
   // Server-backed read state: latest timestamp that any other participant has read up to
   const [othersLastReadAt, setOthersLastReadAt] = useState<Date | null>(null);
-  const flatListRef = useRef<FlatList>(null);
+  const stick = useChatStickyBottom<ChatMessage>({
+    itemCount: chatMessages.length,
+    resetKey: conversationId,
+  });
 
   const initConversation = useCallback(async () => {
     setLoadingConv(true);
@@ -2076,7 +2080,6 @@ function GroupChatTab({
           };
           return [...prev, wsMsg];
         });
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       }
     }, [conversationId]),
     onMessageRead: useCallback(() => {
@@ -2107,7 +2110,7 @@ function GroupChatTab({
     try {
       await apiRequest("POST", `/api/player/me/conversations/${conversationId}/messages`, { body: text });
       await loadMessages();
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 150);
+      setTimeout(() => stick.scrollToBottom(true), 150);
     } catch {
       Alert.alert("Error", "Failed to send message");
       setInputText(text);
@@ -2154,7 +2157,7 @@ function GroupChatTab({
   return (
     <View style={{ flex: 1 }}>
       <FlatList
-        ref={flatListRef}
+        ref={stick.ref}
         data={chatMessages}
         keyExtractor={(m) => m.id}
         renderItem={({ item, index }) => {
@@ -2176,7 +2179,9 @@ function GroupChatTab({
           );
         }}
         contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        onContentSizeChange={stick.onContentSizeChange}
+        onScroll={stick.onScroll}
+        scrollEventThrottle={stick.scrollEventThrottle}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: typeColor + "20" }]}>
@@ -2187,6 +2192,26 @@ function GroupChatTab({
           </View>
         }
       />
+      {stick.hasNewBelow ? (
+        <Pressable
+          style={{
+            position: "absolute",
+            bottom: 80,
+            alignSelf: "center",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 999,
+            backgroundColor: typeColor,
+          }}
+          onPress={() => stick.scrollToBottom(true)}
+        >
+          <Ionicons name="arrow-down" size={14} color="#000" />
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</Text>
+        </Pressable>
+      ) : null}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={[chatStyles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
           <TextInput

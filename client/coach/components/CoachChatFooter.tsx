@@ -40,6 +40,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload, type OnlineStatusPayload } from "@/lib/useWebSocket";
 import { useChatState } from "@/coach/context/ChatStateContext";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
 interface ChatFooterProps {
   mode?: "coach" | "player";
@@ -226,7 +227,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [inviteState, setInviteState] = useState<"idle" | "pending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const pendingChallengeRef = useRef<{ opponentId: string; opponentName: string; opponentPhoto?: string } | null>(null);
-  const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // P3–P7: mute map, mark-unread set, world-hype counts, quick-phrase bar, jump-to-unread, ticker rotation
@@ -235,7 +235,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [worldHypeMap, setWorldHypeMap] = useState<Record<string, { mine: boolean; count: number }>>({});
   const [tickerIndex, setTickerIndex] = useState(0);
   const tickerFade = useSharedValue(1);
-  const [showJumpUnread, setShowJumpUnread] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [showQuickReplyTooltip, setShowQuickReplyTooltip] = useState(false);
   const [showAddQuickReply, setShowAddQuickReply] = useState(false);
@@ -346,11 +345,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "unread-count"] });
     }
 
-    if (selectedConversation?.id === payload.conversationId) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
   }, [queryClient, userId, selectedConversation?.id, isPlayerMode]);
 
   const handleTyping = useCallback((payload: TypingPayload) => {
@@ -829,9 +823,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     if (currentTab === "world") {
       sendWorldMessageMutation.mutate(inputText.trim());
       setInputText("");
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => worldStick.scrollToBottom(true), 100);
       return;
     }
     if (selectedConversation && !isSampleConversation) {
@@ -842,9 +834,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       sendMessageMutation.mutate({ body, optimisticId });
       setInputText("");
       setReplyTo(null);
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => convStick.scrollToBottom(true), 100);
     }
   };
 
@@ -1462,6 +1452,15 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return rows;
   }, [messages]);
 
+  const convStick = useChatStickyBottom<MessageRow>({
+    itemCount: messageRows.length,
+    resetKey: selectedConversation?.id ?? null,
+  });
+  const worldStick = useChatStickyBottom<WorldMessage>({
+    itemCount: worldMessages.length,
+    resetKey: currentTab === "world" ? "world" : null,
+  });
+
   const renderMessageRow = ({ item }: { item: MessageRow }) => {
     if (item._rowType === "date") {
       return (
@@ -1968,14 +1967,16 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           <ThemedText style={[styles.activityHeaderText, { color: Colors.dark.xpCyan }]}>World Chat</ThemedText>
         </View>
         <FlatList
-            ref={flatListRef}
+            ref={worldStick.ref}
             data={worldMessages}
             keyExtractor={(item) => item.id}
             renderItem={renderWorldMessage}
             extraData={userId}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ padding: Spacing.sm, gap: 4 }}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={worldStick.onContentSizeChange}
+            onScroll={worldStick.onScroll}
+            scrollEventThrottle={worldStick.scrollEventThrottle}
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Ionicons name="globe-outline" size={36} color={Colors.dark.tabIconDefault} />
@@ -1986,6 +1987,15 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               </View>
             }
           />
+          {worldStick.hasNewBelow ? (
+            <Pressable
+              style={styles.jumpUnreadPill}
+              onPress={() => worldStick.scrollToBottom(true)}
+            >
+              <Ionicons name="arrow-down" size={14} color="#000" />
+              <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+            </Pressable>
+          ) : null}
       </View>
       <View style={styles.inputContainer}>
         <TextInput
@@ -2331,7 +2341,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           ) : (
             <View style={{ flex: 1 }}>
               <FlatList
-                ref={flatListRef}
+                ref={convStick.ref}
                 data={messageRows}
                 keyExtractor={(item) => item.id}
                 renderItem={renderMessageRow}
@@ -2346,27 +2356,17 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                     </ThemedText>
                   </View>
                 }
-                onContentSizeChange={() => {
-                  if (!showJumpUnread) flatListRef.current?.scrollToEnd({ animated: false });
-                }}
-                onScroll={(e) => {
-                  const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-                  const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-                  const notAtBottom = distanceFromBottom > 120;
-                  if (notAtBottom !== showJumpUnread) setShowJumpUnread(notAtBottom);
-                }}
-                scrollEventThrottle={100}
+                onContentSizeChange={convStick.onContentSizeChange}
+                onScroll={convStick.onScroll}
+                scrollEventThrottle={convStick.scrollEventThrottle}
               />
-              {showJumpUnread ? (
+              {convStick.hasNewBelow ? (
                 <Pressable
                   style={styles.jumpUnreadPill}
-                  onPress={() => {
-                    flatListRef.current?.scrollToEnd({ animated: true });
-                    setShowJumpUnread(false);
-                  }}
+                  onPress={() => convStick.scrollToBottom(true)}
                 >
                   <Ionicons name="arrow-down" size={14} color="#000" />
-                  <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>Jump to latest</ThemedText>
+                  <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
                 </Pressable>
               ) : null}
             </View>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
 interface Message {
   id: string;
@@ -44,7 +45,6 @@ export default function PlayerBookingChatScreen() {
   const orderId: string = route.params?.orderId;
   const conversationId: string | undefined = route.params?.conversationId;
   const [inputText, setInputText] = useState("");
-  const flatListRef = useRef<FlatList>(null);
 
   // If conversationId is passed directly, skip the get/create step
   const { data: conversation, isLoading: convLoading } = useQuery<ConversationInfo>({
@@ -70,6 +70,11 @@ export default function PlayerBookingChatScreen() {
     },
     enabled: !!activeConvId,
     refetchInterval: 8000,
+  });
+
+  const stick = useChatStickyBottom<Message>({
+    itemCount: messages.length,
+    resetKey: activeConvId ?? null,
   });
 
   // Real-time WebSocket: invalidate on new messages for this conversation
@@ -103,7 +108,7 @@ export default function PlayerBookingChatScreen() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
       setInputText("");
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(() => stick.scrollToBottom(true), 100);
     },
   });
 
@@ -113,11 +118,6 @@ export default function PlayerBookingChatScreen() {
     sendMutation.mutate(text);
   }, [inputText, activeConvId, sendMutation]);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
-    }
-  }, [messages.length]);
 
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isSystem = item.senderType === "system" || item.messageType === "system";
@@ -180,20 +180,31 @@ export default function PlayerBookingChatScreen() {
           <ActivityIndicator color={Colors.dark.primary} />
         </View>
       ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.messageList}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textSecondary} />
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptySubText}>Send a message to your service provider</Text>
-            </View>
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={stick.ref}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messageList}
+            onContentSizeChange={stick.onContentSizeChange}
+            onScroll={stick.onScroll}
+            scrollEventThrottle={stick.scrollEventThrottle}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textSecondary} />
+                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptySubText}>Send a message to your service provider</Text>
+              </View>
+            }
+          />
+          {stick.hasNewBelow ? (
+            <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
+              <Ionicons name="arrow-down" size={14} color="#000" />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</Text>
+            </Pressable>
+          ) : null}
+        </View>
       )}
 
       <View style={[styles.inputBar, { paddingBottom: insets.bottom + Spacing.sm }]}>
@@ -224,6 +235,18 @@ export default function PlayerBookingChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  jumpUnreadPill: {
+    position: "absolute",
+    bottom: Spacing.md,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.dark.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,

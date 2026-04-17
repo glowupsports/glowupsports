@@ -25,6 +25,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
 interface Message {
   id: string;
@@ -144,7 +145,6 @@ export default function ChatInboxScreen() {
   const [inputText, setInputText] = useState("");
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const [chatFilter, setChatFilter] = useState<ChatFilter>("all");
-  const flatListRef = React.useRef<FlatList>(null);
 
   const sendScale = useSharedValue(1);
 
@@ -173,6 +173,11 @@ export default function ChatInboxScreen() {
     queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
     enabled: !!selectedConversation?.id,
     refetchInterval: 5000,
+  });
+
+  const stick = useChatStickyBottom<Message>({
+    itemCount: messages.length,
+    resetKey: selectedConversation?.id ?? null,
   });
 
   const sendMessageMutation = useMutation({
@@ -233,9 +238,7 @@ export default function ChatInboxScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       sendMessageMutation.mutate(inputText.trim());
       setInputText("");
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => stick.scrollToBottom(true), 100);
     }
   };
 
@@ -404,15 +407,25 @@ export default function ChatInboxScreen() {
             <ActivityIndicator color={Colors.dark.primary} size="large" />
           </View>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            style={styles.messageList}
-            contentContainerStyle={[styles.messageListContent, { paddingBottom: 100 }]}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          />
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={stick.ref}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              style={styles.messageList}
+              contentContainerStyle={[styles.messageListContent, { paddingBottom: 100 }]}
+              onContentSizeChange={stick.onContentSizeChange}
+              onScroll={stick.onScroll}
+              scrollEventThrottle={stick.scrollEventThrottle}
+            />
+            {stick.hasNewBelow ? (
+              <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
+                <Ionicons name="arrow-down" size={14} color="#000" />
+                <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
         )}
 
         <View style={[styles.inputContainer, { paddingBottom: insets.bottom + Spacing.sm }]}>
@@ -537,6 +550,18 @@ export default function ChatInboxScreen() {
 }
 
 const styles = StyleSheet.create({
+  jumpUnreadPill: {
+    position: "absolute",
+    bottom: Spacing.md,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.dark.primary,
+  },
   container: {
     flex: 1,
   },

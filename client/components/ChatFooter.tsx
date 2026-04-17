@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -19,6 +19,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { ChatMessage, CHAT_CHANNELS, REACTION_EMOJIS, ChatChannel } from "@/constants/playerData";
+import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
@@ -37,12 +38,15 @@ export function ChatFooter() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputText, setInputText] = useState("");
   const [showReactions, setShowReactions] = useState<string | null>(null);
-  const flatListRef = useRef<FlatList>(null);
-
   const height = useSharedValue(FOOTER_COLLAPSED);
 
   const filteredMessages = messages.filter((m) => m.channel === currentChannel);
   const latestMessage = filteredMessages[filteredMessages.length - 1];
+
+  const stick = useChatStickyBottom<ChatMessage>({
+    itemCount: filteredMessages.length,
+    resetKey: currentChannel,
+  });
 
   useEffect(() => {
     height.value = withSpring(
@@ -59,9 +63,7 @@ export function ChatFooter() {
     if (inputText.trim()) {
       await sendMessage(inputText.trim());
       setInputText("");
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => stick.scrollToBottom(true), 100);
     }
   };
 
@@ -207,15 +209,25 @@ export function ChatFooter() {
             ))}
           </View>
 
-          <FlatList
-            ref={flatListRef}
-            data={filteredMessages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            style={styles.messageList}
-            contentContainerStyle={styles.messageListContent}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          />
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={stick.ref}
+              data={filteredMessages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              style={styles.messageList}
+              contentContainerStyle={styles.messageListContent}
+              onContentSizeChange={stick.onContentSizeChange}
+              onScroll={stick.onScroll}
+              scrollEventThrottle={stick.scrollEventThrottle}
+            />
+            {stick.hasNewBelow ? (
+              <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
+                <Ionicons name="arrow-down" size={14} color="#000" />
+                <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -244,6 +256,18 @@ export function ChatFooter() {
 }
 
 const styles = StyleSheet.create({
+  jumpUnreadPill: {
+    position: "absolute",
+    bottom: Spacing.md,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.dark.primary,
+  },
   container: {
     position: "absolute",
     bottom: TAB_BAR_HEIGHT,
