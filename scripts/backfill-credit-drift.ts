@@ -29,10 +29,10 @@
 import { sql } from "drizzle-orm";
 import { db } from "../server/db";
 import {
-  consumeCredit,
   shouldChargeForAttendance,
   normalizeSessionTypeToCreditType,
 } from "../server/services/credit-engine";
+import { ensureCreditProcessed } from "../server/storage";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -43,13 +43,18 @@ interface DriftRow {
   academyId: string;
   academyName: string;
   sessionId: string;
+  sessionStatus: string;
   sessionType: string;
   attendanceStatus: string;
   startTime: Date;
   duration: number;
+  creditCost: number;
   seriesId: string | null;
   seriesType: string | null;
   sessionPlayerCount: number;
+  existingLedgerReason: string | null;
+  existingLedgerAmount: number | null;
+  existingLedgerId: string | null;
 }
 
 interface PredictedAction {
@@ -73,24 +78,39 @@ interface ApplyResult {
 }
 
 async function loadDriftRows(): Promise<DriftRow[]> {
+  // Scope per task #670:
+  //   - V2 academies only (Step 1 stop-the-bleed already covers V1).
+  //   - Sessions in `completed` OR `in_progress` (Step 1's safety net surfaces
+  //     the latter the moment attendance is recorded; we sweep both so any
+  //     in-flight backlog is included).
+  //   - Attendance recorded as present/late/absent.
+  //   - No prior `consume` row in credit_ledger_v2 (i.e. truly missing).
+  // For each candidate we LEFT JOIN any existing ledger row keyed by the
+  // engine's deterministic event_key (`consume:<sp.id>`) so the report shows
+  // current ledger state alongside the predicted action.
   const result = await db.execute(sql`
     SELECT sp.id AS sp_id, sp.player_id, p.name AS player_name,
            s.academy_id, a.name AS academy_name,
-           s.id AS session_id, s.session_type, sp.attendance_status,
+           s.id AS session_id, s.status AS session_status,
+           s.session_type, sp.attendance_status,
            s.start_time, COALESCE(s.duration, 60) AS duration,
+           COALESCE(s.credit_cost, 1)::numeric AS credit_cost,
            s.series_id, cs.session_type AS series_type,
-           (SELECT COUNT(*)::int FROM session_players sp2 WHERE sp2.session_id = s.id) AS sp_count
+           (SELECT COUNT(*)::int FROM session_players sp2 WHERE sp2.session_id = s.id) AS sp_count,
+           lv.id AS existing_ledger_id, lv.reason AS existing_ledger_reason,
+           lv.delta AS existing_ledger_amount
     FROM session_players sp
     JOIN sessions s ON s.id = sp.session_id
     JOIN players p ON p.id = sp.player_id
     JOIN academies a ON a.id = s.academy_id
     LEFT JOIN coaching_series cs ON cs.id = s.series_id
+    LEFT JOIN credit_ledger_v2 lv ON lv.event_key = 'consume:' || sp.id
     WHERE COALESCE(a.use_new_credit_system, false) = true
-      AND s.status = 'completed'
+      AND s.status IN ('completed', 'in_progress')
       AND sp.attendance_status IN ('present', 'late', 'absent')
       AND NOT EXISTS (
-        SELECT 1 FROM credit_ledger_v2 lv
-        WHERE lv.session_player_id = sp.id AND lv.reason = 'consume'
+        SELECT 1 FROM credit_ledger_v2 lv2
+        WHERE lv2.session_player_id = sp.id AND lv2.reason = 'consume'
       )
     ORDER BY a.name, p.name, s.start_time
   `);
@@ -101,13 +121,20 @@ async function loadDriftRows(): Promise<DriftRow[]> {
     academyId: r.academy_id,
     academyName: r.academy_name,
     sessionId: r.session_id,
+    sessionStatus: r.session_status,
     sessionType: r.session_type,
     attendanceStatus: r.attendance_status,
     startTime: new Date(r.start_time),
     duration: Number(r.duration),
+    creditCost: Number(r.credit_cost),
     seriesId: r.series_id,
     seriesType: r.series_type,
     sessionPlayerCount: Number(r.sp_count),
+    existingLedgerId: r.existing_ledger_id,
+    existingLedgerReason: r.existing_ledger_reason,
+    existingLedgerAmount: r.existing_ledger_amount !== null && r.existing_ledger_amount !== undefined
+      ? Number(r.existing_ledger_amount)
+      : null,
   }));
 }
 
@@ -136,7 +163,9 @@ function predict(row: DriftRow): PredictedAction {
     };
   }
   const resolvedType = normalizeSessionTypeToCreditType(row.sessionType);
-  const amount = row.duration / 60;
+  // Match the engine: amount = sessions.credit_cost (default 1). Duration is
+  // informational only — the engine never divides by 60.
+  const amount = row.creditCost;
   return {
     row,
     chargeable: true,
@@ -190,8 +219,11 @@ function formatPredictTable(predictions: PredictedAction[]): string {
     let consumeAmt = 0, skipCount = 0;
     for (const p of rows) {
       const date = p.row.startTime.toISOString().slice(0, 16).replace("T", " ");
+      const ledgerState = p.row.existingLedgerId
+        ? `ledger=${p.row.existingLedgerReason}/${p.row.existingLedgerAmount}`
+        : "ledger=NONE";
       lines.push(
-        `    [${p.predicted.padEnd(22)}] ${date}  ${p.row.sessionType.padEnd(18)} ${p.row.attendanceStatus.padEnd(8)} dur=${p.row.duration}min  amt=${p.amount}  origPriv=${p.isOriginallyPrivate}`
+        `    [${p.predicted.padEnd(22)}] ${date}  ${p.row.sessionStatus.padEnd(11)} ${p.row.sessionType.padEnd(18)} ${p.row.attendanceStatus.padEnd(8)} cost=${p.row.creditCost}  amt=${p.amount}  origPriv=${p.isOriginallyPrivate}  ${ledgerState}`
       );
       if (p.chargeable) consumeAmt += p.amount;
       else skipCount++;
@@ -202,6 +234,32 @@ function formatPredictTable(predictions: PredictedAction[]): string {
   }
   lines.push(`\n  GRAND TOTAL: would consume ${grandConsume} credit(s), skip ${grandSkip} non-chargeable across ${byPlayer.size} player(s)`);
   return lines.join("\n");
+}
+
+function writeDryRunCsv(predictions: PredictedAction[], file: string) {
+  const header = [
+    "spId", "academy", "player", "sessionId", "startTime",
+    "sessionStatus", "sessionType", "attendance",
+    "isOriginallyPrivate", "creditCost", "predictedAction", "predictedAmount",
+    "currentLedgerId", "currentLedgerReason", "currentLedgerAmount",
+  ].join(",");
+  const lines = [header];
+  for (const p of predictions) {
+    lines.push([
+      p.row.spId, q(p.row.academyName), q(p.row.playerName), p.row.sessionId,
+      p.row.startTime.toISOString(), p.row.sessionStatus, p.row.sessionType,
+      p.row.attendanceStatus, p.isOriginallyPrivate, p.row.creditCost,
+      p.predicted, p.amount,
+      p.row.existingLedgerId ?? "", p.row.existingLedgerReason ?? "",
+      p.row.existingLedgerAmount ?? "",
+    ].join(","));
+  }
+  fs.writeFileSync(file, lines.join("\n"));
+}
+
+function q(s: string): string {
+  if (s == null) return "";
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 async function main() {
@@ -232,40 +290,49 @@ async function main() {
   if (dryRun) {
     const reportFile = path.join(preDir, `backfill-dryrun-${tag}.txt`);
     fs.writeFileSync(reportFile, `mode=DRY-RUN run=${runIso}\n\n${report}\n`);
+    const dryCsv = path.join(preDir, `backfill-dryrun-detail-${tag}.csv`);
+    writeDryRunCsv(predictions, dryCsv);
     console.log(`[backfill-credit-drift] dry-run report: ${reportFile}`);
+    console.log(`[backfill-credit-drift] dry-run detail CSV: ${dryCsv}`);
     console.log(`[backfill-credit-drift] DRY-RUN complete. No writes performed.`);
     console.log(`[backfill-credit-drift] To apply: rerun with --apply (after user approval).`);
     process.exit(0);
   }
 
-  // APPLY MODE
-  console.log(`[backfill-credit-drift] APPLYING ${predictions.length} row(s) via consumeCredit...`);
+  // APPLY MODE — replay through ensureCreditProcessed (the engine entrypoint
+  // referenced by Task #670). For V2 academies it routes internally to
+  // consumeCredit, which is idempotent on event_key=consume:<sp.id>.
+  console.log(`[backfill-credit-drift] APPLYING ${predictions.length} row(s) via ensureCreditProcessed...`);
   const results: ApplyResult[] = [];
   for (const p of predictions) {
     const r = p.row;
     try {
-      const res = await consumeCredit({
-        sessionPlayerId: r.spId,
-        actorRole: "system",
-        occurredAt: r.startTime,
-      });
+      const res = await ensureCreditProcessed(r.spId);
+      const action = res.action; // consumed | debt_created | already_processed | not_attended | error
+      const charged = action === "consumed" || action === "debt_created";
       let tagged = false;
       let ledgerId: string | null = null;
-      if (res.charged) {
+      let newBalance: number | null = null;
+      if (charged) {
         tagged = await tagBackfillMetadata(r.spId, runIso);
         const lookup = await db.execute(sql`
-          SELECT id FROM credit_ledger_v2 WHERE event_key = ${`consume:${r.spId}`} LIMIT 1
+          SELECT id, balance_after FROM credit_ledger_v2
+          WHERE event_key = ${`consume:${r.spId}`} LIMIT 1
         `);
-        ledgerId = (lookup.rows[0] as any)?.id ?? null;
+        const row = lookup.rows[0] as any;
+        ledgerId = row?.id ?? null;
+        newBalance = row?.balance_after !== null && row?.balance_after !== undefined
+          ? Number(row.balance_after) : null;
       }
       results.push({
         row: r,
-        action: res.alreadyApplied ? "already_applied" : (res.charged ? "consumed" : "not_chargeable"),
-        charged: res.charged,
-        amount: res.amount,
-        newBalance: res.newBalance,
+        action: action === "not_attended" ? "not_chargeable" : action,
+        charged,
+        amount: charged ? p.amount : 0,
+        newBalance,
         ledgerId,
         taggedBackfill: tagged,
+        error: res.error,
       });
     } catch (err: any) {
       results.push({
@@ -277,10 +344,38 @@ async function main() {
   }
 
   const consumed = results.filter((x) => x.action === "consumed").length;
+  const debts = results.filter((x) => x.action === "debt_created").length;
   const skipped = results.filter((x) => x.action === "not_chargeable").length;
-  const dups = results.filter((x) => x.action === "already_applied").length;
+  const dups = results.filter((x) => x.action === "already_processed").length;
   const errs = results.filter((x) => x.action === "error").length;
-  console.log(`[backfill-credit-drift] APPLY result: consumed=${consumed} not_chargeable=${skipped} already_applied=${dups} errors=${errs}`);
+  console.log(`[backfill-credit-drift] APPLY result: consumed=${consumed} debt_created=${debts} not_chargeable=${skipped} already_processed=${dups} errors=${errs}`);
+
+  // Expected-vs-actual reconciliation: rows where the prediction differed
+  // from the engine's actual decision. If non-empty, prediction logic drifted
+  // from engine semantics and must be investigated.
+  const reconcileLines = ["spId,player,predicted,actual,predictedAmount,actualAmount,divergence"];
+  let divergences = 0;
+  for (let i = 0; i < predictions.length; i++) {
+    const p = predictions[i];
+    const a = results[i];
+    const predictedKind =
+      p.predicted === "consume" ? "charge" :
+      p.predicted === "skip_not_chargeable" ? "skip" : p.predicted;
+    const actualKind =
+      a.action === "consumed" || a.action === "debt_created" ? "charge" :
+      a.action === "not_chargeable" ? "skip" :
+      a.action === "already_processed" ? "skip" : a.action;
+    const amountMatches = Number(p.amount) === Number(a.amount);
+    const diverged = predictedKind !== actualKind || (a.charged && !amountMatches);
+    if (diverged) divergences++;
+    reconcileLines.push([
+      p.row.spId, q(p.row.playerName), predictedKind, actualKind,
+      p.amount, a.amount, diverged ? "YES" : "no",
+    ].join(","));
+  }
+  const reconcileFile = path.join(preDir, `backfill-apply-reconcile-${tag}.csv`);
+  fs.writeFileSync(reconcileFile, reconcileLines.join("\n"));
+  console.log(`[backfill-credit-drift] reconciliation: ${reconcileFile} (divergences=${divergences})`);
 
   // Post-snapshot
   const postCsv = await snapshotBalances();
