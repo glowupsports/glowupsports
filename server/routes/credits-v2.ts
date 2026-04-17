@@ -40,11 +40,19 @@ async function canActorAccessPlayer(
   if (!academyId) return { ok: false, academyId: null };
   const role = req.user!.role;
   if (role === "platform_owner") return { ok: true, academyId };
-  // Player can access own data
-  if (req.user!.playerId && req.user!.playerId === playerId) {
-    return { ok: true, academyId };
+  // Player can access own data only — never another player's
+  if (role === "player") {
+    if (req.user!.playerId && req.user!.playerId === playerId) {
+      return { ok: true, academyId };
+    }
+    return { ok: false, academyId };
   }
-  // Coach/admin must belong to academy
+  // Staff roles only beyond this point
+  const STAFF_ROLES = new Set(["academy_owner", "coach", "admin"]);
+  if (!STAFF_ROLES.has(role)) {
+    return { ok: false, academyId };
+  }
+  // Staff must belong to player's academy
   if (req.user!.academyId === academyId) return { ok: true, academyId };
   // Coach with multi-academy memberships
   if (req.user!.coachId) {
