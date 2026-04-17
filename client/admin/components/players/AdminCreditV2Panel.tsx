@@ -841,6 +841,17 @@ export function AdminCreditV2Panel({ playerId }: Props) {
                             >
                               · {TYPE_LABEL[e.type] || e.type}
                             </Text>
+                            {e.metadata?.backfill ? (
+                              <Text
+                                style={{
+                                  color: Colors.dark.warning ?? "#F59E0B",
+                                  fontWeight: "700",
+                                  fontSize: 10,
+                                }}
+                              >
+                                {"  "}· BACKFILLED
+                              </Text>
+                            ) : null}
                           </Text>
                           <Text
                             style={{

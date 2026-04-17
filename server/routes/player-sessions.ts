@@ -1630,6 +1630,51 @@ import fs from "fs";
           (s) => s.attended === "present",
         ).length;
 
+        // Task #671 — Profile stat alignment. Recompute "charged vs uncharged"
+        // using the credit-engine rule so the SESSIONS stat doesn't silently
+        // contradict the wallet balance for V2 academies.
+        let sessionsCharged = 0;
+        let sessionsUncharged = 0;
+        const unchargedReasons: { reason: string; count: number }[] = [];
+        try {
+          const { shouldChargeForAttendance } = await import(
+            "../services/credit-engine"
+          );
+          const reasonCounts = new Map<string, number>();
+          for (const s of playerSessions as any[]) {
+            const status = (s.attended || s.attendanceStatus || "").toLowerCase();
+            const sessionType: string = s.sessionType || s.session_type || "";
+            // Only count sessions that have started; future ones are noise.
+            const startTime = new Date(s.startTime || s.start_time || 0);
+            if (startTime > now) continue;
+            const isOriginallyPrivate = sessionType === "private";
+            const chargeable = shouldChargeForAttendance({
+              sessionType,
+              attendanceStatus: status,
+              isOriginallyPrivate,
+            });
+            if (chargeable) {
+              sessionsCharged += 1;
+            } else if (status) {
+              sessionsUncharged += 1;
+              const reasonKey =
+                status === "absent" && sessionType.includes("semi")
+                  ? "absent_semi_private"
+                  : status === "absent"
+                    ? "absent"
+                    : status === "holiday"
+                      ? "holiday"
+                      : status;
+              reasonCounts.set(reasonKey, (reasonCounts.get(reasonKey) || 0) + 1);
+            }
+          }
+          for (const [reason, count] of Array.from(reasonCounts.entries())) {
+            unchargedReasons.push({ reason, count });
+          }
+        } catch (e) {
+          console.error("[Profile] charge-rule split failed:", e);
+        }
+
         // Get social data (matches and connections)
         const matchesResult = await db.execute(sql`
         SELECT COUNT(*) as count FROM player_matches 
@@ -1734,6 +1779,9 @@ import fs from "fs";
           stats: {
             sessionsAttended,
             sessionsTotal: totalSessions,
+            sessionsCharged,
+            sessionsUncharged,
+            unchargedReasons,
             attendanceRate:
               totalSessions > 0
                 ? Math.round((sessionsAttended / totalSessions) * 100)

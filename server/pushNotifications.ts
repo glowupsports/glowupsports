@@ -2157,6 +2157,7 @@ export function startReminderScheduler(): void {
       await processScheduledReminders();
       await processAutoCompleteSession();
       await processUnchargedAttendance();
+      await processCreditDriftWatchdog();
       await processExpiredWaitlistSpots();
     } catch (e) { console.error("[Scheduler] Startup sequence error:", e); }
   })();
@@ -2168,12 +2169,37 @@ export function startReminderScheduler(): void {
       await processAutoCompleteSession();
       await processAutoAttendance();
       await processUnchargedAttendance();
+      await processCreditDriftWatchdog();
       await processExpiredWaitlistSpots();
       await processDepartureAlerts();
       await processPostSessionReflectionReminders();
       await processSessionAiBriefs();
     } catch (e) { console.error("[Scheduler] Interval error:", e); }
   }, 5 * 60 * 1000);
+}
+
+// Task #671 — drift watchdog. Recomputes expected vs actual credit consumption
+// across V2 academies and logs `[Reconcile] OK` when clean, otherwise an
+// aggregate line plus one detail line per drifted player. No mutations.
+async function processCreditDriftWatchdog(): Promise<void> {
+  try {
+    const { computeCreditDrift } = await import("./services/credit-reconcile");
+    const summary = await computeCreditDrift();
+    if (summary.driftCount === 0) {
+      console.log("[Reconcile] OK (V2 academies)");
+      return;
+    }
+    console.warn(
+      `[Reconcile] DRIFT_FOUND drift_count=${summary.driftCount} total_drift=${summary.totalDrift}`,
+    );
+    for (const r of summary.rows) {
+      console.warn(
+        `[Reconcile] DRIFT player=${r.playerId} (${r.playerName}) academy=${r.academyId} expected=${r.expected} actual=${r.actual} delta=${r.drift} offending=${r.offendingSessionPlayerIds.length}`,
+      );
+    }
+  } catch (err) {
+    console.error("[Reconcile] watchdog error:", err);
+  }
 }
 
 async function processSessionAiBriefs(): Promise<void> {

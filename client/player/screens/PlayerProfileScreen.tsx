@@ -63,6 +63,9 @@ interface ProfileData {
   stats: {
     sessionsAttended: number;
     sessionsTotal: number;
+    sessionsCharged?: number;
+    sessionsUncharged?: number;
+    unchargedReasons?: { reason: string; count: number }[];
     attendanceRate: number;
   };
   social: {
@@ -981,8 +984,22 @@ export default function PlayerProfileScreen() {
             <Text style={styles.statColLabel}>{t("player.profile.streak")}</Text>
           </View>
           <View style={[styles.statCol, { borderRightWidth: 1, borderRightColor: Colors.dark.border }]}>
-            <Text style={styles.statColValue}>{stats.sessionsAttended}</Text>
+            <Text style={styles.statColValue}>
+              {stats.sessionsCharged ?? stats.sessionsAttended}
+            </Text>
             <Text style={styles.statColLabel}>{t("player.profile.sessions")}</Text>
+            {stats.sessionsUncharged && stats.sessionsUncharged > 0 ? (
+              <Text
+                style={{
+                  fontSize: 9,
+                  color: Colors.dark.textMuted,
+                  marginTop: 2,
+                  textAlign: "center",
+                }}
+              >
+                +{stats.sessionsUncharged} not charged
+              </Text>
+            ) : null}
           </View>
           <View style={[styles.statCol, { borderRightWidth: 1, borderRightColor: Colors.dark.border }]}>
             <Text style={styles.statColValue}>{data.social?.matchesPlayed ?? 0}</Text>

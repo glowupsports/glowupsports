@@ -536,6 +536,16 @@ export function CoachCreditV2Panel({ playerId }: Props) {
                         numberOfLines={2}
                       >
                         {e.reason}
+                        {(e as any).metadata?.backfill ? (
+                          <Text
+                            style={{
+                              color: Colors.dark.warning ?? "#F59E0B",
+                              fontWeight: "700",
+                            }}
+                          >
+                            {"  "}· Backfilled
+                          </Text>
+                        ) : null}
                       </Text>
                     ) : null}
                     <Text

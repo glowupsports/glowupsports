@@ -87,6 +87,7 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
 - **Corporate/Business Accounts**: Companies purchase session credit pools for employees. Managed by `corporateStorage` with dedicated API routes and admin/employee dashboards. Booking integration ensures corporate credits are processed first.
 - **Web Container**: `client/components/WebContainer.tsx` wraps the app in a phone-shaped frame on desktop. Cross-platform shadow system and web-compatible `SwipeableTabBar`.
+- **Credit Drift Watchdog (Task #671)**: `server/services/credit-reconcile.ts` exposes `computeCreditDrift(academyId?)` which recomputes expected vs actual V2 consumption per player. Surfaced via `GET /api/admin/credits/reconcile` and run every 5 min by the reminder scheduler — logs `[Reconcile] OK` when clean, `[Reconcile] DRIFT ...` per player otherwise. Read-only; use `scripts/backfill-credit-drift.ts --apply` to actually fix drift. Player profile SESSIONS stat now uses the same chargeable definition as the wallet (with `+N not charged` subtitle when they differ), so the two can never silently contradict each other.
 
 ## External Dependencies
 

@@ -15,6 +15,7 @@ import {
   type CreditType,
 } from "../services/credit-engine";
 import { isV2EnabledForAcademy } from "../services/credit-feature-flag";
+import { computeCreditDrift } from "../services/credit-reconcile";
 import {
   sendManualAdjustmentNotification,
   sendRefundNotification,
@@ -211,6 +212,37 @@ router.get(
     } catch (err) {
       console.error("[v2-credits] wallet error:", err);
       res.status(500).json({ error: "Failed to fetch wallet" });
+    }
+  },
+);
+
+// ============== ADMIN: RECONCILIATION ==============
+
+// Per-academy + per-player credit drift report. Read-only — does NOT mutate
+// balances. Use scripts/backfill-credit-drift.ts to actually fix drift.
+router.get(
+  "/api/admin/credits/reconcile",
+  authMiddleware,
+  requireRole("academy_owner", "admin", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const queryAcademyId = (req.query.academyId as string | undefined) || undefined;
+      // Non-platform-owner staff are pinned to their own academy.
+      let academyId = queryAcademyId;
+      if (req.user!.role !== "platform_owner") {
+        if (!req.user!.academyId) {
+          return res.status(403).json({ error: "Academy context required" });
+        }
+        if (queryAcademyId && queryAcademyId !== req.user!.academyId) {
+          return res.status(403).json({ error: "Cannot inspect another academy" });
+        }
+        academyId = req.user!.academyId;
+      }
+      const summary = await computeCreditDrift(academyId);
+      res.json(summary);
+    } catch (err) {
+      console.error("[v2-credits] reconcile error:", err);
+      res.status(500).json({ error: "Failed to compute drift" });
     }
   },
 );
