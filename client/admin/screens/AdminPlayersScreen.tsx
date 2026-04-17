@@ -34,7 +34,6 @@ import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInline
 import { AdminMarkPaidModal } from "@/admin/components/players/AdminMarkPaidModal";
 import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordPaymentModal";
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
-import { AdminDeletePlayerModal } from "@/admin/components/players/AdminDeletePlayerModal";
 
 type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest" | "not_activated";
 type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string; lastSessionDate?: string | null };
@@ -1361,6 +1360,10 @@ export default function AdminPlayersScreen() {
         refetchInvite={refetchInvite}
         inviteCopied={inviteCopied}
         handleDelete={handleDelete}
+        showDeleteModal={showDeleteModal}
+        isDeletePending={deletePlayerMutation.isPending}
+        closeDeleteModal={() => setShowDeleteModal(false)}
+        confirmDelete={confirmDelete}
       />
 
       <AdminAddPlayerModal
@@ -1371,14 +1374,6 @@ export default function AdminPlayersScreen() {
         setFormData={setFormData}
         onSubmit={handleSubmit}
         isSubmitting={addPlayerMutation.isPending || updatePlayerMutation.isPending}
-      />
-
-      <AdminDeletePlayerModal
-        visible={showDeleteModal}
-        playerName={playerStats?.player?.name || selectedPlayer?.name || ''}
-        isPending={deletePlayerMutation.isPending}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={confirmDelete}
       />
 
       <ReportIssueModal

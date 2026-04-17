@@ -19,6 +19,7 @@ import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
 import { AdminPlayer, AdminPlayerPackage, AdminPlayerStats, AdminPlayerSessionItem } from "./adminPlayerTypes";
+import { AdminDeletePlayerModal } from "./AdminDeletePlayerModal";
 
 interface AdminPlayerDetailModalProps {
   showFullDetailsModal: boolean;
@@ -51,6 +52,10 @@ interface AdminPlayerDetailModalProps {
   refetchInvite: () => void;
   inviteCopied: boolean;
   handleDelete: () => void;
+  showDeleteModal: boolean;
+  isDeletePending: boolean;
+  closeDeleteModal: () => void;
+  confirmDelete: () => void;
 }
 
 const getBallLevelColor = (level?: string): string => {
@@ -99,6 +104,10 @@ export function AdminPlayerDetailModal({
   refetchInvite,
   inviteCopied,
   handleDelete,
+  showDeleteModal,
+  isDeletePending,
+  closeDeleteModal,
+  confirmDelete,
 }: AdminPlayerDetailModalProps) {
   const queryClient = useQueryClient();
   const stats = playerStats;
@@ -946,6 +955,13 @@ export function AdminPlayerDetailModal({
             </View>
           )}
         </View>
+        <AdminDeletePlayerModal
+          visible={showDeleteModal}
+          playerName={playerStats?.player?.name || selectedPlayer?.name || ''}
+          isPending={isDeletePending}
+          onClose={closeDeleteModal}
+          onConfirm={confirmDelete}
+        />
       </Modal>
     );
 }
