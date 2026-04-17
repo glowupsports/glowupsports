@@ -12781,6 +12781,63 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       const balanceAfter = balanceBefore - creditCost;
       const creditType = pkg.credit_type || requiredCreditType;
       
+      // Task #636: Pre-check by event_key to avoid 23505 transaction-aborts when a
+      // cancelled consume row already occupies this key. If found cancelled → revive
+      // (refresh amount/credit_type/package_id/session_player_id, clear cancelled metadata)
+      // and decrement the package balance accordingly. If found live → already_processed.
+      const existingConsume = await tx.execute(sql`
+        SELECT id, COALESCE(metadata->>'cancelled', 'false') AS cancelled
+        FROM credit_transactions
+        WHERE event_key = ${consumeEventKey}
+        LIMIT 1
+      `);
+      if (existingConsume.rows.length > 0) {
+        const exC = existingConsume.rows[0] as any;
+        if (exC.cancelled === 'true') {
+          console.log(`[EnsureCredit] Reviving cancelled consume ${exC.id} for session_player ${sessionPlayerId} (package ${pkg.id})`);
+          await tx.execute(sql`
+            UPDATE credit_transactions
+            SET amount = ${-creditCost},
+                balance_before = ${balanceBefore},
+                balance_after = ${balanceAfter},
+                credit_type = ${creditType},
+                package_id = ${pkg.id},
+                session_player_id = ${sessionPlayerId},
+                metadata = COALESCE(metadata, '{}'::jsonb)
+                           - 'cancelled' - 'cancellation_reason' - 'cancelled_at'
+                           || ${JSON.stringify({
+                             seriesId,
+                             sessionType,
+                             packageId: pkg.id,
+                             description: `Credit consumed for ${sessionType} session`,
+                             revivedAt: new Date().toISOString(),
+                             revivedBy: 'task-636-repair'
+                           })}::jsonb
+            WHERE id = ${exC.id}
+          `);
+          await tx.execute(sql`
+            UPDATE packages
+            SET remaining_credits = GREATEST(0, remaining_credits - ${creditCost})
+            WHERE id = ${pkg.id}
+          `);
+          await tx.execute(sql`
+            UPDATE session_players
+            SET credit_deducted_at = COALESCE(credit_deducted_at, NOW()),
+                credit_transaction_id = ${exC.id}
+            WHERE id = ${sessionPlayerId}
+          `);
+          return {
+            success: true,
+            action: "consumed" as const,
+            transactionId: exC.id,
+            packageId: pkg.id,
+            creditType,
+          };
+        }
+        console.log(`[EnsureCredit] Live consume already exists at event_key for session_player ${sessionPlayerId}`);
+        return { success: true, action: "already_processed" as const, transactionId: exC.id };
+      }
+
       // Create consumption transaction with unique eventKey
       const consumeTxId = crypto.randomUUID();
       try {
@@ -12801,9 +12858,9 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
           )
         `);
       } catch (insertError: any) {
-        // Unique constraint violation - already processed by concurrent request
+        // Unique constraint violation - concurrent insert (race after our pre-check).
         if (insertError.code === '23505') {
-          console.log(`[EnsureCredit] Duplicate detected for session_player ${sessionPlayerId}`);
+          console.log(`[EnsureCredit] Duplicate consume detected (race) for session_player ${sessionPlayerId}`);
           return { success: true, action: "already_processed" as const };
         }
         throw insertError;
