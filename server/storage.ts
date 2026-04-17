@@ -3097,6 +3097,70 @@ export const storage = {
     academyId?: string
   ): Promise<{ success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean; debtRemoved?: boolean }> {
     type RefundResult = { success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean; debtRemoved?: boolean };
+
+    // Phase 3 — Task #651. If this academy is on the new Credit Engine V2,
+    // route the refund through the engine. Policy is derived from the
+    // session start time: ≥24h before start = 'early' (full refund), else
+    // 'late' (no refund — late cancellations are not credited back).
+    const v2AcademyId = academyId ?? (await (async () => {
+      const r = await db.execute(sql`
+        SELECT s.academy_id FROM sessions s WHERE s.id = ${sessionId} LIMIT 1
+      `);
+      return (r.rows[0] as { academy_id?: string | null } | undefined)?.academy_id ?? null;
+    })());
+    if (v2AcademyId) {
+      const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+      const v2Enabled = await isV2EnabledForAcademy(v2AcademyId);
+      if (v2Enabled) {
+        try {
+          const spLookup = await db.execute(sql`
+            SELECT sp.id AS sp_id, s.start_time
+            FROM session_players sp
+            JOIN sessions s ON s.id = sp.session_id
+            WHERE sp.session_id = ${sessionId} AND sp.player_id = ${playerId}
+            LIMIT 1
+          `);
+          const spRow = spLookup.rows[0] as { sp_id?: string; start_time?: Date | string | null } | undefined;
+          if (!spRow?.sp_id) {
+            return { success: false, reason: "session_player_not_found" };
+          }
+          const startMs = spRow.start_time ? new Date(spRow.start_time).getTime() : 0;
+          const hoursUntilStart = startMs > 0 ? (startMs - Date.now()) / (1000 * 60 * 60) : 0;
+          const policy = hoursUntilStart >= 24 ? "early" as const : "late" as const;
+
+          const { refundCredit } = await import("./services/credit-engine");
+          const v2Result = await refundCredit({
+            sessionPlayerId: spRow.sp_id,
+            policy,
+            actorRole: "system",
+            reason: "session_cancel",
+          });
+
+          if (v2Result.alreadyApplied) {
+            return { success: true, alreadyRefunded: true, creditType: v2Result.type ?? undefined };
+          }
+          if (!v2Result.refunded) {
+            // Late cancellation or no prior consume to refund. Treat as a
+            // no-op (parity with legacy `success: true, debtRemoved: true`
+            // when the session had no live debit).
+            return { success: true, debtRemoved: true, creditType: v2Result.type ?? undefined };
+          }
+          // Clear creditDeductedAt on session_player to mark as refunded
+          // (mirrors legacy behaviour so UI consumers stay in sync).
+          await db.update(sessionPlayers)
+            .set({ creditDeductedAt: null, creditTransactionId: null })
+            .where(and(
+              eq(sessionPlayers.sessionId, sessionId),
+              eq(sessionPlayers.playerId, playerId),
+            ));
+          return { success: true, creditType: v2Result.type ?? "group" };
+        } catch (v2Err: any) {
+          console.error(`[RefundCredits][V2] refund failed for session ${sessionId} player ${playerId}:`, v2Err);
+          return { success: false, reason: v2Err?.message ?? "v2_refund_error" };
+        }
+      }
+    }
+
     const result: RefundResult = await (async (): Promise<RefundResult> => {
     // Find the original debit transaction for this session
     const transactions = await this.getCreditTransactionsBySession(sessionId);
@@ -12480,6 +12544,55 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
   error?: string;
 }> {
   try {
+    // Phase 3 — Task #651. If this academy has been switched to the new
+    // Credit Engine V2, route the consume through the engine and freeze
+    // the legacy package/credit_transactions write-path entirely. The
+    // engine handles attendance + chargeability internally and is
+    // idempotent on `consume:<sessionPlayerId>`.
+    const acadLookup = await db.execute(sql`
+      SELECT s.academy_id
+      FROM session_players sp
+      JOIN sessions s ON s.id = sp.session_id
+      WHERE sp.id = ${sessionPlayerId}
+      LIMIT 1
+    `);
+    const acadRow = acadLookup.rows[0] as { academy_id: string | null } | undefined;
+    const academyIdForGate = acadRow?.academy_id ?? null;
+
+    if (academyIdForGate) {
+      const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+      const v2 = await isV2EnabledForAcademy(academyIdForGate);
+      if (v2) {
+        const { consumeCredit } = await import("./services/credit-engine");
+        try {
+          const v2Result = await consumeCredit({
+            sessionPlayerId,
+            actorRole: "system",
+          });
+          if (v2Result.alreadyApplied) {
+            return { success: true, action: "already_processed" as const };
+          }
+          if (!v2Result.charged) {
+            return { success: true, action: "not_attended" as const };
+          }
+          // V2 always charges from lots first; if the balance went negative
+          // we surface that as `debt_created` to keep the legacy contract
+          // for downstream callers (auto-attendance summaries, etc.).
+          const action = v2Result.newBalance !== null && v2Result.newBalance < 0
+            ? "debt_created" as const
+            : "consumed" as const;
+          return {
+            success: true,
+            action,
+            creditType: v2Result.type ?? undefined,
+          };
+        } catch (v2Err: any) {
+          console.error(`[EnsureCredit][V2] consume failed for ${sessionPlayerId}:`, v2Err);
+          return { success: false, action: "error" as const, error: v2Err?.message ?? String(v2Err) };
+        }
+      }
+    }
+
     const txResult = await db.transaction(async (tx) => {
       // STEP 1: Lock the session_player row with FOR UPDATE
       const spResult = await tx.execute(sql`
@@ -12939,7 +13052,9 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
 
     // Phase 2 — Credit shadow-mode (Task #650). Fire-and-forget; never
     // blocks or affects the legacy result. Off by default — enable via
-    // env `CREDIT_SHADOW_MODE=on`.
+    // env `CREDIT_SHADOW_MODE=on`. We only reach this branch on the
+    // legacy path (V2 academies short-circuit above), so shadow runs
+    // here will not double-apply against the V2 engine.
     if (resultToReturn.success && resultToReturn.action !== "error") {
       import("./services/credit-shadow").then(({ isShadowModeEnabled, shadowConsumeAfterLegacy }) => {
         if (!isShadowModeEnabled()) return;

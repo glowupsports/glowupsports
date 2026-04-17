@@ -3728,4 +3728,66 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Phase 3 — Task #651. Switch a single academy to Credit Engine V2.
+  // Atomically: (1) replay the academy's history into V2 ledger/lots,
+  // (2) flip `academies.use_new_credit_system = true`, (3) invalidate
+  // the per-academy feature-flag cache so the new value takes effect
+  // immediately. If replay fails, the flag is NOT flipped.
+  router.post(
+    "/api/platform/credit-system/:academyId/switch-to-v2",
+    authMiddleware,
+    requireRole("platform_owner"),
+    adminRepairLimiter,
+    async (req: AuthenticatedRequest, res: Response) => {
+      const academyId = req.params.academyId;
+      const dryRun = req.body?.dryRun === true;
+      try {
+        const { replayAcademy } = await import("../../scripts/credit-replay");
+        const t0 = Date.now();
+        const stats = await replayAcademy(academyId, dryRun);
+        if (dryRun) {
+          return res.json({
+            academyId,
+            dryRun: true,
+            tookMs: Date.now() - t0,
+            stats,
+            flagFlipped: false,
+          });
+        }
+        if (stats.errors > 0) {
+          return res.status(500).json({
+            academyId,
+            tookMs: Date.now() - t0,
+            stats,
+            flagFlipped: false,
+            error: "Replay reported errors; flag not flipped",
+          });
+        }
+        await db.execute(sql`
+          UPDATE academies SET use_new_credit_system = true WHERE id = ${academyId}
+        `);
+        const { invalidateAcademyFlag } = await import(
+          "../services/credit-feature-flag"
+        );
+        invalidateAcademyFlag(academyId);
+        res.json({
+          academyId,
+          tookMs: Date.now() - t0,
+          stats,
+          flagFlipped: true,
+        });
+      } catch (error: any) {
+        console.error(
+          `[switch-to-v2] failed for academy ${academyId}:`,
+          error,
+        );
+        res.status(500).json({
+          academyId,
+          flagFlipped: false,
+          error: error?.message ?? "switch-to-v2 failed",
+        });
+      }
+    },
+  );
+
 export default router;

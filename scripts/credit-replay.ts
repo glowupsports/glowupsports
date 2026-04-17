@@ -62,7 +62,8 @@ async function listAcademyIds(): Promise<string[]> {
   return result.rows.map((r) => (r as { id: string }).id);
 }
 
-async function replayAcademy(academyId: string, dryRun: boolean): Promise<ReplayStats> {
+export type { ReplayStats };
+export async function replayAcademy(academyId: string, dryRun: boolean): Promise<ReplayStats> {
   const stats: ReplayStats = {
     academyId,
     packagesProcessed: 0,
