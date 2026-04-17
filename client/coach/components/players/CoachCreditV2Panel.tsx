@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform, Alert } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -651,21 +651,25 @@ function AddCreditsModal({
           }}
         />
 
-        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>Price per credit</Text>
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>
+          Price per credit{!isBillingAuthorized ? " (set by academy)" : ""}
+        </Text>
         <TextInput
           value={addPrice}
-          onChangeText={setAddPrice}
+          onChangeText={isBillingAuthorized ? setAddPrice : undefined}
+          editable={isBillingAuthorized}
           keyboardType="decimal-pad"
-          placeholder="Auto from academy pricing"
+          placeholder={isBillingAuthorized ? "Auto from academy pricing" : "Locked to academy pricing"}
           placeholderTextColor={Colors.dark.textMuted}
           style={{
             backgroundColor: `${Colors.dark.text}10`,
-            color: Colors.dark.text,
+            color: isBillingAuthorized ? Colors.dark.text : Colors.dark.textMuted,
             borderRadius: 8,
             paddingHorizontal: 12,
             paddingVertical: 12,
             fontSize: 16,
             marginBottom: Spacing.md,
+            opacity: isBillingAuthorized ? 1 : 0.6,
           }}
         />
 
