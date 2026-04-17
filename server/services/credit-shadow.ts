@@ -331,7 +331,7 @@ export async function compareBalancesForAcademy(
   const writeDiffs = options.writeDiffs !== false;
 
   const playersResult = await db.execute(sql`
-    SELECT p.id, COALESCE(p.first_name || ' ' || p.last_name, p.email, p.id) AS name
+    SELECT p.id, COALESCE(NULLIF(p.name, ''), p.email, p.id) AS name
     FROM players p
     WHERE p.academy_id = ${academyId}
       AND COALESCE(p.is_test, false) = false
