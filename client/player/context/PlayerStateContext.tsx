@@ -6,7 +6,7 @@ import { getStaticAssetsUrl, buildPhotoUrl, getApiUrl, apiRequest } from "@/lib/
 import * as Location from "expo-location";
 
 type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
-type SessionStatus = "none" | "upcoming" | "soon" | "live" | "ended";
+type SessionStatus = "none" | "upcoming" | "soon" | "live" | "ended" | "future";
 type EnergyLevel = "low" | "medium" | "high" | "peak";
 type LevelStage = "red" | "orange" | "green" | "yellow" | "adult";
 type LastAction = "training" | "match" | "idle" | "levelup" | "streak";
@@ -101,6 +101,8 @@ interface PlayerState {
   coachPhotoUrl: string | null;
   sessionId: string | null;
   sessionDuration: number | null;
+  nextSessionStartIso: string | null;
+  academyTimezone: string | null;
 }
 
 interface PlayerStateContextType {
@@ -140,6 +142,8 @@ const defaultState: PlayerState = {
   coachPhotoUrl: null,
   sessionId: null,
   sessionDuration: null,
+  nextSessionStartIso: null,
+  academyTimezone: null,
 };
 
 const PlayerStateContext = createContext<PlayerStateContextType>({
@@ -197,7 +201,10 @@ function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUnt
     // classify by how soon it starts — card is today-focused so >24h means "none"
     if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
     if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
-    return { status: "none", minutesUntil: diffMinutes, minutesRemaining: null };
+    // Sessions further out (within the dashboard's 30-day lookahead) get a
+    // dedicated "future" status so the hero card can show date/time instead
+    // of collapsing to "No Sessions Today".
+    return { status: "future", minutesUntil: diffMinutes, minutesRemaining: null };
   }
   
   // Fallback when no endTime: use start-time relative logic
@@ -205,8 +212,7 @@ function getSessionStatus(nextSession: any): { status: SessionStatus; minutesUnt
   if (diffMinutes <= 0) return { status: "live", minutesUntil: 0, minutesRemaining: 60 };
   if (diffMinutes <= 30) return { status: "soon", minutesUntil: diffMinutes, minutesRemaining: null };
   if (diffMinutes <= 24 * 60) return { status: "upcoming", minutesUntil: diffMinutes, minutesRemaining: null };
-  // Card is today-focused: sessions more than 24h away show "No Sessions Today"
-  return { status: "none", minutesUntil: diffMinutes, minutesRemaining: null };
+  return { status: "future", minutesUntil: diffMinutes, minutesRemaining: null };
 }
 
 function getBroadcastMode(sessionStatus: SessionStatus, timeOfDay: TimeOfDay): BroadcastMode {
@@ -292,6 +298,11 @@ interface DashboardData {
     id: string;
     name: string;
     photoUrl: string | null;
+  } | null;
+  academy?: {
+    id: string;
+    name: string;
+    timezone: string | null;
   } | null;
   nextSession: {
     id: string;
@@ -391,6 +402,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       if (sessionStatus === "live") return "ON COURT";
       if (sessionStatus === "soon") return "WARMING UP";
       if (sessionStatus === "upcoming") return "SESSION TODAY";
+      if (sessionStatus === "future") return "SESSION SCHEDULED";
       if (timeOfDay === "night") return "RECOVERY MODE";
       return "TRAINING DAY";
     };
@@ -432,7 +444,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       broadcastMode,
       xpProgress,
       isNearLevelUp: xpProgress >= 0.85,
-      isStreakAtRisk: player.streak > 0 && sessionStatus === "none",
+      isStreakAtRisk: player.streak > 0 && (sessionStatus === "none" || sessionStatus === "future"),
       minutesToNextSession: minutesUntil,
       minutesRemaining,
       currentStoryline,
@@ -461,6 +473,8 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       coachPhotoUrl: buildPhotoUrl(dashboardData.coach?.photoUrl) || null,
       sessionId: nextSession?.id || null,
       sessionDuration: nextSession?.duration ?? null,
+      nextSessionStartIso: nextSession?.date || null,
+      academyTimezone: dashboardData.academy?.timezone || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);
 

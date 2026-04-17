@@ -233,7 +233,7 @@ export function SessionHeroCard({
   onBookSession,
   onFindMatch,
 }: SessionHeroCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
@@ -1607,6 +1607,89 @@ export function SessionHeroCard({
                   styles.commandOutlineButton,
                   pressed && styles.buttonPressed,
                 ]}
+                onPress={handleBookSession}
+              >
+                <Feather name="calendar" size={16} color={GlowColors.primary} />
+                <Text style={styles.commandOutlineButtonText}>{t("player.home.bookLesson")}</Text>
+              </Pressable>
+            </SwipeBlocker>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (sessionStatus === "future") {
+    const startIso = state.nextSessionStartIso;
+    const tz = state.academyTimezone || undefined;
+    const locale = i18n.language || "en";
+    let dateLabel = "";
+    let timeLabel = "";
+    if (startIso) {
+      try {
+        const d = new Date(startIso);
+        if (!isNaN(d.getTime())) {
+          dateLabel = new Intl.DateTimeFormat(locale, {
+            timeZone: tz,
+            weekday: "long",
+            day: "numeric",
+            month: "short",
+          }).format(d);
+          timeLabel = new Intl.DateTimeFormat(locale, {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).format(d);
+        }
+      } catch {
+        // fall back to empty labels
+      }
+    }
+    return (
+      <View style={styles.coachStyleCard}>
+        <View style={styles.coachCardAccentLine} />
+        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={styles.commandIconWrap}>
+                <Feather name="calendar" size={14} color={GlowColors.primary} />
+              </View>
+              <Text style={[styles.commandLabel, { color: GlowColors.primary }]}>
+                {t("player.home.nextSession")}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.commandDisplay}>
+            <Text style={styles.commandPrimary}>
+              {dateLabel || t("player.home.nextSession")}
+            </Text>
+            {timeLabel ? (
+              <Text style={styles.commandSecondary}>{timeLabel}</Text>
+            ) : null}
+          </View>
+
+          <View style={styles.sessionInfo}>
+            <GlowAvatar
+              source={coachPhotoUrl}
+              name={coachName || t("common.coach")}
+              size="lg"
+              showGlow={false}
+            />
+            <View style={styles.sessionDetails}>
+              <Text style={styles.cleanSessionType}>{sessionType || t("player.home.trainingSession")}</Text>
+              <Text style={styles.coachLabel}>{t("player.home.withCoach", { name: coachName || t("common.coach") })}</Text>
+              {sessionCourtName ? (
+                <Text style={styles.cleanCourtLabel}>{sessionCourtName}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={[styles.commandActions, { marginTop: Spacing.md }]}>
+            <SwipeBlocker>
+              <Pressable
+                style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]}
                 onPress={handleBookSession}
               >
                 <Feather name="calendar" size={16} color={GlowColors.primary} />

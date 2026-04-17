@@ -3456,6 +3456,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         academy: academy ? {
           id: academy.id,
           name: academy.name,
+          timezone: academy.timezone || null,
         } : null,
         nextSession,
         lastFeedback: lastFeedback ? {
