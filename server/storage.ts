@@ -7442,21 +7442,41 @@ export const storage = {
       if (t === "private" || t === "private_adjusted") return "private";
       return "group";
     };
+    // Task #636: Mirror shouldChargeCredit semantics so under-counts can't happen.
+    //   - present/late: chargeable for ALL session types
+    //   - absent: chargeable for group/group_adjusted, private, AND private_adjusted
+    //     when isOriginallyPrivate=true (i.e. the series wasn't semi_private).
+    //     NOT chargeable for semi_private/semi_private_adjusted, or private_adjusted
+    //     that originated from a semi_private series.
+    // Use a player+session NOT EXISTS check (instead of joining on sp.credit_transaction_id),
+    // so legacy rows whose link points at a cancelled transaction are correctly counted as uncovered.
     const result = await db.execute(sql`
       SELECT s.session_type, count(*)::int as cnt
       FROM session_players sp
       JOIN sessions s ON sp.session_id = s.id
+      LEFT JOIN coaching_series cs ON cs.id = s.series_id
       WHERE sp.player_id = ${playerId}
-        AND sp.attendance_status = 'present'
+        AND s.status != 'cancelled'
+        AND (
+          sp.attendance_status IN ('present', 'late')
+          OR (
+            sp.attendance_status = 'absent'
+            AND (
+              LOWER(REPLACE(REPLACE(COALESCE(s.session_type, 'group'), '-', '_'), ' ', '_'))
+                IN ('group', 'group_adjusted', 'private')
+              OR (
+                LOWER(REPLACE(REPLACE(COALESCE(s.session_type, 'group'), '-', '_'), ' ', '_')) = 'private_adjusted'
+                AND COALESCE(LOWER(REPLACE(REPLACE(cs.session_type, '-', '_'), ' ', '_')), 'private') != 'semi_private'
+              )
+            )
+          )
+        )
         AND NOT EXISTS (
           SELECT 1 FROM credit_transactions ct
-          WHERE ct.id = sp.credit_transaction_id
+          WHERE ct.player_id = sp.player_id
+            AND ct.session_id = sp.session_id
+            AND ct.amount < 0
             AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
-            AND ct.package_id IS NOT NULL
-            AND EXISTS (
-              SELECT 1 FROM packages pkg
-              WHERE pkg.id = ct.package_id
-            )
         )
       GROUP BY s.session_type
     `);
@@ -12529,20 +12549,16 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         };
       }
       
-      // STEP 3b: Idempotency check - BOTH fields must be set to skip
-      // If credit_deducted_at is set but credit_transaction_id is NULL, it means a previous
-      // run marked the session as attempted (e.g. no package existed) but never created a real
-      // transaction. We must NOT skip — fall through so a package can be found and charged now.
-      if (sp.credit_deducted_at && sp.credit_transaction_id) {
-        console.log(`[EnsureCredit] Session player ${sessionPlayerId} already processed at ${sp.credit_deducted_at}`);
-        return { 
-          success: true, 
-          action: "already_processed" as const, 
-          transactionId: sp.credit_transaction_id 
-        };
-      }
-      if (sp.credit_deducted_at && !sp.credit_transaction_id) {
-        console.log(`[EnsureCredit] Session player ${sessionPlayerId} has credit_deducted_at but no transaction — retrying charge`);
+      // STEP 3b: NOTE — we used to short-circuit "already_processed" here whenever both
+      // credit_deducted_at AND credit_transaction_id were set. That was wrong: if the
+      // linked transaction was later cancelled (e.g. package deleted, debt reset script),
+      // STEP 3 above already proved no LIVE debit exists, so we MUST fall through and
+      // charge again. The early return caused Task #636 (Alex −17 → −18) by silently
+      // refusing to recharge cancelled-debit rows. Falling through is safe: STEP 5 below
+      // is itself idempotent (it checks for an existing live debit inside the per-package
+      // transaction before consuming).
+      if (sp.credit_deducted_at) {
+        console.log(`[EnsureCredit] Session player ${sessionPlayerId} has credit_deducted_at but no live debit — retrying charge (linked tx may be cancelled or NULL)`);
       }
       
       // STEP 4: Determine credit type needed (sessionType already defined in step 2)
@@ -12672,7 +12688,51 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       if (packageResult.rows.length === 0) {
         // STEP 6A: No credits available - create debt transaction
         console.log(`[EnsureCredit] No ${requiredCreditType} credits for player ${playerId}, creating debt`);
-        
+
+        // Task #636: Pre-check for an existing debt row at this event_key. The unique index
+        // on event_key INCLUDES cancelled rows, so a prior reset-script's cancelled row
+        // would otherwise blow up our INSERT with 23505 and abort the whole transaction.
+        // If a cancelled row exists, revive it. If a live row exists, treat as already_processed.
+        const existingByEventKey = await tx.execute(sql`
+          SELECT id, COALESCE(metadata->>'cancelled', 'false') AS cancelled
+          FROM credit_transactions
+          WHERE event_key = ${debtEventKey}
+          LIMIT 1
+        `);
+        if (existingByEventKey.rows.length > 0) {
+          const ex = existingByEventKey.rows[0] as any;
+          if (ex.cancelled === 'true') {
+            console.log(`[EnsureCredit] Reviving cancelled debt ${ex.id} for session_player ${sessionPlayerId}`);
+            await tx.execute(sql`
+              UPDATE credit_transactions
+              SET amount = ${-creditCost},
+                  balance_after = ${-creditCost},
+                  credit_type = ${requiredCreditType},
+                  session_player_id = ${sessionPlayerId},
+                  metadata = COALESCE(metadata, '{}'::jsonb)
+                             - 'cancelled' - 'cancellation_reason' - 'cancelled_at'
+                             || ${JSON.stringify({
+                               seriesId,
+                               sessionType,
+                               description: `Debt: No ${requiredCreditType} credits available`,
+                               isDebt: true,
+                               revivedAt: new Date().toISOString(),
+                               revivedBy: 'task-636-repair'
+                             })}::jsonb
+              WHERE id = ${ex.id}
+            `);
+            await tx.execute(sql`
+              UPDATE session_players
+              SET credit_deducted_at = COALESCE(credit_deducted_at, NOW()),
+                  credit_transaction_id = NULL
+              WHERE id = ${sessionPlayerId}
+            `);
+            return { success: true, action: "debt_created" as const, creditType: requiredCreditType };
+          }
+          console.log(`[EnsureCredit] Live debt already exists at event_key for session_player ${sessionPlayerId}`);
+          return { success: true, action: "already_processed" as const };
+        }
+
         const debtTxId = crypto.randomUUID();
         try {
           await tx.execute(sql`
@@ -12693,7 +12753,9 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
           `);
         } catch (insertError: any) {
           if (insertError.code === '23505') {
-            console.log(`[EnsureCredit] Duplicate debt detected for session_player ${sessionPlayerId}`);
+            // Race: another concurrent caller inserted the same debtEventKey between our
+            // pre-check and our insert. Safe to treat as already_processed.
+            console.log(`[EnsureCredit] Duplicate debt detected (race) for session_player ${sessionPlayerId}`);
             return { success: true, action: "already_processed" as const };
           }
           throw insertError;
@@ -13006,6 +13068,74 @@ async function repairAllPlayerCredits(): Promise<{
   if (needsStamp.rows.length > 0) {
     console.log(`[RepairCredits] Stamp backfill: ${stampedCount} of ${needsStamp.rows.length} session_players linked`);
   }
+
+  // FOURTH PASS (Task #636): Re-charge sessions where credit_deducted_at AND
+  // credit_transaction_id are BOTH set, but the linked transaction was later cancelled
+  // (package deleted, debt-reset script, attendance toggled, etc.) leaving NO live debit.
+  // The first three passes filter on `credit_deducted_at IS NULL` or `credit_transaction_id IS NULL`,
+  // so this case slipped through and players were silently under-billed (Alex showed -17 instead of -18).
+  // Mirror shouldChargeCredit semantics in the SQL filter so semi-private absent is excluded.
+  const cancelledLinks = await db.execute(sql`
+    SELECT sp.id, sp.player_id, sp.session_id, p.name as player_name, s.session_type
+    FROM session_players sp
+    JOIN players p ON p.id = sp.player_id
+    JOIN sessions s ON s.id = sp.session_id
+    LEFT JOIN coaching_series cs ON cs.id = s.series_id
+    WHERE sp.credit_deducted_at IS NOT NULL
+      AND sp.credit_transaction_id IS NOT NULL
+      AND s.status != 'cancelled'
+      AND (
+        sp.attendance_status IN ('present', 'late')
+        OR (
+          sp.attendance_status = 'absent'
+          AND (
+            LOWER(REPLACE(REPLACE(COALESCE(s.session_type, 'group'), '-', '_'), ' ', '_'))
+              IN ('group', 'group_adjusted', 'private')
+            OR (
+              LOWER(REPLACE(REPLACE(COALESCE(s.session_type, 'group'), '-', '_'), ' ', '_')) = 'private_adjusted'
+              AND COALESCE(LOWER(REPLACE(REPLACE(cs.session_type, '-', '_'), ' ', '_')), 'private') != 'semi_private'
+            )
+          )
+        )
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM credit_transactions ct
+        WHERE ct.player_id = sp.player_id
+          AND ct.session_id = sp.session_id
+          AND ct.amount < 0
+          AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+      )
+    ORDER BY sp.id
+  `);
+
+  console.log(`[RepairCredits] Found ${cancelledLinks.rows.length} session_players whose linked debit was cancelled — re-charging`);
+
+  let cancelledConsumed = 0;
+  let cancelledDebts = 0;
+  let cancelledErrors = 0;
+  for (const row of cancelledLinks.rows) {
+    const sp = row as any;
+    try {
+      const result = await ensureCreditProcessed(sp.id);
+      if (result.action === "consumed") {
+        cancelledConsumed++;
+        console.log(`[RepairCredits] Cancelled-link healed: ${sp.player_name} → consumed from package ${result.packageId}`);
+      } else if (result.action === "debt_created") {
+        cancelledDebts++;
+        console.log(`[RepairCredits] Cancelled-link: ${sp.player_name} → no package, fresh debt created`);
+      } else if (result.action === "error") {
+        cancelledErrors++;
+        console.error(`[RepairCredits] Cancelled-link error for ${sp.player_name}: ${result.error}`);
+      }
+    } catch (err: any) {
+      cancelledErrors++;
+      console.error(`[RepairCredits] Cancelled-link exception for ${sp.player_name}:`, err.message);
+    }
+  }
+  console.log(`[RepairCredits] Cancelled-link pass: ${cancelledConsumed} consumed, ${cancelledDebts} debts, ${cancelledErrors} errors`);
+  results.consumed += cancelledConsumed;
+  results.debts += cancelledDebts;
+  results.processed += cancelledLinks.rows.length;
 
   console.log(`[RepairCredits] Summary: ${results.processed} processed, ${results.consumed} consumed, ${results.debts} debts, ${results.notAttended} not_attended, ${results.alreadyProcessed} already_processed, ${results.errors.length} errors`);
   
