@@ -154,7 +154,9 @@ export default function AdminPlayersScreen() {
     queryKey: [`/api/v2/credits/feature-flag/${currentUser?.academyId ?? ""}`],
     enabled: !!currentUser?.academyId,
   });
-  const v2Enabled = v2Flag?.enabled === true;
+  // Tri-state gate: only show legacy controls once we know V2 is OFF.
+  // While the flag query is in flight, hide them to avoid a brief flash on V2 academies.
+  const legacyCreditsAllowed = v2Flag !== undefined && v2Flag.enabled === false;
 
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
@@ -908,7 +910,7 @@ export default function AdminPlayersScreen() {
                     </View>
                   </View>
                   <View style={[dtStyles.tdCell, dtStyles.colActions]}>
-                    {!v2Enabled ? (
+                    {legacyCreditsAllowed ? (
                       <Pressable
                         style={dtStyles.rowAction}
                         onPress={(e) => { e.stopPropagation(); setSelectedPlayerId(player.id); setShowCreditStoreModal(true); }}
@@ -967,7 +969,7 @@ export default function AdminPlayersScreen() {
                     <Text style={dtStyles.panelRowValue}>{value}</Text>
                   </View>
                 ))}
-                {!v2Enabled ? (
+                {legacyCreditsAllowed ? (
                   <View style={dtStyles.panelActions}>
                     <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
                       <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />

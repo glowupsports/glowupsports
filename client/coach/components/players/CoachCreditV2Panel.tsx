@@ -266,9 +266,13 @@ export function CoachCreditV2Panel({ playerId }: Props) {
             Active packages ({wallet.activeLots.length})
           </Text>
           {wallet.activeLots.slice(0, 6).map((lot) => {
+            const msUntilExpiry = lot.expires_at
+              ? new Date(lot.expires_at).getTime() - Date.now()
+              : null;
             const expiringSoon =
-              !!lot.expires_at &&
-              new Date(lot.expires_at).getTime() - Date.now() < EXPIRING_SOON_MS;
+              msUntilExpiry !== null &&
+              msUntilExpiry >= 0 &&
+              msUntilExpiry < EXPIRING_SOON_MS;
             return (
               <View
                 key={lot.id}
