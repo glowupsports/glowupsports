@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -23,7 +24,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayer } from "@/player/context/PlayerContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -58,6 +59,9 @@ interface Conversation {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   coachName?: string;
+  coachPhoto?: string | null;
+  playerName?: string | null;
+  playerPhoto?: string | null;
 }
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
@@ -77,6 +81,7 @@ interface OtherPlayer {
   id: string;
   firstName: string;
   lastName: string;
+  profilePhotoUrl?: string | null;
 }
 
 export function PlayerChatFooter() {
@@ -372,9 +377,23 @@ export function PlayerChatFooter() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Pressable onPress={() => handleStartPlayerChat(item)} style={styles.playerSelectItem}>
-            <View style={styles.playerSelectAvatar}>
-              <Ionicons name="person" size={18} color={Colors.dark.primary} />
-            </View>
+            {(() => {
+              const photoUrl = buildPhotoUrl(item.profilePhotoUrl);
+              if (photoUrl) {
+                return (
+                  <Image
+                    source={{ uri: photoUrl }}
+                    style={styles.playerSelectAvatarImage}
+                  />
+                );
+              }
+              const initial = (item.firstName || "?").charAt(0).toUpperCase();
+              return (
+                <View style={styles.playerSelectAvatar}>
+                  <ThemedText style={styles.avatarInitial}>{initial}</ThemedText>
+                </View>
+              );
+            })()}
             <ThemedText style={styles.playerSelectName}>
               {item.firstName} {item.lastName}
             </ThemedText>
@@ -660,16 +679,34 @@ export function PlayerChatFooter() {
                       onPress={() => handleSelectConversation(item)}
                       style={styles.conversationItem}
                     >
-                      <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
-                        <Ionicons 
-                          name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "fitness"} 
-                          size={20} 
-                          color={Colors.dark.primary} 
-                        />
-                      </View>
+                      {(() => {
+                        const photoUrl =
+                          currentTab === "players"
+                            ? buildPhotoUrl(item.playerPhoto)
+                            : currentTab === "coaches"
+                              ? buildPhotoUrl(item.coachPhoto)
+                              : null;
+                        if (photoUrl) {
+                          return (
+                            <Image
+                              source={{ uri: photoUrl }}
+                              style={styles.conversationAvatarImage}
+                            />
+                          );
+                        }
+                        return (
+                          <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
+                            <Ionicons
+                              name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "fitness"}
+                              size={20}
+                              color={Colors.dark.primary}
+                            />
+                          </View>
+                        );
+                      })()}
                       <View style={styles.conversationInfo}>
                         <ThemedText style={styles.conversationName}>
-                          {item.coachName || item.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
+                          {(currentTab === "players" ? item.playerName : null) || item.coachName || item.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
                         </ThemedText>
                         {item.lastMessagePreview ? (
                           <ThemedText numberOfLines={1} style={styles.conversationPreview}>
@@ -1155,5 +1192,22 @@ const styles = StyleSheet.create({
   },
   playerAvatar: {
     backgroundColor: `${Colors.dark.primary}20`,
+  },
+  conversationAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${Colors.dark.primary}20`,
+  },
+  playerSelectAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${Colors.dark.primary}20`,
+  },
+  avatarInitial: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.primary,
   },
 });

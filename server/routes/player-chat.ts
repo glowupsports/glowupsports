@@ -74,12 +74,15 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
         let coachName: string | null = null;
+        let coachPhoto: string | null = null;
         let playerName: string | null = null;
+        let playerPhoto: string | null = null;
         let providerName: string | null = null;
         let providerPhoto: string | null = null;
         if (conv.coachId) {
           const coach = await storage.getCoach(conv.coachId, academyId);
           coachName = coach?.name ?? null;
+          coachPhoto = coach?.profilePhotoUrl ?? null;
         }
         let otherPlayerId: string | null = null;
         let otherPlayerUserId: string | null = null;
@@ -90,6 +93,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
           if (other?.playerId) {
             const otherPlayer = await storage.getPlayer(other.playerId, academyId);
             playerName = otherPlayer?.name ?? null;
+            playerPhoto = otherPlayer?.profilePhotoUrl ?? null;
             otherPlayerId = other.playerId;
             // Get userId for block functionality
             const [otherUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, other.playerId)).limit(1);
@@ -121,7 +125,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
             resolvedTitle = group.name;
           }
         }
-        return { ...conv, title: resolvedTitle, coachName, playerName, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
+        return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
       })
     );
 

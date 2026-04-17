@@ -1088,6 +1088,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             id: p.id,
             firstName: p.firstName || p.name?.split(" ")[0] || "Player",
             lastName: p.lastName || p.name?.split(" ").slice(1).join(" ") || "",
+            profilePhotoUrl: p.profilePhotoUrl ?? null,
           }));
 
         res.json(squadMembers);
