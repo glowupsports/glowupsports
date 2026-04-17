@@ -77,8 +77,50 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
   };
 
   // ------------------------------------------------------------------
-  // PASS 1 — packages → lots
+  // Single chronological merge — purchases, consumes, refunds, expiries
+  // are interleaved by timestamp into ONE event stream so lot FIFO and
+  // restock semantics match the legacy timeline exactly.
   // ------------------------------------------------------------------
+  type ReplayEvent =
+    | { kind: "purchase"; at: Date; pkg: PkgRow }
+    | { kind: "consume"; at: Date; sp: SpRow }
+    | { kind: "refund"; at: Date; tx: TxRow }
+    | { kind: "expiry"; at: Date };
+
+  type PkgRow = {
+    id: string;
+    player_id: string;
+    academy_id: string;
+    credit_type: string | null;
+    total_credits: string | number;
+    price: string | number | null;
+    price_per_credit: string | number | null;
+    currency: string | null;
+    purchase_date: Date | string | null;
+    expiry_date: Date | string | null;
+    invoice_id: string | null;
+    status: string | null;
+    is_paid: boolean | null;
+  };
+  type SpRow = {
+    session_player_id: string;
+    session_id: string;
+    player_id: string;
+    attendance_status: string;
+    start_time: Date | string | null;
+    session_type: string | null;
+  };
+  type TxRow = {
+    id: string;
+    player_id: string;
+    session_player_id: string;
+    amount: string | number;
+    created_at: Date | string | null;
+    reason: string | null;
+    type: string | null;
+  };
+
+  // ---------- pull packages -------------------------------------------------
   // Only replay packages that ever produced legitimate credits. Cancelled /
   // refunded / draft packages are excluded — their credits should not appear
   // in the V2 lots. Status values match the enum used in
@@ -98,105 +140,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
     ORDER BY p.purchase_date ASC NULLS FIRST, p.created_at ASC
   `);
 
-  for (const raw of packagesResult.rows) {
-    const pkg = raw as {
-      id: string;
-      player_id: string;
-      academy_id: string;
-      credit_type: string | null;
-      total_credits: string | number;
-      price: string | number | null;
-      price_per_credit: string | number | null;
-      currency: string | null;
-      purchase_date: Date | string | null;
-      expiry_date: Date | string | null;
-      invoice_id: string | null;
-      status: string | null;
-      is_paid: boolean | null;
-    };
-
-    // Only replay packages that were actually paid for. Either the package
-    // itself is_paid=true, or its linked invoice is in 'paid' status. Unpaid
-    // / draft / refunded packages would phantom-mint credits.
-    const isPaid = pkg.is_paid === true;
-    if (!isPaid && !pkg.invoice_id) {
-      stats.packagesSkipped++;
-      continue;
-    }
-    if (!isPaid && pkg.invoice_id) {
-      const inv = await db.execute(sql`
-        SELECT status FROM invoices WHERE id = ${pkg.invoice_id} LIMIT 1
-      `);
-      const invStatus = (inv.rows[0] as { status?: string } | undefined)?.status;
-      if (invStatus !== "paid") {
-        stats.packagesSkipped++;
-        continue;
-      }
-    }
-
-    const type = normalizeCreditType(pkg.credit_type);
-    if (type === "group" && pkg.credit_type === "court") {
-      // 'court' isn't a session credit — skip entirely.
-      stats.packagesSkipped++;
-      continue;
-    }
-
-    const qty = Number(pkg.total_credits);
-    if (!Number.isFinite(qty) || qty <= 0) {
-      stats.packagesSkipped++;
-      continue;
-    }
-
-    const totalPrice = Number(pkg.price ?? 0);
-    const pricePerCredit = pkg.price_per_credit != null
-      ? Number(pkg.price_per_credit)
-      : qty > 0 ? totalPrice / qty : 0;
-
-    const purchasedAt = pkg.purchase_date
-      ? new Date(pkg.purchase_date)
-      : new Date();
-    // Preserve the exact legacy expiry instant — no month-rounding, no
-    // setMonth() drift across month-end / leap-year boundaries.
-    const expiresAt = pkg.expiry_date ? new Date(pkg.expiry_date) : null;
-
-    if (dryRun) {
-      stats.packagesProcessed++;
-      continue;
-    }
-
-    try {
-      const result = await purchasePackage({
-        playerId: pkg.player_id,
-        academyId: pkg.academy_id,
-        type,
-        qty,
-        pricePerCredit,
-        currency: pkg.currency ?? "AED",
-        invoiceId: pkg.invoice_id,
-        sourcePackageId: pkg.id,
-        purchasedAt,
-        expiresAt,
-        actorRole: "system",
-        eventKey: `purchase:pkg:${pkg.id}`,
-      });
-      if (result.alreadyApplied) {
-        stats.packagesSkipped++;
-      } else {
-        stats.packagesProcessed++;
-      }
-    } catch (err) {
-      stats.errors++;
-      stats.errorDetails.push(
-        `pkg ${pkg.id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // PASS 2 — session_players → consumes (chronological)
-  //
-  // We replay in occurred-at order so FIFO across lots matches reality.
-  // ------------------------------------------------------------------
+  // ---------- pull session_players (consume sources) -----------------------
   const consumesResult = await db.execute(sql`
     SELECT
       sp.id AS session_player_id,
@@ -213,87 +157,9 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       AND sp.attendance_status IS NOT NULL
       AND sp.attendance_status IN ('present','late','absent')
       AND COALESCE(pl.is_test, false) = false
-    ORDER BY s.start_time ASC NULLS FIRST, sp.id ASC
   `);
 
-  // Run expiry pass + consumes interleaved by chronological time. We keep
-  // a "watermark" of all unique lot expiry instants for this academy and
-  // flush every expiry that falls before the next consume's occurredAt.
-  const expiryQueueResult = await db.execute(sql`
-    SELECT DISTINCT expires_at
-    FROM credit_lots
-    WHERE academy_id = ${academyId} AND expires_at IS NOT NULL
-    ORDER BY expires_at ASC
-  `);
-  const expiryQueue: Date[] = expiryQueueResult.rows
-    .map((r) => (r as { expires_at: Date | string | null }).expires_at)
-    .filter((d): d is Date | string => d != null)
-    .map((d) => new Date(d));
-  let expiryIdx = 0;
-
-  async function flushExpiriesUpTo(asOf: Date) {
-    while (expiryIdx < expiryQueue.length && expiryQueue[expiryIdx].getTime() <= asOf.getTime()) {
-      const at = expiryQueue[expiryIdx++];
-      if (dryRun) continue;
-      try {
-        await expireCredits({ academyId, asOf: at, actorRole: "system" });
-      } catch (err) {
-        stats.errors++;
-        stats.errorDetails.push(
-          `expiry@${at.toISOString()}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-  }
-
-  for (const raw of consumesResult.rows) {
-    const sp = raw as {
-      session_player_id: string;
-      session_id: string;
-      player_id: string;
-      attendance_status: string;
-      start_time: Date | string | null;
-      session_type: string | null;
-    };
-
-    const occurredAt = sp.start_time ? new Date(sp.start_time) : new Date();
-    await flushExpiriesUpTo(occurredAt);
-
-    if (dryRun) {
-      stats.consumesProcessed++;
-      continue;
-    }
-
-    try {
-      const result = await consumeCredit({
-        sessionPlayerId: sp.session_player_id,
-        occurredAt,
-        actorRole: "system",
-        eventKey: `consume:${sp.session_player_id}`,
-      });
-      if (result.alreadyApplied) {
-        stats.consumesSkipped++;
-      } else if (!result.charged) {
-        stats.consumesNotCharged++;
-      } else {
-        stats.consumesProcessed++;
-      }
-    } catch (err) {
-      stats.errors++;
-      stats.errorDetails.push(
-        `sp ${sp.session_player_id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // PASS 3 — legacy refunds → V2 refundCredit
-  //
-  // Reads `credit_transactions` rows that represent positive credit returns
-  // for previously-consumed sessions (cancellations, settlements, coach
-  // cancels). Each calls refundCredit with eventKey
-  // `refund:legacy:<creditTransactionId>` so reruns are idempotent.
-  // ------------------------------------------------------------------
+  // ---------- pull legacy refund credit_transactions -----------------------
   const refundsResult = await db.execute(sql`
     SELECT
       ct.id, ct.player_id, ct.session_player_id, ct.amount,
@@ -308,45 +174,172 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
         OR ct.reason IN ('session_cancel','session_settlement','coach_cancel')
       )
       AND COALESCE(pl.is_test, false) = false
-    ORDER BY ct.created_at ASC NULLS FIRST
   `);
 
-  for (const raw of refundsResult.rows) {
-    const tx = raw as {
-      id: string;
-      player_id: string;
-      session_player_id: string;
-      amount: string | number;
-      created_at: Date | string | null;
-      reason: string | null;
-      type: string | null;
-    };
+  // ---------- filter packages for paid eligibility -------------------------
+  const eligiblePkgs: PkgRow[] = [];
+  const skippedPkgs = new Set<string>();
+  const expiryInstants = new Set<number>();
 
+  for (const raw of packagesResult.rows) {
+    const pkg = raw as PkgRow;
+    const isPaid = pkg.is_paid === true;
+    if (!isPaid && !pkg.invoice_id) {
+      skippedPkgs.add(pkg.id);
+      continue;
+    }
+    if (!isPaid && pkg.invoice_id) {
+      const inv = await db.execute(sql`
+        SELECT status FROM invoices WHERE id = ${pkg.invoice_id} LIMIT 1
+      `);
+      const invStatus = (inv.rows[0] as { status?: string } | undefined)?.status;
+      if (invStatus !== "paid") {
+        skippedPkgs.add(pkg.id);
+        continue;
+      }
+    }
+    const type = normalizeCreditType(pkg.credit_type);
+    if (type === "group" && pkg.credit_type === "court") {
+      skippedPkgs.add(pkg.id);
+      continue;
+    }
+    const qty = Number(pkg.total_credits);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      skippedPkgs.add(pkg.id);
+      continue;
+    }
+    eligiblePkgs.push(pkg);
+    if (pkg.expiry_date) {
+      expiryInstants.add(new Date(pkg.expiry_date).getTime());
+    }
+  }
+  stats.packagesSkipped += skippedPkgs.size;
+
+  // ---------- build the merged event stream --------------------------------
+  // Stable secondary ordering: purchases before consumes before refunds at
+  // the same instant, expiries last (so credits earned/used at exactly the
+  // expiry instant remain valid).
+  const PRIORITY: Record<ReplayEvent["kind"], number> = {
+    purchase: 0,
+    consume: 1,
+    refund: 2,
+    expiry: 3,
+  };
+
+  const events: ReplayEvent[] = [];
+  for (const pkg of eligiblePkgs) {
+    events.push({
+      kind: "purchase",
+      at: pkg.purchase_date ? new Date(pkg.purchase_date) : new Date(0),
+      pkg,
+    });
+  }
+  for (const raw of consumesResult.rows) {
+    const sp = raw as SpRow;
+    events.push({
+      kind: "consume",
+      at: sp.start_time ? new Date(sp.start_time) : new Date(0),
+      sp,
+    });
+  }
+  for (const raw of refundsResult.rows) {
+    const tx = raw as TxRow;
+    events.push({
+      kind: "refund",
+      at: tx.created_at ? new Date(tx.created_at) : new Date(0),
+      tx,
+    });
+  }
+  for (const ms of expiryInstants) {
+    events.push({ kind: "expiry", at: new Date(ms) });
+  }
+
+  events.sort((a, b) => {
+    const t = a.at.getTime() - b.at.getTime();
+    if (t !== 0) return t;
+    return PRIORITY[a.kind] - PRIORITY[b.kind];
+  });
+
+  // ---------- single chronological dispatch loop ---------------------------
+  for (const ev of events) {
     if (dryRun) {
-      stats.refundsProcessed++;
+      switch (ev.kind) {
+        case "purchase": stats.packagesProcessed++; break;
+        case "consume":  stats.consumesProcessed++; break;
+        case "refund":   stats.refundsProcessed++;  break;
+        case "expiry":   /* no-op in dry-run */     break;
+      }
       continue;
     }
 
     try {
-      const result = await refundCredit({
-        sessionPlayerId: tx.session_player_id,
-        amount: Number(tx.amount),
-        policy: "force",
-        actorRole: "system",
-        reason: `legacy:${tx.reason ?? tx.type ?? "unknown"}`,
-        eventKey: `refund:legacy:${tx.id}`,
-      });
-      if (result.alreadyApplied) {
-        stats.refundsSkipped++;
-      } else if (!result.refunded) {
-        stats.refundsSkipped++;
-      } else {
-        stats.refundsProcessed++;
+      switch (ev.kind) {
+        case "purchase": {
+          const pkg = ev.pkg;
+          const type = normalizeCreditType(pkg.credit_type);
+          const qty = Number(pkg.total_credits);
+          const totalPrice = Number(pkg.price ?? 0);
+          const pricePerCredit = pkg.price_per_credit != null
+            ? Number(pkg.price_per_credit)
+            : qty > 0 ? totalPrice / qty : 0;
+          const expiresAt = pkg.expiry_date ? new Date(pkg.expiry_date) : null;
+          const result = await purchasePackage({
+            playerId: pkg.player_id,
+            academyId: pkg.academy_id,
+            type,
+            qty,
+            pricePerCredit,
+            currency: pkg.currency ?? "AED",
+            invoiceId: pkg.invoice_id,
+            sourcePackageId: pkg.id,
+            purchasedAt: ev.at,
+            expiresAt,
+            actorRole: "system",
+            eventKey: `purchase:pkg:${pkg.id}`,
+          });
+          if (result.alreadyApplied) stats.packagesSkipped++;
+          else stats.packagesProcessed++;
+          break;
+        }
+        case "consume": {
+          const result = await consumeCredit({
+            sessionPlayerId: ev.sp.session_player_id,
+            occurredAt: ev.at,
+            actorRole: "system",
+            eventKey: `consume:${ev.sp.session_player_id}`,
+          });
+          if (result.alreadyApplied) stats.consumesSkipped++;
+          else if (!result.charged) stats.consumesNotCharged++;
+          else stats.consumesProcessed++;
+          break;
+        }
+        case "refund": {
+          const result = await refundCredit({
+            sessionPlayerId: ev.tx.session_player_id,
+            amount: Number(ev.tx.amount),
+            policy: "force",
+            actorRole: "system",
+            reason: `legacy:${ev.tx.reason ?? ev.tx.type ?? "unknown"}`,
+            eventKey: `refund:legacy:${ev.tx.id}`,
+          });
+          if (result.alreadyApplied || !result.refunded) stats.refundsSkipped++;
+          else stats.refundsProcessed++;
+          break;
+        }
+        case "expiry": {
+          await expireCredits({ academyId, asOf: ev.at, actorRole: "system" });
+          break;
+        }
       }
     } catch (err) {
       stats.errors++;
+      const tag =
+        ev.kind === "purchase" ? `pkg ${ev.pkg.id}` :
+        ev.kind === "consume"  ? `sp ${ev.sp.session_player_id}` :
+        ev.kind === "refund"   ? `refund ${ev.tx.id}` :
+                                 `expiry@${ev.at.toISOString()}`;
       stats.errorDetails.push(
-        `refund ${tx.id}: ${err instanceof Error ? err.message : String(err)}`,
+        `${tag}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

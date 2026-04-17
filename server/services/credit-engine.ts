@@ -512,6 +512,7 @@ export async function consumeCredit(
       sessionPlayerId: sp.id,
       lotId: lotIdsConsumed[0] ?? null,
       balanceAfter: newBalance,
+      occurredAt,
       metadata: {
         sessionType: sp.session_type,
         attendanceStatus: sp.attendance_status,
@@ -720,6 +721,18 @@ export async function refundCredit(
     // Restock per-lot using the original consume's recorded breakdown so
     // multi-lot draws are reversed correctly. Debt portion is never tied to
     // a lot, so it's just a balance restore (already done above).
+    //
+    // Lot status policy:
+    //   - depleted, expires_at in the future → reactivate to 'active'
+    //   - depleted, no expiry                → reactivate to 'active'
+    //   - depleted, already past expiry      → re-mark 'expired' (qty
+    //     restocked for audit trail, but not usable for new consumes —
+    //     `consumeCredit` filters by `status='active'` AND non-expired)
+    //   - expired                            → leave status='expired'; do
+    //     NOT bump usable supply (refund stays in balance only). The lot
+    //     row gets an audit bump via metadata only — qty_remaining is
+    //     left at 0 to keep the "expired credits don't count toward
+    //     saldo" invariant intact.
     if (lotPortion > 0) {
       const breakdown = p.metadata?.lotConsumptions
         ?? (p.lot_id ? [{ lotId: p.lot_id, qty: lotPortion }] : []);
@@ -727,8 +740,18 @@ export async function refundCredit(
         if (!entry.lotId || entry.qty <= 0) continue;
         await tx.execute(sql`
           UPDATE credit_lots
-          SET qty_remaining = qty_remaining + ${entry.qty},
-              status = CASE WHEN status = 'depleted' THEN 'active' ELSE status END
+          SET
+            qty_remaining = CASE
+              WHEN status = 'expired' THEN qty_remaining
+              ELSE qty_remaining + ${entry.qty}
+            END,
+            status = CASE
+              WHEN status = 'depleted' AND (expires_at IS NULL OR expires_at > NOW())
+                THEN 'active'
+              WHEN status = 'depleted' AND expires_at <= NOW()
+                THEN 'expired'
+              ELSE status
+            END
           WHERE id = ${entry.lotId}
         `);
       }
