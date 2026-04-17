@@ -623,7 +623,7 @@ export async function refundCredit(
       };
     }
     const startMs = new Date(startRaw).getTime();
-    const hoursUntilStart = (startMs - Date.now()) / (1000 * 60 * 60);
+    const hoursUntilStart = (startMs - occurredAt.getTime()) / (1000 * 60 * 60);
     if (hoursUntilStart < 24) {
       return {
         ok: true,
