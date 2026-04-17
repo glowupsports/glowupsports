@@ -438,8 +438,8 @@ export function CoachCreditV2Panel({ playerId }: Props) {
             backgroundColor: Colors.dark.primary,
           }}
         >
-          <Ionicons name="add-circle-outline" size={14} color={Colors.dark.background} />
-          <Text style={{ color: Colors.dark.background, fontWeight: "800", fontSize: 12 }}>
+          <Ionicons name="add-circle-outline" size={14} color="#000" />
+          <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>
             Add credits
           </Text>
         </Pressable>
@@ -553,7 +553,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
                       fontSize: 13,
                       fontWeight: "700",
                       color: isNegative
-                        ? Colors.dark.dangerRed
+                        ? Colors.dark.error
                         : Colors.dark.successNeon,
                     }}
                   >
@@ -601,7 +601,7 @@ function AddCreditsModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: Colors.dark.background, padding: Spacing.lg }}>
+      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot, padding: Spacing.lg }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.lg }}>
           <Text style={{ ...Typography.h2, color: Colors.dark.text }}>Add credits</Text>
           <Pressable onPress={onClose} hitSlop={10}>
@@ -719,7 +719,7 @@ function AddCreditsModal({
         ) : null}
 
         {error ? (
-          <Text style={{ color: Colors.dark.dangerRed, fontSize: 12, marginBottom: Spacing.sm }}>{error}</Text>
+          <Text style={{ color: Colors.dark.error, fontSize: 12, marginBottom: Spacing.sm }}>{error}</Text>
         ) : null}
 
         <Pressable
@@ -734,9 +734,9 @@ function AddCreditsModal({
           }}
         >
           {isPending ? (
-            <ActivityIndicator color={Colors.dark.background} />
+            <ActivityIndicator color="#000" />
           ) : (
-            <Text style={{ color: Colors.dark.background, fontWeight: "800", fontSize: 14 }}>
+            <Text style={{ color: "#000", fontWeight: "800", fontSize: 14 }}>
               {addPayment === "already_paid" ? "Add credits now" : "Create invoice"}
             </Text>
           )}
