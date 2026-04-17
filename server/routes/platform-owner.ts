@@ -3663,4 +3663,69 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // ============================================================
+  // Phase 2 — Credit shadow-mode debug endpoints (Task #650)
+  // ============================================================
+  // Lists divergences between the legacy credit hot path and the new
+  // Credit Engine V2 for a given academy, and lets a platform owner
+  // trigger a fresh balance comparison on demand.
+  router.get(
+    "/api/platform/credit-shadow/:academyId/diffs",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { listRecentDiffs } = await import("../services/credit-shadow");
+        const academyId = req.params.academyId;
+        const limit = Math.min(
+          1000,
+          Math.max(1, parseInt(String(req.query.limit ?? "100"), 10) || 100),
+        );
+        const diffs = await listRecentDiffs(academyId, limit);
+        res.json({ academyId, count: diffs.length, diffs });
+      } catch (error) {
+        console.error("[credit-shadow] list diffs failed:", error);
+        res.status(500).json({ error: "Failed to list shadow diffs" });
+      }
+    },
+  );
+
+  router.post(
+    "/api/platform/credit-shadow/:academyId/compare-balances",
+    authMiddleware,
+    requireRole("platform_owner"),
+    adminRepairLimiter,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { compareBalancesForAcademy } = await import(
+          "../services/credit-shadow"
+        );
+        const academyId = req.params.academyId;
+        const writeDiffs = req.body?.writeDiffs !== false;
+        const t0 = Date.now();
+        const rows = await compareBalancesForAcademy(academyId, { writeDiffs });
+        const mismatches = rows.filter((r) => Math.abs(r.diff) > 0.01);
+        const causes: Record<string, number> = {};
+        for (const m of mismatches) {
+          const c = m.suspectedCause ?? "unknown";
+          causes[c] = (causes[c] ?? 0) + 1;
+        }
+        res.json({
+          academyId,
+          tookMs: Date.now() - t0,
+          totalRows: rows.length,
+          mismatches: mismatches.length,
+          causes,
+          worst: mismatches
+            .slice()
+            .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+            .slice(0, 25),
+        });
+      } catch (error) {
+        console.error("[credit-shadow] compare balances failed:", error);
+        res.status(500).json({ error: "Failed to compare credit balances" });
+      }
+    },
+  );
+
 export default router;

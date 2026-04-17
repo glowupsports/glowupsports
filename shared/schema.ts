@@ -7469,6 +7469,31 @@ export const creditLedgerV2 = pgTable("credit_ledger_v2", {
 
 export type CreditLedgerV2 = typeof creditLedgerV2.$inferSelect;
 
+// Phase 2 — shadow-mode comparison log. Every time the legacy credit hot path
+// runs, the shadow runner also calls the new engine and records any divergence
+// here for review before flipping `academies.use_new_credit_system`.
+export const creditShadowDiff = pgTable("credit_shadow_diff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id, { onDelete: "cascade" }),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  scope: text("scope").notNull(), // consume | refund | balance
+  sessionPlayerId: varchar("session_player_id"),
+  sessionId: varchar("session_id"),
+  type: text("type"), // group | semi_private | private — null for multi-type balance diffs
+  legacyValue: jsonb("legacy_value").notNull(),
+  newValue: jsonb("new_value").notNull(),
+  diff: numeric("diff"), // signed numeric diff when both sides are scalars
+  suspectedCause: text("suspected_cause"),
+  context: jsonb("context"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("credit_shadow_diff_academy_idx").on(table.academyId, table.createdAt),
+  index("credit_shadow_diff_player_idx").on(table.playerId, table.createdAt),
+  index("credit_shadow_diff_scope_idx").on(table.scope),
+]);
+
+export type CreditShadowDiff = typeof creditShadowDiff.$inferSelect;
+
 // Money wallet for visitor / cross-academy players (no credit packages).
 // Negative balance = the player owes the academy money.
 export const playerMoneyWallet = pgTable("player_money_wallet", {
