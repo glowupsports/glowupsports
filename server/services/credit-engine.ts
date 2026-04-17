@@ -186,6 +186,9 @@ export interface PurchasePackageInput {
   invoiceId?: string | null;
   sourcePackageId?: string | null; // legacy packages.id during replay
   purchasedAt?: Date;
+  /** Concrete expiry instant. Preferred over `expiryMonths` (preserves
+   *  legacy month-end / leap-year edge cases). If both are set, this wins. */
+  expiresAt?: Date | null;
   expiryMonths?: number; // default 12
   actorId?: string | null;
   actorRole?: ActorRole;
@@ -223,6 +226,7 @@ export async function purchasePackage(
 
   const purchasedAt = input.purchasedAt ?? new Date();
   const expiresAt = (() => {
+    if (input.expiresAt !== undefined) return input.expiresAt;
     const months = input.expiryMonths ?? 12;
     if (months <= 0) return null;
     const d = new Date(purchasedAt);
@@ -583,6 +587,42 @@ export async function refundCredit(
       amount: 0,
       newBalance: null,
     };
+  }
+
+  // Enforce the 24h "early cancellation" policy server-side. `force` is
+  // reserved for admin overrides and historical replay (where the original
+  // refund decision was already made by the legacy system).
+  if (policy === "early") {
+    const startResult = await db.execute(sql`
+      SELECT s.start_time
+      FROM session_players sp
+      JOIN sessions s ON s.id = sp.session_id
+      WHERE sp.id = ${input.sessionPlayerId}
+      LIMIT 1
+    `);
+    const startRaw = (startResult.rows[0] as { start_time?: Date | string | null } | undefined)?.start_time;
+    if (!startRaw) {
+      return {
+        ok: true,
+        alreadyApplied: false,
+        refunded: false,
+        type: null,
+        amount: 0,
+        newBalance: null,
+      };
+    }
+    const startMs = new Date(startRaw).getTime();
+    const hoursUntilStart = (startMs - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntilStart < 24) {
+      return {
+        ok: true,
+        alreadyApplied: false,
+        refunded: false,
+        type: null,
+        amount: 0,
+        newBalance: null,
+      };
+    }
   }
 
   return await db.transaction(async (tx) => {

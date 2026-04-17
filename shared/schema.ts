@@ -7460,6 +7460,8 @@ export const creditLedgerV2 = pgTable("credit_ledger_v2", {
 }, (table) => [
   uniqueIndex("credit_ledger_v2_event_key_unique").on(table.eventKey),
   index("credit_ledger_v2_player_idx").on(table.playerId, table.academyId, table.occurredAt),
+  // Academy-time index for shadow-mode + replay academy-wide chronological scans.
+  index("credit_ledger_v2_academy_time_idx").on(table.academyId, table.occurredAt),
   index("credit_ledger_v2_session_idx").on(table.sessionId),
   index("credit_ledger_v2_session_player_idx").on(table.sessionPlayerId),
 ]);

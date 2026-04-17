@@ -120,6 +120,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       expiry_date: Date | string | null;
       invoice_id: string | null;
       status: string | null;
+      is_paid: boolean | null;
       player_name: string | null;
       player_email: string | null;
     };
@@ -169,15 +170,9 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
     const purchasedAt = pkg.purchase_date
       ? new Date(pkg.purchase_date)
       : new Date();
-    const expiryDate = pkg.expiry_date ? new Date(pkg.expiry_date) : null;
-    const expiryMonths = expiryDate
-      ? Math.max(
-          0,
-          Math.round(
-            (expiryDate.getTime() - purchasedAt.getTime()) / (1000 * 60 * 60 * 24 * 30),
-          ),
-        )
-      : 12;
+    // Preserve the exact legacy expiry instant — no month-rounding, no
+    // setMonth() drift across month-end / leap-year boundaries.
+    const expiresAt = pkg.expiry_date ? new Date(pkg.expiry_date) : null;
 
     if (dryRun) {
       stats.packagesProcessed++;
@@ -195,7 +190,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
         invoiceId: pkg.invoice_id,
         sourcePackageId: pkg.id,
         purchasedAt,
-        expiryMonths,
+        expiresAt,
         actorRole: "system",
         eventKey: `purchase:pkg:${pkg.id}`,
       });
