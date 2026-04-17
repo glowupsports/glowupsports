@@ -158,6 +158,12 @@ export const academies = pgTable("academies", {
   semiPrivateUpgradeBilling: text("semi_private_upgrade_billing").default("premium"), // premium | goodwill - how to bill remaining player
   allowMakeUpForTimelyCancels: boolean("allow_make_up_for_timely_cancels").default(true), // Academy discretion for make-ups
   
+  // Credit System V2 — feature flag for the new credit/package engine.
+  // When false (default), all routes/attendance triggers use the legacy
+  // `packages` + `credit_transactions` system. Phase 1 only creates the
+  // tables/engine; later phases flip this per academy.
+  useNewCreditSystem: boolean("use_new_credit_system").default(false),
+
   // XP & Gamification Settings
   xpPerSession: integer("xp_per_session").default(10),
   xpBonusStreak: integer("xp_bonus_streak").default(5),
@@ -1624,7 +1630,11 @@ export const sessions = pgTable("sessions", {
   
   // Multi-sport support
   sport: text("sport").default("tennis"), // tennis | padel | pickleball
-  
+
+  // Credit System V2 — how many credits this session consumes per attending player.
+  // Default 1 (one credit per session). Premium sessions can be set higher.
+  creditCost: numeric("credit_cost").default("1"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -7380,3 +7390,93 @@ export const slotReservations = pgTable("slot_reservations", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ==================== CREDIT SYSTEM V2 (Phase 1 — not yet wired up) ====================
+// New foundation tables for the credit & package rebuild. These exist alongside
+// the legacy `packages` and `credit_transactions` tables and are not yet read
+// or written by any live route. Activation happens in later phases via the
+// `academies.use_new_credit_system` feature flag.
+
+// Per-(player, academy, type) running balance. Can be negative.
+export const playerCreditBalance = pgTable("player_credit_balance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  academyId: varchar("academy_id").notNull().references(() => academies.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // group | semi_private | private
+  credits: numeric("credits").notNull().default("0"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("player_credit_balance_unique").on(table.playerId, table.academyId, table.type),
+  index("player_credit_balance_academy_idx").on(table.academyId),
+]);
+
+export type PlayerCreditBalance = typeof playerCreditBalance.$inferSelect;
+
+// One row per package purchase. Price is locked at purchase time.
+// FIFO consumption: oldest non-expired lot first.
+export const creditLots = pgTable("credit_lots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  academyId: varchar("academy_id").notNull().references(() => academies.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // group | semi_private | private
+  qtyTotal: numeric("qty_total").notNull(),
+  qtyRemaining: numeric("qty_remaining").notNull(),
+  pricePerCredit: numeric("price_per_credit").notNull().default("0"),
+  currency: text("currency").notNull().default("AED"),
+  purchasedAt: timestamp("purchased_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  sourceInvoiceId: varchar("source_invoice_id"),
+  sourcePackageId: varchar("source_package_id"), // legacy packages.id during replay
+  status: text("status").notNull().default("active"), // active | depleted | expired | refunded
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("credit_lots_player_type_idx").on(table.playerId, table.academyId, table.type),
+  index("credit_lots_fifo_idx").on(table.playerId, table.academyId, table.type, table.purchasedAt),
+  index("credit_lots_status_idx").on(table.status),
+]);
+
+export type CreditLot = typeof creditLots.$inferSelect;
+
+// Immutable ledger. Every credit movement (purchase, consume, refund, makeup,
+// manual, expiry) writes exactly one row. eventKey is UNIQUE to make all
+// writes idempotent under concurrent load.
+export const creditLedgerV2 = pgTable("credit_ledger_v2", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  academyId: varchar("academy_id").notNull().references(() => academies.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // group | semi_private | private | money
+  delta: numeric("delta").notNull(), // positive = credit, negative = debit
+  reason: text("reason").notNull(), // purchase | consume | refund | makeup | manual | expiry | money_charge | money_topup
+  eventKey: varchar("event_key").notNull(),
+  actorId: varchar("actor_id"),
+  actorRole: text("actor_role"), // player | coach | admin | system
+  sessionId: varchar("session_id"),
+  sessionPlayerId: varchar("session_player_id"),
+  lotId: varchar("lot_id"),
+  invoiceId: varchar("invoice_id"),
+  balanceAfter: numeric("balance_after").notNull(),
+  metadata: jsonb("metadata"),
+  occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("credit_ledger_v2_event_key_unique").on(table.eventKey),
+  index("credit_ledger_v2_player_idx").on(table.playerId, table.academyId, table.occurredAt),
+  index("credit_ledger_v2_session_idx").on(table.sessionId),
+  index("credit_ledger_v2_session_player_idx").on(table.sessionPlayerId),
+]);
+
+export type CreditLedgerV2 = typeof creditLedgerV2.$inferSelect;
+
+// Money wallet for visitor / cross-academy players (no credit packages).
+// Negative balance = the player owes the academy money.
+export const playerMoneyWallet = pgTable("player_money_wallet", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  academyId: varchar("academy_id").notNull().references(() => academies.id, { onDelete: "cascade" }),
+  balance: numeric("balance").notNull().default("0"),
+  currency: text("currency").notNull().default("AED"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("player_money_wallet_unique").on(table.playerId, table.academyId),
+]);
+
+export type PlayerMoneyWallet = typeof playerMoneyWallet.$inferSelect;
