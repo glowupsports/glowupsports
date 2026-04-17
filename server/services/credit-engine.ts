@@ -729,6 +729,13 @@ export async function refundCredit(
     // multi-lot draws are reversed correctly. Debt portion is never tied to
     // a lot, so it's just a balance restore (already done above).
     //
+    // Partial refunds: when `amount < originalCharge` we restock
+    // proportionally — `refundRatio = amount / originalCharge`, capped at 1
+    // (legacy refunds occasionally exceed the consume due to rounding/promo
+    // adjustments; we never restock more than was originally drawn). The
+    // remaining refunded credits stay in the balance only, identical to how
+    // debt-portion refunds are handled above.
+    //
     // Lot status policy:
     //   - depleted, expires_at in the future → reactivate to 'active'
     //   - depleted, no expiry                → reactivate to 'active'
@@ -741,16 +748,21 @@ export async function refundCredit(
     //     left at 0 to keep the "expired credits don't count toward
     //     saldo" invariant intact.
     if (lotPortion > 0) {
+      const refundRatio = originalCharge > 0
+        ? Math.min(1, amount / originalCharge)
+        : 0;
       const breakdown = p.metadata?.lotConsumptions
         ?? (p.lot_id ? [{ lotId: p.lot_id, qty: lotPortion }] : []);
       for (const entry of breakdown) {
         if (!entry.lotId || entry.qty <= 0) continue;
+        const restock = entry.qty * refundRatio;
+        if (restock <= 0) continue;
         await tx.execute(sql`
           UPDATE credit_lots
           SET
             qty_remaining = CASE
               WHEN status = 'expired' THEN qty_remaining
-              ELSE qty_remaining + ${entry.qty}
+              ELSE qty_remaining + ${restock}
             END,
             status = CASE
               WHEN status = 'depleted' AND (expires_at IS NULL OR expires_at > ${occurredAt})
