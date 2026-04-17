@@ -393,7 +393,21 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error("[credit-replay] Fatal:", err);
-  process.exit(1);
-});
+// Only auto-run main() when this file is executed directly as a CLI script
+// (e.g. `tsx scripts/credit-replay.ts ...`). When imported by the server
+// (Task #651 platform-owner switch endpoint), do NOT run main() — that
+// would call process.exit() and kill the server process.
+const isDirectRun = (() => {
+  try {
+    const invoked = process.argv[1] ? new URL(`file://${process.argv[1]}`).href : "";
+    return invoked === import.meta.url;
+  } catch {
+    return false;
+  }
+})();
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error("[credit-replay] Fatal:", err);
+    process.exit(1);
+  });
+}
