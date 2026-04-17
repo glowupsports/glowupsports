@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 
 type CreditType = "group" | "semi_private" | "private";
@@ -117,6 +118,9 @@ interface Props {
 }
 
 export function CoachCreditV2Panel({ playerId }: Props) {
+  const { user } = useAuth();
+  const isBillingAuthorized = !!user && ["academy_owner", "admin", "platform_owner"].includes(user.role);
+
   const [showLedger, setShowLedger] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addType, setAddType] = useState<CreditType>("group");
@@ -483,6 +487,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         onSubmit={() => addCreditsMutation.mutate()}
         isPending={addCreditsMutation.isPending}
         error={addError}
+        isBillingAuthorized={isBillingAuthorized}
       />
 
       {showLedger ? (
@@ -577,11 +582,13 @@ interface AddCreditsModalProps {
   onSubmit: () => void;
   isPending: boolean;
   error: string | null;
+  isBillingAuthorized: boolean;
 }
 
 function AddCreditsModal({
   visible, onClose, addType, setAddType, addQty, setAddQty,
   addPrice, setAddPrice, addPayment, setAddPayment, onSubmit, isPending, error,
+  isBillingAuthorized,
 }: AddCreditsModalProps) {
   const totalNum = (() => {
     const q = parseFloat(addQty);
@@ -667,7 +674,9 @@ function AddCreditsModal({
           {([
             { key: "cash" as const, label: "Cash (mark paid later)" },
             { key: "bank_transfer" as const, label: "Bank transfer (mark paid later)" },
-            { key: "already_paid" as const, label: "Already paid — deposit now" },
+            ...(isBillingAuthorized
+              ? [{ key: "already_paid" as const, label: "Already paid — deposit now" }]
+              : []),
           ]).map((opt) => {
             const active = addPayment === opt.key;
             return (
