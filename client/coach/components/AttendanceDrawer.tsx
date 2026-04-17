@@ -160,6 +160,28 @@ export default function AttendanceDrawer({
     enabled: visible && !!session?.coachId,
   });
 
+  // V2 credit batch — shows expiring-soon badges on player rows
+  interface V2BatchWallet {
+    balance: { group: number; semi_private: number; private: number };
+    nextExpiry: string | null;
+    expiringSoon: number;
+  }
+  const playerIdsForV2 = (session?.players || []).map((p) => p.id);
+  const { data: v2Batch } = useQuery<{
+    v2Enabled: boolean;
+    wallets: Record<string, V2BatchWallet>;
+  }>({
+    queryKey: [`/api/v2/credits/wallets-batch`, playerIdsForV2.sort().join(",")],
+    queryFn: async () => {
+      const res = await apiRequest("POST", `/api/v2/credits/wallets-batch`, {
+        playerIds: playerIdsForV2,
+      });
+      return res.json();
+    },
+    enabled: visible && playerIdsForV2.length > 0,
+  });
+  const v2Enabled = v2Batch?.v2Enabled === true;
+
   useEffect(() => {
     if (session?.players) {
       const initial = new Map<string, AttendanceRecord>();
@@ -608,6 +630,13 @@ export default function AttendanceDrawer({
                           </Text>
                         </View>
                         <Text style={styles.quickModePlayerName} numberOfLines={1}>{player.name}</Text>
+                        {v2Enabled && v2Batch?.wallets[player.id]?.expiringSoon ? (
+                          <View style={{ marginLeft: Spacing.xs, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: `${Colors.dark.gold}25`, borderWidth: 1, borderColor: `${Colors.dark.gold}50` }}>
+                            <Text style={{ fontSize: 10, color: Colors.dark.gold, fontWeight: "700" }}>
+                              {v2Batch.wallets[player.id].expiringSoon} expiring
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                       <View style={styles.quickModeActions}>
                         <Pressable

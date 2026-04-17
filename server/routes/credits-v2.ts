@@ -461,4 +461,89 @@ router.get(
   },
 );
 
+// ============== BATCH WALLETS (for coach roster, etc.) ==============
+
+router.post(
+  "/api/v2/credits/wallets-batch",
+  authMiddleware,
+  requireRole("academy_owner", "coach", "admin", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerIds } = req.body as { playerIds?: string[] };
+      if (!Array.isArray(playerIds) || playerIds.length === 0) {
+        return res.json({ wallets: {} });
+      }
+      const ids = playerIds.slice(0, 200);
+      const academyId = req.user!.academyId;
+      if (!academyId && req.user!.role !== "platform_owner") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const v2Enabled = academyId
+        ? await isV2EnabledForAcademy(academyId)
+        : false;
+      if (!v2Enabled) {
+        return res.json({ v2Enabled: false, wallets: {} });
+      }
+      const balRes = await db.execute(sql`
+        SELECT player_id, type, credits
+        FROM player_credit_balance
+        WHERE academy_id = ${academyId}
+          AND player_id = ANY(${ids}::text[])
+      `);
+      const lotRes = await db.execute(sql`
+        SELECT player_id, MIN(expires_at) AS next_expiry,
+               COUNT(*) FILTER (
+                 WHERE expires_at IS NOT NULL
+                   AND expires_at <= NOW() + INTERVAL '14 days'
+               )::int AS expiring_soon
+        FROM credit_lots
+        WHERE academy_id = ${academyId}
+          AND status = 'active'
+          AND player_id = ANY(${ids}::text[])
+        GROUP BY player_id
+      `);
+      const wallets: Record<
+        string,
+        {
+          balance: { group: number; semi_private: number; private: number };
+          nextExpiry: string | null;
+          expiringSoon: number;
+        }
+      > = {};
+      for (const id of ids) {
+        wallets[id] = {
+          balance: { group: 0, semi_private: 0, private: 0 },
+          nextExpiry: null,
+          expiringSoon: 0,
+        };
+      }
+      for (const row of balRes.rows as Array<{
+        player_id: string;
+        type: string;
+        credits: string | number;
+      }>) {
+        const w = wallets[row.player_id];
+        if (w && (row.type === "group" || row.type === "semi_private" || row.type === "private")) {
+          w.balance[row.type] = Number(row.credits);
+        }
+      }
+      for (const row of lotRes.rows as Array<{
+        player_id: string;
+        next_expiry: string | null;
+        expiring_soon: number;
+      }>) {
+        const w = wallets[row.player_id];
+        if (w) {
+          w.nextExpiry = row.next_expiry;
+          w.expiringSoon = row.expiring_soon;
+        }
+      }
+      res.json({ v2Enabled: true, academyId, wallets });
+    } catch (err) {
+      console.error("[v2-credits] wallets-batch error:", err);
+      res.status(500).json({ error: "Failed to fetch wallets" });
+    }
+  },
+);
+
 export default router;

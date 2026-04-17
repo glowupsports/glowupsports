@@ -399,6 +399,8 @@ export default function AcademyDetailScreen() {
           </LinearGradient>
         </Pressable>
 
+        <V2CreditsHealthCard academyId={academyId} />
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Academy Details</Text>
           <View style={[styles.card, CardStyles.elevated]}>
@@ -920,6 +922,60 @@ export default function AcademyDetailScreen() {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+interface V2HealthData {
+  v2Enabled: boolean;
+  totals: { group: number; semi_private: number; private: number };
+  totalDebt: number;
+  expiringSoon: { lots: number; qty: string | number };
+  manualAdjustmentsLast30d: number;
+  lotCounts: { active_lots?: number; expired_lots?: number; depleted_lots?: number };
+}
+function V2CreditsHealthCard({ academyId }: { academyId: string }) {
+  const { data } = useQuery<V2HealthData>({
+    queryKey: [`/api/v2/credits/health/${academyId}`],
+    enabled: !!academyId,
+  });
+  if (!data || data.v2Enabled !== true) return null;
+  return (
+    <View style={[styles.section]}>
+      <Text style={styles.sectionTitle}>Credits V2 Health</Text>
+      <View style={[styles.card, CardStyles.elevated, { padding: Spacing.md, gap: Spacing.sm }]}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Group</Text>
+          <Text style={{ color: Colors.dark.text, fontWeight: "700" }}>{data.totals.group}</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Semi-Private</Text>
+          <Text style={{ color: Colors.dark.text, fontWeight: "700" }}>{data.totals.semi_private}</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Private</Text>
+          <Text style={{ color: Colors.dark.text, fontWeight: "700" }}>{data.totals.private}</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: Colors.dark.borderSubtle, marginVertical: Spacing.xs }} />
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Total debt</Text>
+          <Text style={{ color: data.totalDebt < 0 ? Colors.dark.error : Colors.dark.text, fontWeight: "700" }}>{data.totalDebt}</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Lots expiring (14d)</Text>
+          <Text style={{ color: Colors.dark.gold, fontWeight: "700" }}>{data.expiringSoon.lots} lots / {Number(data.expiringSoon.qty)} credits</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Manual adj. (30d)</Text>
+          <Text style={{ color: Colors.dark.text, fontWeight: "700" }}>{data.manualAdjustmentsLast30d}</Text>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: Colors.dark.textMuted }}>Lots active / depleted / expired</Text>
+          <Text style={{ color: Colors.dark.text, fontWeight: "700" }}>
+            {data.lotCounts.active_lots ?? 0} / {data.lotCounts.depleted_lots ?? 0} / {data.lotCounts.expired_lots ?? 0}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
