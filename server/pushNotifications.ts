@@ -2189,9 +2189,26 @@ async function processCreditDriftWatchdog(): Promise<void> {
       console.log("[Reconcile] OK (V2 academies)");
       return;
     }
-    console.warn(
-      `[Reconcile] DRIFT_FOUND drift_count=${summary.driftCount} total_drift=${summary.totalDrift}`,
-    );
+    // Group rows by academy for the aggregate header line.
+    const perAcademy = new Map<
+      string,
+      { name: string; driftCount: number; totalDrift: number }
+    >();
+    for (const r of summary.rows) {
+      const cur = perAcademy.get(r.academyId) ?? {
+        name: r.academyName,
+        driftCount: 0,
+        totalDrift: 0,
+      };
+      cur.driftCount += 1;
+      cur.totalDrift += Math.abs(r.drift);
+      perAcademy.set(r.academyId, cur);
+    }
+    for (const [academyId, agg] of Array.from(perAcademy.entries())) {
+      console.warn(
+        `[Reconcile] academy=${academyId} (${agg.name}) drift_count=${agg.driftCount} total_drift=${agg.totalDrift}`,
+      );
+    }
     for (const r of summary.rows) {
       console.warn(
         `[Reconcile] DRIFT player=${r.playerId} (${r.playerName}) academy=${r.academyId} expected=${r.expected} actual=${r.actual} delta=${r.drift} offending=${r.offendingSessionPlayerIds.length}`,

@@ -1641,11 +1641,11 @@ import fs from "fs";
             "../services/credit-engine"
           );
           const reasonCounts = new Map<string, number>();
-          for (const s of playerSessions as any[]) {
-            const status = (s.attended || s.attendanceStatus || "").toLowerCase();
-            const sessionType: string = s.sessionType || s.session_type || "";
+          for (const s of playerSessions) {
+            const status = (s.attendanceStatus || "").toLowerCase();
+            const sessionType: string = s.sessionType || "";
             // Only count sessions that have started; future ones are noise.
-            const startTime = new Date(s.startTime || s.start_time || 0);
+            const startTime = s.startTime instanceof Date ? s.startTime : new Date(s.startTime);
             if (startTime > now) continue;
             const isOriginallyPrivate = sessionType === "private";
             const chargeable = shouldChargeForAttendance({

@@ -445,10 +445,20 @@ export default function PlayerProfileScreen() {
     enabled: !!data?.player,
   });
 
+  interface V2LedgerEntry {
+    id: string;
+    type: string;
+    delta: string | number;
+    reason: string;
+    balance_after: string | number;
+    occurred_at: string;
+    metadata?: Record<string, unknown> | null;
+  }
   interface V2WalletData {
     v2Enabled: boolean;
     balance: { group: number; semi_private: number; private: number };
     activeLots: Array<{ id: string; type: string; qty_remaining: number; expires_at: string | null }>;
+    recentLedger?: V2LedgerEntry[];
   }
   const { data: v2Wallet } = useQuery<V2WalletData>({
     queryKey: [`/api/v2/credits/wallet/${data?.player?.id ?? ""}`],
@@ -465,6 +475,9 @@ export default function PlayerProfileScreen() {
         .filter((l) => l.expires_at)
         .sort((a, b) => new Date(a.expires_at!).getTime() - new Date(b.expires_at!).getTime())[0]
     : null;
+  const v2RecentLedger: V2LedgerEntry[] = v2Enabled
+    ? (v2Wallet?.recentLedger ?? []).slice(0, 5)
+    : [];
 
   const { data: activeLiveMatch } = useQuery<{ matches?: Array<{ id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }> }>({
     queryKey: ["/api/live-scoring/player/me/active"],
@@ -1076,6 +1089,41 @@ export default function PlayerProfileScreen() {
             ) : null}
           </Pressable>
         </View>
+
+        {v2Enabled && v2RecentLedger.length > 0 ? (
+          <View style={profileStyles.recentActivityCard}>
+            <Text style={profileStyles.recentActivityTitle}>Recent wallet activity</Text>
+            {v2RecentLedger.map((e) => {
+              const isBackfill = e.metadata?.backfill === true;
+              const deltaNum = Number(e.delta);
+              const sign = deltaNum > 0 ? "+" : "";
+              return (
+                <View key={e.id} style={profileStyles.recentActivityRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={profileStyles.recentActivityReason} numberOfLines={1}>
+                      {e.reason || e.type}
+                    </Text>
+                    <Text style={profileStyles.recentActivityDate}>
+                      {new Date(e.occurred_at).toLocaleDateString()}
+                      {isBackfill ? (
+                        <Text style={profileStyles.backfilledTag}>  · BACKFILLED</Text>
+                      ) : null}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      profileStyles.recentActivityDelta,
+                      { color: deltaNum > 0 ? Colors.dark.primary : Colors.dark.textMuted },
+                    ]}
+                  >
+                    {sign}
+                    {deltaNum}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
 
         {/* Live Match Banner — shows when the player has an active live match */}
         {activeLiveMatch?.matches && activeLiveMatch.matches.length > 0 ? (
@@ -2539,5 +2587,49 @@ const profileStyles = StyleSheet.create({
     fontWeight: "700",
     color: "#FF4444",
     flex: 1,
+  },
+  recentActivityCard: {
+    backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  recentActivityTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  recentActivityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.dark.border,
+  },
+  recentActivityReason: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  recentActivityDate: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  backfilledTag: {
+    color: "#F59E0B",
+    fontWeight: "700",
+    fontSize: 10,
+  },
+  recentActivityDelta: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginLeft: Spacing.sm,
   },
 });

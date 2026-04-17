@@ -25,6 +25,7 @@ interface LedgerEntry {
   reason: string;
   balance_after: string | number;
   occurred_at: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface WalletData {
@@ -536,7 +537,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
                         numberOfLines={2}
                       >
                         {e.reason}
-                        {(e as any).metadata?.backfill ? (
+                        {e.metadata?.backfill ? (
                           <Text
                             style={{
                               color: Colors.dark.warning ?? "#F59E0B",
