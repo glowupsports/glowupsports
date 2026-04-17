@@ -2059,31 +2059,31 @@ export default function SeriesDetailDrawer({
           </View>
         </View>
       </Modal>
-    </Modal>
+      {/* Feedback Drawer - appears after saving attendance.
+          Nested inside the parent series modal so it stacks visibly on top. */}
+      {feedbackSessionId && (
+        <InSessionFeedbackDrawer
+          visible={showFeedbackDrawer}
+          sessionId={feedbackSessionId}
+          players={feedbackPlayers}
+          onClose={() => {
+            setShowFeedbackDrawer(false);
+            setFeedbackSessionId(null);
+            setFeedbackPlayers([]);
+          }}
+        />
+      )}
 
-    {/* Feedback Drawer - appears after saving attendance */}
-    {feedbackSessionId && (
-      <InSessionFeedbackDrawer
-        visible={showFeedbackDrawer}
-        sessionId={feedbackSessionId}
-        players={feedbackPlayers}
+      {/* Deep Assessment Drawer - nested inside parent so it stacks on top */}
+      <DeepAssessmentDrawer
+        visible={showDeepAssessment}
+        player={assessmentPlayer}
         onClose={() => {
-          setShowFeedbackDrawer(false);
-          setFeedbackSessionId(null);
-          setFeedbackPlayers([]);
+          setShowDeepAssessment(false);
+          setAssessmentPlayer(null);
         }}
       />
-    )}
-
-    {/* Deep Assessment Drawer - for skill assessment */}
-    <DeepAssessmentDrawer
-      visible={showDeepAssessment}
-      player={assessmentPlayer}
-      onClose={() => {
-        setShowDeepAssessment(false);
-        setAssessmentPlayer(null);
-      }}
-    />
+    </Modal>
   </>
   );
 }

@@ -175,6 +175,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    // Ensure web alert always layers above any other Modal that may be open
+    // (RN <Modal> on web renders in a portal; high z-index guards against
+    // sibling-modal stacking when an alert is triggered from inside another modal).
+    zIndex: 999999,
+    elevation: 999999,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

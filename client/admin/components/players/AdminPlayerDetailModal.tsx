@@ -20,6 +20,17 @@ import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
 import { AdminPlayer, AdminPlayerPackage, AdminPlayerStats, AdminPlayerSessionItem } from "./adminPlayerTypes";
 import { AdminDeletePlayerModal } from "./AdminDeletePlayerModal";
+import { AdminAddPlayerModal, AdminPlayerFormData } from "./AdminAddPlayerModal";
+import { AdminMarkPaidModal } from "./AdminMarkPaidModal";
+import { AdminRecordPaymentModal } from "./AdminRecordPaymentModal";
+import CreditStoreModal from "../CreditStoreModal";
+import { ReportIssueModal } from "@/components/ReportIssueModal";
+
+// CONVENTION: If a modal is opened from inside another modal, render it as a
+// child of the parent modal's JSX (below), not as a sibling on the screen.
+// React Native's <Modal> mounts each instance into its own native window and
+// when two are siblings the platform shows the first-presented one on top —
+// so a sibling child modal silently lands underneath the parent.
 
 interface AdminPlayerDetailModalProps {
   showFullDetailsModal: boolean;
@@ -33,7 +44,7 @@ interface AdminPlayerDetailModalProps {
   selectedPlayerId: string | null;
   setShowReportIssueModal: (v: boolean) => void;
   setEditingPlayer: (p: AdminPlayer | null) => void;
-  setFormData: (d: Record<string, unknown>) => void;
+  setFormData: React.Dispatch<React.SetStateAction<AdminPlayerFormData>>;
   closeDetailModal: () => void;
   setShowAddModal: (v: boolean) => void;
   setShowCreditStoreModal: (v: boolean) => void;
@@ -56,6 +67,20 @@ interface AdminPlayerDetailModalProps {
   isDeletePending: boolean;
   closeDeleteModal: () => void;
   confirmDelete: () => void;
+  // Nested child modals (rendered inside this parent so they stack on top)
+  showAddModal: boolean;
+  editingPlayer: AdminPlayer | null;
+  formData: AdminPlayerFormData;
+  handleAddPlayerSubmit: () => void;
+  isAddPlayerSubmitting: boolean;
+  showCreditStoreModal: boolean;
+  showReportIssueModal: boolean;
+  showMarkPaidModal: boolean;
+  selectedPackageForPayment: AdminPlayerPackage | null;
+  setSelectedPackageForPayment: (p: AdminPlayerPackage | null) => void;
+  setShowMarkPaidModal: (v: boolean) => void;
+  showRecordPaymentModal: boolean;
+  setShowRecordPaymentModal: (v: boolean) => void;
 }
 
 const getBallLevelColor = (level?: string): string => {
@@ -108,6 +133,19 @@ export function AdminPlayerDetailModal({
   isDeletePending,
   closeDeleteModal,
   confirmDelete,
+  showAddModal,
+  editingPlayer,
+  formData,
+  handleAddPlayerSubmit,
+  isAddPlayerSubmitting,
+  showCreditStoreModal,
+  showReportIssueModal,
+  showMarkPaidModal,
+  selectedPackageForPayment,
+  setSelectedPackageForPayment,
+  setShowMarkPaidModal,
+  showRecordPaymentModal,
+  setShowRecordPaymentModal,
 }: AdminPlayerDetailModalProps) {
   const queryClient = useQueryClient();
   const stats = playerStats;
@@ -286,7 +324,7 @@ export function AdminPlayerDetailModal({
                   parentPhone: stats.player.parentPhone || "",
                   dateOfBirth: stats.player.dateOfBirth || "",
                 });
-                closeDetailModal();
+                // Keep parent detail modal open so the Add (edit) modal stacks on top
                 setShowAddModal(true);
               }
             }}>
@@ -961,6 +999,43 @@ export function AdminPlayerDetailModal({
           isPending={isDeletePending}
           onClose={closeDeleteModal}
           onConfirm={confirmDelete}
+        />
+        {/* Children below are nested inside this parent Modal so they stack on top of it.
+            Do NOT move them out as siblings on the screen. */}
+        <AdminAddPlayerModal
+          visible={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          editingPlayer={editingPlayer}
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleAddPlayerSubmit}
+          isSubmitting={isAddPlayerSubmitting}
+        />
+        <ReportIssueModal
+          visible={showReportIssueModal}
+          onClose={() => setShowReportIssueModal(false)}
+          currentScreen="AdminPlayersScreen - Player Details"
+        />
+        <CreditStoreModal
+          visible={showCreditStoreModal}
+          onClose={() => setShowCreditStoreModal(false)}
+          playerId={selectedPlayerId || ""}
+          playerName={playerStats?.player?.name || ""}
+        />
+        <AdminMarkPaidModal
+          visible={showMarkPaidModal}
+          onClose={() => {
+            setShowMarkPaidModal(false);
+            setSelectedPackageForPayment(null);
+          }}
+          selectedPackage={selectedPackageForPayment}
+          selectedPlayerId={selectedPlayerId}
+        />
+        <AdminRecordPaymentModal
+          visible={showRecordPaymentModal}
+          onClose={() => setShowRecordPaymentModal(false)}
+          packages={playerStats?.packages}
+          selectedPlayerId={selectedPlayerId}
         />
       </Modal>
     );

@@ -23,7 +23,7 @@ function getBallLevelColor(level?: string): string {
   }
 }
 
-type FormData = {
+export type AdminPlayerFormData = {
   name: string;
   email: string;
   phone: string;
@@ -32,6 +32,7 @@ type FormData = {
   parentPhone: string;
   dateOfBirth: string;
 };
+type FormData = AdminPlayerFormData;
 
 interface AdminAddPlayerModalProps {
   visible: boolean;

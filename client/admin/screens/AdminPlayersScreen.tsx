@@ -24,15 +24,12 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, Glo
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { ReportIssueModal } from "@/components/ReportIssueModal";
 import CreditStoreModal from "@/admin/components/CreditStoreModal";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
 import { styles } from "@/admin/components/players/adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "@/admin/components/players/AdminPlayerHelpers";
 import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDetailModal";
 import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInlinePlayerProfile";
-import { AdminMarkPaidModal } from "@/admin/components/players/AdminMarkPaidModal";
-import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordPaymentModal";
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
 
 type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest" | "not_activated";
@@ -1364,48 +1361,35 @@ export default function AdminPlayersScreen() {
         isDeletePending={deletePlayerMutation.isPending}
         closeDeleteModal={() => setShowDeleteModal(false)}
         confirmDelete={confirmDelete}
-      />
-
-      <AdminAddPlayerModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        showAddModal={showAddModal}
         editingPlayer={editingPlayer}
         formData={formData}
-        setFormData={setFormData}
-        onSubmit={handleSubmit}
-        isSubmitting={addPlayerMutation.isPending || updatePlayerMutation.isPending}
+        handleAddPlayerSubmit={handleSubmit}
+        isAddPlayerSubmitting={addPlayerMutation.isPending || updatePlayerMutation.isPending}
+        showCreditStoreModal={showCreditStoreModal}
+        showReportIssueModal={showReportIssueModal}
+        showMarkPaidModal={showMarkPaidModal}
+        selectedPackageForPayment={selectedPackageForPayment}
+        setSelectedPackageForPayment={setSelectedPackageForPayment}
+        setShowMarkPaidModal={setShowMarkPaidModal}
+        showRecordPaymentModal={showRecordPaymentModal}
+        setShowRecordPaymentModal={setShowRecordPaymentModal}
       />
 
-      <ReportIssueModal
-        visible={showReportIssueModal}
-        onClose={() => setShowReportIssueModal(false)}
-        currentScreen="AdminPlayersScreen - Player Details"
-      />
-
-      <CreditStoreModal
-        visible={showCreditStoreModal}
-        onClose={() => setShowCreditStoreModal(false)}
-        playerId={selectedPlayerId || ""}
-        playerName={playerStats?.player?.name || ""}
-      />
-
-      <AdminMarkPaidModal
-        visible={showMarkPaidModal}
-        onClose={() => {
-          setShowMarkPaidModal(false);
-          setSelectedPackageForPayment(null);
-        }}
-        selectedPackage={selectedPackageForPayment}
-        selectedPlayerId={selectedPlayerId}
-      />
-
-      {/* Record Payment Modal */}
-      <AdminRecordPaymentModal
-        visible={showRecordPaymentModal}
-        onClose={() => setShowRecordPaymentModal(false)}
-        packages={playerStats?.packages}
-        selectedPlayerId={selectedPlayerId}
-      />
+      {/* Add Player modal for the FAB "Add new player" flow only.
+          When the player detail modal is open, an instance of this modal is rendered
+          INSIDE AdminPlayerDetailModal so the edit form stacks on top of the detail. */}
+      {!showFullDetailsModal ? (
+        <AdminAddPlayerModal
+          visible={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          editingPlayer={editingPlayer}
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleSubmit}
+          isSubmitting={addPlayerMutation.isPending || updatePlayerMutation.isPending}
+        />
+      ) : null}
 
       <AdminInvitePopover
         player={invitePopoverPlayer}

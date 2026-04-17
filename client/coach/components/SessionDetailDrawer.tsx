@@ -2467,6 +2467,16 @@ export default function SessionDetailDrawer({
       </View>
       </Modal>
 
+      {/*
+        Stacking convention (see replit.md → Conventions → Modal stacking):
+        Every sub-drawer/modal opened from inside this session detail drawer is
+        rendered BELOW as a child of the parent <Modal> that opens at line ~2368
+        and closes at the bottom (line ~2602). Do NOT move them outside the parent
+        Modal — RN sibling <Modal>s mount into separate native windows and would
+        appear behind this drawer. Sub-drawers using presentationStyle="pageSheet"
+        stack correctly above the parent pageSheet on iOS 13+; on Android they
+        present as full-screen sheets which also stacks correctly.
+      */}
       {/* In-Session Feedback Drawer */}
       <InSessionFeedbackDrawer
         visible={showQuickFeedback}

@@ -100,3 +100,16 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen.
 - **UI Components**: `expo-glass-effect`.
 - **Keyboard Management**: `react-native-keyboard-controller`.
+
+## Conventions
+
+### Modal stacking (CRITICAL)
+React Native's `<Modal>` mounts every instance into its own native window. When two `<Modal>` components are siblings in the JSX tree, the platform shows the first-presented one on top — so a "child" modal opened from inside a "parent" modal will silently appear **behind** the parent.
+
+Rule: **If a modal is opened from inside another modal, render its `<Modal>` JSX as a child of the parent modal's JSX, not as a sibling on the screen.** Pass any required state/callbacks down as props.
+
+This applies to: admin player detail (Add/Edit, Mark Paid, Record Payment, Credit Store, Report Issue all nested inside `AdminPlayerDetailModal`), `SeriesDetailDrawer` (in-session feedback + deep assessment nested inside the outer modal), `SessionDetailDrawer` sub-drawers, and any future flow that opens a modal from within another modal.
+
+`WebAlertProvider` ships with a very high `zIndex`/`elevation` on its overlay so global alerts always layer above any other open modal on web.
+
+**`presentationStyle="pageSheet"` decision:** Nested child modals may keep `pageSheet` even when the parent also uses `pageSheet`. iOS 13+ supports stacked sheet presentations natively (each child slides up over the previous one), and on Android `pageSheet` falls back to a full-screen presentation that also stacks correctly. Switching nested children to `overFullScreen` is unnecessary and would lose the sheet appearance.
