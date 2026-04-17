@@ -995,6 +995,7 @@ export const players = pgTable("players", {
   skillLevel: integer("skill_level"), // 1/2/3
   membershipType: text("membership_type"),
   medicalNotes: text("medical_notes"),
+  isTest: boolean("is_test").notNull().default(false), // demo/QA accounts excluded from credit replay & analytics
   totalXp: integer("total_xp").default(0),
   level: integer("level").default(1),
   glowScore: integer("glow_score").default(0),

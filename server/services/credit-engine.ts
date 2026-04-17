@@ -312,6 +312,10 @@ export interface ConsumeCreditInput {
   creditCostOverride?: number;
   /** Override the type. Otherwise derived from session.session_type. */
   typeOverride?: CreditType;
+  /** Logical event time. During replay, pass the session start_time so lot
+   *  expiry filtering and ledger occurredAt are historically correct. Defaults
+   *  to `new Date()` for live writes. */
+  occurredAt?: Date;
 }
 
 export interface ConsumeCreditResult {
@@ -457,10 +461,12 @@ export async function consumeCredit(
     const newBalance = before - amount;
 
     // FIFO-consume from non-expired active lots (oldest first). Track per-lot
-    // quantity so refunds can restock multi-lot consumes accurately.
+    // quantity so refunds can restock multi-lot consumes accurately. Uses
+    // `occurredAt` (defaults to now) so historical replay sees the lot
+    // landscape that existed at the session's actual start time.
     const lotConsumptions: { lotId: string; qty: number }[] = [];
     let toConsume = amount;
-    const now = new Date();
+    const occurredAt = input.occurredAt ?? new Date();
     const lots = await tx.execute(sql`
       SELECT id, qty_remaining
       FROM credit_lots
@@ -469,7 +475,7 @@ export async function consumeCredit(
         AND type = ${type}
         AND status = 'active'
         AND qty_remaining > 0
-        AND (expires_at IS NULL OR expires_at > ${now})
+        AND (expires_at IS NULL OR expires_at > ${occurredAt})
       ORDER BY purchased_at ASC, created_at ASC
       FOR UPDATE
     `);
@@ -846,9 +852,87 @@ export async function manualAdjustment(input: ManualAdjustmentInput) {
   });
 }
 
-// ============================================================================
-// Read helpers
-// ============================================================================
+
+export interface ExpireCreditsInput {
+  academyId: string;
+  /** Cutoff instant. Any active lot with `expires_at <= asOf` is expired. */
+  asOf: Date;
+  actorRole?: ActorRole;
+}
+
+export interface ExpireCreditsResult {
+  ok: true;
+  lotsExpired: number;
+  ledgerRowsWritten: number;
+}
+
+/**
+ * Sweep expired lots for an academy and write `reason='expiry'` ledger rows
+ * that debit `player_credit_balance` by the leftover lot quantity. Idempotent
+ * via `expiry:lot:<lotId>` event_keys, so reruns (and replay) are safe.
+ */
+export async function expireCredits(
+  input: ExpireCreditsInput,
+): Promise<ExpireCreditsResult> {
+  let lotsExpired = 0;
+  let ledgerRowsWritten = 0;
+
+  await db.transaction(async (tx) => {
+    const expiredLots = await tx.execute(sql`
+      SELECT id, player_id, academy_id, type, qty_remaining
+      FROM credit_lots
+      WHERE academy_id = ${input.academyId}
+        AND status = 'active'
+        AND expires_at IS NOT NULL
+        AND expires_at <= ${input.asOf}
+      ORDER BY expires_at ASC, created_at ASC
+      FOR UPDATE
+    `);
+
+    for (const row of expiredLots.rows) {
+      const lot = row as {
+        id: string;
+        player_id: string;
+        academy_id: string;
+        type: string;
+        qty_remaining: string | number;
+      };
+      const remaining = num(lot.qty_remaining);
+      const lotType = lot.type as CreditType;
+
+      await tx.execute(sql`
+        UPDATE credit_lots
+        SET status = 'expired', qty_remaining = 0
+        WHERE id = ${lot.id}
+      `);
+      lotsExpired++;
+
+      if (remaining <= 0) continue;
+
+      const before = await lockBalance(tx, lot.player_id, lot.academy_id, lotType);
+      const newBalance = before - remaining;
+      const ledger = await insertLedger(tx, {
+        playerId: lot.player_id,
+        academyId: lot.academy_id,
+        type: lotType,
+        delta: -remaining,
+        reason: "expiry",
+        eventKey: `expiry:lot:${lot.id}`,
+        actorRole: input.actorRole ?? "system",
+        lotId: lot.id,
+        balanceAfter: newBalance,
+        occurredAt: input.asOf,
+        metadata: { lotId: lot.id, expiredQty: remaining, asOf: input.asOf.toISOString() },
+      });
+      if (ledger !== null) {
+        ledgerRowsWritten++;
+        await writeBalance(tx, lot.player_id, lot.academy_id, lotType, newBalance);
+      }
+    }
+  });
+
+  return { ok: true, lotsExpired, ledgerRowsWritten };
+}
 
 export interface BalanceByType {
   group: number;

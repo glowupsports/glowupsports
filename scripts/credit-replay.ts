@@ -28,6 +28,7 @@ import {
   purchasePackage,
   consumeCredit,
   refundCredit,
+  expireCredits,
   type CreditType,
 } from "../server/services/credit-engine";
 
@@ -53,17 +54,8 @@ function normalizeCreditType(type: string | null | undefined): CreditType {
   return "group";
 }
 
-function isTestPlayer(row: { name: string | null; email: string | null }): boolean {
-  const name = (row.name || "").toLowerCase();
-  const email = (row.email || "").toLowerCase();
-  return (
-    name.includes("test") ||
-    name.includes("demo") ||
-    email.endsWith("@test.com") ||
-    email.endsWith("@example.com") ||
-    email.includes("+test")
-  );
-}
+// Authoritative test/demo flag lives on `players.is_test`. Replay reads it
+// per-row from the joined query — never inferred from name/email heuristics.
 
 async function listAcademyIds(): Promise<string[]> {
   const result = await db.execute(sql`SELECT id FROM academies ORDER BY created_at ASC`);
@@ -96,13 +88,13 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
     SELECT
       p.id, p.player_id, p.academy_id, p.credit_type, p.total_credits,
       p.price, p.price_per_credit, p.currency, p.purchase_date, p.expiry_date,
-      p.invoice_id, p.status, p.is_paid,
-      pl.name AS player_name, pl.email AS player_email
+      p.invoice_id, p.status, p.is_paid
     FROM packages p
-    LEFT JOIN players pl ON pl.id = p.player_id
+    JOIN players pl ON pl.id = p.player_id
     WHERE p.academy_id = ${academyId}
       AND p.player_id IS NOT NULL
       AND p.status IN ('active','expired','depleted')
+      AND COALESCE(pl.is_test, false) = false
     ORDER BY p.purchase_date ASC NULLS FIRST, p.created_at ASC
   `);
 
@@ -121,14 +113,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       invoice_id: string | null;
       status: string | null;
       is_paid: boolean | null;
-      player_name: string | null;
-      player_email: string | null;
     };
-
-    if (isTestPlayer({ name: pkg.player_name, email: pkg.player_email })) {
-      stats.packagesSkipped++;
-      continue;
-    }
 
     // Only replay packages that were actually paid for. Either the package
     // itself is_paid=true, or its linked invoice is in 'paid' status. Unpaid
@@ -219,17 +204,47 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       sp.player_id,
       sp.attendance_status,
       s.start_time,
-      s.session_type,
-      pl.name AS player_name, pl.email AS player_email
+      s.session_type
     FROM session_players sp
     JOIN sessions s ON s.id = sp.session_id
-    LEFT JOIN players pl ON pl.id = sp.player_id
+    JOIN players pl ON pl.id = sp.player_id
     WHERE s.academy_id = ${academyId}
       AND sp.player_id IS NOT NULL
       AND sp.attendance_status IS NOT NULL
       AND sp.attendance_status IN ('present','late','absent')
+      AND COALESCE(pl.is_test, false) = false
     ORDER BY s.start_time ASC NULLS FIRST, sp.id ASC
   `);
+
+  // Run expiry pass + consumes interleaved by chronological time. We keep
+  // a "watermark" of all unique lot expiry instants for this academy and
+  // flush every expiry that falls before the next consume's occurredAt.
+  const expiryQueueResult = await db.execute(sql`
+    SELECT DISTINCT expires_at
+    FROM credit_lots
+    WHERE academy_id = ${academyId} AND expires_at IS NOT NULL
+    ORDER BY expires_at ASC
+  `);
+  const expiryQueue: Date[] = expiryQueueResult.rows
+    .map((r) => (r as { expires_at: Date | string | null }).expires_at)
+    .filter((d): d is Date | string => d != null)
+    .map((d) => new Date(d));
+  let expiryIdx = 0;
+
+  async function flushExpiriesUpTo(asOf: Date) {
+    while (expiryIdx < expiryQueue.length && expiryQueue[expiryIdx].getTime() <= asOf.getTime()) {
+      const at = expiryQueue[expiryIdx++];
+      if (dryRun) continue;
+      try {
+        await expireCredits({ academyId, asOf: at, actorRole: "system" });
+      } catch (err) {
+        stats.errors++;
+        stats.errorDetails.push(
+          `expiry@${at.toISOString()}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
 
   for (const raw of consumesResult.rows) {
     const sp = raw as {
@@ -239,14 +254,10 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       attendance_status: string;
       start_time: Date | string | null;
       session_type: string | null;
-      player_name: string | null;
-      player_email: string | null;
     };
 
-    if (isTestPlayer({ name: sp.player_name, email: sp.player_email })) {
-      stats.consumesSkipped++;
-      continue;
-    }
+    const occurredAt = sp.start_time ? new Date(sp.start_time) : new Date();
+    await flushExpiriesUpTo(occurredAt);
 
     if (dryRun) {
       stats.consumesProcessed++;
@@ -256,6 +267,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
     try {
       const result = await consumeCredit({
         sessionPlayerId: sp.session_player_id,
+        occurredAt,
         actorRole: "system",
         eventKey: `consume:${sp.session_player_id}`,
       });
@@ -285,10 +297,9 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
   const refundsResult = await db.execute(sql`
     SELECT
       ct.id, ct.player_id, ct.session_player_id, ct.amount,
-      ct.created_at, ct.reason, ct.type,
-      pl.name AS player_name, pl.email AS player_email
+      ct.created_at, ct.reason, ct.type
     FROM credit_transactions ct
-    LEFT JOIN players pl ON pl.id = ct.player_id
+    JOIN players pl ON pl.id = ct.player_id
     WHERE ct.academy_id = ${academyId}
       AND ct.session_player_id IS NOT NULL
       AND CAST(ct.amount AS numeric) > 0
@@ -296,6 +307,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
         ct.type = 'refund'
         OR ct.reason IN ('session_cancel','session_settlement','coach_cancel')
       )
+      AND COALESCE(pl.is_test, false) = false
     ORDER BY ct.created_at ASC NULLS FIRST
   `);
 
@@ -308,14 +320,7 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       created_at: Date | string | null;
       reason: string | null;
       type: string | null;
-      player_name: string | null;
-      player_email: string | null;
     };
-
-    if (isTestPlayer({ name: tx.player_name, email: tx.player_email })) {
-      stats.refundsSkipped++;
-      continue;
-    }
 
     if (dryRun) {
       stats.refundsProcessed++;
