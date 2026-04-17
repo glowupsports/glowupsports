@@ -12815,9 +12815,12 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
                            })}::jsonb
             WHERE id = ${exC.id}
           `);
+          // Mirror the normal consume path: update balance + status and signal depletion
+          // so the post-commit hook converts depleted-package consumptions into debts.
           await tx.execute(sql`
             UPDATE packages
-            SET remaining_credits = GREATEST(0, remaining_credits - ${creditCost})
+            SET remaining_credits = GREATEST(0, ${balanceAfter}::numeric),
+                status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
             WHERE id = ${pkg.id}
           `);
           await tx.execute(sql`
@@ -12832,7 +12835,8 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
             transactionId: exC.id,
             packageId: pkg.id,
             creditType,
-          };
+            _depleted: balanceAfter <= 0,
+          } as any;
         }
         console.log(`[EnsureCredit] Live consume already exists at event_key for session_player ${sessionPlayerId}`);
         return { success: true, action: "already_processed" as const, transactionId: exC.id };
