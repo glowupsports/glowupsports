@@ -3878,6 +3878,11 @@ Return only the JSON array, nothing else.`;
       const { invoiceId } = req.params;
       const invoice = await storage.getInvoice(invoiceId);
       if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+      // Academy scoping: platform_owner can replay any invoice; everyone else
+      // must belong to the same academy as the invoice.
+      if (role !== "platform_owner" && req.user?.academyId !== invoice.academyId) {
+        return res.status(403).json({ error: "Cannot replay invoice from another academy" });
+      }
       if (invoice.status !== "paid") {
         return res.status(400).json({ error: "Invoice is not paid" });
       }

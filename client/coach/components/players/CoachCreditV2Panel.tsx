@@ -151,7 +151,9 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         credits: qty,
         paymentMethod: addPayment,
       };
-      if (addPrice.trim()) {
+      // Only billing-authorized roles can override price; coaches must let
+      // the server resolve from academy pricing to avoid 403s.
+      if (isBillingAuthorized && addPrice.trim()) {
         const p = parseFloat(addPrice);
         if (!Number.isFinite(p) || p < 0) throw new Error("Enter a valid price");
         body.pricePerCredit = p;
