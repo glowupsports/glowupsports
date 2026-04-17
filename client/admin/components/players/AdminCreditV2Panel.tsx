@@ -197,8 +197,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
     return (b.group || 0) + (b.semi_private || 0) + (b.private || 0);
   }, [walletQuery.data]);
 
-  if (!academyId) return null;
-  if (flagQuery.isLoading) {
+  if (walletQuery.isLoading) {
     return (
       <View style={{ paddingVertical: Spacing.md, alignItems: "center" }}>
         <ActivityIndicator color={Colors.dark.primary} />

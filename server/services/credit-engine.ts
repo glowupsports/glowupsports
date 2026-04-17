@@ -638,8 +638,6 @@ export async function refundCredit(
     }
   }
 
-  const occurredAt = input.occurredAt ?? new Date();
-
   return await db.transaction(async (tx) => {
     let type = input.type ?? null;
     let amount = input.amount ?? null;
