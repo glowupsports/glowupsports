@@ -8028,11 +8028,23 @@ export const storage = {
 
     for (const playerId of playerIds) {
       const r = result[playerId];
-      r.hasDebt = r.totalDebt > 0;
       // Final net per type — single source of truth, matches detail screen.
       r.netGroup = r.group - r.groupDebt - r.uncoveredGroup;
       r.netSemiPrivate = r.semi_private - r.semiPrivateDebt - r.uncoveredSemiPrivate;
       r.netPrivate = r.private - r.privateDebt - r.uncoveredPrivate;
+      // totalDebt / hasDebt now reflect the *real* deficit (sum of negative
+      // nets across types). Previously they only counted unsettled
+      // session_debt rows and missed uncovered-session debt entirely, so
+      // warning badges (AdminSeriesDetailDrawer, SeriesOverviewTab,
+      // AdminPlayersScreen) under-reported. With this change a player whose
+      // only liability is uncovered sessions (e.g. Aisha, -21 semi) is
+      // correctly flagged.
+      const deficit =
+        Math.max(0, -r.netGroup) +
+        Math.max(0, -r.netSemiPrivate) +
+        Math.max(0, -r.netPrivate);
+      r.totalDebt = deficit;
+      r.hasDebt = deficit > 0;
     }
 
     return result;
