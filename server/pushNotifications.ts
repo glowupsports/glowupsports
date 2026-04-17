@@ -2069,11 +2069,17 @@ export async function fixRouzbehGhostCredit(): Promise<void> {
 
 
 /**
- * Finds completed sessions from the last 7 days where players have attendance marked
- * (present/late/absent) but credit_deducted_at is still NULL and no debit transaction exists.
- * This closes the gap when coaches save partial attendance without "End Session", or when
- * admins mark attendance via the admin panel (which doesn't call ensureCreditProcessed).
- * Runs every 5 minutes as part of the main scheduler loop.
+ * Finds completed sessions (any age — Task #669 removed the 7-day cap) where
+ * players have attendance marked (present/late/absent) but credit_deducted_at
+ * is still NULL and no debit/consume row exists in the academy's active credit
+ * system (V1: credit_transactions, V2: credit_ledger_v2). Bounded by
+ * `LIMIT 100` per pass and ordered oldest-first to chew through any backlog
+ * over successive scheduler ticks.
+ *
+ * This closes the gap when coaches save partial attendance without "End
+ * Session", or when admins mark attendance via the admin panel (which doesn't
+ * call ensureCreditProcessed). Runs every 5 minutes as part of the main
+ * scheduler loop.
  */
 async function processUnchargedAttendance(): Promise<void> {
   try {
