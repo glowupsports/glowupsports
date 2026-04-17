@@ -1970,21 +1970,14 @@ export const storage = {
     }
     
     return playerList.map(player => {
-      const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0 };
-      // Deficit per type = MAX(unsettled debt ledger, uncovered attended sessions).
-      // Both measure the same underlying "sessions owed" — debt tracks session_debt
-      // transactions (package_id NULL), uncovered counts attended sessions whose
-      // linked credit_transaction has no surviving package. They overlap heavily
-      // (every session_debt session is also uncovered). Taking max avoids the
-      // double-count that would otherwise inflate the deficit, while still
-      // surfacing legacy debt rows that aren't backed by a session_player row.
-      // Result: list pill matches the "−21" the player-detail screen reports.
-      const deficitGroup = Math.max(balance.groupDebt || 0, balance.uncoveredGroup || 0);
-      const deficitPrivate = Math.max(balance.privateDebt || 0, balance.uncoveredPrivate || 0);
-      const deficitSemiPrivate = Math.max(balance.semiPrivateDebt || 0, balance.uncoveredSemiPrivate || 0);
-      const netGroup = balance.group - deficitGroup;
-      const netPrivate = balance.private - deficitPrivate;
-      const netSemiPrivate = balance.semi_private - deficitSemiPrivate;
+      const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0, netGroup: 0, netSemiPrivate: 0, netPrivate: 0 };
+      // Use the helper's pre-computed net values: gross packages remaining
+      // minus session_debt ledger minus uncovered attended sessions. This is
+      // exactly the formula the player-detail Packages card uses, so the
+      // list pill and detail card always show the same number.
+      const netGroup = balance.netGroup;
+      const netPrivate = balance.netPrivate;
+      const netSemiPrivate = balance.netSemiPrivate;
       const byType = { 
         private: netPrivate, 
         group: netGroup, 
@@ -7932,6 +7925,14 @@ export const storage = {
     uncoveredGroup: number;
     uncoveredSemiPrivate: number;
     uncoveredPrivate: number;
+    // Net = packages.remaining - session_debt - uncovered sessions, per type.
+    // This is the SAME number the player-detail Packages card displays for
+    // each type (can be negative). All callers that show a balance to the
+    // user should prefer these fields over the gross `group/semi_private/
+    // private` fields.
+    netGroup: number;
+    netSemiPrivate: number;
+    netPrivate: number;
   }>> {
     if (playerIds.length === 0) return {};
 
@@ -7943,9 +7944,9 @@ export const storage = {
       return "group";
     };
 
-    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; groupDebt: number; semiPrivateDebt: number; privateDebt: number; hasDebt: boolean; uncoveredGroup: number; uncoveredSemiPrivate: number; uncoveredPrivate: number }> = {};
+    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; groupDebt: number; semiPrivateDebt: number; privateDebt: number; hasDebt: boolean; uncoveredGroup: number; uncoveredSemiPrivate: number; uncoveredPrivate: number; netGroup: number; netSemiPrivate: number; netPrivate: number }> = {};
     for (const id of playerIds) {
-      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0 };
+      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0, netGroup: 0, netSemiPrivate: 0, netPrivate: 0 };
     }
 
     // Sum remaining_credits from active packages directly
@@ -7965,33 +7966,20 @@ export const storage = {
       result[pkg.playerId][type] += Number(pkg.remainingCredits);
     }
 
-    // Debt = unsettled debt transactions (sessions without a package)
-    // Includes:
-    //   new-style:  type='debit', reason IN (session_debt/join_debt/unpaid)
-    //   legacy:     type IN ('debit','session_booking','session_consumed'), reason IN ('session_booking','session_consumed'),
-    //               no package in column or metadata, amount < 0
-    // NOTE: isDebt metadata flag is NOT required — legacy records predate that field.
+    // Debt = unsettled session_debt transactions. Mirrors the per-player
+    // getPlayerCreditBalanceByType query EXACTLY so the batch helper produces
+    // the same number the player-detail screen does. Legacy session_booking
+    // rows (no package_id) are intentionally excluded here — they are caught
+    // instead by the uncovered-sessions query below, preventing double counting.
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
       WHERE player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
         AND amount < 0
-        AND COALESCE(metadata->>'settled', 'false') != 'true'
+        AND type = 'debit'
+        AND reason = 'session_debt'
         AND COALESCE(metadata->>'cancelled', 'false') != 'true'
-        AND (
-          (type = 'debit'
-            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid'))
-          OR
-          (type IN ('debit', 'session_booking', 'session_consumed')
-            AND reason IN ('session_booking', 'session_consumed')
-            AND package_id IS NULL
-            AND (metadata->>'packageId') IS NULL)
-          OR
-          (type = 'debit'
-            AND reason IN ('attendance_correction_deduct', 'refund_reversal')
-            AND COALESCE(metadata->>'settled', 'false') != 'true'
-            AND COALESCE(metadata->>'cancelled', 'false') != 'true')
-        )
+        AND COALESCE(metadata->>'settled', 'false') != 'true'
       GROUP BY player_id, credit_type
     `);
 
@@ -8039,7 +8027,12 @@ export const storage = {
     }
 
     for (const playerId of playerIds) {
-      result[playerId].hasDebt = result[playerId].totalDebt > 0;
+      const r = result[playerId];
+      r.hasDebt = r.totalDebt > 0;
+      // Final net per type — single source of truth, matches detail screen.
+      r.netGroup = r.group - r.groupDebt - r.uncoveredGroup;
+      r.netSemiPrivate = r.semi_private - r.semiPrivateDebt - r.uncoveredSemiPrivate;
+      r.netPrivate = r.private - r.privateDebt - r.uncoveredPrivate;
     }
 
     return result;
