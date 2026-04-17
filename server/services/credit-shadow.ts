@@ -173,11 +173,15 @@ export async function shadowConsumeAfterLegacy(
       eventKey: `consume:${sessionPlayerId}`,
     });
 
+    // Normalize both engines to a single "is the player charged for this
+    // session_player?" boolean. Legacy `consumed` / `debt_created` are
+    // fresh charges; `already_processed` is the idempotent replay path
+    // and means a charge already exists — semantically equivalent to V2's
+    // `alreadyApplied`. Compare normalized states, not raw action labels.
     const legacyCharged =
-      legacyResult.action === "consumed" || legacyResult.action === "debt_created";
-    // V2 reports `charged: true` only for fresh charges; replays come back
-    // as `alreadyApplied: true, charged: false`. Treat replay as charged
-    // for the purposes of legacy/V2 parity comparison.
+      legacyResult.action === "consumed" ||
+      legacyResult.action === "debt_created" ||
+      legacyResult.action === "already_processed";
     const newCharged = newResult.charged === true || newResult.alreadyApplied === true;
 
     if (legacyCharged !== newCharged) {
@@ -241,12 +245,15 @@ export async function shadowRefundAfterLegacy(
     });
 
     // Compare semantic outcomes, not raw `success`. Legacy returns
-    // `success: true` for `alreadyRefunded` and debt-cleanup-only flows
-    // where no new refund action happened — those should be treated as
-    // no-ops, matching V2's `refunded: false`. Likewise V2's
-    // `alreadyApplied: true` is the replay/no-op signal.
+    // `success: true` for several no-op cases that must NOT count as a
+    // refund:
+    //   * `alreadyRefunded: true`  — idempotent replay
+    //   * `debtRemoved: true` only — debt cleanup, no credit was returned
+    // Likewise V2's `alreadyApplied: true` is the replay/no-op signal.
     const legacyDidRefund =
-      legacyResult.success === true && legacyResult.alreadyRefunded !== true;
+      legacyResult.success === true &&
+      legacyResult.alreadyRefunded !== true &&
+      legacyResult.debtRemoved !== true;
     const newDidRefund =
       newResult.refunded === true && newResult.alreadyApplied !== true;
 
