@@ -82,16 +82,22 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
   // ------------------------------------------------------------------
   // PASS 1 — packages → lots
   // ------------------------------------------------------------------
+  // Only replay packages that ever produced legitimate credits. Cancelled /
+  // refunded / draft packages are excluded — their credits should not appear
+  // in the V2 lots. Status values match the enum used in
+  // shared/schema.ts (`packages.status`): active | expired | depleted.
+  // Anything else (refunded/cancelled/void/draft) is skipped.
   const packagesResult = await db.execute(sql`
     SELECT
       p.id, p.player_id, p.academy_id, p.credit_type, p.total_credits,
       p.price, p.price_per_credit, p.currency, p.purchase_date, p.expiry_date,
-      p.invoice_id, p.status,
+      p.invoice_id, p.status, p.is_paid,
       pl.name AS player_name, pl.email AS player_email
     FROM packages p
     LEFT JOIN players pl ON pl.id = p.player_id
     WHERE p.academy_id = ${academyId}
       AND p.player_id IS NOT NULL
+      AND p.status IN ('active','expired','depleted')
     ORDER BY p.purchase_date ASC NULLS FIRST, p.created_at ASC
   `);
 

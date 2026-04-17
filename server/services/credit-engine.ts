@@ -1,29 +1,6 @@
-/**
- * Credit Engine V2 — Phase 1 (foundation only).
- *
- * Pure-ish engine for the new credit & package system. NOT YET WIRED into any
- * route, attendance trigger, or UI. Activation happens in later phases via the
- * `academies.use_new_credit_system` feature flag.
- *
- * Mental model:
- *   - Each player has a per-(academy, type) running balance in
- *     `player_credit_balance`. Type ∈ { group, semi_private, private }. Balance
- *     can go negative (= the player owes credits / money to the academy).
- *   - Each package purchase creates one `credit_lots` row with the price
- *     locked at purchase time. Consumption is FIFO across non-expired lots
- *     (oldest purchased_at first).
- *   - Every credit movement writes one immutable row to `credit_ledger_v2`
- *     with a UNIQUE `event_key` so duplicate writes are physically impossible.
- *   - Visitor / cross-academy players (no packages) use `player_money_wallet`
- *     denominated in the academy's currency.
- *
- * All functions take a Drizzle transaction (`tx`) so they compose into bigger
- * flows. Internal helpers acquire row-level `FOR UPDATE` locks before mutating
- * a balance to avoid lost updates under concurrent attendance saves.
- */
-
+// Credit Engine V2 (Task #646 Phase 1). Activation gated by
+// academies.use_new_credit_system. See task plan + follow-ups #650/#651/#652.
 import { sql } from "drizzle-orm";
-import type { PgTransaction } from "drizzle-orm/pg-core";
 import { db } from "../db";
 
 export type CreditType = "group" | "semi_private" | "private";
@@ -443,7 +420,22 @@ export async function consumeCredit(
       };
     }
 
-    const type = input.typeOverride ?? normalizeSessionTypeToCreditType(sp.session_type);
+    // Semi→private re-classification at consume time: a session marked
+    // "semi_private" with only 1 actual attendee bills as private; a
+    // "semi_private_adjusted" session inherits its series' originally-billed
+    // type. This mirrors the legacy adjustments path so consume-type matches
+    // what the coach app/UI shows.
+    let resolvedType = normalizeSessionTypeToCreditType(sp.session_type);
+    if (sp.session_type === "semi_private" || sp.session_type === "semi-private") {
+      const cnt = await tx.execute(sql`
+        SELECT COUNT(*)::int AS c FROM session_players
+        WHERE session_id = ${sp.session_id}
+          AND attendance_status IN ('present','late')
+      `);
+      const present = (cnt.rows[0] as { c: number }).c;
+      if (present <= 1) resolvedType = "private";
+    }
+    const type = input.typeOverride ?? resolvedType;
     const amount = input.creditCostOverride ?? num(sp.credit_cost);
     if (amount <= 0) {
       return {
@@ -460,8 +452,9 @@ export async function consumeCredit(
     const before = await lockBalance(tx, sp.player_id, sp.academy_id, type);
     const newBalance = before - amount;
 
-    // FIFO-consume from non-expired active lots (oldest first).
-    const lotIdsConsumed: string[] = [];
+    // FIFO-consume from non-expired active lots (oldest first). Track per-lot
+    // quantity so refunds can restock multi-lot consumes accurately.
+    const lotConsumptions: { lotId: string; qty: number }[] = [];
     let toConsume = amount;
     const now = new Date();
     const lots = await tx.execute(sql`
@@ -488,9 +481,10 @@ export async function consumeCredit(
             status = CASE WHEN ${remaining} <= 0 THEN 'depleted' ELSE status END
         WHERE id = ${lot.id}
       `);
-      lotIdsConsumed.push(lot.id);
+      lotConsumptions.push({ lotId: lot.id, qty: take });
       toConsume -= take;
     }
+    const lotIdsConsumed = lotConsumptions.map((l) => l.lotId);
     // Note: any leftover `toConsume` is intentional — it becomes a balance debt
     // (newBalance is already negative by that amount). Visitor-mode money
     // wallet conversion is deferred to the routes layer in a later phase.
@@ -512,6 +506,7 @@ export async function consumeCredit(
         sessionType: sp.session_type,
         attendanceStatus: sp.attendance_status,
         creditCost: amount,
+        lotConsumptions,
         lotIdsConsumed,
         debt: toConsume > 0 ? toConsume : 0,
       },
@@ -622,7 +617,11 @@ export async function refundCredit(
       delta: string | number;
       session_id: string | null;
       lot_id: string | null;
-      metadata: { debt?: number; lotIdsConsumed?: string[] } | null;
+      metadata: {
+        debt?: number;
+        lotIdsConsumed?: string[];
+        lotConsumptions?: { lotId: string; qty: number }[];
+      } | null;
     };
     playerId = p.player_id;
     academyId = p.academy_id;
@@ -672,17 +671,21 @@ export async function refundCredit(
 
     await writeBalance(tx, playerId, academyId, type, newBalance);
 
-    // Restock lot(s). Only restock what was actually drawn from lots
-    // (`lotPortion`); the `debtPortion` was never tied to a lot, so restoring
-    // it would phantom-create credits. Bookkeeping at the lot level is
-    // best-effort — the ledger remains the source of truth.
-    if (lotPortion > 0 && p.lot_id) {
-      await tx.execute(sql`
-        UPDATE credit_lots
-        SET qty_remaining = qty_remaining + ${lotPortion},
-            status = CASE WHEN status = 'depleted' THEN 'active' ELSE status END
-        WHERE id = ${p.lot_id}
-      `);
+    // Restock per-lot using the original consume's recorded breakdown so
+    // multi-lot draws are reversed correctly. Debt portion is never tied to
+    // a lot, so it's just a balance restore (already done above).
+    if (lotPortion > 0) {
+      const breakdown = p.metadata?.lotConsumptions
+        ?? (p.lot_id ? [{ lotId: p.lot_id, qty: lotPortion }] : []);
+      for (const entry of breakdown) {
+        if (!entry.lotId || entry.qty <= 0) continue;
+        await tx.execute(sql`
+          UPDATE credit_lots
+          SET qty_remaining = qty_remaining + ${entry.qty},
+              status = CASE WHEN status = 'depleted' THEN 'active' ELSE status END
+          WHERE id = ${entry.lotId}
+        `);
+      }
     }
 
     return {
