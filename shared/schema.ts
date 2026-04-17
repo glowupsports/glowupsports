@@ -71,7 +71,10 @@ export const playerRegisterSchema = z.object({
     .transform(val => val.toLowerCase()),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  dateOfBirth: z.string().optional(),
+  dateOfBirth: z
+    .string()
+    .min(1, "Date of birth is required")
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be in YYYY-MM-DD format"),
   email: z.string().email("Valid email is required"),
   phone: z.string().min(5, "Phone number is required for WhatsApp communication"),
   password: z.string()

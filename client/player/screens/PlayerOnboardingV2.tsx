@@ -52,6 +52,7 @@ import { apiRequest, getApiUrl, apiFetch, buildPhotoUrl } from "@/lib/query-clie
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize, childTshirtSizes, adultTshirtSizes } from "@shared/schema";
+import { calculateAgeFromDOB, getBallLevelFromAge, type BallLevelId } from "@shared/ballLevel";
 import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import * as Localization from "expo-localization";
 import * as Location from "expo-location";
@@ -113,35 +114,21 @@ function getAgeGroup(age: number): AgeGroup {
   return "adult";
 }
 
-function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
+// Use shared mapping so client + server agree on the age → ball-level rule.
+// Local concerns (UI label/color/description) live here; the rule lives in @shared/ballLevel.
+const calculateAge = calculateAgeFromDOB;
+
+const BALL_LEVEL_UI: Record<BallLevelId, { level: string; color: string; description: string; isGlowLevel?: boolean }> = {
+  blue: { level: "Blue", color: BallLevelColors.blue, description: "Starting your tennis journey - soft foam fun!" },
+  red: { level: "Red", color: BallLevelColors.red, description: "Mini court, soft ball - perfect for beginners!" },
+  orange: { level: "Orange", color: BallLevelColors.orange, description: "3/4 court - building your skills!" },
+  green: { level: "Green", color: BallLevelColors.green, description: "Full court, slower ball - almost there!" },
+  yellow: { level: "Yellow", color: BallLevelColors.yellow, description: "Standard ball - you're ready for the real deal!" },
+  glow: { level: "Adult DSS", color: GlowColors.primary, description: "You'll get your Glow Rating after your first assessment session!", isGlowLevel: true },
+};
 
 function getBallLevel(age: number): { level: string; color: string; description: string; isGlowLevel?: boolean } {
-  if (age < 4) {
-    return { level: "Blue", color: BallLevelColors.blue, description: "Starting your tennis journey - soft foam fun!" };
-  }
-  if (age >= 4 && age <= 6) {
-    return { level: "Red", color: BallLevelColors.red, description: "Mini court, soft ball - perfect for beginners!" };
-  }
-  if (age >= 7 && age <= 8) {
-    return { level: "Orange", color: BallLevelColors.orange, description: "3/4 court - building your skills!" };
-  }
-  if (age >= 9 && age <= 10) {
-    return { level: "Green", color: BallLevelColors.green, description: "Full court, slower ball - almost there!" };
-  }
-  if (age >= 11 && age <= 17) {
-    return { level: "Yellow", color: BallLevelColors.yellow, description: "Standard ball - you're ready for the real deal!" };
-  }
-  // Adults (18+) get Glow Level system instead of ball levels
-  return { level: "Adult DSS", color: GlowColors.primary, description: "You'll get your Glow Rating after your first assessment session!", isGlowLevel: true };
+  return BALL_LEVEL_UI[getBallLevelFromAge(age)];
 }
 
 function getBallLevelColor(ballLevel: string): string {
@@ -961,7 +948,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
       setRevealed(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Save the ball level to data when revealed
-      if (!data.ballLevel) {
+      if (!data.ballLevel || data.ballLevel === "blue") {
         const levelToSave = isAdult ? "glow" : calculatedBallLevel.level.toLowerCase();
         setData(prev => ({ ...prev, ballLevel: levelToSave }));
       }
@@ -2848,7 +2835,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     if (currentStep < TOTAL_STEPS - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       // Auto-calculate ball level from DOB when leaving the About You step (step 1)
-      if (currentStep === 1 && data.dateOfBirth && !data.ballLevel) {
+      if (currentStep === 1 && data.dateOfBirth && (!data.ballLevel || data.ballLevel === "blue")) {
         const playerAge = calculateAge(data.dateOfBirth);
         const calculated = getBallLevel(playerAge);
         const levelToSave = playerAge >= 18 ? "glow" : calculated.level.toLowerCase();

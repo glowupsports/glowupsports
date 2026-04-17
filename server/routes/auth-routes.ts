@@ -50,6 +50,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
   } from "@shared/schema";
+  import { calculateAgeFromDOB, getBallLevelFromAge, isValidDOB } from "@shared/ballLevel";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
   import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified } from "../emailService";
@@ -482,19 +483,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const username = rawUsername.toLowerCase();
 
-        // Calculate age from date of birth
+        // Calculate age + initial ball level from date of birth so the player
+        // gets the correct level from day 1 (Task #634).
         let age: number | null = null;
+        let initialBallLevel: string | null = null;
         if (dateOfBirth) {
-          const birthDate = new Date(dateOfBirth);
-          const today = new Date();
-          age = today.getFullYear() - birthDate.getFullYear();
-          const monthDiff = today.getMonth() - birthDate.getMonth();
-          if (
-            monthDiff < 0 ||
-            (monthDiff === 0 && today.getDate() < birthDate.getDate())
-          ) {
-            age--;
+          const dobValidation = isValidDOB(dateOfBirth);
+          if (!dobValidation.valid) {
+            return res.status(400).json({ error: dobValidation.error || "Invalid date of birth" });
           }
+          age = calculateAgeFromDOB(dateOfBirth);
+          initialBallLevel = getBallLevelFromAge(age);
         }
 
         // Check if username is already taken (globally unique)
@@ -519,6 +518,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           height: height || null,
           age: age,
           dateOfBirth: dateOfBirth || null,
+          ballLevel: initialBallLevel,
           academyId: null, // No academy yet
           coachId: null,
         });
@@ -825,6 +825,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           academyName: academy?.name || "Unknown Academy",
           playerName: player?.name || null,
           playerId: playerInvite.playerId,
+          playerDateOfBirth: player?.dateOfBirth || null,
           email: null,
           invitedEmail: null,
           isPlayerInvite: true,
@@ -1046,6 +1047,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           password,
           phone,
           playerId,
+          dateOfBirth,
         } = req.body;
 
         console.log(
@@ -1144,6 +1146,29 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // IMPORTANT: compose full name here — players table has a single `name`
         // column, not separate firstName/lastName columns, so we must join them.
         const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+        // Determine the effective DOB. If the coach already filled it in for
+        // this player profile, prefer that. Otherwise accept whatever the user
+        // provided in the signup form (Task #634).
+        const effectiveDOB: string | null =
+          player.dateOfBirth || (dateOfBirth ? String(dateOfBirth) : null);
+
+        let computedAge: number | null = player.age ?? null;
+        let computedBallLevel: string | null = player.ballLevel ?? null;
+
+        if (effectiveDOB) {
+          const dobValidation = isValidDOB(effectiveDOB);
+          if (!dobValidation.valid) {
+            return res.status(400).json({ error: dobValidation.error || "Invalid date of birth" });
+          }
+          computedAge = calculateAgeFromDOB(effectiveDOB);
+          // Only assign a ball level if there is no real one on file yet, or
+          // if the existing one is "blue" (default placeholder).
+          if (!computedBallLevel || computedBallLevel === "blue") {
+            computedBallLevel = getBallLevelFromAge(computedAge);
+          }
+        }
+
         await storage.updatePlayer(
           playerId,
           {
@@ -1151,6 +1176,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             email: email.toLowerCase().trim(),
             phone: phone || undefined,
             academyId: playerInvite.academyId,
+            ...(effectiveDOB ? { dateOfBirth: effectiveDOB } : {}),
+            ...(computedAge !== null ? { age: computedAge } : {}),
+            ...(computedBallLevel ? { ballLevel: computedBallLevel } : {}),
           },
         );
 

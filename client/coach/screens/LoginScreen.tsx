@@ -10,6 +10,8 @@ import {
   TextInput,
   Platform,
   Image,
+  Modal,
+  ScrollView,
 } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +34,7 @@ import { LanguageSelectorModal } from "@/components/LanguageSelectorModal";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
+import { calculateAgeFromDOB, getBallLevelFromDOB, isValidDOB } from "@shared/ballLevel";
 import { apiRequest } from "@/lib/query-client";
 import { setAuthToken, saveAuthState } from "@/lib/auth";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
@@ -347,6 +350,212 @@ const strengthStyles = StyleSheet.create({
   checkTextMet: { color: "rgba(255,255,255,0.7)" },
 });
 
+interface DOBFieldProps {
+  value: string;
+  onChange: (iso: string) => void;
+  readOnly?: boolean;
+  accentColor?: string;
+}
+
+function DOBField({ value, onChange, readOnly = false, accentColor = Colors.dark.xpCyan }: DOBFieldProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const initial = value ? new Date(value) : null;
+  const [selectedYear, setSelectedYear] = useState<number | null>(initial ? initial.getFullYear() : null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(initial ? initial.getMonth() : null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(initial ? initial.getDate() : null);
+
+  const years = Array.from({ length: 98 }, (_, i) => new Date().getFullYear() - i);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+  const days = selectedYear !== null && selectedMonth !== null
+    ? Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1)
+    : [];
+
+  const formatDate = (s: string) => {
+    try {
+      return new Date(s).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    } catch {
+      return s;
+    }
+  };
+
+  const handleConfirm = () => {
+    if (selectedYear !== null && selectedMonth !== null && selectedDay !== null) {
+      const iso = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
+      onChange(iso);
+      setShowPicker(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const age = value ? calculateAgeFromDOB(value) : null;
+  const ballLevel = value ? getBallLevelFromDOB(value) : null;
+  const isMinor = age !== null && age < 13;
+
+  return (
+    <View style={dobFieldStyles.wrapper}>
+      <View style={dobFieldStyles.labelRow}>
+        <Text style={[dobFieldStyles.label, { color: Colors.dark.textMuted }]}>DATE OF BIRTH{readOnly ? " · ON FILE" : ""}</Text>
+        <Pressable hitSlop={8} onPress={() => setShowHelp((v) => !v)}>
+          <Ionicons name="help-circle-outline" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
+      </View>
+      {showHelp ? (
+        <Text style={dobFieldStyles.helpText}>
+          We use your birthday to assign the right tennis level (red/orange/green/yellow ball or adult Glow rating) from day one.
+        </Text>
+      ) : null}
+      <Pressable
+        style={[dobFieldStyles.button, value ? { borderColor: `${accentColor}80` } : null, readOnly ? dobFieldStyles.readOnly : null]}
+        onPress={() => {
+          if (readOnly) return;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setShowPicker(true);
+        }}
+        disabled={readOnly}
+      >
+        <Ionicons name="calendar-outline" size={18} color={value ? accentColor : Colors.dark.textMuted} />
+        <Text style={[dobFieldStyles.buttonText, value ? { color: Colors.dark.text } : null]}>
+          {value ? formatDate(value) : "Tap to select your birthday"}
+        </Text>
+        {age !== null ? (
+          <View style={[dobFieldStyles.ageBadge, { backgroundColor: `${accentColor}20`, borderColor: `${accentColor}60` }]}>
+            <Text style={[dobFieldStyles.ageBadgeText, { color: accentColor }]}>{age} yrs</Text>
+          </View>
+        ) : null}
+      </Pressable>
+      {ballLevel ? (
+        <Text style={dobFieldStyles.levelHint}>
+          {ballLevel === "glow" ? "Adult · Glow rating" : `Junior · ${ballLevel.charAt(0).toUpperCase()}${ballLevel.slice(1)} ball`}
+        </Text>
+      ) : null}
+      {isMinor ? (
+        <Text style={dobFieldStyles.minorHint}>You can add a parent's email later in settings.</Text>
+      ) : null}
+
+      <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
+        <Pressable style={dobFieldStyles.modalOverlay} onPress={() => setShowPicker(false)}>
+          <Pressable style={dobFieldStyles.modalCard} onPress={() => {}}>
+            <Text style={dobFieldStyles.modalTitle}>Select Birthday</Text>
+            <View style={dobFieldStyles.modalColumns}>
+              <View style={dobFieldStyles.modalColumn}>
+                <Text style={dobFieldStyles.modalColumnLabel}>Year</Text>
+                <ScrollView style={dobFieldStyles.modalScroll} showsVerticalScrollIndicator={false}>
+                  {years.map((y) => (
+                    <Pressable
+                      key={y}
+                      style={[dobFieldStyles.modalItem, selectedYear === y ? dobFieldStyles.modalItemActive : null]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedYear(y); }}
+                    >
+                      <Text style={[dobFieldStyles.modalItemText, selectedYear === y ? dobFieldStyles.modalItemTextActive : null]}>{y}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={dobFieldStyles.modalColumn}>
+                <Text style={dobFieldStyles.modalColumnLabel}>Month</Text>
+                <ScrollView style={dobFieldStyles.modalScroll} showsVerticalScrollIndicator={false}>
+                  {months.map((m, i) => (
+                    <Pressable
+                      key={m}
+                      style={[dobFieldStyles.modalItem, selectedMonth === i ? dobFieldStyles.modalItemActive : null]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedMonth(i); }}
+                    >
+                      <Text style={[dobFieldStyles.modalItemText, selectedMonth === i ? dobFieldStyles.modalItemTextActive : null]}>{m}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={dobFieldStyles.modalColumn}>
+                <Text style={dobFieldStyles.modalColumnLabel}>Day</Text>
+                <ScrollView style={dobFieldStyles.modalScroll} showsVerticalScrollIndicator={false}>
+                  {days.map((d) => (
+                    <Pressable
+                      key={d}
+                      style={[dobFieldStyles.modalItem, selectedDay === d ? dobFieldStyles.modalItemActive : null]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedDay(d); }}
+                    >
+                      <Text style={[dobFieldStyles.modalItemText, selectedDay === d ? dobFieldStyles.modalItemTextActive : null]}>{d}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+            <View style={dobFieldStyles.modalActions}>
+              <Pressable style={dobFieldStyles.modalCancel} onPress={() => setShowPicker(false)}>
+                <Text style={dobFieldStyles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  dobFieldStyles.modalConfirm,
+                  { backgroundColor: accentColor },
+                  !(selectedYear && selectedMonth !== null && selectedDay) ? { opacity: 0.5 } : null,
+                ]}
+                onPress={handleConfirm}
+                disabled={!(selectedYear && selectedMonth !== null && selectedDay)}
+              >
+                <Text style={dobFieldStyles.modalConfirmText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+const dobFieldStyles = StyleSheet.create({
+  wrapper: { marginBottom: Spacing.md },
+  labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  label: { fontSize: 11, fontWeight: "700", letterSpacing: 1 },
+  helpText: { fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6, lineHeight: 16 },
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    gap: 10,
+  },
+  readOnly: { opacity: 0.7 },
+  buttonText: { flex: 1, color: Colors.dark.textMuted, fontSize: 15 },
+  ageBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
+  ageBadgeText: { fontSize: 11, fontWeight: "700" },
+  levelHint: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 6 },
+  minorHint: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 4, fontStyle: "italic" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    padding: Spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: "#0F1419",
+    borderRadius: 20,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, textAlign: "center", marginBottom: Spacing.md },
+  modalColumns: { flexDirection: "row", gap: Spacing.sm, height: 220 },
+  modalColumn: { flex: 1 },
+  modalColumnLabel: { fontSize: 11, fontWeight: "700", color: Colors.dark.textMuted, letterSpacing: 1, marginBottom: 6, textAlign: "center" },
+  modalScroll: { flex: 1, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 10 },
+  modalItem: { paddingVertical: 10, alignItems: "center" },
+  modalItemActive: { backgroundColor: "rgba(0, 200, 230, 0.2)" },
+  modalItemText: { color: Colors.dark.textMuted, fontSize: 15 },
+  modalItemTextActive: { color: Colors.dark.text, fontWeight: "700" },
+  modalActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)" },
+  modalCancelText: { color: Colors.dark.textMuted, fontWeight: "600" },
+  modalConfirm: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  modalConfirmText: { color: "#000", fontWeight: "700" },
+});
+
 export default function LoginScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -369,7 +578,8 @@ export default function LoginScreen() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
-  const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string; isPlayerInvite?: boolean; playerId?: string; playerName?: string | null } | null>(null);
+  const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string; isPlayerInvite?: boolean; playerId?: string; playerName?: string | null; playerDateOfBirth?: string | null } | null>(null);
+  const [dateOfBirth, setDateOfBirth] = useState<string>("");
   const [inviteValidated, setInviteValidated] = useState(false);
   const [inviteFieldErrors, setInviteFieldErrors] = useState<{
     email?: string;
@@ -484,6 +694,7 @@ export default function LoginScreen() {
     setDescription("");
     setInviteCode("");
     setInviteData(null);
+    setDateOfBirth("");
     setInviteValidated(false);
     setInviteFieldErrors({});
     setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
@@ -720,6 +931,17 @@ export default function LoginScreen() {
       return;
     }
 
+    if (!dateOfBirth) {
+      Alert.alert("Error", "Please enter your date of birth so we can match you to the right tennis level");
+      return;
+    }
+
+    const dobCheck = isValidDOB(dateOfBirth);
+    if (!dobCheck.valid) {
+      Alert.alert("Invalid Date of Birth", dobCheck.error || "Please enter a valid date of birth");
+      return;
+    }
+
     if (!phone.trim()) {
       Alert.alert("Error", "Phone number is required for WhatsApp communication");
       return;
@@ -761,6 +983,7 @@ export default function LoginScreen() {
         email,
         password,
         phone: fullPhone,
+        dateOfBirth,
         otpCode: isNewEmail ? otpCode : undefined,
       });
       if (!result.success) {
@@ -832,8 +1055,12 @@ export default function LoginScreen() {
           isPlayerInvite: data.isPlayerInvite || false,
           playerId: data.playerId,
           playerName: data.playerName,
+          playerDateOfBirth: data.playerDateOfBirth || null,
         });
         setEmail(data.email || "");
+        if (data.playerDateOfBirth) {
+          setDateOfBirth(data.playerDateOfBirth);
+        }
         setInviteValidated(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
@@ -881,6 +1108,23 @@ export default function LoginScreen() {
     if (!password) fieldErrors.password = "Password is required";
     else if (password.length < 8) fieldErrors.password = "At least 8 characters";
 
+    // For player invites, require DOB unless the coach already filled it in
+    const inviteDOBPrefilled = !!inviteData?.playerDateOfBirth;
+    const effectiveDOB = inviteDOBPrefilled ? inviteData!.playerDateOfBirth! : dateOfBirth;
+    if (inviteData?.isPlayerInvite && !inviteDOBPrefilled) {
+      if (!dateOfBirth) {
+        Alert.alert("Date of Birth Required", "Please enter your date of birth so we can match you to the right tennis level");
+        isInviteRegisteringRef.current = false;
+        return;
+      }
+      const dobCheck = isValidDOB(dateOfBirth);
+      if (!dobCheck.valid) {
+        Alert.alert("Invalid Date of Birth", dobCheck.error || "Please enter a valid date of birth");
+        isInviteRegisteringRef.current = false;
+        return;
+      }
+    }
+
     if (Object.keys(fieldErrors).length > 0) {
       setInviteFieldErrors(fieldErrors);
       isInviteRegisteringRef.current = false;
@@ -908,6 +1152,7 @@ export default function LoginScreen() {
         password,
         phone: phone ? `${countryCode.dial}${phone.trim().replace(/\s/g, '')}` : undefined,
         playerId: inviteData?.playerId,
+        dateOfBirth: inviteData?.isPlayerInvite ? effectiveDOB : undefined,
       });
       const data = await response.json();
       
@@ -1262,6 +1507,8 @@ export default function LoginScreen() {
           </View>
         </View>
       </View>
+
+      <DOBField value={dateOfBirth} onChange={setDateOfBirth} accentColor={Colors.dark.xpCyan} />
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>EMAIL</Text>
@@ -1750,6 +1997,15 @@ export default function LoginScreen() {
               ) : null}
             </View>
           </View>
+
+          {inviteData.isPlayerInvite ? (
+            <DOBField
+              value={dateOfBirth}
+              onChange={setDateOfBirth}
+              readOnly={!!inviteData.playerDateOfBirth}
+              accentColor="#9B59B6"
+            />
+          ) : null}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>PHONE (OPTIONAL)</Text>
