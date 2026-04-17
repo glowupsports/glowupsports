@@ -239,6 +239,7 @@ import coachCalendarRouter from "./routes/coach-calendar";
 import playerAuthRouter from "./routes/player-auth";
 import adminSetupRouter from "./routes/admin-setup";
 import playerCreditsRouter from "./routes/player-credits";
+import creditsV2Router from "./routes/credits-v2";
 import playerProgressRouter from "./routes/player-progress";
 import coachingSeriesRouter from "./routes/coaching-series";
 import coachManagementRouter from "./routes/coach-management";
@@ -562,6 +563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(playerAuthRouter);
   app.use(adminSetupRouter);
   app.use(playerCreditsRouter);
+  app.use(creditsV2Router);
   app.use(playerProgressRouter);
   app.use(coachingSeriesRouter);
   app.use(coachManagementRouter);

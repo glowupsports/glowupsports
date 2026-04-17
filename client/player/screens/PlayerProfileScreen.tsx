@@ -442,6 +442,27 @@ export default function PlayerProfileScreen() {
     enabled: !!data?.player,
   });
 
+  interface V2WalletData {
+    v2Enabled: boolean;
+    balance: { group: number; semi_private: number; private: number };
+    activeLots: Array<{ id: string; type: string; qty_remaining: number; expires_at: string | null }>;
+  }
+  const { data: v2Wallet } = useQuery<V2WalletData>({
+    queryKey: [`/api/v2/credits/wallet/${data?.player?.id ?? ""}`],
+    enabled: !!data?.player?.id,
+  });
+  const v2Enabled = v2Wallet?.v2Enabled === true;
+  const v2Total = v2Enabled
+    ? (v2Wallet!.balance.group || 0) +
+      (v2Wallet!.balance.semi_private || 0) +
+      (v2Wallet!.balance.private || 0)
+    : 0;
+  const v2NextExpiry = v2Enabled
+    ? v2Wallet!.activeLots
+        .filter((l) => l.expires_at)
+        .sort((a, b) => new Date(a.expires_at!).getTime() - new Date(b.expires_at!).getTime())[0]
+    : null;
+
   const { data: activeLiveMatch } = useQuery<{ matches?: Array<{ id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }> }>({
     queryKey: ["/api/live-scoring/player/me/active"],
     enabled: !!data?.player,
@@ -997,7 +1018,14 @@ export default function PlayerProfileScreen() {
           >
             <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
             <Text style={styles.actionCardLabel}>{t("player.profile.myCredits")}</Text>
-            <Text style={styles.actionCardSub}>{dashboardData?.credits?.total ?? 0} {t("player.profile.creditsAvailable")}</Text>
+            <Text style={styles.actionCardSub}>
+              {v2Enabled ? v2Total : (dashboardData?.credits?.total ?? 0)} {t("player.profile.creditsAvailable")}
+            </Text>
+            {v2Enabled && v2NextExpiry?.expires_at ? (
+              <Text style={[styles.actionCardSub, { fontSize: 10, color: Colors.dark.textMuted }]}>
+                Next expiry {new Date(v2NextExpiry.expires_at).toLocaleDateString()}
+              </Text>
+            ) : null}
           </Pressable>
         </View>
 

@@ -385,6 +385,113 @@ export async function sendXPGainNotification(
   );
 }
 
+// ============== V2 CREDIT NOTIFICATIONS (Task #652) ==============
+
+const CREDIT_TYPE_LABELS: Record<string, string> = {
+  group: "Group",
+  semi_private: "Semi-Private",
+  private: "Private",
+};
+
+function formatCreditType(type: string): string {
+  return CREDIT_TYPE_LABELS[type] || type;
+}
+
+export async function sendManualAdjustmentNotification(
+  playerId: string,
+  args: { type: string; delta: number; reason: string }
+): Promise<void> {
+  const tokens = await getPlayerPushTokens(playerId);
+  if (tokens.length === 0) return;
+  const sign = args.delta > 0 ? "+" : "";
+  const typeLabel = formatCreditType(args.type);
+  const direction = args.delta > 0 ? "added to" : "removed from";
+  await sendPushNotification(
+    tokens,
+    "Credit Adjustment",
+    `${sign}${args.delta} ${typeLabel} credit ${direction} your wallet — ${args.reason}`,
+    {
+      type: "credit_manual_adjustment",
+      playerId,
+      creditType: args.type,
+      delta: args.delta,
+      reason: args.reason,
+    },
+    playerId
+  );
+}
+
+export async function sendRefundNotification(
+  playerId: string,
+  args: { amount: number; type: string; reason?: string }
+): Promise<void> {
+  const tokens = await getPlayerPushTokens(playerId);
+  if (tokens.length === 0) return;
+  const typeLabel = formatCreditType(args.type);
+  const reasonStr = args.reason ? ` — ${args.reason}` : "";
+  await sendPushNotification(
+    tokens,
+    "Credit Refunded",
+    `${args.amount} ${typeLabel} credit refunded to your wallet${reasonStr}`,
+    {
+      type: "credit_refund",
+      playerId,
+      creditType: args.type,
+      amount: args.amount,
+    },
+    playerId
+  );
+}
+
+export async function sendMakeupNotification(
+  playerId: string,
+  args: { qty: number; type: string; reason?: string }
+): Promise<void> {
+  const tokens = await getPlayerPushTokens(playerId);
+  if (tokens.length === 0) return;
+  const typeLabel = formatCreditType(args.type);
+  const reasonStr = args.reason ? ` — ${args.reason}` : "";
+  await sendPushNotification(
+    tokens,
+    "Make-up Credit Awarded",
+    `You received ${args.qty} ${typeLabel} make-up credit${args.qty > 1 ? "s" : ""}${reasonStr}`,
+    {
+      type: "credit_makeup",
+      playerId,
+      creditType: args.type,
+      qty: args.qty,
+    },
+    playerId
+  );
+}
+
+export async function sendLotExpiringNotification(
+  playerId: string,
+  args: { qty: number; type: string; daysLeft: number; expiresAt: Date }
+): Promise<void> {
+  const tokens = await getPlayerPushTokens(playerId);
+  if (tokens.length === 0) return;
+  const typeLabel = formatCreditType(args.type);
+  const dayLabel =
+    args.daysLeft <= 1
+      ? "tomorrow"
+      : `in ${args.daysLeft} days`;
+  await sendPushNotification(
+    tokens,
+    "Credits Expiring Soon",
+    `${args.qty} ${typeLabel} credit${args.qty > 1 ? "s" : ""} expire ${dayLabel} — book a session to use them`,
+    {
+      type: "credit_lot_expiring",
+      playerId,
+      creditType: args.type,
+      qty: args.qty,
+      daysLeft: args.daysLeft,
+      expiresAt: args.expiresAt.toISOString(),
+    },
+    playerId
+  );
+}
+
 export async function sendCoachNotification(
   coachId: string,
   title: string,
@@ -3354,6 +3461,7 @@ export function startCreditExpiryReminderScheduler(): void {
         if (localHour === 9 && localMinute < 15 && !creditExpiryProcessedTimezones.has(tzDayKey)) {
           creditExpiryProcessedTimezones.add(tzDayKey);
           await processCreditExpiryReminders(tz);
+          await processV2LotExpiryReminders(tz);
         }
       }
 
@@ -3373,6 +3481,70 @@ export function stopCreditExpiryReminderScheduler(): void {
     clearInterval(creditExpiryInterval);
     creditExpiryInterval = null;
     console.log("[CreditExpiry] Scheduler stopped");
+  }
+}
+
+// V2 lot expiry: scans `credit_lots` for V2 academies and notifies players
+// when individual active lots are expiring in 7/3/1 days.
+const v2LotRemindedToday = new Set<string>();
+async function processV2LotExpiryReminders(timezone: string): Promise<void> {
+  try {
+    const todayStr = new Date(
+      new Date().toLocaleString("en-US", { timeZone: timezone }),
+    )
+      .toISOString()
+      .split("T")[0];
+
+    const lots = await pool.query(
+      `
+      SELECT cl.id, cl.player_id, cl.academy_id, cl.type, cl.qty_remaining, cl.expires_at
+      FROM credit_lots cl
+      JOIN academies a ON cl.academy_id = a.id
+      WHERE a.use_new_credit_system = true
+        AND a.timezone = $1
+        AND cl.status = 'active'
+        AND cl.qty_remaining > 0
+        AND cl.expires_at IS NOT NULL
+        AND cl.expires_at > NOW()
+        AND cl.expires_at <= NOW() + INTERVAL '8 days'
+    `,
+      [timezone],
+    );
+
+    if (lots.rows.length === 0) {
+      console.log("[V2LotExpiry] No active lots expiring in next 8 days");
+      return;
+    }
+
+    let sent = 0;
+    for (const lot of lots.rows) {
+      const expiresAt = new Date(lot.expires_at);
+      const msLeft = expiresAt.getTime() - Date.now();
+      const daysLeft = Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+      // Only notify on 7-, 3-, and 1-day boundaries.
+      if (daysLeft !== 7 && daysLeft !== 3 && daysLeft !== 1) continue;
+      const key = `${lot.id}-${todayStr}-${daysLeft}`;
+      if (v2LotRemindedToday.has(key)) continue;
+
+      await sendLotExpiringNotification(lot.player_id, {
+        qty: Number(lot.qty_remaining),
+        type: lot.type,
+        daysLeft,
+        expiresAt,
+      });
+      v2LotRemindedToday.add(key);
+      sent++;
+    }
+
+    // Cleanup old entries from the dedupe set.
+    for (const key of v2LotRemindedToday) {
+      if (!key.includes(todayStr)) v2LotRemindedToday.delete(key);
+    }
+    console.log(
+      `[V2LotExpiry] Sent ${sent} V2 lot-expiry notifications for ${timezone}`,
+    );
+  } catch (err) {
+    console.error("[V2LotExpiry] Error:", err);
   }
 }
 

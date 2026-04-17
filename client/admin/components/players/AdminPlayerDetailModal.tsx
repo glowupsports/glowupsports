@@ -24,6 +24,7 @@ import { AdminAddPlayerModal, AdminPlayerFormData } from "./AdminAddPlayerModal"
 import { AdminMarkPaidModal } from "./AdminMarkPaidModal";
 import { AdminRecordPaymentModal } from "./AdminRecordPaymentModal";
 import CreditStoreModal from "../CreditStoreModal";
+import { AdminCreditV2Panel } from "./AdminCreditV2Panel";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
 
 // CONVENTION: If a modal is opened from inside another modal, render it as a
@@ -505,6 +506,10 @@ export function AdminPlayerDetailModal({
                     <Text style={styles.creditTypeLabel}>Semi-Private</Text>
                   </View>
                 </View>
+
+                {selectedPlayerId ? (
+                  <AdminCreditV2Panel playerId={selectedPlayerId} />
+                ) : null}
 
                 {showCustomPackageForm ? (
                   <View style={{ backgroundColor: `${Colors.dark.backgroundSecondary}`, borderRadius: 12, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: `${Colors.dark.primary}30` }}>

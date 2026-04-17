@@ -600,6 +600,8 @@ export async function refundCredit(
     };
   }
 
+  const occurredAt = input.occurredAt ?? new Date();
+
   // Enforce the 24h "early cancellation" policy server-side. `force` is
   // reserved for admin overrides and historical replay (where the original
   // refund decision was already made by the legacy system).
