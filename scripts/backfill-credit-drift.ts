@@ -402,9 +402,40 @@ async function main() {
   fs.writeFileSync(detailFile, detailLines.join("\n"));
   console.log(`[backfill-credit-drift] detail report: ${detailFile}`);
 
-  // Verify drift count is now 0
+  // Post-verify: real drift = candidate rows that ARE chargeable per the
+  // engine but still lack a consume ledger entry. Rows that the engine
+  // legitimately classifies as not-chargeable are NOT drift and stay out of
+  // the count.
   const verify = await loadDriftRows();
-  console.log(`[backfill-credit-drift] post-verify: ${verify.length} row(s) remaining (target: 0)`);
+  const realDrift = verify.map(predict).filter((p) => p.chargeable);
+  console.log(`[backfill-credit-drift] post-verify: ${verify.length} candidate row(s) inspected, ${realDrift.length} chargeable-but-unledgered (target: 0)`);
+  if (realDrift.length > 0) {
+    console.error(`[backfill-credit-drift] WARN: real drift remains after apply — investigate.`);
+  }
+
+  // Per-player ledger audit dump (any V2 player surfaced in this run, plus
+  // Alex Lykov as the canonical reference player flagged in Task #670).
+  const auditPlayers = new Set<string>(predictions.map((p) => p.row.playerName));
+  auditPlayers.add("Alex Lykov");
+  const ledgerLookup = await db.execute(sql`
+    SELECT a.name AS academy, p.name AS player, lv.occurred_at, lv.reason,
+           lv.delta, lv.balance_after, lv.session_player_id, lv.event_key
+    FROM credit_ledger_v2 lv
+    JOIN players p ON p.id = lv.player_id
+    JOIN academies a ON a.id = lv.academy_id
+    WHERE p.name = ANY(${sql`ARRAY[${sql.join(Array.from(auditPlayers).map((n) => sql`${n}`), sql`, `)}]::text[]`})
+    ORDER BY p.name, lv.occurred_at
+  `);
+  const auditLines = ["academy,player,occurredAt,reason,delta,balanceAfter,sessionPlayerId,eventKey"];
+  for (const r of ledgerLookup.rows as any[]) {
+    auditLines.push([
+      q(r.academy), q(r.player), new Date(r.occurred_at).toISOString(),
+      r.reason, r.delta, r.balance_after, r.session_player_id ?? "", r.event_key,
+    ].join(","));
+  }
+  const auditFile = path.join(preDir, `backfill-apply-ledger-audit-${tag}.csv`);
+  fs.writeFileSync(auditFile, auditLines.join("\n"));
+  console.log(`[backfill-credit-drift] ledger audit (incl. Alex Lykov): ${auditFile}`);
 
   process.exit(0);
 }
