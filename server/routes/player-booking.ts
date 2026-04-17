@@ -5203,6 +5203,7 @@ Return only the JSON array, nothing else.`;
           createdAt: matchRequests.createdAt,
           playerName: players.name,
             hostBallLevel: players.ballLevel,
+          playerAvatar: players.profilePhotoUrl,
           playerLevel: players.skillLevel,
           playerBallLevel: players.ballLevel,
         })

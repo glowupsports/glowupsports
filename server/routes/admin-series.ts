@@ -3680,7 +3680,8 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       res.json({ friends, pendingRequests });
     } catch (error) {
       console.error("Error fetching player friends:", error);
-      res.status(500).json({ error: "Failed to fetch friends" });
+      // Return safe empty shape so consumers never crash on .filter/.length
+      res.json({ friends: [], pendingRequests: [] });
     }
   });
 
@@ -4057,8 +4058,20 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
         for (const match of openMatchRequests) {
           const timeStr = match.preferredTime || "TBD";
-          const dateStr = match.preferredDate || new Date().toISOString().split("T")[0];
-          
+          const dateOnly = match.preferredDate || new Date().toISOString().split("T")[0];
+          // Combine preferredDate + preferredTime into a full ISO datetime so
+          // client filters that compare against `now` don't drop same-day matches
+          // because of date-only midnight parsing.
+          let dateStr = dateOnly;
+          if (match.preferredTime && /^\d{1,2}:\d{2}/.test(match.preferredTime)) {
+            const [hh, mm] = match.preferredTime.split(":").map((v) => parseInt(v, 10));
+            const combined = new Date(`${dateOnly}T00:00:00.000Z`);
+            if (!isNaN(combined.getTime()) && Number.isFinite(hh) && Number.isFinite(mm)) {
+              combined.setUTCHours(hh, mm, 0, 0);
+              dateStr = combined.toISOString();
+            }
+          }
+
           openSessions.push({
             id: match.id,
             type: "open_match",

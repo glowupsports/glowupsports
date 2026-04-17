@@ -83,9 +83,14 @@ export default function ManageMatchScreen() {
     enabled: !!matchId,
   });
 
-  const { data: friends = [] } = useQuery<Friend[]>({
+  const { data: friendsResponse } = useQuery<Friend[] | { friends?: Friend[]; pendingRequests?: Friend[] } | null>({
     queryKey: ["/api/player/me/friends"],
   });
+  const friends: Friend[] = Array.isArray(friendsResponse)
+    ? friendsResponse
+    : Array.isArray(friendsResponse?.friends)
+      ? friendsResponse.friends
+      : [];
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
