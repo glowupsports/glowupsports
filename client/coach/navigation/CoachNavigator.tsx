@@ -3,6 +3,7 @@ import { StyleSheet, View, Platform, ActivityIndicator, Text, Pressable, useWind
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
+import { useChatState } from "@/coach/context/ChatStateContext";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
@@ -208,13 +209,15 @@ function CoachTabs() {
     );
   }, [aiChatVisible, intakeVisible]);
 
+  const { isChatExpanded } = useChatState();
+
   const tabBar = (
     <SwipeableTabBar
       tabs={COACH_TABS}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.xpCyan}
       renderOverlay={isDesktop ? undefined : renderOverlay}
-      hideTabBar={isDesktop}
+      hideTabBar={isDesktop || isChatExpanded}
       centerButtonConfig={calendarCenterButton}
     />
   );

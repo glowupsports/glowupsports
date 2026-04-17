@@ -351,6 +351,28 @@ export function broadcastProviderPlayerMessage(
   });
 }
 
+export function broadcastMessageDeleted(
+  academyId: string,
+  participantUserIds: string[],
+  payload: { conversationId: string; messageId: string },
+) {
+  broadcastToUserIds(academyId, participantUserIds, {
+    type: "message_deleted",
+    payload,
+  });
+}
+
+export function broadcastReactionUpdated(
+  academyId: string,
+  participantUserIds: string[],
+  payload: { conversationId: string; messageId: string; reactions: Array<{ id: string; emoji: string; reactorType: string; reactorCoachId: string | null; reactorPlayerId: string | null }> },
+) {
+  broadcastToUserIds(academyId, participantUserIds, {
+    type: "reaction_updated",
+    payload,
+  });
+}
+
 export function broadcastNewSession(academyId: string, payload: { sessionId: string; sessionName: string; coachId: string; startTime: string }) {
   broadcastToAcademy(academyId, {
     type: "new_session",

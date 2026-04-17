@@ -6035,10 +6035,19 @@ export const storage = {
       if (!c) return undefined;
       // Group conversations (type === "group") have null academyId — allow access via participant
       if (c.type === "group") return c;
+      // World chat is open to all players
+      if (c.type === "world") return c;
       // Academy conversations: enforce tenant scoping
       if (academyId && c.academyId === academyId) return c;
       return undefined;
     }
+
+    // World chat conversation: any player may access regardless of participant row
+    const worldCheck = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId));
+    if (worldCheck[0]?.type === "world") return worldCheck[0];
 
     // Fallback: player is the conversation owner (direct conversation starter)
     const conv = await db

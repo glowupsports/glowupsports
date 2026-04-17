@@ -81,6 +81,8 @@ interface UseWebSocketOptions {
   onSessionUpdate?: SessionUpdateHandler;
   onWorldMessage?: WorldMessageHandler;
   onNewConversation?: (payload: { conversationId: string; type: string }) => void;
+  onMessageDeleted?: (payload: { conversationId: string; messageId: string }) => void;
+  onReactionUpdated?: (payload: { conversationId: string; messageId: string; reactions: unknown[] }) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
 }
@@ -170,6 +172,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
               break;
             case "new_conversation":
               optionsRef.current.onNewConversation?.(message.payload as { conversationId: string; type: string });
+              break;
+            case "message_deleted":
+              optionsRef.current.onMessageDeleted?.(message.payload as { conversationId: string; messageId: string });
+              break;
+            case "reaction_updated":
+              optionsRef.current.onReactionUpdated?.(message.payload as { conversationId: string; messageId: string; reactions: unknown[] });
               break;
             case "connected":
               break;

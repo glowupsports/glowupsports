@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   // AI Pro subscription fields (players only)
   stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID for AI Pro
   stripeSubscriptionId: text("stripe_subscription_id"), // Active AI Pro subscription ID
+  chatOnboardingSeenAt: timestamp("chat_onboarding_seen_at"), // when the user dismissed the chat tutorial
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -2423,6 +2424,24 @@ export const messageReactions = pgTable("message_reactions", {
 export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true, createdAt: true });
 export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
 export type MessageReaction = typeof messageReactions.$inferSelect;
+
+// User Quick Replies — custom chat quick-phrase chips per user
+export const userQuickReplies = pgTable("user_quick_replies", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  body: text("body").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  byUserIdx: index("user_quick_replies_user_idx").on(table.userId),
+}));
+
+export const insertUserQuickReplySchema = createInsertSchema(userQuickReplies).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserQuickReply = z.infer<typeof insertUserQuickReplySchema>;
+export type UserQuickReply = typeof userQuickReplies.$inferSelect;
 
 // ==================== AVAILABILITY & COURT PREFERENCES ====================
 

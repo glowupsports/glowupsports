@@ -816,6 +816,33 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] booking_requests approval flow migration skipped:', e.message);
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_quick_replies (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR NOT NULL REFERENCES users(id),
+        body TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS user_quick_replies_user_idx ON user_quick_replies(user_id)`);
+    console.log('[Database] user_quick_replies migration applied');
+  } catch (e: any) {
+    console.log('[Database] user_quick_replies migration skipped:', e.message);
+  }
+
+  try {
+    await pool.query(`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS chat_onboarding_seen_at TIMESTAMP
+    `);
+    console.log('[Database] users.chat_onboarding_seen_at migration applied');
+  } catch (e: any) {
+    console.log('[Database] users.chat_onboarding_seen_at migration skipped:', e.message);
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");

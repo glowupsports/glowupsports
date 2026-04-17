@@ -837,7 +837,9 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     
     return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
   }, [handleChallenge]);
-  
+
+  const { isChatExpanded } = useChatState();
+
   return (
     <SwipeableTabBar
       tabs={playerTabs}
@@ -847,6 +849,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
       centerButtonConfig={playCenterButton}
+      hideTabBar={isChatExpanded}
     />
   );
 }

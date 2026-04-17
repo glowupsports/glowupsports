@@ -28,6 +28,7 @@ import {
   coachSettings,
   users,
   bookingRequests,
+  messageReactions,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -291,6 +292,18 @@ async function autoCancel(
         }
       }
 
+      // Fetch reactions for these messages
+      const messageIds = orderedMsgs.map(m => m.id);
+      const reactionsByMsg = new Map<string, Array<{ id: string; messageId: string; reactorType: string; reactorCoachId: string | null; reactorPlayerId: string | null; emoji: string; createdAt: Date }>>();
+      if (messageIds.length > 0) {
+        const reacRows = await db.select().from(messageReactions).where(inArray(messageReactions.messageId, messageIds));
+        for (const r of reacRows) {
+          const arr = reactionsByMsg.get(r.messageId) || [];
+          arr.push(r as any);
+          reactionsByMsg.set(r.messageId, arr);
+        }
+      }
+
       // Enrich messages with sender info
       const enrichedMessages = orderedMsgs.map(m => {
         let senderName = "Unknown";
@@ -318,7 +331,7 @@ async function autoCancel(
           academyName,
           senderPhotoUrl,
           senderUserId,
-          reactions: [],
+          reactions: reactionsByMsg.get(m.id) || [],
         };
       });
 

@@ -11,9 +11,9 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions } from "../../shared/schema";
-import { broadcastProviderPlayerMessage, broadcastNewMessage, broadcastToUserIds, broadcastNewConversation, getPlayerPresence } from "../websocket";
-import { eq, and, inArray, or, gt, asc } from "drizzle-orm";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions, userQuickReplies } from "../../shared/schema";
+import { broadcastProviderPlayerMessage, broadcastNewMessage, broadcastToUserIds, broadcastNewConversation, broadcastMessageDeleted, broadcastReactionUpdated, getPlayerPresence } from "../websocket";
+import { eq, and, inArray, or, gt, asc, type SQL } from "drizzle-orm";
 
 const router = Router();
 
@@ -700,6 +700,8 @@ router.post("/api/player/me/messages/:messageId/reactions", authMiddleware, requ
       emoji,
     });
 
+    await broadcastReactionToParticipants(message.conversationId, messageId, academyId);
+
     res.status(201).json(reaction);
   } catch (error) {
     console.error("Error adding reaction:", error);
@@ -744,6 +746,8 @@ router.delete("/api/player/me/messages/:messageId/reactions", authMiddleware, re
         eq(messageReactions.reactorPlayerId, playerId),
       )
     );
+
+    await broadcastReactionToParticipants(message.conversationId, messageId, academyId);
 
     res.json({ success: true });
   } catch (error) {
@@ -990,6 +994,178 @@ router.get("/api/player/me/bookings/:orderId/conversation", authMiddleware, requ
   } catch (error) {
     console.error("[PlayerChat] Error getting booking conversation:", error);
     res.status(500).json({ error: "Failed to get conversation" });
+  }
+});
+
+async function getConversationParticipantUserIds(conversationId: string, academyId: string, includeUserId?: string): Promise<string[]> {
+  const participants = await storage.getConversationParticipants(conversationId, undefined, academyId);
+  const participantPlayerIds = participants.filter(p => p.playerId).map(p => p.playerId!);
+  const participantCoachIds = participants.filter(p => p.coachId).map(p => p.coachId!);
+  const orConditions: SQL[] = [];
+  if (participantPlayerIds.length > 0) orConditions.push(inArray(users.playerId, participantPlayerIds));
+  if (participantCoachIds.length > 0) orConditions.push(inArray(users.coachId, participantCoachIds));
+  if (orConditions.length === 0) return includeUserId ? [includeUserId] : [];
+  const participantUsers = await db.select({ id: users.id }).from(users).where(or(...orConditions));
+  const ids = participantUsers.map(x => x.id);
+  if (includeUserId && !ids.includes(includeUserId)) ids.push(includeUserId);
+  return ids;
+}
+
+async function broadcastReactionToParticipants(conversationId: string, messageId: string, academyId: string) {
+  try {
+    const reactions = await storage.getMessageReactions(messageId, academyId);
+    const userIds = await getConversationParticipantUserIds(conversationId, academyId);
+    if (userIds.length === 0) return;
+    broadcastReactionUpdated(academyId, userIds, {
+      conversationId,
+      messageId,
+      reactions: reactions.map(r => ({
+        id: r.id,
+        emoji: r.emoji,
+        reactorType: r.reactorType,
+        reactorCoachId: r.reactorCoachId,
+        reactorPlayerId: r.reactorPlayerId,
+      })),
+    });
+  } catch (err) {
+    console.error("[broadcastReactionToParticipants] failed:", err);
+  }
+}
+
+// ==================== DELETE OWN MESSAGE ====================
+router.delete("/api/me/messages/:messageId", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const u = req.user!;
+    const { messageId } = req.params;
+    const message = await storage.getMessage(messageId);
+    if (!message) return res.status(404).json({ error: "Message not found" });
+
+    const isAuthor =
+      (u.coachId && message.senderType === "coach" && message.senderCoachId === u.coachId) ||
+      (u.playerId && message.senderType === "player" && message.senderPlayerId === u.playerId);
+    if (!isAuthor) return res.status(403).json({ error: "Only the author can delete this message" });
+
+    await db.update(messages).set({ isDeleted: true, body: "" }).where(eq(messages.id, messageId));
+
+    const academyId = message.academyId || u.academyId || null;
+    if (academyId) {
+      const participants = await storage.getConversationParticipants(message.conversationId, undefined, academyId);
+      const participantPlayerIds = participants.filter(p => p.playerId).map(p => p.playerId!);
+      const participantCoachIds = participants.filter(p => p.coachId).map(p => p.coachId!);
+      const orConditions: SQL[] = [];
+      if (participantPlayerIds.length > 0) orConditions.push(inArray(users.playerId, participantPlayerIds));
+      if (participantCoachIds.length > 0) orConditions.push(inArray(users.coachId, participantCoachIds));
+      if (orConditions.length > 0) {
+        const participantUsers = await db.select({ id: users.id }).from(users).where(or(...orConditions));
+        const userIds = [u.userId, ...participantUsers.map(x => x.id)];
+        broadcastMessageDeleted(academyId, userIds, { conversationId: message.conversationId, messageId });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    res.status(500).json({ error: "Failed to delete message" });
+  }
+});
+
+// ==================== USER QUICK REPLIES (custom chat phrases) ====================
+const MAX_QUICK_REPLIES = 8;
+const MAX_QUICK_REPLY_LEN = 60;
+
+router.get("/api/me/quick-replies", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const rows = await db
+      .select()
+      .from(userQuickReplies)
+      .where(eq(userQuickReplies.userId, userId))
+      .orderBy(asc(userQuickReplies.sortOrder), asc(userQuickReplies.createdAt));
+    res.json(rows);
+  } catch (e) {
+    console.error("Error fetching quick replies:", e);
+    res.status(500).json({ error: "Failed to fetch quick replies" });
+  }
+});
+
+router.post("/api/me/quick-replies", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const body = String(req.body?.body ?? "").trim();
+    if (!body) return res.status(400).json({ error: "Body required" });
+    if (body.length > MAX_QUICK_REPLY_LEN) return res.status(400).json({ error: "Phrase too long" });
+
+    const existing = await db.select({ id: userQuickReplies.id }).from(userQuickReplies).where(eq(userQuickReplies.userId, userId));
+    if (existing.length >= MAX_QUICK_REPLIES) {
+      return res.status(400).json({ error: `Max ${MAX_QUICK_REPLIES} quick replies` });
+    }
+
+    const sortOrder = Number(req.body?.sortOrder ?? existing.length);
+    const [row] = await db.insert(userQuickReplies).values({ userId, body, sortOrder }).returning();
+    res.status(201).json(row);
+  } catch (e) {
+    console.error("Error creating quick reply:", e);
+    res.status(500).json({ error: "Failed to create quick reply" });
+  }
+});
+
+router.put("/api/me/quick-replies/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+    const body = String(req.body?.body ?? "").trim();
+    if (!body) return res.status(400).json({ error: "Body required" });
+    if (body.length > MAX_QUICK_REPLY_LEN) return res.status(400).json({ error: "Phrase too long" });
+
+    const [existing] = await db.select().from(userQuickReplies).where(and(eq(userQuickReplies.id, id), eq(userQuickReplies.userId, userId)));
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    const [updated] = await db.update(userQuickReplies).set({ body, updatedAt: new Date() }).where(eq(userQuickReplies.id, id)).returning();
+    res.json(updated);
+  } catch (e) {
+    console.error("Error updating quick reply:", e);
+    res.status(500).json({ error: "Failed to update quick reply" });
+  }
+});
+
+router.delete("/api/me/quick-replies/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+    await db.delete(userQuickReplies).where(and(eq(userQuickReplies.id, id), eq(userQuickReplies.userId, userId)));
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Error deleting quick reply:", e);
+    res.status(500).json({ error: "Failed to delete quick reply" });
+  }
+});
+
+// ============ Chat Onboarding (first-time tutorial) ============
+router.get("/api/me/chat-onboarding", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const rows = await db
+      .select({ seenAt: users.chatOnboardingSeenAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const seenAt = rows[0]?.seenAt ?? null;
+    res.json({ seen: seenAt !== null, seenAt });
+  } catch (e) {
+    console.error("Error fetching chat onboarding status:", e);
+    res.status(500).json({ error: "Failed to fetch chat onboarding status" });
+  }
+});
+
+router.post("/api/me/chat-onboarding/seen", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const now = new Date();
+    await db.update(users).set({ chatOnboardingSeenAt: now }).where(eq(users.id, userId));
+    res.json({ success: true, seenAt: now });
+  } catch (e) {
+    console.error("Error marking chat onboarding seen:", e);
+    res.status(500).json({ error: "Failed to mark chat onboarding seen" });
   }
 });
 

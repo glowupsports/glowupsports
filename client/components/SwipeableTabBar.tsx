@@ -424,7 +424,7 @@ export function SwipeableTabBar({
         </View>
       )}
 
-      {!hideTabBar && renderOverlay ? renderOverlay(currentTabKey) : null}
+      {renderOverlay ? renderOverlay(currentTabKey) : null}
     </View>
   );
 }

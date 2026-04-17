@@ -72,6 +72,7 @@ interface Message {
   }>;
   _optimistic?: true;
   _failed?: true;
+  isDeleted?: boolean | null;
 }
 
 interface Conversation {
@@ -98,7 +99,11 @@ interface Conversation {
   isBlockedByMe?: boolean;
 }
 
-const REACTION_EMOJIS = ["🔥", "❤️", "👍", "🏆", "⚡", "😂"];
+const REACTION_EMOJIS = ["🔥", "❤️", "👍", "😂"];
+const DEFAULT_QUICK_PHRASES_PLAYER = ["GG 🏆", "On my way", "Nice play!", "Let's go 🔥"];
+const DEFAULT_QUICK_PHRASES_COACH = ["Great job!", "Keep it up", "Let's review", "On my way"];
+const MAX_QUICK_REPLIES = 8;
+const QUICK_REPLY_TOOLTIP_KEY = "@glow_quick_reply_tooltip_seen";
 const NEON_GREEN = "#C8FF3D";
 const DARK_BUBBLE = "#1A2535";
 
@@ -228,6 +233,12 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [tickerIndex, setTickerIndex] = useState(0);
   const tickerFade = useSharedValue(1);
   const [showJumpUnread, setShowJumpUnread] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [showQuickReplyTooltip, setShowQuickReplyTooltip] = useState(false);
+  const [showAddQuickReply, setShowAddQuickReply] = useState(false);
+  const [editingQuickReply, setEditingQuickReply] = useState<{ id: string; body: string } | null>(null);
+  const [newQuickReplyText, setNewQuickReplyText] = useState("");
+  const userBackedFromConvRef = useRef(false);
 
   useEffect(() => {
     AsyncStorage.getItem("@glow_muted_conv").then(v => {
@@ -379,6 +390,25 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
   }, [isPlayerMode]);
 
+  const handleMessageDeleted = useCallback((payload: unknown) => {
+    const p = payload as { conversationId: string; messageId: string };
+    if (!p?.conversationId || !p?.messageId) return;
+    const msgKey = isPlayerMode
+      ? ["/api/player/me/conversations", p.conversationId, "messages"]
+      : ["/api/conversations", p.conversationId, "messages"];
+    queryClient.setQueryData<Message[]>(msgKey, (prev = []) => prev.filter(m => m.id !== p.messageId));
+  }, [queryClient, isPlayerMode]);
+
+  const handleReactionUpdated = useCallback((payload: { conversationId: string; messageId: string; reactions: unknown[] }) => {
+    if (!payload?.conversationId || !payload?.messageId) return;
+    const msgKey = isPlayerMode
+      ? ["/api/player/me/conversations", payload.conversationId, "messages"]
+      : ["/api/conversations", payload.conversationId, "messages"];
+    queryClient.setQueryData<Message[]>(msgKey, (prev = []) =>
+      prev.map(m => m.id === payload.messageId ? { ...m, reactions: payload.reactions as Message["reactions"] } : m)
+    );
+  }, [queryClient, isPlayerMode]);
+
   const handleNewConversation = useCallback((_payload: { conversationId: string; type: string }) => {
     // Refresh conversation list when a new DM is created (e.g. someone DMed the current user)
     const qk = isPlayerMode
@@ -393,6 +423,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     onOnlineStatus: handleOnlineStatus,
     onWorldMessage: handleWorldMessage,
     onNewConversation: handleNewConversation,
+    onMessageDeleted: handleMessageDeleted,
+    onReactionUpdated: handleReactionUpdated,
   });
 
   const handleInputChange = useCallback((text: string) => {
@@ -616,6 +648,77 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: messagesQueryKey });
     },
+  });
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      return apiRequest("DELETE", `/api/me/messages/${messageId}`);
+    },
+    onMutate: async (messageId: string) => {
+      await queryClient.cancelQueries({ queryKey: messagesQueryKey });
+      const prev = queryClient.getQueryData<Message[]>(messagesQueryKey) ?? [];
+      queryClient.setQueryData<Message[]>(messagesQueryKey, prev.filter(m => m.id !== messageId));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(messagesQueryKey, ctx.prev);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    },
+  });
+
+  type QuickReply = { id: string; body: string; sortOrder: number };
+  const { data: customQuickReplies = [] } = useQuery<QuickReply[]>({
+    queryKey: ["/api/me/quick-replies"],
+    enabled: !!userId,
+  });
+
+  type ChatOnboardingStatus = { seen: boolean; seenAt: string | null };
+  const { data: onboardingStatus } = useQuery<ChatOnboardingStatus>({
+    queryKey: ["/api/me/chat-onboarding"],
+    enabled: !!userId,
+  });
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [onboardingDismissedLocal, setOnboardingDismissedLocal] = useState(false);
+  const markOnboardingSeenMutation = useMutation({
+    mutationFn: async () => {
+      const r = await apiRequest("POST", "/api/me/chat-onboarding/seen", {});
+      return r.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/me/chat-onboarding"] }),
+  });
+  const showOnboardingOverlay =
+    !!userId &&
+    (isExpanded || isFullscreen) &&
+    onboardingStatus?.seen === false &&
+    !onboardingDismissedLocal;
+  const dismissOnboarding = useCallback(() => {
+    setOnboardingDismissedLocal(true);
+    markOnboardingSeenMutation.mutate();
+  }, [markOnboardingSeenMutation]);
+
+  const createQuickReplyMutation = useMutation({
+    mutationFn: async (body: string) => {
+      const r = await apiRequest("POST", "/api/me/quick-replies", { body });
+      return r.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/me/quick-replies"] }),
+  });
+
+  const updateQuickReplyMutation = useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: string }) => {
+      const r = await apiRequest("PUT", `/api/me/quick-replies/${id}`, { body });
+      return r.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/me/quick-replies"] }),
+  });
+
+  const deleteQuickReplyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/me/quick-replies/${id}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/me/quick-replies"] }),
   });
 
   const deleteConversationMutation = useMutation({
@@ -896,6 +999,38 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     refetchInterval: isConnected ? false : 30000,
   });
 
+  const addWorldReactionMutation = useMutation({
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      if (isPlayerMode) {
+        return apiRequest("POST", `/api/player/me/messages/${messageId}/reactions`, { emoji });
+      }
+      return apiRequest("POST", `/api/messages/${messageId}/reactions`, {
+        reactorType: userType,
+        reactorCoachId: userId,
+        emoji,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
+    },
+  });
+
+  const removeWorldReactionMutation = useMutation({
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      if (isPlayerMode) {
+        return apiRequest("DELETE", `/api/player/me/messages/${messageId}/reactions`, { emoji });
+      }
+      return apiRequest("DELETE", `/api/messages/${messageId}/reactions`, {
+        reactorType: userType,
+        reactorId: userId,
+        emoji,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
+    },
+  });
+
   const { data: lessonGroupChats = [] } = useQuery<Conversation[]>({
     queryKey: ["/api/player/me/lesson-group-chats"],
     enabled: isPlayerMode && currentTab === "squad",
@@ -997,12 +1132,17 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
   useEffect(() => {
     if (currentTab === "squad" && isPlayerMode) {
+      if (userBackedFromConvRef.current) return;
       const squadConv = conversations.find(c => c.type === "squad" || c.type === "group");
       if (squadConv && (!selectedConversation || selectedConversation.id !== squadConv.id)) {
         handleSelectConversation(squadConv);
       }
     }
   }, [currentTab, conversations, selectedConversation, isPlayerMode]);
+
+  useEffect(() => {
+    userBackedFromConvRef.current = false;
+  }, [currentTab]);
 
   const renderMessage = ({ item }: { item: Message & { _showAvatar?: boolean; _showTimestamp?: boolean } }) => {
     const showAvatar = item._showAvatar !== false;
@@ -1237,6 +1377,30 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             >
               <Ionicons name="arrow-undo-outline" size={18} color={Colors.dark.textMuted} />
             </Pressable>
+            {isOwn ? (
+              <Pressable
+                style={[styles.reactionOption]}
+                onPress={() => {
+                  Alert.alert(
+                    "Delete message",
+                    "This will delete the message for everyone. Continue?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => {
+                          deleteMessageMutation.mutate(item.id);
+                          setShowReactions(null);
+                        },
+                      },
+                    ],
+                  );
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
       </Pressable>
@@ -1257,6 +1421,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     | { _rowType: "date"; id: string; label: string }
     | ({ _rowType: "msg"; _showAvatar: boolean; _showTimestamp: boolean } & Message);
 
+  const visibleMessages = useMemo(() => messages.filter(m => !m.isDeleted), [messages]);
+
   const messageRows = useMemo<MessageRow[]>(() => {
     const rows: MessageRow[] = [];
     let lastDayKey = "";
@@ -1264,16 +1430,16 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       a.senderType === b.senderType &&
       (a.senderCoachId ?? null) === (b.senderCoachId ?? null) &&
       (a.senderPlayerId ?? null) === (b.senderPlayerId ?? null);
-    for (let i = 0; i < messages.length; i++) {
-      const m = messages[i];
+    for (let i = 0; i < visibleMessages.length; i++) {
+      const m = visibleMessages[i];
       const d = new Date(m.createdAt);
       const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (dayKey !== lastDayKey) {
         rows.push({ _rowType: "date", id: `sep-${dayKey}-${m.id}`, label: formatDateSeparator(d) });
         lastDayKey = dayKey;
       }
-      const prev = i > 0 ? messages[i - 1] : null;
-      const next = i < messages.length - 1 ? messages[i + 1] : null;
+      const prev = i > 0 ? visibleMessages[i - 1] : null;
+      const next = i < visibleMessages.length - 1 ? visibleMessages[i + 1] : null;
       const prevSameDay = prev ? (() => {
         const pd = new Date(prev.createdAt);
         return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth() && pd.getDate() === d.getDate();
@@ -1301,9 +1467,30 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return renderMessage({ item });
   };
 
-  const QUICK_PHRASES = isPlayerMode
-    ? ["GG 🏆", "On my way", "Nice play!", "Let's go 🔥"]
-    : ["Great job!", "Keep it up", "Let's review", "On my way"];
+  const DEFAULT_QUICK_PHRASES = isPlayerMode ? DEFAULT_QUICK_PHRASES_PLAYER : DEFAULT_QUICK_PHRASES_COACH;
+  const quickPhraseList: Array<{ id?: string; body: string; isCustom: boolean }> = [
+    ...DEFAULT_QUICK_PHRASES.map(p => ({ body: p, isCustom: false })),
+    ...customQuickReplies.map(q => ({ id: q.id, body: q.body, isCustom: true })),
+  ].slice(0, MAX_QUICK_REPLIES);
+  const totalChips = DEFAULT_QUICK_PHRASES.length + customQuickReplies.length;
+  const canAddMoreQuickReplies = totalChips < MAX_QUICK_REPLIES;
+
+  useEffect(() => {
+    AsyncStorage.getItem(QUICK_REPLY_TOOLTIP_KEY).then(v => {
+      if (v !== "true" && customQuickReplies.length === 0) {
+        setShowQuickReplyTooltip(true);
+      }
+    });
+  }, [customQuickReplies.length]);
+
+  const dismissQuickReplyTooltip = useCallback(() => {
+    setShowQuickReplyTooltip(prev => {
+      if (prev) {
+        AsyncStorage.setItem(QUICK_REPLY_TOOLTIP_KEY, "true");
+      }
+      return false;
+    });
+  }, []);
 
   const handleConvLongPress = (conv: Conversation) => {
     const name = getConvDisplayName(conv);
@@ -1439,19 +1626,33 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     });
   };
 
+  const isUuidLike = (v: string | null | undefined): boolean =>
+    !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim());
+  const cleanTitle = (v: string | null | undefined) =>
+    v && !isUuidLike(v) && v !== "Chat" ? v : null;
   const getConvDisplayName = (conv: Conversation) => {
     if (conv.type === "academy") return "Academy Chat";
-    if (conv.type === "squad" || conv.type === "group") return conv.title || "Squad Chat";
-    if (conv.type === "coach_coach") return conv.title || "Coach Chat";
+    if (conv.type === "series_group" || conv.type === "lesson_group") {
+      const cAny = conv as Conversation & { seriesTitle?: string | null };
+      return cleanTitle(cAny.seriesTitle) || cleanTitle(conv.title) || "Lesson Group";
+    }
+    if (conv.type === "squad" || conv.type === "group") {
+      return cleanTitle(conv.title) || "Squad Chat";
+    }
+    if (conv.type === "coach_coach") return cleanTitle(conv.title) || "Coach Chat";
     if (conv.type === "provider_player") return conv.providerName || "Service Provider";
     if (conv.type === "coach_player" || conv.type === "direct_message") {
       if (conv.coachName) return conv.coachName;
+      if (cleanTitle(conv.title)) return cleanTitle(conv.title)!;
+      return "Coach";
     }
     if (conv.type === "player_player") {
       if (conv.playerName) return conv.playerName;
+      if (cleanTitle(conv.title)) return cleanTitle(conv.title)!;
+      return "Player";
     }
     if (conv.playerName && conv.playerName !== "Chat") return conv.playerName;
-    if (conv.title && conv.title !== "Chat") return conv.title;
+    if (cleanTitle(conv.title)) return cleanTitle(conv.title)!;
     return "Conversation";
   };
   const getConvName = (conv: Conversation) => getConvDisplayName(conv);
@@ -1491,65 +1692,89 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
   };
 
-  const renderVerticalTabs = () => (
-    <View style={[styles.verticalTabPanel, isPlayerMode && { width: 52, paddingHorizontal: 4 }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.verticalTabScroll, isPlayerMode && { alignItems: "center" }]}
+  const renderVerticalTabs = () => {
+    const playerCollapsedW = 52;
+    const playerExpandedW = 132;
+    const playerWidth = isSidebarExpanded ? playerExpandedW : playerCollapsedW;
+    return (
+      <View
+        style={[styles.verticalTabPanel, isPlayerMode && { width: playerWidth, paddingHorizontal: 4 }]}
       >
-        {CHAT_TABS.map((tab) => {
-          const isActive = currentTab === tab.id;
-          const tabUnread = 0;
-          if (isPlayerMode) {
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.verticalTabScroll, isPlayerMode && { alignItems: isSidebarExpanded ? "stretch" : "center" }]}
+        >
+          {CHAT_TABS.map((tab) => {
+            const isActive = currentTab === tab.id;
+            if (isPlayerMode) {
+              return (
+                <Pressable
+                  key={tab.id}
+                  onPress={() => {
+                    if (!isSidebarExpanded) {
+                      setIsSidebarExpanded(true);
+                      return;
+                    }
+                    handleTabChange(tab.id);
+                    setIsSidebarExpanded(false);
+                  }}
+                  onLongPress={() => setIsSidebarExpanded((v) => !v)}
+                  style={[
+                    {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: isSidebarExpanded ? "flex-start" : "center",
+                      paddingHorizontal: isSidebarExpanded ? 10 : 0,
+                      width: isSidebarExpanded ? "100%" : 42,
+                      height: 42,
+                      borderRadius: isSidebarExpanded ? 12 : 21,
+                      marginBottom: 8,
+                      backgroundColor: isActive ? NEON_GREEN + "22" : "transparent",
+                      borderWidth: isActive ? 1.5 : 0,
+                      borderColor: isActive ? NEON_GREEN : "transparent",
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name={tab.icon}
+                    size={20}
+                    color={isActive ? NEON_GREEN : Colors.dark.textMuted}
+                  />
+                  {isSidebarExpanded ? (
+                    <ThemedText
+                      numberOfLines={1}
+                      style={{ marginLeft: 10, fontSize: 12, color: isActive ? NEON_GREEN : Colors.dark.textMuted, fontWeight: "600" }}
+                    >
+                      {tab.name}
+                    </ThemedText>
+                  ) : null}
+                </Pressable>
+              );
+            }
             return (
               <Pressable
                 key={tab.id}
                 onPress={() => handleTabChange(tab.id)}
-                style={[
-                  {
-                    width: 42,
-                    height: 42,
-                    borderRadius: 21,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 8,
-                    backgroundColor: isActive ? NEON_GREEN + "22" : "transparent",
-                    borderWidth: isActive ? 1.5 : 0,
-                    borderColor: isActive ? NEON_GREEN : "transparent",
-                  }
-                ]}
+                style={[styles.verticalTab, isActive && styles.verticalTabActive]}
               >
                 <Ionicons
                   name={tab.icon}
                   size={20}
-                  color={isActive ? NEON_GREEN : Colors.dark.textMuted}
+                  color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
                 />
+                <ThemedText
+                  style={[styles.verticalTabLabel, isActive && styles.verticalTabLabelActive]}
+                  numberOfLines={1}
+                >
+                  {tab.name}
+                </ThemedText>
               </Pressable>
             );
-          }
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => handleTabChange(tab.id)}
-              style={[styles.verticalTab, isActive && styles.verticalTabActive]}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={20}
-                color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
-              />
-              <ThemedText
-                style={[styles.verticalTabLabel, isActive && styles.verticalTabLabelActive]}
-                numberOfLines={1}
-              >
-                {tab.name}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
 
   const renderQuickContacts = () => {
     return null;
@@ -1625,24 +1850,27 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       .join("")
       .toUpperCase();
 
+    const reactions = (item as any).reactions as Array<{ emoji: string; reactorCoachId: string | null; reactorPlayerId: string | null }> | undefined;
+    const groupedReactions: Record<string, { count: number; reactedByMe: boolean }> = {};
+    if (Array.isArray(reactions)) {
+      for (const r of reactions) {
+        const key = r.emoji;
+        if (!groupedReactions[key]) groupedReactions[key] = { count: 0, reactedByMe: false };
+        groupedReactions[key].count += 1;
+        if (isPlayerMode ? r.reactorPlayerId === userId : r.reactorCoachId === userId) {
+          groupedReactions[key].reactedByMe = true;
+        }
+      }
+    }
+
     return (
-      <View style={styles.worldMessageRow}>
+      <Pressable
+        style={styles.worldMessageRow}
+        onLongPress={() => setShowReactions(showReactions === item.id ? null : item.id)}
+        delayLongPress={250}
+      >
         <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
-          {isOwn ? (
-            <View style={[styles.senderInfo, { justifyContent: "flex-end" }]}>
-              <View style={styles.playerAvatar}>
-                {item.senderPhotoUrl ? (
-                  <Image
-                    source={{ uri: item.senderPhotoUrl }}
-                    style={styles.playerAvatarImg}
-                    contentFit="cover"
-                  />
-                ) : (
-                  <ThemedText style={styles.playerAvatarInitials}>{initials}</ThemedText>
-                )}
-              </View>
-            </View>
-          ) : (
+          {isOwn ? null : (
             <Pressable
               style={styles.senderInfo}
               onPress={() =>
@@ -1676,34 +1904,53 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
             <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
           </View>
-          {(() => {
-            const hype = worldHypeMap[item.id];
-            const count = hype?.count ?? 0;
-            const mine = hype?.mine ?? false;
-            return (
-              <Pressable
-                onPress={() => {
-                  setWorldHypeMap(prev => {
-                    const current = prev[item.id] ?? { mine: false, count: 0 };
-                    const nextEntry = current.mine
-                      ? { mine: false, count: Math.max(0, current.count - 1) }
-                      : { mine: true, count: current.count + 1 };
-                    const next = { ...prev, [item.id]: nextEntry };
-                    persistWorldHype(next);
-                    return next;
-                  });
-                }}
-                style={[styles.worldHypeBtn, mine && { borderColor: "#FF6B35", backgroundColor: "#FF6B3522" }]}
-              >
-                <ThemedText style={{ fontSize: 12 }}>🔥</ThemedText>
-                {count > 0 ? (
-                  <ThemedText style={{ fontSize: 11, color: mine ? "#FF6B35" : Colors.dark.textMuted, fontWeight: "700" }}>{count}</ThemedText>
-                ) : null}
-              </Pressable>
-            );
-          })()}
+          {Object.keys(groupedReactions).length > 0 ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+              {Object.entries(groupedReactions).map(([emoji, info]) => (
+                <Pressable
+                  key={emoji}
+                  onPress={() => {
+                    if (info.reactedByMe) {
+                      removeWorldReactionMutation.mutate({ messageId: item.id, emoji });
+                    } else {
+                      addWorldReactionMutation.mutate({ messageId: item.id, emoji });
+                    }
+                  }}
+                  style={[
+                    styles.reactionChip,
+                    info.reactedByMe ? { backgroundColor: NEON_GREEN + "30", borderColor: NEON_GREEN } : undefined,
+                  ]}
+                >
+                  <ThemedText style={{ fontSize: 12 }}>{emoji} {info.count}</ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          {showReactions === item.id ? (
+            <View style={[styles.reactionPicker, { flexDirection: "row", flexWrap: "wrap", marginTop: 6 }]}>
+              {REACTION_EMOJIS.map((emoji) => {
+                const mine = groupedReactions[emoji]?.reactedByMe;
+                return (
+                  <Pressable
+                    key={emoji}
+                    onPress={() => {
+                      if (mine) {
+                        removeWorldReactionMutation.mutate({ messageId: item.id, emoji });
+                      } else {
+                        addWorldReactionMutation.mutate({ messageId: item.id, emoji });
+                      }
+                      setShowReactions(null);
+                    }}
+                    style={[styles.reactionOption, mine ? { backgroundColor: NEON_GREEN + "30" } : undefined]}
+                  >
+                    <ThemedText style={{ fontSize: 20 }}>{emoji}</ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -1713,10 +1960,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         <View style={styles.activityHeader}>
           <Ionicons name="globe-outline" size={16} color={Colors.dark.xpCyan} />
           <ThemedText style={[styles.activityHeaderText, { color: Colors.dark.xpCyan }]}>World Chat</ThemedText>
-          <View style={styles.worldOnlineBadge}>
-            <View style={styles.worldOnlineDot} />
-            <ThemedText style={styles.worldOnlineText}>Live</ThemedText>
-          </View>
         </View>
         <FlatList
             ref={flatListRef}
@@ -1724,6 +1967,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             keyExtractor={(item) => item.id}
             renderItem={renderWorldMessage}
             extraData={userId}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={{ padding: Spacing.sm, gap: 4 }}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
@@ -2020,7 +2264,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         <>
           {currentTab !== "academy" ? (
             <View style={styles.conversationHeader}>
-              <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
+              <Pressable onPress={() => { userBackedFromConvRef.current = true; setSelectedConversation(null); }} style={styles.backButton}>
                 <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
               </Pressable>
               <Pressable
@@ -2049,11 +2293,19 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               {isPlayerMode && selectedConversation.type === "player_player" && selectedConversation.otherPlayerId && onChallenge ? (
                 <Pressable
                   onPress={() => {
-                    onChallenge(
-                      selectedConversation.otherPlayerId!,
-                      selectedConversation.playerName || "Player",
-                      undefined
-                    );
+                    const opponentId = selectedConversation.otherPlayerId!;
+                    const opponentName = selectedConversation.playerName || "Player";
+                    pendingChallengeRef.current = { opponentId, opponentName, opponentPhoto: undefined };
+                    setSelectedConversation(null);
+                    setIsFullscreen(false);
+                    setIsExpanded(false);
+                    setTimeout(() => {
+                      if (pendingChallengeRef.current && onChallenge) {
+                        const p = pendingChallengeRef.current;
+                        pendingChallengeRef.current = null;
+                        onChallenge(p.opponentId, p.opponentName, p.opponentPhoto);
+                      }
+                    }, 250);
                   }}
                   style={styles.dmChallengeBtn}
                 >
@@ -2079,6 +2331,15 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 renderItem={renderMessageRow}
                 style={styles.messageList}
                 contentContainerStyle={styles.messageListContent}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <Ionicons name="chatbubbles-outline" size={32} color={Colors.dark.tabIconDefault} />
+                    <ThemedText style={[styles.emptyText, { fontSize: 13, marginTop: 8 }]}>
+                      No messages yet — be the first to say hi!
+                    </ThemedText>
+                  </View>
+                }
                 onContentSizeChange={() => {
                   if (!showJumpUnread) flatListRef.current?.scrollToEnd({ animated: false });
                 }}
@@ -2129,22 +2390,56 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             </View>
           ) : null}
           {!isSampleConversation ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.quickPhrasesStrip}
-              contentContainerStyle={{ paddingHorizontal: 8, gap: 6 }}
-            >
-              {QUICK_PHRASES.map((phrase) => (
-                <Pressable
-                  key={phrase}
-                  onPress={() => setInputText(inputText ? `${inputText} ${phrase}` : phrase)}
-                  style={styles.quickPhraseChip}
-                >
-                  <ThemedText style={{ fontSize: 12, color: isPlayerMode ? NEON_GREEN : Colors.dark.text }}>{phrase}</ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <View>
+              {showQuickReplyTooltip ? (
+                <View style={{ marginHorizontal: 12, marginBottom: 4, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: NEON_GREEN + "15", borderRadius: 8, borderWidth: 1, borderColor: NEON_GREEN + "40" }}>
+                  <ThemedText style={{ fontSize: 11, color: NEON_GREEN }}>
+                    Tap + to add your own quick replies. Long-press a chip to edit.
+                  </ThemedText>
+                </View>
+              ) : null}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.quickPhrasesStrip}
+                contentContainerStyle={{ paddingHorizontal: 8, gap: 6 }}
+              >
+                {quickPhraseList.map((p, idx) => (
+                  <Pressable
+                    key={p.id ?? `default-${idx}`}
+                    onPress={() => {
+                      setInputText(inputText ? `${inputText} ${p.body}` : p.body);
+                      dismissQuickReplyTooltip();
+                    }}
+                    onLongPress={() => {
+                      dismissQuickReplyTooltip();
+                      if (p.isCustom && p.id) {
+                        setEditingQuickReply({ id: p.id, body: p.body });
+                        setNewQuickReplyText(p.body);
+                        setShowAddQuickReply(true);
+                      }
+                    }}
+                    style={styles.quickPhraseChip}
+                  >
+                    <ThemedText style={{ fontSize: 12, color: isPlayerMode ? NEON_GREEN : Colors.dark.text }}>{p.body}</ThemedText>
+                  </Pressable>
+                ))}
+                {canAddMoreQuickReplies ? (
+                  <Pressable
+                    onPress={() => {
+                      setEditingQuickReply(null);
+                      setNewQuickReplyText("");
+                      setShowAddQuickReply(true);
+                      dismissQuickReplyTooltip();
+                    }}
+                    style={[styles.quickPhraseChip, { flexDirection: "row", alignItems: "center", gap: 3 }]}
+                  >
+                    <Ionicons name="add" size={14} color={isPlayerMode ? NEON_GREEN : Colors.dark.text} />
+                    <ThemedText style={{ fontSize: 12, color: isPlayerMode ? NEON_GREEN : Colors.dark.text }}>Add</ThemedText>
+                  </Pressable>
+                ) : null}
+              </ScrollView>
+            </View>
           ) : null}
           <View style={[styles.inputContainer, isPlayerMode && { backgroundColor: "#0D1525CC", borderWidth: 1, borderColor: NEON_GREEN + "22" }]}>
             {isConnected ? (
@@ -2209,7 +2504,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
           bottom: isExpanded || isFullscreen
-            ? TAB_BAR_HEIGHT + insets.bottom
+            ? insets.bottom
             : TAB_BAR_HEIGHT + insets.bottom + CHAT_PILL_LIFT,
           paddingTop: isFullscreen ? insets.top : 0,
         },
@@ -2319,11 +2614,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   <View style={styles.connectionIndicator}>
                     <View style={[styles.connectionDot, !isConnected && { backgroundColor: Colors.dark.disabled }]} />
                   </View>
-                  {unreadCount > 0 ? (
-                    <View style={styles.unreadBadge}>
-                      <ThemedText style={styles.unreadText}>{unreadCount}</ThemedText>
-                    </View>
-                  ) : null}
                 </View>
                 {latestConversation && latestConversation.lastMessagePreview && !isExpanded ? (
                   <ThemedText numberOfLines={1} style={styles.previewText}>
@@ -2338,21 +2628,15 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               </View>
             </Pressable>
             <View style={styles.headerButtons}>
-              {isExpanded ? (
-                <Pressable onPress={toggleFullscreen} style={styles.fullscreenButton}>
-                  <Ionicons
-                    name={isFullscreen ? "contract-outline" : "expand-outline"}
-                    size={20}
-                    color={Colors.dark.text}
-                  />
-                </Pressable>
-              ) : null}
               <Pressable
                 onPress={() => {
                   if (isFullscreen) {
                     setIsFullscreen(false);
+                    setIsExpanded(false);
+                  } else if (isExpanded) {
+                    setIsExpanded(false);
                   } else {
-                    setIsExpanded(!isExpanded);
+                    setIsExpanded(true);
                   }
                 }}
                 style={styles.chevronButton}
@@ -2369,7 +2653,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       )}
 
       {(isExpanded || isFullscreen) ? (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            Keyboard.dismiss();
+            if (isSidebarExpanded) setIsSidebarExpanded(false);
+          }}
+          accessible={false}
+        >
         <View style={styles.expandedContent}>
           {!isSmallScreen && renderVerticalTabs()}
           <View style={[styles.rightPanel, isSmallScreen && { flex: 1 }]}>
@@ -2547,6 +2837,63 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                       <ThemedText style={[styles.profileModalBtnText, { color: Colors.dark.xpCyan }]}>Challenge to Match</ThemedText>
                     </Pressable>
                   ) : null}
+                  {selectedSender.senderType === "player" && selectedSender.senderPlayerId && isPlayerMode ? (
+                    <Pressable
+                      style={[styles.profileModalBtn, { backgroundColor: Colors.dark.primary + "15", borderColor: Colors.dark.primary + "50" }]}
+                      onPress={() => {
+                        const playerId = selectedSender.senderPlayerId!;
+                        setSelectedSender(null);
+                        setIsFullscreen(false);
+                        setIsExpanded(false);
+                        setTimeout(() => {
+                          try {
+                            navigation.navigate("PlayerTabs", {
+                              screen: "PlayStack",
+                              params: { screen: "PublicProfile", params: { playerId } },
+                            });
+                          } catch {
+                            try { navigation.navigate("PublicProfile", { playerId }); } catch {}
+                          }
+                        }, 250);
+                      }}
+                    >
+                      <Ionicons name="person-circle-outline" size={16} color={Colors.dark.primary} />
+                      <ThemedText style={styles.profileModalBtnText}>View Profile</ThemedText>
+                    </Pressable>
+                  ) : null}
+                  {selectedSender.senderType === "player" && selectedSender.senderUserId && isPlayerMode ? (
+                    <Pressable
+                      style={[styles.profileModalBtn, { backgroundColor: NEON_GREEN + "15", borderColor: NEON_GREEN + "50" }]}
+                      onPress={() => {
+                        Alert.alert(
+                          "Invite as Friend",
+                          `Send a friend invite to ${selectedSender.senderName}?`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: "Send Invite",
+                              onPress: () => {
+                                try {
+                                  apiRequest("POST", "/api/player/me/friends/invite", {
+                                    targetPlayerId: selectedSender.senderPlayerId,
+                                  }).then(() => {
+                                    Alert.alert("Invite sent", `Friend invite sent to ${selectedSender.senderName}.`);
+                                  }).catch(() => {
+                                    Alert.alert("Could not send invite", "Try again later.");
+                                  });
+                                } catch {
+                                  Alert.alert("Could not send invite", "Try again later.");
+                                }
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Ionicons name="person-add-outline" size={16} color={NEON_GREEN} />
+                      <ThemedText style={[styles.profileModalBtnText, { color: NEON_GREEN }]}>Invite as Friend</ThemedText>
+                    </Pressable>
+                  ) : null}
                   {selectedSender.senderType === "player" && selectedSender.senderUserId && isPlayerMode ? (
                     blockedUserId === selectedSender.senderUserId ? (
                       <Pressable
@@ -2600,9 +2947,186 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={showAddQuickReply}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddQuickReply(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "#00000088", justifyContent: "center", padding: 24 }}
+          onPress={() => setShowAddQuickReply(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation?.()}
+            style={{ backgroundColor: "#1A2535", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: NEON_GREEN + "30" }}
+          >
+            <ThemedText style={{ fontSize: 15, fontWeight: "700", color: Colors.dark.text, marginBottom: 10 }}>
+              {editingQuickReply ? "Edit quick reply" : "New quick reply"}
+            </ThemedText>
+            <TextInput
+              value={newQuickReplyText}
+              onChangeText={setNewQuickReplyText}
+              placeholder="Type a phrase..."
+              placeholderTextColor={Colors.dark.textMuted}
+              maxLength={60}
+              autoFocus
+              style={{ backgroundColor: "#0D1525", color: Colors.dark.text, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: NEON_GREEN + "20" }}
+            />
+            <ThemedText style={{ fontSize: 10, color: Colors.dark.textMuted, marginTop: 4 }}>
+              {newQuickReplyText.length}/60
+            </ThemedText>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              {editingQuickReply ? (
+                <Pressable
+                  onPress={() => {
+                    deleteQuickReplyMutation.mutate(editingQuickReply.id);
+                    setShowAddQuickReply(false);
+                    setEditingQuickReply(null);
+                  }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: "auto" }}
+                >
+                  <ThemedText style={{ color: "#FF6B6B", fontSize: 13 }}>Delete</ThemedText>
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  setShowAddQuickReply(false);
+                  setEditingQuickReply(null);
+                }}
+                style={{ paddingHorizontal: 12, paddingVertical: 8 }}
+              >
+                <ThemedText style={{ color: Colors.dark.textMuted, fontSize: 13 }}>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const body = newQuickReplyText.trim();
+                  if (!body) return;
+                  if (editingQuickReply) {
+                    updateQuickReplyMutation.mutate({ id: editingQuickReply.id, body });
+                  } else {
+                    createQuickReplyMutation.mutate(body);
+                  }
+                  setShowAddQuickReply(false);
+                  setEditingQuickReply(null);
+                  setNewQuickReplyText("");
+                }}
+                style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: NEON_GREEN, borderRadius: 8 }}
+              >
+                <ThemedText style={{ color: "#000", fontSize: 13, fontWeight: "700" }}>Save</ThemedText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showOnboardingOverlay}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissOnboarding}
+      >
+        <View style={styles.onboardingBackdrop}>
+          <View style={styles.onboardingCard}>
+            <View style={styles.onboardingHeader}>
+              <View style={styles.onboardingIconBadge}>
+                <Ionicons
+                  name={CHAT_ONBOARDING_STEPS[onboardingStep].icon}
+                  size={26}
+                  color={NEON_GREEN}
+                />
+              </View>
+              <Pressable onPress={dismissOnboarding} style={styles.onboardingCloseBtn} hitSlop={10}>
+                <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+            <ThemedText style={styles.onboardingTitle}>
+              {CHAT_ONBOARDING_STEPS[onboardingStep].title}
+            </ThemedText>
+            <ThemedText style={styles.onboardingBody}>
+              {CHAT_ONBOARDING_STEPS[onboardingStep].body}
+            </ThemedText>
+            <View style={styles.onboardingDots}>
+              {CHAT_ONBOARDING_STEPS.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.onboardingDot,
+                    i === onboardingStep && styles.onboardingDotActive,
+                  ]}
+                />
+              ))}
+            </View>
+            <View style={styles.onboardingActions}>
+              <Pressable onPress={dismissOnboarding} style={styles.onboardingSkipBtn}>
+                <ThemedText style={styles.onboardingSkipText}>Skip</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (onboardingStep < CHAT_ONBOARDING_STEPS.length - 1) {
+                    setOnboardingStep(onboardingStep + 1);
+                  } else {
+                    dismissOnboarding();
+                  }
+                }}
+                style={styles.onboardingNextBtn}
+              >
+                <ThemedText style={styles.onboardingNextText}>
+                  {onboardingStep < CHAT_ONBOARDING_STEPS.length - 1 ? "Next" : "Let's go"}
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
+
+const CHAT_ONBOARDING_STEPS: Array<{
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  body: string;
+}> = [
+  {
+    icon: "chatbubbles-outline",
+    title: "Welcome to Glow Chat",
+    body: "Your home for coach DMs, squad talk and the World Chat. Tap a chat to open it, or pull this panel up to go fullscreen.",
+  },
+  {
+    icon: "menu-outline",
+    title: "Smart sidebar",
+    body: "Tap the icons on the left once to expand the sidebar with labels. Tap again to switch tab and collapse it back.",
+  },
+  {
+    icon: "flash-outline",
+    title: "Quick replies your way",
+    body: "Tap the lightning chip to send a saved reply. Hit + to add your own (up to 8). Long-press a chip to edit or delete.",
+  },
+  {
+    icon: "happy-outline",
+    title: "React with one touch",
+    body: "Long-press any message to drop a reaction. Reactions appear under the bubble and update live for everyone.",
+  },
+  {
+    icon: "trash-outline",
+    title: "Delete your own messages",
+    body: "Made a typo? Long-press your own message and choose Delete to remove it for everyone in the chat.",
+  },
+  {
+    icon: "rocket-outline",
+    title: "You're all set",
+    body: "That's the tour! You can always come back here through Settings if you want a refresher.",
+  },
+];
+
+type WebScrollHideStyle = {
+  scrollbarWidth?: "auto" | "thin" | "none";
+  msOverflowStyle?: "auto" | "none";
+};
+const webHideScrollbar: WebScrollHideStyle =
+  Platform.OS === "web" ? { scrollbarWidth: "none", msOverflowStyle: "none" } : {};
 
 const styles = StyleSheet.create({
   container: {
@@ -3269,6 +3793,96 @@ const styles = StyleSheet.create({
   },
   messageList: {
     flex: 1,
+    ...webHideScrollbar,
+  },
+  onboardingBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.78)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  onboardingCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#0E1417",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: NEON_GREEN + "55",
+    padding: 22,
+  },
+  onboardingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  onboardingIconBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: NEON_GREEN + "1F",
+    borderWidth: 1.5,
+    borderColor: NEON_GREEN,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  onboardingCloseBtn: {
+    padding: 6,
+    borderRadius: 14,
+  },
+  onboardingTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 8,
+  },
+  onboardingBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.dark.textSecondary,
+    marginBottom: 18,
+  },
+  onboardingDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 18,
+  },
+  onboardingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.textMuted + "55",
+  },
+  onboardingDotActive: {
+    backgroundColor: NEON_GREEN,
+    width: 18,
+  },
+  onboardingActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  onboardingSkipBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  onboardingSkipText: {
+    color: Colors.dark.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  onboardingNextBtn: {
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 22,
+    backgroundColor: NEON_GREEN,
+  },
+  onboardingNextText: {
+    color: "#000",
+    fontSize: 14,
+    fontWeight: "700",
   },
   messageListContent: {
     padding: Spacing.sm,
@@ -3380,6 +3994,16 @@ const styles = StyleSheet.create({
   },
   reactionOption: {
     padding: 4,
+  },
+  reactionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.background,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   typingIndicator: {
     flexDirection: "row",
