@@ -3969,14 +3969,15 @@ Return only the JSON array, nothing else.`;
       const totalAmount = (parseFloat(resolvedPrice) * creditsInt).toFixed(2);
       const invoiceNumber = await storage.generateInvoiceNumber(player.academyId);
 
-      // If coach selected "already_paid", mark invoice paid immediately;
-      // otherwise leave pending so the admin can confirm cash/transfer.
       const alreadyPaid = paymentMethod === "already_paid";
-      const invoiceStatus = alreadyPaid ? "paid" : "pending";
       const normalizedPaymentMethod = alreadyPaid
         ? "cash"
         : (paymentMethod === "bank_transfer" ? "bank_transfer" : "cash");
 
+      // Always create the invoice as pending first. If alreadyPaid, we then
+      // record the payment and flip status to paid in sequence — if any step
+      // fails, the invoice remains pending so an admin can resolve it from
+      // billing without phantom "paid" state.
       const invoiceInput: InsertInvoice = {
         playerId,
         academyId: player.academyId,
@@ -3985,9 +3986,9 @@ Return only the JSON array, nothing else.`;
         type: "package_purchase",
         amount: totalAmount,
         currency: resolvedCurrency,
-        status: invoiceStatus,
+        status: "pending",
         dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-        paidAt: alreadyPaid ? now : null,
+        paidAt: null,
         lineItems: [{
           description: packageName,
           quantity: creditsInt,
@@ -3998,12 +3999,10 @@ Return only the JSON array, nothing else.`;
       };
       const invoice = await storage.createInvoice(invoiceInput);
 
-      // For "already paid", record a payment row + flip the invoice. The
-      // V2 lot deposit (when the academy is on V2) happens inside
-      // storage.updateInvoice via the mark-paid bridge.
-      // We FAIL the whole request if either side effect fails — better to
-      // surface the error to the operator than to return a misleading
-      // success while leaving billing state inconsistent.
+      // For "already paid": record payment, then flip invoice to paid (which
+      // triggers the V2 lot-deposit bridge inside storage.updateInvoice).
+      // Fail loudly if either step fails so operators know the invoice is
+      // still pending.
       let finalInvoice = invoice;
       if (alreadyPaid) {
         try {
@@ -4021,7 +4020,7 @@ Return only the JSON array, nothing else.`;
         } catch (markErr) {
           console.error(`[CoachPurchase] mark-paid failed for ${invoice.id}:`, markErr);
           return res.status(500).json({
-            error: "Package created but payment recording failed. Please mark the invoice paid from billing.",
+            error: "Package created but payment recording failed. Invoice is still pending — please mark it paid from billing.",
             packageId: pkg.id,
             invoiceId: invoice.id,
           });
