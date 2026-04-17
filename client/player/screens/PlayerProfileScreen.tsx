@@ -1026,6 +1026,37 @@ export default function PlayerProfileScreen() {
                 Next expiry {new Date(v2NextExpiry.expires_at).toLocaleDateString()}
               </Text>
             ) : null}
+
+            {/* Explicit "Buy credits" CTA inside the wallet panel — only when
+                the academy is on the V2 wallet system (Task #665). */}
+            {v2Enabled && player?.id ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("ParentCreditStore", { playerId: player.id });
+                }}
+                style={({ pressed }) => [{
+                  marginTop: 8,
+                  alignSelf: "stretch",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  paddingVertical: 6,
+                  borderRadius: 6,
+                  backgroundColor: Colors.dark.gold,
+                  opacity: pressed ? 0.8 : 1,
+                }]}
+                accessibilityRole="button"
+                accessibilityLabel="Buy credits"
+              >
+                <Ionicons name="add-circle-outline" size={12} color={Colors.dark.background} />
+                <Text style={{ color: Colors.dark.background, fontWeight: "800", fontSize: 11 }}>
+                  Buy credits
+                </Text>
+              </Pressable>
+            ) : null}
           </Pressable>
         </View>
 

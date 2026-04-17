@@ -4000,7 +4000,11 @@ Return only the JSON array, nothing else.`;
 
       // For "already paid", record a payment row + flip the invoice. The
       // V2 lot deposit (when the academy is on V2) happens inside
-      // storage.updateInvoice via the mark-paid bridge below.
+      // storage.updateInvoice via the mark-paid bridge.
+      // We FAIL the whole request if either side effect fails — better to
+      // surface the error to the operator than to return a misleading
+      // success while leaving billing state inconsistent.
+      let finalInvoice = invoice;
       if (alreadyPaid) {
         try {
           const paymentInput: InsertPayment = {
@@ -4012,13 +4016,19 @@ Return only the JSON array, nothing else.`;
             status: "succeeded",
           };
           await storage.createPayment(paymentInput);
-          await storage.updateInvoice(invoice.id, { status: "paid", paidAt: now });
+          const updated = await storage.updateInvoice(invoice.id, { status: "paid", paidAt: now });
+          if (updated) finalInvoice = updated;
         } catch (markErr) {
           console.error(`[CoachPurchase] mark-paid failed for ${invoice.id}:`, markErr);
+          return res.status(500).json({
+            error: "Package created but payment recording failed. Please mark the invoice paid from billing.",
+            packageId: pkg.id,
+            invoiceId: invoice.id,
+          });
         }
       }
 
-      res.json({ success: true, package: pkg, invoice });
+      res.json({ success: true, package: pkg, invoice: finalInvoice });
     } catch (error) {
       console.error("[CoachPurchase] error:", error);
       res.status(500).json({ error: "Failed to create purchase" });
