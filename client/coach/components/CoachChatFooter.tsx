@@ -13,7 +13,6 @@ import {
   Modal,
   Alert,
   Keyboard,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
