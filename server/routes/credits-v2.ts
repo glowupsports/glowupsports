@@ -222,7 +222,7 @@ const ALLOWED_TYPES: CreditType[] = ["group", "semi_private", "private"];
 router.post(
   "/api/v2/credits/manual-adjustment",
   authMiddleware,
-  requireRole(["academy_owner", "coach", "platform_owner"]),
+  requireRole("academy_owner", "coach", "admin", "platform_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, type, delta, reason } = req.body || {};
@@ -247,7 +247,7 @@ router.post(
         type: type as CreditType,
         delta,
         reason: reason.trim(),
-        actorId: req.user!.id,
+        actorId: req.user!.userId,
         actorRole: req.user!.role === "coach" ? "coach" : "admin",
       });
 
@@ -273,7 +273,7 @@ router.post(
 router.post(
   "/api/v2/credits/refund",
   authMiddleware,
-  requireRole(["academy_owner", "coach", "platform_owner"]),
+  requireRole("academy_owner", "coach", "admin", "platform_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionPlayerId, policy, reason } = req.body || {};
@@ -302,7 +302,7 @@ router.post(
       const result = await refundCredit({
         sessionPlayerId,
         policy: policy || "force",
-        actorId: req.user!.id,
+        actorId: req.user!.userId,
         actorRole: req.user!.role === "coach" ? "coach" : "admin",
         reason: reason?.trim() || undefined,
       });
@@ -330,7 +330,7 @@ router.post(
 router.post(
   "/api/v2/credits/makeup",
   authMiddleware,
-  requireRole(["academy_owner", "coach", "platform_owner"]),
+  requireRole("academy_owner", "coach", "admin", "platform_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId, type, qty, sessionId, reason } = req.body || {};
@@ -351,7 +351,7 @@ router.post(
         type: type as CreditType,
         qty: awardQty,
         sessionId: sessionId || null,
-        actorId: req.user!.id,
+        actorId: req.user!.userId,
         actorRole: req.user!.role === "coach" ? "coach" : "admin",
         reason: reason?.trim() || undefined,
       });
@@ -379,7 +379,7 @@ router.post(
 router.get(
   "/api/v2/credits/health/:academyId",
   authMiddleware,
-  requireRole(["academy_owner", "platform_owner"]),
+  requireRole("academy_owner", "admin", "platform_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { academyId } = req.params;
