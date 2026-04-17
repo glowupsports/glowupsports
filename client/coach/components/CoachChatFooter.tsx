@@ -2899,9 +2899,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                                 setInviteState("sent");
                                 console.log(`[ChatFooter] Friend invite sent to ${targetName}`);
                               })
-                              .catch((err: any) => {
+                              .catch((err: unknown) => {
                                 let msg = "Try again later";
-                                const raw = err?.message || "";
+                                const raw = err instanceof Error ? err.message : String(err ?? "");
                                 if (/Already connected/i.test(raw)) msg = "Already friends";
                                 else if (/already pending/i.test(raw)) msg = "Invite already sent";
                                 else if (/yourself/i.test(raw)) msg = "Can’t invite yourself";

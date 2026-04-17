@@ -3,13 +3,13 @@ import { sql } from "drizzle-orm";
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const before = await db.execute(sql`
+  const before = await db.execute<{ msgs: number }>(sql`
     SELECT COUNT(*)::int AS msgs
     FROM messages m
     JOIN conversations c ON c.id = m.conversation_id
     WHERE c.type = 'world'
   `);
-  const beforeCount = (before.rows[0] as any)?.msgs ?? 0;
+  const beforeCount = before.rows[0]?.msgs ?? 0;
   console.log(`[WipeWorldChat] World chat messages before: ${beforeCount}`);
 
   if (dryRun) {
@@ -35,13 +35,13 @@ async function main() {
     WHERE type = 'world'
   `);
 
-  const after = await db.execute(sql`
+  const after = await db.execute<{ msgs: number }>(sql`
     SELECT COUNT(*)::int AS msgs
     FROM messages m
     JOIN conversations c ON c.id = m.conversation_id
     WHERE c.type = 'world'
   `);
-  console.log(`[WipeWorldChat] World chat messages after: ${(after.rows[0] as any)?.msgs ?? 0}`);
+  console.log(`[WipeWorldChat] World chat messages after: ${after.rows[0]?.msgs ?? 0}`);
   console.log(`[WipeWorldChat] Done.`);
 }
 
