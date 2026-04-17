@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   },
   centerButtonAnimWrapper: {
     alignItems: "center",
-    marginTop: -30,
+    marginTop: -14,
     zIndex: 200,
     elevation: 200,
   },

@@ -178,7 +178,8 @@ interface SenderProfile {
 }
 
 const TAB_BAR_HEIGHT = 85;
-const CENTER_BUTTON_PROTRUSION = 30;
+const CENTER_BUTTON_PROTRUSION = 14;
+const CHAT_PILL_LIFT = 14;
 
 export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
@@ -2207,7 +2208,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         styles.container,
         (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
-          bottom: TAB_BAR_HEIGHT + insets.bottom,
+          bottom: isExpanded || isFullscreen
+            ? TAB_BAR_HEIGHT + insets.bottom
+            : TAB_BAR_HEIGHT + insets.bottom + CHAT_PILL_LIFT,
           paddingTop: isFullscreen ? insets.top : 0,
         },
         desktopWebStyle,
