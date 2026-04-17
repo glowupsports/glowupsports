@@ -163,18 +163,27 @@ export async function shadowConsumeAfterLegacy(
   if (!ctx) return;
 
   try {
+    // Use the canonical event key (`consume:<spId>`) so shadow runs
+    // share idempotency with the Phase 1 replay path — re-running the
+    // same session must not double-apply in V2.
     const newResult = await consumeCredit({
       sessionPlayerId,
       occurredAt: ctx.startTime ?? new Date(),
       actorRole: "system",
-      eventKey: `shadow:consume:${sessionPlayerId}`,
+      eventKey: `consume:${sessionPlayerId}`,
     });
 
     const legacyCharged =
       legacyResult.action === "consumed" || legacyResult.action === "debt_created";
-    const newCharged = newResult.charged === true;
+    // V2 reports `charged: true` only for fresh charges; replays come back
+    // as `alreadyApplied: true, charged: false`. Treat replay as charged
+    // for the purposes of legacy/V2 parity comparison.
+    const newCharged = newResult.charged === true || newResult.alreadyApplied === true;
 
     if (legacyCharged !== newCharged) {
+      console.warn(
+        `[credit-shadow] consume mismatch sp=${sessionPlayerId} player=${ctx.playerId} academy=${ctx.academyId} legacy=${legacyResult.action} new_charged=${newResult.charged} new_alreadyApplied=${newResult.alreadyApplied}`,
+      );
       await writeDiff({
         academyId: ctx.academyId,
         playerId: ctx.playerId,
@@ -228,13 +237,23 @@ export async function shadowRefundAfterLegacy(
       occurredAt: new Date(),
       actorRole: "system",
       reason: "shadow:legacy_refund",
-      eventKey: `shadow:refund:${sessionPlayerId}`,
+      eventKey: `refund:${sessionPlayerId}`,
     });
 
-    const legacyRefunded = legacyResult.success === true;
-    const newRefunded = newResult.refunded === true;
+    // Compare semantic outcomes, not raw `success`. Legacy returns
+    // `success: true` for `alreadyRefunded` and debt-cleanup-only flows
+    // where no new refund action happened — those should be treated as
+    // no-ops, matching V2's `refunded: false`. Likewise V2's
+    // `alreadyApplied: true` is the replay/no-op signal.
+    const legacyDidRefund =
+      legacyResult.success === true && legacyResult.alreadyRefunded !== true;
+    const newDidRefund =
+      newResult.refunded === true && newResult.alreadyApplied !== true;
 
-    if (legacyRefunded !== newRefunded) {
+    if (legacyDidRefund !== newDidRefund) {
+      console.warn(
+        `[credit-shadow] refund mismatch sp=${sessionPlayerId} player=${ctx.playerId} academy=${ctx.academyId} legacy_success=${legacyResult.success} legacy_alreadyRefunded=${legacyResult.alreadyRefunded} new_refunded=${newResult.refunded} new_alreadyApplied=${newResult.alreadyApplied}`,
+      );
       await writeDiff({
         academyId: ctx.academyId,
         playerId: ctx.playerId,
@@ -336,6 +355,12 @@ export async function compareBalancesForAcademy(
         suspectedCause: cause,
       };
       rows.push(row);
+
+      if (Math.abs(diff) > BALANCE_TOLERANCE) {
+        console.warn(
+          `[credit-shadow] balance mismatch academy=${academyId} player=${p.id} type=${type} legacy=${legacyValue} v2=${v2} diff=${diff} cause=${cause}`,
+        );
+      }
 
       if (writeDiffs && Math.abs(diff) > BALANCE_TOLERANCE) {
         await writeDiff({
