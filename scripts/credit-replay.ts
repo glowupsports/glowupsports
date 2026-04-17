@@ -27,6 +27,7 @@ import { db } from "../server/db";
 import {
   purchasePackage,
   consumeCredit,
+  refundCredit,
   type CreditType,
 } from "../server/services/credit-engine";
 
@@ -37,6 +38,8 @@ interface ReplayStats {
   consumesProcessed: number;
   consumesSkipped: number;
   consumesNotCharged: number;
+  refundsProcessed: number;
+  refundsSkipped: number;
   errors: number;
   errorDetails: string[];
 }
@@ -75,6 +78,8 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
     consumesProcessed: 0,
     consumesSkipped: 0,
     consumesNotCharged: 0,
+    refundsProcessed: 0,
+    refundsSkipped: 0,
     errors: 0,
     errorDetails: [],
   };
@@ -122,6 +127,25 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
     if (isTestPlayer({ name: pkg.player_name, email: pkg.player_email })) {
       stats.packagesSkipped++;
       continue;
+    }
+
+    // Only replay packages that were actually paid for. Either the package
+    // itself is_paid=true, or its linked invoice is in 'paid' status. Unpaid
+    // / draft / refunded packages would phantom-mint credits.
+    const isPaid = pkg.is_paid === true;
+    if (!isPaid && !pkg.invoice_id) {
+      stats.packagesSkipped++;
+      continue;
+    }
+    if (!isPaid && pkg.invoice_id) {
+      const inv = await db.execute(sql`
+        SELECT status FROM invoices WHERE id = ${pkg.invoice_id} LIMIT 1
+      `);
+      const invStatus = (inv.rows[0] as { status?: string } | undefined)?.status;
+      if (invStatus !== "paid") {
+        stats.packagesSkipped++;
+        continue;
+      }
     }
 
     const type = normalizeCreditType(pkg.credit_type);
@@ -251,6 +275,78 @@ async function replayAcademy(academyId: string, dryRun: boolean): Promise<Replay
       stats.errors++;
       stats.errorDetails.push(
         `sp ${sp.session_player_id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // PASS 3 — legacy refunds → V2 refundCredit
+  //
+  // Reads `credit_transactions` rows that represent positive credit returns
+  // for previously-consumed sessions (cancellations, settlements, coach
+  // cancels). Each calls refundCredit with eventKey
+  // `refund:legacy:<creditTransactionId>` so reruns are idempotent.
+  // ------------------------------------------------------------------
+  const refundsResult = await db.execute(sql`
+    SELECT
+      ct.id, ct.player_id, ct.session_player_id, ct.amount,
+      ct.created_at, ct.reason, ct.type,
+      pl.name AS player_name, pl.email AS player_email
+    FROM credit_transactions ct
+    LEFT JOIN players pl ON pl.id = ct.player_id
+    WHERE ct.academy_id = ${academyId}
+      AND ct.session_player_id IS NOT NULL
+      AND CAST(ct.amount AS numeric) > 0
+      AND (
+        ct.type = 'refund'
+        OR ct.reason IN ('session_cancel','session_settlement','coach_cancel')
+      )
+    ORDER BY ct.created_at ASC NULLS FIRST
+  `);
+
+  for (const raw of refundsResult.rows) {
+    const tx = raw as {
+      id: string;
+      player_id: string;
+      session_player_id: string;
+      amount: string | number;
+      created_at: Date | string | null;
+      reason: string | null;
+      type: string | null;
+      player_name: string | null;
+      player_email: string | null;
+    };
+
+    if (isTestPlayer({ name: tx.player_name, email: tx.player_email })) {
+      stats.refundsSkipped++;
+      continue;
+    }
+
+    if (dryRun) {
+      stats.refundsProcessed++;
+      continue;
+    }
+
+    try {
+      const result = await refundCredit({
+        sessionPlayerId: tx.session_player_id,
+        amount: Number(tx.amount),
+        policy: "force",
+        actorRole: "system",
+        reason: `legacy:${tx.reason ?? tx.type ?? "unknown"}`,
+        eventKey: `refund:legacy:${tx.id}`,
+      });
+      if (result.alreadyApplied) {
+        stats.refundsSkipped++;
+      } else if (!result.refunded) {
+        stats.refundsSkipped++;
+      } else {
+        stats.refundsProcessed++;
+      }
+    } catch (err) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `refund ${tx.id}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
