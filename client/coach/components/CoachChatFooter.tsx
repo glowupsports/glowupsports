@@ -183,8 +183,8 @@ interface SenderProfile {
 }
 
 const TAB_BAR_HEIGHT = 85;
-const CENTER_BUTTON_PROTRUSION = 14;
-const CHAT_PILL_LIFT = 14;
+const CENTER_BUTTON_PROTRUSION = 8;
+const CHAT_PILL_LIFT = 22;
 
 export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
