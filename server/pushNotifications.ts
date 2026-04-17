@@ -2183,10 +2183,34 @@ export function startReminderScheduler(): void {
 // aggregate line plus one detail line per drifted player. No mutations.
 async function processCreditDriftWatchdog(): Promise<void> {
   try {
-    const { computeCreditDrift } = await import("./services/credit-reconcile");
-    const summary = await computeCreditDrift();
+    const { computeCreditDrift, computeMissingAttendanceDrift } = await import(
+      "./services/credit-reconcile"
+    );
+    const [summary, missing] = await Promise.all([
+      computeCreditDrift(),
+      computeMissingAttendanceDrift(),
+    ]);
+    if (missing.totalMissing > 0) {
+      const byKind = new Map<string, number>();
+      for (const r of missing.rows) {
+        byKind.set(r.kind, (byKind.get(r.kind) ?? 0) + 1);
+      }
+      const kindStr = Array.from(byKind.entries())
+        .map(([k, v]) => `${k}=${v}`)
+        .join(" ");
+      console.warn(
+        `[Reconcile] MISSING_ATTENDANCE total=${missing.totalMissing} ${kindStr}`,
+      );
+      for (const r of missing.rows.slice(0, 25)) {
+        console.warn(
+          `[Reconcile] MISSING ${r.kind} player=${r.playerId} (${r.playerName}) academy=${r.academyId} series=${r.seriesId} session=${r.sessionId} at=${r.sessionStartTime.toISOString()}`,
+        );
+      }
+    }
     if (summary.driftCount === 0) {
-      console.log("[Reconcile] OK (V2 academies)");
+      if (missing.totalMissing === 0) {
+        console.log("[Reconcile] OK (V2 academies)");
+      }
       return;
     }
     // Group rows by academy for the aggregate header line.

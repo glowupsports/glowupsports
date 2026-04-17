@@ -1308,7 +1308,24 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           // PART A — Transfer historical/coaching data from source to target
           // ================================================================
 
-          // session_players: dedup-first (unique on session_id + player_id)
+          // session_players: dedup-first (unique on session_id + player_id).
+          // Task #674 fix: when both source and target have a row for the same
+          // session, the row with real coaching data wins (non-null
+          // attendance_status). Old behaviour kept the target unconditionally,
+          // which silently dropped attendance + V2 ledger debits when a freshly
+          // added target had empty/scheduled rows in shared series.
+          await client.query(
+            `DELETE FROM session_players sp_target
+             USING session_players sp_source
+             WHERE sp_target.player_id = $1
+               AND sp_source.player_id = $2
+               AND sp_target.session_id = sp_source.session_id
+               AND sp_target.attendance_status IS NULL
+               AND sp_source.attendance_status IS NOT NULL`,
+            [targetId, sourceId]
+          );
+          // Now whatever target rows survive are the "winning" ones — drop any
+          // remaining source rows that conflict with them, then move the rest.
           await client.query(
             `DELETE FROM session_players WHERE player_id = $1 AND session_id IN (
                SELECT session_id FROM session_players WHERE player_id = $2
@@ -1317,7 +1334,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           );
           await client.query(`UPDATE session_players SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 
-          // series_players: dedup-first (unique on series_id + player_id)
+          // series_players: dedup-first (unique on series_id + player_id).
+          // Task #674 fix: prefer status='active' over 'left' when source and
+          // target both have a row for the same series.
+          await client.query(
+            `DELETE FROM series_players sp_target
+             USING series_players sp_source
+             WHERE sp_target.player_id = $1
+               AND sp_source.player_id = $2
+               AND sp_target.series_id = sp_source.series_id
+               AND sp_target.status = 'left'
+               AND sp_source.status = 'active'`,
+            [targetId, sourceId]
+          );
           await client.query(
             `DELETE FROM series_players WHERE player_id = $1 AND series_id IN (
                SELECT series_id FROM series_players WHERE player_id = $2

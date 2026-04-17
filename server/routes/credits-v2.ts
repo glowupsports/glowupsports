@@ -15,7 +15,10 @@ import {
   type CreditType,
 } from "../services/credit-engine";
 import { isV2EnabledForAcademy } from "../services/credit-feature-flag";
-import { computeCreditDrift } from "../services/credit-reconcile";
+import {
+  computeCreditDrift,
+  computeMissingAttendanceDrift,
+} from "../services/credit-reconcile";
 import {
   sendManualAdjustmentNotification,
   sendRefundNotification,
@@ -238,8 +241,11 @@ router.get(
         }
         academyId = req.user!.academyId;
       }
-      const summary = await computeCreditDrift(academyId);
-      res.json(summary);
+      const [summary, missing] = await Promise.all([
+        computeCreditDrift(academyId),
+        computeMissingAttendanceDrift(academyId),
+      ]);
+      res.json({ ...summary, missingAttendance: missing });
     } catch (err) {
       console.error("[v2-credits] reconcile error:", err);
       res.status(500).json({ error: "Failed to compute drift" });

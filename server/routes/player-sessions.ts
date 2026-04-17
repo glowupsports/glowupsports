@@ -1632,7 +1632,10 @@ import fs from "fs";
 
         // Task #671 — Profile stat alignment. Recompute "charged vs uncharged"
         // using the credit-engine rule so the SESSIONS stat doesn't silently
-        // contradict the wallet balance for V2 academies.
+        // contradict the wallet balance for V2 academies. We resolve
+        // `private_adjusted` the same way `consumeCredit` does: prefer the
+        // series.session_type when there is one, fall back to "1 attendee = was
+        // private" otherwise.
         let sessionsCharged = 0;
         let sessionsUncharged = 0;
         const unchargedReasons: { reason: string; count: number }[] = [];
@@ -1640,6 +1643,35 @@ import fs from "fs";
           const { shouldChargeForAttendance } = await import(
             "../services/credit-engine"
           );
+
+          // Pre-fetch the inputs needed to resolve `private_adjusted` for any
+          // such sessions in this player's window — one query, not N.
+          const adjustedSessionIds = playerSessions
+            .filter((s) => (s.sessionType || "") === "private_adjusted")
+            .map((s) => s.id);
+          const seriesTypeBySession = new Map<string, string | null>();
+          const playerCountBySession = new Map<string, number>();
+          if (adjustedSessionIds.length > 0) {
+            const enriched = await db.execute(sql`
+              SELECT
+                s.id          AS session_id,
+                cs.session_type AS series_session_type,
+                (SELECT COUNT(*)::int FROM session_players sp WHERE sp.session_id = s.id) AS sp_count
+              FROM sessions s
+              LEFT JOIN coaching_series cs ON cs.id = s.series_id
+              WHERE s.id = ANY(${adjustedSessionIds}::text[])
+            `);
+            for (const raw of enriched.rows) {
+              const r = raw as {
+                session_id: string;
+                series_session_type: string | null;
+                sp_count: number | string;
+              };
+              seriesTypeBySession.set(r.session_id, r.series_session_type);
+              playerCountBySession.set(r.session_id, Number(r.sp_count));
+            }
+          }
+
           const reasonCounts = new Map<string, number>();
           for (const s of playerSessions) {
             const status = (s.attendanceStatus || "").toLowerCase();
@@ -1647,7 +1679,15 @@ import fs from "fs";
             // Only count sessions that have started; future ones are noise.
             const startTime = s.startTime instanceof Date ? s.startTime : new Date(s.startTime);
             if (startTime > now) continue;
-            const isOriginallyPrivate = sessionType === "private";
+            let isOriginallyPrivate = sessionType === "private";
+            if (sessionType === "private_adjusted") {
+              if (s.seriesId) {
+                const seriesType = seriesTypeBySession.get(s.id);
+                isOriginallyPrivate = seriesType !== "semi_private";
+              } else {
+                isOriginallyPrivate = (playerCountBySession.get(s.id) ?? 0) <= 1;
+              }
+            }
             const chargeable = shouldChargeForAttendance({
               sessionType,
               attendanceStatus: status,

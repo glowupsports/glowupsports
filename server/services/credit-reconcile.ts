@@ -1,4 +1,4 @@
-// Credit drift reconciliation — Task #671 Step 3.
+// Credit drift reconciliation — Task #671 Step 3 + Task #674 missing-row check.
 //
 // `computeCreditDrift(academyId?)` recomputes per-(player, academy) expected vs
 // actual credit consumption for V2 academies and returns rows where the two
@@ -6,6 +6,11 @@
 // (`shouldChargeForAttendance`); "actual" sums consume rows in
 // `credit_ledger_v2`. A row whose actual ledger total matches expected is
 // silently ok.
+//
+// `computeMissingAttendanceDrift(academyId?)` catches the class of drift that
+// `computeCreditDrift` is blind to: completed sessions inside an active
+// `series_players` window where the player has NO `session_player` row at all.
+// This was the rootcause behind Task #674 (merge endpoint dropped past rows).
 //
 // Used by:
 //   - GET /api/admin/credits/reconcile (live admin view)
@@ -33,6 +38,59 @@ export interface DriftSummary {
   rows: DriftRow[];
 }
 
+export interface MissingAttendanceRow {
+  playerId: string;
+  playerName: string;
+  academyId: string;
+  academyName: string;
+  seriesId: string;
+  seriesTitle: string;
+  sessionId: string;
+  sessionStartTime: Date;
+  kind: "missing_session_player" | "present_no_v2_debit";
+}
+
+export interface MissingAttendanceSummary {
+  academyId?: string;
+  totalMissing: number;
+  rows: MissingAttendanceRow[];
+}
+
+interface CandidateRow {
+  sp_id: string;
+  player_id: string;
+  attendance_status: string | null;
+  session_id: string;
+  session_type: string | null;
+  series_id: string | null;
+  start_time: string | Date;
+  credit_cost: string | number;
+  academy_id: string;
+  academy_name: string | null;
+  player_name: string | null;
+  series_session_type: string | null;
+  session_player_count: string | number;
+}
+
+interface ConsumeRow {
+  player_id: string;
+  academy_id: string;
+  session_player_id: string | null;
+  abs_delta: string | number;
+}
+
+interface MissingRowRaw {
+  player_id: string;
+  player_name: string | null;
+  academy_id: string;
+  academy_name: string | null;
+  series_id: string;
+  series_title: string;
+  session_id: string;
+  start_time: string | Date;
+  kind: "missing_session_player" | "present_no_v2_debit";
+}
+
 function num(v: unknown): number {
   if (v === null || v === undefined) return 0;
   if (typeof v === "number") return v;
@@ -58,10 +116,6 @@ export async function computeCreditDrift(
     ? sql`AND a.id = ${academyId}`
     : sql``;
 
-  // Pull every chargeable-candidate session_player on V2 academies, plus the
-  // bits we need to evaluate the engine rule and credit_cost. We resolve
-  // "originally private" the same way credit-engine.consumeCredit does so the
-  // expected-vs-actual comparison is apples-to-apples.
   const candidates = await db.execute(sql`
     SELECT
       sp.id              AS sp_id,
@@ -88,7 +142,6 @@ export async function computeCreditDrift(
       ${academyFilter}
   `);
 
-  // Aggregate expected per (player, academy) and remember which sp ids we expected to be charged.
   type Bucket = {
     playerId: string;
     playerName: string;
@@ -100,7 +153,8 @@ export async function computeCreditDrift(
   const buckets = new Map<string, Bucket>();
   const key = (pid: string, aid: string) => `${pid}::${aid}`;
 
-  for (const r of candidates.rows as any[]) {
+  for (const raw of candidates.rows) {
+    const r = raw as CandidateRow;
     let isOriginallyPrivate = r.session_type === "private";
     if (r.session_type === "private_adjusted") {
       if (r.series_id) {
@@ -140,9 +194,6 @@ export async function computeCreditDrift(
     return { academyId, totalDrift: 0, driftCount: 0, rows: [] };
   }
 
-  // Pull actual consume totals + ledger sp coverage for the same (player, academy) pairs.
-  // We can't easily filter to just our buckets in SQL without a big VALUES list,
-  // so we fetch all consume rows for V2 academies (optionally one) and aggregate in JS.
   const consumes = await db.execute(sql`
     SELECT lv.player_id, lv.academy_id, lv.session_player_id,
            ABS(lv.delta::numeric) AS abs_delta
@@ -155,7 +206,8 @@ export async function computeCreditDrift(
 
   type Actual = { actual: number; chargedSpIds: Set<string> };
   const actuals = new Map<string, Actual>();
-  for (const r of consumes.rows as any[]) {
+  for (const raw of consumes.rows) {
+    const r = raw as ConsumeRow;
     const k = key(r.player_id, r.academy_id);
     let a = actuals.get(k);
     if (!a) {
@@ -175,7 +227,6 @@ export async function computeCreditDrift(
     };
     const drift = b.expected - a.actual;
     if (Math.abs(drift) < 0.0001) continue;
-    // Offending sp ids: chargeable rows we expected to bill but ledger has no consume row for.
     const offending: string[] = [];
     for (const id of Array.from(b.expectedSpIds)) {
       if (!a.chargedSpIds.has(id)) offending.push(id);
@@ -199,4 +250,95 @@ export async function computeCreditDrift(
     driftCount: rows.length,
     rows,
   };
+}
+
+/**
+ * Detect drift caused by missing session_player rows. The other watchdog
+ * (`computeCreditDrift`) only sees rows that exist; this one walks every
+ * active series_players window for V2 academies and flags:
+ *
+ *   - completed sessions in `[joined_at, COALESCE(left_at, NOW())]` with
+ *     no matching session_player row at all → 'missing_session_player'
+ *   - 'present' rows that have no V2 consume entry → 'present_no_v2_debit'
+ *
+ * The first class is exactly what the merge endpoint used to silently
+ * create (Task #674); the second is the standard "we forgot to charge"
+ * leak that historically would only be caught by `computeCreditDrift`
+ * when a row existed.
+ */
+export async function computeMissingAttendanceDrift(
+  academyId?: string,
+): Promise<MissingAttendanceSummary> {
+  const academyFilter = academyId
+    ? sql`AND a.id = ${academyId}`
+    : sql``;
+
+  const result = await db.execute(sql`
+    WITH active_windows AS (
+      SELECT
+        srp.player_id,
+        srp.series_id,
+        srp.joined_at,
+        srp.left_at,
+        cs.title       AS series_title,
+        cs.academy_id  AS academy_id
+      FROM series_players srp
+      JOIN coaching_series cs ON cs.id = srp.series_id
+      JOIN academies a ON a.id = cs.academy_id
+      WHERE COALESCE(a.use_new_credit_system, false) = true
+        ${academyFilter}
+    )
+    SELECT
+      aw.player_id           AS player_id,
+      p.name                 AS player_name,
+      aw.academy_id          AS academy_id,
+      ac.name                AS academy_name,
+      aw.series_id           AS series_id,
+      aw.series_title        AS series_title,
+      s.id                   AS session_id,
+      s.start_time           AS start_time,
+      CASE
+        WHEN sp.id IS NULL THEN 'missing_session_player'
+        ELSE 'present_no_v2_debit'
+      END                    AS kind
+    FROM active_windows aw
+    JOIN sessions s
+      ON s.series_id = aw.series_id
+     AND s.status = 'completed'
+     AND s.start_time >= aw.joined_at
+     AND (aw.left_at IS NULL OR s.start_time < aw.left_at)
+     AND s.start_time < NOW()
+    JOIN players p ON p.id = aw.player_id
+    JOIN academies ac ON ac.id = aw.academy_id
+    LEFT JOIN session_players sp
+      ON sp.session_id = s.id AND sp.player_id = aw.player_id
+    WHERE
+      sp.id IS NULL
+      OR (
+        sp.attendance_status = 'present'
+        AND NOT EXISTS (
+          SELECT 1 FROM credit_ledger_v2 lv
+          WHERE lv.session_player_id = sp.id
+            AND lv.reason = 'consume'
+        )
+      )
+    ORDER BY s.start_time
+  `);
+
+  const rows: MissingAttendanceRow[] = result.rows.map((raw) => {
+    const r = raw as MissingRowRaw;
+    return {
+      playerId: r.player_id,
+      playerName: r.player_name || "(unknown)",
+      academyId: r.academy_id,
+      academyName: r.academy_name || "(unknown)",
+      seriesId: r.series_id,
+      seriesTitle: r.series_title,
+      sessionId: r.session_id,
+      sessionStartTime: new Date(r.start_time),
+      kind: r.kind,
+    };
+  });
+
+  return { academyId, totalMissing: rows.length, rows };
 }
