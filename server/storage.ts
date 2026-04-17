@@ -1970,12 +1970,21 @@ export const storage = {
     }
     
     return playerList.map(player => {
-      const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false };
-      // Net each credit type against its own unsettled debt so the displayed
-      // balance can go negative (e.g. -3) when a player owes sessions.
-      const netGroup = balance.group - (balance.groupDebt || 0);
-      const netPrivate = balance.private - (balance.privateDebt || 0);
-      const netSemiPrivate = balance.semi_private - (balance.semiPrivateDebt || 0);
+      const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0 };
+      // Deficit per type = MAX(unsettled debt ledger, uncovered attended sessions).
+      // Both measure the same underlying "sessions owed" — debt tracks session_debt
+      // transactions (package_id NULL), uncovered counts attended sessions whose
+      // linked credit_transaction has no surviving package. They overlap heavily
+      // (every session_debt session is also uncovered). Taking max avoids the
+      // double-count that would otherwise inflate the deficit, while still
+      // surfacing legacy debt rows that aren't backed by a session_player row.
+      // Result: list pill matches the "−21" the player-detail screen reports.
+      const deficitGroup = Math.max(balance.groupDebt || 0, balance.uncoveredGroup || 0);
+      const deficitPrivate = Math.max(balance.privateDebt || 0, balance.uncoveredPrivate || 0);
+      const deficitSemiPrivate = Math.max(balance.semiPrivateDebt || 0, balance.uncoveredSemiPrivate || 0);
+      const netGroup = balance.group - deficitGroup;
+      const netPrivate = balance.private - deficitPrivate;
+      const netSemiPrivate = balance.semi_private - deficitSemiPrivate;
       const byType = { 
         private: netPrivate, 
         group: netGroup, 
@@ -7905,6 +7914,12 @@ export const storage = {
 
   // Get credit balances for multiple players (batch query for efficiency)
   // Reads directly from packages.remaining_credits — the single source of truth.
+  //
+  // Also returns uncoveredGroup/uncoveredSemiPrivate/uncoveredPrivate: counts
+  // of sessions the player attended whose linked credit_transaction has no
+  // valid package (mirrors getUncoveredSessionsByType used by the detail
+  // screen). Callers should net these against the type balance to get the
+  // same number the player-detail Packages card displays.
   async getPlayersCreditBalances(playerIds: string[]): Promise<Record<string, {
     group: number;
     semi_private: number;
@@ -7914,6 +7929,9 @@ export const storage = {
     semiPrivateDebt: number;
     privateDebt: number;
     hasDebt: boolean;
+    uncoveredGroup: number;
+    uncoveredSemiPrivate: number;
+    uncoveredPrivate: number;
   }>> {
     if (playerIds.length === 0) return {};
 
@@ -7925,9 +7943,9 @@ export const storage = {
       return "group";
     };
 
-    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; groupDebt: number; semiPrivateDebt: number; privateDebt: number; hasDebt: boolean }> = {};
+    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; groupDebt: number; semiPrivateDebt: number; privateDebt: number; hasDebt: boolean; uncoveredGroup: number; uncoveredSemiPrivate: number; uncoveredPrivate: number }> = {};
     for (const id of playerIds) {
-      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false };
+      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0 };
     }
 
     // Sum remaining_credits from active packages directly
@@ -7986,6 +8004,38 @@ export const storage = {
       if (debtType === "group") result[r.player_id].groupDebt += debtAmount;
       else if (debtType === "semi_private") result[r.player_id].semiPrivateDebt += debtAmount;
       else if (debtType === "private") result[r.player_id].privateDebt += debtAmount;
+    }
+
+    // Uncovered sessions = attended sessions whose linked credit transaction
+    // is missing/cancelled/has no surviving package. Mirrors the per-player
+    // getUncoveredSessionsByType query exactly so list and detail agree.
+    const uncoveredRows = await db.execute(sql`
+      SELECT sp.player_id, s.session_type, count(*)::int as cnt
+      FROM session_players sp
+      JOIN sessions s ON sp.session_id = s.id
+      WHERE sp.player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
+        AND sp.attendance_status = 'present'
+        AND NOT EXISTS (
+          SELECT 1 FROM credit_transactions ct
+          WHERE ct.id = sp.credit_transaction_id
+            AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+            AND ct.package_id IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM packages pkg
+              WHERE pkg.id = ct.package_id
+            )
+        )
+      GROUP BY sp.player_id, s.session_type
+    `);
+
+    for (const row of uncoveredRows.rows) {
+      const r = row as any;
+      if (!result[r.player_id]) continue;
+      const cnt = Number(r.cnt);
+      const t = normalizeType(r.session_type as string);
+      if (t === "group") result[r.player_id].uncoveredGroup += cnt;
+      else if (t === "semi_private") result[r.player_id].uncoveredSemiPrivate += cnt;
+      else if (t === "private") result[r.player_id].uncoveredPrivate += cnt;
     }
 
     for (const playerId of playerIds) {
