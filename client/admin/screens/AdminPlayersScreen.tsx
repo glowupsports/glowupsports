@@ -148,6 +148,14 @@ export default function AdminPlayersScreen() {
     queryKey: ["/api/me"],
   });
 
+  // V2 credit feature flag — hides legacy "+ Credits" / "Add Credits" buttons
+  // when the academy is on V2. Admins use the V2 panel inside player detail instead.
+  const { data: v2Flag } = useQuery<{ enabled: boolean }>({
+    queryKey: [`/api/v2/credits/feature-flag/${currentUser?.academyId ?? ""}`],
+    enabled: !!currentUser?.academyId,
+  });
+  const v2Enabled = v2Flag?.enabled === true;
+
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
   });
@@ -900,12 +908,14 @@ export default function AdminPlayersScreen() {
                     </View>
                   </View>
                   <View style={[dtStyles.tdCell, dtStyles.colActions]}>
-                    <Pressable
-                      style={dtStyles.rowAction}
-                      onPress={(e) => { e.stopPropagation(); setSelectedPlayerId(player.id); setShowCreditStoreModal(true); }}
-                    >
-                      <Text style={dtStyles.rowActionText}>+ Credits</Text>
-                    </Pressable>
+                    {!v2Enabled ? (
+                      <Pressable
+                        style={dtStyles.rowAction}
+                        onPress={(e) => { e.stopPropagation(); setSelectedPlayerId(player.id); setShowCreditStoreModal(true); }}
+                      >
+                        <Text style={dtStyles.rowActionText}>+ Credits</Text>
+                      </Pressable>
+                    ) : null}
                     <Pressable
                       style={[dtStyles.rowAction, { backgroundColor: "rgba(255,255,255,0.04)" }]}
                       onPress={(e) => { e.stopPropagation(); setDesktopSelectedId(isRowSelected ? null : player.id); }}
@@ -957,12 +967,14 @@ export default function AdminPlayersScreen() {
                     <Text style={dtStyles.panelRowValue}>{value}</Text>
                   </View>
                 ))}
-                <View style={dtStyles.panelActions}>
-                  <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
-                    <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
-                    <Text style={[dtStyles.panelActionText, { color: Colors.dark.primary }]}>Add Credits</Text>
-                  </Pressable>
-                </View>
+                {!v2Enabled ? (
+                  <View style={dtStyles.panelActions}>
+                    <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
+                      <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
+                      <Text style={[dtStyles.panelActionText, { color: Colors.dark.primary }]}>Add Credits</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </ScrollView>
             </View>
           ) : null}

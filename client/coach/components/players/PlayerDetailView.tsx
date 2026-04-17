@@ -40,6 +40,7 @@ import { useNavigation } from "@react-navigation/native";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
+import { CoachCreditV2Panel, useV2Enabled } from "./CoachCreditV2Panel";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import { PlayerAttendanceSection } from "./PlayerAttendanceSection";
@@ -384,6 +385,7 @@ export function PlayerDetailView({
   const { coach, academy } = useCoach();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
+  const v2Enabled = useV2Enabled(player.id);
   const tz = academy?.timezone || "Asia/Dubai";
   
   const tabBarHeight = TAB_BAR_HEIGHT;
@@ -1264,7 +1266,10 @@ export function PlayerDetailView({
         ) : null}
 
         <CollapsibleSection title="Packages" icon="ticket-outline" iconColor={Colors.dark.gold}>
-          <PackagesCard playerId={player.id} playerName={localPlayer.name} />
+          <CoachCreditV2Panel playerId={player.id} />
+          {v2Enabled ? null : (
+            <PackagesCard playerId={player.id} playerName={localPlayer.name} />
+          )}
         </CollapsibleSection>
 
         <PlayerPaymentsSection
