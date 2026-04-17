@@ -14,6 +14,7 @@ import {
   playerSkillScores, glowSkills,
   sessionRatings, sessionRatingInputSchema,
   academies, coachReviewStats,
+  type Coach, type InsertInvoice, type InsertPayment,
 } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
@@ -3876,8 +3877,20 @@ Return only the JSON array, nothing else.`;
         return res.status(403).json({ error: "Coach role required" });
       }
 
+      // Only billing-authorized roles may override price-per-credit OR
+      // immediately mark the invoice paid. Coaches must always use academy
+      // pricing and create a *pending* invoice that an admin confirms.
+      const isBillingAuthorized = ["academy_owner", "admin", "platform_owner"].includes(role);
+
       const { playerId } = req.params;
       const { creditType, credits, pricePerCredit, currency, paymentMethod } = req.body || {};
+
+      if (!isBillingAuthorized && pricePerCredit !== undefined && pricePerCredit !== null && pricePerCredit !== "") {
+        return res.status(403).json({ error: "Only academy admins/owners may override price" });
+      }
+      if (!isBillingAuthorized && paymentMethod === "already_paid") {
+        return res.status(403).json({ error: "Only academy admins/owners may mark invoices paid" });
+      }
 
       if (!playerId || !creditType || !credits || credits <= 0) {
         return res.status(400).json({ error: "playerId, creditType and credits are required" });
@@ -3894,8 +3907,8 @@ Return only the JSON array, nothing else.`;
       const reqAcademyId = req.user?.academyId;
       let allowed = role === "platform_owner" || reqAcademyId === player.academyId;
       if (!allowed && coachId) {
-        const coachesInAcademy = await storage.getCoachesByAcademy(player.academyId).catch(() => []);
-        allowed = (coachesInAcademy || []).some((c: any) => c.id === coachId);
+        const coachesInAcademy: Coach[] = await storage.getCoachesByAcademy(player.academyId).catch(() => [] as Coach[]);
+        allowed = coachesInAcademy.some((c) => c.id === coachId);
       }
       if (!allowed) return res.status(403).json({ error: "Access denied" });
 
@@ -3964,7 +3977,7 @@ Return only the JSON array, nothing else.`;
         ? "cash"
         : (paymentMethod === "bank_transfer" ? "bank_transfer" : "cash");
 
-      const invoice = await storage.createInvoice({
+      const invoiceInput: InsertInvoice = {
         playerId,
         academyId: player.academyId,
         packageId: pkg.id,
@@ -3974,7 +3987,7 @@ Return only the JSON array, nothing else.`;
         currency: resolvedCurrency,
         status: invoiceStatus,
         dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-        paidAt: alreadyPaid ? now : undefined,
+        paidAt: alreadyPaid ? now : null,
         lineItems: [{
           description: packageName,
           quantity: creditsInt,
@@ -3982,21 +3995,23 @@ Return only the JSON array, nothing else.`;
           total: totalAmount,
         }],
         paymentMethod: normalizedPaymentMethod,
-      } as any);
+      };
+      const invoice = await storage.createInvoice(invoiceInput);
 
       // For "already paid", record a payment row + flip the invoice. The
       // V2 lot deposit (when the academy is on V2) happens inside
       // storage.updateInvoice via the mark-paid bridge below.
       if (alreadyPaid) {
         try {
-          await storage.createPayment({
+          const paymentInput: InsertPayment = {
             academyId: player.academyId,
             invoiceId: invoice.id,
-            amount: parseFloat(totalAmount),
+            amount: totalAmount,
             currency: resolvedCurrency,
             paymentMethod: normalizedPaymentMethod,
             status: "succeeded",
-          } as any);
+          };
+          await storage.createPayment(paymentInput);
           await storage.updateInvoice(invoice.id, { status: "paid", paidAt: now });
         } catch (markErr) {
           console.error(`[CoachPurchase] mark-paid failed for ${invoice.id}:`, markErr);
