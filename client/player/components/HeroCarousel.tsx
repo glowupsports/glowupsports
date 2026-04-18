@@ -52,7 +52,8 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
-const HERO_SLOT_HEIGHT = 260;
+const HERO_SLOT_HEIGHT = 320;
+const LENS_SHELL_HEIGHT = 236;
 const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v2";
 const PAUSED_HYDRATION_FALLBACK_MS = 1000;
 
@@ -1147,7 +1148,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: Backgrounds.card,
     overflow: "hidden",
-    height: HERO_SLOT_HEIGHT - Spacing.md * 2,
+    height: LENS_SHELL_HEIGHT,
   },
   chipRow: {
     flexDirection: "row",
