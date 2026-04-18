@@ -232,7 +232,7 @@ function CompeteCard() {
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
   const navigation = useNavigation<any>();
-  const { navigateToTab, getNavigation } = useTabNavigation();
+  const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
 
   const { data: challenges = [] } = useQuery<ChallengeData[]>({
@@ -482,16 +482,15 @@ function CompeteCard() {
         goOpenMatches();
         return;
       }
-      // PlayerTabs is a custom SwipeableTabBar pager, not a React
-      // Navigation tab navigator, so `navigation.navigate("PlayStack",
-      // ...)` from this Home-tab screen can't resolve. The supported
-      // path is: switch to the PlayStack tab via the tab pager, then
-      // let the PlayStack callback (registered in PlayerNavigator
-      // `PlayScreenWithCallback`) push ManageMatch onto the stack.
-      navigateToTab("PlayStack", {
-        screen: "ManageMatch",
-        params: { matchId },
-      } as any);
+      // ManageMatch is registered on the parent PlayerStackNavigator
+      // (above PlayerTabs), so navigating from any tab pushes it on
+      // top of the whole tab bar — back returns to the originating
+      // tab (Home, in this case) instead of switching to Play first.
+      try {
+        navigation.navigate("ManageMatch", { matchId });
+      } catch {
+        goOpenMatches();
+      }
     };
 
     return (

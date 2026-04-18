@@ -228,7 +228,6 @@ export type PlayStackParamList = {
     opponentBallLevel?: string;
     opponentLevel?: number;
   };
-  ManageMatch: { matchId: string };
   BookingInvites: undefined;
   BookingPreferences: undefined;
 };
@@ -284,6 +283,7 @@ export type PlayerStackParamList = {
   AcademyPublicProfile: { academyId: string };
   CoachDirectory: undefined;
   TransferRequest: { academyId?: string; academyName?: string } | undefined;
+  ManageMatch: { matchId: string };
   ParentDashboard: undefined;
   ParentLessons: { playerId: string };
   ParentCreditStore: { playerId: string };
@@ -387,21 +387,8 @@ function PlayScreenWithCallback(props: any) {
   const { registerTabCallback } = useTabNavigation();
   React.useEffect(() => {
     return registerTabCallback("PlayStack", (screen: string, params: any) => {
-      // Backwards-compat: callers that only set { initialTab } expect us
-      // to update the Play root screen's params, not push a new screen.
-      if (params?.initialTab && (!screen || screen === "Play")) {
+      if (params?.initialTab) {
         navigation.setParams({ initialTab: params.initialTab });
-        return;
-      }
-      // Generic forwarder: any caller that does
-      // navigateToTab("PlayStack", { screen: "ManageMatch", params: {...} })
-      // gets pushed onto the PlayStack with the supplied params.
-      if (screen) {
-        try {
-          navigation.navigate(screen, params);
-        } catch {
-          // ignore — root will already be on Play
-        }
       }
     });
   }, [navigation, registerTabCallback]);
@@ -467,18 +454,6 @@ function PlayStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <PlayStack.Screen 
-        name="ManageMatch" 
-        component={ManageMatchScreen}
-        options={{
-          headerShown: true,
-          headerTitle: t('player.booking.manageMatch'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-          headerBackVisible: true,
         }}
       />
     </PlayStack.Navigator>
@@ -1027,6 +1002,19 @@ function PlayerStackNavigator() {
         name="TransferRequest" 
         component={TransferRequestScreen}
         options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="ManageMatch"
+        component={ManageMatchScreen}
+        options={{
+          headerShown: true,
+          headerTitle: t('player.booking.manageMatch'),
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerBackVisible: true,
           presentation: "card",
         }}
       />
