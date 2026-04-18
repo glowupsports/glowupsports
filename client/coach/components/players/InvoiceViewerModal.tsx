@@ -13,10 +13,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 
 export interface InvoiceLineItem {
   description: string;
@@ -36,14 +35,8 @@ export interface ViewableInvoice {
   createdAt?: string | null;
   notes?: string | null;
   isOverdue?: boolean;
-}
-
-interface InvoiceDetail extends ViewableInvoice {
   paymentMethod?: string | null;
-  type?: string | null;
   lineItems?: InvoiceLineItem[] | string | null;
-  academyId?: string;
-  playerId?: string | null;
 }
 
 interface Props {
@@ -80,20 +73,6 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
   const queryClient = useQueryClient();
   const [downloading, setDownloading] = useState(false);
 
-  // Optionally hydrate with the latest server state (line items, paidAt, etc.)
-  // so the modal stays in sync if the caller's data is stale. Falls back to
-  // the prop if the fetch hasn't returned yet.
-  const detailQuery = useQuery<InvoiceDetail | null>({
-    queryKey: [`/api/billing/invoices`, invoice?.id],
-    queryFn: async () => {
-      if (!invoice?.id) return null;
-      const res = await apiRequest("GET", `/api/billing/invoices/${invoice.id}`);
-      return (await res.json()) as InvoiceDetail;
-    },
-    enabled: visible && !!invoice?.id,
-    staleTime: 30_000,
-  });
-
   const markPaidMutation = useMutation({
     mutationFn: async () => {
       if (!invoice?.id) throw new Error("No invoice");
@@ -108,7 +87,6 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/billing/invoices`, invoice?.id] });
       onPaid?.();
       Alert.alert("Marked paid", `Invoice ${invoice?.invoiceNumber} is now paid.`);
     },
@@ -124,11 +102,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-      const token = await AsyncStorage.getItem("auth_token");
-      const url = new URL(`/api/billing/invoices/${invoice.id}/html`, getApiUrl()).toString();
-      const response = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
+      const response = await apiRequest("GET", `/api/billing/invoices/${invoice.id}/html`);
       if (!response.ok) throw new Error("Failed to fetch invoice");
       const html = await response.text();
 
@@ -145,12 +119,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
     }
   };
 
-  // Prefer freshly fetched server fields; fall back to caller-provided meta.
-  const merged: InvoiceDetail = {
-    ...(invoice || ({} as ViewableInvoice)),
-    ...(detailQuery.data || {}),
-  } as InvoiceDetail;
-
+  const merged: ViewableInvoice = invoice || ({} as ViewableInvoice);
   const status = String(merged.status || "").toLowerCase();
   const isOverdue =
     merged.isOverdue ||
