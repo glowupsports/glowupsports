@@ -114,4 +114,6 @@ This applies to: admin player detail (Add/Edit, Mark Paid, Record Payment, Credi
 
 `WebAlertProvider` ships with a very high `zIndex`/`elevation` on its overlay so global alerts always layer above any other open modal on web.
 
+**Do not call `Alert.alert` from inside a presented `<Modal>` — render a nested `<Modal>` (confirmation) or an inline banner as a child of the parent modal instead.** See `client/components/CreditPackagesList.tsx` for the canonical inline-banner + nested-confirm pattern.
+
 **`presentationStyle="pageSheet"` decision:** Nested child modals may keep `pageSheet` even when the parent also uses `pageSheet`. iOS 13+ supports stacked sheet presentations natively (each child slides up over the previous one), and on Android `pageSheet` falls back to a full-screen presentation that also stacks correctly. Switching nested children to `overFullScreen` is unnecessary and would lose the sheet appearance.

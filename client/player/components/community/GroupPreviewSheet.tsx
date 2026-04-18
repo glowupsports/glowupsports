@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Modal,
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -73,6 +72,18 @@ interface Props {
 
 export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup }: Props) {
   const queryClient = useQueryClient();
+  // In-sheet feedback + nested confirm Modal — Alert.alert from inside a
+  // presented <Modal> mis-stacks (renders behind the sheet on web/iOS pageSheet).
+  // See replit.md "Modal stacking" convention.
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setFeedback(null);
+      setConfirmLeave(false);
+    }
+  }, [visible]);
 
   const { data, isLoading } = useQuery<GroupDetailData>({
     queryKey: [`/api/player/groups/${group?.id}`],
@@ -90,7 +101,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
       onClose();
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Could not join group");
+      setFeedback(error?.message || "Could not join group");
     },
   });
 
@@ -101,10 +112,12 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
       queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
       queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
       queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${group?.id}`] });
+      setConfirmLeave(false);
       onClose();
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Could not leave group");
+      setConfirmLeave(false);
+      setFeedback(error?.message || "Could not leave group");
     },
   });
 
@@ -252,10 +265,8 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
             <Pressable
               style={styles.leaveButton}
               onPress={() => {
-                Alert.alert("Leave Group", `Leave "${group.name}"?`, [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Leave", style: "destructive", onPress: () => leaveMutation.mutate() },
-                ]);
+                setFeedback(null);
+                setConfirmLeave(true);
               }}
               disabled={leaveMutation.isPending}
             >
@@ -270,7 +281,58 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
             </Pressable>
           ) : null}
         </View>
+
+        {feedback ? (
+          <View style={styles.feedbackBanner}>
+            <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
+            <Text style={styles.feedbackText} numberOfLines={3}>{feedback}</Text>
+            <Pressable onPress={() => setFeedback(null)} hitSlop={8}>
+              <Ionicons name="close" size={16} color="#FF6B6B" />
+            </Pressable>
+          </View>
+        ) : null}
       </Animated.View>
+
+      {/* Nested confirmation Modal — must be a JSX child of the parent sheet
+          so it stacks on top (per replit.md "Modal stacking" convention). */}
+      <Modal
+        visible={confirmLeave}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmLeave(false)}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.confirmBackdrop}
+          onPress={() => !leaveMutation.isPending && setConfirmLeave(false)}
+        />
+        <View style={styles.confirmCardWrap} pointerEvents="box-none">
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Leave Group</Text>
+            <Text style={styles.confirmMessage}>Leave “{group.name}”?</Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={[styles.confirmBtn, styles.confirmCancel]}
+                onPress={() => setConfirmLeave(false)}
+                disabled={leaveMutation.isPending}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmBtn, styles.confirmDestructive]}
+                onPress={() => leaveMutation.mutate()}
+                disabled={leaveMutation.isPending}
+              >
+                {leaveMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FF6B6B" />
+                ) : (
+                  <Text style={styles.confirmDestructiveText}>Leave</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -460,5 +522,86 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#C8FF3D",
+  },
+  feedbackBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255, 107, 107, 0.12)",
+    borderColor: "rgba(255, 107, 107, 0.3)",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#FF6B6B",
+    fontWeight: "500",
+  },
+  confirmBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  confirmCardWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  confirmCard: {
+    backgroundColor: "#1A2030",
+    borderRadius: 16,
+    padding: 22,
+    alignSelf: "stretch",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  confirmTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#F0F4F8",
+    marginBottom: 6,
+  },
+  confirmMessage: {
+    fontSize: 14,
+    color: "#C8D0DC",
+    marginBottom: 18,
+    lineHeight: 20,
+  },
+  confirmButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  confirmBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 9,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  confirmCancel: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  confirmCancelText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#C8D0DC",
+  },
+  confirmDestructive: {
+    backgroundColor: "rgba(255,107,107,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.35)",
+  },
+  confirmDestructiveText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FF6B6B",
   },
 });
