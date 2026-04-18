@@ -2255,7 +2255,12 @@ async function autoCancel(
         apiCache.invalidate(`players:${academyId}`);
       }
       
-      res.json({ success: true, deleted: true, creditsRefunded: refundedCount });
+      res.json({
+        success: true,
+        deleted: true,
+        creditsRefunded: refundedCount,
+        refundFailures: refundFailures.length > 0 ? refundFailures : undefined,
+      });
     } catch (error) {
       console.error("Error deleting session:", error);
       res.status(500).json({ error: "Failed to delete session" });
