@@ -117,6 +117,8 @@ function formatWhen(target: Date | null): string {
   });
 }
 
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
 function Chip({
   color,
   icon,
@@ -124,7 +126,7 @@ function Chip({
   dot,
 }: {
   color: string;
-  icon?: any;
+  icon?: IoniconName;
   text: string;
   dot?: boolean;
 }) {
@@ -203,7 +205,7 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
 
   // CTA derivation — single source of truth.
   let ctaLabel = "Join Match";
-  let ctaIcon: any = "arrow-forward";
+  let ctaIcon: IoniconName = "arrow-forward";
   let ctaDisabled = false;
   let ctaHandler: (() => void) | undefined = onJoin;
   let ctaBg = accent;
@@ -247,11 +249,24 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
         {sportKey && sportKey !== "tennis" ? (
           <Chip
             color={sportColor}
-            icon={getSportIcon(sportKey) as any}
+            icon={getSportIcon(sportKey) as IoniconName}
             text={getSportLabel(sportKey).toUpperCase()}
           />
         ) : null}
         {xpBonus > 0 ? <Chip color={accent} icon="flash" text={`+${xpBonus} XP`} /> : null}
+        {(() => {
+          const cost = costPerPlayer ? parseFloat(costPerPlayer) : 0;
+          if (!cost || cost <= 0) {
+            return <Chip color={FunctionColors.success} icon="gift-outline" text="FREE" />;
+          }
+          return (
+            <Chip
+              color={FunctionColors.warning}
+              icon="cash-outline"
+              text={`${currency || ""} ${costPerPlayer}`.trim()}
+            />
+          );
+        })()}
         {isAdjacent ? (
           <View
             style={[
@@ -298,9 +313,6 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
             {spotsLeft > 0
               ? ` · ${spotsLeft} spot${spotsLeft === 1 ? "" : "s"} left`
               : " · Full"}
-            {costPerPlayer && parseFloat(costPerPlayer) > 0
-              ? ` · ${currency || ""} ${costPerPlayer}`
-              : ""}
           </Text>
         </View>
       </View>
@@ -332,22 +344,25 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
   }
 
   // Standalone card (OpenMatchesRow, OpenMatchFeedScreen) — wrap in surface.
-  const Wrapper: any = onPress ? Pressable : View;
-  return (
-    <Wrapper
-      onPress={onPress}
-      style={[styles.cardOuter, { borderColor: `${accent}40` }]}
+  const cardStyle = [styles.cardOuter, { borderColor: `${accent}40` }];
+  const inner = (
+    <LinearGradient
+      colors={[`${accent}14`, "rgba(17,20,26,0.0)"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.cardInner}
     >
-      <LinearGradient
-        colors={[`${accent}14`, "rgba(17,20,26,0.0)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.cardInner}
-      >
-        {body}
-      </LinearGradient>
-    </Wrapper>
+      {body}
+    </LinearGradient>
   );
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={cardStyle}>
+        {inner}
+      </Pressable>
+    );
+  }
+  return <View style={cardStyle}>{inner}</View>;
 }
 
 const styles = StyleSheet.create({

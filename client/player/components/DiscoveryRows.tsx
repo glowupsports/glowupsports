@@ -827,7 +827,7 @@ export function OpenMatchesRow() {
                 joining={joiningId === match.id}
                 onJoin={() => joinMutation.mutate(match.id)}
                 onManage={() => handleMatchPress(match.id)}
-                onPress={() => handleMatchPress(match.id)}
+                onPress={isHost ? () => handleMatchPress(match.id) : undefined}
                 accent={COMPETE_ACCENT}
               />
             </Animated.View>
