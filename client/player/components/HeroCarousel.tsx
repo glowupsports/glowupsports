@@ -59,17 +59,20 @@ const LENS_SHELL_HEIGHT = 236;
 const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v2";
 const PAUSED_HYDRATION_FALLBACK_MS = 1000;
 
-type SlotId = "train" | "compete" | "events";
+type SlotId = "train" | "glow_lessons" | "compete" | "events";
 interface SlotMeta {
   id: SlotId;
   label: string;
   accent: string;
 }
 
+const GLOW_LESSONS_ACCENT = "#E040FB";
+
 const SLOTS: SlotMeta[] = [
   { id: "train", label: "TRAIN", accent: GlowColors.primary },
-  { id: "compete", label: "COMPETE", accent: FunctionColors.info },
-  { id: "events", label: "EVENTS", accent: RoleColors.owner },
+  { id: "glow_lessons", label: "GLOW LESSONS", accent: GLOW_LESSONS_ACCENT },
+  { id: "compete", label: "OPEN MATCHES", accent: FunctionColors.info },
+  { id: "events", label: "TOURNAMENTS & EVENTS", accent: RoleColors.owner },
 ];
 
 interface ChallengeData {
@@ -384,7 +387,7 @@ function CompeteCard() {
   if (incomingChallenge) {
     const target = challengeToDate(incomingChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="flash">
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash">
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={incomingChallenge.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
@@ -437,7 +440,7 @@ function CompeteCard() {
       : acceptedChallenge.challengerName;
     const target = challengeToDate(acceptedChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="tennisball">
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="tennisball">
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={acceptedChallenge.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
@@ -484,7 +487,7 @@ function CompeteCard() {
     };
 
     return (
-      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon={isHost ? "settings-outline" : "people"}>
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon={isHost ? "settings-outline" : "people"}>
         <MatchSummaryCard
           embedded
           matchId={upcomingOpenMatch.id}
@@ -515,7 +518,7 @@ function CompeteCard() {
   return (
     <LensShell
       accent={COMPETE_ACCENT}
-      label="COMPETE"
+      label="OPEN MATCHES"
       icon="tennisball-outline"
     >
       <Text style={styles.lensTitle}>Find your first match</Text>
@@ -600,7 +603,7 @@ function EventsCard() {
       }
     })();
     return (
-      <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="trophy">
+      <LensShell accent={EVENTS_ACCENT} label="TOURNAMENTS & EVENTS" icon="trophy">
         <View style={styles.chipRow}>
           {target ? <TimeLeftChip target={target} accent={EVENTS_ACCENT} /> : null}
           <View
@@ -638,7 +641,7 @@ function EventsCard() {
 
   // Designed empty state — no tournaments scheduled
   return (
-    <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="trophy-outline">
+    <LensShell accent={EVENTS_ACCENT} label="TOURNAMENTS & EVENTS" icon="trophy-outline">
       <View style={styles.chipRow}>
         <View
           style={[
@@ -848,17 +851,16 @@ export function HeroCarousel({
       }}
     >
       {item.id === "train" && (
-        <GlowLessonsStack
-          fallback={
-            <SessionHeroCard
-              onBookSession={onBookSession}
-              onCheckIn={onCheckIn}
-              onCancel={onCancel}
-              onExtend={onExtend}
-              onFindMatch={onFindMatch}
-            />
-          }
+        <SessionHeroCard
+          onBookSession={onBookSession}
+          onCheckIn={onCheckIn}
+          onCancel={onCancel}
+          onExtend={onExtend}
+          onFindMatch={onFindMatch}
         />
+      )}
+      {item.id === "glow_lessons" && (
+        <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} />
       )}
       {item.id === "compete" && <CompeteCard />}
       {item.id === "events" && <EventsCard />}

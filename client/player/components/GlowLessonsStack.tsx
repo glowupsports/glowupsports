@@ -125,6 +125,9 @@ function LessonCard({
   onTap: (s: OpenLessonSession) => void;
 }) {
   const tint = getCourtTint(session.ballLevel);
+  const filled = (session.participants || []).slice(0, session.maxPlayers);
+  const emptyCount = Math.max(0, session.maxPlayers - filled.length);
+  const showAvatars = session.maxPlayers > 0 && session.maxPlayers <= 8;
   const countdown = session.isEnrolled ? formatCountdown(session.date) : null;
   const dayLabel = formatDayLabel(session.date);
   const timeLabel = formatTimeStr(session.date, session.time);
@@ -207,6 +210,35 @@ function LessonCard({
           </View>
         </View>
 
+        {/* Participant avatar row — visualize filled vs empty slots */}
+        {showAvatars ? (
+          <View style={styles.participantsRow}>
+            {filled.map((p) => (
+              <View key={`p-${p.id}`} style={[styles.participantSlot, { borderColor: tint + "55" }]}>
+                {p.profilePhotoUrl ? (
+                  <ExpoImage
+                    source={{ uri: buildPhotoUrl(p.profilePhotoUrl)! }}
+                    style={styles.participantAvatar}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={[styles.participantAvatar, styles.participantPlaceholder]}>
+                    <Text style={styles.participantInitial}>{(p.name || "?").charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+            {Array.from({ length: emptyCount }).map((_, i) => (
+              <View
+                key={`empty-${i}`}
+                style={[styles.participantSlot, styles.participantEmpty, { borderColor: tint + "55" }]}
+              >
+                <Ionicons name="add" size={12} color={tint} />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {/* Bottom: spots pill + CTA */}
         <View style={styles.bottomRow}>
           {isFull ? (
@@ -263,9 +295,10 @@ interface GlowLessonsStackProps {
   // If provided, the parent has an enrolled next-session — used to ensure it's surfaced first.
   enrolledSessionId?: string | null;
   fallback?: React.ReactNode;
+  accent?: string;
 }
 
-export function GlowLessonsStack({ enrolledSessionId, fallback }: GlowLessonsStackProps) {
+export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLessonsStackProps) {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const [width, setWidth] = useState(0);
@@ -330,8 +363,37 @@ export function GlowLessonsStack({ enrolledSessionId, fallback }: GlowLessonsSta
     }
   };
 
+  const tint = accent || ACCENT;
+
   if (groupSessions.length === 0) {
-    return <>{fallback}</>;
+    if (fallback) return <>{fallback}</>;
+    return (
+      <View style={styles.root}>
+        <View style={[styles.emptyCard, { borderColor: tint + "33", backgroundColor: tint + "0F" }]}>
+          <View style={[styles.emptyIconWrap, { backgroundColor: tint + "22", borderColor: tint + "55" }]}>
+            <Ionicons name="people-outline" size={28} color={tint} />
+          </View>
+          <Text style={styles.emptyTitle}>No open group lessons</Text>
+          <Text style={styles.emptySubtitle}>
+            New classes drop daily — browse upcoming group sessions and grab a spot.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.emptyCta,
+              { backgroundColor: tint },
+              pressed && { opacity: 0.85 },
+            ]}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              navigation.navigate("ClassesDiscovery");
+            }}
+          >
+            <Text style={styles.emptyCtaText}>Browse Classes</Text>
+            <Ionicons name="arrow-forward" size={14} color="#0F141B" />
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -496,6 +558,81 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   viewBtnText: { fontSize: 13, fontWeight: "700", color: TEXT_PRIMARY },
+
+  participantsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  participantSlot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginRight: -8,
+    backgroundColor: "#0F141B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  participantAvatar: { width: 24, height: 24, borderRadius: 12 },
+  participantPlaceholder: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  participantInitial: { color: TEXT_PRIMARY, fontSize: 10, fontWeight: "800" },
+  participantEmpty: {
+    backgroundColor: "transparent",
+    borderStyle: "dashed",
+  },
+
+  emptyCard: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 200,
+  },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: TEXT_PRIMARY,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
+  emptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  emptyCtaText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F141B",
+  },
 
   dotsRow: {
     flexDirection: "row",
