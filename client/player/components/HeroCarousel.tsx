@@ -10,6 +10,7 @@ import {
   NativeScrollEvent,
   Platform,
   Alert,
+  Image as RNImage,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -44,6 +45,7 @@ import {
   getApiUrl,
   getAuthHeaders,
   getEffectivePlayerId,
+  buildPhotoUrl,
 } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
@@ -93,7 +95,33 @@ interface OpenMatchLite {
   maxPlayers: number;
   costPerPlayer?: string | null;
   currency?: string;
-  host?: { name: string };
+  ballLevel?: string | null;
+  levelMatch?: "exact" | "adjacent";
+  levelDirection?: "higher" | "lower" | null;
+  host?: {
+    id?: string;
+    name: string;
+    photoUrl?: string | null;
+    ballLevel?: string | null;
+    level?: number;
+  };
+}
+
+function getBallLevelColor(level?: string | null): string {
+  const l = (level || "").toLowerCase();
+  if (l.includes("blue")) return "#3B82F6";
+  if (l.includes("red")) return "#EF4444";
+  if (l.includes("orange")) return "#F97316";
+  if (l.includes("green")) return "#22C55E";
+  if (l.includes("yellow")) return "#EAB308";
+  if (l.includes("glow")) return "#E040FB";
+  return GlowColors.primary;
+}
+
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
 }
 
 interface TournamentLite {
@@ -225,7 +253,13 @@ function CompeteCard() {
   });
 
   const { data: openMatches = [] } = useQuery<OpenMatchLite[]>({
-    queryKey: ["/api/open-matches"],
+    queryKey: ["/api/open-matches", { includeMine: true }],
+    queryFn: async () => {
+      const url = new URL("/api/open-matches?includeMine=true", getApiUrl()).toString();
+      const res = await fetch(url, { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to load open matches");
+      return res.json();
+    },
     enabled: !!playerId,
   });
 
@@ -423,40 +457,153 @@ function CompeteCard() {
           minute: "2-digit",
         })
       : "Soon";
-    const spots =
-      upcomingOpenMatch.maxPlayers - upcomingOpenMatch.currentPlayers;
-    const isHost = String(upcomingOpenMatch.hostPlayerId) === String(playerId);
+    const spots = Math.max(
+      0,
+      (upcomingOpenMatch.maxPlayers || 0) - (upcomingOpenMatch.currentPlayers || 0)
+    );
+    const isHost =
+      String(upcomingOpenMatch.host?.id || upcomingOpenMatch.hostPlayerId) ===
+      String(playerId);
+    const hostName = upcomingOpenMatch.host?.name || "A player";
+    const ballLevel = (
+      upcomingOpenMatch.host?.ballLevel ||
+      upcomingOpenMatch.ballLevel ||
+      ""
+    ).toString();
+    const ballColor = getBallLevelColor(ballLevel);
+    const photoUrl = upcomingOpenMatch.host?.photoUrl
+      ? buildPhotoUrl(upcomingOpenMatch.host.photoUrl)
+      : null;
+    const isAdjacent = upcomingOpenMatch.levelMatch === "adjacent";
+    const adjacentLabel =
+      upcomingOpenMatch.levelDirection === "higher"
+        ? "Higher level"
+        : upcomingOpenMatch.levelDirection === "lower"
+        ? "Lower level"
+        : "Adjacent level";
+
+    const goManageMatch = () => {
+      try {
+        navigateToTab("PlayStack", {
+          screen: "ManageMatch",
+          params: { matchId: upcomingOpenMatch.id },
+        } as any);
+      } catch {
+        try {
+          navigation.navigate("ManageMatch", { matchId: upcomingOpenMatch.id });
+        } catch {
+          goOpenMatches();
+        }
+      }
+    };
+
     return (
       <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="people">
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={upcomingOpenMatch.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
-          <XpChip amount={75} accent={COMPETE_ACCENT} />
+          {ballLevel ? (
+            <View
+              style={[
+                styles.chip,
+                { borderColor: `${ballColor}66`, backgroundColor: `${ballColor}1F` },
+              ]}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: ballColor,
+                  marginRight: 4,
+                }}
+              />
+              <Text style={[styles.chipText, { color: ballColor }]}>
+                {ballLevel.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
+          {isAdjacent ? (
+            <View
+              style={[
+                styles.chip,
+                {
+                  borderColor: "rgba(255,255,255,0.25)",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                },
+              ]}
+            >
+              <Ionicons name="swap-vertical" size={10} color={TextColors.secondary} />
+              <Text style={[styles.chipText, { color: TextColors.secondary }]}>
+                {adjacentLabel}
+              </Text>
+            </View>
+          ) : null}
         </View>
-        <Text style={styles.lensTitle} numberOfLines={1}>
-          Open match{upcomingOpenMatch.host?.name ? ` · ${upcomingOpenMatch.host.name}` : ""}
-        </Text>
-        <Text style={styles.lensSubtitle} numberOfLines={2}>
-          {when}
-          {upcomingOpenMatch.courtName ? ` · ${upcomingOpenMatch.courtName}` : ""}
-          {spots > 0 ? ` · ${spots} spot${spots === 1 ? "" : "s"} left` : ""}
-        </Text>
+
+        <View style={openMatchHeroStyles.hostRow}>
+          <View
+            style={[
+              openMatchHeroStyles.avatarRing,
+              { borderColor: ballColor },
+            ]}
+          >
+            {photoUrl ? (
+              <RNImage
+                source={{ uri: photoUrl }}
+                style={openMatchHeroStyles.avatarImage}
+              />
+            ) : (
+              <View
+                style={[
+                  openMatchHeroStyles.avatarFallback,
+                  { backgroundColor: `${ballColor}33` },
+                ]}
+              >
+                <Text style={[openMatchHeroStyles.avatarInitials, { color: ballColor }]}>
+                  {getInitials(hostName)}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.lensTitle} numberOfLines={1}>
+              {isHost ? "Your open match" : `${hostName} is looking for a match`}
+            </Text>
+            <Text style={styles.lensSubtitle} numberOfLines={2}>
+              {when}
+              {upcomingOpenMatch.courtName ? ` · ${upcomingOpenMatch.courtName}` : ""}
+              {spots > 0 ? ` · ${spots} spot${spots === 1 ? "" : "s"} left` : " · Full"}
+            </Text>
+          </View>
+        </View>
+
         <Pressable
           style={[styles.ctaPrimary, { backgroundColor: COMPETE_ACCENT }]}
-          disabled={joinMutation.isPending}
+          disabled={!isHost && (joinMutation.isPending || spots === 0)}
           onPress={() => {
             Haptics.selectionAsync().catch(() => {});
             if (isHost) {
-              goOpenMatches();
+              goManageMatch();
             } else {
               joinMutation.mutate(upcomingOpenMatch.id);
             }
           }}
         >
           <Text style={styles.ctaPrimaryText}>
-            {isHost ? "Manage" : joinMutation.isPending ? "Joining..." : "Join Match"}
+            {isHost
+              ? "Manage Match"
+              : spots === 0
+              ? "Match full"
+              : joinMutation.isPending
+              ? "Joining..."
+              : "Join Match"}
           </Text>
-          <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+          <Ionicons
+            name={isHost ? "settings-outline" : "arrow-forward"}
+            size={14}
+            color={Backgrounds.root}
+          />
         </Pressable>
       </LensShell>
     );
@@ -1099,5 +1246,39 @@ const styles = StyleSheet.create({
   ctaSecondaryText: {
     fontSize: FontSizes.sm,
     fontWeight: "700",
+  },
+});
+
+const openMatchHeroStyles = StyleSheet.create({
+  hostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  avatarRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarFallback: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
 });

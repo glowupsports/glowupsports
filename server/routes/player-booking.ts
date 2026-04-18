@@ -5407,6 +5407,22 @@ Return only the JSON array, nothing else.`;
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
       const { matchType, ballLevel, date } = req.query;
+      const includeAllLevels = String(req.query.includeAllLevels || "") === "true";
+      const includeMine = String(req.query.includeMine || "") === "true";
+
+      // Look up caller's own ball level for default filtering
+      let callerBallLevel: string | null = null;
+      if (playerId) {
+        const [callerRow] = await db
+          .select({ ballLevel: players.ballLevel })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
+        callerBallLevel = (callerRow?.ballLevel || "").toLowerCase() || null;
+      }
+
+      // Ball-level taxonomy (ascending competence)
+      const BALL_LEVEL_ORDER = ["blue", "red", "orange", "green", "yellow", "glow"];
 
       // Query from match_requests table (where matches are created via Find a Match wizard)
       const matches = await db
@@ -5427,7 +5443,7 @@ Return only the JSON array, nothing else.`;
           status: matchRequests.status,
           createdAt: matchRequests.createdAt,
           playerName: players.name,
-            hostBallLevel: players.ballLevel,
+          hostBallLevel: players.ballLevel,
           playerAvatar: players.profilePhotoUrl,
           playerLevel: players.skillLevel,
           playerBallLevel: players.ballLevel,
@@ -5438,37 +5454,36 @@ Return only the JSON array, nothing else.`;
 
       // Apply filters
       let filteredMatches = matches;
-      
+
       if (matchType && matchType !== 'all') {
         filteredMatches = filteredMatches.filter(m => m.matchType === matchType);
       }
-      
-      if (ballLevel) {
-        filteredMatches = filteredMatches.filter(m => m.requiredBallLevel === ballLevel);
-      }
-      
+
       if (date) {
         filteredMatches = filteredMatches.filter(m => m.preferredDate === date);
       }
 
+      // Exclude caller's own matches unless explicitly requested
+      if (playerId && !includeMine) {
+        filteredMatches = filteredMatches.filter(m => m.playerId !== playerId);
+      }
+
       // Filter by academy - show matches from same academy or public ones
-      filteredMatches = filteredMatches.filter(m => 
+      filteredMatches = filteredMatches.filter(m =>
         !m.academyId || m.academyId === academyId
       );
 
       // Filter out past matches - only show future or today's matches that haven't started
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const now = new Date();
       filteredMatches = filteredMatches.filter(m => {
         if (!m.preferredDate) return true;
         const matchDate = new Date(m.preferredDate);
         matchDate.setHours(0, 0, 0, 0);
         if (matchDate < today) return false;
-        // If today, check if the match time has passed
         if (matchDate.getTime() === today.getTime() && m.preferredTime) {
           const [hours, minutes] = m.preferredTime.split(':').map(Number);
-          const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date();
           const matchTime = new Date();
           matchTime.setHours(hours || 0, minutes || 0, 0, 0);
           return matchTime > now;
@@ -5476,14 +5491,66 @@ Return only the JSON array, nothing else.`;
         return true;
       });
 
+      // Compute effective ball-level filter
+      const norm = (v?: string | null) => (v || "").toLowerCase();
+      const matchBallLevel = (m: typeof filteredMatches[number]) =>
+        norm(m.requiredBallLevel || m.playerBallLevel);
+
+      let exactMatches: typeof filteredMatches = filteredMatches;
+      let adjacentMatches: typeof filteredMatches = [];
+
+      if (ballLevel) {
+        // Explicit override — exact filter, no fallback
+        const wanted = norm(ballLevel as string);
+        exactMatches = filteredMatches.filter(m => matchBallLevel(m) === wanted);
+        adjacentMatches = [];
+      } else if (!includeAllLevels && callerBallLevel) {
+        // Default: filter by caller's bucket; adjacent fallback if <3 results
+        const idx = BALL_LEVEL_ORDER.indexOf(callerBallLevel);
+        exactMatches = filteredMatches.filter(m => matchBallLevel(m) === callerBallLevel);
+        if (exactMatches.length < 3 && idx !== -1) {
+          const adjacentLevels: string[] = [];
+          if (idx - 1 >= 0) adjacentLevels.push(BALL_LEVEL_ORDER[idx - 1]);
+          if (idx + 1 < BALL_LEVEL_ORDER.length) adjacentLevels.push(BALL_LEVEL_ORDER[idx + 1]);
+          adjacentMatches = filteredMatches.filter(m =>
+            adjacentLevels.includes(matchBallLevel(m))
+          );
+        }
+      }
+
+      // Helper: stable sort by scheduled time asc (matches without a time go last)
+      const scheduledMs = (m: typeof filteredMatches[number]): number => {
+        if (!m.preferredDate || !m.preferredTime) return Number.MAX_SAFE_INTEGER;
+        const [h, mi] = m.preferredTime.split(':').map(Number);
+        const d = new Date(m.preferredDate);
+        d.setHours(h || 0, mi || 0, 0, 0);
+        return d.getTime();
+      };
+      exactMatches = [...exactMatches].sort((a, b) => scheduledMs(a) - scheduledMs(b));
+      adjacentMatches = [...adjacentMatches].sort((a, b) => scheduledMs(a) - scheduledMs(b));
+
+      const ordered = [
+        ...exactMatches.map(m => ({ m, levelMatch: "exact" as const })),
+        ...adjacentMatches.map(m => ({ m, levelMatch: "adjacent" as const })),
+      ];
+
       // Transform to format expected by frontend
-      const transformedMatches = filteredMatches.map(m => {
+      const transformedMatches = ordered.map(({ m, levelMatch }) => {
         let scheduledTime: string | null = null;
         if (m.preferredDate && m.preferredTime) {
           const [hours, minutes] = m.preferredTime.split(':').map(Number);
           const date = new Date(m.preferredDate);
           date.setHours(hours || 0, minutes || 0, 0, 0);
           scheduledTime = date.toISOString();
+        }
+        const effectiveBallLevel = norm(m.requiredBallLevel || m.playerBallLevel) || null;
+        let levelDirection: "higher" | "lower" | null = null;
+        if (levelMatch === "adjacent" && callerBallLevel && effectiveBallLevel) {
+          const callerIdx = BALL_LEVEL_ORDER.indexOf(callerBallLevel);
+          const matchIdx = BALL_LEVEL_ORDER.indexOf(effectiveBallLevel);
+          if (callerIdx !== -1 && matchIdx !== -1) {
+            levelDirection = matchIdx > callerIdx ? "higher" : matchIdx < callerIdx ? "lower" : null;
+          }
         }
         return {
           id: m.id,
@@ -5510,6 +5577,8 @@ Return only the JSON array, nothing else.`;
           preferredTime: m.preferredTime,
           courtName: null,
           locationName: null,
+          levelMatch,
+          levelDirection,
           host: {
             id: m.playerId,
             name: m.playerName || "Unknown Player",

@@ -32,7 +32,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/SportContext";
@@ -483,7 +483,13 @@ export default function OpenMatchFeedScreen() {
   const [joiningMatchId, setJoiningMatchId] = useState<string | null>(null);
 
   const { data: matches, isLoading, refetch, isRefetching } = useQuery<OpenMatch[]>({
-    queryKey: ["/api/open-matches"],
+    queryKey: ["/api/open-matches", { includeAllLevels: true, includeMine: true }],
+    queryFn: async () => {
+      const url = new URL("/api/open-matches?includeAllLevels=true&includeMine=true", getApiUrl()).toString();
+      const res = await fetch(url, { credentials: "include", headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to load open matches");
+      return res.json();
+    },
   });
 
   const joinMutation = useMutation({
