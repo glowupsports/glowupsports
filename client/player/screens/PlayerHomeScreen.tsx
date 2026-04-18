@@ -34,6 +34,7 @@ import { useWebSocket } from "@/lib/useWebSocket";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MatchReadinessCard } from "@/player/components/MatchReadinessCard";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
+import { UpcomingSessionsList } from "@/player/components/UpcomingSessionsList";
 import { ChallengeCard } from "@/player/components/ChallengeCard";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { TodayAtAGlance } from "@/player/components/TodayAtAGlance";
@@ -1611,6 +1612,7 @@ export default function PlayerHomeScreen() {
 
         {/* Lessons, Match, Social Feed, Today cards - always visible with collapsed pill when no data */}
         <SessionHeroCard />
+        <UpcomingSessionsList />
         <ChallengeCard />
         <MiniFeed />
         <TodayAtAGlance />

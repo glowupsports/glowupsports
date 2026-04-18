@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform } from "react-native";
 import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useScheduleFocus } from "@/player/context/ScheduleFocusContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
@@ -89,6 +90,7 @@ interface VacationData {
 
 interface ScheduledItem {
   id: string;
+  sessionId?: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -196,6 +198,43 @@ export default function PlayerScheduleScreen() {
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
+
+  // Scroll-to-session support: when the home screen requests focus on a
+  // specific upcoming session, scroll to its row in the upcoming list.
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const upcomingItemOffsets = useRef<Map<string, number>>(new Map());
+  const upcomingListOffset = useRef<number>(0);
+  const { focusSessionId, focusToken, clearFocusSession } = useScheduleFocus();
+  const handleUpcomingItemLayout = useCallback((id: string, y: number) => {
+    upcomingItemOffsets.current.set(id, y);
+  }, []);
+  useEffect(() => {
+    if (!focusSessionId) return;
+    // Retry until the target row has been laid out (handles cold-load /
+    // network latency where data isn't rendered yet). Give up after ~5s.
+    let attempts = 0;
+    const maxAttempts = 25;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const tryScroll = () => {
+      const innerY = upcomingItemOffsets.current.get(focusSessionId);
+      if (innerY != null && scrollViewRef.current) {
+        const targetY = Math.max(0, upcomingListOffset.current + innerY - 80);
+        scrollViewRef.current.scrollTo({ y: targetY, animated: true });
+        clearFocusSession();
+        return;
+      }
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        clearFocusSession();
+        return;
+      }
+      timer = setTimeout(tryScroll, 200);
+    };
+    timer = setTimeout(tryScroll, 200);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [focusSessionId, focusToken, clearFocusSession]);
 
   // Walkthrough effect - only run once on mount using ref to prevent re-triggers
   const walkthroughTriggered = React.useRef(false);
@@ -336,6 +375,7 @@ export default function PlayerScheduleScreen() {
 
         items.push({
           id: s.id,
+          sessionId: s.sessionId,
           date: formatDate(startDate),
           startTime: formatTime(startDate),
           endTime: formatTime(endDate),
@@ -469,8 +509,19 @@ export default function PlayerScheduleScreen() {
     const filtered = selectedLocationFilter
       ? upcoming.filter(s => (s.locationId || s.locationName) === selectedLocationFilter)
       : upcoming;
-    return filtered.slice(0, 5);
-  }, [allItems, selectedLocationFilter]);
+    const limit = 5;
+    const base = filtered.slice(0, limit);
+    // Ensure a focused session (from home tap) is rendered even if it falls
+    // outside the default visible window, so scroll-to-row can succeed.
+    if (focusSessionId) {
+      const inBase = base.some(i => (i.sessionId || i.id) === focusSessionId);
+      if (!inBase) {
+        const target = filtered.find(i => (i.sessionId || i.id) === focusSessionId);
+        if (target) base.push(target);
+      }
+    }
+    return base;
+  }, [allItems, selectedLocationFilter, focusSessionId]);
 
   const nextSession = upcomingItems.find(i => i.type !== "court" && i.type !== "match");
 
@@ -850,6 +901,7 @@ export default function PlayerScheduleScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 180 }}
         showsVerticalScrollIndicator={false}
@@ -1097,7 +1149,10 @@ export default function PlayerScheduleScreen() {
         </Animated.View>
 
         {upcomingItems.length > 0 || upcomingSessionLocations.length > 1 ? (
-          <Animated.View entering={FadeInDown.delay(500).duration(400)}>
+          <Animated.View
+            entering={FadeInDown.delay(500).duration(400)}
+            onLayout={(e) => { upcomingListOffset.current = e.nativeEvent.layout.y; }}
+          >
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t("player.schedule.upcoming")}</Text>
               <Text style={styles.sectionCount}>{upcomingItems.length} scheduled</Text>
@@ -1128,7 +1183,11 @@ export default function PlayerScheduleScreen() {
             ) : null}
             <View style={styles.upcomingList}>
               {upcomingItems.map((item, index) => (
-                <View key={item.id} style={styles.upcomingItem}>
+                <View
+                  key={item.id}
+                  style={styles.upcomingItem}
+                  onLayout={(e) => handleUpcomingItemLayout(item.sessionId || item.id, e.nativeEvent.layout.y)}
+                >
                   <View style={[styles.upcomingDot, { backgroundColor: getTypeColor(item.type) }]} />
                   <View style={styles.upcomingInfo}>
                     <Text style={styles.upcomingTitle}>{item.title}</Text>

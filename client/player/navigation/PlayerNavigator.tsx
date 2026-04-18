@@ -120,6 +120,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
 import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
+import { ScheduleFocusProvider } from "@/player/context/ScheduleFocusContext";
 import { SportContextProvider } from "@/player/context/SportContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -233,7 +234,7 @@ export type PlayStackParamList = {
 };
 
 export type ScheduleStackParamList = {
-  ScheduleMain: undefined;
+  ScheduleMain: { focusSessionId?: string } | undefined;
   CourtBooking: undefined;
   CourtDetail: { courtId: string; date: string; time?: string };
   MyCourtBookings: undefined;
@@ -1600,6 +1601,7 @@ export default function PlayerNavigator() {
   return (
     <ChatStateProvider>
       <TabNavigationProvider>
+        <ScheduleFocusProvider>
         <PlayerDataProvider>
           <SportContextProvider>
             <CartProvider>
@@ -1617,6 +1619,7 @@ export default function PlayerNavigator() {
             </CartProvider>
           </SportContextProvider>
         </PlayerDataProvider>
+        </ScheduleFocusProvider>
       </TabNavigationProvider>
     </ChatStateProvider>
   );

@@ -3302,6 +3302,16 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       future.setDate(future.getDate() + 30);
       
       let nextSession = null;
+      let upcomingSessionsList: Array<{
+        id: string;
+        date: Date;
+        endTime: Date;
+        type: string;
+        courtName?: string | null;
+        coachName?: string | null;
+        duration: number | null;
+        isLive: boolean;
+      }> = [];
       const dateParam = req.query.date as string | undefined;
       // All session startTime/endTime values are stored as UTC in the database.
       // new Date() returns UTC epoch milliseconds, so comparisons are timezone-consistent.
@@ -3325,6 +3335,38 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
         });
       
+      // Build a compact list (up to 4) of active + upcoming sessions for the
+      // home screen's "next sessions" stack. The first entry mirrors the
+      // featured `nextSession`; the rest power the row list under the hero.
+      {
+        const relevant = sortedSessions.filter(s => s.isActive || s.isUpcoming).slice(0, 4);
+        const courtIds = Array.from(new Set(relevant.map(s => s.courtId).filter(Boolean) as string[]));
+        const coachIds = Array.from(new Set(relevant.map(s => s.coachId).filter(Boolean) as string[]));
+        const courtMap = new Map<string, any>();
+        const coachMap = new Map<string, any>();
+        await Promise.all([
+          ...courtIds.map(async (id) => { courtMap.set(id, await storage.getCourt(id)); }),
+          ...coachIds.map(async (id) => { coachMap.set(id, await storage.getCoach(id)); }),
+        ]);
+        upcomingSessionsList = relevant.map((s) => {
+          const court = s.courtId ? courtMap.get(s.courtId) : null;
+          const c = s.coachId ? coachMap.get(s.coachId) : null;
+          const dur = s.startTime && s.endTime
+            ? Math.round((new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / (1000 * 60))
+            : null;
+          return {
+            id: s.id,
+            date: s.startTime,
+            endTime: s.endTime,
+            type: s.sessionType,
+            courtName: court?.name || null,
+            coachName: c?.name || null,
+            duration: dur,
+            isLive: s.isActive,
+          };
+        });
+      }
+
       if (sortedSessions.length > 0) {
         // Get first active session, or first upcoming if none active
         const session = sortedSessions.find(s => s.isActive) || sortedSessions.find(s => s.isUpcoming) || sortedSessions[0];
@@ -3474,6 +3516,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           timezone: academy.timezone || null,
         } : null,
         nextSession,
+        upcomingSessions: upcomingSessionsList,
         lastFeedback: lastFeedback ? {
           ...lastFeedback,
           coachName: coach?.name || "Coach",
