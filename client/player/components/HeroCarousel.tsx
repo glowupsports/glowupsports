@@ -51,7 +51,8 @@ const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
 const HERO_SLOT_HEIGHT = 260;
-const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v1";
+const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v2";
+const PAUSED_HYDRATION_FALLBACK_MS = 1000;
 
 type SlotId = "train" | "compete" | "events";
 interface SlotMeta {
@@ -739,6 +740,10 @@ export function HeroCarousel({
   // paint before we know whether the player previously paused the carousel.
   useEffect(() => {
     let cancelled = false;
+    // Fallback: never let a hung/failing AsyncStorage freeze rotation forever.
+    const fallback = setTimeout(() => {
+      if (!cancelled) setPausedHydrated(true);
+    }, PAUSED_HYDRATION_FALLBACK_MS);
     AsyncStorage.getItem(USER_PAUSED_STORAGE_KEY)
       .then((val) => {
         if (cancelled) return;
@@ -746,10 +751,13 @@ export function HeroCarousel({
       })
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) setPausedHydrated(true);
+        if (cancelled) return;
+        clearTimeout(fallback);
+        setPausedHydrated(true);
       });
     return () => {
       cancelled = true;
+      clearTimeout(fallback);
     };
   }, []);
 

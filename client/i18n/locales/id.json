@@ -1064,7 +1064,10 @@
   "news": {
     "tennis": "TENIS",
     "loadingNews": "Memuat berita tenis...",
-    "readMore": "Baca selengkapnya"
+    "readMore": "Baca selengkapnya",
+    "justNow": "Baru saja",
+    "hoursAgo_other": "{{count}} jam yang lalu",
+    "daysAgo_other": "{{count}} hari yang lalu"
   },
   "time": {
     "minutesShort": "{{count}}m",
