@@ -894,7 +894,7 @@ export function HeroCarousel({
 
       {sessionSoon ? (
         <View style={styles.lockBadge}>
-          <Ionicons name="time" size={11} color={GlowColors.primary} />
+          <Ionicons name="lock-closed" size={11} color={GlowColors.primary} />
           <Text style={styles.lockText}>SESSION SOON</Text>
         </View>
       ) : null}
