@@ -2569,19 +2569,17 @@ export const storage = {
   },
 
   async getPlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
-    // Validate player belongs to academy if provided.
-    // NOTE: this still reads the legacy `packages` table on purpose — used by
-    // a few admin-only flows that must show historical V1 package metadata
-    // (templateId, name, isPaid, invoice). Active-credit reads go through
-    // getActivePlayerPackages / getPlayerPackagesWithCalculatedRemaining
-    // which were converted to V2 in Task #681 Phase 3.
+    // Task #681 Phase 3 — V2-only read. Returns every credit_lot mapped into
+    // the legacy Package shape so admin "package history" UIs continue to
+    // render. Includes refunded/depleted/expired lots (no `activeOnly`
+    // filter), ordered newest first via the helper.
     if (academyId) {
       const player = await db.select().from(players).where(
         and(eq(players.id, playerId), eq(players.academyId, academyId))
       );
       if (player.length === 0) return [];
     }
-    return db.select().from(packages).where(eq(packages.playerId, playerId)).orderBy(desc(packages.createdAt));
+    return await readLotsAsPackages(playerId, { activeOnly: false });
   },
 
   async getPlayerPackagesWithCalculatedRemaining(playerId: string, academyId?: string): Promise<(Package & { calculatedRemaining: number })[]> {
@@ -7717,22 +7715,18 @@ export const storage = {
     return results;
   },
 
-  // Get available credits for a player (across all packages)
+  // Get available credits for a player (across all active V2 lots).
+  // Task #681 Phase 3 — converted from V1 packages to V2 credit_lots so the
+  // ledger and the wallet can never disagree.
   async getPlayerCredits(playerId: string): Promise<{ total: number; byPackage: { id: string; name: string | null; remaining: number; expiry: string | null }[] }> {
-    const playerPackages = await db.select().from(packages)
-      .where(and(
-        eq(packages.playerId, playerId),
-        eq(packages.status, "active")
-      ));
-    
-    const total = playerPackages.reduce((sum, p) => sum + Number(p.remainingCredits), 0);
-    const byPackage = playerPackages.map(p => ({
+    const activeLots = await readLotsAsPackages(playerId, { activeOnly: true });
+    const total = activeLots.reduce((sum, p) => sum + p.calculatedRemaining, 0);
+    const byPackage = activeLots.map((p) => ({
       id: p.id,
       name: p.name,
-      remaining: p.remainingCredits,
+      remaining: Number(p.remainingCredits),
       expiry: p.expiryDate,
     }));
-    
     return { total, byPackage };
   },
 

@@ -894,24 +894,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           usedByType[row.type] = (usedByType[row.type] || 0) + n;
         }
 
-        // Get current credit balance from player packages
-        const playerPackages = await db
-          .select({
-            creditType: playerCreditPackages.creditType,
-            remainingCredits: playerCreditPackages.remainingCredits,
-          })
-          .from(playerCreditPackages)
-          .where(
-            and(
-              eq(playerCreditPackages.playerId, playerId),
-              eq(playerCreditPackages.status, "active"),
-            ),
-          );
-
-        const creditsRemaining = playerPackages.reduce(
-          (sum, p) => sum + (p.remainingCredits || 0),
-          0,
-        );
+        // Task #681 Phase 3 — current per-type remaining from V2 signed
+        // balance. `player_credit_balance.credits` is the running net (can be
+        // negative). Clamp to >= 0 for the user-facing "remaining" pill.
+        type V2BalanceRow = { type: string; credits: string | number };
+        const v2BalanceRes = await db.execute(sql`
+          SELECT type, credits
+          FROM player_credit_balance
+          WHERE player_id = ${playerId}
+        `);
+        const remainingByType: Record<string, number> = {};
+        let creditsRemaining = 0;
+        for (const r of v2BalanceRes.rows as V2BalanceRow[]) {
+          const n = Math.max(0, Number(r.credits) || 0);
+          remainingByType[r.type] = (remainingByType[r.type] || 0) + n;
+          creditsRemaining += n;
+        }
 
         // Group credits by type
         const creditsByTypeMap: Record<
@@ -924,13 +922,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           creditsByTypeMap[type].used += used;
         }
-        playerPackages.forEach((p) => {
-          const type = p.creditType || "general";
+        for (const [type, remaining] of Object.entries(remainingByType)) {
           if (!creditsByTypeMap[type]) {
             creditsByTypeMap[type] = { used: 0, remaining: 0 };
           }
-          creditsByTypeMap[type].remaining += p.remainingCredits || 0;
-        });
+          creditsByTypeMap[type].remaining += remaining;
+        }
 
         const creditsByType = Object.entries(creditsByTypeMap).map(
           ([type, data]) => ({

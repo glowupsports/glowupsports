@@ -317,12 +317,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
             // Task #681 Phase 3 — outstanding balance from V2 signed balance.
             // `player_credit_balance.credits` is signed: negative => owed.
+            type NetNegRow = { net_neg: string | number | null };
             const balanceRows = await db.execute(sql`
               SELECT COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
               FROM player_credit_balance
               WHERE player_id = ${member.id}
             `);
-            const netNeg = Number((balanceRows.rows?.[0] as any)?.net_neg || 0);
+            const netNegRow = (balanceRows.rows as NetNegRow[])[0];
+            const netNeg = Number(netNegRow?.net_neg ?? 0);
             const outstandingBalance = netNeg < 0 ? Math.abs(netNeg) : 0;
 
             return {
@@ -440,12 +442,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Task #681 Phase 3 — total owed across the family from V2.
         // Sum negative `player_credit_balance.credits` rows.
+        type FamilyNetNegRow = { net_neg: string | number | null };
         const owedRows = await db.execute(sql`
           SELECT COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
           FROM player_credit_balance
           WHERE player_id = ANY(${playerIds}::text[])
         `);
-        const familyNetNeg = Number((owedRows.rows?.[0] as any)?.net_neg || 0);
+        const owedRow = (owedRows.rows as FamilyNetNegRow[])[0];
+        const familyNetNeg = Number(owedRow?.net_neg ?? 0);
         const totalOwed = familyNetNeg < 0 ? Math.abs(familyNetNeg) : 0;
 
         if (totalOwed === 0) {

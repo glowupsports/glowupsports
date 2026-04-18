@@ -7356,7 +7356,8 @@ import fs from "fs";
             AND lot_id IS NOT NULL
             AND session_id = ANY(${allSessionIds}::text[])
         `);
-        for (const row of paidRows.rows as Array<{ session_id: string | null }>) {
+        type PaidSessionRow = { session_id: string | null };
+        for (const row of paidRows.rows as PaidSessionRow[]) {
           if (row.session_id) paidSessionIdSet.add(row.session_id);
         }
       }
