@@ -82,13 +82,20 @@ let _v1SkipCount = 0;
 let _v1PackageWriteSkipCount = 0;
 
 /** Returns true if it's still legal to write to V1 `credit_transactions` for
- *  this academy. Safe-by-default: when academyId is unknown we ALLOW the
- *  write (the existing pre-V2 behavior) so we don't silently break code that
- *  hasn't yet been audited for academy-id propagation. */
+ *  this academy. Phase 2 fail-closed policy: when academyId is unknown we
+ *  BLOCK the write and log/count it as a skip. Every production academy is
+ *  V2-enabled by Phase 2, so an unknown academy_id at a write site is either
+ *  a bug or a legacy code path we want to surface, not silently allow. */
 export async function v1WritesAllowed(
   academyId: string | null | undefined,
 ): Promise<boolean> {
-  if (!academyId) return true;
+  if (!academyId) {
+    _v1SkipCount += 1;
+    console.warn(
+      "[v1WritesAllowed] BLOCKED V1 credit_transactions write — academyId missing (fail-closed under Phase 2). Audit caller for academy-id propagation.",
+    );
+    return false;
+  }
   const v2 = await isV2EnabledForAcademy(academyId);
   if (v2) {
     _v1SkipCount += 1;
