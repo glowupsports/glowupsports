@@ -2587,6 +2587,14 @@ router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("pla
           const debtAmount = Math.max(0, presentCount - totalCreditsEver);
           
           if (debtAmount > 0) {
+            // Task #676 Phase 2 — V1 write gate. This admin recalc tool uses
+            // a 'default-academy' literal so we can't gate per-academy; fall
+            // back to a global skip if ANY V2 academy is configured. Safer to
+            // refuse than to mint a misattributed debt.
+            const { v1WritesAllowed } = await import("../services/credit-feature-flag");
+            if (!(await v1WritesAllowed('default-academy'))) {
+              continue;
+            }
             const debtId = crypto.randomUUID();
             await db.execute(sql`
               INSERT INTO credit_transactions (

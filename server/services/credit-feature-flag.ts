@@ -63,3 +63,42 @@ export function invalidateAcademyFlag(academyId: string): void {
 export function invalidateAllAcademyFlags(): void {
   cache.clear();
 }
+
+// ---------------------------------------------------------------------------
+// Task #676 Phase 2 — V1 write gate.
+//
+// `v1WritesAllowed(academyId)` returns true ONLY for academies that have NOT
+// yet been migrated to V2. Every legacy `credit_transactions` insert site is
+// expected to early-return when this returns false.
+//
+// We also keep an in-process counter of skipped writes so the 5-min watchdog
+// in pushNotifications.ts can report `skips_blocked=N` alongside the DB-level
+// V1 write count. A clean V2 migration should converge to:
+//   `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=N`
+// where N grows steadily and the DB count stays at 0 for 48 consecutive hours.
+// ---------------------------------------------------------------------------
+
+let _v1SkipCount = 0;
+
+/** Returns true if it's still legal to write to V1 `credit_transactions` for
+ *  this academy. Safe-by-default: when academyId is unknown we ALLOW the
+ *  write (the existing pre-V2 behavior) so we don't silently break code that
+ *  hasn't yet been audited for academy-id propagation. */
+export async function v1WritesAllowed(
+  academyId: string | null | undefined,
+): Promise<boolean> {
+  if (!academyId) return true;
+  const v2 = await isV2EnabledForAcademy(academyId);
+  if (v2) {
+    _v1SkipCount += 1;
+    return false;
+  }
+  return true;
+}
+
+/** Read the running counter and reset it. Called by the watchdog. */
+export function snapshotAndResetV1SkipCount(): number {
+  const v = _v1SkipCount;
+  _v1SkipCount = 0;
+  return v;
+}

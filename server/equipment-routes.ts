@@ -602,14 +602,18 @@ router.post(
           const balanceAfter = Number(pkg.remaining_credits);
           const balanceBefore = balanceAfter + creditsUsed;
 
-          await tx.execute(sql`
-            INSERT INTO credit_transactions
-              (player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-            VALUES
-              (${playerId}, ${academyId}, ${pkg.id}, 'debit', 'general', ${-creditsUsed},
-               'equipment_rental', ${balanceBefore}, ${balanceAfter},
-               ${JSON.stringify({ equipmentId: data.equipmentId, equipmentName: item[0].name })}::jsonb)
-          `);
+          // Task #676 Phase 2 — V1 write gate.
+          const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+          if (await v1WritesAllowed(academyId)) {
+            await tx.execute(sql`
+              INSERT INTO credit_transactions
+                (player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+              VALUES
+                (${playerId}, ${academyId}, ${pkg.id}, 'debit', 'general', ${-creditsUsed},
+                 'equipment_rental', ${balanceBefore}, ${balanceAfter},
+                 ${JSON.stringify({ equipmentId: data.equipmentId, equipmentName: item[0].name })}::jsonb)
+            `);
+          }
         }
 
         const [created] = await tx
@@ -750,14 +754,18 @@ router.post(
           const balanceAfter = Number(pkg.remaining_credits);
           const balanceBefore = balanceAfter + totalCredits;
 
-          await tx.execute(sql`
-            INSERT INTO credit_transactions
-              (player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-            VALUES
-              (${playerId}, ${academyId}, ${pkg.id}, 'debit', 'general', ${-totalCredits},
-               'equipment_purchase', ${balanceBefore}, ${balanceAfter},
-               ${JSON.stringify({ equipmentId: data.equipmentId, equipmentName: item[0].name, quantity: data.quantity })}::jsonb)
-          `);
+          // Task #676 Phase 2 — V1 write gate.
+          const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+          if (await v1WritesAllowed(academyId)) {
+            await tx.execute(sql`
+              INSERT INTO credit_transactions
+                (player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+              VALUES
+                (${playerId}, ${academyId}, ${pkg.id}, 'debit', 'general', ${-totalCredits},
+                 'equipment_purchase', ${balanceBefore}, ${balanceAfter},
+                 ${JSON.stringify({ equipmentId: data.equipmentId, equipmentName: item[0].name, quantity: data.quantity })}::jsonb)
+            `);
+          }
         }
 
         const [created] = await tx
@@ -844,14 +852,18 @@ router.post(
             )
           `);
 
-          await tx.execute(sql`
-            INSERT INTO credit_transactions
-              (player_id, academy_id, type, credit_type, amount, reason, metadata)
-            VALUES
-              (${playerId}, ${rental[0].academyId}, 'refund', 'general', ${creditsToRefund},
-               'equipment_rental_cancelled',
-               ${JSON.stringify({ rentalId: id, equipmentId: rental[0].equipmentId })}::jsonb)
-          `);
+          // Task #676 Phase 2 — V1 write gate.
+          const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+          if (await v1WritesAllowed(rental[0].academyId)) {
+            await tx.execute(sql`
+              INSERT INTO credit_transactions
+                (player_id, academy_id, type, credit_type, amount, reason, metadata)
+              VALUES
+                (${playerId}, ${rental[0].academyId}, 'refund', 'general', ${creditsToRefund},
+                 'equipment_rental_cancelled',
+                 ${JSON.stringify({ rentalId: id, equipmentId: rental[0].equipmentId })}::jsonb)
+            `);
+          }
         }
       });
 

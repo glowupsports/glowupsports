@@ -2577,11 +2577,21 @@ export const storage = {
   async convertPackageConsumptionToDebt(packageId: string, playerId?: string): Promise<{ converted: number }> {
     // Only convert when the package is genuinely no longer active
     const pkgStatus = await db.execute(sql`
-      SELECT status FROM packages WHERE id = ${packageId} LIMIT 1
+      SELECT status, academy_id FROM packages WHERE id = ${packageId} LIMIT 1
     `);
     if (pkgStatus.rows.length === 0) return { converted: 0 };
     const status = (pkgStatus.rows[0] as any).status;
     if (status === 'active') return { converted: 0 };
+
+    // Task #676 Phase 2 — V1 write gate. V2 doesn't manufacture session_debt
+    // rows from package depletion (debt is computed from credit_ledger_v2).
+    {
+      const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+      const pkgAcademyId = (pkgStatus.rows[0] as any)?.academy_id ?? null;
+      if (!(await v1WritesAllowed(pkgAcademyId))) {
+        return { converted: 0 };
+      }
+    }
 
     const consumptionTxs = await db.execute(sql`
       SELECT ct.id, ct.player_id, ct.academy_id, ct.session_id, ct.session_player_id,
@@ -2677,8 +2687,15 @@ export const storage = {
     if (!pkg) {
       return { success: false, error: "Package not found" };
     }
-    
+
     const creditsUsed = Number(pkg.totalCredits) - Number(pkg.remainingCredits);
+
+    // Task #676 Phase 2 — V1 write gate. The debt-restore + booking-to-debt
+    // conversion blocks below write to credit_transactions. For V2 academies
+    // those become no-ops; the package row itself is still deleted.
+    const { v1WritesAllowed: _v1Allowed } = await import("./services/credit-feature-flag");
+    const _gateAcademyId = pkg.academyId ?? academyId ?? null;
+    const _v1WritesPermitted = await _v1Allowed(_gateAcademyId);
     
     if (Number(pkg.remainingCredits) > 0 && !force) {
       return { 
@@ -2746,7 +2763,9 @@ export const storage = {
       // CRITICAL FIX: Convert consumption transactions to debt BEFORE clearing packageId.
       // When a package is force-deleted with used credits, those sessions become unpaid.
       // Create session_debt transactions so the balance correctly shows the negative debt.
-      if (creditsUsed > 0 && pkg.playerId) {
+      // Task #676 Phase 2 — V2 academies don't use session_debt (debt is computed from
+      // credit_ledger_v2), so skip the conversion entirely for them.
+      if (creditsUsed > 0 && pkg.playerId && _v1WritesPermitted) {
         // Only convert pre-paid session consumption reasons: session_booking and session_consumed.
         // Intentionally excludes debt/settlement rows to prevent double-accounting.
         // Guards:
@@ -7192,6 +7211,19 @@ export const storage = {
 
   // ==================== CREDIT TRANSACTIONS ====================
   async createCreditTransaction(data: InsertCreditTransaction): Promise<CreditTransaction> {
+    // Task #676 Phase 2 — V1 write gate. Skip the legacy insert entirely
+    // when the academy is on V2; return a synthetic placeholder so callers
+    // that read .id keep working (none of those callers are V2-critical
+    // because the V2 short-circuits in consumeCreditsForClassSession,
+    // ensureCreditProcessed, etc. fire before this wrapper is reached).
+    const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+    if (!(await v1WritesAllowed((data as any).academyId))) {
+      return {
+        id: crypto.randomUUID(),
+        ...(data as any),
+        createdAt: new Date(),
+      } as CreditTransaction;
+    }
     const result = await db.insert(creditTransactions).values(data).returning();
     return result[0];
   },
@@ -7790,6 +7822,19 @@ export const storage = {
     settledCount: number;
     totalDeducted: number;
   }> {
+    // Task #676 Phase 2 — V1 write gate. Settlement walks legacy debt rows
+    // that V2 doesn't produce. Skip entirely for V2 academies.
+    {
+      const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+      const pkgRow = await db.execute(sql`
+        SELECT academy_id FROM packages WHERE id = ${packageId} LIMIT 1
+      `);
+      const pkgAcademyId = (pkgRow.rows[0] as any)?.academy_id ?? null;
+      if (!(await v1WritesAllowed(pkgAcademyId))) {
+        console.log(`[SettleDebts] V2 academy ${pkgAcademyId} — skipping legacy debt settlement`);
+        return { settledCount: 0, totalDeducted: 0 };
+      }
+    }
     console.log(`[SettleDebts] Starting for player ${playerId}, creditType ${creditType}, package ${packageId}`);
 
     const matchingCreditTypes = creditType === "semi_private" || creditType === "semi"
@@ -7898,6 +7943,21 @@ export const storage = {
     totalDeducted: number;
     sessionIds: string[];
   }> {
+    // Task #676 Phase 2 — V1 write gate. Same reasoning as settlePlayerDebts.
+    {
+      const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+      let gateAcademyId = academyId ?? null;
+      if (!gateAcademyId) {
+        const pkgRow = await db.execute(sql`
+          SELECT academy_id FROM packages WHERE id = ${packageId} LIMIT 1
+        `);
+        gateAcademyId = (pkgRow.rows[0] as any)?.academy_id ?? null;
+      }
+      if (!(await v1WritesAllowed(gateAcademyId))) {
+        console.log(`[SettleUnpaidSessions] V2 academy ${gateAcademyId} — skipping legacy retrospective settlement`);
+        return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
+      }
+    }
     // Map credit type to session types (include all variations)
     // Both 'semi' and 'semi_private' keys point to the same session types
     const creditToSessionTypes: Record<string, string[]> = {
@@ -8324,6 +8384,16 @@ export const storage = {
   // sessionType: The type of session (group, private, semi_private) - credits must match
   async consumeSingleCreditForSession(playerId: string, sessionId: string, academyId?: string, linkedPackageId?: string | null, sessionType?: string): Promise<boolean> {
     try {
+      // Task #676 Phase 2 — V1 write gate. V2 academies route consume through
+      // credit-engine; this legacy path must be a no-op for them so we don't
+      // double-charge. The V2 charge happens via ensureCreditProcessed /
+      // consumeCreditsForClassSessionWithAttendance short-circuits.
+      {
+        const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+        if (!(await v1WritesAllowed(academyId))) {
+          return false;
+        }
+      }
       // Map session types to credit types (normalize naming)
       const normalizeType = (type: string | undefined): string => {
         if (!type) return "group"; // default
@@ -8463,6 +8533,14 @@ export const storage = {
   // PATCH D: Added idempotency guard for creditDeductedAt
   async createDebtTransaction(playerId: string, sessionId: string, academyId: string, sessionType?: string): Promise<boolean> {
     try {
+      // Task #676 Phase 2 — V1 write gate. Debts are a V1 concept; V2
+      // academies should never produce new session_join_debt rows.
+      {
+        const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+        if (!(await v1WritesAllowed(academyId))) {
+          return false;
+        }
+      }
       // Idempotency guard: check if credit was already consumed for this session
       const existingSessionPlayer = await db.select({
         creditDeductedAt: sessionPlayers.creditDeductedAt,

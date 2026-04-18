@@ -2153,6 +2153,12 @@ async function autoCancel(
             sql`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`
           ));
         
+        // Task #676 Phase 2 — V1 write gate. The two INSERT branches below
+        // mint legacy refund rows; for V2 academies the refund is recorded in
+        // credit_ledger_v2 by the engine instead.
+        const { v1WritesAllowed: _v1WritesAllowed_wc } = await import("../services/credit-feature-flag");
+        const _v1Ok_wc = await _v1WritesAllowed_wc(session.academyId);
+
         for (const tx of debitTxns) {
           const meta = tx.metadata ? (typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata) : {};
           
@@ -2166,29 +2172,33 @@ async function autoCancel(
             await db.update(creditTransactions)
               .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } })
               .where(eq(creditTransactions.id, tx.id));
-            await db.insert(creditTransactions).values({
-              id: crypto.randomUUID(),
-              playerId: tx.playerId,
-              type: "refund",
-              creditType: tx.creditType,
-              amount: Math.abs(tx.amount),
-              reason: "refund",
-              metadata: { refundedDebtId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
-              createdAt: new Date(),
-            });
+            if (_v1Ok_wc) {
+              await db.insert(creditTransactions).values({
+                id: crypto.randomUUID(),
+                playerId: tx.playerId,
+                type: "refund",
+                creditType: tx.creditType,
+                amount: Math.abs(tx.amount),
+                reason: "refund",
+                metadata: { refundedDebtId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
+                createdAt: new Date(),
+              });
+            }
           } else {
             // Regular debit (credit consumed) - create refund
-            await db.insert(creditTransactions).values({
-              id: crypto.randomUUID(),
-              playerId: tx.playerId,
-              packageId: tx.packageId,
-              type: "refund",
-              creditType: tx.creditType,
-              amount: Math.abs(tx.amount),
-              reason: "refund",
-              metadata: { refundedTransactionId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
-              createdAt: new Date(),
-            });
+            if (_v1Ok_wc) {
+              await db.insert(creditTransactions).values({
+                id: crypto.randomUUID(),
+                playerId: tx.playerId,
+                packageId: tx.packageId,
+                type: "refund",
+                creditType: tx.creditType,
+                amount: Math.abs(tx.amount),
+                reason: "refund",
+                metadata: { refundedTransactionId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
+                createdAt: new Date(),
+              });
+            }
           }
           refundedCount++;
         }

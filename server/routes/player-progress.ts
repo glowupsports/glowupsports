@@ -1486,10 +1486,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         if (creditAdjustment !== 0) {
           const transactionId = `attendance-correction-${sessionId}-${playerId}-${Date.now()}`;
 
+          // Task #676 Phase 2 — V1 write gate (attendance correction path).
+          const { v1WritesAllowed: _v1WritesAllowed_pp } = await import("../services/credit-feature-flag");
+          const _v1Ok_pp = await _v1WritesAllowed_pp(session.academyId);
+
           if (creditAdjustment > 0) {
             // Refund: check if original charge was a debt — if so, cancel the debt instead
             const cancelResult = await storage.cancelSessionDebt(playerId, sessionId);
-            if (!cancelResult.cancelled) {
+            if (!cancelResult.cancelled && _v1Ok_pp) {
               await db.insert(creditTransactions).values({
                 id: transactionId,
                 playerId: playerId,
@@ -1527,7 +1531,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 `[AttendanceCorrection] Cancelled debt for player ${playerId} session ${sessionId} (amount: ${cancelResult.amount})`,
               );
             }
-          } else {
+          } else if (_v1Ok_pp) {
             await db.insert(creditTransactions).values({
               id: transactionId,
               playerId: playerId,

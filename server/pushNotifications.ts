@@ -2158,6 +2158,7 @@ export function startReminderScheduler(): void {
       await processAutoCompleteSession();
       await processUnchargedAttendance();
       await processCreditDriftWatchdog();
+      await processV1WritesWatchdog();
       await processExpiredWaitlistSpots();
     } catch (e) { console.error("[Scheduler] Startup sequence error:", e); }
   })();
@@ -2170,6 +2171,7 @@ export function startReminderScheduler(): void {
       await processAutoAttendance();
       await processUnchargedAttendance();
       await processCreditDriftWatchdog();
+      await processV1WritesWatchdog();
       await processExpiredWaitlistSpots();
       await processDepartureAlerts();
       await processPostSessionReflectionReminders();
@@ -2240,6 +2242,40 @@ async function processCreditDriftWatchdog(): Promise<void> {
     }
   } catch (err) {
     console.error("[Reconcile] watchdog error:", err);
+  }
+}
+
+// Task #676 Phase 2 — V1 write watchdog. Every 5 min we count rows landed in
+// the legacy credit_transactions table for V2 academies, and snapshot the
+// in-process gate counter. A clean migration converges to:
+//   `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=N`
+// Phase 3 only starts after 48 consecutive hours of total=0.
+async function processV1WritesWatchdog(): Promise<void> {
+  try {
+    const { countRecentV1WritesForV2Academies } = await import(
+      "./services/credit-reconcile"
+    );
+    const { snapshotAndResetV1SkipCount } = await import(
+      "./services/credit-feature-flag"
+    );
+    const summary = await countRecentV1WritesForV2Academies(5 * 60 * 1000);
+    const skipsBlocked = snapshotAndResetV1SkipCount();
+    if (summary.total === 0) {
+      console.log(
+        `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=${skipsBlocked}`,
+      );
+      return;
+    }
+    console.warn(
+      `[V1 writes] credit_transactions=${summary.total} (last 5m, V2 academies) | skips_blocked=${skipsBlocked}`,
+    );
+    for (const r of summary.perAcademy) {
+      console.warn(
+        `[V1 writes] academy=${r.academyId} (${r.academyName}) count=${r.count}`,
+      );
+    }
+  } catch (err) {
+    console.error("[V1 writes] watchdog error:", err);
   }
 }
 
@@ -2837,31 +2873,37 @@ async function processAutoSessionCompletion(): Promise<void> {
             if (existingDebt.length === 0) {
               // Use shared canonical normalizer (storage.ts) — safe default is "group", never "private".
               const creditType = normalizeSessionTypeToCreditType(session.sessionType);
-              
-              await db.insert(creditTransactions).values({
-                id: debtId,
-                playerId: sp.playerId,
-                packageId: null,
-                type: "debit",
-                amount: -1,
-                reason: "session_debt",
-                creditType: creditType,
-                sessionId: session.id,
-                metadata: { 
-                  isDebt: true, 
-                  autoCompleted: true,
-                  sessionType: session.sessionType,
-                  reason: creditResult.reason 
-                },
-              });
-              
-              // Mark creditDeductedAt to prevent re-processing
-              await db.update(sessionPlayers)
-                .set({ creditDeductedAt: new Date() })
-                .where(eq(sessionPlayers.id, sp.id));
-              
-              totalCreditsDeducted++;
-              console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
+
+              // Task #676 Phase 2 — V1 write gate. V2 academies do NOT mint
+              // session_debt rows here; the engine produces an "owed" balance
+              // from credit_ledger_v2 instead.
+              const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+              if (await v1WritesAllowed(session.academyId)) {
+                await db.insert(creditTransactions).values({
+                  id: debtId,
+                  playerId: sp.playerId,
+                  packageId: null,
+                  type: "debit",
+                  amount: -1,
+                  reason: "session_debt",
+                  creditType: creditType,
+                  sessionId: session.id,
+                  metadata: { 
+                    isDebt: true, 
+                    autoCompleted: true,
+                    sessionType: session.sessionType,
+                    reason: creditResult.reason 
+                  },
+                });
+
+                // Mark creditDeductedAt to prevent re-processing
+                await db.update(sessionPlayers)
+                  .set({ creditDeductedAt: new Date() })
+                  .where(eq(sessionPlayers.id, sp.id));
+
+                totalCreditsDeducted++;
+                console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
+              }
             }
           }
         }

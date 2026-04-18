@@ -223,21 +223,26 @@ import fs from "fs";
           if (creditsToDeduct > 0) {
             const transactionId = `late-cancel-${sessionId}-${playerId}-${Date.now()}`;
 
-            await db.insert(creditTransactions).values({
-              id: transactionId,
-              playerId: playerId,
-              sessionId: sessionId,
-              type: "debit",
-              amount: -creditsToDeduct,
-              reason: "late_cancellation",
-              creditType: creditType,
-              metadata: {
-                hoursNotice: Math.round(hoursUntilSession),
-                penaltyTier,
-                sessionType: session.sessionType,
-                cancelledAt: new Date().toISOString(),
-              },
-            });
+            // Task #676 Phase 2 — V1 write gate.
+            const { v1WritesAllowed } = await import("../services/credit-feature-flag");
+            const v1Ok = await v1WritesAllowed(session.academyId);
+            if (v1Ok) {
+              await db.insert(creditTransactions).values({
+                id: transactionId,
+                playerId: playerId,
+                sessionId: sessionId,
+                type: "debit",
+                amount: -creditsToDeduct,
+                reason: "late_cancellation",
+                creditType: creditType,
+                metadata: {
+                  hoursNotice: Math.round(hoursUntilSession),
+                  penaltyTier,
+                  sessionType: session.sessionType,
+                  cancelledAt: new Date().toISOString(),
+                },
+              });
+            }
 
             await db
               .update(sessionPlayers)

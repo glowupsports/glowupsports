@@ -2522,30 +2522,35 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         if (existingDebt.length === 0) {
           const creditType = session.sessionType.includes("semi") ? "semi_private" : 
                              session.sessionType.includes("group") ? "group" : "private";
-          
-          await db.insert(creditTransactions).values({
-            id: debtId,
-            playerId: session.playerId,
-            packageId: null,
-            type: "debit",
-            amount: -1,
-            reason: "session_debt",
-            creditType: creditType,
-            sessionId: session.sessionId,
-            metadata: { 
-              isDebt: true, 
-              fixedManually: true,
-              sessionType: session.sessionType,
-              originalDate: session.startTime
-            },
-          });
-          
-          // Mark creditDeductedAt to prevent re-processing
-          await db.update(sessionPlayers)
-            .set({ creditDeductedAt: new Date() })
-            .where(eq(sessionPlayers.id, session.sessionPlayerId));
-          
-          fixedCount++;
+
+          // Task #676 Phase 2 — V1 write gate.
+          const { v1WritesAllowed } = await import("../services/credit-feature-flag");
+          const v1Ok = await v1WritesAllowed(req.user?.currentAcademyId);
+          if (v1Ok) {
+            await db.insert(creditTransactions).values({
+              id: debtId,
+              playerId: session.playerId,
+              packageId: null,
+              type: "debit",
+              amount: -1,
+              reason: "session_debt",
+              creditType: creditType,
+              sessionId: session.sessionId,
+              metadata: { 
+                isDebt: true, 
+                fixedManually: true,
+                sessionType: session.sessionType,
+                originalDate: session.startTime
+              },
+            });
+
+            // Mark creditDeductedAt to prevent re-processing
+            await db.update(sessionPlayers)
+              .set({ creditDeductedAt: new Date() })
+              .where(eq(sessionPlayers.id, session.sessionPlayerId));
+
+            fixedCount++;
+          }
         }
       }
       
@@ -2641,7 +2646,17 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       }
       
       const debtId = `manual-debt-${Date.now()}-${playerId}`;
-      
+
+      // Task #676 Phase 2 — V1 write gate.
+      {
+        const { v1WritesAllowed } = await import("../services/credit-feature-flag");
+        if (!(await v1WritesAllowed(player.academyId ?? academyId))) {
+          return res.status(409).json({
+            error: "This academy is on the new credit engine (V2). Manual V1 debt entries are no longer supported — adjust the player's credit balance directly instead.",
+          });
+        }
+      }
+
       await db.insert(creditTransactions).values({
         id: debtId,
         playerId: playerId,
