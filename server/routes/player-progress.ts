@@ -1471,89 +1471,77 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Record credit transaction and update package balance if there is an adjustment
         if (creditAdjustment !== 0) {
-          const transactionId = `attendance-correction-${sessionId}-${playerId}-${Date.now()}`;
-
-          // Task #676 Phase 2 — V1 write gate (attendance correction path).
-          const { v1WritesAllowed: _v1WritesAllowed_pp } = await import("../services/credit-feature-flag");
-          const _v1Ok_pp = await _v1WritesAllowed_pp(session.academyId);
+          // Task #684 Phase 3 — V2 attendance-correction wiring. The legacy
+          // V1 INSERT/UPDATE paths are gone; corrections now flow through the
+          // credit engine (credit_ledger_v2 + credit_lots). For legacy debts
+          // that still live in V1 `credit_transactions`, `cancelSessionDebt`
+          // is kept as a first pass on the refund branch.
+          const { consumeCredit, refundCredit } = await import("../services/credit-engine");
+          const actorId = req.user!.coachId || req.user!.id || null;
 
           if (creditAdjustment > 0) {
-            // Refund: check if original charge was a debt — if so, cancel the debt instead
+            // Refund branch.
             const cancelResult = await storage.cancelSessionDebt(playerId, sessionId);
-            if (!cancelResult.cancelled && _v1Ok_pp) {
-              await db.insert(creditTransactions).values({
-                id: transactionId,
-                playerId: playerId,
-                sessionId: sessionId,
-                type: "refund",
-                amount: creditAdjustment,
-                reason: adjustmentReason,
-                creditType: creditType,
-                metadata: {
-                  oldStatus,
-                  newStatus,
-                  correctedBy: req.user!.coachId || req.user!.id,
-                  correctedAt: new Date().toISOString(),
-                },
-              });
-
-              // Atomic increment — no read-modify-write race condition
-              const refundResult = await db.execute(sql`
-                UPDATE packages
-                SET remaining_credits = remaining_credits + 1,
-                    status = 'active'
-                WHERE player_id = ${playerId}
-                  AND credit_type = ${creditType}
-                  AND status = 'active'
-                RETURNING id, remaining_credits
-              `);
-              if (refundResult.rows.length > 0) {
-                const r = refundResult.rows[0] as any;
-                console.log(
-                  `[AttendanceCorrection] Refunded 1 ${creditType} credit to package ${r.id} (new remaining: ${r.remaining_credits})`,
-                );
-              }
-            } else if (cancelResult.cancelled) {
+            if (cancelResult.cancelled) {
               console.log(
-                `[AttendanceCorrection] Cancelled debt for player ${playerId} session ${sessionId} (amount: ${cancelResult.amount})`,
+                `[AttendanceCorrection] Cancelled legacy debt for player ${playerId} session ${sessionId} (amount: ${cancelResult.amount})`,
               );
             } else {
-              console.warn(
-                `[AttendanceCorrection][V2] Player ${playerId} session ${sessionId} (academy ${session.academyId}) — refund needed but V1 write blocked and no debt to cancel; V2 attendance-correction refund path not yet wired (Task #684 Phase 3).`,
-              );
+              try {
+                const v2Refund = await refundCredit({
+                  sessionPlayerId: spRecord.id,
+                  policy: "force",
+                  actorId,
+                  actorRole: "coach",
+                  reason: adjustmentReason,
+                  eventKey: `refund:attendance-correction:${spRecord.id}:${Date.now()}`,
+                });
+                if (v2Refund.refunded) {
+                  // Mirror legacy behaviour: clear creditDeductedAt so UI
+                  // consumers see the session as un-charged.
+                  await db.update(sessionPlayers)
+                    .set({ creditDeductedAt: null, creditTransactionId: null })
+                    .where(eq(sessionPlayers.id, spRecord.id));
+                  console.log(
+                    `[AttendanceCorrection][V2] Refunded ${v2Refund.amount} ${v2Refund.type ?? creditType} credit(s) to player ${playerId} (newBalance: ${v2Refund.newBalance})`,
+                  );
+                } else {
+                  console.log(
+                    `[AttendanceCorrection][V2] No prior consume found for player ${playerId} session ${sessionId} — nothing to refund.`,
+                  );
+                }
+              } catch (refundErr: any) {
+                console.error(
+                  `[AttendanceCorrection][V2] Refund failed for player ${playerId} session ${sessionId}:`,
+                  refundErr,
+                );
+              }
             }
-          } else if (_v1Ok_pp) {
-            await db.insert(creditTransactions).values({
-              id: transactionId,
-              playerId: playerId,
-              sessionId: sessionId,
-              type: "debit",
-              amount: creditAdjustment,
-              reason: adjustmentReason,
-              creditType: creditType,
-              metadata: {
-                oldStatus,
-                newStatus,
-                correctedBy: req.user!.coachId || req.user!.id,
-                correctedAt: new Date().toISOString(),
-              },
-            });
-
-            // Atomic decrement — no read-modify-write race condition
-            const deductResult = await db.execute(sql`
-              UPDATE packages
-              SET remaining_credits = GREATEST(0, remaining_credits - 1),
-                  status = CASE WHEN remaining_credits - 1 <= 0 THEN 'depleted' ELSE status END
-              WHERE player_id = ${playerId}
-                AND credit_type = ${creditType}
-                AND status = 'active'
-                AND remaining_credits > 0
-              RETURNING id, remaining_credits
-            `);
-            if (deductResult.rows.length > 0) {
-              const r = deductResult.rows[0] as any;
-              console.log(
-                `[AttendanceCorrection] Deducted 1 ${creditType} credit from package ${r.id} (new remaining: ${r.remaining_credits})`,
+          } else {
+            // Debit branch (absent/holiday → present/late).
+            try {
+              const v2Consume = await consumeCredit({
+                sessionPlayerId: spRecord.id,
+                actorId,
+                actorRole: "coach",
+                eventKey: `consume:attendance-correction:${spRecord.id}:${Date.now()}`,
+              });
+              if (v2Consume.charged) {
+                await db.update(sessionPlayers)
+                  .set({ creditDeductedAt: new Date() })
+                  .where(eq(sessionPlayers.id, spRecord.id));
+                console.log(
+                  `[AttendanceCorrection][V2] Deducted ${v2Consume.amount} ${v2Consume.type ?? creditType} credit(s) from player ${playerId} (newBalance: ${v2Consume.newBalance})`,
+                );
+              } else {
+                console.log(
+                  `[AttendanceCorrection][V2] consumeCredit did not charge player ${playerId} session ${sessionId} (chargeable=false).`,
+                );
+              }
+            } catch (consumeErr: any) {
+              console.error(
+                `[AttendanceCorrection][V2] Consume failed for player ${playerId} session ${sessionId}:`,
+                consumeErr,
               );
             }
           }

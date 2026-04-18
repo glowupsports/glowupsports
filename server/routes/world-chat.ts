@@ -2132,75 +2132,22 @@ async function autoCancel(
       let refundedCount = 0;
       for (const sp of spRecordsForRefund) {
         if (!sp.creditDeductedAt) continue;
-        
-        // Try using the existing refund method first
+
+        // Task #684 Phase 3 — V2 owns refunds. `refundCreditsForSession`
+        // dispatches to the V2 engine for V2 academies (every academy is V2
+        // now) and falls back to legacy V1 logic for any historical
+        // non-V2 row. The previous V1 fallback INSERTs that lived here
+        // were dead code under the V1 write gate, so they've been deleted.
         try {
           const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
           if (refundResult.success) {
             refundedCount++;
             console.log(`[DeleteSession] Refunded credit for player ${sp.playerId} via refundCreditsForSession`);
-            continue;
+          } else {
+            console.log(`[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${refundResult.reason ?? 'unknown'}`);
           }
         } catch (err) {
-          console.log(`[DeleteSession] refundCreditsForSession failed for ${sp.playerId}, trying direct lookup`);
-        }
-        
-        // Fallback: find debit transactions by session_player_id
-        const debitTxns = await db.select().from(creditTransactions)
-          .where(and(
-            eq(creditTransactions.sessionPlayerId, sp.id),
-            eq(creditTransactions.type, "debit"),
-            sql`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`
-          ));
-        
-        // Task #676 Phase 2 — V1 write gate. The two INSERT branches below
-        // mint legacy refund rows; for V2 academies the refund is recorded in
-        // credit_ledger_v2 by the engine instead.
-        const { v1WritesAllowed: _v1WritesAllowed_wc } = await import("../services/credit-feature-flag");
-        const _v1Ok_wc = await _v1WritesAllowed_wc(session.academyId);
-
-        for (const tx of debitTxns) {
-          const meta = tx.metadata ? (typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata) : {};
-          
-          if (meta.isDebt && !meta.settled) {
-            // Unsettled debt - just cancel it
-            await db.update(creditTransactions)
-              .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } })
-              .where(eq(creditTransactions.id, tx.id));
-          } else if (meta.settled) {
-            // Settled debt - cancel it and create refund
-            await db.update(creditTransactions)
-              .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } })
-              .where(eq(creditTransactions.id, tx.id));
-            if (_v1Ok_wc) {
-              await db.insert(creditTransactions).values({
-                id: crypto.randomUUID(),
-                playerId: tx.playerId,
-                type: "refund",
-                creditType: tx.creditType,
-                amount: Math.abs(tx.amount),
-                reason: "refund",
-                metadata: { refundedDebtId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
-                createdAt: new Date(),
-              });
-            }
-          } else {
-            // Regular debit (credit consumed) - create refund
-            if (_v1Ok_wc) {
-              await db.insert(creditTransactions).values({
-                id: crypto.randomUUID(),
-                playerId: tx.playerId,
-                packageId: tx.packageId,
-                type: "refund",
-                creditType: tx.creditType,
-                amount: Math.abs(tx.amount),
-                reason: "refund",
-                metadata: { refundedTransactionId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
-                createdAt: new Date(),
-              });
-            }
-          }
-          refundedCount++;
+          console.error(`[DeleteSession] refundCreditsForSession threw for ${sp.playerId}:`, err);
         }
       }
       if (refundedCount > 0) {
