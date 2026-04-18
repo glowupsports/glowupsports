@@ -2051,7 +2051,7 @@ export const storage = {
       packageConditions.push(eq(packages.academyId, academyId));
     }
     const [balances, activePackages] = await Promise.all([
-      this.getPlayersCreditBalances(playerIds),
+      this.getPlayersCreditBalances(playerIds, academyId),
       db
         .select({
           playerId: packages.playerId,
@@ -8256,7 +8256,7 @@ export const storage = {
   // valid package (mirrors getUncoveredSessionsByType used by the detail
   // screen). Callers should net these against the type balance to get the
   // same number the player-detail Packages card displays.
-  async getPlayersCreditBalances(playerIds: string[]): Promise<Record<string, {
+  async getPlayersCreditBalances(playerIds: string[], academyId?: string): Promise<Record<string, {
     group: number;
     semi_private: number;
     private: number;
@@ -8294,6 +8294,17 @@ export const storage = {
       result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0, netGroup: 0, netSemiPrivate: 0, netPrivate: 0 };
     }
 
+    // Task #686 — when an academyId is provided, scope the V2 read so the
+    // roster badge matches the player profile wallet (which is also scoped
+    // to the current academy). Without the filter we'd sum balances across
+    // every academy a player belongs to and report inflated debt — e.g.
+    // -37 Semi on the list vs -21 Semi on the profile for the same player.
+    const balanceWhere = academyId
+      ? and(
+          inArray(playerCreditBalance.playerId, playerIds),
+          eq(playerCreditBalance.academyId, academyId),
+        )
+      : inArray(playerCreditBalance.playerId, playerIds);
     const balanceRows = await db
       .select({
         playerId: playerCreditBalance.playerId,
@@ -8301,7 +8312,7 @@ export const storage = {
         credits: playerCreditBalance.credits,
       })
       .from(playerCreditBalance)
-      .where(inArray(playerCreditBalance.playerId, playerIds));
+      .where(balanceWhere);
 
     for (const row of balanceRows) {
       if (!result[row.playerId]) continue;
@@ -8310,8 +8321,11 @@ export const storage = {
       const r = result[row.playerId];
       // Sum (not assign): a player CAN have multiple V2 balance rows for the
       // same type if they belong to multiple academies. The unique index is
-      // on (playerId, academyId, type) — so we aggregate across academies to
-      // produce a single net per type, matching the V1 wallet behaviour.
+      // on (playerId, academyId, type). When `academyId` is provided (e.g. the
+      // coach Players list, Task #686), the balance query above is already
+      // scoped to that academy so this loop sees one row per type. When
+      // `academyId` is omitted (legacy callers), we still aggregate across
+      // every academy the player belongs to.
       r[t] += credits;
       if (t === "group") r.netGroup += credits;
       else if (t === "semi_private") r.netSemiPrivate += credits;
