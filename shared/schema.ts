@@ -1730,7 +1730,9 @@ export const seriesPlayers = pgTable("series_players", {
   totalXpEarned: integer("total_xp_earned").default(0),
   
   // Credit tracking - which package to consume credits from for this membership
-  linkedPackageId: varchar("linked_package_id").references(() => packages.id),
+  // Task #698: FK to packages dropped — packages table is inert post Task #682.
+  // Column is kept as a denormalized reference (matches credit_lots.source_package_id).
+  linkedPackageId: varchar("linked_package_id"),
   
   // Guest membership - temporary player in a group (e.g., during merges/holidays)
   isGuest: boolean("is_guest").default(false),
@@ -2890,7 +2892,9 @@ export const invoices = pgTable("invoices", {
     .default(sql`gen_random_uuid()`),
   academyId: varchar("academy_id").references(() => academies.id).notNull(),
   playerId: varchar("player_id").references(() => players.id),
-  packageId: varchar("package_id").references(() => packages.id),
+  // Task #698: FK to packages dropped — packages table is inert post Task #682.
+  // Column kept; lots endpoint LEFT JOINs invoices.package_id = credit_lots.source_package_id.
+  packageId: varchar("package_id"),
   sessionId: varchar("session_id").references(() => sessions.id), // For pay-per-lesson invoices
   
   invoiceNumber: text("invoice_number").notNull(),
@@ -2968,7 +2972,8 @@ export const creditTransactions = pgTable("credit_transactions", {
   playerId: varchar("player_id").references(() => players.id).notNull(),
   academyId: varchar("academy_id").references(() => academies.id),
   sessionId: varchar("session_id").references(() => sessions.id),
-  packageId: varchar("package_id").references(() => packages.id), // Which package the credits came from/went to
+  // Task #698: FK to packages dropped — packages table is inert post Task #682.
+  packageId: varchar("package_id"), // Which package the credits came from/went to (denormalized)
   sessionPlayerId: varchar("session_player_id").references(() => sessionPlayers.id), // Links to specific session_player record for uniqueness
   
   type: text("type").notNull(), // credit | debit | refund | make_up_grant | make_up_used
