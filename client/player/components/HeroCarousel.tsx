@@ -50,7 +50,6 @@ const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
 const HERO_SLOT_HEIGHT = 260;
-const LOCKED_IDLE_DRIFT_MS = 10000;
 
 type SlotId = "train" | "compete" | "events";
 interface SlotMeta {
@@ -698,13 +697,12 @@ export function HeroCarousel({
   const listRef = useRef<FlatList<SlotMeta>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lockedIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lockEngagedRef = useRef(false);
   const progress = useSharedValue(0);
 
-  const priorityLocked =
+  const sessionSoon =
     state.minutesToNextSession != null &&
     state.minutesToNextSession >= 0 &&
     state.minutesToNextSession <= PRIORITY_LOCK_MIN;
@@ -732,9 +730,10 @@ export function HeroCarousel({
     });
   }, [scrollTo]);
 
-  // Auto-rotate
+  // Auto-rotate — runs in all cases unless user has explicitly paused
+  // (or briefly paused while pressing/swiping).
   useEffect(() => {
-    if (paused || priorityLocked) {
+    if (paused || userPaused) {
       cancelAnimation(progress);
       progress.value = 0;
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
@@ -745,57 +744,13 @@ export function HeroCarousel({
     return () => {
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
     };
-  }, [activeIndex, paused, priorityLocked, advance, startProgress, progress]);
-
-  // Priority lock: snap to TRAIN once when the lock first engages, but
-  // afterwards respect manual swipes / dot taps so the player can still
-  // peek at COMPETE / EVENTS while a session is upcoming.
-  useEffect(() => {
-    if (priorityLocked) {
-      if (!lockEngagedRef.current) {
-        lockEngagedRef.current = true;
-        if (activeIndex !== 0) {
-          scrollTo(0);
-          setActiveIndex(0);
-        }
-      }
-    } else {
-      lockEngagedRef.current = false;
-      if (lockedIdleTimerRef.current) {
-        clearTimeout(lockedIdleTimerRef.current);
-        lockedIdleTimerRef.current = null;
-      }
-    }
-  }, [priorityLocked, activeIndex, scrollTo]);
-
-  // Idle drift-back: while locked, if the player is on COMPETE/EVENTS and
-  // does nothing for ~10s, slide quietly back to TRAIN so the countdown
-  // is front-and-center again.
-  useEffect(() => {
-    if (lockedIdleTimerRef.current) {
-      clearTimeout(lockedIdleTimerRef.current);
-      lockedIdleTimerRef.current = null;
-    }
-    if (priorityLocked && activeIndex !== 0) {
-      lockedIdleTimerRef.current = setTimeout(() => {
-        scrollTo(0);
-        setActiveIndex(0);
-      }, LOCKED_IDLE_DRIFT_MS);
-    }
-    return () => {
-      if (lockedIdleTimerRef.current) {
-        clearTimeout(lockedIdleTimerRef.current);
-        lockedIdleTimerRef.current = null;
-      }
-    };
-  }, [priorityLocked, activeIndex, scrollTo]);
+  }, [activeIndex, paused, userPaused, advance, startProgress, progress]);
 
   // Cleanup
   useEffect(() => {
     return () => {
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-      if (lockedIdleTimerRef.current) clearTimeout(lockedIdleTimerRef.current);
     };
   }, []);
 
@@ -859,7 +814,7 @@ export function HeroCarousel({
     >
       {/* Progress bar */}
       <View style={styles.progressTrack}>
-        {!priorityLocked && !paused ? (
+        {!paused && !userPaused ? (
           <Animated.View
             style={[
               styles.progressFill,
@@ -892,35 +847,54 @@ export function HeroCarousel({
         />
       </Pressable>
 
-      {/* Dots */}
+      {/* Dots + Pause/Play */}
       <View style={styles.dotsRow}>
-        {SLOTS.map((s, i) => {
-          const active = i === activeIndex;
-          return (
-            <Pressable
-              key={s.id}
-              hitSlop={8}
-              onPress={() => {
-                pauseNow();
-                setActiveIndex(i);
-                scrollTo(i);
-                scheduleResume();
-              }}
-              style={[
-                styles.dot,
-                {
-                  width: active ? 18 : 6,
-                  backgroundColor: active ? s.accent : "rgba(255,255,255,0.18)",
-                },
-              ]}
-            />
-          );
-        })}
+        <View style={{ width: 28 }} />
+        <View style={styles.dotsInner}>
+          {SLOTS.map((s, i) => {
+            const active = i === activeIndex;
+            return (
+              <Pressable
+                key={s.id}
+                hitSlop={8}
+                onPress={() => {
+                  pauseNow();
+                  setActiveIndex(i);
+                  scrollTo(i);
+                  scheduleResume();
+                }}
+                style={[
+                  styles.dot,
+                  {
+                    width: active ? 18 : 6,
+                    backgroundColor: active ? s.accent : "rgba(255,255,255,0.18)",
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+        <Pressable
+          hitSlop={10}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            setUserPaused((p) => !p);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={userPaused ? "Resume rotation" : "Pause rotation"}
+          style={styles.pauseBtn}
+        >
+          <Ionicons
+            name={userPaused ? "play" : "pause"}
+            size={12}
+            color={TextColors.secondary}
+          />
+        </Pressable>
       </View>
 
-      {priorityLocked ? (
+      {sessionSoon ? (
         <View style={styles.lockBadge}>
-          <Ionicons name="lock-closed" size={11} color={GlowColors.primary} />
+          <Ionicons name="time" size={11} color={GlowColors.primary} />
           <Text style={styles.lockText}>SESSION SOON</Text>
         </View>
       ) : null}
@@ -945,15 +919,28 @@ const styles = StyleSheet.create({
   },
   dotsRow: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 6,
+    paddingHorizontal: Spacing.lg,
     marginTop: 8,
     marginBottom: Spacing.sm,
+  },
+  dotsInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   dot: {
     height: 6,
     borderRadius: 3,
+  },
+  pauseBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   lockBadge: {
     alignSelf: "center",
