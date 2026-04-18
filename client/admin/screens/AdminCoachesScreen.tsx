@@ -170,6 +170,11 @@ export default function AdminCoachesScreen() {
   const closeDetailModal = () => {
     setShowDetailModal(false);
     setSelectedCoachId(null);
+    // Reset nested-modal state so it never reopens stale next time the
+    // detail drawer is presented (the Record Payment modal is rendered
+    // inside this drawer — see replit.md → Modal stacking).
+    setShowPaymentModal(false);
+    setPendingPayment(null);
   };
 
   const markPaidMutation = useMutation({
@@ -686,6 +691,110 @@ export default function AdminCoachesScreen() {
             </View>
           )}
         </View>
+
+        {/*
+          NESTED Record Payment modal — see replit.md → Modal stacking.
+          handleMarkPaid opens this modal while the Detail Modal is still
+          visible, so it MUST render as a child of this <Modal>. Rendering it
+          as a sibling on the screen would mount it in a separate native
+          window and it would appear BEHIND the Detail drawer on iOS.
+        */}
+        <Modal
+          visible={showPaymentModal}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => {
+            setShowPaymentModal(false);
+            setPendingPayment(null);
+          }}
+        >
+          <View style={styles.paymentModalOverlay}>
+            <View style={[styles.paymentModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+              <View style={styles.paymentModalHeader}>
+                <Text style={styles.paymentModalTitle}>Record Payment</Text>
+                <Pressable
+                  onPress={() => {
+                    setShowPaymentModal(false);
+                    setPendingPayment(null);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
+                </Pressable>
+              </View>
+
+              {pendingPayment ? (
+                <Text style={styles.paymentModalSubtitle}>
+                  {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][pendingPayment.month - 1]} {pendingPayment.year}
+                </Text>
+              ) : null}
+
+              <Text style={styles.paymentModalLabel}>Payment Method</Text>
+              <View style={styles.paymentMethodGrid}>
+                {PAYMENT_METHODS.map((method) => (
+                  <Pressable
+                    key={method.value}
+                    style={[
+                      styles.paymentMethodOption,
+                      paymentFormData.paymentMethod === method.value && styles.paymentMethodSelected
+                    ]}
+                    onPress={() => {
+                      setPaymentFormData(prev => ({ ...prev, paymentMethod: method.value }));
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Ionicons
+                      name={method.icon}
+                      size={24}
+                      color={paymentFormData.paymentMethod === method.value ? Colors.dark.text : Colors.dark.textMuted}
+                    />
+                    <Text style={[
+                      styles.paymentMethodLabel,
+                      paymentFormData.paymentMethod === method.value && styles.paymentMethodLabelSelected
+                    ]}>
+                      {method.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.paymentModalLabel}>Reference Number (Optional)</Text>
+              <TextInput
+                style={styles.paymentReferenceInput}
+                value={paymentFormData.paymentReference}
+                onChangeText={(text) => setPaymentFormData(prev => ({ ...prev, paymentReference: text }))}
+                placeholder="Bank transfer ID, cheque number, etc."
+                placeholderTextColor={Colors.dark.textMuted}
+              />
+
+              <View style={styles.paymentModalActions}>
+                <Pressable
+                  style={styles.paymentCancelButton}
+                  onPress={() => {
+                    setShowPaymentModal(false);
+                    setPendingPayment(null);
+                  }}
+                >
+                  <Text style={styles.paymentCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.paymentConfirmButton, markPaidMutation.isPending && styles.paymentButtonDisabled]}
+                  onPress={confirmPayment}
+                  disabled={markPaidMutation.isPending}
+                >
+                  {markPaidMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.text} />
+                      <Text style={styles.paymentConfirmText}>Confirm Payment</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Modal>
     );
   };
@@ -746,103 +855,6 @@ export default function AdminCoachesScreen() {
       
 
       {renderDetailModal()}
-
-      <Modal
-        visible={showPaymentModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => {
-          setShowPaymentModal(false);
-          setPendingPayment(null);
-        }}
-      >
-        <View style={styles.paymentModalOverlay}>
-          <View style={[styles.paymentModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
-            <View style={styles.paymentModalHeader}>
-              <Text style={styles.paymentModalTitle}>Record Payment</Text>
-              <Pressable 
-                onPress={() => {
-                  setShowPaymentModal(false);
-                  setPendingPayment(null);
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
-              </Pressable>
-            </View>
-            
-            {pendingPayment ? (
-              <Text style={styles.paymentModalSubtitle}>
-                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][pendingPayment.month - 1]} {pendingPayment.year}
-              </Text>
-            ) : null}
-
-            <Text style={styles.paymentModalLabel}>Payment Method</Text>
-            <View style={styles.paymentMethodGrid}>
-              {PAYMENT_METHODS.map((method) => (
-                <Pressable
-                  key={method.value}
-                  style={[
-                    styles.paymentMethodOption,
-                    paymentFormData.paymentMethod === method.value && styles.paymentMethodSelected
-                  ]}
-                  onPress={() => {
-                    setPaymentFormData(prev => ({ ...prev, paymentMethod: method.value }));
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <Ionicons 
-                    name={method.icon} 
-                    size={24} 
-                    color={paymentFormData.paymentMethod === method.value ? Colors.dark.text : Colors.dark.textMuted} 
-                  />
-                  <Text style={[
-                    styles.paymentMethodLabel,
-                    paymentFormData.paymentMethod === method.value && styles.paymentMethodLabelSelected
-                  ]}>
-                    {method.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.paymentModalLabel}>Reference Number (Optional)</Text>
-            <TextInput
-              style={styles.paymentReferenceInput}
-              value={paymentFormData.paymentReference}
-              onChangeText={(text) => setPaymentFormData(prev => ({ ...prev, paymentReference: text }))}
-              placeholder="Bank transfer ID, cheque number, etc."
-              placeholderTextColor={Colors.dark.textMuted}
-            />
-
-            <View style={styles.paymentModalActions}>
-              <Pressable 
-                style={styles.paymentCancelButton}
-                onPress={() => {
-                  setShowPaymentModal(false);
-                  setPendingPayment(null);
-                }}
-              >
-                <Text style={styles.paymentCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.paymentConfirmButton, markPaidMutation.isPending && styles.paymentButtonDisabled]}
-                onPress={confirmPayment}
-                disabled={markPaidMutation.isPending}
-              >
-                {markPaidMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.text} />
-                    <Text style={styles.paymentConfirmText}>Confirm Payment</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showAddModal}

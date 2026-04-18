@@ -197,6 +197,18 @@ export default function AdminCorporateAccountsScreen() {
     setShowDetailModal(true);
   };
 
+  const closeDetail = () => {
+    setShowDetailModal(false);
+    // Reset nested-modal state so Top Up / Invite never reopen stale next
+    // time the detail drawer is presented (both are rendered inside the
+    // detail <Modal> — see replit.md → Modal stacking).
+    setShowTopUpModal(false);
+    setShowInviteModal(false);
+    setTopUpAmount("");
+    setTopUpNotes("");
+    setInviteEmail("");
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -326,11 +338,11 @@ export default function AdminCorporateAccountsScreen() {
       </Modal>
 
       {/* Detail Modal */}
-      <Modal visible={showDetailModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showDetailModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeDetail}>
         <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.md }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{selectedAccount?.companyName}</Text>
-            <Pressable onPress={() => setShowDetailModal(false)}>
+            <Pressable onPress={closeDetail}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
           </View>
@@ -528,76 +540,83 @@ export default function AdminCorporateAccountsScreen() {
               </>
             ) : null}
           </ScrollView>
-        </View>
-      </Modal>
 
-      {/* Top Up Modal */}
-      <Modal visible={showTopUpModal} animationType="slide" presentationStyle="formSheet">
-        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.md }]}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Top Up Credits</Text>
-            <Pressable onPress={() => setShowTopUpModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.dark.text} />
-            </Pressable>
-          </View>
-          <KeyboardAwareScrollViewCompat style={styles.modalScroll} contentContainerStyle={{ padding: Spacing.md }}>
-            <Text style={styles.fieldLabel}>Credits to Add *</Text>
-            <TextInput
-              style={styles.input}
-              value={topUpAmount}
-              onChangeText={setTopUpAmount}
-              placeholder="50"
-              placeholderTextColor={Colors.dark.textMuted}
-              keyboardType="numeric"
-            />
-            <Text style={styles.fieldLabel}>Notes (optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={topUpNotes}
-              onChangeText={setTopUpNotes}
-              placeholder="Invoice #1234"
-              placeholderTextColor={Colors.dark.textMuted}
-            />
-            <Pressable style={styles.submitBtn} onPress={handleTopUp} disabled={topUpMutation.isPending}>
-              {topUpMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
-              ) : (
-                <Text style={styles.submitBtnText}>Add Credits</Text>
-              )}
-            </Pressable>
-          </KeyboardAwareScrollViewCompat>
-        </View>
-      </Modal>
+          {/*
+            NESTED MODALS (top-up + invite) — see replit.md → Modal stacking.
+            They are opened from inside this Detail Modal, so they must render
+            as children of the parent <Modal> JSX. Rendering them as siblings on
+            the screen would cause them to mount in a separate native window
+            and appear BEHIND this drawer on iOS.
+          */}
+          {/* Top Up Modal */}
+          <Modal visible={showTopUpModal} animationType="slide" presentationStyle="formSheet">
+            <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.md }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Top Up Credits</Text>
+                <Pressable onPress={() => setShowTopUpModal(false)}>
+                  <Ionicons name="close" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              <KeyboardAwareScrollViewCompat style={styles.modalScroll} contentContainerStyle={{ padding: Spacing.md }}>
+                <Text style={styles.fieldLabel}>Credits to Add *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={topUpAmount}
+                  onChangeText={setTopUpAmount}
+                  placeholder="50"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.fieldLabel}>Notes (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={topUpNotes}
+                  onChangeText={setTopUpNotes}
+                  placeholder="Invoice #1234"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+                <Pressable style={styles.submitBtn} onPress={handleTopUp} disabled={topUpMutation.isPending}>
+                  {topUpMutation.isPending ? (
+                    <ActivityIndicator color={Colors.dark.buttonText} />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Add Credits</Text>
+                  )}
+                </Pressable>
+              </KeyboardAwareScrollViewCompat>
+            </View>
+          </Modal>
 
-      {/* Invite Modal */}
-      <Modal visible={showInviteModal} animationType="slide" presentationStyle="formSheet">
-        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.md }]}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Invite Employee</Text>
-            <Pressable onPress={() => setShowInviteModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.dark.text} />
-            </Pressable>
-          </View>
-          <KeyboardAwareScrollViewCompat style={styles.modalScroll} contentContainerStyle={{ padding: Spacing.md }}>
-            <Text style={styles.fieldLabel}>Employee Email *</Text>
-            <TextInput
-              style={styles.input}
-              value={inviteEmail}
-              onChangeText={setInviteEmail}
-              placeholder="employee@company.com"
-              placeholderTextColor={Colors.dark.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <Text style={styles.inviteNote}>An email with an invite token will be sent to this address.</Text>
-            <Pressable style={styles.submitBtn} onPress={handleInvite} disabled={inviteMutation.isPending}>
-              {inviteMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
-              ) : (
-                <Text style={styles.submitBtnText}>Send Invite</Text>
-              )}
-            </Pressable>
-          </KeyboardAwareScrollViewCompat>
+          {/* Invite Modal */}
+          <Modal visible={showInviteModal} animationType="slide" presentationStyle="formSheet">
+            <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.md }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Invite Employee</Text>
+                <Pressable onPress={() => setShowInviteModal(false)}>
+                  <Ionicons name="close" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              <KeyboardAwareScrollViewCompat style={styles.modalScroll} contentContainerStyle={{ padding: Spacing.md }}>
+                <Text style={styles.fieldLabel}>Employee Email *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder="employee@company.com"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <Text style={styles.inviteNote}>An email with an invite token will be sent to this address.</Text>
+                <Pressable style={styles.submitBtn} onPress={handleInvite} disabled={inviteMutation.isPending}>
+                  {inviteMutation.isPending ? (
+                    <ActivityIndicator color={Colors.dark.buttonText} />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Send Invite</Text>
+                  )}
+                </Pressable>
+              </KeyboardAwareScrollViewCompat>
+            </View>
+          </Modal>
         </View>
       </Modal>
     </View>
