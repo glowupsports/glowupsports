@@ -1084,5 +1084,8 @@
     "blessedMonth": "Blessed Month",
     "blessingsActive": "Ramadan Blessings!",
     "blessingsSubtitle": "Wishing you peace and joy this holy month"
+  },
+  "chat": {
+    "newMessage": "New message"
   }
 }

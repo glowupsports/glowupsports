@@ -28,6 +28,7 @@ import Animated, {
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -187,6 +188,7 @@ const CENTER_BUTTON_PROTRUSION = 8;
 const CHAT_PILL_LIFT = 22;
 
 export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === "web" && screenWidth >= 1024;
@@ -1993,7 +1995,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               onPress={() => worldStick.scrollToBottom(true)}
             >
               <Ionicons name="arrow-down" size={14} color="#000" />
-              <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+              <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</ThemedText>
             </Pressable>
           ) : null}
       </View>
@@ -2374,7 +2376,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   onPress={() => convStick.scrollToBottom(true)}
                 >
                   <Ionicons name="arrow-down" size={14} color="#000" />
-                  <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+                  <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</ThemedText>
                 </Pressable>
               ) : null}
             </Pressable>

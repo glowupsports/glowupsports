@@ -1081,5 +1081,8 @@
     "blessedMonth": "شهر مبارك",
     "blessingsActive": "بركات رمضان!",
     "blessingsSubtitle": "نتمنى لك السلام والسعادة في هذا الشهر الفضيل"
+  },
+  "chat": {
+    "newMessage": "رسالة جديدة"
   }
 }

@@ -20,6 +20,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { useTranslation } from "react-i18next";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -86,6 +87,7 @@ interface OtherPlayer {
 }
 
 export function PlayerChatFooter() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
@@ -696,7 +698,7 @@ export function PlayerChatFooter() {
                       onPress={() => stick.scrollToBottom(true)}
                     >
                       <Ionicons name="arrow-down" size={14} color="#000" />
-                      <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+                      <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</ThemedText>
                     </Pressable>
                   ) : null}
                 </View>

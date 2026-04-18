@@ -14,6 +14,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 import { ThemedText } from "@/components/ThemedText";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -27,6 +28,7 @@ const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.6, 450);
 const TAB_BAR_HEIGHT = 85;
 
 export function ChatFooter() {
+  const { t } = useTranslation();
   const {
     messages,
     currentChannel,
@@ -225,7 +227,7 @@ export function ChatFooter() {
             {stick.hasNewBelow ? (
               <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
                 <Ionicons name="arrow-down" size={14} color="#000" />
-                <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+                <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</ThemedText>
               </Pressable>
             ) : null}
           </View>

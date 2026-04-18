@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 import { useWebSocket } from "@/lib/useWebSocket";
@@ -38,6 +39,7 @@ interface ConversationInfo {
 }
 
 export default function PlayerBookingChatScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -202,7 +204,7 @@ export default function PlayerBookingChatScreen() {
           {stick.hasNewBelow ? (
             <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
               <Ionicons name="arrow-down" size={14} color="#000" />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</Text>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</Text>
             </Pressable>
           ) : null}
         </View>

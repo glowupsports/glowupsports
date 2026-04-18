@@ -29,6 +29,7 @@ import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useTranslation } from "react-i18next";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 interface GroupDetail {
@@ -1992,6 +1993,7 @@ function GroupChatTab({
   typeColor: string;
   groupName: string;
 }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -2210,7 +2212,7 @@ function GroupChatTab({
           onPress={() => stick.scrollToBottom(true)}
         >
           <Ionicons name="arrow-down" size={14} color="#000" />
-          <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</Text>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</Text>
         </Pressable>
       ) : null}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>

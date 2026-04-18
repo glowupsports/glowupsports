@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
+import { useTranslation } from "react-i18next";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -137,6 +138,7 @@ const CHAT_FILTERS: { value: ChatFilter; label: string; icon: any }[] = [
 ];
 
 export default function ChatInboxScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -423,7 +425,7 @@ export default function ChatInboxScreen() {
             {stick.hasNewBelow ? (
               <Pressable style={styles.jumpUnreadPill} onPress={() => stick.scrollToBottom(true)}>
                 <Ionicons name="arrow-down" size={14} color="#000" />
-                <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>New message</ThemedText>
+                <ThemedText style={{ fontSize: 12, fontWeight: "700", color: "#000" }}>{t("chat.newMessage")}</ThemedText>
               </Pressable>
             ) : null}
           </View>

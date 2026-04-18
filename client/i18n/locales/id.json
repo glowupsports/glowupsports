@@ -1081,5 +1081,8 @@
     "blessedMonth": "Bulan Penuh Berkah",
     "blessingsActive": "Berkah Ramadan!",
     "blessingsSubtitle": "Semoga kedamaian dan kebahagiaan menyertai Anda di bulan suci ini"
+  },
+  "chat": {
+    "newMessage": "Pesan baru"
   }
 }
