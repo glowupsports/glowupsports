@@ -338,7 +338,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       ) : null}
 
       {/* Task #688 — full Packages list (all statuses) with tap-to-detail + delete */}
-      <CreditPackagesList playerId={playerId} />
+      <CreditPackagesList playerId={playerId} currency={wallet.moneyWallet?.currency} />
 
       <View style={{ flexDirection: "row", gap: Spacing.sm }}>
         <Pressable
