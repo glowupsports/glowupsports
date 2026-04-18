@@ -228,7 +228,7 @@ function CompeteCard() {
   const respondMutation = useMutation({
     mutationFn: async ({ id, accepted }: { id: string | number; accepted: boolean }) =>
       apiRequest("POST", `/api/matches/challenge/${id}/respond`, {
-        accepted,
+        response: accepted ? "accepted" : "declined",
         playerId,
       }),
     onSuccess: () => {
