@@ -29,7 +29,27 @@ interface Lot {
   // Legacy package UUID — required to call DELETE /api/packages/:id.
   // Lots created from "Add credits" carry this; pure V2-native grants do not.
   source_package_id?: string | null;
+  // Linked invoice (LEFT JOIN; nullable for non-package lots or unbilled).
+  invoice_id?: string | null;
+  invoice_number?: string | null;
+  invoice_status?: string | null;
+  payment_method?: string | null;
 }
+
+const PAYMENT_LABEL: Record<string, string> = {
+  cash: "Cash",
+  bank_transfer: "Bank transfer",
+  stripe: "Card",
+  already_paid: "Paid",
+};
+
+const INVOICE_STATUS_LABEL: Record<string, string> = {
+  draft: "Draft",
+  pending: "Pending",
+  paid: "Paid",
+  void: "Void",
+  uncollectible: "Uncollectible",
+};
 
 interface Props {
   playerId: string;
@@ -150,8 +170,14 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
     const remaining = Number(lot.qty_remaining);
     const used = Math.max(0, total - remaining);
     const typeLabel = TYPE_LABEL[lot.type as string] || String(lot.type);
+    // force=true is only required when there are still unused credits the
+    // server needs to debit. Depleted/expired/cancelled lots delete cleanly.
+    const force = remaining > 0;
+    const invoiceMsg = lot.invoice_number
+      ? ` Invoice ${lot.invoice_number} will be detached.`
+      : "";
     const baseMsg =
-      `This will remove the ${typeLabel} package (${fmtNumber(total)} credits) and detach its invoice. ` +
+      `This will remove the ${typeLabel} package (${fmtNumber(total)} credits).${invoiceMsg} ` +
       `This cannot be undone.`;
     const usageMsg =
       used > 0
@@ -166,7 +192,7 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => deleteMutation.mutate({ packageId: pkgId, force: true }),
+          onPress: () => deleteMutation.mutate({ packageId: pkgId, force }),
         },
       ],
     );
@@ -216,6 +242,9 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
           const status = statusOf(lot);
           const meta = STATUS_META[status];
           const typeColor = TYPE_COLOR[lot.type as string] || Colors.dark.text;
+          const ppc = Number(lot.price_per_credit ?? 0);
+          const totalPrice = total * ppc;
+          const payLabel = lot.payment_method ? PAYMENT_LABEL[lot.payment_method] || lot.payment_method : null;
           return (
             <Pressable
               key={lot.id}
@@ -236,7 +265,7 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
               }}
             >
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <Text style={{ fontSize: 13, color: typeColor, fontWeight: "700" }}>
                     {TYPE_LABEL[lot.type as string] || String(lot.type)}
                   </Text>
@@ -252,10 +281,27 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
                       {meta.label}
                     </Text>
                   </View>
+                  {payLabel ? (
+                    <View
+                      style={{
+                        paddingHorizontal: 6,
+                        paddingVertical: 1,
+                        borderRadius: 4,
+                        backgroundColor: `${Colors.dark.text}12`,
+                      }}
+                    >
+                      <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.dark.textMuted }}>
+                        {payLabel.toUpperCase()}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={{ fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 }}>
-                  {fmtNumber(used)} used / {fmtNumber(total)} total
-                  {lot.expires_at ? ` · Exp ${fmtDate(lot.expires_at)}` : " · No expiry"}
+                  {fmtNumber(remaining)}/{fmtNumber(total)} left · {currency} {totalPrice.toFixed(2)}
+                </Text>
+                <Text style={{ fontSize: 10, color: Colors.dark.textMuted, marginTop: 1 }}>
+                  Bought {fmtDate(lot.created_at)}
+                  {lot.expires_at ? ` · Exp ${fmtDate(lot.expires_at)}` : ""}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
@@ -299,6 +345,15 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
                 const totalPrice = total * ppc;
                 const typeLabel =
                   TYPE_LABEL[selected.type as string] || String(selected.type);
+                const payLabel = selected.payment_method
+                  ? PAYMENT_LABEL[selected.payment_method] || selected.payment_method
+                  : "—";
+                const invStatus = selected.invoice_status
+                  ? INVOICE_STATUS_LABEL[selected.invoice_status] || selected.invoice_status
+                  : null;
+                const invoiceVal = selected.invoice_number
+                  ? `${selected.invoice_number}${invStatus ? ` (${invStatus})` : ""}`
+                  : "No invoice";
                 const rows: { label: string; value: string; color?: string }[] = [
                   { label: "Type", value: typeLabel, color: TYPE_COLOR[selected.type as string] },
                   { label: "Status", value: meta.label, color: meta.color },
@@ -308,6 +363,8 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
                     label: "Price",
                     value: `${currency} ${totalPrice.toFixed(2)} (${currency} ${ppc.toFixed(2)}/credit)`,
                   },
+                  { label: "Payment", value: payLabel },
+                  { label: "Invoice", value: invoiceVal },
                   { label: "Purchased", value: fmtDate(selected.created_at) },
                   { label: "Expires", value: selected.expires_at ? fmtDate(selected.expires_at) : "No expiry" },
                 ];

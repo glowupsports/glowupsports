@@ -125,14 +125,28 @@ router.get(
         return res.status(403).json({ error: "Forbidden" });
       }
       const r = await db.execute(sql`
-        SELECT id, type, qty_total, qty_remaining, price_per_credit,
-               expires_at, status, created_at, source_package_id
-        FROM credit_lots
-        WHERE player_id = ${playerId} AND academy_id = ${access.academyId}
+        SELECT
+          cl.id,
+          cl.type,
+          cl.qty_total,
+          cl.qty_remaining,
+          cl.price_per_credit,
+          cl.expires_at,
+          cl.status,
+          cl.created_at,
+          cl.source_package_id,
+          inv.id              AS invoice_id,
+          inv.invoice_number  AS invoice_number,
+          inv.status          AS invoice_status,
+          inv.payment_method  AS payment_method
+        FROM credit_lots cl
+        LEFT JOIN invoices inv
+          ON inv.package_id = cl.source_package_id
+        WHERE cl.player_id = ${playerId} AND cl.academy_id = ${access.academyId}
         ORDER BY
-          CASE status WHEN 'active' THEN 0 WHEN 'depleted' THEN 1 ELSE 2 END,
-          expires_at NULLS LAST,
-          created_at DESC
+          CASE cl.status WHEN 'active' THEN 0 WHEN 'depleted' THEN 1 ELSE 2 END,
+          cl.expires_at NULLS LAST,
+          cl.created_at DESC
       `);
       res.json({ playerId, lots: r.rows });
     } catch (err) {
