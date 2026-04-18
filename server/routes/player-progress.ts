@@ -1487,61 +1487,51 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 `[AttendanceCorrection] Cancelled legacy debt for player ${playerId} session ${sessionId} (amount: ${cancelResult.amount})`,
               );
             } else {
-              try {
-                const v2Refund = await refundCredit({
-                  sessionPlayerId: spRecord.id,
-                  policy: "force",
-                  actorId,
-                  actorRole: "coach",
-                  reason: adjustmentReason,
-                  eventKey: `refund:attendance-correction:${spRecord.id}:${Date.now()}`,
-                });
-                if (v2Refund.refunded) {
-                  // Mirror legacy behaviour: clear creditDeductedAt so UI
-                  // consumers see the session as un-charged.
-                  await db.update(sessionPlayers)
-                    .set({ creditDeductedAt: null, creditTransactionId: null })
-                    .where(eq(sessionPlayers.id, spRecord.id));
-                  console.log(
-                    `[AttendanceCorrection][V2] Refunded ${v2Refund.amount} ${v2Refund.type ?? creditType} credit(s) to player ${playerId} (newBalance: ${v2Refund.newBalance})`,
-                  );
-                } else {
-                  console.log(
-                    `[AttendanceCorrection][V2] No prior consume found for player ${playerId} session ${sessionId} — nothing to refund.`,
-                  );
-                }
-              } catch (refundErr: any) {
-                console.error(
-                  `[AttendanceCorrection][V2] Refund failed for player ${playerId} session ${sessionId}:`,
-                  refundErr,
+              // Engine errors must surface — silent failure would leave
+              // attendance updated but the wallet untouched.
+              const v2Refund = await refundCredit({
+                sessionPlayerId: spRecord.id,
+                policy: "force",
+                actorId,
+                actorRole: "coach",
+                reason: adjustmentReason,
+                eventKey: `refund:attendance-correction:${spRecord.id}:${Date.now()}`,
+              });
+              if (v2Refund.refunded) {
+                // Mirror legacy behaviour: clear creditDeductedAt so UI
+                // consumers see the session as un-charged.
+                await db.update(sessionPlayers)
+                  .set({ creditDeductedAt: null, creditTransactionId: null })
+                  .where(eq(sessionPlayers.id, spRecord.id));
+                console.log(
+                  `[AttendanceCorrection][V2] Refunded ${v2Refund.amount} ${v2Refund.type ?? creditType} credit(s) to player ${playerId} (newBalance: ${v2Refund.newBalance})`,
+                );
+              } else {
+                console.log(
+                  `[AttendanceCorrection][V2] No prior consume found for player ${playerId} session ${sessionId} — nothing to refund.`,
                 );
               }
             }
           } else {
-            // Debit branch (absent/holiday → present/late).
-            try {
-              const v2Consume = await consumeCredit({
-                sessionPlayerId: spRecord.id,
-                actorId,
-                actorRole: "coach",
-                eventKey: `consume:attendance-correction:${spRecord.id}:${Date.now()}`,
-              });
-              if (v2Consume.charged) {
-                await db.update(sessionPlayers)
-                  .set({ creditDeductedAt: new Date() })
-                  .where(eq(sessionPlayers.id, spRecord.id));
-                console.log(
-                  `[AttendanceCorrection][V2] Deducted ${v2Consume.amount} ${v2Consume.type ?? creditType} credit(s) from player ${playerId} (newBalance: ${v2Consume.newBalance})`,
-                );
-              } else {
-                console.log(
-                  `[AttendanceCorrection][V2] consumeCredit did not charge player ${playerId} session ${sessionId} (chargeable=false).`,
-                );
-              }
-            } catch (consumeErr: any) {
-              console.error(
-                `[AttendanceCorrection][V2] Consume failed for player ${playerId} session ${sessionId}:`,
-                consumeErr,
+            // Debit branch (absent/holiday → present/late). Engine errors
+            // bubble out so the response signals failure and the coach can
+            // retry rather than seeing a misleading success.
+            const v2Consume = await consumeCredit({
+              sessionPlayerId: spRecord.id,
+              actorId,
+              actorRole: "coach",
+              eventKey: `consume:attendance-correction:${spRecord.id}:${Date.now()}`,
+            });
+            if (v2Consume.charged) {
+              await db.update(sessionPlayers)
+                .set({ creditDeductedAt: new Date() })
+                .where(eq(sessionPlayers.id, spRecord.id));
+              console.log(
+                `[AttendanceCorrection][V2] Deducted ${v2Consume.amount} ${v2Consume.type ?? creditType} credit(s) from player ${playerId} (newBalance: ${v2Consume.newBalance})`,
+              );
+            } else {
+              console.log(
+                `[AttendanceCorrection][V2] consumeCredit did not charge player ${playerId} session ${sessionId} (chargeable=false).`,
               );
             }
           }

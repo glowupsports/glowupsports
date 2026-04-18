@@ -2129,29 +2129,42 @@ async function autoCancel(
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, id));
       
+      // Task #684 Phase 3 — V2 owns refunds. `refundCreditsForSession`
+      // dispatches to the V2 engine for V2 academies (every academy is V2
+      // now) and falls back to legacy V1 logic for any historical
+      // non-V2 row. The previous V1 fallback INSERTs that lived here
+      // were dead code under the V1 write gate, so they've been deleted.
+      // We collect failures so the API response surfaces them — the
+      // caller decides whether to retry or escalate before deleting.
       let refundedCount = 0;
+      const refundFailures: { playerId: string; reason: string }[] = [];
       for (const sp of spRecordsForRefund) {
         if (!sp.creditDeductedAt) continue;
 
-        // Task #684 Phase 3 — V2 owns refunds. `refundCreditsForSession`
-        // dispatches to the V2 engine for V2 academies (every academy is V2
-        // now) and falls back to legacy V1 logic for any historical
-        // non-V2 row. The previous V1 fallback INSERTs that lived here
-        // were dead code under the V1 write gate, so they've been deleted.
         try {
           const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
           if (refundResult.success) {
             refundedCount++;
             console.log(`[DeleteSession] Refunded credit for player ${sp.playerId} via refundCreditsForSession`);
           } else {
-            console.log(`[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${refundResult.reason ?? 'unknown'}`);
+            const reason = refundResult.reason ?? 'unknown';
+            console.warn(`[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${reason}`);
+            refundFailures.push({ playerId: sp.playerId, reason });
           }
         } catch (err) {
+          const reason = err instanceof Error ? err.message : 'refund_threw';
           console.error(`[DeleteSession] refundCreditsForSession threw for ${sp.playerId}:`, err);
+          refundFailures.push({ playerId: sp.playerId, reason });
         }
       }
       if (refundedCount > 0) {
         console.log(`[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`);
+      }
+      if (refundFailures.length > 0) {
+        console.warn(
+          `[DeleteSession] ${refundFailures.length} refund failure(s) for session ${id} — manual reconciliation may be required:`,
+          refundFailures,
+        );
       }
 
       // Get players for notification before deleting session_players
