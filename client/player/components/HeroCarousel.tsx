@@ -529,12 +529,12 @@ function EventsCard() {
     Haptics.selectionAsync().catch(() => {});
     try {
       if (id) {
-        navigateToTab("ProgressStack", {
+        navigateToTab("Growth", {
           screen: "TournamentDetail",
           params: { tournamentId: id },
         } as any);
       } else {
-        navigateToTab("ProgressStack", { screen: "Tournaments" } as any);
+        navigateToTab("Growth", { screen: "Tournaments" } as any);
       }
     } catch {
       try {
