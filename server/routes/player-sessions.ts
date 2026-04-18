@@ -153,7 +153,7 @@ import fs from "fs";
         if (sessionTime < now) {
           return res
             .status(400)
-            .json({ error: "Cannot cancel a past session" });
+            .json({ error: "Session has already started — you can no longer cancel it." });
         }
 
         // Get player and academy info
@@ -421,7 +421,7 @@ import fs from "fs";
         if (sessionTime < now) {
           return res
             .status(400)
-            .json({ error: "Cannot mark unavailable for a past session" });
+            .json({ error: "Session has already started — you can no longer mark yourself unavailable." });
         }
 
         // Calculate hours before session
