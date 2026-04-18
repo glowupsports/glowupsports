@@ -141,7 +141,7 @@ function LessonCard({
       <Pressable
         style={({ pressed }) => [
           styles.card,
-          { backgroundColor: tint + "12", borderColor: tint + "33" },
+          { borderColor: tint + "55" },
           pressed && { opacity: 0.95 },
         ]}
         onPress={() => onTap(session)}
@@ -369,7 +369,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLe
     if (fallback) return <>{fallback}</>;
     return (
       <View style={styles.root}>
-        <View style={[styles.emptyCard, { borderColor: tint + "33", backgroundColor: tint + "0F" }]}>
+        <View style={[styles.emptyCard, { borderColor: tint + "55", backgroundColor: "#11141A" }]}>
           <View style={[styles.emptyIconWrap, { backgroundColor: tint + "22", borderColor: tint + "55" }]}>
             <Ionicons name="people-outline" size={28} color={tint} />
           </View>

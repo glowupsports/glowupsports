@@ -340,6 +340,14 @@ function CompeteCard() {
     }
   };
 
+  const goPlayerFinder = () => {
+    try {
+      navigation.navigate("PlayerFinder");
+    } catch {
+      goPlayers();
+    }
+  };
+
   const incomingChallenge = challenges.find(
     (c) =>
       c.status === "pending" && String(c.opponentId) === String(playerId)
@@ -387,7 +395,7 @@ function CompeteCard() {
   if (incomingChallenge) {
     const target = challengeToDate(incomingChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash">
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Players" onAction={goPlayerFinder}>
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={incomingChallenge.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
@@ -440,7 +448,7 @@ function CompeteCard() {
       : acceptedChallenge.challengerName;
     const target = challengeToDate(acceptedChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="tennisball">
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="tennisball" actionLabel="Find Players" onAction={goPlayerFinder}>
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={acceptedChallenge.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
@@ -487,7 +495,7 @@ function CompeteCard() {
     };
 
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon={isHost ? "settings-outline" : "people"}>
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon={isHost ? "settings-outline" : "people"} actionLabel="Find Players" onAction={goPlayerFinder}>
         <MatchSummaryCard
           embedded
           matchId={upcomingOpenMatch.id}
@@ -520,6 +528,8 @@ function CompeteCard() {
       accent={COMPETE_ACCENT}
       label="OPEN MATCHES"
       icon="tennisball-outline"
+      actionLabel="Find Players"
+      onAction={goPlayerFinder}
     >
       <Text style={styles.lensTitle}>Find your first match</Text>
       <Text style={styles.lensSubtitle}>
@@ -603,7 +613,7 @@ function EventsCard() {
       }
     })();
     return (
-      <LensShell accent={EVENTS_ACCENT} label="TOURNAMENTS & EVENTS" icon="trophy">
+      <LensShell accent={EVENTS_ACCENT} label="TOURNAMENTS & EVENTS" icon="trophy" actionLabel="See All" onAction={() => goToTournaments()}>
         <View style={styles.chipRow}>
           {target ? <TimeLeftChip target={target} accent={EVENTS_ACCENT} /> : null}
           <View
@@ -641,7 +651,7 @@ function EventsCard() {
 
   // Designed empty state — no tournaments scheduled
   return (
-    <LensShell accent={EVENTS_ACCENT} label="TOURNAMENTS & EVENTS" icon="trophy-outline">
+    <LensShell accent={EVENTS_ACCENT} label="TOURNAMENTS & EVENTS" icon="trophy-outline" actionLabel="See All" onAction={() => goToTournaments()}>
       <View style={styles.chipRow}>
         <View
           style={[
@@ -678,11 +688,15 @@ function LensShell({
   label,
   icon,
   children,
+  actionLabel,
+  onAction,
 }: {
   accent: string;
   label: string;
   icon: any;
   children: React.ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   return (
     <View style={[styles.lensShell, { borderColor: `${accent}40` }]}>
@@ -697,10 +711,46 @@ function LensShell({
             <Ionicons name={icon} size={14} color={accent} />
           </View>
           <Text style={[styles.lensLabel, { color: accent }]}>{label}</Text>
+          {actionLabel && onAction ? (
+            <View style={styles.jumpPillSpacer} />
+          ) : null}
+          {actionLabel && onAction ? (
+            <JumpPill accent={accent} label={actionLabel} onPress={onAction} />
+          ) : null}
         </View>
         <View style={styles.lensBody}>{children}</View>
       </LinearGradient>
     </View>
+  );
+}
+
+function JumpPill({
+  accent,
+  label,
+  onPress,
+}: {
+  accent: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
+      hitSlop={8}
+      style={({ pressed }) => [
+        styles.jumpPill,
+        { borderColor: `${accent}66`, backgroundColor: `${accent}1A` },
+        pressed && { opacity: 0.8 },
+      ]}
+    >
+      <Text style={[styles.jumpPillText, { color: accent }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Ionicons name="chevron-forward" size={12} color={accent} />
+    </Pressable>
   );
 }
 
@@ -723,6 +773,8 @@ export function HeroCarousel({
   onFindMatch,
 }: HeroCarouselProps = {}) {
   const { state } = usePlayerState();
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const [containerWidth, setContainerWidth] = useState<number>(
     Dimensions.get("window").width
   );
@@ -841,6 +893,22 @@ export function HeroCarousel({
     width: `${progress.value * 100}%`,
   }));
 
+  const goSchedule = () => {
+    try {
+      navigateToTab("Growth", { screen: "ScheduleMain" } as any);
+    } catch {
+      try {
+        navigation.navigate("ScheduleMain");
+      } catch {}
+    }
+  };
+
+  const goClassesDiscovery = () => {
+    try {
+      navigation.navigate("ClassesDiscovery");
+    } catch {}
+  };
+
   const renderItem = ({ item }: { item: SlotMeta }) => (
     <View
       style={{
@@ -864,6 +932,15 @@ export function HeroCarousel({
       )}
       {item.id === "compete" && <CompeteCard />}
       {item.id === "events" && <EventsCard />}
+      {(item.id === "train" || item.id === "glow_lessons") && (
+        <View style={styles.slotPillOverlay} pointerEvents="box-none">
+          <JumpPill
+            accent={item.accent}
+            label={item.id === "train" ? "View Schedule" : "View All"}
+            onPress={item.id === "train" ? goSchedule : goClassesDiscovery}
+          />
+        </View>
+      )}
     </View>
   );
 
@@ -1131,6 +1208,30 @@ const styles = StyleSheet.create({
   ctaSecondaryText: {
     fontSize: FontSizes.sm,
     fontWeight: "700",
+  },
+  jumpPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  jumpPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  jumpPillSpacer: {
+    flex: 1,
+  },
+  slotPillOverlay: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.lg + Spacing.sm,
+    zIndex: 10,
   },
 });
 
