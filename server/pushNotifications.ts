@@ -2876,9 +2876,12 @@ async function processAutoSessionCompletion(): Promise<void> {
 
               // Task #676 Phase 2 — V1 write gate. V2 academies do NOT mint
               // session_debt rows here; the engine produces an "owed" balance
-              // from credit_ledger_v2 instead.
+              // from credit_ledger_v2 instead. We still mark
+              // `creditDeductedAt` either way so this session-player isn't
+              // reprocessed on every auto-complete tick.
               const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-              if (await v1WritesAllowed(session.academyId)) {
+              const v1Ok = await v1WritesAllowed(session.academyId);
+              if (v1Ok) {
                 await db.insert(creditTransactions).values({
                   id: debtId,
                   playerId: sp.playerId,
@@ -2895,15 +2898,17 @@ async function processAutoSessionCompletion(): Promise<void> {
                     reason: creditResult.reason 
                   },
                 });
-
-                // Mark creditDeductedAt to prevent re-processing
-                await db.update(sessionPlayers)
-                  .set({ creditDeductedAt: new Date() })
-                  .where(eq(sessionPlayers.id, sp.id));
-
                 totalCreditsDeducted++;
                 console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
+              } else {
+                console.log(`[AutoComplete] V2 academy ${session.academyId} — skipping V1 session_debt insert for player ${sp.playerId} session ${session.id}`);
               }
+
+              // Always mark processed to prevent the next scheduler tick
+              // from re-evaluating this same session-player row.
+              await db.update(sessionPlayers)
+                .set({ creditDeductedAt: new Date() })
+                .where(eq(sessionPlayers.id, sp.id));
             }
           }
         }

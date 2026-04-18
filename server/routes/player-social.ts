@@ -2590,11 +2590,11 @@ router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("pla
             // Task #676 Phase 2 — V1 write gate. Resolve the player's REAL
             // academy id (the original code wrote a literal 'default-academy'
             // which would have misattributed the debt anyway).
-            const playerRow = await db.execute(sql`
+            const playerRow = await db.execute<{ academy_id: string | null }>(sql`
               SELECT academy_id FROM players WHERE id = ${playerId} LIMIT 1
             `);
             const playerAcademyId =
-              (playerRow.rows[0] as any)?.academy_id || 'default-academy';
+              playerRow.rows[0]?.academy_id ?? 'default-academy';
             const { v1WritesAllowed } = await import("../services/credit-feature-flag");
             if (!(await v1WritesAllowed(playerAcademyId))) {
               continue;

@@ -2526,7 +2526,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
           // Task #676 Phase 2 — V1 write gate. Use the session's academy id
           // (not req.user.currentAcademyId, which can be a different academy
-          // for platform owners switching contexts).
+          // for platform owners switching contexts). For V2 academies we
+          // skip the legacy insert but STILL mark `creditDeductedAt` so this
+          // tool is idempotent and won't re-flag the same row on rerun.
           const { v1WritesAllowed } = await import("../services/credit-feature-flag");
           const v1Ok = await v1WritesAllowed(session.sessionAcademyId);
           if (v1Ok) {
@@ -2546,14 +2548,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
                 originalDate: session.startTime
               },
             });
-
-            // Mark creditDeductedAt to prevent re-processing
-            await db.update(sessionPlayers)
-              .set({ creditDeductedAt: new Date() })
-              .where(eq(sessionPlayers.id, session.sessionPlayerId));
-
             fixedCount++;
           }
+
+          // Always mark processed (both V1 and V2 paths) so the unpaid-
+          // session sweep is idempotent.
+          await db.update(sessionPlayers)
+            .set({ creditDeductedAt: new Date() })
+            .where(eq(sessionPlayers.id, session.sessionPlayerId));
         }
       }
       
