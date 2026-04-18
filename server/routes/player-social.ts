@@ -44,7 +44,7 @@ import {
   requireFeatureUnlock,
   type JWTPayload,
 } from "../auth";
-import { sendBadgeEarnedNotification } from "../pushNotifications";
+import { sendBadgeEarnedNotification, sendFriendRequestNotification, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { sendEmail, sendDeleteAccountRequestEmail } from "../emailService";
 import { fireQuestEvent } from "../services/quest-events";
 import { qualifiesForPersonalisedQuests, pickPersonalisedQuests } from "../services/ai-progress-engine";
@@ -2038,18 +2038,36 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
     try {
       const playerId = req.user!.playerId;
       if (!playerId) {
-        return res.status(403).json({ error: "Player access required" });
+        return res.status(403).json({ error: "You need a player profile to send friend requests. Switch to a player account to connect with other players." });
       }
-      
+
       const { targetPlayerId } = req.body;
-      if (!targetPlayerId) {
+      if (!targetPlayerId || typeof targetPlayerId !== "string") {
         return res.status(400).json({ error: "Target player ID required" });
       }
-      
+
       if (targetPlayerId === playerId) {
-        return res.status(400).json({ error: "Cannot send friend request to yourself" });
+        return res.status(400).json({ error: "You can't send a friend request to yourself" });
       }
-      
+
+      // Validate target player exists
+      const [targetPlayer] = await db
+        .select({ id: players.id, name: players.name })
+        .from(players)
+        .where(eq(players.id, targetPlayerId))
+        .limit(1);
+
+      if (!targetPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Look up requester for notification text
+      const [requester] = await db
+        .select({ id: players.id, name: players.name })
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+
       // Check if connection already exists
       const existingConnection = await db.select()
         .from(playerConnections)
@@ -2058,17 +2076,22 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
           and(eq(playerConnections.player1Id, targetPlayerId), eq(playerConnections.player2Id, playerId))
         ))
         .limit(1);
-      
+
       if (existingConnection.length > 0) {
         const existing = existingConnection[0];
         if (existing.status === "accepted") {
-          return res.status(400).json({ error: "Already connected" });
+          return res.status(409).json({ error: "You're already friends with this player" });
         }
         if (existing.status === "pending") {
-          return res.status(400).json({ error: "Friend request already pending" });
+          const isRequester = existing.player1Id === playerId;
+          return res.status(409).json({
+            error: isRequester
+              ? "Friend request already sent"
+              : `${targetPlayer.name} already sent you a friend request — check your connections to respond`,
+          });
         }
       }
-      
+
       // Create new connection request
       const [newConnection] = await db.insert(playerConnections)
         .values({
@@ -2081,10 +2104,32 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
 
       fireQuestEvent(playerId, "send_connection").catch(() => {});
 
+      // Notify the receiver (push + in-app). Don't block the response on this.
+      // sendFriendRequestNotification only stores an in-app notification when the
+      // receiver has push tokens, so fall back to a direct insert otherwise.
+      (async () => {
+        try {
+          const tokens = await getPlayerPushTokens(targetPlayerId);
+          if (tokens.length > 0) {
+            await sendFriendRequestNotification(targetPlayerId, requester?.name || "A player");
+          } else {
+            await db.insert(playerNotifications).values({
+              playerId: targetPlayerId,
+              title: "Friend Request",
+              body: `${requester?.name || "A player"} wants to connect with you`,
+              type: "friend_request",
+              data: { connectionId: newConnection.id, fromPlayerId: playerId },
+            });
+          }
+        } catch (err) {
+          console.error("[FriendRequest] Failed to send notification:", err);
+        }
+      })();
+
       res.json({ success: true, connection: newConnection });
     } catch (error) {
       console.error("Error sending friend request:", error);
-      res.status(500).json({ error: "Failed to send friend request" });
+      res.status(500).json({ error: "Something went wrong sending the friend request. Please try again." });
     }
   });
   
@@ -2125,11 +2170,41 @@ router.post("/api/player/connections/:connectionId/respond", authMiddleware, asy
         await db.update(playerConnections)
           .set({ status: "accepted", acceptedAt: new Date() })
           .where(eq(playerConnections.id, connectionId));
+
+        // Notify the original requester that their request was accepted
+        try {
+          const [accepter] = await db
+            .select({ name: players.name })
+            .from(players)
+            .where(eq(players.id, playerId))
+            .limit(1);
+
+          const requesterTokens = await getPlayerPushTokens(connection.player1Id);
+          if (requesterTokens.length > 0) {
+            await sendPushNotification(
+              requesterTokens,
+              "Friend Request Accepted",
+              `${accepter?.name || "A player"} accepted your friend request`,
+              { type: "friend_request_accepted", playerId: connection.player1Id, screen: "FriendsList" }
+            );
+          } else {
+            // Still record an in-app notification even when no push tokens
+            await db.insert(playerNotifications).values({
+              playerId: connection.player1Id,
+              title: "Friend Request Accepted",
+              body: `${accepter?.name || "A player"} accepted your friend request`,
+              type: "friend_request_accepted",
+              data: { connectionId, otherPlayerId: playerId },
+            });
+          }
+        } catch (notifyErr) {
+          console.error("[FriendRequest] Failed to send accept notification:", notifyErr);
+        }
       } else {
         await db.delete(playerConnections)
           .where(eq(playerConnections.id, connectionId));
       }
-      
+
       res.json({ success: true, action });
     } catch (error) {
       console.error("Error responding to friend request:", error);
@@ -2176,9 +2251,18 @@ router.get("/api/player/connections/status/:targetPlayerId", authMiddleware, asy
     try {
       const playerId = req.user!.playerId;
       if (!playerId) {
-        return res.status(403).json({ error: "Player access required" });
+        // Coach-only / platform-owner accounts can view profiles but can't form
+        // friend connections. Return a clear non-error state so the UI can
+        // disable the Add Friend button with an explanatory message instead of
+        // silently looking like an unconnected player.
+        return res.json({
+          status: "unavailable",
+          connectionId: null,
+          isRequester: false,
+          reason: "no_player_profile",
+        });
       }
-      
+
       const { targetPlayerId } = req.params;
       
       const [connection] = await db.select()

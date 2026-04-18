@@ -218,6 +218,17 @@ export default function FriendsListScreen() {
     queryKey: ["/api/player/connections"],
   });
   
+  const invalidateConnectionCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
+    // Invalidate every per-profile status query so any open profile screen reflects new state.
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey?.[0];
+        return typeof key === "string" && key.startsWith("/api/player/connections/status/");
+      },
+    });
+  };
+
   const respondMutation = useMutation({
     mutationFn: async ({ connectionId, action }: { connectionId: string; action: "accept" | "decline" }) => {
       return apiRequest("POST", `/api/player/connections/${connectionId}/respond`, { action });
@@ -226,8 +237,26 @@ export default function FriendsListScreen() {
       setRespondingTo(connectionId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
+      invalidateConnectionCaches();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const raw = err?.message || "";
+      const match = raw.match(/^\d+:\s*(.*)$/s);
+      let message = raw;
+      if (match) {
+        const body = match[1].trim();
+        try {
+          const parsed = JSON.parse(body);
+          message = parsed?.error || parsed?.message || body;
+        } catch {
+          message = body;
+        }
+      }
+      // Re-sync from server in case the request actually changed state.
+      invalidateConnectionCaches();
+      Alert.alert("Couldn't respond to request", message || "Please try again.");
     },
     onSettled: () => {
       setRespondingTo(null);
@@ -239,10 +268,11 @@ export default function FriendsListScreen() {
       return apiRequest("DELETE", `/api/player/connections/${connectionId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
+      invalidateConnectionCaches();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {
+      invalidateConnectionCaches();
       Alert.alert("Error", "Failed to remove friend. Please try again.");
     },
   });

@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   Image as RNImage,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -196,7 +197,7 @@ export default function PlayerPublicProfileScreen() {
   });
 
   // Connection status for this player
-  const { data: connectionStatus, isLoading: connectionStatusLoading } = useQuery<{ status: string; connectionId: string | null; isRequester: boolean }>({
+  const { data: connectionStatus, isLoading: connectionStatusLoading } = useQuery<{ status: string; connectionId: string | null; isRequester: boolean; reason?: string }>({
     queryKey: [`/api/player/connections/status/${playerId}`],
     enabled: !!playerId && !profile?.isOwnProfile,
   });
@@ -217,6 +218,25 @@ export default function PlayerPublicProfileScreen() {
       queryClient.invalidateQueries({ queryKey: [`/api/player/connections/status/${playerId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // apiRequest throws errors of the form "<status>: <body>". Try to extract a clean message.
+      const raw = err?.message || "";
+      let message = raw;
+      const match = raw.match(/^\d+:\s*(.*)$/s);
+      if (match) {
+        const body = match[1].trim();
+        try {
+          const parsed = JSON.parse(body);
+          message = parsed?.error || parsed?.message || body;
+        } catch {
+          message = body;
+        }
+      }
+      // Always force the status query to re-sync with server truth so the UI never lies.
+      queryClient.invalidateQueries({ queryKey: [`/api/player/connections/status/${playerId}`] });
+      Alert.alert("Couldn't send friend request", message || "Please try again in a moment.");
     },
   });
 
@@ -476,6 +496,20 @@ export default function PlayerPublicProfileScreen() {
                   <View style={styles.connectionLoadingBtn}>
                     <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
                   </View>
+                ) : connectionStatus?.status === "unavailable" ? (
+                  <Pressable
+                    style={[styles.addFriendBtn, { opacity: 0.55 }]}
+                    onPress={() =>
+                      Alert.alert(
+                        "Player profile required",
+                        "Switch to a player account to send friend requests."
+                      )
+                    }
+                    testID="button-add-friend-disabled"
+                  >
+                    <Ionicons name="person-add" size={18} color={Colors.dark.text} />
+                    <Text style={styles.addFriendBtnText}>Add Friend</Text>
+                  </Pressable>
                 ) : connectionStatus?.status === "none" || !connectionStatus ? (
                   <Pressable 
                     style={styles.addFriendBtn} 
