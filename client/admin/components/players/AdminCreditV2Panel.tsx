@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, Typography } from "@/constants/theme";
+import { CreditPackagesList } from "@/components/CreditPackagesList";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -315,67 +316,8 @@ export function AdminCreditV2Panel({ playerId }: Props) {
             </Text>
           ) : null}
 
-          {/* Active lots */}
-          {wallet.activeLots.length > 0 ? (
-            <View style={{ marginBottom: Spacing.sm }}>
-              <Text
-                style={{
-                  ...Typography.small,
-                  color: Colors.dark.textMuted,
-                  marginBottom: 4,
-                }}
-              >
-                Active lots ({wallet.activeLots.length})
-              </Text>
-              {wallet.activeLots.slice(0, 5).map((lot) => {
-                const isExpiringSoon =
-                  lot.expires_at &&
-                  new Date(lot.expires_at).getTime() - Date.now() <
-                    7 * 24 * 60 * 60 * 1000;
-                return (
-                  <View
-                    key={lot.id}
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      paddingVertical: 4,
-                      borderBottomWidth: 1,
-                      borderBottomColor: `${Colors.dark.text}10`,
-                    }}
-                  >
-                    <Text
-                      style={{ fontSize: 12, color: Colors.dark.text, flex: 1 }}
-                    >
-                      {fmtNumber(lot.qty_remaining)}/{fmtNumber(lot.qty_total)}{" "}
-                      {TYPE_LABEL[lot.type] || lot.type}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        color: isExpiringSoon
-                          ? Colors.dark.gold
-                          : Colors.dark.textMuted,
-                      }}
-                    >
-                      {lot.expires_at
-                        ? `Exp ${fmtDate(lot.expires_at)}`
-                        : "No expiry"}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <Text
-              style={{
-                fontSize: 11,
-                color: Colors.dark.textMuted,
-                marginBottom: Spacing.sm,
-              }}
-            >
-              No active lots. Total balance: {fmtNumber(totalActive)}
-            </Text>
-          )}
+          {/* Task #688 — full Packages list (all statuses) with tap-to-detail + delete */}
+          <CreditPackagesList playerId={playerId} />
 
           {/* Action buttons */}
           <View

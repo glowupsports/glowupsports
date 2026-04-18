@@ -126,7 +126,7 @@ router.get(
       }
       const r = await db.execute(sql`
         SELECT id, type, qty_total, qty_remaining, price_per_credit,
-               expires_at, status, created_at
+               expires_at, status, created_at, source_package_id
         FROM credit_lots
         WHERE player_id = ${playerId} AND academy_id = ${access.academyId}
         ORDER BY

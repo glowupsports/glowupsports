@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
+import { CreditPackagesList } from "@/components/CreditPackagesList";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -336,94 +337,8 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         </Text>
       ) : null}
 
-      {wallet.activeLots.length > 0 ? (
-        <View style={{ marginBottom: Spacing.sm }}>
-          <Text
-            style={{
-              ...Typography.small,
-              color: Colors.dark.textMuted,
-              marginBottom: 4,
-            }}
-          >
-            Active packages ({wallet.activeLots.length})
-          </Text>
-          {wallet.activeLots.slice(0, 6).map((lot) => {
-            const msUntilExpiry = lot.expires_at
-              ? new Date(lot.expires_at).getTime() - Date.now()
-              : null;
-            const expiringSoon =
-              msUntilExpiry !== null &&
-              msUntilExpiry >= 0 &&
-              msUntilExpiry < EXPIRING_SOON_MS;
-            return (
-              <View
-                key={lot.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingVertical: 6,
-                  borderBottomWidth: 1,
-                  borderBottomColor: `${Colors.dark.text}10`,
-                }}
-              >
-                <Text
-                  style={{ fontSize: 12, color: Colors.dark.text, flex: 1 }}
-                >
-                  {fmtNumber(lot.qty_remaining)}/{fmtNumber(lot.qty_total)}{" "}
-                  {TYPE_LABEL[lot.type] || lot.type}
-                </Text>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
-                  {expiringSoon ? (
-                    <View
-                      style={{
-                        paddingHorizontal: 6,
-                        paddingVertical: 2,
-                        borderRadius: 4,
-                        backgroundColor: `${Colors.dark.gold}25`,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 9,
-                          fontWeight: "800",
-                          color: Colors.dark.gold,
-                        }}
-                      >
-                        EXPIRING SOON
-                      </Text>
-                    </View>
-                  ) : null}
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: expiringSoon
-                        ? Colors.dark.gold
-                        : Colors.dark.textMuted,
-                    }}
-                  >
-                    {lot.expires_at
-                      ? `Exp ${fmtDate(lot.expires_at)}`
-                      : "No expiry"}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      ) : (
-        <Text
-          style={{
-            fontSize: 11,
-            color: Colors.dark.textMuted,
-            marginBottom: Spacing.sm,
-          }}
-        >
-          No active packages. Total balance: {fmtNumber(totalActive)}
-        </Text>
-      )}
+      {/* Task #688 — full Packages list (all statuses) with tap-to-detail + delete */}
+      <CreditPackagesList playerId={playerId} />
 
       <View style={{ flexDirection: "row", gap: Spacing.sm }}>
         <Pressable
