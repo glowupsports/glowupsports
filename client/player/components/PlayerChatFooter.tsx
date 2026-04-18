@@ -612,8 +612,50 @@ export function PlayerChatFooter() {
                 >
                   <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
                 </Pressable>
+                {(() => {
+                  const isPlayerChat = selectedConversation.type === "player_player";
+                  const isCoachChat =
+                    selectedConversation.type === "coach_player" ||
+                    selectedConversation.type === "direct_message";
+                  const headerPhoto = isPlayerChat
+                    ? buildPhotoUrl(selectedConversation.playerPhoto)
+                    : isCoachChat
+                      ? buildPhotoUrl(selectedConversation.coachPhoto)
+                      : null;
+                  const headerAvatarKey = `chat-header:${selectedConversation.id}`;
+                  if (isPlayerChat || isCoachChat) {
+                    if (headerPhoto && !failedAvatarIds.has(headerAvatarKey)) {
+                      return (
+                        <Image
+                          source={{ uri: headerPhoto }}
+                          style={styles.chatHeaderAvatarImage}
+                          onError={() => markAvatarFailed(headerAvatarKey)}
+                        />
+                      );
+                    }
+                    return (
+                      <View style={styles.chatHeaderAvatar}>
+                        <Ionicons
+                          name={isCoachChat ? "ribbon" : "person"}
+                          size={18}
+                          color={Colors.dark.primary}
+                        />
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
                 <ThemedText style={styles.chatTitle}>
-                  {selectedConversation.coachName || selectedConversation.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
+                  {(selectedConversation.type === "player_player"
+                    ? selectedConversation.playerName
+                    : null) ||
+                    selectedConversation.coachName ||
+                    selectedConversation.title ||
+                    (currentTab === "coaches"
+                      ? "Coach"
+                      : currentTab === "academy"
+                        ? "Academy"
+                        : "Chat")}
                 </ThemedText>
               </View>
               <View style={styles.safetyBanner}>
@@ -990,6 +1032,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  chatHeaderAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Spacing.sm,
+  },
+  chatHeaderAvatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundDefault,
   },
   loadingContainer: {
     flex: 1,
