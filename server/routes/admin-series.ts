@@ -4013,7 +4013,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             maxPlayers,
             coachId: coach?.id ?? null,
             coachName: coach?.name,
-            coachPhotoUrl: (coach as any)?.photoUrl || (coach as any)?.profilePhotoUrl || null,
+            coachPhotoUrl: coach?.photoUrl || null,
             ballLevel: effectiveBallLevel || null,
             participants,
             isEnrolled,
