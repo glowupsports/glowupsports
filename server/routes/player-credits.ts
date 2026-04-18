@@ -420,6 +420,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/packages/:id",
     authMiddleware,
     requireAcademy,
+    requireRole("coach", "academy_owner", "admin", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -427,7 +428,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const academyId = req.user!.academyId;
 
         console.log(
-          `[PackageDelete] Attempting to delete package ${id} for academy ${academyId}, force=${force}`,
+          `[PackageDelete] Attempting to delete package ${id} for academy ${academyId}, force=${force}, role=${req.user!.role}`,
         );
 
         const { valid } = await validatePackageOwnership(

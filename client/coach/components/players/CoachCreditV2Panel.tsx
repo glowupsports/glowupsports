@@ -122,6 +122,8 @@ interface Props {
 export function CoachCreditV2Panel({ playerId }: Props) {
   const { user } = useAuth();
   const isBillingAuthorized = !!user && ["academy_owner", "admin", "platform_owner"].includes(user.role);
+  // Task #696: deletion is allowed for coaches too (separate from price/payment gating above).
+  const canDeletePackages = !!user && ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
 
   const [showLedger, setShowLedger] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -338,7 +340,11 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       ) : null}
 
       {/* Task #688 — full Packages list (all statuses) with tap-to-detail + delete */}
-      <CreditPackagesList playerId={playerId} currency={wallet.moneyWallet?.currency} />
+      <CreditPackagesList
+        playerId={playerId}
+        currency={wallet.moneyWallet?.currency}
+        canDelete={canDeletePackages}
+      />
 
       <View style={{ flexDirection: "row", gap: Spacing.sm }}>
         <Pressable

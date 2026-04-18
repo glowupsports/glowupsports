@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
+import { useAuth } from "@/coach/context/AuthContext";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -101,6 +102,10 @@ interface Props {
 
 export function AdminCreditV2Panel({ playerId }: Props) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  // Task #696: gate the destructive Delete affordance to billing-authorized roles.
+  const isBillingAuthorized =
+    !!user && ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
   const [adjType, setAdjType] = useState<CreditType>("group");
   const [adjDelta, setAdjDelta] = useState<string>("");
   const [adjReason, setAdjReason] = useState<string>("");
@@ -317,7 +322,11 @@ export function AdminCreditV2Panel({ playerId }: Props) {
           ) : null}
 
           {/* Task #688 — full Packages list (all statuses) with tap-to-detail + delete */}
-          <CreditPackagesList playerId={playerId} currency={wallet.moneyWallet?.currency} />
+          <CreditPackagesList
+            playerId={playerId}
+            currency={wallet.moneyWallet?.currency}
+            canDelete={isBillingAuthorized}
+          />
 
           {/* Action buttons */}
           <View

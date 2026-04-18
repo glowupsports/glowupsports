@@ -54,6 +54,9 @@ const INVOICE_STATUS_LABEL: Record<string, string> = {
 interface Props {
   playerId: string;
   currency?: string;
+  // Task #696: only billing-authorized roles (coach/academy_owner/admin/platform_owner)
+  // see the destructive Delete affordance. Defaults to false so callers must opt in.
+  canDelete?: boolean;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -106,7 +109,7 @@ function statusOf(lot: Lot): keyof typeof STATUS_META {
   return "active";
 }
 
-export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
+export function CreditPackagesList({ playerId, currency = "AED", canDelete = false }: Props) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Lot | null>(null);
 
@@ -420,32 +423,34 @@ export function CreditPackagesList({ playerId, currency = "AED" }: Props) {
                       </View>
                     ) : null}
 
-                    <Pressable
-                      onPress={() => confirmDelete(selected)}
-                      disabled={deleteMutation.isPending}
-                      style={{
-                        marginTop: Spacing.lg,
-                        paddingVertical: 14,
-                        borderRadius: 10,
-                        backgroundColor: Colors.dark.error,
-                        alignItems: "center",
-                        flexDirection: "row",
-                        justifyContent: "center",
-                        gap: 8,
-                        opacity: deleteMutation.isPending ? 0.6 : 1,
-                      }}
-                    >
-                      {deleteMutation.isPending ? (
-                        <ActivityIndicator color="#fff" />
-                      ) : (
-                        <>
-                          <Ionicons name="trash-outline" size={18} color="#fff" />
-                          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
-                            Delete package
-                          </Text>
-                        </>
-                      )}
-                    </Pressable>
+                    {canDelete ? (
+                      <Pressable
+                        onPress={() => confirmDelete(selected)}
+                        disabled={deleteMutation.isPending}
+                        style={{
+                          marginTop: Spacing.lg,
+                          paddingVertical: 14,
+                          borderRadius: 10,
+                          backgroundColor: Colors.dark.error,
+                          alignItems: "center",
+                          flexDirection: "row",
+                          justifyContent: "center",
+                          gap: 8,
+                          opacity: deleteMutation.isPending ? 0.6 : 1,
+                        }}
+                      >
+                        {deleteMutation.isPending ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <>
+                            <Ionicons name="trash-outline" size={18} color="#fff" />
+                            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
+                              Delete package
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+                    ) : null}
                   </View>
                 );
               })()}
