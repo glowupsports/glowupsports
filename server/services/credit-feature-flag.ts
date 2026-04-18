@@ -79,6 +79,7 @@ export function invalidateAllAcademyFlags(): void {
 // ---------------------------------------------------------------------------
 
 let _v1SkipCount = 0;
+let _v1PackageWriteSkipCount = 0;
 
 /** Returns true if it's still legal to write to V1 `credit_transactions` for
  *  this academy. Safe-by-default: when academyId is unknown we ALLOW the
@@ -96,9 +97,24 @@ export async function v1WritesAllowed(
   return true;
 }
 
-/** Read the running counter and reset it. Called by the watchdog. */
+/** Read the running V1 transaction-skip counter and reset it. */
 export function snapshotAndResetV1SkipCount(): number {
   const v = _v1SkipCount;
   _v1SkipCount = 0;
+  return v;
+}
+
+/** Bumped whenever a gated V1 code path skips a paired
+ *  `update(packages).set({ remainingCredits })` because the academy is on V2.
+ *  Surfaced by the 5-min watchdog as `package_writes_blocked=N` so we can
+ *  observe both halves of the V1 write pair (the credit_transactions INSERT
+ *  and the packages.remaining_credits UPDATE) converging to zero together. */
+export function noteV1PackageWriteSkip(): void {
+  _v1PackageWriteSkipCount += 1;
+}
+
+export function snapshotAndResetV1PackageWriteSkipCount(): number {
+  const v = _v1PackageWriteSkipCount;
+  _v1PackageWriteSkipCount = 0;
   return v;
 }

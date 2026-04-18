@@ -3073,7 +3073,7 @@ export const storage = {
     await db.update(sessionPlayers)
       .set({ 
         creditDeductedAt: new Date(),
-        creditTransactionId: transaction.id,
+        creditTransactionId: transaction?.id ?? null,
       })
       .where(whereClause);
 
@@ -3092,7 +3092,7 @@ export const storage = {
       success: true, 
       package: updatedPackage, 
       creditType: requiredCreditType,
-      transactionId: transaction.id,
+      transactionId: transaction?.id ?? null,
     };
   },
 
@@ -3147,11 +3147,11 @@ export const storage = {
     await db.update(sessionPlayers)
       .set({
         creditDeductedAt: new Date(),
-        creditTransactionId: transaction.id,
+        creditTransactionId: transaction?.id ?? null,
       })
       .where(whereClause);
 
-    return { transactionId: transaction.id };
+    return { transactionId: transaction?.id ?? null };
   },
 
   async refundCreditsForSession(
@@ -7210,19 +7210,42 @@ export const storage = {
   },
 
   // ==================== CREDIT TRANSACTIONS ====================
-  async createCreditTransaction(data: InsertCreditTransaction): Promise<CreditTransaction> {
-    // Task #676 Phase 2 — V1 write gate. Skip the legacy insert entirely
-    // when the academy is on V2; return a synthetic placeholder so callers
-    // that read .id keep working (none of those callers are V2-critical
-    // because the V2 short-circuits in consumeCreditsForClassSession,
-    // ensureCreditProcessed, etc. fire before this wrapper is reached).
-    const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-    if (!(await v1WritesAllowed((data as any).academyId))) {
-      return {
-        id: crypto.randomUUID(),
-        ...(data as any),
-        createdAt: new Date(),
-      } as CreditTransaction;
+  /**
+   * Task #676 Phase 2 — V1 write gate.
+   *
+   * For V2 academies we SKIP the legacy `credit_transactions` INSERT and
+   * return `null`. The V2 short-circuits in `consumeCreditsForClassSession`,
+   * `ensureCreditProcessed`, etc. fire before this wrapper is reached on
+   * the booking/consume hot paths, so the in-app caller never sees a null
+   * here in practice. All known callers either ignore the return value or
+   * only use `.id` for logging — both safe with `null`.
+   *
+   * For V1 academies behaviour is unchanged: insert and return the row.
+   *
+   * If the skipped insert is for a `session_consumed` / `session_booking`
+   * reason, the gated code path also skips the paired
+   * `update(packages).set({ remainingCredits })`, so we bump the package
+   * skip counter for the watchdog.
+   */
+  async createCreditTransaction(
+    data: InsertCreditTransaction,
+  ): Promise<CreditTransaction | null> {
+    const {
+      v1WritesAllowed,
+      noteV1PackageWriteSkip,
+    } = await import("./services/credit-feature-flag");
+    if (!(await v1WritesAllowed(data.academyId ?? null))) {
+      const r = data.reason;
+      if (
+        r === "session_consumed" ||
+        r === "session_booking" ||
+        r === "session_settlement" ||
+        r === "session_cancel" ||
+        r === "session_cancel_early"
+      ) {
+        noteV1PackageWriteSkip();
+      }
+      return null;
     }
     const result = await db.insert(creditTransactions).values(data).returning();
     return result[0];

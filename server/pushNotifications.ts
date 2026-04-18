@@ -2255,19 +2255,21 @@ async function processV1WritesWatchdog(): Promise<void> {
     const { countRecentV1WritesForV2Academies } = await import(
       "./services/credit-reconcile"
     );
-    const { snapshotAndResetV1SkipCount } = await import(
-      "./services/credit-feature-flag"
-    );
+    const {
+      snapshotAndResetV1SkipCount,
+      snapshotAndResetV1PackageWriteSkipCount,
+    } = await import("./services/credit-feature-flag");
     const summary = await countRecentV1WritesForV2Academies(5 * 60 * 1000);
     const skipsBlocked = snapshotAndResetV1SkipCount();
+    const packageWritesBlocked = snapshotAndResetV1PackageWriteSkipCount();
     if (summary.total === 0) {
       console.log(
-        `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=${skipsBlocked}`,
+        `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=${skipsBlocked} | package_writes_blocked=${packageWritesBlocked}`,
       );
       return;
     }
     console.warn(
-      `[V1 writes] credit_transactions=${summary.total} (last 5m, V2 academies) | skips_blocked=${skipsBlocked}`,
+      `[V1 writes] credit_transactions=${summary.total} (last 5m, V2 academies) | skips_blocked=${skipsBlocked} | package_writes_blocked=${packageWritesBlocked}`,
     );
     for (const r of summary.perAcademy) {
       console.warn(
