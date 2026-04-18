@@ -90,6 +90,7 @@ import CreateGameRequestScreen from "@/player/screens/CreateGameRequestScreen";
 import MyGamesScreen from "@/player/screens/MyGamesScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import ClassesDiscoveryScreen from "@/player/screens/ClassesDiscoveryScreen";
+import ClassDetailScreen from "@/player/screens/ClassDetailScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
 import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
@@ -334,6 +335,7 @@ export type PlayerStackParamList = {
   CreateGameRequest: undefined;
   MyGames: undefined;
   ClassesDiscovery: undefined;
+  ClassDetail: { session: any };
   MatchLive: {
     matchId: string;
     opponentName: string;
@@ -1506,6 +1508,17 @@ function PlayerStackNavigator() {
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
           headerTransparent: false,
+        }}
+      />
+      <Stack.Screen
+        name="ClassDetail"
+        component={ClassDetailScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Class Details",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />
       <Stack.Screen name="Schedule" component={LegacyScheduleRedirect} options={{ headerShown: false }} />

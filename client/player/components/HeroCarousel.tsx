@@ -29,6 +29,7 @@ import * as Haptics from "expo-haptics";
 
 import { SessionHeroCard } from "./SessionHeroCard";
 import { MatchSummaryCard } from "./MatchSummaryCard";
+import { GlowLessonsStack } from "./GlowLessonsStack";
 import {
   Spacing,
   BorderRadius,
@@ -549,7 +550,6 @@ function EventsCard() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
-  const { state } = usePlayerState();
 
   const { data } = useQuery<TournamentsPayload>({
     queryKey: ["/api/player/tournaments"],
@@ -571,12 +571,6 @@ function EventsCard() {
       (a, b) =>
         new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
     )[0];
-
-  // Group event fallback: when no tournament exists, surface the next group
-  // event from the player dashboard payload (PlayerStateContext.nextEventTime)
-  // if one is set. The dashboard payload only exposes a relative time string
-  // today, so we use it as a soft signal that "something is coming up".
-  const groupEventTime = state.nextEventTime;
 
   const goToTournaments = (id?: string) => {
     Haptics.selectionAsync().catch(() => {});
@@ -642,49 +636,33 @@ function EventsCard() {
     );
   }
 
-  // Group event fallback: surface the next dashboard event if one is queued.
-  if (groupEventTime) {
-    return (
-      <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="people">
-        <View style={styles.chipRow}>
-          <View
-            style={[
-              styles.chip,
-              { borderColor: `${EVENTS_ACCENT}55`, backgroundColor: `${EVENTS_ACCENT}18` },
-            ]}
-          >
-            <Ionicons name="people" size={10} color={EVENTS_ACCENT} />
-            <Text style={[styles.chipText, { color: EVENTS_ACCENT }]}>GROUP EVENT</Text>
-          </View>
-        </View>
-        <Text style={styles.lensTitle}>Group event coming up</Text>
-        <Text style={styles.lensSubtitle}>
-          Your next group event starts in {groupEventTime}.
-        </Text>
-        <Pressable
-          style={[styles.ctaSecondary, { borderColor: EVENTS_ACCENT }]}
-          onPress={() => goToTournaments()}
-        >
-          <Text style={[styles.ctaSecondaryText, { color: EVENTS_ACCENT }]}>View</Text>
-          <Ionicons name="chevron-forward" size={14} color={EVENTS_ACCENT} />
-        </Pressable>
-      </LensShell>
-    );
-  }
-
+  // Designed empty state — no tournaments scheduled
   return (
     <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="trophy-outline">
-      <Text style={styles.lensTitle}>Discover tournaments nearby</Text>
+      <View style={styles.chipRow}>
+        <View
+          style={[
+            styles.chip,
+            { borderColor: `${EVENTS_ACCENT}55`, backgroundColor: `${EVENTS_ACCENT}18` },
+          ]}
+        >
+          <Ionicons name="sparkles-outline" size={10} color={EVENTS_ACCENT} />
+          <Text style={[styles.chipText, { color: EVENTS_ACCENT }]}>DISCOVER</Text>
+        </View>
+      </View>
+      <Text style={styles.lensTitle}>Find your next event</Text>
       <Text style={styles.lensSubtitle}>
-        Browse local tournaments and ladders to test your game.
+        Browse local tournaments, ladders & community meetups near you.
       </Text>
-      <Pressable
-        style={[styles.ctaPrimary, { backgroundColor: EVENTS_ACCENT }]}
-        onPress={() => goToTournaments()}
-      >
-        <Text style={styles.ctaPrimaryText}>Explore</Text>
-        <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
-      </Pressable>
+      <View style={styles.actionRow}>
+        <Pressable
+          style={[styles.ctaPrimary, { backgroundColor: EVENTS_ACCENT, marginTop: 0 }]}
+          onPress={() => goToTournaments()}
+        >
+          <Text style={styles.ctaPrimaryText}>Explore</Text>
+          <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+        </Pressable>
+      </View>
     </LensShell>
   );
 }
@@ -870,12 +848,16 @@ export function HeroCarousel({
       }}
     >
       {item.id === "train" && (
-        <SessionHeroCard
-          onBookSession={onBookSession}
-          onCheckIn={onCheckIn}
-          onCancel={onCancel}
-          onExtend={onExtend}
-          onFindMatch={onFindMatch}
+        <GlowLessonsStack
+          fallback={
+            <SessionHeroCard
+              onBookSession={onBookSession}
+              onCheckIn={onCheckIn}
+              onCancel={onCancel}
+              onExtend={onExtend}
+              onFindMatch={onFindMatch}
+            />
+          }
         />
       )}
       {item.id === "compete" && <CompeteCard />}

@@ -215,10 +215,12 @@ function SessionCard({
   session,
   onJoin,
   isJoining,
+  onPressCard,
 }: {
   session: ClassSession;
   onJoin: (id: string, type: string) => void;
   isJoining: boolean;
+  onPressCard?: (session: ClassSession) => void;
 }) {
   const levelColor = getBallLevelColor(session.ballLevel);
   const currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
@@ -239,7 +241,19 @@ function SessionCard({
   const sessionTime = formatSessionTime(session.date, session.time);
 
   return (
-    <View style={[styles.sessionCard, { borderColor: levelColor + "30" }]}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.sessionCard,
+        { borderColor: levelColor + "30" },
+        pressed && { opacity: 0.85 },
+      ]}
+      onPress={() => {
+        if (onPressCard) {
+          Haptics.selectionAsync().catch(() => {});
+          onPressCard(session);
+        }
+      }}
+    >
       <View style={styles.sessionCardInner}>
         <View style={styles.sessionCardTop}>
           <View style={styles.sessionTypeTag}>
@@ -313,7 +327,7 @@ function SessionCard({
           )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -510,6 +524,7 @@ export default function ClassesDiscoveryScreen() {
             session={session}
             onJoin={handleJoin}
             isJoining={joiningId === session.id}
+            onPressCard={(s) => navigation.navigate("ClassDetail", { session: s })}
           />
         </Animated.View>
       );

@@ -2318,16 +2318,6 @@ export function SessionHeroCard({
                 styles.cleanTextButton,
                 pressed && { opacity: 0.6 },
               ]}
-              onPress={handleCancel}
-            >
-              <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
-              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>{t("common.cancel")}</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.cleanTextButton,
-                pressed && { opacity: 0.6 },
-              ]}
               onPress={handleLate}
             >
               <Feather name="clock" size={14} color={ProTennisColors.warning} />
