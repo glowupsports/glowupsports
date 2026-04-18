@@ -6,7 +6,6 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Platform,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -328,7 +327,11 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
         visible={!!selected}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setSelected(null)}
+        onRequestClose={() => {
+          setSelected(null);
+          setPendingDelete(null);
+          setFeedback(null);
+        }}
       >
         <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot, padding: Spacing.lg }}>
           <View
@@ -340,7 +343,14 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
             }}
           >
             <Text style={{ ...Typography.h2, color: Colors.dark.text }}>Package details</Text>
-            <Pressable onPress={() => setSelected(null)} hitSlop={10}>
+            <Pressable
+              onPress={() => {
+                setSelected(null);
+                setPendingDelete(null);
+                setFeedback(null);
+              }}
+              hitSlop={10}
+            >
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
           </View>
