@@ -1974,6 +1974,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ padding: Spacing.sm, gap: 4 }}
             onContentSizeChange={worldStick.onContentSizeChange}
+            onLayout={worldStick.onLayout}
             onScroll={worldStick.onScroll}
             scrollEventThrottle={worldStick.scrollEventThrottle}
             ListEmptyComponent={
@@ -2363,6 +2364,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   </View>
                 }
                 onContentSizeChange={convStick.onContentSizeChange}
+                onLayout={convStick.onLayout}
                 onScroll={convStick.onScroll}
                 scrollEventThrottle={convStick.scrollEventThrottle}
               />

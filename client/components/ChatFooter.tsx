@@ -218,6 +218,7 @@ export function ChatFooter() {
               style={styles.messageList}
               contentContainerStyle={styles.messageListContent}
               onContentSizeChange={stick.onContentSizeChange}
+              onLayout={stick.onLayout}
               onScroll={stick.onScroll}
               scrollEventThrottle={stick.scrollEventThrottle}
             />

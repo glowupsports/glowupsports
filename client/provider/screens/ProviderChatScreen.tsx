@@ -183,6 +183,7 @@ export default function ProviderChatScreen() {
             renderItem={renderMessage}
             contentContainerStyle={styles.messageList}
             onContentSizeChange={stick.onContentSizeChange}
+            onLayout={stick.onLayout}
             onScroll={stick.onScroll}
             scrollEventThrottle={stick.scrollEventThrottle}
             ListEmptyComponent={

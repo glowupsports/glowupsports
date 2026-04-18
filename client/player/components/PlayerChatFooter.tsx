@@ -679,6 +679,7 @@ export function PlayerChatFooter() {
                     renderItem={renderMessage}
                     contentContainerStyle={styles.messageList}
                     onContentSizeChange={stick.onContentSizeChange}
+                    onLayout={stick.onLayout}
                     onScroll={stick.onScroll}
                     scrollEventThrottle={stick.scrollEventThrottle}
                     ListEmptyComponent={

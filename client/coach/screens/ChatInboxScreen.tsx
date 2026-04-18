@@ -416,6 +416,7 @@ export default function ChatInboxScreen() {
               style={styles.messageList}
               contentContainerStyle={[styles.messageListContent, { paddingBottom: 100 }]}
               onContentSizeChange={stick.onContentSizeChange}
+              onLayout={stick.onLayout}
               onScroll={stick.onScroll}
               scrollEventThrottle={stick.scrollEventThrottle}
             />

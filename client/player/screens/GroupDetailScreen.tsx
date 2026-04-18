@@ -2180,6 +2180,7 @@ function GroupChatTab({
         }}
         contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}
         onContentSizeChange={stick.onContentSizeChange}
+        onLayout={stick.onLayout}
         onScroll={stick.onScroll}
         scrollEventThrottle={stick.scrollEventThrottle}
         ListEmptyComponent={
