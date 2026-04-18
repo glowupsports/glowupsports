@@ -49,6 +49,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
+const HERO_SLOT_HEIGHT = 260;
 
 type SlotId = "train" | "compete" | "events";
 interface SlotMeta {
@@ -786,17 +787,22 @@ export function HeroCarousel({
   }));
 
   const renderItem = ({ item }: { item: SlotMeta }) => (
-    <View style={{ width: containerWidth, minHeight: 240 }}>
+    <View
+      style={{
+        width: containerWidth,
+        height: HERO_SLOT_HEIGHT,
+        overflow: "hidden",
+        justifyContent: "center",
+      }}
+    >
       {item.id === "train" && (
-        <View style={{ minHeight: 240, justifyContent: "center" }}>
-          <SessionHeroCard
-            onBookSession={onBookSession}
-            onCheckIn={onCheckIn}
-            onCancel={onCancel}
-            onExtend={onExtend}
-            onFindMatch={onFindMatch}
-          />
-        </View>
+        <SessionHeroCard
+          onBookSession={onBookSession}
+          onCheckIn={onCheckIn}
+          onCancel={onCancel}
+          onExtend={onExtend}
+          onFindMatch={onFindMatch}
+        />
       )}
       {item.id === "compete" && <CompeteCard />}
       {item.id === "events" && <EventsCard />}
@@ -933,7 +939,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: Backgrounds.card,
     overflow: "hidden",
-    minHeight: 240,
+    height: HERO_SLOT_HEIGHT - Spacing.md * 2,
   },
   chipRow: {
     flexDirection: "row",
