@@ -147,33 +147,39 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
               const isPaid = inv.status === "paid";
               const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
               const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
+              const openViewer = () => {
+                if (Platform.OS !== "web") Haptics.selectionAsync();
+                setViewerInvoice({
+                  id: inv.id,
+                  invoiceNumber: inv.invoiceNumber,
+                  amount: inv.amount,
+                  currency: inv.currency,
+                  status: inv.status,
+                  dueDate: inv.dueDate,
+                  paidAt: inv.paidAt,
+                  createdAt: inv.createdAt,
+                  notes: inv.notes,
+                  isOverdue: inv.isOverdue,
+                });
+              };
               return (
-                <Pressable
+                <View
                   key={inv.id}
-                  onPress={() => {
-                    if (Platform.OS !== "web") Haptics.selectionAsync();
-                    setViewerInvoice({
-                      id: inv.id,
-                      invoiceNumber: inv.invoiceNumber,
-                      amount: inv.amount,
-                      currency: inv.currency,
-                      status: inv.status,
-                      dueDate: inv.dueDate,
-                      paidAt: inv.paidAt,
-                      createdAt: inv.createdAt,
-                      notes: inv.notes,
-                      isOverdue: inv.isOverdue,
-                    });
-                  }}
                   style={{
-                  backgroundColor: "rgba(255,255,255,0.04)",
-                  borderRadius: BorderRadius.sm,
-                  padding: Spacing.sm,
-                  marginBottom: 6,
-                  borderLeftWidth: 3,
-                  borderLeftColor: statusColor,
-                }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    borderRadius: BorderRadius.sm,
+                    padding: Spacing.sm,
+                    marginBottom: 6,
+                    borderLeftWidth: 3,
+                    borderLeftColor: statusColor,
+                  }}
+                >
+                  <Pressable
+                    onPress={openViewer}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View invoice ${inv.invoiceNumber}`}
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+                  >
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13, color: Colors.dark.text, fontWeight: "600" as const }}>
                         #{inv.invoiceNumber}
@@ -185,11 +191,25 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                     <Text style={{ fontSize: 15, fontWeight: "700" as const, color: statusColor }}>
                       {inv.currency} {inv.amount.toLocaleString()}
                     </Text>
-                  </View>
+                  </Pressable>
                   <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
-                    <View style={{ backgroundColor: `${statusColor}20`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.xs }}>
+                    <Pressable
+                      onPress={openViewer}
+                      style={{ backgroundColor: `${statusColor}20`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.xs }}
+                    >
                       <Text style={{ fontSize: 10, fontWeight: "700" as const, color: statusColor }}>{statusLabel}</Text>
-                    </View>
+                    </Pressable>
+                    <Pressable
+                      onPress={openViewer}
+                      style={{
+                        flexDirection: "row", alignItems: "center", gap: 3,
+                        paddingHorizontal: 8, paddingVertical: 4,
+                        borderRadius: BorderRadius.xs,
+                      }}
+                    >
+                      <Ionicons name="document-text-outline" size={12} color={Colors.dark.textMuted} />
+                      <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" as const }}>View</Text>
+                    </Pressable>
                     {!isPaid ? (
                       <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
                         <Pressable
@@ -236,7 +256,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                       </View>
                     ) : null}
                   </View>
-                </Pressable>
+                </View>
               );
             })}
           </View>

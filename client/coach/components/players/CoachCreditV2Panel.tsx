@@ -203,9 +203,11 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       setShowAddModal(false);
       setAddError(null);
       // Surface the auto-generated invoice so coaches can view/share the PDF.
+      // Use an explicit "View invoice" CTA in the success confirmation rather
+      // than auto-opening the viewer — gives the coach control.
       const inv = data?.invoice;
       if (inv?.id && inv?.invoiceNumber) {
-        setPurchasedInvoice({
+        const viewable: ViewableInvoice = {
           id: inv.id,
           invoiceNumber: inv.invoiceNumber,
           amount: inv.amount,
@@ -215,7 +217,17 @@ export function CoachCreditV2Panel({ playerId }: Props) {
           paidAt: inv.paidAt || null,
           createdAt: inv.createdAt || new Date().toISOString(),
           notes: inv.notes || null,
-        });
+        };
+        Alert.alert(
+          "Credits added",
+          `Invoice #${inv.invoiceNumber} was created.`,
+          [
+            { text: "Done", style: "cancel" },
+            { text: "View invoice", onPress: () => setPurchasedInvoice(viewable) },
+          ],
+        );
+      } else {
+        Alert.alert("Credits added", "The credit lot has been created.");
       }
     },
     onError: (err: Error) => {

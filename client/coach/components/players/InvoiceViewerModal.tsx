@@ -238,30 +238,35 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
                 marginBottom: Spacing.md,
               }}
             >
-              {[
-                { label: "Issued", value: fmtDate(merged.createdAt) },
-                { label: "Due", value: fmtDate(merged.dueDate) },
-                ...(merged.paidAt ? [{ label: "Paid on", value: fmtDate(merged.paidAt), color: Colors.dark.successNeon }] : []),
-                ...((merged as any).paymentMethod
-                  ? [{ label: "Method", value: String((merged as any).paymentMethod).replace(/_/g, " ") }]
-                  : []),
-              ].map((r) => (
-                <View
-                  key={r.label}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    paddingVertical: 8,
-                    borderBottomWidth: 1,
-                    borderBottomColor: `${Colors.dark.text}08`,
-                  }}
-                >
-                  <Text style={{ fontSize: 13, color: Colors.dark.textMuted }}>{r.label}</Text>
-                  <Text style={{ fontSize: 13, color: (r as any).color || Colors.dark.text, fontWeight: "600" }}>
-                    {r.value}
-                  </Text>
-                </View>
-              ))}
+              {(() => {
+                const rows: Array<{ label: string; value: string; color?: string }> = [
+                  { label: "Issued", value: fmtDate(merged.createdAt) },
+                  { label: "Due", value: fmtDate(merged.dueDate) },
+                ];
+                if (merged.paidAt) {
+                  rows.push({ label: "Paid on", value: fmtDate(merged.paidAt), color: Colors.dark.successNeon });
+                }
+                if (merged.paymentMethod) {
+                  rows.push({ label: "Method", value: String(merged.paymentMethod).replace(/_/g, " ") });
+                }
+                return rows.map((r) => (
+                  <View
+                    key={r.label}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      paddingVertical: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: `${Colors.dark.text}08`,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: Colors.dark.textMuted }}>{r.label}</Text>
+                    <Text style={{ fontSize: 13, color: r.color || Colors.dark.text, fontWeight: "600" }}>
+                      {r.value}
+                    </Text>
+                  </View>
+                ));
+              })()}
             </View>
 
             {/* Line items if present */}
