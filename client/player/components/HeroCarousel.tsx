@@ -234,6 +234,7 @@ function CompeteCard() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches/challenges"] });
     },
     onError: (err: any) => {
       Alert.alert("Could not respond", err?.message || "Please try again.");
