@@ -116,6 +116,24 @@ export function useV2Enabled(playerId: string | undefined): boolean {
   return q.data?.v2Enabled === true;
 }
 
+interface PurchasedInvoiceResponse {
+  id: string;
+  invoiceNumber: string;
+  amount: number | string;
+  currency?: string | null;
+  status?: string | null;
+  dueDate?: string | null;
+  paidAt?: string | null;
+  createdAt?: string | null;
+  notes?: string | null;
+}
+
+interface PurchaseCreditsResponse {
+  success: boolean;
+  package?: { id: string } | null;
+  invoice?: PurchasedInvoiceResponse | null;
+}
+
 interface Props {
   playerId: string;
 }
@@ -167,12 +185,12 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       }
       const res = await apiRequest("POST", `/api/coach/players/${playerId}/purchase-credits`, body);
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j?.error || "Failed to add credits");
       }
-      return res.json();
+      return (await res.json()) as PurchaseCreditsResponse;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: PurchaseCreditsResponse) => {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }

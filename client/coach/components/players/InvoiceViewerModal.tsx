@@ -18,6 +18,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
 export interface ViewableInvoice {
   id: string;
   invoiceNumber: string;
@@ -29,6 +36,14 @@ export interface ViewableInvoice {
   createdAt?: string | null;
   notes?: string | null;
   isOverdue?: boolean;
+}
+
+interface InvoiceDetail extends ViewableInvoice {
+  paymentMethod?: string | null;
+  type?: string | null;
+  lineItems?: InvoiceLineItem[] | string | null;
+  academyId?: string;
+  playerId?: string | null;
 }
 
 interface Props {
@@ -68,12 +83,12 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
   // Optionally hydrate with the latest server state (line items, paidAt, etc.)
   // so the modal stays in sync if the caller's data is stale. Falls back to
   // the prop if the fetch hasn't returned yet.
-  const detailQuery = useQuery<any>({
+  const detailQuery = useQuery<InvoiceDetail | null>({
     queryKey: [`/api/billing/invoices`, invoice?.id],
     queryFn: async () => {
       if (!invoice?.id) return null;
       const res = await apiRequest("GET", `/api/billing/invoices/${invoice.id}`);
-      return res.json();
+      return (await res.json()) as InvoiceDetail;
     },
     enabled: visible && !!invoice?.id,
     staleTime: 30_000,
@@ -131,35 +146,29 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
   };
 
   // Prefer freshly fetched server fields; fall back to caller-provided meta.
-  const merged = {
-    ...(invoice || {}),
+  const merged: InvoiceDetail = {
+    ...(invoice || ({} as ViewableInvoice)),
     ...(detailQuery.data || {}),
-  } as ViewableInvoice & {
-    amount?: number | string;
-    paymentMethod?: string;
-    type?: string;
-    lineItems?: any;
-  };
+  } as InvoiceDetail;
 
   const status = String(merged.status || "").toLowerCase();
   const isOverdue =
     merged.isOverdue ||
-    (status === "pending" && merged.dueDate && new Date(merged.dueDate) < new Date());
+    (status === "pending" && !!merged.dueDate && new Date(merged.dueDate) < new Date());
   const displayStatus = isOverdue ? "overdue" : status;
   const statusColor = STATUS_COLOR[displayStatus] || Colors.dark.textMuted;
   const amountNum = Number(merged.amount ?? 0);
 
-  const lineItems: Array<{ description: string; quantity: number; unitPrice: number; total: number }> =
-    (() => {
-      const raw = (merged as any).lineItems;
-      if (!raw) return [];
-      try {
-        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    })();
+  const lineItems: InvoiceLineItem[] = (() => {
+    const raw = merged.lineItems;
+    if (!raw) return [];
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? (parsed as InvoiceLineItem[]) : [];
+    } catch {
+      return [];
+    }
+  })();
 
   return (
     <Modal
