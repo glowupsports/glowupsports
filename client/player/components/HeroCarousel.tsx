@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -58,6 +58,10 @@ const HERO_SLOT_HEIGHT = 320;
 const LENS_SHELL_HEIGHT = 236;
 const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v2";
 const PAUSED_HYDRATION_FALLBACK_MS = 1000;
+
+const HeroPillContext = React.createContext<{ onInteract: () => void }>({
+  onInteract: () => {},
+});
 
 type SlotId = "train" | "glow_lessons" | "compete" | "events";
 interface SlotMeta {
@@ -343,9 +347,7 @@ function CompeteCard() {
   const goPlayerFinder = () => {
     try {
       navigation.navigate("PlayerFinder");
-    } catch {
-      goPlayers();
-    }
+    } catch {}
   };
 
   const incomingChallenge = challenges.find(
@@ -733,10 +735,12 @@ function JumpPill({
   label: string;
   onPress: () => void;
 }) {
+  const { onInteract } = useContext(HeroPillContext);
   return (
     <Pressable
       onPress={() => {
         Haptics.selectionAsync().catch(() => {});
+        onInteract();
         onPress();
       }}
       hitSlop={8}
@@ -751,6 +755,31 @@ function JumpPill({
       </Text>
       <Ionicons name="chevron-forward" size={12} color={accent} />
     </Pressable>
+  );
+}
+
+function SlotHeaderStrip({
+  accent,
+  icon,
+  label,
+  actionLabel,
+  onAction,
+}: {
+  accent: string;
+  icon: any;
+  label: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <View style={styles.slotHeaderStrip}>
+      <View style={[styles.lensIconWrap, { backgroundColor: `${accent}25` }]}>
+        <Ionicons name={icon} size={14} color={accent} />
+      </View>
+      <Text style={[styles.lensLabel, { color: accent }]}>{label}</Text>
+      <View style={{ flex: 1 }} />
+      <JumpPill accent={accent} label={actionLabel} onPress={onAction} />
+    </View>
   );
 }
 
@@ -909,42 +938,64 @@ export function HeroCarousel({
     } catch {}
   };
 
-  const renderItem = ({ item }: { item: SlotMeta }) => (
-    <View
-      style={{
-        width: containerWidth,
-        height: HERO_SLOT_HEIGHT,
-        overflow: "hidden",
-        justifyContent: "center",
-      }}
-    >
-      {item.id === "train" && (
-        <SessionHeroCard
-          onBookSession={onBookSession}
-          onCheckIn={onCheckIn}
-          onCancel={onCancel}
-          onExtend={onExtend}
-          onFindMatch={onFindMatch}
-        />
-      )}
-      {item.id === "glow_lessons" && (
-        <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} />
-      )}
-      {item.id === "compete" && <CompeteCard />}
-      {item.id === "events" && <EventsCard />}
-      {(item.id === "train" || item.id === "glow_lessons") && (
-        <View style={styles.slotPillOverlay} pointerEvents="box-none">
-          <JumpPill
+  const renderItem = ({ item }: { item: SlotMeta }) => {
+    const isPlainCard = item.id === "train" || item.id === "glow_lessons";
+    if (isPlainCard) {
+      return (
+        <View
+          style={{
+            width: containerWidth,
+            height: HERO_SLOT_HEIGHT,
+            overflow: "hidden",
+          }}
+        >
+          <SlotHeaderStrip
             accent={item.accent}
-            label={item.id === "train" ? "View Schedule" : "View All"}
-            onPress={item.id === "train" ? goSchedule : goClassesDiscovery}
+            icon={item.id === "train" ? "tennisball" : "people"}
+            label={item.label}
+            actionLabel={item.id === "train" ? "View Schedule" : "View All"}
+            onAction={item.id === "train" ? goSchedule : goClassesDiscovery}
           />
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            {item.id === "train" ? (
+              <SessionHeroCard
+                onBookSession={onBookSession}
+                onCheckIn={onCheckIn}
+                onCancel={onCancel}
+                onExtend={onExtend}
+                onFindMatch={onFindMatch}
+              />
+            ) : (
+              <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} />
+            )}
+          </View>
         </View>
-      )}
-    </View>
-  );
+      );
+    }
+    return (
+      <View
+        style={{
+          width: containerWidth,
+          height: HERO_SLOT_HEIGHT,
+          overflow: "hidden",
+          justifyContent: "center",
+        }}
+      >
+        {item.id === "compete" && <CompeteCard />}
+        {item.id === "events" && <EventsCard />}
+      </View>
+    );
+  };
 
   return (
+    <HeroPillContext.Provider
+      value={{
+        onInteract: () => {
+          pauseNow();
+          scheduleResume();
+        },
+      }}
+    >
     <View
       style={styles.container}
       onLayout={(e) => {
@@ -1046,6 +1097,7 @@ export function HeroCarousel({
         </View>
       ) : null}
     </View>
+    </HeroPillContext.Provider>
   );
 }
 
@@ -1227,11 +1279,13 @@ const styles = StyleSheet.create({
   jumpPillSpacer: {
     flex: 1,
   },
-  slotPillOverlay: {
-    position: "absolute",
-    top: Spacing.md,
-    right: Spacing.lg + Spacing.sm,
-    zIndex: 10,
+  slotHeaderStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
 });
 
