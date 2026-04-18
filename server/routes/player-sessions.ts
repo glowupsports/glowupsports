@@ -221,50 +221,13 @@ import fs from "fs";
           }
 
           if (creditsToDeduct > 0) {
-            const transactionId = `late-cancel-${sessionId}-${playerId}-${Date.now()}`;
-
-            // Task #676 Phase 2 — V1 write gate.
-            const { v1WritesAllowed } = await import("../services/credit-feature-flag");
-            const v1Ok = await v1WritesAllowed(session.academyId);
-            if (v1Ok) {
-              await db.insert(creditTransactions).values({
-                id: transactionId,
-                playerId: playerId,
-                sessionId: sessionId,
-                type: "debit",
-                amount: -creditsToDeduct,
-                reason: "late_cancellation",
-                creditType: creditType,
-                metadata: {
-                  hoursNotice: Math.round(hoursUntilSession),
-                  penaltyTier,
-                  sessionType: session.sessionType,
-                  cancelledAt: new Date().toISOString(),
-                },
-              });
-
-              // Only mark "charged" + ledger linkage when a V1 ledger row was
-              // actually written. For V2 academies the V2 engine owns the
-              // debit; marking "charged" here without a ledger row would
-              // silently desync the wallet — log a warning instead so the
-              // unwired late-cancel V2 path surfaces in Phase 3 work.
-              await db
-                .update(sessionPlayers)
-                .set({
-                  creditDeductedAt: new Date(),
-                  creditTransactionId: transactionId,
-                  billingStatus: "charged",
-                })
-                .where(eq(sessionPlayers.id, sessionPlayer.id));
-
-              console.log(
-                `[LateCancellation] Player ${playerId} charged ${creditsToDeduct} ${creditType} credit(s) for late cancellation (${Math.round(hoursUntilSession)}h notice, tier: ${penaltyTier})`,
-              );
-            } else {
-              console.warn(
-                `[LateCancellation][V2] Player ${playerId} late-cancelled session ${sessionId} (academy ${session.academyId}) — V1 write blocked, V2 late-cancel debit path not yet wired (Task #684 Phase 3). Skipping billingStatus/creditTransactionId update to avoid wallet desync.`,
-              );
-            }
+            // Task #685 Phase 4 — V1 retired. The V2 engine owns late-cancel
+            // debits (see services/credit-engine.ts). We do not mark
+            // billingStatus/creditTransactionId here because the V2 ledger
+            // is the source of truth.
+            console.warn(
+              `[LateCancellation][V2] Player ${playerId} late-cancelled session ${sessionId} (academy ${session.academyId}, tier: ${penaltyTier}, ${creditsToDeduct} ${creditType} credit(s), ${Math.round(hoursUntilSession)}h notice) — V1 retired, no legacy ledger insert. V2 late-cancel debit path is not yet wired; tracked under Task #684 Phase 3 follow-up.`,
+            );
           }
 
           if (xpPenalty !== 0) {

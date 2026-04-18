@@ -343,61 +343,8 @@ export async function computeMissingAttendanceDrift(
   return { academyId, totalMissing: rows.length, rows };
 }
 
-// ---------------------------------------------------------------------------
-// Task #676 Phase 2 — V1 write watchdog.
-//
-// `countRecentV1WritesForV2Academies(windowMs)` returns the number of rows
-// written to the legacy `credit_transactions` table in the last `windowMs`
-// milliseconds, restricted to academies that are already on V2. A clean
-// migration converges to 0 here and stays at 0 for 48 consecutive hours
-// before Phase 3 begins.
-// ---------------------------------------------------------------------------
-
-export interface V1WriteRow {
-  academyId: string;
-  academyName: string;
-  count: number;
-}
-
-export interface V1WritesSummary {
-  windowMs: number;
-  total: number;
-  perAcademy: V1WriteRow[];
-}
-
-export async function countRecentV1WritesForV2Academies(
-  windowMs: number = 5 * 60 * 1000,
-): Promise<V1WritesSummary> {
-  const seconds = Math.max(1, Math.round(windowMs / 1000));
-  // LEFT JOIN so rows whose academy_id is NULL or doesn't resolve to an
-  // academy still appear under "(unknown)" — those are the most suspicious
-  // leaks, since they bypass any per-academy gating logic upstream.
-  const result = await db.execute(sql`
-    SELECT COALESCE(a.id, '(unknown)')   AS academy_id,
-           a.name                         AS academy_name,
-           COUNT(ct.id)::int              AS cnt
-    FROM credit_transactions ct
-    LEFT JOIN academies a ON a.id = ct.academy_id
-    WHERE ct.created_at >= NOW() - make_interval(secs => ${seconds})
-      AND (
-        COALESCE(a.use_new_credit_system, false) = true
-        OR a.id IS NULL
-      )
-    GROUP BY a.id, a.name
-    HAVING COUNT(ct.id) > 0
-    ORDER BY COUNT(ct.id) DESC
-  `);
-  const perAcademy: V1WriteRow[] = result.rows.map((raw) => {
-    const r = raw as { academy_id: string; academy_name: string | null; cnt: number };
-    return {
-      academyId: r.academy_id,
-      academyName: r.academy_name || "(unknown)",
-      count: Number(r.cnt),
-    };
-  });
-  return {
-    windowMs,
-    total: perAcademy.reduce((s, r) => s + r.count, 0),
-    perAcademy,
-  };
-}
+// Task #685 Phase 4 — V1 write watchdog removed. All academies are V2 and the
+// `v1WritesAllowed` gate is hard-locked to `false`, so no new rows can land in
+// the legacy `credit_transactions` table. The 5-minute scheduler poll and its
+// SELECT helper have been deleted alongside the corresponding watchdog in
+// `pushNotifications.ts`.

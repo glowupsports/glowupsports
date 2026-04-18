@@ -579,52 +579,13 @@ router.post(
 
         // Deduct credits from player's active package if paying by credits
         if (data.paymentMethod === "credits" && creditsUsed != null) {
-          // Task #676 Phase 2 — V1 write gate. For V2 academies, the
-          // packages.remaining_credits column is no longer the source of
-          // truth (V2 uses credit_ledger_v2). Mutating it here would
-          // silently desync the V2 wallet. The V2 equipment-credit path
-          // is not yet wired — defer to Phase 3 (Task #684) and fail
-          // closed with a clear error so the client can fall back to cash.
-          const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-          const v1Ok = await v1WritesAllowed(academyId);
-          if (!v1Ok) {
-            console.warn(
-              `[Equipment][V2] academy=${academyId} player=${playerId} equipment=${data.equipmentId} — V1 package decrement blocked, V2 equipment-credit path not yet wired (Task #684 Phase 3). Forcing cash fallback.`,
-            );
-            throw new Error("V2_CREDITS_UNSUPPORTED");
-          }
-
-          const deducted = await tx.execute(sql`
-            UPDATE packages
-            SET remaining_credits = remaining_credits - ${creditsUsed}
-            WHERE id = (
-              SELECT id FROM packages
-              WHERE player_id = ${playerId}
-                AND academy_id = ${academyId}
-                AND status = 'active'
-                AND remaining_credits >= ${creditsUsed}
-              ORDER BY expiry_date ASC NULLS LAST
-              LIMIT 1
-            )
-            RETURNING id, remaining_credits
-          `);
-
-          if (!deducted.rows[0]) {
-            throw new Error("INSUFFICIENT_CREDITS");
-          }
-
-          const pkg = deducted.rows[0] as PackageRow;
-          const balanceAfter = Number(pkg.remaining_credits);
-          const balanceBefore = balanceAfter + creditsUsed;
-
-          await tx.execute(sql`
-            INSERT INTO credit_transactions
-              (player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-            VALUES
-              (${playerId}, ${academyId}, ${pkg.id}, 'debit', 'general', ${-creditsUsed},
-               'equipment_rental', ${balanceBefore}, ${balanceAfter},
-               ${JSON.stringify({ equipmentId: data.equipmentId, equipmentName: item[0].name })}::jsonb)
-          `);
+          // Task #685 Phase 4 — V1 retired. V2 owns the wallet
+          // (credit_ledger_v2); the equipment-credit path on V2 is not yet
+          // wired so we fail closed and the client falls back to cash.
+          console.warn(
+            `[Equipment][V2] academy=${academyId} player=${playerId} equipment=${data.equipmentId} — V1 retired, V2 equipment-credit path not yet wired. Forcing cash fallback.`,
+          );
+          throw new Error("V2_CREDITS_UNSUPPORTED");
         }
 
         const [created] = await tx
@@ -742,48 +703,13 @@ router.post(
 
         // Deduct credits from player's active package if paying by credits
         if (data.paymentMethod === "credits" && totalCredits > 0) {
-          // Task #676 Phase 2 — V1 write gate. See rental flow above for
-          // rationale; V2 academies must not mutate packages.remaining_credits.
-          const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-          const v1Ok = await v1WritesAllowed(academyId);
-          if (!v1Ok) {
-            console.warn(
-              `[Equipment][V2] academy=${academyId} player=${playerId} equipment=${data.equipmentId} qty=${data.quantity} — V1 package decrement blocked, V2 equipment-purchase-credit path not yet wired (Task #684 Phase 3). Forcing cash fallback.`,
-            );
-            throw new Error("V2_CREDITS_UNSUPPORTED");
-          }
-
-          const deducted = await tx.execute(sql`
-            UPDATE packages
-            SET remaining_credits = remaining_credits - ${totalCredits}
-            WHERE id = (
-              SELECT id FROM packages
-              WHERE player_id = ${playerId}
-                AND academy_id = ${academyId}
-                AND status = 'active'
-                AND remaining_credits >= ${totalCredits}
-              ORDER BY expiry_date ASC NULLS LAST
-              LIMIT 1
-            )
-            RETURNING id, remaining_credits
-          `);
-
-          if (!deducted.rows[0]) {
-            throw new Error("INSUFFICIENT_CREDITS");
-          }
-
-          const pkg = deducted.rows[0] as PackageRow;
-          const balanceAfter = Number(pkg.remaining_credits);
-          const balanceBefore = balanceAfter + totalCredits;
-
-          await tx.execute(sql`
-            INSERT INTO credit_transactions
-              (player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-            VALUES
-              (${playerId}, ${academyId}, ${pkg.id}, 'debit', 'general', ${-totalCredits},
-               'equipment_purchase', ${balanceBefore}, ${balanceAfter},
-               ${JSON.stringify({ equipmentId: data.equipmentId, equipmentName: item[0].name, quantity: data.quantity })}::jsonb)
-          `);
+          // Task #685 Phase 4 — V1 retired. V2 owns the wallet
+          // (credit_ledger_v2); the equipment-purchase-credit path on V2 is
+          // not yet wired so we fail closed and the client falls back to cash.
+          console.warn(
+            `[Equipment][V2] academy=${academyId} player=${playerId} equipment=${data.equipmentId} qty=${data.quantity} — V1 retired, V2 equipment-purchase-credit path not yet wired. Forcing cash fallback.`,
+          );
+          throw new Error("V2_CREDITS_UNSUPPORTED");
         }
 
         const [created] = await tx
@@ -855,43 +781,14 @@ router.post(
 
         // Refund credits if originally paid by credits
         if (rental[0].paymentMethod === "credits" && rental[0].creditsUsed != null) {
-          const creditsToRefund = rental[0].creditsUsed;
-
-          // Task #676 Phase 2 — V1 write gate. For V2 academies the
-          // packages.remaining_credits column is no longer source of truth;
-          // a V1 increment here would silently desync the V2 wallet. Skip
-          // both the package increment and the V1 ledger insert and surface
-          // a warn so the V2 refund path can be wired in Phase 3 (Task #684).
-          // Original credit debit was rejected for V2 (V2_CREDITS_UNSUPPORTED),
-          // so in practice this branch only runs for V1 academies.
-          const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-          if (!(await v1WritesAllowed(rental[0].academyId))) {
-            console.warn(
-              `[Equipment][V2] academy=${rental[0].academyId} player=${playerId} rental=${id} — V1 package refund blocked, V2 equipment-refund path not yet wired (Task #684 Phase 3). Skipping refund.`,
-            );
-          } else {
-            await tx.execute(sql`
-              UPDATE packages
-              SET remaining_credits = remaining_credits + ${creditsToRefund}
-              WHERE id = (
-                SELECT id FROM packages
-                WHERE player_id = ${playerId}
-                  AND academy_id = ${rental[0].academyId}
-                  AND status = 'active'
-                ORDER BY expiry_date ASC NULLS LAST
-                LIMIT 1
-              )
-            `);
-
-            await tx.execute(sql`
-              INSERT INTO credit_transactions
-                (player_id, academy_id, type, credit_type, amount, reason, metadata)
-              VALUES
-                (${playerId}, ${rental[0].academyId}, 'refund', 'general', ${creditsToRefund},
-                 'equipment_rental_cancelled',
-                 ${JSON.stringify({ rentalId: id, equipmentId: rental[0].equipmentId })}::jsonb)
-            `);
-          }
+          // Task #685 Phase 4 — V1 retired. Original credit debits are
+          // already rejected for V2 (V2_CREDITS_UNSUPPORTED), so reaching
+          // this branch with paymentMethod=="credits" is now anomalous.
+          // Surface a warn but never mutate the legacy `packages` /
+          // `credit_transactions` tables.
+          console.warn(
+            `[Equipment][V2] academy=${rental[0].academyId} player=${playerId} rental=${id} — V1 retired, no legacy refund. (creditsUsed=${rental[0].creditsUsed})`,
+          );
         }
       });
 

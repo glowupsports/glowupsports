@@ -1635,54 +1635,15 @@ export async function fixHolidayOvercharges(): Promise<void> {
               const newBalance = currentBalance + refundAmount;
               const pkgStatus = pkgResult.rows[0].status;
 
-              // Task #676 Phase 2 — V1 write gate. Skip the V1 refund + V1
-              // ledger insert for V2 academies; the V2 engine owns the ledger.
-              const { v1WritesAllowed: _v1Ok_holiday } = await import(
-                "./services/credit-feature-flag"
+              // Task #685 Phase 4 — V1 retired. The V2 engine owns refunds;
+              // this legacy holiday-overcharge fix is now a no-op for every
+              // academy. Roll back and skip; the V2 holiday-refund path lives
+              // in services/credit-engine.ts (`refundCredit`).
+              console.warn(
+                `[HolidayOverchargeFix][V2] academy=${row.academy_id} player=${row.player_name} session=${row.session_id} — V1 retired, skipping legacy refund + ledger insert. (refund=${refundAmount}, balance ${currentBalance}->${currentBalance + refundAmount}, pkgStatus=${pkgStatus})`,
               );
-              if (!(await _v1Ok_holiday(row.academy_id))) {
-                console.warn(
-                  `[HolidayOverchargeFix][V2] academy=${row.academy_id} player=${row.player_name} session=${row.session_id} — V1 write blocked, V2 holiday-refund repair path not yet wired (Task #684 Phase 3). Skipping refund + ledger insert.`,
-                );
-                await client.query("ROLLBACK");
-                continue;
-              }
-
-              const updateFields: string[] = [`remaining_credits = $1`];
-              const updateParams: (number | string)[] = [newBalance, origTx.package_id];
-              if (pkgStatus === "depleted" && newBalance > 0) {
-                updateFields.push(`status = 'active'`);
-              }
-              await client.query(
-                `UPDATE packages SET ${updateFields.join(", ")} WHERE id = $2`,
-                updateParams
-              );
-
-              await client.query(
-                `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
-                 VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
-                [
-                  row.player_id,
-                  row.academy_id,
-                  origTx.package_id,
-                  origTx.credit_type || "group",
-                  refundAmount,
-                  row.session_id,
-                  currentBalance,
-                  newBalance,
-                  JSON.stringify({
-                    originalTransactionId: origTx.id,
-                    refundedBy: "holiday_overcharge_fix",
-                    reason: "player_was_on_holiday",
-                  }),
-                ]
-              );
-
-              packageRefunded++;
-              if (pkgStatus === "depleted" && newBalance > 0) {
-                console.log(`[HolidayOverchargeFix] Reactivated depleted package ${origTx.package_id} for ${row.player_name}`);
-              }
-              console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
+              await client.query("ROLLBACK");
+              continue;
             }
           }
 
@@ -1882,52 +1843,11 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
         if (currentRemaining >= 4) {
           console.log(`[AlmaFix] Package already at ${currentRemaining} credits (>= 4) — skipping credit top-up`);
         } else {
-          // Task #676 Phase 2 — V1 write gate. If Alma's academy is V2,
-          // skip the legacy refund + V1 ledger insert (the V2 engine owns the
-          // wallet for V2 academies).
-          const { v1WritesAllowed: _v1Ok_alma } = await import(
-            "./services/credit-feature-flag"
+          // Task #685 Phase 4 — V1 retired. Legacy refund + ledger insert no
+          // longer execute on any academy; the V2 engine owns the wallet.
+          console.warn(
+            `[AlmaFix][V2] academy=${pkg.academy_id} player=${playerId} — V1 retired, skipping legacy refund + ledger insert. (would have bumped ${currentRemaining} -> ${currentRemaining + 1})`,
           );
-          if (!(await _v1Ok_alma(pkg.academy_id))) {
-            console.warn(
-              `[AlmaFix][V2] academy=${pkg.academy_id} — V1 write blocked, V2 manual-correction repair path not yet wired (Task #684 Phase 3). Skipping refund + ledger insert.`,
-            );
-          } else {
-          const newRemaining = currentRemaining + 1;
-          const client = await pool.connect();
-          try {
-            await client.query("BEGIN");
-
-            await client.query(
-              `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
-              [newRemaining, pkg.id]
-            );
-
-            // Transactionally insert the idempotency marker alongside the balance update
-            await client.query(
-              `INSERT INTO credit_transactions
-                 (id, player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-               VALUES
-                 (gen_random_uuid(), $1, $2, $3, 'credit', 'group', 1, 'session_removal_refund', $4, $5, $6)`,
-              [
-                playerId,
-                pkg.academy_id,
-                pkg.id,
-                currentRemaining,
-                newRemaining,
-                JSON.stringify({ refundedBy: "holiday_debt_fix", reason: "manual_correction_alma_zalesski" }),
-              ]
-            );
-
-            await client.query("COMMIT");
-            console.log(`[AlmaFix] Refunded 1 group credit to package ${pkg.id} | ${currentRemaining} -> ${newRemaining}`);
-          } catch (creditErr) {
-            await client.query("ROLLBACK");
-            console.error("[AlmaFix] Failed to add credit:", creditErr);
-          } finally {
-            client.release();
-          }
-          }
         }
       }
     }
@@ -1990,119 +1910,13 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
  * legitimate future package usage.
  */
 export async function fixRouzbehGhostCredit(): Promise<void> {
-  const PLAYER_ID = '2c6f6347-0978-45d3-9fbe-fe17ff6466fb';
-  const SENTINEL_TASK = '390_rouzbeh_private_ghost';
-
-  try {
-    const sentinelRes = await pool.query(
-      `SELECT id FROM credit_transactions
-       WHERE player_id = $1
-         AND reason = 'ghost_credit_correction'
-         AND metadata->>'task' = $2
-       LIMIT 1`,
-      [PLAYER_ID, SENTINEL_TASK]
-    );
-    if (sentinelRes.rows.length > 0) {
-      console.log("[RouzbehCreditFix] Correction already applied — skipping");
-      return;
-    }
-
-    const pkgRes = await pool.query(
-      `SELECT id, remaining_credits, total_credits, academy_id
-       FROM packages
-       WHERE player_id = $1 AND credit_type = 'private' AND status = 'active'
-       ORDER BY remaining_credits DESC
-       LIMIT 1`,
-      [PLAYER_ID]
-    );
-
-    if (pkgRes.rows.length === 0) {
-      console.log("[RouzbehCreditFix] No active private package found — skipping");
-      return;
-    }
-
-    const pkg = pkgRes.rows[0] as {
-      id: string;
-      remaining_credits: string;
-      total_credits: string;
-      academy_id: string;
-    };
-    const currentRemaining = Number(pkg.remaining_credits);
-
-    // Guard: only apply if remaining is demonstrably inflated (>= 4).
-    // The ghost credit inflated the package from the correct value of 3 to 4.
-    // If remaining is already <= 3, a prior correction may have run without leaving
-    // a sentinel — skip to avoid over-deducting legitimate credits.
-    if (currentRemaining < 4) {
-      console.log(`[RouzbehCreditFix] Package ${pkg.id} remaining ${currentRemaining} is already <= 3; inserting sentinel and skipping deduction`);
-      const sentinelMeta = JSON.stringify({
-        task: SENTINEL_TASK,
-        correctedAt: new Date().toISOString(),
-        originalRemaining: currentRemaining,
-        skipped: true,
-      });
-      await pool.query(
-        `INSERT INTO credit_transactions
-           (id, player_id, type, amount, credit_type, reason, package_id, academy_id, metadata, created_at)
-         VALUES
-           (gen_random_uuid(), $1, 'debit', 0, 'private', 'ghost_credit_correction', $2, $3,
-            $4::jsonb,
-            NOW())`,
-        [PLAYER_ID, pkg.id, pkg.academy_id, sentinelMeta]
-      );
-      return;
-    }
-
-    // Task #676 Phase 2 — V1 write gate. If Rouzbeh's academy is V2,
-    // skip the legacy package decrement + V1 ledger sentinel insert
-    // (the V2 engine owns the wallet for V2 academies).
-    const { v1WritesAllowed: _v1Ok_rouzbeh } = await import(
-      "./services/credit-feature-flag"
-    );
-    if (!(await _v1Ok_rouzbeh(pkg.academy_id))) {
-      console.warn(
-        `[RouzbehCreditFix][V2] academy=${pkg.academy_id} — V1 write blocked, V2 ghost-credit repair path not yet wired (Task #684 Phase 3). Skipping deduction + sentinel insert.`,
-      );
-      return;
-    }
-
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      // Deduct the ghost credit from the package
-      await client.query(
-        `UPDATE packages SET remaining_credits = remaining_credits - 1 WHERE id = $1`,
-        [pkg.id]
-      );
-
-      // Insert sentinel to mark this correction as applied (idempotency for future boots)
-      const sentinelMeta = JSON.stringify({
-        task: SENTINEL_TASK,
-        correctedAt: new Date().toISOString(),
-        originalRemaining: currentRemaining,
-      });
-      await client.query(
-        `INSERT INTO credit_transactions
-           (id, player_id, type, amount, credit_type, reason, package_id, academy_id, metadata, created_at)
-         VALUES
-           (gen_random_uuid(), $1, 'debit', -1, 'private', 'ghost_credit_correction', $2, $3,
-            $4::jsonb,
-            NOW())`,
-        [PLAYER_ID, pkg.id, pkg.academy_id, sentinelMeta]
-      );
-
-      await client.query("COMMIT");
-      console.log(`[RouzbehCreditFix] Corrected ghost credit on package ${pkg.id}: ${currentRemaining} -> ${currentRemaining - 1}`);
-    } catch (txErr: unknown) {
-      await client.query("ROLLBACK");
-      throw txErr;
-    } finally {
-      client.release();
-    }
-  } catch (err: unknown) {
-    console.error("[RouzbehCreditFix] Error:", err instanceof Error ? err.message : String(err));
-  }
+  // Task #685 Phase 4 — V1 retired. The original repair targeted the legacy
+  // `packages` / `credit_transactions` tables which V2 no longer treats as
+  // source of truth, and any V2-side correction has long been applied. The
+  // function is preserved as a logged no-op so the import + scheduler hook
+  // in server/index.ts continues to compile; it can be deleted entirely in a
+  // follow-up cleanup pass alongside the other one-shot V1 repair functions.
+  console.log("[RouzbehCreditFix] V1 retired — skipping legacy repair (no-op)");
 }
 
 
@@ -2196,7 +2010,6 @@ export function startReminderScheduler(): void {
       await processAutoCompleteSession();
       await processUnchargedAttendance();
       await processCreditDriftWatchdog();
-      await processV1WritesWatchdog();
       await processExpiredWaitlistSpots();
     } catch (e) { console.error("[Scheduler] Startup sequence error:", e); }
   })();
@@ -2209,7 +2022,6 @@ export function startReminderScheduler(): void {
       await processAutoAttendance();
       await processUnchargedAttendance();
       await processCreditDriftWatchdog();
-      await processV1WritesWatchdog();
       await processExpiredWaitlistSpots();
       await processDepartureAlerts();
       await processPostSessionReflectionReminders();
@@ -2280,42 +2092,6 @@ async function processCreditDriftWatchdog(): Promise<void> {
     }
   } catch (err) {
     console.error("[Reconcile] watchdog error:", err);
-  }
-}
-
-// Task #676 Phase 2 — V1 write watchdog. Every 5 min we count rows landed in
-// the legacy credit_transactions table for V2 academies, and snapshot the
-// in-process gate counter. A clean migration converges to:
-//   `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=N`
-// Phase 3 only starts after 48 consecutive hours of total=0.
-async function processV1WritesWatchdog(): Promise<void> {
-  try {
-    const { countRecentV1WritesForV2Academies } = await import(
-      "./services/credit-reconcile"
-    );
-    const {
-      snapshotAndResetV1SkipCount,
-      snapshotAndResetV1PackageWriteSkipCount,
-    } = await import("./services/credit-feature-flag");
-    const summary = await countRecentV1WritesForV2Academies(5 * 60 * 1000);
-    const skipsBlocked = snapshotAndResetV1SkipCount();
-    const packageWritesBlocked = snapshotAndResetV1PackageWriteSkipCount();
-    if (summary.total === 0) {
-      console.log(
-        `[V1 writes] credit_transactions=0 (last 5m, V2 academies) | skips_blocked=${skipsBlocked} | package_writes_blocked=${packageWritesBlocked}`,
-      );
-      return;
-    }
-    console.warn(
-      `[V1 writes] credit_transactions=${summary.total} (last 5m, V2 academies) | skips_blocked=${skipsBlocked} | package_writes_blocked=${packageWritesBlocked}`,
-    );
-    for (const r of summary.perAcademy) {
-      console.warn(
-        `[V1 writes] academy=${r.academyId} (${r.academyName}) count=${r.count}`,
-      );
-    }
-  } catch (err) {
-    console.error("[V1 writes] watchdog error:", err);
   }
 }
 
@@ -2914,35 +2690,14 @@ async function processAutoSessionCompletion(): Promise<void> {
               // Use shared canonical normalizer (storage.ts) — safe default is "group", never "private".
               const creditType = normalizeSessionTypeToCreditType(session.sessionType);
 
-              // Task #676 Phase 2 — V1 write gate. V2 academies do NOT mint
-              // session_debt rows here; the engine produces an "owed" balance
-              // from credit_ledger_v2 instead. We still mark
-              // `creditDeductedAt` either way so this session-player isn't
-              // reprocessed on every auto-complete tick.
-              const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-              const v1Ok = await v1WritesAllowed(session.academyId);
-              if (v1Ok) {
-                await db.insert(creditTransactions).values({
-                  id: debtId,
-                  playerId: sp.playerId,
-                  packageId: null,
-                  type: "debit",
-                  amount: -1,
-                  reason: "session_debt",
-                  creditType: creditType,
-                  sessionId: session.id,
-                  metadata: { 
-                    isDebt: true, 
-                    autoCompleted: true,
-                    sessionType: session.sessionType,
-                    reason: creditResult.reason 
-                  },
-                });
-                totalCreditsDeducted++;
-                console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
-              } else {
-                console.log(`[AutoComplete] V2 academy ${session.academyId} — skipping V1 session_debt insert for player ${sp.playerId} session ${session.id}`);
-              }
+              // Task #685 Phase 4 — V1 retired. V2 academies surface owed
+              // balances directly from credit_ledger_v2; we no longer mint
+              // session_debt rows here. We still mark `creditDeductedAt`
+              // below so this session-player isn't reprocessed on every
+              // auto-complete tick.
+              void debtId;
+              void creditType;
+              console.log(`[AutoComplete] V2 academy ${session.academyId} — skipping legacy session_debt insert for player ${sp.playerId} session ${session.id}`);
 
               // Always mark processed to prevent the next scheduler tick
               // from re-evaluating this same session-player row.

@@ -2587,43 +2587,10 @@ router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("pla
           const debtAmount = Math.max(0, presentCount - totalCreditsEver);
           
           if (debtAmount > 0) {
-            // Task #676 Phase 2 — V1 write gate. Resolve the player's REAL
-            // academy id (the original code wrote a literal 'default-academy'
-            // which would have misattributed the debt anyway).
-            const playerRow = await db.execute<{ academy_id: string | null }>(sql`
-              SELECT academy_id FROM players WHERE id = ${playerId} LIMIT 1
-            `);
-            const playerAcademyId =
-              playerRow.rows[0]?.academy_id ?? 'default-academy';
-            const { v1WritesAllowed } = await import("../services/credit-feature-flag");
-            if (!(await v1WritesAllowed(playerAcademyId))) {
-              continue;
-            }
-            const debtId = crypto.randomUUID();
-            await db.execute(sql`
-              INSERT INTO credit_transactions (
-                id, player_id, academy_id, type, credit_type, amount, reason, metadata
-              )
-              VALUES (
-                ${debtId},
-                ${playerId},
-                ${playerAcademyId},
-                'debit',
-                ${creditType},
-                ${-debtAmount},
-                'session_debt',
-                ${JSON.stringify({
-                  recalculatedAt: new Date().toISOString(),
-                  presentCount,
-                  totalCreditsEver,
-                  availableCredits,
-                  alreadyConsumed,
-                  description: `Recalculated debt: ${presentCount} sessions - ${totalCreditsEver} credits = ${debtAmount} owed`
-                })}::jsonb
-              )
-            `);
-            
-            console.log(`[RecalculateDebts] Player ${playerId.slice(0,8)}: ${creditType} debt = ${debtAmount} (present: ${presentCount}, credits: ${totalCreditsEver})`);
+            // Task #685 Phase 4 — V1 retired. The legacy `credit_transactions`
+            // recalc-debt insert no longer runs; V2 owes are derived from
+            // credit_ledger_v2 and don't need a debit row to be materialised.
+            console.log(`[RecalculateDebts] Player ${playerId.slice(0,8)}: ${creditType} debt = ${debtAmount} (present: ${presentCount}, credits: ${totalCreditsEver}) — V1 retired, no insert.`);
           }
           
           results.push({

@@ -2524,38 +2524,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           const creditType = session.sessionType.includes("semi") ? "semi_private" : 
                              session.sessionType.includes("group") ? "group" : "private";
 
-          // Task #676 Phase 2 — V1 write gate. Use the session's academy id
-          // (not req.user.currentAcademyId, which can be a different academy
-          // for platform owners switching contexts). For V2 academies we
-          // skip the legacy insert but STILL mark `creditDeductedAt` so this
-          // tool is idempotent and won't re-flag the same row on rerun.
-          const { v1WritesAllowed } = await import("../services/credit-feature-flag");
-          const v1Ok = await v1WritesAllowed(session.sessionAcademyId);
-          if (v1Ok) {
-            await db.insert(creditTransactions).values({
-              id: debtId,
-              playerId: session.playerId,
-              packageId: null,
-              type: "debit",
-              amount: -1,
-              reason: "session_debt",
-              creditType: creditType,
-              sessionId: session.sessionId,
-              metadata: { 
-                isDebt: true, 
-                fixedManually: true,
-                sessionType: session.sessionType,
-                originalDate: session.startTime
-              },
-            });
-            fixedCount++;
-          }
-
-          // Always mark processed (both V1 and V2 paths) so the unpaid-
-          // session sweep is idempotent.
+          // Task #685 Phase 4 — V1 retired. Mark processed (idempotent on
+          // rerun) but skip the legacy debt insert; V2 surfaces the owed
+          // balance from credit_ledger_v2.
+          void debtId;
+          void creditType;
           await db.update(sessionPlayers)
             .set({ creditDeductedAt: new Date() })
             .where(eq(sessionPlayers.id, session.sessionPlayerId));
+          fixedCount++;
         }
       }
       
@@ -2650,44 +2627,13 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const debtId = `manual-debt-${Date.now()}-${playerId}`;
-
-      // Task #676 Phase 2 — V1 write gate.
-      {
-        const { v1WritesAllowed } = await import("../services/credit-feature-flag");
-        if (!(await v1WritesAllowed(player.academyId ?? academyId))) {
-          return res.status(409).json({
-            error: "This academy is on the new credit engine (V2). Manual V1 debt entries are no longer supported — adjust the player's credit balance directly instead.",
-          });
-        }
-      }
-
-      await db.insert(creditTransactions).values({
-        id: debtId,
-        playerId: playerId,
-        packageId: null,
-        type: "debit",
-        amount: -amount,
-        reason: reason || "manual_debt_correction",
-        creditType: creditType,
-        sessionId: null,
-        metadata: { 
-          isDebt: true, 
-          addedManually: true,
-          addedBy: req.user?.id,
-          addedAt: new Date().toISOString(),
-        },
-      });
-      
-      const newBalance = await storage.getPlayerCreditBalanceByType(playerId);
-      
-      console.log(`[ManualDebt] Added ${amount} ${creditType} debt for player ${playerId} by ${req.user?.id}`);
-      
-      res.json({
-        success: true,
-        message: `Added ${amount} ${creditType} debt for ${player.name}`,
-        newBalance,
-        debtId,
+      // Task #685 Phase 4 — V1 retired. Manual debt entries are V2-only;
+      // the legacy `credit_transactions` insert path no longer exists.
+      void amount;
+      void creditType;
+      void reason;
+      return res.status(409).json({
+        error: "This academy is on the new credit engine (V2). Manual V1 debt entries are no longer supported — adjust the player's credit balance directly instead.",
       });
     } catch (error) {
       console.error("Add debt error:", error);
