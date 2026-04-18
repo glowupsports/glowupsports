@@ -387,8 +387,21 @@ function PlayScreenWithCallback(props: any) {
   const { registerTabCallback } = useTabNavigation();
   React.useEffect(() => {
     return registerTabCallback("PlayStack", (screen: string, params: any) => {
-      if (params?.initialTab) {
+      // Backwards-compat: callers that only set { initialTab } expect us
+      // to update the Play root screen's params, not push a new screen.
+      if (params?.initialTab && (!screen || screen === "Play")) {
         navigation.setParams({ initialTab: params.initialTab });
+        return;
+      }
+      // Generic forwarder: any caller that does
+      // navigateToTab("PlayStack", { screen: "ManageMatch", params: {...} })
+      // gets pushed onto the PlayStack with the supplied params.
+      if (screen) {
+        try {
+          navigation.navigate(screen, params);
+        } catch {
+          // ignore — root will already be on Play
+        }
       }
     });
   }, [navigation, registerTabCallback]);

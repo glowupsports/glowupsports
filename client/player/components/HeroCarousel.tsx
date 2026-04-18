@@ -482,42 +482,16 @@ function CompeteCard() {
         goOpenMatches();
         return;
       }
-      // Primary: walk up from the current (Home tab) navigator. React
-      // Navigation propagates `navigate` upward, so naming the nearest
-      // common ancestor route ("PlayStack" — sibling tab in PlayerTabs)
-      // and providing nested screen+params lands directly on
-      // ManageMatch with the right matchId.
-      try {
-        navigation.navigate("PlayStack", {
-          screen: "ManageMatch",
-          params: { matchId },
-        });
-        return;
-      } catch {
-        // fall through
-      }
-      // Fallback: fully qualified path from the global root nav, in
-      // case the primary nav didn't resolve (e.g. on web preview).
-      const rootNav = getNavigation();
-      if (rootNav) {
-        try {
-          rootNav.navigate("Player" as never, {
-            screen: "PlayerTabs",
-            params: {
-              screen: "PlayStack",
-              params: {
-                screen: "ManageMatch",
-                params: { matchId },
-              },
-            },
-          } as never);
-          return;
-        } catch {
-          // fall through
-        }
-      }
-      // Last resort: at least surface the matches list.
-      goOpenMatches();
+      // PlayerTabs is a custom SwipeableTabBar pager, not a React
+      // Navigation tab navigator, so `navigation.navigate("PlayStack",
+      // ...)` from this Home-tab screen can't resolve. The supported
+      // path is: switch to the PlayStack tab via the tab pager, then
+      // let the PlayStack callback (registered in PlayerNavigator
+      // `PlayScreenWithCallback`) push ManageMatch onto the stack.
+      navigateToTab("PlayStack", {
+        screen: "ManageMatch",
+        params: { matchId },
+      } as any);
     };
 
     return (
