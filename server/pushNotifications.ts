@@ -3415,7 +3415,11 @@ export async function sendLowCreditNotificationsAfterSession(
   if (playerIds.length === 0) return;
 
   try {
-    const { packages: packagesTable, parentPlayerRelations } = await import("@shared/schema");
+    // Task #681 Phase 3 — V2-only read. The signed `credits` for the session's
+    // credit type is the canonical "remaining" balance; trigger low-credit
+    // notifications when it's <= 2 (which subsumes the V1 logic of summing
+    // packages.remaining_credits, with negatives correctly flagged as "Out").
+    const { playerCreditBalance, parentPlayerRelations } = await import("@shared/schema");
 
     const creditType = sessionType === "private" || sessionType === "private_adjusted"
       ? "private"
@@ -3432,24 +3436,20 @@ export async function sendLowCreditNotificationsAfterSession(
     for (const playerId of playerIds) {
       try {
         const conditions = [
-          eq(packagesTable.playerId, playerId),
-          eq(packagesTable.status, "active"),
-          eq(packagesTable.creditType, creditType),
+          eq(playerCreditBalance.playerId, playerId),
+          eq(playerCreditBalance.type, creditType),
         ];
         if (academyId) {
-          conditions.push(eq(packagesTable.academyId, academyId));
+          conditions.push(eq(playerCreditBalance.academyId, academyId));
         }
 
-        const activePackages = await db
-          .select({
-            remainingCredits: packagesTable.remainingCredits,
-            expiryDate: packagesTable.expiryDate,
-          })
-          .from(packagesTable)
+        const balanceRows = await db
+          .select({ credits: playerCreditBalance.credits })
+          .from(playerCreditBalance)
           .where(and(...conditions));
 
-        const totalRemaining = activePackages.reduce(
-          (sum, pkg) => sum + (pkg.remainingCredits || 0),
+        const totalRemaining = balanceRows.reduce(
+          (sum, r) => sum + Number(r.credits || 0),
           0
         );
 

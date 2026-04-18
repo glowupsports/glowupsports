@@ -871,25 +871,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         const xpToNextLevel = xpForNextLevel - currentXp;
 
-        // Get credit transactions this month
-        const creditTxns = await db
-          .select({
-            type: creditTransactions.type,
-            creditType: creditTransactions.creditType,
-            amount: creditTransactions.amount,
-          })
-          .from(creditTransactions)
-          .where(
-            and(
-              eq(creditTransactions.playerId, playerId),
-              gte(creditTransactions.createdAt, startDate),
-              lte(creditTransactions.createdAt, endDate),
-            ),
-          );
-
-        const creditsUsed = creditTxns
-          .filter((t) => t.type === "debit")
-          .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+        // Task #681 Phase 3 — read monthly credit usage from V2 ledger.
+        // `consume` rows always have negative `delta`; `occurredAt` is the
+        // canonical timestamp on credit_ledger_v2.
+        const creditUsageRows = await db.execute(sql`
+          SELECT
+            COALESCE(SUM(ABS(delta::numeric)), 0)::numeric AS used_total,
+            type,
+            COALESCE(SUM(ABS(delta::numeric)), 0)::numeric AS used_by_type
+          FROM credit_ledger_v2
+          WHERE player_id = ${playerId}
+            AND reason = 'consume'
+            AND occurred_at >= ${startDate.toISOString()}
+            AND occurred_at <= ${endDate.toISOString()}
+          GROUP BY type
+        `);
+        let creditsUsed = 0;
+        const usedByType: Record<string, number> = {};
+        for (const row of creditUsageRows.rows as Array<{ type: string; used_by_type: any }>) {
+          const n = Number(row.used_by_type) || 0;
+          creditsUsed += n;
+          usedByType[row.type] = (usedByType[row.type] || 0) + n;
+        }
 
         // Get current credit balance from player packages
         const playerPackages = await db
@@ -915,15 +918,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           string,
           { used: number; remaining: number }
         > = {};
-        creditTxns.forEach((t) => {
-          const type = t.creditType || "general";
+        for (const [type, used] of Object.entries(usedByType)) {
           if (!creditsByTypeMap[type]) {
             creditsByTypeMap[type] = { used: 0, remaining: 0 };
           }
-          if (t.type === "debit") {
-            creditsByTypeMap[type].used += Math.abs(t.amount || 0);
-          }
-        });
+          creditsByTypeMap[type].used += used;
+        }
         playerPackages.forEach((p) => {
           const type = p.creditType || "general";
           if (!creditsByTypeMap[type]) {

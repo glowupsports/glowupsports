@@ -283,6 +283,10 @@ import {
   creditTransactions,
   type CreditTransaction,
   type InsertCreditTransaction,
+  // Credit V2 (Task #681 Phase 3 — V1 reads switched to V2)
+  creditLots,
+  creditLedgerV2,
+  playerCreditBalance,
   // In-Session Feedback
   inSessionFeedback,
   // Player Baselines
@@ -370,6 +374,101 @@ import {
   // Player notifications
   playerNotifications,
 } from "@shared/schema";
+
+// ============================================================================
+// Task #681 Phase 3 — V2 credit read helpers
+//
+// All V1 credit reads have been switched to read from the V2 tables
+// (credit_lots, credit_ledger_v2, player_credit_balance) so no caller is left
+// reading the legacy `packages` / `credit_transactions` tables for live
+// balance/active-package data. Response shapes are unchanged.
+// ============================================================================
+
+function _normalizeCreditType(
+  t: string | null | undefined,
+): "group" | "semi_private" | "private" {
+  const n = (t || "").toLowerCase().replace(/-/g, "_").replace(/ /g, "_");
+  if (n === "semi" || n === "semi_private" || n === "semi_private_adjusted") return "semi_private";
+  if (n === "private" || n === "private_adjusted") return "private";
+  return "group";
+}
+
+/**
+ * Read V2 lots and shape them as legacy `Package` rows so all existing API
+ * responses keep their fields. `activeOnly` mirrors V1's getActivePlayerPackages
+ * filter: status='active' AND remaining >= 1 AND (no expiry OR not expired).
+ */
+async function readLotsAsPackages(
+  playerId: string,
+  opts: { activeOnly: boolean },
+): Promise<(Package & { calculatedRemaining: number })[]> {
+  const lots = await db
+    .select()
+    .from(creditLots)
+    .where(eq(creditLots.playerId, playerId))
+    .orderBy(desc(creditLots.purchasedAt));
+
+  const now = new Date();
+  const filtered = opts.activeOnly
+    ? lots.filter((l) => {
+        if (l.status !== "active") return false;
+        if (Number(l.qtyRemaining) < 1) return false;
+        if (l.expiresAt && new Date(l.expiresAt) < now) return false;
+        return true;
+      })
+    : lots;
+
+  return filtered.map((l) => {
+    const pricePerCredit = Number(l.pricePerCredit) || 0;
+    const total = Number(l.qtyTotal);
+    const remaining = Number(l.qtyRemaining);
+    const expiryDate = l.expiresAt
+      ? new Date(l.expiresAt).toISOString().split("T")[0]
+      : null;
+    const pkg: Package & { calculatedRemaining: number } = {
+      id: l.id,
+      academyId: l.academyId,
+      playerId: l.playerId,
+      templateId: null,
+      name: null,
+      creditType: l.type,
+      seriesId: null,
+      totalCredits: String(total),
+      remainingCredits: String(remaining),
+      price: String(total * pricePerCredit),
+      pricePerCredit: String(pricePerCredit),
+      currency: l.currency,
+      purchaseDate: l.purchasedAt,
+      expiryDate,
+      invoiceId: l.sourceInvoiceId ?? null,
+      status: l.status,
+      isPaid: true,
+      createdAt: l.createdAt,
+      calculatedRemaining: remaining,
+    } as Package & { calculatedRemaining: number };
+    return pkg;
+  });
+}
+
+/**
+ * Sum V2 player_credit_balance.credits per type for a player. Negative values
+ * are preserved (= owed credits). Reads across all academies the player has
+ * a balance row in (in practice players belong to a single academy).
+ */
+async function readPlayerBalanceByType(
+  playerId: string,
+): Promise<{ group: number; semi_private: number; private: number }> {
+  const out = { group: 0, semi_private: 0, private: 0 };
+  const rows = await db
+    .select({ type: playerCreditBalance.type, credits: playerCreditBalance.credits })
+    .from(playerCreditBalance)
+    .where(eq(playerCreditBalance.playerId, playerId));
+  for (const r of rows) {
+    const t = _normalizeCreditType(r.type);
+    out[t] += Number(r.credits);
+  }
+  return out;
+}
 
 export const storage = {
   // ==================== USERS (AUTH) ====================
@@ -2470,7 +2569,12 @@ export const storage = {
   },
 
   async getPlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
-    // Validate player belongs to academy if provided
+    // Validate player belongs to academy if provided.
+    // NOTE: this still reads the legacy `packages` table on purpose — used by
+    // a few admin-only flows that must show historical V1 package metadata
+    // (templateId, name, isPaid, invoice). Active-credit reads go through
+    // getActivePlayerPackages / getPlayerPackagesWithCalculatedRemaining
+    // which were converted to V2 in Task #681 Phase 3.
     if (academyId) {
       const player = await db.select().from(players).where(
         and(eq(players.id, playerId), eq(players.academyId, academyId))
@@ -2481,42 +2585,28 @@ export const storage = {
   },
 
   async getPlayerPackagesWithCalculatedRemaining(playerId: string, academyId?: string): Promise<(Package & { calculatedRemaining: number })[]> {
-    // Validate player belongs to academy if provided
+    // Task #681 Phase 3 — read from V2 credit_lots and shape as Package rows
+    // so all existing API responses keep their fields. Keep the old packages
+    // table read available only via getPlayerPackages() for legacy admin paths.
     if (academyId) {
       const player = await db.select().from(players).where(
         and(eq(players.id, playerId), eq(players.academyId, academyId))
       );
       if (player.length === 0) return [];
     }
-    
-    // Get all packages for player
-    const playerPackages = await db.select().from(packages).where(eq(packages.playerId, playerId));
-    
-    if (playerPackages.length === 0) return [];
-    
-    return playerPackages;
+    return await readLotsAsPackages(playerId, { activeOnly: false });
   },
 
   async getActivePlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
-    // Validate player belongs to academy if provided
+    // Task #681 Phase 3 — V2 lots, active only. Mirrors V1 filter:
+    // status='active' AND remaining >= 1 AND (no expiry OR expiry >= today).
     if (academyId) {
       const player = await db.select().from(players).where(
         and(eq(players.id, playerId), eq(players.academyId, academyId))
       );
       if (player.length === 0) return [];
     }
-    
-    const today = new Date().toISOString().split("T")[0];
-    const result = await db
-      .select()
-      .from(packages)
-      .where(
-        and(
-          eq(packages.playerId, playerId),
-          gte(packages.remainingCredits, 1)
-        )
-      );
-    return result.filter(p => !p.expiryDate || p.expiryDate >= today);
+    return await readLotsAsPackages(playerId, { activeOnly: true });
   },
 
   async checkPlayerCreditsForSessionType(
@@ -7673,111 +7763,46 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    const normalizeType = (type: string | undefined | null): "group" | "semi_private" | "private" => {
-      if (!type) return "group";
-      const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
-      if (normalized === "semi" || normalized === "semi_private" || normalized === "semi_private_adjusted") return "semi_private";
-      if (normalized === "private" || normalized === "private_adjusted") return "private";
-      return "group";
-    };
-
-    // Read balance directly from packages.remaining_credits — the single source of truth.
-    // This is maintained atomically by ensureCreditProcessed and settlePlayerDebts.
-    const activePackages = await db.select({
-      creditType: packages.creditType,
-      remainingCredits: packages.remainingCredits,
-    }).from(packages)
-      .where(and(
-        eq(packages.playerId, playerId),
-        eq(packages.status, "active"),
-      ));
-
-    const balance = { group: 0, semi_private: 0, private: 0 };
-    for (const pkg of activePackages) {
-      const type = normalizeType(pkg.creditType);
-      balance[type] += Number(pkg.remainingCredits);
-    }
-
-    // Debt = unsettled session_debt transactions (player used sessions with no package available).
-    // Only new-style records are generated; legacy paths no longer create new records.
-    const debtResult = await db.execute(sql`
-      SELECT credit_type, ABS(SUM(amount::numeric)) as total
-      FROM credit_transactions ct
-      WHERE player_id = ${playerId}
-        AND amount < 0
-        AND type = 'debit'
-        AND reason = 'session_debt'
-        AND COALESCE(metadata->>'cancelled', 'false') != 'true'
-        AND COALESCE(metadata->>'settled', 'false') != 'true'
-      GROUP BY credit_type
-    `);
-
-    let totalDebt = 0;
-    const debtByType = { group: 0, semi_private: 0, private: 0 };
-    for (const row of debtResult.rows) {
-      const amount = Number((row as any).total);
-      totalDebt += amount;
-      const type = normalizeType((row as any).credit_type);
-      debtByType[type] += amount;
-    }
-
+    // Task #681 Phase 3 — V2-only read. `player_credit_balance.credits` is the
+    // signed running balance (negative = owed). The V1 fields group /
+    // semi_private / private historically were "active package credits MINUS
+    // session_debt", which is exactly what V2's `credits` already represents
+    // for each type. So we return `credits` directly per type, and derive
+    // totalDebt as the sum of negative balances.
+    const balance = await readPlayerBalanceByType(playerId);
+    const totalDebt =
+      Math.max(0, -balance.group) +
+      Math.max(0, -balance.semi_private) +
+      Math.max(0, -balance.private);
     return {
-      group: balance.group - debtByType.group,
-      semi_private: balance.semi_private - debtByType.semi_private,
-      private: balance.private - debtByType.private,
+      group: balance.group,
+      semi_private: balance.semi_private,
+      private: balance.private,
       totalDebt,
       hasDebt: totalDebt > 0,
     };
   },
 
   async getUncoveredSessionsByType(playerId: string): Promise<{ group: number; semi_private: number; private: number }> {
-    const normalizeType = (t: string): "group" | "semi_private" | "private" => {
-      if (t === "semi_private" || t === "semi_private_adjusted") return "semi_private";
-      if (t === "private" || t === "private_adjusted") return "private";
-      return "group";
-    };
-    // Task #636: Mirror shouldChargeCredit semantics so under-counts can't happen.
-    //   - present/late: chargeable for ALL session types
-    //   - absent: chargeable for group/group_adjusted, private, AND private_adjusted
-    //     when isOriginallyPrivate=true (i.e. the series wasn't semi_private).
-    //     NOT chargeable for semi_private/semi_private_adjusted, or private_adjusted
-    //     that originated from a semi_private series.
-    // Use a player+session NOT EXISTS check (instead of joining on sp.credit_transaction_id),
-    // so legacy rows whose link points at a cancelled transaction are correctly counted as uncovered.
-    const result = await db.execute(sql`
-      SELECT s.session_type, count(*)::int as cnt
-      FROM session_players sp
-      JOIN sessions s ON sp.session_id = s.id
-      LEFT JOIN coaching_series cs ON cs.id = s.series_id
-      WHERE sp.player_id = ${playerId}
-        AND s.status != 'cancelled'
-        AND (
-          sp.attendance_status IN ('present', 'late')
-          OR (
-            sp.attendance_status = 'absent'
-            AND (
-              LOWER(REPLACE(REPLACE(COALESCE(s.session_type, 'group'), '-', '_'), ' ', '_'))
-                IN ('group', 'group_adjusted', 'private')
-              OR (
-                LOWER(REPLACE(REPLACE(COALESCE(s.session_type, 'group'), '-', '_'), ' ', '_')) = 'private_adjusted'
-                AND COALESCE(LOWER(REPLACE(REPLACE(cs.session_type, '-', '_'), ' ', '_')), 'private') != 'semi_private'
-              )
-            )
-          )
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM credit_transactions ct
-          WHERE ct.player_id = sp.player_id
-            AND ct.session_id = sp.session_id
-            AND ct.amount < 0
-            AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
-        )
-      GROUP BY s.session_type
-    `);
+    // Task #681 Phase 3 — V2-only read. In V2, an "uncovered" session attendance
+    // is a `credit_ledger_v2` consume row with `lot_id IS NULL` (no FIFO lot
+    // could cover it). Count distinct sessions per type.
     const out: { group: number; semi_private: number; private: number } = { group: 0, semi_private: 0, private: 0 };
+    const result = await db.execute(sql`
+      SELECT type, COUNT(DISTINCT session_id)::int as cnt
+      FROM credit_ledger_v2
+      WHERE player_id = ${playerId}
+        AND reason = 'consume'
+        AND delta::numeric < 0
+        AND lot_id IS NULL
+        AND session_id IS NOT NULL
+      GROUP BY type
+    `);
     for (const row of result.rows) {
-      const type = normalizeType((row as any).session_type as string);
-      out[type] += Number((row as any).cnt);
+      const r = row as { type: string; cnt: number };
+      if (r.type === "group" || r.type === "semi_private" || r.type === "private") {
+        out[r.type] = Number(r.cnt);
+      }
     }
     return out;
   },
@@ -8287,115 +8312,55 @@ export const storage = {
   }>> {
     if (playerIds.length === 0) return {};
 
-    const normalizeType = (type: string | null | undefined): "group" | "semi_private" | "private" => {
-      if (!type) return "group";
-      const t = type.toLowerCase().replace("-", "_").replace(" ", "_");
-      if (t === "semi" || t === "semi_private" || t === "semi_private_adjusted") return "semi_private";
-      if (t === "private" || t === "private_adjusted") return "private";
-      return "group";
-    };
-
+    // Task #681 Phase 3 — V2-only batch read.
+    // Per-type V2 `credits` already represents (active-package credits)
+    // - (consumed credits, whether covered or uncovered). Negative = owed.
+    // We keep the response shape identical to the V1 version so callers
+    // (AdminSeriesDetailDrawer, AdminPlayersScreen, SeriesOverviewTab, …)
+    // continue to read net{Group,SemiPrivate,Private} / hasDebt without
+    // changes. The "groupDebt / uncoveredGroup" split has no V2 analog —
+    // V2 collapses them into a single signed balance — so we surface the
+    // total deficit as `*Debt` and 0 as `uncovered*`. Net per type matches
+    // the player-detail screen exactly.
     const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; groupDebt: number; semiPrivateDebt: number; privateDebt: number; hasDebt: boolean; uncoveredGroup: number; uncoveredSemiPrivate: number; uncoveredPrivate: number; netGroup: number; netSemiPrivate: number; netPrivate: number }> = {};
     for (const id of playerIds) {
       result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0, netGroup: 0, netSemiPrivate: 0, netPrivate: 0 };
     }
 
-    // Sum remaining_credits from active packages directly
-    const activePackages = await db.select({
-      playerId: packages.playerId,
-      creditType: packages.creditType,
-      remainingCredits: packages.remainingCredits,
-    }).from(packages)
-      .where(and(
-        inArray(packages.playerId, playerIds),
-        eq(packages.status, "active"),
-      ));
+    const balanceRows = await db
+      .select({
+        playerId: playerCreditBalance.playerId,
+        type: playerCreditBalance.type,
+        credits: playerCreditBalance.credits,
+      })
+      .from(playerCreditBalance)
+      .where(inArray(playerCreditBalance.playerId, playerIds));
 
-    for (const pkg of activePackages) {
-      if (!result[pkg.playerId]) continue;
-      const type = normalizeType(pkg.creditType);
-      result[pkg.playerId][type] += Number(pkg.remainingCredits);
-    }
-
-    // Debt = unsettled session_debt transactions. Mirrors the per-player
-    // getPlayerCreditBalanceByType query EXACTLY so the batch helper produces
-    // the same number the player-detail screen does. Legacy session_booking
-    // rows (no package_id) are intentionally excluded here — they are caught
-    // instead by the uncovered-sessions query below, preventing double counting.
-    const debtRows = await db.execute(sql`
-      SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
-      FROM credit_transactions
-      WHERE player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
-        AND amount < 0
-        AND type = 'debit'
-        AND reason = 'session_debt'
-        AND COALESCE(metadata->>'cancelled', 'false') != 'true'
-        AND COALESCE(metadata->>'settled', 'false') != 'true'
-      GROUP BY player_id, credit_type
-    `);
-
-    for (const row of debtRows.rows) {
-      const r = row as any;
-      if (!result[r.player_id]) continue;
-      const debtAmount = Number(r.total);
-      result[r.player_id].totalDebt += debtAmount;
-      const debtType = normalizeType(r.credit_type);
-      if (debtType === "group") result[r.player_id].groupDebt += debtAmount;
-      else if (debtType === "semi_private") result[r.player_id].semiPrivateDebt += debtAmount;
-      else if (debtType === "private") result[r.player_id].privateDebt += debtAmount;
-    }
-
-    // Uncovered sessions = attended sessions whose linked credit transaction
-    // is missing/cancelled/has no surviving package. Mirrors the per-player
-    // getUncoveredSessionsByType query exactly so list and detail agree.
-    const uncoveredRows = await db.execute(sql`
-      SELECT sp.player_id, s.session_type, count(*)::int as cnt
-      FROM session_players sp
-      JOIN sessions s ON sp.session_id = s.id
-      WHERE sp.player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
-        AND sp.attendance_status = 'present'
-        AND NOT EXISTS (
-          SELECT 1 FROM credit_transactions ct
-          WHERE ct.id = sp.credit_transaction_id
-            AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
-            AND ct.package_id IS NOT NULL
-            AND EXISTS (
-              SELECT 1 FROM packages pkg
-              WHERE pkg.id = ct.package_id
-            )
-        )
-      GROUP BY sp.player_id, s.session_type
-    `);
-
-    for (const row of uncoveredRows.rows) {
-      const r = row as any;
-      if (!result[r.player_id]) continue;
-      const cnt = Number(r.cnt);
-      const t = normalizeType(r.session_type as string);
-      if (t === "group") result[r.player_id].uncoveredGroup += cnt;
-      else if (t === "semi_private") result[r.player_id].uncoveredSemiPrivate += cnt;
-      else if (t === "private") result[r.player_id].uncoveredPrivate += cnt;
+    for (const row of balanceRows) {
+      if (!result[row.playerId]) continue;
+      const t = _normalizeCreditType(row.type);
+      const credits = Number(row.credits);
+      const r = result[row.playerId];
+      // Sum (not assign): a player CAN have multiple V2 balance rows for the
+      // same type if they belong to multiple academies. The unique index is
+      // on (playerId, academyId, type) — so we aggregate across academies to
+      // produce a single net per type, matching the V1 wallet behaviour.
+      r[t] += credits;
+      if (t === "group") r.netGroup += credits;
+      else if (t === "semi_private") r.netSemiPrivate += credits;
+      else r.netPrivate += credits;
     }
 
     for (const playerId of playerIds) {
       const r = result[playerId];
-      // Final net per type — single source of truth, matches detail screen.
-      r.netGroup = r.group - r.groupDebt - r.uncoveredGroup;
-      r.netSemiPrivate = r.semi_private - r.semiPrivateDebt - r.uncoveredSemiPrivate;
-      r.netPrivate = r.private - r.privateDebt - r.uncoveredPrivate;
-      // totalDebt / hasDebt now reflect the *real* deficit (sum of negative
-      // nets across types). Previously they only counted unsettled
-      // session_debt rows and missed uncovered-session debt entirely, so
-      // warning badges (AdminSeriesDetailDrawer, SeriesOverviewTab,
-      // AdminPlayersScreen) under-reported. With this change a player whose
-      // only liability is uncovered sessions (e.g. Aisha, -21 semi) is
-      // correctly flagged.
-      const deficit =
-        Math.max(0, -r.netGroup) +
-        Math.max(0, -r.netSemiPrivate) +
-        Math.max(0, -r.netPrivate);
-      r.totalDebt = deficit;
-      r.hasDebt = deficit > 0;
+      const groupDeficit = Math.max(0, -r.netGroup);
+      const semiDeficit = Math.max(0, -r.netSemiPrivate);
+      const privDeficit = Math.max(0, -r.netPrivate);
+      r.groupDebt = groupDeficit;
+      r.semiPrivateDebt = semiDeficit;
+      r.privateDebt = privDeficit;
+      r.totalDebt = groupDeficit + semiDeficit + privDeficit;
+      r.hasDebt = r.totalDebt > 0;
     }
 
     return result;
@@ -13819,6 +13784,18 @@ async function cleanupGhostSessions(): Promise<{ cancelled: number }> {
  * This is safe to run repeatedly — only updates packages where remaining_credits is wrong.
  */
 async function reconcilePackageCredits(): Promise<{ checked: number; fixed: number; errors: string[] }> {
+  // Task #681 Phase 3 — V1 reconciler retired. The V2 engine (credit-engine.ts)
+  // is now the single source of truth for credit balances; drift detection is
+  // handled by `computeCreditDrift` in services/credit-reconcile.ts (run every
+  // 5 min by the reminder scheduler) and the V2 ledger's balance_after snapshot.
+  // We keep this no-op so the existing startup call in server/index.ts continues
+  // to work without changes, and so legacy admin tooling that imports the symbol
+  // still resolves. Will be deleted entirely in Phase 4.
+  console.log("[CreditReconcile] V1 reconcile is a no-op — V2 engine owns drift detection.");
+  return { checked: 0, fixed: 0, errors: [] };
+}
+
+async function _legacyReconcilePackageCreditsDeleteInPhase4(): Promise<{ checked: number; fixed: number; errors: string[] }> {
   const result = { checked: 0, fixed: 0, errors: [] as string[] };
 
   const drifted = await db.execute(sql`

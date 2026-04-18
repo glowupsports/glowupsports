@@ -315,18 +315,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 }
               : null;
 
-            // Get outstanding balance - calculate from debit transactions
-            // type === "debit" with negative amounts represents money owed
-            const debitTransactions = await db
-              .select()
-              .from(creditTransactions)
-              .where(eq(creditTransactions.playerId, member.id));
-
-            const outstandingBalance = debitTransactions.reduce((sum, tx) => {
-              const amount = Number(tx.amount) || 0;
-              // Negative amounts represent debits (money owed)
-              return sum + (amount < 0 ? Math.abs(amount) : 0);
-            }, 0);
+            // Task #681 Phase 3 — outstanding balance from V2 signed balance.
+            // `player_credit_balance.credits` is signed: negative => owed.
+            const balanceRows = await db.execute(sql`
+              SELECT COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
+              FROM player_credit_balance
+              WHERE player_id = ${member.id}
+            `);
+            const netNeg = Number((balanceRows.rows?.[0] as any)?.net_neg || 0);
+            const outstandingBalance = netNeg < 0 ? Math.abs(netNeg) : 0;
 
             return {
               id: member.id,
@@ -441,23 +438,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "playerIds array is required" });
         }
 
-        // Get all debit transactions for these players
-        // Note: Using 'type' field which contains 'debit' for negative balance transactions
-        const debitTransactions = await db
-          .select()
-          .from(creditTransactions)
-          .where(
-            and(
-              inArray(creditTransactions.playerId, playerIds),
-              eq(creditTransactions.type, "debit"),
-            ),
-          );
-
-        // Calculate outstanding balance (negative amounts represent debits)
-        const totalOwed = debitTransactions.reduce((sum, tx) => {
-          const amount = Number(tx.amount) || 0;
-          return sum + (amount < 0 ? Math.abs(amount) : 0);
-        }, 0);
+        // Task #681 Phase 3 — total owed across the family from V2.
+        // Sum negative `player_credit_balance.credits` rows.
+        const owedRows = await db.execute(sql`
+          SELECT COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
+          FROM player_credit_balance
+          WHERE player_id = ANY(${playerIds}::text[])
+        `);
+        const familyNetNeg = Number((owedRows.rows?.[0] as any)?.net_neg || 0);
+        const totalOwed = familyNetNeg < 0 ? Math.abs(familyNetNeg) : 0;
 
         if (totalOwed === 0) {
           return res.json({
@@ -473,9 +462,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         res.json({
           success: true,
-          message: `Paid ${debitTransactions.length} outstanding items`,
+          message: `Paid outstanding balance of ${totalPaid}`,
           paid: totalPaid,
-          count: debitTransactions.length,
+          count: playerIds.length,
         });
       } catch (error) {
         console.error("Error processing bulk payment:", error);

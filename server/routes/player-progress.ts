@@ -452,37 +452,29 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const paidSessionIdSet = new Set<string>();
 
         if (allSessionIds.length > 0) {
+          // Task #681 Phase 3 — V2-only read. A session counts as "paid" when
+          // there's at least one consume row with `lot_id IS NOT NULL` (FIFO
+          // lot covered the consume). Uncovered consumes (lot_id IS NULL)
+          // represent owed debt and don't mark the session as paid.
+          const { creditLedgerV2 } = await import("@shared/schema");
           const sessionTxs = await db
             .select({
-              sessionId: creditTransactions.sessionId,
-              reason: creditTransactions.reason,
-              packageId: creditTransactions.packageId,
-              metadata: creditTransactions.metadata,
+              sessionId: creditLedgerV2.sessionId,
+              lotId: creditLedgerV2.lotId,
             })
-            .from(creditTransactions)
+            .from(creditLedgerV2)
             .where(
               and(
-                eq(creditTransactions.playerId, id),
-                inArray(creditTransactions.sessionId, allSessionIds),
-                eq(creditTransactions.type, "debit"),
+                eq(creditLedgerV2.playerId, id),
+                inArray(creditLedgerV2.sessionId, allSessionIds),
+                eq(creditLedgerV2.reason, "consume"),
+                sql`${creditLedgerV2.delta}::numeric < 0`,
               ),
             );
 
           for (const tx of sessionTxs) {
             if (!tx.sessionId) continue;
-            const isDebtReason =
-              tx.reason === "session_debt" ||
-              tx.reason === "session_join_debt" ||
-              tx.reason === "session_unpaid";
-
-            if (!isDebtReason && tx.packageId) {
-              paidSessionIdSet.add(tx.sessionId);
-            } else if (isDebtReason) {
-              const meta = tx.metadata as Record<string, any> | null;
-              if (meta?.settled === true || meta?.settledByPackage) {
-                paidSessionIdSet.add(tx.sessionId);
-              }
-            }
+            if (tx.lotId) paidSessionIdSet.add(tx.sessionId);
           }
         }
 

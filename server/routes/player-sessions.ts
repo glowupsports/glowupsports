@@ -7345,22 +7345,19 @@ import fs from "fs";
       const paidSessionIdSet = new Set<string>();
 
       if (allSessionIds.length > 0) {
-        const sessionTxs = await db
-          .select({ sessionId: creditTransactions.sessionId, reason: creditTransactions.reason, packageId: creditTransactions.packageId, metadata: creditTransactions.metadata })
-          .from(creditTransactions)
-          .where(and(eq(creditTransactions.playerId, player.id), inArray(creditTransactions.sessionId, allSessionIds), eq(creditTransactions.type, "debit")));
-
-        for (const tx of sessionTxs) {
-          if (!tx.sessionId) continue;
-          const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
-          if (!isDebtReason && tx.packageId) {
-            paidSessionIdSet.add(tx.sessionId);
-          } else if (isDebtReason) {
-            const meta = tx.metadata as Record<string, unknown> | null;
-            if (meta?.settled === true || meta?.settledByPackage != null) {
-              paidSessionIdSet.add(tx.sessionId);
-            }
-          }
+        // Task #681 Phase 3 — derive "paid" from V2 ledger.
+        // A session is paid when there is a `consume` row with a lot_id
+        // attached (covered by an active credit lot, not an uncovered debt).
+        const paidRows = await db.execute(sql`
+          SELECT DISTINCT session_id
+          FROM credit_ledger_v2
+          WHERE player_id = ${player.id}
+            AND reason = 'consume'
+            AND lot_id IS NOT NULL
+            AND session_id = ANY(${allSessionIds}::text[])
+        `);
+        for (const row of paidRows.rows as Array<{ session_id: string | null }>) {
+          if (row.session_id) paidSessionIdSet.add(row.session_id);
         }
       }
 
