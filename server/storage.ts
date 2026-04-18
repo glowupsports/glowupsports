@@ -8248,14 +8248,24 @@ export const storage = {
     };
   },
 
-  // Get credit balances for multiple players (batch query for efficiency)
-  // Reads directly from packages.remaining_credits — the single source of truth.
+  // Get credit balances for multiple players (batch query for efficiency).
   //
-  // Also returns uncoveredGroup/uncoveredSemiPrivate/uncoveredPrivate: counts
-  // of sessions the player attended whose linked credit_transaction has no
-  // valid package (mirrors getUncoveredSessionsByType used by the detail
-  // screen). Callers should net these against the type balance to get the
-  // same number the player-detail Packages card displays.
+  // Source of truth: V2 `player_credit_balance` (Task #681 Phase 3 onward).
+  // The legacy `packages.remaining_credits` and "uncovered sessions" inputs
+  // are no longer consulted — V2 already collapses (active credits) -
+  // (consumed credits, covered or uncovered) into a single signed `credits`
+  // column per (player, academy, type). Negative = owed.
+  //
+  // `academyId` (Task #686): when provided, the V2 read is filtered to that
+  // academy so the result matches the per-academy wallet endpoint
+  // (`getBalance(playerId, academyId)`) used by the player profile.
+  // Without it, balances are summed across every academy the player belongs
+  // to (legacy callers that don't have an academy context still get the
+  // old aggregated behaviour).
+  //
+  // `uncoveredGroup`/`uncoveredSemiPrivate`/`uncoveredPrivate` are kept in
+  // the response shape for backwards compatibility but always return 0
+  // under V2 (the deficit is already baked into the signed `credits`).
   async getPlayersCreditBalances(playerIds: string[], academyId?: string): Promise<Record<string, {
     group: number;
     semi_private: number;
