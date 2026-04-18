@@ -1526,9 +1526,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   `[AttendanceCorrection] Refunded 1 ${creditType} credit to package ${r.id} (new remaining: ${r.remaining_credits})`,
                 );
               }
-            } else {
+            } else if (cancelResult.cancelled) {
               console.log(
                 `[AttendanceCorrection] Cancelled debt for player ${playerId} session ${sessionId} (amount: ${cancelResult.amount})`,
+              );
+            } else {
+              console.warn(
+                `[AttendanceCorrection][V2] Player ${playerId} session ${sessionId} (academy ${session.academyId}) — refund needed but V1 write blocked and no debt to cancel; V2 attendance-correction refund path not yet wired (Task #684 Phase 3).`,
               );
             }
           } else if (_v1Ok_pp) {
