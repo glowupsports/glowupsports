@@ -2554,18 +2554,45 @@ export const storage = {
     return db.select().from(ballLevels).orderBy(asc(ballLevels.rank));
   },
 
-  // ==================== PACKAGES ====================
+  // ==================== PACKAGES (V2-only shim — Task #682) ====================
+  // The legacy `packages` table has been retired. `id` here is the UUID we
+  // returned from createPackage(), which we stored on the V2 lot as
+  // `source_package_id`. Resolve back to the lot and shape it as a Package.
   async getPackage(id: string, academyId?: string): Promise<Package | undefined> {
-    // If academyId provided, verify package belongs to a player in that academy
-    const result = await db.select().from(packages).where(eq(packages.id, id));
-    const pkg = result[0];
-    if (!pkg || !academyId) return pkg;
-    
-    // Verify the player belongs to this academy
-    const player = await db.select().from(players).where(
-      and(eq(players.id, pkg.playerId!), eq(players.academyId, academyId))
-    );
-    return player.length > 0 ? pkg : undefined;
+    const lots = await db
+      .select()
+      .from(creditLots)
+      .where(eq(creditLots.sourcePackageId, id))
+      .limit(1);
+    const lot = lots[0];
+    if (!lot) return undefined;
+    if (academyId && lot.academyId !== academyId) return undefined;
+    const pricePerCredit = Number(lot.pricePerCredit) || 0;
+    const total = Number(lot.qtyTotal);
+    const remaining = Number(lot.qtyRemaining);
+    const expiryDate = lot.expiresAt
+      ? new Date(lot.expiresAt).toISOString().split("T")[0]
+      : null;
+    return {
+      id,
+      academyId: lot.academyId,
+      playerId: lot.playerId,
+      templateId: null,
+      name: null,
+      creditType: lot.type,
+      seriesId: null,
+      totalCredits: String(total),
+      remainingCredits: String(remaining),
+      price: String(total * pricePerCredit),
+      pricePerCredit: String(pricePerCredit),
+      currency: lot.currency,
+      purchaseDate: lot.purchasedAt,
+      expiryDate,
+      invoiceId: lot.sourceInvoiceId ?? null,
+      status: lot.status,
+      isPaid: true,
+      createdAt: lot.createdAt,
+    } as Package;
   },
 
   async getPlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
@@ -2639,19 +2666,85 @@ export const storage = {
     };
   },
 
+  // Task #682 — V1 packages table retired. createPackage now writes directly
+  // to the V2 credit_lots ledger via purchasePackage. We generate a UUID up
+  // front so callers (and any later invoice row) can keep referring to the
+  // package by id; that same UUID is stored on the lot as
+  // `source_package_id`, which getPackage() uses to round-trip back to the
+  // shaped Package object.
   async createPackage(data: InsertPackage): Promise<Package> {
-    const result = await db.insert(packages).values(data).returning();
-    return result[0];
+    const { purchasePackage, normalizeSessionTypeToCreditType } = await import(
+      "./services/credit-engine"
+    );
+    const pkgId = crypto.randomUUID();
+    const playerId = (data as any).playerId;
+    const academyId = (data as any).academyId;
+    if (!playerId || !academyId) {
+      throw new Error(
+        "[createPackage] playerId + academyId required (V2-only path)",
+      );
+    }
+    const creditTypeRaw =
+      (data as any).creditType ??
+      (data as any).sessionType ??
+      "group";
+    const type = normalizeSessionTypeToCreditType(creditTypeRaw);
+    const total = Number((data as any).totalCredits ?? (data as any).credits ?? 0);
+    if (!Number.isFinite(total) || total <= 0) {
+      throw new Error("[createPackage] totalCredits must be > 0 (V2-only path)");
+    }
+    let pricePerCredit = 0;
+    if ((data as any).pricePerCredit !== undefined && (data as any).pricePerCredit !== null) {
+      pricePerCredit = parseFloat(String((data as any).pricePerCredit));
+    } else if ((data as any).price !== undefined && (data as any).price !== null) {
+      pricePerCredit = parseFloat(String((data as any).price)) / Math.max(1, total);
+    }
+    if (!Number.isFinite(pricePerCredit) || pricePerCredit < 0) pricePerCredit = 0;
+    const currency = (data as any).currency ?? "AED";
+    const purchasedAt = (data as any).purchasedAt
+      ? new Date((data as any).purchasedAt)
+      : new Date();
+    let expiresAt: Date | null = null;
+    if ((data as any).expiresAt) {
+      expiresAt = new Date((data as any).expiresAt);
+    } else if ((data as any).expiryDate) {
+      expiresAt = new Date((data as any).expiryDate);
+    }
+    const invoiceId =
+      (data as any).invoiceId ?? (data as any).invoice_id ?? null;
+
+    await purchasePackage({
+      playerId,
+      academyId,
+      type,
+      qty: total,
+      pricePerCredit,
+      currency,
+      invoiceId,
+      sourcePackageId: pkgId,
+      purchasedAt,
+      expiresAt,
+      actorRole: "system",
+    });
+
+    const pkg = await this.getPackage(pkgId);
+    if (!pkg) {
+      throw new Error(
+        `[createPackage] V2 lot was not created for sourcePackageId=${pkgId}`,
+      );
+    }
+    return pkg;
   },
 
-  async updatePackage(id: string, data: Partial<InsertPackage>, academyId?: string): Promise<Package | undefined> {
-    // Verify ownership before update if academyId provided
-    if (academyId) {
-      const pkg = await this.getPackage(id, academyId);
-      if (!pkg) return undefined;
-    }
-    const result = await db.update(packages).set(data).where(eq(packages.id, id)).returning();
-    return result[0];
+  // Task #682 — V1 packages table retired. Lot fields are immutable from the
+  // admin UI; the only field admins ever updated was status="cancelled" which
+  // is now handled via deletePackage. This shim returns the current shape.
+  async updatePackage(
+    id: string,
+    _data: Partial<InsertPackage>,
+    academyId?: string,
+  ): Promise<Package | undefined> {
+    return this.getPackage(id, academyId);
   },
 
   // Convert session_booking/session_consumed transactions for a depleted/non-active package into
@@ -2662,137 +2755,65 @@ export const storage = {
   // GUARD: If the package is still 'active' (i.e. depletion hasn't committed yet), this is a
   // no-op. This makes it safe to call immediately after the credit-deduction transaction
   // commits from any path (deductTypedCreditsForSession, ensureCreditProcessed, etc.).
-  async convertPackageConsumptionToDebt(packageId: string, playerId?: string): Promise<{ converted: number }> {
-    // Only convert when the package is genuinely no longer active
-    const pkgStatus = await db.execute(sql`
-      SELECT status, academy_id FROM packages WHERE id = ${packageId} LIMIT 1
-    `);
-    if (pkgStatus.rows.length === 0) return { converted: 0 };
-    const status = (pkgStatus.rows[0] as any).status;
-    if (status === 'active') return { converted: 0 };
-
-    // Task #676 Phase 2 — V1 write gate. V2 doesn't manufacture session_debt
-    // rows from package depletion (debt is computed from credit_ledger_v2).
-    {
-      const { v1WritesAllowed } = await import("./services/credit-feature-flag");
-      const pkgAcademyId = (pkgStatus.rows[0] as any)?.academy_id ?? null;
-      if (!(await v1WritesAllowed(pkgAcademyId))) {
-        return { converted: 0 };
-      }
-    }
-
-    const consumptionTxs = await db.execute(sql`
-      SELECT ct.id, ct.player_id, ct.academy_id, ct.session_id, ct.session_player_id,
-             ct.credit_type, ct.amount, ct.metadata
-      FROM credit_transactions ct
-      WHERE ct.package_id = ${packageId}
-        AND ct.amount < 0
-        AND ct.reason IN ('session_booking', 'session_consumed')
-        AND ct.session_id IS NOT NULL
-        AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
-        AND NOT EXISTS (
-          SELECT 1 FROM session_players sp
-          WHERE sp.session_id = ct.session_id
-            AND sp.player_id = ct.player_id
-            AND sp.attendance_status IN ('holiday', 'vacation')
-        )
-    `);
-
-    if (consumptionTxs.rows.length === 0) return { converted: 0 };
-
-    console.log(`[ConvertToDebt] Package ${packageId}: converting ${consumptionTxs.rows.length} session_booking/session_consumed tx(s) to session_debt`);
-    let converted = 0;
-
-    for (const bookingTx of consumptionTxs.rows as any[]) {
-      const debtAmount = Math.abs(Number(bookingTx.amount)) || 1;
-      const debtTxId = crypto.randomUUID();
-      const eventKey = `debt_from_booking:${bookingTx.id}`;
-      const creditType = bookingTx.credit_type || "group";
-      try {
-        // Cancel any pre-existing unlinked legacy session_booking debts for the same session
-        await db.execute(sql`
-          UPDATE credit_transactions
-          SET metadata = metadata || ${JSON.stringify({
-            cancelled: true,
-            cancelledAt: new Date().toISOString(),
-            cancelledReason: 'superseded_by_package_depletion_debt',
-          })}::jsonb
-          WHERE player_id = ${bookingTx.player_id}
-            AND session_id = ${bookingTx.session_id}
-            AND reason IN ('session_booking', 'session_consumed')
-            AND package_id IS NULL
-            AND (metadata->>'packageId') IS NULL
-            AND COALESCE(metadata->>'cancelled', 'false') != 'true'
-            AND id != ${bookingTx.id}
-        `);
-
-        await db.execute(sql`
-          INSERT INTO credit_transactions (
-            id, player_id, academy_id, session_id, session_player_id, package_id,
-            type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
-          ) VALUES (
-            ${debtTxId}, ${bookingTx.player_id}, ${bookingTx.academy_id},
-            ${bookingTx.session_id}, ${bookingTx.session_player_id}, NULL,
-            'debit', ${creditType}, ${-debtAmount}, 'session_debt', ${eventKey}, 0, ${-debtAmount},
-            ${JSON.stringify({
-              isDebt: true,
-              convertedFromBooking: bookingTx.id,
-              packageDepleted: packageId,
-              description: `Debt: package depleted, pre-paid session became unpaid`,
-            })}::jsonb
-          )
-          ON CONFLICT (event_key) WHERE event_key IS NOT NULL DO NOTHING
-        `);
-
-        // Mark the original booking transaction as cancelled to prevent double-accounting
-        await db.execute(sql`
-          UPDATE credit_transactions
-          SET metadata = metadata || ${JSON.stringify({
-            cancelled: true,
-            cancelledAt: new Date().toISOString(),
-            cancelledReason: 'package_depleted_converted_to_debt',
-            debtTransactionId: debtTxId,
-          })}::jsonb
-          WHERE id = ${bookingTx.id}
-        `);
-
-        converted++;
-      } catch (err: any) {
-        if (err.code === '23505') {
-          console.log(`[ConvertToDebt] Duplicate event_key for tx ${bookingTx.id}, skipping`);
-        } else {
-          throw err;
-        }
-      }
-    }
-
-    console.log(`[ConvertToDebt] Package ${packageId}: converted ${converted} tx(s) to session_debt for player ${playerId}`);
-    return { converted };
+  async convertPackageConsumptionToDebt(_packageId: string, _playerId?: string): Promise<{ converted: number }> {
+    // Task #682 — V1 retired. Debt is now derived from credit_ledger_v2; we
+    // never manufacture legacy session_debt rows on package depletion.
+    return { converted: 0 };
   },
 
   async deletePackage(id: string, academyId?: string, force: boolean = false): Promise<{ success: boolean; error?: string; creditsUsed?: number }> {
+    // Task #682 — V1 retired. The "package" is now a V2 credit_lots row;
+    // deletion = cancel the lot, write a `manual` ledger entry for the
+    // unused remainder so audit trail is preserved, and detach the invoice.
     const pkg = await this.getPackage(id, academyId);
     if (!pkg) {
       return { success: false, error: "Package not found" };
     }
 
-    const creditsUsed = Number(pkg.totalCredits) - Number(pkg.remainingCredits);
+    const totalCredits = Number(pkg.totalCredits);
+    const remainingCredits = Number(pkg.remainingCredits);
+    const creditsUsed = totalCredits - remainingCredits;
 
-    // Task #676 Phase 2 — V1 write gate. The debt-restore + booking-to-debt
-    // conversion blocks below write to credit_transactions. For V2 academies
-    // those become no-ops; the package row itself is still deleted.
-    const { v1WritesAllowed: _v1Allowed } = await import("./services/credit-feature-flag");
-    const _gateAcademyId = pkg.academyId ?? academyId ?? null;
-    const _v1WritesPermitted = await _v1Allowed(_gateAcademyId);
-    
-    if (Number(pkg.remainingCredits) > 0 && !force) {
-      return { 
-        success: false, 
-        error: `Cannot delete: ${Number(pkg.remainingCredits)} unused credit(s) still remaining in this package`,
-        creditsUsed 
+    if (remainingCredits > 0 && !force) {
+      return {
+        success: false,
+        error: `Cannot delete: ${remainingCredits} unused credit(s) still remaining in this package`,
+        creditsUsed,
       };
     }
-    
+
+    // Detach invoices outside the engine call (engine handles its own tx).
+    await db
+      .update(invoices)
+      .set({ packageId: null })
+      .where(eq(invoices.packageId, id));
+
+    // If there are unused credits, debit them via the credit-engine so the
+    // ledger gets a row with a deterministic event_key. Then mark the lot
+    // cancelled so it can't be drawn from again.
+    if (remainingCredits > 0) {
+      const { manualAdjustment } = await import("./services/credit-engine");
+      await manualAdjustment({
+        playerId: pkg.playerId!,
+        academyId: pkg.academyId!,
+        type: (pkg.creditType ?? 'group') as any,
+        delta: -remainingCredits,
+        reason: `package_deleted:${id}`,
+        actorId: 'system',
+        actorRole: 'system',
+        eventKey: `package_delete:${id}`,
+      });
+    }
+
+    await db.execute(sql`
+      UPDATE credit_lots
+      SET status = 'cancelled', qty_remaining = 0
+      WHERE source_package_id = ${id}
+    `);
+
+    return { success: true, creditsUsed };
+    /* eslint-disable */
+    /* LEGACY V1 BODY (unreachable; retained as commented reference) -- removed in Task #682
     // Use transaction to cascade delete all dependent records
     // Dependency chain: packages → invoices → payments → refunds, also series_players.linked_package_id
     await db.transaction(async (tx) => {
@@ -2981,23 +3002,31 @@ export const storage = {
     });
     
     return { success: true };
+    */
+    /* eslint-enable */
   },
 
   async usePackageCredit(packageId: string, academyId?: string, creditCost: number = 1): Promise<Package | undefined> {
+    // Task #682 — V1 retired. Manual "use 1 credit" admin action goes through
+    // the credit-engine via `manualAdjustment` so the ledger gets a proper
+    // event row with idempotent keying. Sessions consume credits via
+    // `consumeCredit(sessionPlayerId)`; that path does not call this shim.
     const pkg = await this.getPackage(packageId, academyId);
     if (!pkg || Number(pkg.remainingCredits) < creditCost) return undefined;
-    
-    const newRemaining = Number(pkg.remainingCredits) - creditCost;
-    const result = await db
-      .update(packages)
-      .set({ 
-        remainingCredits: newRemaining,
-        status: newRemaining <= 0 ? "depleted" : pkg.status,
-      })
-      .where(eq(packages.id, packageId))
-      .returning();
 
-    return result[0];
+    const { manualAdjustment } = await import("./services/credit-engine");
+    await manualAdjustment({
+      playerId: pkg.playerId!,
+      academyId: pkg.academyId!,
+      type: (pkg.creditType ?? 'group') as any,
+      delta: -creditCost,
+      reason: `manual_use_package:${packageId}`,
+      actorId: 'system',
+      actorRole: 'system',
+      eventKey: `manual_use_package:${packageId}:${Date.now()}`,
+    });
+
+    return await this.getPackage(packageId, academyId);
   },
 
   async autoDeductPlayerCredit(playerId: string, academyId?: string): Promise<{ success: boolean; package?: Package; reason?: string }> {
@@ -3511,28 +3540,7 @@ export const storage = {
     };
     })();
 
-    // Phase 2 — Credit shadow-mode (Task #650). Fire-and-forget; never
-    // blocks or affects the legacy result. Off by default — enable via
-    // env `CREDIT_SHADOW_MODE=on`.
-    if (result.success) {
-      void (async () => {
-        try {
-          const { isShadowModeEnabled, shadowRefundAfterLegacy } = await import("./services/credit-shadow");
-          if (!isShadowModeEnabled()) return;
-          const spRows = await db.execute(sql`
-            SELECT id FROM session_players
-            WHERE session_id = ${sessionId} AND player_id = ${playerId}
-            LIMIT 1
-          `);
-          const spRow = spRows.rows[0] as { id: string } | undefined;
-          if (!spRow) return;
-          await shadowRefundAfterLegacy(spRow.id, result);
-        } catch (err) {
-          console.error(`[RefundCredits] shadow refund failed for session ${sessionId} player ${playerId}:`, err);
-        }
-      })();
-    }
-
+    // Task #682 — credit-shadow service removed. V2 is the only writer now.
     return result;
   },
 
@@ -7183,42 +7191,11 @@ export const storage = {
   },
 
   async updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+    // Task #682 — V1 retired. V2 lots are created at createPackage time, so
+    // the historical "invoice → paid → deposit lot" bridge is no longer
+    // needed. Invoice status now only tracks money state.
     const result = await db.update(invoices).set(data).where(eq(invoices.id, id)).returning();
-    const updated = result[0];
-
-    // V2 bridge (Task #665): when an invoice flips to "paid" on a V2 academy
-    // and it has a packageId, deposit a credit_lots row via the credit
-    // engine. purchasePackage is idempotent on event_key
-    // `purchase:inv:<invoiceId>`, so re-runs are safe.
-    if (updated && data.status === "paid" && updated.packageId && updated.academyId) {
-      try {
-        const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
-        if (await isV2EnabledForAcademy(updated.academyId)) {
-          const pkg = await this.getPackage(updated.packageId, updated.academyId);
-          if (pkg) {
-            const { purchasePackage, normalizeSessionTypeToCreditType } = await import("./services/credit-engine");
-            const type = normalizeSessionTypeToCreditType(pkg.creditType);
-            await purchasePackage({
-              playerId: pkg.playerId,
-              academyId: pkg.academyId,
-              type,
-              qty: Number(pkg.totalCredits),
-              pricePerCredit: parseFloat(String(pkg.pricePerCredit ?? "0")),
-              currency: pkg.currency ?? "AED",
-              invoiceId: updated.id,
-              sourcePackageId: pkg.id,
-              purchasedAt: pkg.purchasedAt ?? new Date(),
-              expiresAt: pkg.expiresAt ?? null,
-              actorRole: "system",
-            });
-          }
-        }
-      } catch (bridgeErr) {
-        console.error(`[updateInvoice][V2 bridge] failed for invoice ${id}:`, bridgeErr);
-      }
-    }
-
-    return updated;
+    return result[0];
   },
 
   async createPayment(data: InsertPayment): Promise<Payment> {
@@ -7315,40 +7292,21 @@ export const storage = {
    * `update(packages).set({ remainingCredits })`, so we bump the package
    * skip counter for the watchdog.
    */
+  // Task #682 — V1 retired. credit_transactions table dropped; the V2 ledger
+  // (credit_ledger_v2) is now the only source of truth. These wrappers stay
+  // for callers but no longer write/read anything.
   async createCreditTransaction(
-    data: InsertCreditTransaction,
+    _data: InsertCreditTransaction,
   ): Promise<CreditTransaction | null> {
-    const {
-      v1WritesAllowed,
-      noteV1PackageWriteSkip,
-    } = await import("./services/credit-feature-flag");
-    if (!(await v1WritesAllowed(data.academyId ?? null))) {
-      const r = data.reason;
-      if (
-        r === "session_consumed" ||
-        r === "session_booking" ||
-        r === "session_settlement" ||
-        r === "session_cancel" ||
-        r === "session_cancel_early"
-      ) {
-        noteV1PackageWriteSkip();
-      }
-      return null;
-    }
-    const result = await db.insert(creditTransactions).values(data).returning();
-    return result[0];
+    return null;
   },
 
-  async getCreditTransactionsByPlayer(playerId: string): Promise<CreditTransaction[]> {
-    return db.select().from(creditTransactions)
-      .where(eq(creditTransactions.playerId, playerId))
-      .orderBy(desc(creditTransactions.createdAt));
+  async getCreditTransactionsByPlayer(_playerId: string): Promise<CreditTransaction[]> {
+    return [];
   },
 
-  async getCreditTransactionsBySession(sessionId: string): Promise<CreditTransaction[]> {
-    return db.select().from(creditTransactions)
-      .where(eq(creditTransactions.sessionId, sessionId))
-      .orderBy(desc(creditTransactions.createdAt));
+  async getCreditTransactionsBySession(_sessionId: string): Promise<CreditTransaction[]> {
+    return [];
   },
 
   // Consume credits for all active class members when a session is completed
@@ -7860,10 +7818,17 @@ export const storage = {
   // PATCH C: Settle player debts when a new package is purchased
   // Debt transactions (session_join_debt) ALWAYS stay packageId = NULL
   // We only mark them as settled via metadata and create ONE settlement transaction
-  async settlePlayerDebts(playerId: string, creditType: string, packageId: string): Promise<{
+  async settlePlayerDebts(_playerId: string, _creditType: string, _packageId: string): Promise<{
     settledCount: number;
     totalDeducted: number;
   }> {
+    // Task #682 — V1 retired. V2 doesn't keep separate debt rows; balances
+    // simply go negative when consumed without lots, and a future purchase
+    // adds positive credits that bring the balance back up. Settlement is
+    // therefore implicit and this function is a no-op.
+    return { settledCount: 0, totalDeducted: 0 };
+    /* eslint-disable */
+    /* LEGACY V1 BODY removed in Task #682
     // Task #676 Phase 2 — V1 write gate. Settlement walks legacy debt rows
     // that V2 doesn't produce. Skip entirely for V2 academies.
     {
@@ -7977,14 +7942,20 @@ export const storage = {
 
       return { settledCount, totalDeducted };
     });
+    */
+    /* eslint-enable */
   },
 
   // Settle unpaid sessions (creditDeductedAt = null) when a new package is created
-  async settleUnpaidSessions(playerId: string, creditType: string, packageId: string, academyId?: string): Promise<{
+  async settleUnpaidSessions(_playerId: string, _creditType: string, _packageId: string, _academyId?: string): Promise<{
     settledCount: number;
     totalDeducted: number;
     sessionIds: string[];
   }> {
+    // Task #682 — V1 retired. See settlePlayerDebts comment.
+    return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
+    /* eslint-disable */
+    /* LEGACY V1 BODY removed in Task #682
     // Task #676 Phase 2 — V1 write gate. Same reasoning as settlePlayerDebts.
     {
       const { v1WritesAllowed } = await import("./services/credit-feature-flag");
@@ -8118,6 +8089,8 @@ export const storage = {
     console.log(`[SettleUnpaidSessions] Settled ${settledSessionIds.length} of ${unpaidSessions.length} unpaid sessions for player ${playerId}: deducted ${totalDeducted} credits from package ${packageId} (${pkg[0].remainingCredits} -> ${currentRemaining})`);
     
     return { settledCount: settledSessionIds.length, totalDeducted, sessionIds: settledSessionIds };
+    */
+    /* eslint-enable */
   },
 
   // Get player pillar progress summary for Glow Leveling OS display
@@ -13270,15 +13243,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
     // env `CREDIT_SHADOW_MODE=on`. We only reach this branch on the
     // legacy path (V2 academies short-circuit above), so shadow runs
     // here will not double-apply against the V2 engine.
-    if (resultToReturn.success && resultToReturn.action !== "error") {
-      import("./services/credit-shadow").then(({ isShadowModeEnabled, shadowConsumeAfterLegacy }) => {
-        if (!isShadowModeEnabled()) return;
-        return shadowConsumeAfterLegacy(sessionPlayerId, resultToReturn);
-      }).catch((err) => {
-        console.error(`[EnsureCredit] shadow consume failed for ${sessionPlayerId}:`, err);
-      });
-    }
-
+    // Task #682 — credit-shadow service removed. V2 is the only writer now.
     return resultToReturn;
   } catch (error: any) {
     console.error(`[EnsureCredit] Error processing session_player ${sessionPlayerId}:`, error);
