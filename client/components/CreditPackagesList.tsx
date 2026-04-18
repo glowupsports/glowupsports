@@ -109,9 +109,26 @@ function statusOf(lot: Lot): keyof typeof STATUS_META {
   return "active";
 }
 
+interface PendingDelete {
+  packageId: string;
+  force: boolean;
+  used: number;
+  remaining: number;
+  total: number;
+  typeLabel: string;
+  invoiceNumber: string | null;
+}
+
 export function CreditPackagesList({ playerId, currency = "AED", canDelete = false }: Props) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Lot | null>(null);
+  // Nested confirmation + inline feedback banner state — render the
+  // confirmation Modal as a JSX child of the Package details Modal so it
+  // stacks correctly on top (per replit.md modal stacking rule). Avoid
+  // Alert.alert from inside a presented Modal — the alert renders behind
+  // the parent on web (WebAlert overlay) and mis-stacks on iOS pageSheet.
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: "error" | "info"; message: string } | null>(null);
 
   const lotsQuery = useQuery<{ playerId: string; lots: Lot[] }>({
     queryKey: [`/api/v2/credits/lots/${playerId}`],
@@ -152,21 +169,26 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       invalidateAll();
+      setPendingDelete(null);
+      setFeedback(null);
       setSelected(null);
-      Alert.alert("Package deleted", "The package and its invoice link have been removed.");
     },
     onError: (err: Error) => {
-      Alert.alert("Delete failed", err.message || "Could not delete package");
+      setPendingDelete(null);
+      // Inline banner inside the details sheet so the message renders above
+      // the parent modal (Alert.alert would land behind it on web).
+      setFeedback({ kind: "error", message: err.message || "Could not delete package" });
     },
   });
 
   const confirmDelete = (lot: Lot) => {
     const pkgId = lot.source_package_id;
     if (!pkgId) {
-      Alert.alert(
-        "Cannot delete",
-        "This entry was not created from a purchasable package (e.g. it's a manual adjustment or refund) and can only be reversed via an adjustment.",
-      );
+      setFeedback({
+        kind: "info",
+        message:
+          "This entry was not created from a purchasable package (e.g. a manual adjustment or refund) and can only be reversed via an adjustment.",
+      });
       return;
     }
     const total = Number(lot.qty_total);
@@ -176,29 +198,16 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
     // force=true is only required when there are still unused credits the
     // server needs to debit. Depleted/expired/cancelled lots delete cleanly.
     const force = remaining > 0;
-    const invoiceMsg = lot.invoice_number
-      ? ` Invoice ${lot.invoice_number} will be detached.`
-      : "";
-    const baseMsg =
-      `This will remove the ${typeLabel} package (${fmtNumber(total)} credits).${invoiceMsg} ` +
-      `This cannot be undone.`;
-    const usageMsg =
-      used > 0
-        ? `\n\n${fmtNumber(used)} of ${fmtNumber(total)} credit${used === 1 ? "" : "s"} were already used. ` +
-          `Deleting will reverse the remaining ${fmtNumber(remaining)} from the wallet too.`
-        : "";
-    Alert.alert(
-      used > 0 ? "Delete used package?" : "Delete package?",
-      baseMsg + usageMsg,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => deleteMutation.mutate({ packageId: pkgId, force }),
-        },
-      ],
-    );
+    setFeedback(null);
+    setPendingDelete({
+      packageId: pkgId,
+      force,
+      used,
+      remaining,
+      total,
+      typeLabel,
+      invoiceNumber: lot.invoice_number ?? null,
+    });
   };
 
   const sortedLots = useMemo(() => {
@@ -423,6 +432,41 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                       </View>
                     ) : null}
 
+                    {feedback ? (
+                      <View
+                        style={{
+                          marginTop: Spacing.md,
+                          padding: Spacing.sm,
+                          borderRadius: 8,
+                          backgroundColor:
+                            feedback.kind === "error"
+                              ? `${Colors.dark.error}15`
+                              : `${Colors.dark.text}10`,
+                          borderWidth: 1,
+                          borderColor:
+                            feedback.kind === "error"
+                              ? `${Colors.dark.error}40`
+                              : `${Colors.dark.text}20`,
+                          flexDirection: "row",
+                          alignItems: "flex-start",
+                          gap: 8,
+                        }}
+                      >
+                        <Ionicons
+                          name={feedback.kind === "error" ? "alert-circle" : "information-circle"}
+                          size={16}
+                          color={feedback.kind === "error" ? Colors.dark.error : Colors.dark.textMuted}
+                          style={{ marginTop: 1 }}
+                        />
+                        <Text style={{ flex: 1, fontSize: 12, color: Colors.dark.text }}>
+                          {feedback.message}
+                        </Text>
+                        <Pressable onPress={() => setFeedback(null)} hitSlop={8}>
+                          <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+                        </Pressable>
+                      </View>
+                    ) : null}
+
                     {canDelete ? (
                       <Pressable
                         onPress={() => confirmDelete(selected)}
@@ -456,6 +500,106 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
               })()}
             </ScrollView>
           ) : null}
+
+          {/* Nested confirmation — rendered as a JSX child of the Package
+              details Modal so it stacks on top of the details sheet on iOS,
+              Android, and web. Mirrors the convention used by PackagesCard. */}
+          <Modal
+            visible={!!pendingDelete}
+            animationType="fade"
+            transparent
+            onRequestClose={() => setPendingDelete(null)}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: Spacing.lg,
+              }}
+            >
+              <View
+                style={{
+                  width: "100%",
+                  maxWidth: 420,
+                  backgroundColor: Colors.dark.backgroundSecondary,
+                  borderRadius: 14,
+                  padding: Spacing.lg,
+                }}
+              >
+                <Text style={{ ...Typography.h3, color: Colors.dark.text, marginBottom: Spacing.sm }}>
+                  {pendingDelete && pendingDelete.used > 0 ? "Delete used package?" : "Delete package?"}
+                </Text>
+                {pendingDelete ? (
+                  <Text style={{ fontSize: 13, color: Colors.dark.textMuted, lineHeight: 19 }}>
+                    {`This will remove the ${pendingDelete.typeLabel} package (${fmtNumber(
+                      pendingDelete.total,
+                    )} credits).${
+                      pendingDelete.invoiceNumber
+                        ? ` Invoice ${pendingDelete.invoiceNumber} will be detached.`
+                        : ""
+                    } This cannot be undone.`}
+                    {pendingDelete.used > 0
+                      ? `\n\n${fmtNumber(pendingDelete.used)} of ${fmtNumber(pendingDelete.total)} credit${
+                          pendingDelete.used === 1 ? "" : "s"
+                        } were already used. Deleting will reverse the remaining ${fmtNumber(
+                          pendingDelete.remaining,
+                        )} from the wallet too.`
+                      : ""}
+                  </Text>
+                ) : null}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: Spacing.sm,
+                    marginTop: Spacing.lg,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <Pressable
+                    onPress={() => setPendingDelete(null)}
+                    disabled={deleteMutation.isPending}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: `${Colors.dark.text}12`,
+                    }}
+                  >
+                    <Text style={{ color: Colors.dark.text, fontWeight: "700", fontSize: 13 }}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      if (!pendingDelete) return;
+                      deleteMutation.mutate({
+                        packageId: pendingDelete.packageId,
+                        force: pendingDelete.force,
+                      });
+                    }}
+                    disabled={deleteMutation.isPending}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: Colors.dark.error,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      opacity: deleteMutation.isPending ? 0.6 : 1,
+                    }}
+                  >
+                    {deleteMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Ionicons name="trash-outline" size={14} color="#fff" />
+                    )}
+                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Delete</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
       </Modal>
     </View>
