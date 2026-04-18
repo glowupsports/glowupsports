@@ -719,6 +719,7 @@ export function OpenMatchesRow() {
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { includeMine: true }] });
       Alert.alert("You're In!", "Successfully joined the match. Get ready to play!");
     },
     onError: (err: any) => {

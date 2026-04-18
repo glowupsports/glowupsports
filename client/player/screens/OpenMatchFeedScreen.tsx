@@ -502,6 +502,7 @@ export default function OpenMatchFeedScreen() {
   useWebSocket({
     onOpenMatchUpdate: useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { includeMine: true }] });
     }, [queryClient]),
   });
 
@@ -520,6 +521,7 @@ export default function OpenMatchFeedScreen() {
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { includeMine: true }] });
       Alert.alert(
         "You're In!", 
         "Successfully joined the match. Get ready to play!",

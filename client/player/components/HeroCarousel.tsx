@@ -292,6 +292,7 @@ function CompeteCard() {
       apiRequest("POST", `/api/open-matches/${id}/join`, { playerId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { includeMine: true }] });
       Alert.alert("Joined!", "You're in. See match details in Play.");
     },
     onError: (err: any) => {
