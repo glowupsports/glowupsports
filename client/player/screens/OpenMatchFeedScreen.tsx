@@ -11,7 +11,8 @@ import {
   Dimensions,
 } from "react-native";
 import { openDirections } from "@/lib/maps";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useWebSocket } from "@/lib/useWebSocket";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Animated, { 
@@ -490,7 +491,24 @@ export default function OpenMatchFeedScreen() {
       if (!res.ok) throw new Error("Failed to load open matches");
       return res.json();
     },
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
   });
+
+  // Real-time refresh when any open match the player can see changes (join,
+  // leave, kick, invite). The server emits one event per affected participant;
+  // we just invalidate the list so cards re-render with fresh slot counts.
+  useWebSocket({
+    onOpenMatchUpdate: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+    }, [queryClient]),
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const joinMutation = useMutation({
     mutationFn: async (matchId: string) => {

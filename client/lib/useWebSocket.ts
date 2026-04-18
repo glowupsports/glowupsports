@@ -83,6 +83,7 @@ interface UseWebSocketOptions {
   onNewConversation?: (payload: { conversationId: string; type: string }) => void;
   onMessageDeleted?: (payload: { conversationId: string; messageId: string }) => void;
   onReactionUpdated?: (payload: { conversationId: string; messageId: string; reactions: unknown[] }) => void;
+  onOpenMatchUpdate?: (payload: { matchId: string; reason?: string }) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
 }
@@ -178,6 +179,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
               break;
             case "reaction_updated":
               optionsRef.current.onReactionUpdated?.(message.payload as { conversationId: string; messageId: string; reactions: unknown[] });
+              break;
+            case "open_match.updated":
+              optionsRef.current.onOpenMatchUpdate?.(message.payload as { matchId: string; reason?: string });
               break;
             case "connected":
               break;

@@ -293,6 +293,26 @@ function broadcastToAcademy(
   });
 }
 
+// Broadcast to specific connected players across all academy rooms (cross-academy safe).
+// Use this when an event is scoped to specific players (e.g. open-match participants)
+// regardless of whether the match is academy-scoped or public.
+export function broadcastToPlayerIds(
+  playerIds: string[],
+  message: WsMessage,
+) {
+  if (!playerIds || playerIds.length === 0) return;
+  const idSet = new Set(playerIds.filter(Boolean));
+  if (idSet.size === 0) return;
+  const data = JSON.stringify(message);
+  academyRooms.forEach((room) => {
+    room.forEach((socket) => {
+      if (socket.playerId && idSet.has(socket.playerId) && socket.readyState === WebSocket.OPEN) {
+        socket.send(data);
+      }
+    });
+  });
+}
+
 // Broadcast to specific connected users only (participant-scoped, no content leak to academy)
 export function broadcastToUserIds(
   academyId: string,

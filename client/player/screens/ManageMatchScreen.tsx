@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
 import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
+import { useWebSocket } from "@/lib/useWebSocket";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -77,11 +78,35 @@ export default function ManageMatchScreen() {
   const { matchId } = route.params || {};
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [invitingFriendId, setInvitingFriendId] = useState<string | null>(null);
+  const [kickTarget, setKickTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const { data: match, isLoading } = useQuery<OpenMatch>({
+  const { data: match, isLoading, refetch } = useQuery<OpenMatch>({
     queryKey: [`/api/open-matches/${matchId}`],
     enabled: !!matchId,
+    // Belt-and-braces fallback in case the WebSocket event is missed
+    // (background tab, dropped connection, etc.).
+    refetchInterval: matchId ? 15000 : false,
+    refetchOnWindowFocus: true,
   });
+
+  // Real-time refresh: when the server emits an open_match.updated event for
+  // this match, invalidate the cached query so the UI reflects join/leave/kick
+  // immediately without the host having to leave and re-open the screen.
+  useWebSocket({
+    onOpenMatchUpdate: useCallback((payload: { matchId: string }) => {
+      if (payload?.matchId === matchId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/open-matches/${matchId}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      }
+    }, [matchId, queryClient]),
+  });
+
+  // Refetch whenever the screen regains focus (e.g. returning from a sub-screen).
+  useFocusEffect(
+    useCallback(() => {
+      if (matchId) refetch();
+    }, [matchId, refetch])
+  );
 
   const { data: friendsResponse } = useQuery<Friend[] | { friends?: Friend[]; pendingRequests?: Friend[] } | null>({
     queryKey: ["/api/player/me/friends"],
@@ -131,6 +156,25 @@ export default function ManageMatchScreen() {
     setInvitingFriendId(friendId);
     inviteMutation.mutate(friendId);
   };
+
+  const kickMutation = useMutation({
+    mutationFn: async (targetPlayerId: string) => {
+      return apiRequest("POST", `/api/open-matches/${matchId}/kick`, { playerId: targetPlayerId });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/open-matches/${matchId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      setKickTarget(null);
+    },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setKickTarget(null);
+      Alert.alert("Couldn't remove player", error?.message || "Try again in a moment.");
+    },
+  });
+
+  const isHost = !!match && !!user?.playerId && user.playerId === match.hostPlayerId;
 
   const getAvailableFriends = () => {
     const playerIds = match?.players?.map(p => p.id) || [];
@@ -281,11 +325,24 @@ export default function ManageMatchScreen() {
                     )}
                   </View>
                   <Text style={styles.playerName}>{player.name}</Text>
-                  {player.id === match.hostPlayerId && (
+                  {player.id === match.hostPlayerId ? (
                     <View style={styles.hostBadge}>
                       <Text style={styles.hostBadgeText}>Host</Text>
                     </View>
-                  )}
+                  ) : isHost ? (
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setKickTarget({ id: player.id, name: player.name });
+                      }}
+                      style={styles.removeButton}
+                      hitSlop={8}
+                      accessibilityLabel={`Remove ${player.name}`}
+                    >
+                      <Ionicons name="close" size={14} color={Colors.dark.error} />
+                      <Text style={styles.removeButtonText}>Remove</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ))
             ) : (
@@ -411,6 +468,51 @@ export default function ManageMatchScreen() {
                 contentContainerStyle={styles.friendsList}
               />
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!kickTarget}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          if (!kickMutation.isPending) setKickTarget(null);
+        }}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="person-remove" size={28} color={Colors.dark.error} />
+            </View>
+            <Text style={styles.confirmTitle}>Remove player?</Text>
+            <Text style={styles.confirmMessage}>
+              {kickTarget
+                ? `${kickTarget.name} will be removed from this match and notified. The slot opens up for someone else.`
+                : ""}
+            </Text>
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={[styles.confirmBtn, styles.confirmBtnSecondary]}
+                onPress={() => setKickTarget(null)}
+                disabled={kickMutation.isPending}
+              >
+                <Text style={styles.confirmBtnSecondaryText}>Keep</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmBtn, styles.confirmBtnDanger]}
+                onPress={() => {
+                  if (kickTarget) kickMutation.mutate(kickTarget.id);
+                }}
+                disabled={kickMutation.isPending}
+              >
+                {kickMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmBtnDangerText}>Remove</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -739,5 +841,92 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: FontSizes.sm,
     textAlign: "center",
+  },
+  removeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.error,
+    backgroundColor: Colors.dark.error + "15",
+  },
+  removeButtonText: {
+    color: Colors.dark.error,
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.lg,
+  },
+  confirmCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  confirmIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  confirmTitle: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  confirmMessage: {
+    color: Colors.dark.textSecondary,
+    fontSize: FontSizes.sm,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: Spacing.sm,
+  },
+  confirmActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    width: "100%",
+    marginTop: Spacing.xs,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmBtnSecondary: {
+    backgroundColor: Colors.dark.surface,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  confirmBtnSecondaryText: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+  },
+  confirmBtnDanger: {
+    backgroundColor: Colors.dark.error,
+  },
+  confirmBtnDangerText: {
+    color: "#fff",
+    fontSize: FontSizes.md,
+    fontWeight: "700",
   },
 });

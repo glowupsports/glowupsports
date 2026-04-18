@@ -31,6 +31,7 @@ import { sanitizeMessage } from "../utils/sanitize";
 import { localHHMMToUtc, utcToLocalTime } from "../utils/timezone";
 import { playerNotifications } from "@shared/schema";
 import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
+import { broadcastToPlayerIds } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
 
 async function getEffectivePlayerCount(sessionId: string): Promise<number> {
@@ -5606,12 +5607,132 @@ Return only the JSON array, nothing else.`;
     }
   });
 
+  // Helper: notify all participants (host + confirmed slots) + any extra playerIds
+  // (e.g. a freshly kicked player) that an open match changed, so subscribed
+  // clients can refetch via WebSocket.
+  async function emitOpenMatchUpdate(matchId: string, extraPlayerIds: string[] = [], reason?: string) {
+    try {
+      const [m] = await db
+        .select({ hostPlayerId: openMatches.hostPlayerId })
+        .from(openMatches)
+        .where(eq(openMatches.id, matchId));
+      const slots = await db
+        .select({ playerId: openMatchSlots.playerId })
+        .from(openMatchSlots)
+        .where(and(
+          eq(openMatchSlots.matchId, matchId),
+          eq(openMatchSlots.status, "confirmed"),
+        ));
+      const ids = new Set<string>();
+      if (m?.hostPlayerId) ids.add(m.hostPlayerId);
+      for (const s of slots) if (s.playerId) ids.add(s.playerId);
+      for (const p of extraPlayerIds) if (p) ids.add(p);
+      broadcastToPlayerIds(Array.from(ids), {
+        type: "open_match.updated",
+        payload: { matchId, reason },
+      });
+    } catch (err) {
+      console.error("[OpenMatch] emitOpenMatchUpdate failed:", err);
+    }
+  }
+
   // Get single open match by ID
   router.get("/api/open-matches/:matchId", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const { matchId } = req.params;
-      
-      // First try to find in matchRequests table
+
+      // Prefer the openMatches/openMatchSlots source of truth (where /join, /leave,
+      // /invite and /kick all write). Fall back to matchRequests for legacy matches
+      // created via the old "Find a Match" wizard.
+      const [openMatch] = await db
+        .select({
+          id: openMatches.id,
+          bookingId: openMatches.bookingId,
+          hostPlayerId: openMatches.hostPlayerId,
+          academyId: openMatches.academyId,
+          matchType: openMatches.matchType,
+          title: openMatches.title,
+          description: openMatches.description,
+          requiredLevelMin: openMatches.requiredLevelMin,
+          requiredLevelMax: openMatches.requiredLevelMax,
+          requiredBallLevel: openMatches.requiredBallLevel,
+          maxPlayers: openMatches.maxPlayers,
+          currentPlayers: openMatches.currentPlayers,
+          status: openMatches.status,
+          visibility: openMatches.visibility,
+          costPerPlayer: openMatches.costPerPlayer,
+          currency: openMatches.currency,
+          xpBonus: openMatches.xpBonus,
+          createdAt: openMatches.createdAt,
+          hostName: players.name,
+          hostAvatar: players.profilePhotoUrl,
+          hostLevel: players.skillLevel,
+          hostBallLevel: players.ballLevel,
+        })
+        .from(openMatches)
+        .leftJoin(players, eq(openMatches.hostPlayerId, players.id))
+        .where(eq(openMatches.id, matchId));
+
+      if (openMatch) {
+        const slotRows = await db
+          .select({
+            playerId: openMatchSlots.playerId,
+            role: openMatchSlots.role,
+            status: openMatchSlots.status,
+            name: players.name,
+            photoUrl: players.profilePhotoUrl,
+          })
+          .from(openMatchSlots)
+          .leftJoin(players, eq(openMatchSlots.playerId, players.id))
+          .where(and(
+            eq(openMatchSlots.matchId, matchId),
+            eq(openMatchSlots.status, "confirmed"),
+          ));
+
+        const playersList = slotRows.map(s => ({
+          id: s.playerId,
+          name: s.name || "Player",
+          photoUrl: s.photoUrl,
+          role: s.role,
+          isHost: s.playerId === openMatch.hostPlayerId,
+        }));
+
+        return res.json({
+          id: openMatch.id,
+          bookingId: openMatch.bookingId,
+          hostPlayerId: openMatch.hostPlayerId,
+          academyId: openMatch.academyId,
+          matchType: openMatch.matchType || "singles",
+          title: openMatch.title,
+          description: openMatch.description,
+          ballLevel: openMatch.requiredBallLevel,
+          skillLevel: openMatch.requiredLevelMin,
+          requiredLevelMin: openMatch.requiredLevelMin || 1,
+          requiredLevelMax: openMatch.requiredLevelMax || 9,
+          requiredBallLevel: openMatch.requiredBallLevel,
+          maxPlayers: openMatch.maxPlayers || 2,
+          currentPlayers: openMatch.currentPlayers || playersList.length,
+          status: openMatch.status || "open",
+          visibility: openMatch.visibility || "academy",
+          costPerPlayer: openMatch.costPerPlayer,
+          currency: openMatch.currency || "AED",
+          xpBonus: openMatch.xpBonus ?? 25,
+          createdAt: openMatch.createdAt?.toISOString() || new Date().toISOString(),
+          scheduledTime: null,
+          courtName: null,
+          locationName: null,
+          host: {
+            id: openMatch.hostPlayerId,
+            name: openMatch.hostName || "Host",
+            photoUrl: openMatch.hostAvatar,
+            level: openMatch.hostLevel || 1,
+            ballLevel: openMatch.hostBallLevel || openMatch.requiredBallLevel,
+          },
+          players: playersList,
+        });
+      }
+
+      // Legacy fallback: matchRequests table
       const [matchRequest] = await db
         .select({
           id: matchRequests.id,
@@ -5870,6 +5991,10 @@ Return only the JSON array, nothing else.`;
         data: { matchId },
       });
 
+      // Real-time push to all participants so any open ManageMatch /
+      // OpenMatchFeed screen refreshes immediately.
+      await emitOpenMatchUpdate(matchId, [], "join");
+
       res.json({ success: true, message: "Joined match successfully" });
     } catch (error) {
       console.error("Join open match error:", error);
@@ -5909,11 +6034,18 @@ Return only the JSON array, nothing else.`;
         .set({ status: "cancelled", cancelledAt: new Date() })
         .where(eq(openMatchSlots.id, slot.id));
 
-      // Update match count
+      // Update match count and re-open the match if it was previously full
       await db
         .update(openMatches)
-        .set({ currentPlayers: sql`current_players - 1` })
+        .set({
+          currentPlayers: sql`current_players - 1`,
+          status: sql`CASE WHEN status = 'full' THEN 'open' ELSE status END`,
+        })
         .where(eq(openMatches.id, matchId));
+
+      // Real-time push so the host (and other participants) see the slot free up.
+      // We pass the leaving player's id as `extra` so their own client also refetches.
+      await emitOpenMatchUpdate(matchId, [playerId], "leave");
 
       res.json({ success: true, message: "Left match" });
     } catch (error) {
@@ -5990,10 +6122,100 @@ Return only the JSON array, nothing else.`;
         createdAt: new Date(),
       });
 
+      // Real-time push to participants (so the host's own ManageMatch screen
+      // doesn't have to wait for a refetch to reflect any side-effects).
+      await emitOpenMatchUpdate(matchId, [playerId], "invite");
+
       res.json({ success: true, message: "Invite sent successfully" });
     } catch (error) {
       console.error("Invite to open match error:", error);
       res.status(500).json({ error: "Failed to send invite" });
+    }
+  });
+
+  // Kick (remove) a player from an open match — host only.
+  router.post("/api/open-matches/:matchId/kick", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const hostPlayerId = req.user?.playerId;
+      const { matchId } = req.params;
+      const { playerId: targetPlayerId } = req.body || {};
+
+      if (!hostPlayerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+      if (!targetPlayerId) {
+        return res.status(400).json({ error: "Player ID required" });
+      }
+      if (targetPlayerId === hostPlayerId) {
+        return res.status(400).json({ error: "Host cannot kick themselves. Cancel the match instead." });
+      }
+
+      const [match] = await db
+        .select()
+        .from(openMatches)
+        .where(eq(openMatches.id, matchId));
+
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      if (match.hostPlayerId !== hostPlayerId) {
+        return res.status(403).json({ error: "Only the host can remove players" });
+      }
+
+      const [slot] = await db
+        .select()
+        .from(openMatchSlots)
+        .where(and(
+          eq(openMatchSlots.matchId, matchId),
+          eq(openMatchSlots.playerId, targetPlayerId),
+          eq(openMatchSlots.status, "confirmed"),
+        ));
+
+      if (!slot) {
+        return res.status(404).json({ error: "Player is not in this match" });
+      }
+      if (slot.role === "host") {
+        return res.status(400).json({ error: "Cannot remove the host" });
+      }
+
+      await db
+        .update(openMatchSlots)
+        .set({ status: "cancelled", cancelledAt: new Date() })
+        .where(eq(openMatchSlots.id, slot.id));
+
+      await db
+        .update(openMatches)
+        .set({
+          currentPlayers: sql`GREATEST(current_players - 1, 0)`,
+          status: sql`CASE WHEN status = 'full' THEN 'open' ELSE status END`,
+        })
+        .where(eq(openMatches.id, matchId));
+
+      // Notify the kicked player (push + in-app).
+      const hostPlayer = await storage.getPlayer(hostPlayerId);
+      const hostName = hostPlayer?.name || "The host";
+      try {
+        await storage.createNotification({
+          type: "open_match_kick",
+          title: "Removed from match",
+          message: `${hostName} removed you from the open match.`,
+          userId: null,
+          playerId: targetPlayerId,
+          academyId: match.academyId,
+          data: { matchId },
+        });
+      } catch (notifyErr) {
+        console.error("[OpenMatch] kick notification failed:", notifyErr);
+      }
+
+      // Real-time push to participants AND the kicked player so all open
+      // screens refresh immediately.
+      await emitOpenMatchUpdate(matchId, [targetPlayerId], "kick");
+
+      res.json({ success: true, message: "Player removed" });
+    } catch (error) {
+      console.error("Kick open match player error:", error);
+      res.status(500).json({ error: "Failed to remove player" });
     }
   });
 
