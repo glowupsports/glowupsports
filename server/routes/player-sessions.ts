@@ -242,20 +242,29 @@ import fs from "fs";
                   cancelledAt: new Date().toISOString(),
                 },
               });
+
+              // Only mark "charged" + ledger linkage when a V1 ledger row was
+              // actually written. For V2 academies the V2 engine owns the
+              // debit; marking "charged" here without a ledger row would
+              // silently desync the wallet — log a warning instead so the
+              // unwired late-cancel V2 path surfaces in Phase 3 work.
+              await db
+                .update(sessionPlayers)
+                .set({
+                  creditDeductedAt: new Date(),
+                  creditTransactionId: transactionId,
+                  billingStatus: "charged",
+                })
+                .where(eq(sessionPlayers.id, sessionPlayer.id));
+
+              console.log(
+                `[LateCancellation] Player ${playerId} charged ${creditsToDeduct} ${creditType} credit(s) for late cancellation (${Math.round(hoursUntilSession)}h notice, tier: ${penaltyTier})`,
+              );
+            } else {
+              console.warn(
+                `[LateCancellation][V2] Player ${playerId} late-cancelled session ${sessionId} (academy ${session.academyId}) — V1 write blocked, V2 late-cancel debit path not yet wired (Task #684 Phase 3). Skipping billingStatus/creditTransactionId update to avoid wallet desync.`,
+              );
             }
-
-            await db
-              .update(sessionPlayers)
-              .set({
-                creditDeductedAt: new Date(),
-                creditTransactionId: transactionId,
-                billingStatus: "charged",
-              })
-              .where(eq(sessionPlayers.id, sessionPlayer.id));
-
-            console.log(
-              `[LateCancellation] Player ${playerId} charged ${creditsToDeduct} ${creditType} credit(s) for late cancellation (${Math.round(hoursUntilSession)}h notice, tier: ${penaltyTier})`,
-            );
           }
 
           if (xpPenalty !== 0) {
