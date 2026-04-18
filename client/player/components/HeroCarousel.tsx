@@ -28,6 +28,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { SessionHeroCard } from "./SessionHeroCard";
+import { MatchSummaryCard } from "./MatchSummaryCard";
 import {
   Spacing,
   BorderRadius,
@@ -253,8 +254,21 @@ function CompeteCard() {
     enabled: !!playerId,
   });
 
+  // Hero needs to surface the player's OWN upcoming open match (so they can
+  // jump back to manage it) — that requires `?includeMine=true`. We use a
+  // distinct cache key from the bare /api/open-matches query (used by
+  // OpenMatchesRow) so the two never overwrite each other's cached payloads.
   const { data: openMatches = [] } = useQuery<OpenMatchLite[]>({
-    queryKey: ["/api/open-matches"],
+    queryKey: ["/api/open-matches", { includeMine: true }],
+    queryFn: async () => {
+      if (!playerId) return [];
+      const res = await fetch(
+        new URL(`/api/open-matches?includeMine=true`, getApiUrl()).toString(),
+        { headers: getAuthHeaders(), credentials: "include" }
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !!playerId,
   });
 
@@ -348,13 +362,21 @@ function CompeteCard() {
       )
     )[0];
 
-  const upcomingOpenMatch = openMatches
+  // Priority: own upcoming match first (so player can manage it), then any
+  // other joinable upcoming match. We never show an empty CTA when the
+  // player already has a hosted match queued up.
+  const futureSorted = openMatches
     .filter((m) => m.scheduledTime && new Date(m.scheduledTime) > new Date())
     .sort(
       (a, b) =>
         new Date(a.scheduledTime!).getTime() -
         new Date(b.scheduledTime!).getTime()
-    )[0];
+    );
+  const isMine = (m: OpenMatchLite) =>
+    String(m.host?.id || m.hostPlayerId) === String(playerId);
+  const myUpcomingMatch = futureSorted.find(isMine);
+  const otherUpcomingMatch = futureSorted.find((m) => !isMine(m));
+  const upcomingOpenMatch = myUpcomingMatch || otherUpcomingMatch;
 
   // Variant 1: Incoming challenge — inline Accept/Decline (parity with ChallengeCard).
   if (incomingChallenge) {
@@ -438,44 +460,13 @@ function CompeteCard() {
     );
   }
 
-  // Variant 3: Open match available — direct join via mutation (parity with PremiumMatchCard onJoin).
+  // Variant 3: Open match available — own match prioritized (Manage),
+  // otherwise next joinable match (Join). Rendered via the shared
+  // MatchSummaryCard so the visual matches the OpenMatches feed and row.
   if (upcomingOpenMatch) {
-    const target = upcomingOpenMatch.scheduledTime
-      ? new Date(upcomingOpenMatch.scheduledTime)
-      : null;
-    const when = target
-      ? target.toLocaleString(undefined, {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : "Soon";
-    const spots = Math.max(
-      0,
-      (upcomingOpenMatch.maxPlayers || 0) - (upcomingOpenMatch.currentPlayers || 0)
-    );
     const isHost =
       String(upcomingOpenMatch.host?.id || upcomingOpenMatch.hostPlayerId) ===
       String(playerId);
-    const hostName = upcomingOpenMatch.host?.name || "A player";
-    const ballLevel = (
-      upcomingOpenMatch.host?.ballLevel ||
-      upcomingOpenMatch.ballLevel ||
-      ""
-    ).toString();
-    const ballColor = getBallLevelColor(ballLevel);
-    const photoUrl = upcomingOpenMatch.host?.photoUrl
-      ? buildPhotoUrl(upcomingOpenMatch.host.photoUrl)
-      : null;
-    const isAdjacent = upcomingOpenMatch.levelMatch === "adjacent";
-    const adjacentLabel =
-      upcomingOpenMatch.levelDirection === "higher"
-        ? "Higher level"
-        : upcomingOpenMatch.levelDirection === "lower"
-        ? "Lower level"
-        : "Adjacent level";
 
     const goManageMatch = () => {
       const matchId = upcomingOpenMatch.id;
@@ -483,10 +474,6 @@ function CompeteCard() {
         goOpenMatches();
         return;
       }
-      // ManageMatch is registered on the parent PlayerStackNavigator
-      // (above PlayerTabs), so navigating from any tab pushes it on
-      // top of the whole tab bar — back returns to the originating
-      // tab (Home, in this case) instead of switching to Play first.
       try {
         navigation.navigate("ManageMatch", { matchId });
       } catch {
@@ -495,113 +482,29 @@ function CompeteCard() {
     };
 
     return (
-      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="people">
-        <View style={styles.chipRow}>
-          <MatchTypeChip matchType={upcomingOpenMatch.matchType} accent={COMPETE_ACCENT} />
-          {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
-          {ballLevel ? (
-            <View
-              style={[
-                styles.chip,
-                { borderColor: `${ballColor}66`, backgroundColor: `${ballColor}1F` },
-              ]}
-            >
-              <View
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: ballColor,
-                  marginRight: 4,
-                }}
-              />
-              <Text style={[styles.chipText, { color: ballColor }]}>
-                {ballLevel.toUpperCase()}
-              </Text>
-            </View>
-          ) : null}
-          {isAdjacent ? (
-            <View
-              style={[
-                styles.chip,
-                {
-                  borderColor: "rgba(255,255,255,0.25)",
-                  backgroundColor: "rgba(255,255,255,0.08)",
-                },
-              ]}
-            >
-              <Ionicons name="swap-vertical" size={10} color={TextColors.secondary} />
-              <Text style={[styles.chipText, { color: TextColors.secondary }]}>
-                {adjacentLabel}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={openMatchHeroStyles.hostRow}>
-          <View
-            style={[
-              openMatchHeroStyles.avatarRing,
-              { borderColor: ballColor },
-            ]}
-          >
-            {photoUrl ? (
-              <RNImage
-                source={{ uri: photoUrl }}
-                style={openMatchHeroStyles.avatarImage}
-              />
-            ) : (
-              <View
-                style={[
-                  openMatchHeroStyles.avatarFallback,
-                  { backgroundColor: `${ballColor}33` },
-                ]}
-              >
-                <Text style={[openMatchHeroStyles.avatarInitials, { color: ballColor }]}>
-                  {getInitials(hostName)}
-                </Text>
-              </View>
-            )}
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.lensTitle} numberOfLines={1}>
-              {isHost ? "Your open match" : `${hostName} is looking for a match`}
-            </Text>
-            <Text style={styles.lensSubtitle} numberOfLines={2}>
-              {when}
-              {upcomingOpenMatch.courtName ? ` · ${upcomingOpenMatch.courtName}` : ""}
-              {spots > 0 ? ` · ${spots} spot${spots === 1 ? "" : "s"} left` : " · Full"}
-            </Text>
-          </View>
-        </View>
-
-        <Pressable
-          style={[styles.ctaPrimary, { backgroundColor: COMPETE_ACCENT }]}
-          disabled={!isHost && (joinMutation.isPending || spots === 0)}
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            if (isHost) {
-              goManageMatch();
-            } else {
-              joinMutation.mutate(upcomingOpenMatch.id);
-            }
-          }}
-        >
-          <Text style={styles.ctaPrimaryText}>
-            {isHost
-              ? "Manage Match"
-              : spots === 0
-              ? "Match full"
-              : joinMutation.isPending
-              ? "Joining..."
-              : "Join Match"}
-          </Text>
-          <Ionicons
-            name={isHost ? "settings-outline" : "arrow-forward"}
-            size={14}
-            color={Backgrounds.root}
-          />
-        </Pressable>
+      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon={isHost ? "settings-outline" : "people"}>
+        <MatchSummaryCard
+          embedded
+          matchId={upcomingOpenMatch.id}
+          matchType={upcomingOpenMatch.matchType}
+          sport={upcomingOpenMatch.sport}
+          scheduledTime={upcomingOpenMatch.scheduledTime}
+          courtName={upcomingOpenMatch.courtName}
+          locationName={upcomingOpenMatch.locationName}
+          host={upcomingOpenMatch.host}
+          ballLevel={upcomingOpenMatch.ballLevel}
+          currentPlayers={upcomingOpenMatch.currentPlayers}
+          maxPlayers={upcomingOpenMatch.maxPlayers}
+          costPerPlayer={upcomingOpenMatch.costPerPlayer}
+          currency={upcomingOpenMatch.currency}
+          levelMatch={upcomingOpenMatch.levelMatch}
+          levelDirection={upcomingOpenMatch.levelDirection}
+          isHost={isHost}
+          joining={joinMutation.isPending}
+          onJoin={() => joinMutation.mutate(upcomingOpenMatch.id)}
+          onManage={goManageMatch}
+          accent={COMPETE_ACCENT}
+        />
       </LensShell>
     );
   }

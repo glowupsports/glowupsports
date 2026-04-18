@@ -25,6 +25,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
+import { MatchSummaryCard, COMPETE_ACCENT } from "./MatchSummaryCard";
 import { getStaticAssetsUrl, buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
@@ -687,50 +688,53 @@ export function OpenMatchesRow() {
     enabled: !!user?.playerId,
   });
 
-  // Map /api/open-matches shape -> shape this row already renders, and apply
-  // a robust future-only filter. The server already returns a canonical
-  // `scheduledTime` ISO when both preferredDate + preferredTime are present;
-  // we trust that as the single source. When scheduledTime is absent (e.g.
-  // date-only or time-only), we DON'T drop the match — better to over-show
-  // (and let the user see their own match) than to silently hide it because
-  // of a timezone-edge parse. Server-side filtering already excluded past
-  // matches with full datetime, so this fallback only affects ambiguous rows.
+  // Pass the raw /api/open-matches payload through with a future-only filter.
+  // We no longer remap to a different shape — MatchSummaryCard reads the
+  // canonical fields (host, scheduledTime, levelMatch, etc.) directly so the
+  // home row, the COMPETE hero, and the OpenMatches feed all share one
+  // serialization contract.
   const openMatches = React.useMemo(() => {
     if (!Array.isArray(rawMatches)) return [];
     const nowMs = Date.now();
     return rawMatches
-      .map((m: any) => {
-        const when = m.scheduledTime ? new Date(m.scheduledTime).getTime() : null;
-        const maxPlayers = m.maxPlayers || (m.matchType === "doubles" ? 4 : 2);
-        const currentPlayers = m.currentPlayers ?? (m.players?.length ?? 1);
-        const host = m.host || m.players?.[0];
-        const participants = (m.players?.length ? m.players : (host ? [host] : [])).map((p: any) => ({
-          id: p.id,
-          name: p.name || "Player",
-          profilePhotoUrl: p.photoUrl || p.profilePhotoUrl || null,
-          level: p.level || 1,
-        }));
-        return {
-          id: m.id,
-          type: "open_match",
-          date: m.scheduledTime || null,
-          _when: when,
-          maxPlayers,
-          spotsLeft: Math.max(0, maxPlayers - currentPlayers),
-          ballLevel: (m.ballLevel || m.requiredBallLevel || host?.ballLevel || "glow"),
-          skillLevel: host?.skillLevel,
-          participants,
-          locationName: m.locationName || m.courtName || null,
-          xpReward: m.xpBonus || 0,
-        };
+      .filter((m: any) => {
+        if (!m.scheduledTime) return true;
+        const t = new Date(m.scheduledTime).getTime();
+        return !Number.isFinite(t) || t > nowMs;
       })
-      .filter((m: any) => m._when == null || !Number.isFinite(m._when) || m._when > nowMs)
-      .sort((a: any, b: any) => (a._when || Infinity) - (b._when || Infinity));
+      .sort((a: any, b: any) => {
+        const ta = a.scheduledTime ? new Date(a.scheduledTime).getTime() : Infinity;
+        const tb = b.scheduledTime ? new Date(b.scheduledTime).getTime() : Infinity;
+        return ta - tb;
+      });
   }, [rawMatches]);
+
+  const queryClient = useQueryClient();
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const joinMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      setJoiningId(matchId);
+      return apiRequest("POST", `/api/open-matches/${matchId}/join`, { playerId: user?.playerId });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      Alert.alert("You're In!", "Successfully joined the match. Get ready to play!");
+    },
+    onError: (err: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Couldn't Join", err?.message || "Something went wrong. Try again.");
+    },
+    onSettled: () => setJoiningId(null),
+  });
 
   const handleMatchPress = (matchId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("PlayStack");
+    try {
+      navigation.navigate("ManageMatch", { matchId });
+    } catch {
+      navigateToTab("PlayStack");
+    }
   };
 
   const handleSeeAll = () => {
@@ -793,163 +797,38 @@ export function OpenMatchesRow() {
       />
 
       <View style={styles.matchesFullWidthContainer}>
-        {openMatches.slice(0, 3).map((match, index) => {
-          const currentPlayers = (match.maxPlayers || 4) - match.spotsLeft;
-          const ballColor = getBallLevelColor(match.ballLevel || "glow");
-          const isDoubles = (match.maxPlayers || 4) === 4;
-          const matchDate = (match as any).date || (match as any).startTime || (match as any).scheduledTime;
-          const countdown = getCountdownText(matchDate || new Date().toISOString());
-          const slotsLeft = match.spotsLeft;
-          
+        {openMatches.slice(0, 3).map((match: any, index: number) => {
+          const isHost =
+            String(match.host?.id || match.hostPlayerId) === String(user?.playerId);
           return (
-            <Animated.View 
+            <Animated.View
               key={match.id}
               entering={FadeInRight.delay(index * 80).duration(350)}
+              style={{ marginBottom: Spacing.md }}
             >
-              <Pressable onPress={() => handleMatchPress(match.id)}>
-                <LinearGradient
-                  colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
-                  style={styles.premiumMatchCard}
-                >
-                  <View style={[styles.premiumMatchGlowBorder, { borderColor: ballColor + "60" }]} />
-                  
-                  <View style={styles.premiumMatchHeader}>
-                    <LinearGradient
-                      colors={getMatchTypeGradient(match.maxPlayers || 4)}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.matchTypePillGradient}
-                    >
-                      <Ionicons 
-                        name={isDoubles ? "people" : "person"} 
-                        size={12} 
-                        color="#fff" 
-                      />
-                      <Text style={styles.matchTypePillTextWhite}>
-                        {isDoubles ? t("player.home.doubles") : t("player.home.singles")}
-                      </Text>
-                    </LinearGradient>
-
-                    <View style={[styles.countdownBadge, countdown.urgent && styles.countdownBadgeUrgent]}>
-                      <Ionicons 
-                        name="time" 
-                        size={12} 
-                        color={countdown.urgent ? "#EF4444" : Colors.dark.primary} 
-                      />
-                      <Text style={[styles.countdownBadgeText, countdown.urgent && { color: "#EF4444" }]}>
-                        {countdown.text}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.premiumMatchHostSection}>
-                    <View style={[styles.premiumMatchHostAvatar, { borderColor: ballColor }]}>
-                      {match.participants && match.participants[0]?.profilePhotoUrl ? (
-                        <ExpoImage 
-                          source={{ uri: buildPhotoUrl(match.participants[0].profilePhotoUrl)! }} 
-                          style={styles.premiumMatchHostImage}
-                          contentFit="cover"
-                        />
-                      ) : (
-                        <LinearGradient
-                          colors={[ballColor + "40", ballColor + "20"]}
-                          style={styles.premiumMatchHostPlaceholder}
-                        >
-                          <Text style={[styles.premiumMatchHostInitial, { color: ballColor }]}>
-                            {match.participants?.[0]?.name?.charAt(0) || "?"}
-                          </Text>
-                        </LinearGradient>
-                      )}
-                    </View>
-                    
-                    <View style={styles.premiumMatchHostInfo}>
-                      <Text style={styles.premiumMatchHostName} numberOfLines={1}>
-                        {match.participants?.[0]?.name || t("player.home.lookingForPlayers")}
-                      </Text>
-                      <View style={[styles.premiumMatchLevelBadge, { backgroundColor: ballColor + "20", borderColor: ballColor }]}>
-                        <View style={[styles.premiumMatchLevelDot, { backgroundColor: ballColor }]} />
-                        <Text style={[styles.premiumMatchLevelText, { color: ballColor }]}>
-                          {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""} {getSkillLabel(match.skillLevel)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {(match as any).xpReward > 0 ? (
-                      <View style={styles.xpBadgeSmall}>
-                        <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-                        <Text style={styles.xpBadgeSmallText}>+{(match as any).xpReward}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {matchDate ? (
-                    <View style={styles.premiumMatchDateRow}>
-                      <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} />
-                      <Text style={styles.premiumMatchDateText}>
-                        {formatSessionDateShort(matchDate, "Asia/Dubai")}
-                      </Text>
-                      <Text style={styles.premiumMatchDateDot}>·</Text>
-                      <Ionicons name="time-outline" size={14} color={Colors.dark.textSecondary} />
-                      <Text style={styles.premiumMatchDateText}>
-                        {formatSessionTimeWithRelativeDay(matchDate, "Asia/Dubai")}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {(match as any).locationName || (match as any).courtName ? (
-                    <View style={styles.premiumMatchLocationRow}>
-                      <Ionicons name="location" size={14} color={Colors.dark.primary} />
-                      <Text style={styles.premiumMatchLocationText} numberOfLines={1}>
-                        {(match as any).courtName || (match as any).locationName}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <View style={styles.premiumMatchDivider} />
-
-                  <View style={styles.premiumMatchFooter}>
-                    <View style={styles.premiumMatchPlayerSlots}>
-                      {Array.from({ length: match.maxPlayers || 4 }).map((_, slotIndex) => {
-                        const player = match.participants?.[slotIndex];
-                        const isFilled = slotIndex < currentPlayers;
-                        
-                        return (
-                          <View 
-                            key={slotIndex} 
-                            style={[
-                              styles.premiumMatchSlot,
-                              isFilled ? styles.premiumMatchSlotFilled : styles.premiumMatchSlotEmpty
-                            ]}
-                          >
-                            {player?.profilePhotoUrl ? (
-                              <ExpoImage 
-                                source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }} 
-                                style={styles.premiumMatchSlotImage}
-                                contentFit="cover"
-                              />
-                            ) : isFilled ? (
-                              <Ionicons name="person" size={12} color={Colors.dark.primary} />
-                            ) : (
-                              <Ionicons name="add" size={12} color={Colors.dark.textMuted} />
-                            )}
-                          </View>
-                        );
-                      })}
-                      <Text style={styles.premiumMatchSlotsText}>
-                        {slotsLeft === 1 ? t("player.home.spotLeft", { count: slotsLeft }) : t("player.home.spotsLeft", { count: slotsLeft })}
-                      </Text>
-                    </View>
-
-                    <Pressable 
-                      style={[styles.premiumMatchJoinBtn, { backgroundColor: ballColor }]}
-                      onPress={() => handleMatchPress(match.id)}
-                    >
-                      <Text style={styles.premiumMatchJoinText}>{t("common.join")}</Text>
-                      <Feather name="arrow-right" size={14} color="#0A0A12" />
-                    </Pressable>
-                  </View>
-                </LinearGradient>
-              </Pressable>
+              <MatchSummaryCard
+                matchId={match.id}
+                matchType={match.matchType}
+                sport={match.sport}
+                scheduledTime={match.scheduledTime}
+                courtName={match.courtName}
+                locationName={match.locationName}
+                host={match.host}
+                ballLevel={match.ballLevel}
+                currentPlayers={match.currentPlayers ?? (match.players?.length ?? 1)}
+                maxPlayers={match.maxPlayers || (match.matchType === "doubles" ? 4 : 2)}
+                costPerPlayer={match.costPerPlayer}
+                currency={match.currency}
+                xpBonus={match.xpBonus}
+                levelMatch={match.levelMatch}
+                levelDirection={match.levelDirection}
+                isHost={isHost}
+                joining={joiningId === match.id}
+                onJoin={() => joinMutation.mutate(match.id)}
+                onManage={() => handleMatchPress(match.id)}
+                onPress={() => handleMatchPress(match.id)}
+                accent={COMPETE_ACCENT}
+              />
             </Animated.View>
           );
         })}

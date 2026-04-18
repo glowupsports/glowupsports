@@ -37,6 +37,7 @@ import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl, getAuthHeader
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/SportContext";
+import { MatchSummaryCard, COMPETE_ACCENT } from "@/player/components/MatchSummaryCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -547,14 +548,34 @@ export default function OpenMatchFeedScreen() {
   const renderMatch = ({ item, index }: { item: OpenMatch; index: number }) => {
     const isHost = user?.playerId === item.hostPlayerId;
     return (
-      <PremiumMatchCard
-        match={item}
-        onJoin={() => joinMutation.mutate(item.id)}
-        isJoining={joiningMatchId === item.id}
-        index={index}
-        isHost={isHost}
-        onManage={() => navigation.navigate("ManageMatch", { matchId: item.id })}
-      />
+      <Animated.View entering={FadeInDown.delay(index * 80).springify()}>
+        <MatchSummaryCard
+          matchId={item.id}
+          matchType={item.matchType}
+          sport={item.sport}
+          scheduledTime={item.scheduledTime}
+          courtName={item.courtName}
+          locationName={item.locationName}
+          host={item.host}
+          ballLevel={item.ballLevel || item.requiredBallLevel || undefined}
+          skillLevel={item.skillLevel}
+          currentPlayers={item.currentPlayers}
+          maxPlayers={item.maxPlayers}
+          costPerPlayer={item.costPerPlayer}
+          currency={item.currency}
+          xpBonus={item.xpBonus}
+          isHost={isHost}
+          joining={joiningMatchId === item.id}
+          onJoin={() => joinMutation.mutate(item.id)}
+          onManage={() => navigation.navigate("ManageMatch", { matchId: item.id })}
+          onPress={() => {
+            if (isHost) {
+              navigation.navigate("ManageMatch", { matchId: item.id });
+            }
+          }}
+          accent={COMPETE_ACCENT}
+        />
+      </Animated.View>
     );
   };
   return (
