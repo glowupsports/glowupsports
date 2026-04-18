@@ -7346,17 +7346,21 @@ import fs from "fs";
 
       if (allSessionIds.length > 0) {
         // Task #681 Phase 3 — derive "paid" from V2 ledger.
-        // A session is paid when there is a `consume` row with a lot_id
-        // attached (covered by an active credit lot, not an uncovered debt).
+        // A session is fully paid only when (a) at least one `consume` row
+        // exists for it AND (b) the uncovered `metadata.debt` portion is 0.
+        // A consume row may carry both a lot_id (partial coverage) and a
+        // non-zero `debt` when the player's balance went negative — those
+        // sessions are NOT paid.
+        type PaidSessionRow = { session_id: string | null };
         const paidRows = await db.execute(sql`
-          SELECT DISTINCT session_id
+          SELECT session_id
           FROM credit_ledger_v2
           WHERE player_id = ${player.id}
             AND reason = 'consume'
-            AND lot_id IS NOT NULL
             AND session_id = ANY(${allSessionIds}::text[])
+          GROUP BY session_id
+          HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
         `);
-        type PaidSessionRow = { session_id: string | null };
         for (const row of paidRows.rows as PaidSessionRow[]) {
           if (row.session_id) paidSessionIdSet.add(row.session_id);
         }

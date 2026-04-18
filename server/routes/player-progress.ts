@@ -452,29 +452,24 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const paidSessionIdSet = new Set<string>();
 
         if (allSessionIds.length > 0) {
-          // Task #681 Phase 3 — V2-only read. A session counts as "paid" when
-          // there's at least one consume row with `lot_id IS NOT NULL` (FIFO
-          // lot covered the consume). Uncovered consumes (lot_id IS NULL)
-          // represent owed debt and don't mark the session as paid.
-          const { creditLedgerV2 } = await import("@shared/schema");
-          const sessionTxs = await db
-            .select({
-              sessionId: creditLedgerV2.sessionId,
-              lotId: creditLedgerV2.lotId,
-            })
-            .from(creditLedgerV2)
-            .where(
-              and(
-                eq(creditLedgerV2.playerId, id),
-                inArray(creditLedgerV2.sessionId, allSessionIds),
-                eq(creditLedgerV2.reason, "consume"),
-                sql`${creditLedgerV2.delta}::numeric < 0`,
-              ),
-            );
-
-          for (const tx of sessionTxs) {
-            if (!tx.sessionId) continue;
-            if (tx.lotId) paidSessionIdSet.add(tx.sessionId);
+          // Task #681 Phase 3 — V2-only read. A session counts as "paid"
+          // only when (a) at least one `consume` row exists for it AND (b)
+          // the uncovered `metadata.debt` portion summed across all consume
+          // rows is 0. A consume can carry both a lot_id (partial coverage)
+          // and a non-zero `debt` when the player went negative — those
+          // sessions remain owed.
+          type PaidSessionRow = { session_id: string | null };
+          const paidRows = await db.execute(sql`
+            SELECT session_id
+            FROM credit_ledger_v2
+            WHERE player_id = ${id}
+              AND reason = 'consume'
+              AND session_id = ANY(${allSessionIds}::text[])
+            GROUP BY session_id
+            HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
+          `);
+          for (const row of paidRows.rows as PaidSessionRow[]) {
+            if (row.session_id) paidSessionIdSet.add(row.session_id);
           }
         }
 

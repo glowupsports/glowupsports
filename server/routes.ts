@@ -888,8 +888,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `);
         let creditsUsed = 0;
         const usedByType: Record<string, number> = {};
-        for (const row of creditUsageRows.rows as Array<{ type: string; used_by_type: any }>) {
-          const n = Number(row.used_by_type) || 0;
+        type UsageRow = { type: string; used_by_type: string | number | null };
+        for (const row of creditUsageRows.rows as UsageRow[]) {
+          const n = Number(row.used_by_type ?? 0) || 0;
           creditsUsed += n;
           usedByType[row.type] = (usedByType[row.type] || 0) + n;
         }
