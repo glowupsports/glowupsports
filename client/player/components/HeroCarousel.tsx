@@ -776,7 +776,7 @@ export function HeroCarousel({
       clearTimeout(lockedIdleTimerRef.current);
       lockedIdleTimerRef.current = null;
     }
-    if (priorityLocked && activeIndex !== 0 && !paused) {
+    if (priorityLocked && activeIndex !== 0) {
       lockedIdleTimerRef.current = setTimeout(() => {
         scrollTo(0);
         setActiveIndex(0);
@@ -788,7 +788,7 @@ export function HeroCarousel({
         lockedIdleTimerRef.current = null;
       }
     };
-  }, [priorityLocked, activeIndex, paused, scrollTo]);
+  }, [priorityLocked, activeIndex, scrollTo]);
 
   // Cleanup
   useEffect(() => {
