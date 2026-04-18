@@ -150,7 +150,7 @@ import fs from "fs";
         const dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
-        if (sessionTime < now) {
+        if (sessionTime <= now) {
           return res
             .status(400)
             .json({ error: "Session has already started — you can no longer cancel it." });
@@ -418,7 +418,7 @@ import fs from "fs";
         const dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
-        if (sessionTime < now) {
+        if (sessionTime <= now) {
           return res
             .status(400)
             .json({ error: "Session has already started — you can no longer mark yourself unavailable." });
