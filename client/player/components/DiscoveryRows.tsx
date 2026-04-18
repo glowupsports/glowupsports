@@ -18,6 +18,7 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
@@ -679,9 +680,11 @@ export function OpenMatchesRow() {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
+  const { user } = useAuth();
 
   const { data: rawMatches } = useQuery<any[]>({
     queryKey: ["/api/open-matches"],
+    enabled: !!user?.playerId,
   });
 
   // Map /api/open-matches shape -> shape this row already renders, and apply
