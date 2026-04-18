@@ -22,7 +22,7 @@ import { PlayersNearYouRow, GroupLessonsRow, OpenMatchesRow, TrainingSessionsRow
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
-import { SessionHeroCard } from "@/player/components/SessionHeroCard";
+import { HeroCarousel } from "@/player/components/HeroCarousel";
 import { NewsTicker } from "@/player/components/NewsTicker";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
@@ -958,7 +958,7 @@ function PlayerHomeContent() {
           </Pressable>
         )}
 
-        <SessionHeroCard onBookSession={handleBookLesson} />
+        <HeroCarousel onBookSession={handleBookLesson} />
 
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
         {!isGuest ? <UpcomingProviderSessionCard /> : null}
