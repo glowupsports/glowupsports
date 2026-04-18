@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
@@ -50,6 +51,7 @@ const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
 const HERO_SLOT_HEIGHT = 260;
+const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v1";
 
 type SlotId = "train" | "compete" | "events";
 interface SlotMeta {
@@ -698,6 +700,7 @@ export function HeroCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
+  const [pausedHydrated, setPausedHydrated] = useState(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useSharedValue(0);
@@ -730,10 +733,30 @@ export function HeroCarousel({
     });
   }, [scrollTo]);
 
+  // Hydrate persisted pause preference on mount. AsyncStorage is async, so
+  // we read it in a useEffect and gate auto-rotate via `pausedHydrated`
+  // until the read resolves. This avoids a flash of rotation on first
+  // paint before we know whether the player previously paused the carousel.
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(USER_PAUSED_STORAGE_KEY)
+      .then((val) => {
+        if (cancelled) return;
+        if (val === "1") setUserPaused(true);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPausedHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Auto-rotate — runs in all cases unless user has explicitly paused
   // (or briefly paused while pressing/swiping).
   useEffect(() => {
-    if (paused || userPaused) {
+    if (paused || userPaused || !pausedHydrated) {
       cancelAnimation(progress);
       progress.value = 0;
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
@@ -744,7 +767,7 @@ export function HeroCarousel({
     return () => {
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
     };
-  }, [activeIndex, paused, userPaused, advance, startProgress, progress]);
+  }, [activeIndex, paused, userPaused, pausedHydrated, advance, startProgress, progress]);
 
   // Cleanup
   useEffect(() => {
@@ -878,7 +901,14 @@ export function HeroCarousel({
           hitSlop={10}
           onPress={() => {
             Haptics.selectionAsync().catch(() => {});
-            setUserPaused((p) => !p);
+            setUserPaused((p) => {
+              const next = !p;
+              AsyncStorage.setItem(
+                USER_PAUSED_STORAGE_KEY,
+                next ? "1" : "0"
+              ).catch(() => {});
+              return next;
+            });
           }}
           accessibilityRole="button"
           accessibilityLabel={userPaused ? "Resume rotation" : "Pause rotation"}
