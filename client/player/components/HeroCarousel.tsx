@@ -9,11 +9,13 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -77,6 +79,7 @@ interface ChallengeData {
 
 interface OpenMatchLite {
   id: string;
+  hostPlayerId?: string;
   matchType: string;
   sport?: string;
   scheduledTime?: string;
@@ -131,14 +134,74 @@ function formatTime(t?: string | null): string {
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+function formatTimeLeft(target: Date): string {
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return "Now";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `in ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `in ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Tomorrow";
+  if (days < 7) return `in ${days}d`;
+  const weeks = Math.floor(days / 7);
+  return `in ${weeks}w`;
+}
+
+function challengeToDate(c: { scheduledDate: string; scheduledTime: string }): Date | null {
+  const [y, mo, d] = c.scheduledDate.split("-").map(Number);
+  const [h, mi] = c.scheduledTime.split(":").map(Number);
+  if ([y, mo, d, h, mi].some((n) => Number.isNaN(n))) return null;
+  return new Date(y, mo - 1, d, h, mi);
+}
+
+function isDoubles(matchType?: string): boolean {
+  return (matchType || "").toLowerCase().includes("doubles");
+}
+
+function MatchTypeChip({ matchType, accent }: { matchType?: string; accent: string }) {
+  const label = isDoubles(matchType) ? "DOUBLES" : "SINGLES";
+  return (
+    <View style={[styles.chip, { borderColor: `${accent}55`, backgroundColor: `${accent}18` }]}>
+      <Ionicons
+        name={isDoubles(matchType) ? "people" : "person"}
+        size={10}
+        color={accent}
+      />
+      <Text style={[styles.chipText, { color: accent }]}>{label}</Text>
+    </View>
+  );
+}
+
+function TimeLeftChip({ target, accent }: { target: Date; accent: string }) {
+  return (
+    <View style={[styles.chip, { borderColor: `${accent}55`, backgroundColor: `${accent}18` }]}>
+      <Ionicons name="time-outline" size={10} color={accent} />
+      <Text style={[styles.chipText, { color: accent }]}>{formatTimeLeft(target)}</Text>
+    </View>
+  );
+}
+
+function XpChip({ amount, accent }: { amount: number; accent: string }) {
+  return (
+    <View style={[styles.chip, { borderColor: `${accent}55`, backgroundColor: `${accent}18` }]}>
+      <Ionicons name="flash" size={10} color={accent} />
+      <Text style={[styles.chipText, { color: accent }]}>+{amount} XP</Text>
+    </View>
+  );
+}
+
 // =============================================================================
 // COMPETE LENS
 // =============================================================================
+const COMPETE_ACCENT = FunctionColors.info;
+
 function CompeteCard() {
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
+  const queryClient = useQueryClient();
 
   const { data: challenges = [] } = useQuery<ChallengeData[]>({
     queryKey: ["/api/matches/challenge", playerId],
@@ -161,6 +224,68 @@ function CompeteCard() {
     queryKey: ["/api/open-matches"],
     enabled: !!playerId,
   });
+
+  const respondMutation = useMutation({
+    mutationFn: async ({ id, accepted }: { id: string | number; accepted: boolean }) =>
+      apiRequest("POST", `/api/matches/challenge/${id}/respond`, {
+        accepted,
+        playerId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
+    },
+    onError: (err: any) => {
+      Alert.alert("Could not respond", err?.message || "Please try again.");
+    },
+  });
+
+  const joinMutation = useMutation({
+    mutationFn: async (id: string) =>
+      apiRequest("POST", `/api/open-matches/${id}/join`, { playerId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      Alert.alert("Joined!", "You're in. See match details in Play.");
+    },
+    onError: (err: any) => {
+      Alert.alert("Could not join", err?.message || "Please try again.");
+    },
+  });
+
+  const goCreateMatch = () => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      navigateToTab("PlayStack", { screen: "CreateMatch" } as any);
+    } catch {
+      try {
+        navigation.navigate("CreateMatch");
+      } catch {}
+    }
+  };
+
+  const goOpenMatches = () => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      navigateToTab("PlayStack", { screen: "OpenMatches" } as any);
+    } catch {
+      try {
+        navigation.navigate("OpenMatches");
+      } catch {}
+    }
+  };
+
+  const goPlayers = () => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      navigateToTab("PlayStack", {
+        screen: "Play",
+        params: { initialTab: "Players" },
+      } as any);
+    } catch {
+      try {
+        navigation.navigate("Play", { initialTab: "Players" });
+      } catch {}
+    }
+  };
 
   const incomingChallenge = challenges.find(
     (c) =>
@@ -197,21 +322,16 @@ function CompeteCard() {
         new Date(b.scheduledTime!).getTime()
     )[0];
 
-  const goToOpenMatches = () => {
-    Haptics.selectionAsync().catch(() => {});
-    try {
-      navigateToTab("PlayStack", { screen: "OpenMatches" } as any);
-    } catch {
-      try {
-        navigation.navigate("OpenMatches");
-      } catch {}
-    }
-  };
-
-  // Variant 1: Incoming challenge
+  // Variant 1: Incoming challenge — inline Accept/Decline (parity with ChallengeCard).
   if (incomingChallenge) {
+    const target = challengeToDate(incomingChallenge);
     return (
-      <LensShell accent={FunctionColors.info} label="COMPETE" icon="flash">
+      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="flash">
+        <View style={styles.chipRow}>
+          <MatchTypeChip matchType={incomingChallenge.matchType} accent={COMPETE_ACCENT} />
+          {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
+          <XpChip amount={50} accent={COMPETE_ACCENT} />
+        </View>
         <Text style={styles.lensTitle}>
           {incomingChallenge.challengerName || "A player"} challenges you!
         </Text>
@@ -220,23 +340,51 @@ function CompeteCard() {
           {formatTime(incomingChallenge.scheduledTime)}
           {incomingChallenge.courtName ? ` · ${incomingChallenge.courtName}` : ""}
         </Text>
-        <Pressable style={styles.ctaPrimary} onPress={goToOpenMatches}>
-          <Text style={styles.ctaPrimaryText}>Respond</Text>
-          <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
-        </Pressable>
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[styles.ctaPrimary, { backgroundColor: COMPETE_ACCENT, marginTop: 0 }]}
+            disabled={respondMutation.isPending}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              respondMutation.mutate({ id: incomingChallenge.id, accepted: true });
+            }}
+          >
+            <Text style={styles.ctaPrimaryText}>
+              {respondMutation.isPending ? "..." : "Accept"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.ctaSecondary, { borderColor: "rgba(255,255,255,0.25)", marginTop: 0 }]}
+            disabled={respondMutation.isPending}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              respondMutation.mutate({ id: incomingChallenge.id, accepted: false });
+            }}
+          >
+            <Text style={[styles.ctaSecondaryText, { color: TextColors.secondary }]}>
+              Decline
+            </Text>
+          </Pressable>
+        </View>
       </LensShell>
     );
   }
 
-  // Variant 2: Accepted upcoming challenge
+  // Variant 2: Accepted upcoming challenge — View Match goes to Players tab where ChallengeCard renders match details.
   if (acceptedChallenge) {
     const isChallenger =
       String(acceptedChallenge.challengerId) === String(playerId);
     const oppName = isChallenger
       ? acceptedChallenge.opponentName
       : acceptedChallenge.challengerName;
+    const target = challengeToDate(acceptedChallenge);
     return (
-      <LensShell accent={FunctionColors.info} label="COMPETE" icon="tennisball">
+      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="tennisball">
+        <View style={styles.chipRow}>
+          <MatchTypeChip matchType={acceptedChallenge.matchType} accent={COMPETE_ACCENT} />
+          {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
+          <XpChip amount={50} accent={COMPETE_ACCENT} />
+        </View>
         <Text style={styles.lensTitle}>Match vs {oppName || "Opponent"}</Text>
         <Text style={styles.lensSubtitle}>
           {formatShortDate(acceptedChallenge.scheduledDate)} ·{" "}
@@ -244,28 +392,25 @@ function CompeteCard() {
           {acceptedChallenge.courtName ? ` · ${acceptedChallenge.courtName}` : ""}
         </Text>
         <Pressable
-          style={[styles.ctaSecondary, { borderColor: FunctionColors.info }]}
-          onPress={goToOpenMatches}
+          style={[styles.ctaSecondary, { borderColor: COMPETE_ACCENT }]}
+          onPress={goPlayers}
         >
-          <Text
-            style={[styles.ctaSecondaryText, { color: FunctionColors.info }]}
-          >
+          <Text style={[styles.ctaSecondaryText, { color: COMPETE_ACCENT }]}>
             View Match
           </Text>
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={FunctionColors.info}
-          />
+          <Ionicons name="chevron-forward" size={14} color={COMPETE_ACCENT} />
         </Pressable>
       </LensShell>
     );
   }
 
-  // Variant 3: Open match available
+  // Variant 3: Open match available — direct join via mutation (parity with PremiumMatchCard onJoin).
   if (upcomingOpenMatch) {
-    const when = upcomingOpenMatch.scheduledTime
-      ? new Date(upcomingOpenMatch.scheduledTime).toLocaleString(undefined, {
+    const target = upcomingOpenMatch.scheduledTime
+      ? new Date(upcomingOpenMatch.scheduledTime)
+      : null;
+    const when = target
+      ? target.toLocaleString(undefined, {
           weekday: "short",
           month: "short",
           day: "numeric",
@@ -275,45 +420,69 @@ function CompeteCard() {
       : "Soon";
     const spots =
       upcomingOpenMatch.maxPlayers - upcomingOpenMatch.currentPlayers;
+    const isHost = String(upcomingOpenMatch.hostPlayerId) === String(playerId);
     return (
-      <LensShell accent={FunctionColors.info} label="COMPETE" icon="people">
-        <Text style={styles.lensTitle}>
-          Open match {upcomingOpenMatch.host?.name ? `· ${upcomingOpenMatch.host.name}` : ""}
+      <LensShell accent={COMPETE_ACCENT} label="COMPETE" icon="people">
+        <View style={styles.chipRow}>
+          <MatchTypeChip matchType={upcomingOpenMatch.matchType} accent={COMPETE_ACCENT} />
+          {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
+          <XpChip amount={75} accent={COMPETE_ACCENT} />
+        </View>
+        <Text style={styles.lensTitle} numberOfLines={1}>
+          Open match{upcomingOpenMatch.host?.name ? ` · ${upcomingOpenMatch.host.name}` : ""}
         </Text>
-        <Text style={styles.lensSubtitle}>
+        <Text style={styles.lensSubtitle} numberOfLines={2}>
           {when}
           {upcomingOpenMatch.courtName ? ` · ${upcomingOpenMatch.courtName}` : ""}
           {spots > 0 ? ` · ${spots} spot${spots === 1 ? "" : "s"} left` : ""}
         </Text>
         <Pressable
-          style={[styles.ctaPrimary, { backgroundColor: FunctionColors.info }]}
-          onPress={goToOpenMatches}
+          style={[styles.ctaPrimary, { backgroundColor: COMPETE_ACCENT }]}
+          disabled={joinMutation.isPending}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            if (isHost) {
+              goOpenMatches();
+            } else {
+              joinMutation.mutate(upcomingOpenMatch.id);
+            }
+          }}
         >
-          <Text style={styles.ctaPrimaryText}>Join Match</Text>
+          <Text style={styles.ctaPrimaryText}>
+            {isHost ? "Manage" : joinMutation.isPending ? "Joining..." : "Join Match"}
+          </Text>
           <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
         </Pressable>
       </LensShell>
     );
   }
 
-  // Variant 4: Empty state
+  // Variant 4: Empty state — Create Match (per task spec).
   return (
     <LensShell
-      accent={FunctionColors.info}
+      accent={COMPETE_ACCENT}
       label="COMPETE"
       icon="tennisball-outline"
     >
       <Text style={styles.lensTitle}>Find your first match</Text>
       <Text style={styles.lensSubtitle}>
-        Challenge a player or join an open match nearby.
+        Create a match or browse open matches near you.
       </Text>
-      <Pressable
-        style={[styles.ctaPrimary, { backgroundColor: FunctionColors.info }]}
-        onPress={goToOpenMatches}
-      >
-        <Text style={styles.ctaPrimaryText}>Find Match</Text>
-        <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
-      </Pressable>
+      <View style={styles.actionRow}>
+        <Pressable
+          style={[styles.ctaPrimary, { backgroundColor: COMPETE_ACCENT, marginTop: 0 }]}
+          onPress={goCreateMatch}
+        >
+          <Text style={styles.ctaPrimaryText}>Create Match</Text>
+          <Ionicons name="add" size={14} color={Backgrounds.root} />
+        </Pressable>
+        <Pressable
+          style={[styles.ctaSecondary, { borderColor: COMPETE_ACCENT, marginTop: 0 }]}
+          onPress={goOpenMatches}
+        >
+          <Text style={[styles.ctaSecondaryText, { color: COMPETE_ACCENT }]}>Browse</Text>
+        </Pressable>
+      </View>
     </LensShell>
   );
 }
@@ -321,10 +490,13 @@ function CompeteCard() {
 // =============================================================================
 // EVENTS LENS
 // =============================================================================
+const EVENTS_ACCENT = RoleColors.owner;
+
 function EventsCard() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
+  const { state } = usePlayerState();
 
   const { data } = useQuery<TournamentsPayload>({
     queryKey: ["/api/player/tournaments"],
@@ -347,6 +519,12 @@ function EventsCard() {
         new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
     )[0];
 
+  // Group event fallback: when no tournament exists, surface the next group
+  // event from the player dashboard payload (PlayerStateContext.nextEventTime)
+  // if one is set. The dashboard payload only exposes a relative time string
+  // today, so we use it as a soft signal that "something is coming up".
+  const groupEventTime = state.nextEventTime;
+
   const goToTournaments = (id?: string) => {
     Haptics.selectionAsync().catch(() => {});
     try {
@@ -366,8 +544,30 @@ function EventsCard() {
   };
 
   if (next) {
+    const target = (() => {
+      try {
+        const d = new Date(next.startDate);
+        return Number.isNaN(d.getTime()) ? null : d;
+      } catch {
+        return null;
+      }
+    })();
     return (
-      <LensShell accent={RoleColors.owner} label="EVENTS" icon="trophy">
+      <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="trophy">
+        <View style={styles.chipRow}>
+          {target ? <TimeLeftChip target={target} accent={EVENTS_ACCENT} /> : null}
+          <View
+            style={[
+              styles.chip,
+              { borderColor: `${EVENTS_ACCENT}55`, backgroundColor: `${EVENTS_ACCENT}18` },
+            ]}
+          >
+            <Ionicons name="trophy" size={10} color={EVENTS_ACCENT} />
+            <Text style={[styles.chipText, { color: EVENTS_ACCENT }]}>
+              {(next.sport || "TENNIS").toUpperCase()}
+            </Text>
+          </View>
+        </View>
         <Text style={styles.lensTitle} numberOfLines={2}>
           {next.name}
         </Text>
@@ -377,7 +577,7 @@ function EventsCard() {
           {next.location ? ` · ${next.location}` : ""}
         </Text>
         <Pressable
-          style={[styles.ctaPrimary, { backgroundColor: RoleColors.owner }]}
+          style={[styles.ctaPrimary, { backgroundColor: EVENTS_ACCENT }]}
           onPress={() => goToTournaments(next.id)}
         >
           <Text style={styles.ctaPrimaryText}>
@@ -389,20 +589,48 @@ function EventsCard() {
     );
   }
 
+  // Group event fallback: surface the next dashboard event if one is queued.
+  if (groupEventTime) {
+    return (
+      <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="people">
+        <View style={styles.chipRow}>
+          <View
+            style={[
+              styles.chip,
+              { borderColor: `${EVENTS_ACCENT}55`, backgroundColor: `${EVENTS_ACCENT}18` },
+            ]}
+          >
+            <Ionicons name="people" size={10} color={EVENTS_ACCENT} />
+            <Text style={[styles.chipText, { color: EVENTS_ACCENT }]}>GROUP EVENT</Text>
+          </View>
+        </View>
+        <Text style={styles.lensTitle}>Group event coming up</Text>
+        <Text style={styles.lensSubtitle}>
+          Your next group event starts in {groupEventTime}.
+        </Text>
+        <Pressable
+          style={[styles.ctaSecondary, { borderColor: EVENTS_ACCENT }]}
+          onPress={() => goToTournaments()}
+        >
+          <Text style={[styles.ctaSecondaryText, { color: EVENTS_ACCENT }]}>View</Text>
+          <Ionicons name="chevron-forward" size={14} color={EVENTS_ACCENT} />
+        </Pressable>
+      </LensShell>
+    );
+  }
+
   return (
-    <LensShell accent={RoleColors.owner} label="EVENTS" icon="trophy-outline">
-      <Text style={styles.lensTitle}>No upcoming tournaments</Text>
+    <LensShell accent={EVENTS_ACCENT} label="EVENTS" icon="trophy-outline">
+      <Text style={styles.lensTitle}>Discover tournaments nearby</Text>
       <Text style={styles.lensSubtitle}>
         Browse local tournaments and ladders to test your game.
       </Text>
       <Pressable
-        style={[styles.ctaSecondary, { borderColor: RoleColors.owner }]}
+        style={[styles.ctaPrimary, { backgroundColor: EVENTS_ACCENT }]}
         onPress={() => goToTournaments()}
       >
-        <Text style={[styles.ctaSecondaryText, { color: RoleColors.owner }]}>
-          Discover
-        </Text>
-        <Ionicons name="chevron-forward" size={14} color={RoleColors.owner} />
+        <Text style={styles.ctaPrimaryText}>Explore</Text>
+        <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
       </Pressable>
     </LensShell>
   );
@@ -558,15 +786,17 @@ export function HeroCarousel({
   }));
 
   const renderItem = ({ item }: { item: SlotMeta }) => (
-    <View style={{ width: containerWidth }}>
+    <View style={{ width: containerWidth, minHeight: 240 }}>
       {item.id === "train" && (
-        <SessionHeroCard
-          onBookSession={onBookSession}
-          onCheckIn={onCheckIn}
-          onCancel={onCancel}
-          onExtend={onExtend}
-          onFindMatch={onFindMatch}
-        />
+        <View style={{ minHeight: 240, justifyContent: "center" }}>
+          <SessionHeroCard
+            onBookSession={onBookSession}
+            onCheckIn={onCheckIn}
+            onCancel={onCancel}
+            onExtend={onExtend}
+            onFindMatch={onFindMatch}
+          />
+        </View>
       )}
       {item.id === "compete" && <CompeteCard />}
       {item.id === "events" && <EventsCard />}
@@ -703,7 +933,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: Backgrounds.card,
     overflow: "hidden",
-    minHeight: 220,
+    minHeight: 240,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: Spacing.xs,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
   lensGradient: {
     flex: 1,
