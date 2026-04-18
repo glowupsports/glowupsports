@@ -347,7 +347,11 @@ function CompeteCard() {
   const goPlayerFinder = () => {
     try {
       navigation.navigate("PlayerFinder");
-    } catch {}
+    } catch {
+      try {
+        navigation.getParent()?.navigate("PlayerFinder");
+      } catch {}
+    }
   };
 
   const incomingChallenge = challenges.find(
