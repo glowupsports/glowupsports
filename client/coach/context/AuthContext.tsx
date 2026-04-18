@@ -61,6 +61,14 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   loginWithToken: (token: string, user: AuthUser) => Promise<void>;
   loginWithApple: (identityToken: string, appleUser: string) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }>;
+  registerWithApple: (data: {
+    identityToken: string;
+    appleUser: string;
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    dateOfBirth: string;
+  }) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   loginAsGuest: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
@@ -303,6 +311,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const registerWithApple = async (data: {
+    identityToken: string;
+    appleUser: string;
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    dateOfBirth: string;
+  }): Promise<{ success: boolean; error?: string; user?: AuthUser }> => {
+    try {
+      queryClient.clear();
+
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL("/auth/apple/register", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identityToken: data.identityToken,
+          user: data.appleUser,
+          email: data.email ?? null,
+          firstName: data.firstName ?? null,
+          lastName: data.lastName ?? null,
+          dateOfBirth: data.dateOfBirth,
+        }),
+      });
+
+      const body = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: body.error || "Apple Sign-In registration failed" };
+      }
+
+      await saveAuthState(body.token, body.user, body.refreshToken);
+      setAuthToken(body.token);
+      await fetchUserData(body.token, true);
+      setIsAuthenticated(true);
+
+      return { success: true, user: body.user };
+    } catch (error) {
+      console.error("Apple register error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
   const register = async (registerData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
       const apiUrl = getApiUrl();
@@ -490,6 +541,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         loginWithToken,
         loginWithApple,
+        registerWithApple,
         loginAsGuest,
         register,
         registerPlayer,

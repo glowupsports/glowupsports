@@ -266,6 +266,124 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     }
   });
 
+  // Apple Sign-In registration: creates a new player account when no user is
+  // linked to the Apple ID yet. We require date of birth so we can assign the
+  // correct ball level from day one (Task #642).
+  router.post("/auth/apple/register", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const appleRegisterSchema = z.object({
+        identityToken: z.string().min(1),
+        user: z.string().min(1),
+        email: z.string().email().optional().nullable(),
+        firstName: z.string().trim().max(80).optional().nullable(),
+        lastName: z.string().trim().max(80).optional().nullable(),
+        dateOfBirth: z.string().min(1),
+      });
+      const parsed = appleRegisterSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+      const { user: appleUser, email: appleEmail, firstName, lastName, dateOfBirth } = parsed.data;
+
+      const dobValidation = isValidDOB(dateOfBirth);
+      if (!dobValidation.valid) {
+        return res.status(400).json({ error: dobValidation.error || "Invalid date of birth" });
+      }
+
+      const existingUser = await storage.getUserByAppleId(appleUser);
+      if (existingUser) {
+        return res.status(409).json({
+          error: "An account is already linked to this Apple ID. Please sign in instead.",
+          code: "APPLE_ALREADY_LINKED",
+        });
+      }
+
+      const age = calculateAgeFromDOB(dateOfBirth);
+      const initialBallLevel = getBallLevelFromAge(age);
+
+      // Build a display name from whatever Apple shared on first sign-in.
+      const trimmedFirst = (firstName || "").trim();
+      const trimmedLast = (lastName || "").trim();
+      const displayName = [trimmedFirst, trimmedLast].filter(Boolean).join(" ") || "New Player";
+
+      // Generate a unique username. Apple does not provide one, so derive a
+      // short opaque handle and fall back to retries on the (extremely rare)
+      // collision.
+      const generateAppleUsername = () => {
+        const suffix = crypto.randomBytes(4).toString("hex");
+        return `apple_${suffix}`;
+      };
+      let username = generateAppleUsername();
+      for (let i = 0; i < 5; i++) {
+        const taken = await storage.checkUsernameExists(username);
+        if (!taken) break;
+        username = generateAppleUsername();
+      }
+
+      // Apple Sign-In replaces password-based auth, so we store an unusable
+      // random hash that nobody can sign in with.
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      const hashedPassword = await hashPassword(randomPassword);
+
+      const safeEmail = (appleEmail || `${appleUser.replace(/[^A-Za-z0-9]/g, "")}@appleid.local`).toLowerCase();
+
+      const player = await storage.createPlayer({
+        name: displayName,
+        email: safeEmail,
+        phone: null,
+        tshirtSize: null,
+        height: null,
+        age,
+        dateOfBirth,
+        ballLevel: initialBallLevel,
+        academyId: null,
+        coachId: null,
+      });
+
+      const newUser = await storage.createUser({
+        username,
+        email: safeEmail,
+        password: hashedPassword,
+        role: "player",
+        academyId: null,
+        coachId: null,
+      });
+
+      await storage.updateUser(newUser.id, { playerId: player.id });
+      await storage.linkAppleId(newUser.id, appleUser);
+
+      const jwtPayload = {
+        userId: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        academyId: newUser.academyId,
+        coachId: newUser.coachId,
+        playerId: player.id,
+      };
+      const token = generateToken(jwtPayload);
+      const refreshToken = generateRefreshToken(jwtPayload);
+
+      res.status(201).json({
+        token,
+        refreshToken,
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+          academyId: newUser.academyId,
+          playerId: player.id,
+          displayName,
+          profilePhotoUrl: null,
+        },
+        message: "Account created successfully.",
+      });
+    } catch (error) {
+      console.error("Apple registration error:", error);
+      res.status(500).json({ error: "Apple Sign-In registration failed" });
+    }
+  });
+
   router.post("/auth/apple/link", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.userId;

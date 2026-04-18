@@ -46,7 +46,7 @@ import {
   checkBiometricSupport,
 } from "@/lib/savedAccounts";
 
-type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code";
+type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code" | "apple_birthday";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -559,7 +559,14 @@ const dobFieldStyles = StyleSheet.create({
 export default function LoginScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { login, loginWithApple, loginAsGuest, registerPlayer, refreshAuth } = useAuth();
+  const { login, loginWithApple, registerWithApple, loginAsGuest, registerPlayer, refreshAuth } = useAuth();
+  const [pendingAppleCredential, setPendingAppleCredential] = useState<{
+    identityToken: string;
+    appleUser: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  } | null>(null);
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
@@ -906,11 +913,19 @@ export default function LoginScreen() {
         );
         loadSavedAccounts();
       } else if (result.code === "APPLE_NOT_LINKED") {
-        Alert.alert(
-          "Apple ID Not Linked",
-          "No account is linked to this Apple ID. Please log in with your username and password first, then link your Apple ID in Settings.",
-          [{ text: "OK" }]
-        );
+        // First-time Apple Sign-In: capture the credential and prompt for the
+        // player's birthday so we can create their account at the right level
+        // (Task #642). Apple only returns fullName/email on the very first
+        // sign-in, so we must keep them now.
+        setPendingAppleCredential({
+          identityToken: credential.identityToken,
+          appleUser: credential.user,
+          email: credential.email ?? null,
+          firstName: credential.fullName?.givenName ?? null,
+          lastName: credential.fullName?.familyName ?? null,
+        });
+        setDateOfBirth("");
+        setMode("apple_birthday");
       } else {
         Alert.alert(t("common.error"), result.error || "Apple Sign-In failed");
       }
@@ -997,6 +1012,56 @@ export default function LoginScreen() {
         } else {
           Alert.alert("Registration Failed", result.error || "Please try again");
         }
+      }
+    } catch (error) {
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAppleBirthdaySubmit = async () => {
+    if (!pendingAppleCredential) {
+      Alert.alert(t("common.error"), "Apple Sign-In credentials are missing. Please try again.");
+      setMode("login");
+      return;
+    }
+
+    if (!dateOfBirth) {
+      Alert.alert("Error", "Please enter your date of birth so we can match you to the right tennis level");
+      return;
+    }
+
+    const dobCheck = isValidDOB(dateOfBirth);
+    if (!dobCheck.valid) {
+      Alert.alert("Invalid Date of Birth", dobCheck.error || "Please enter a valid date of birth");
+      return;
+    }
+
+    setIsSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const result = await registerWithApple({
+        identityToken: pendingAppleCredential.identityToken,
+        appleUser: pendingAppleCredential.appleUser,
+        email: pendingAppleCredential.email,
+        firstName: pendingAppleCredential.firstName,
+        lastName: pendingAppleCredential.lastName,
+        dateOfBirth,
+      });
+
+      if (result.success && result.user) {
+        await saveAccount(
+          result.user.username || "apple_user",
+          result.user.displayName || [pendingAppleCredential.firstName, pendingAppleCredential.lastName].filter(Boolean).join(" ") || "Apple User",
+          (result.user.role as "coach" | "player" | "owner" | "parent") || "player",
+          result.user.profilePhotoUrl || undefined
+        );
+        loadSavedAccounts();
+        setPendingAppleCredential(null);
+      } else {
+        Alert.alert("Registration Failed", result.error || "Please try again");
       }
     } catch (error) {
       Alert.alert("Error", "Something went wrong. Please try again.");
@@ -1852,6 +1917,54 @@ export default function LoginScreen() {
     );
   };
 
+  const renderAppleBirthday = () => {
+    const suggestedName = [pendingAppleCredential?.firstName, pendingAppleCredential?.lastName]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      <>
+        <View style={styles.formHeader}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              setPendingAppleCredential(null);
+              setDateOfBirth("");
+              handleModeChange("login");
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.formTitle}>ONE LAST THING</Text>
+        </View>
+
+        <Text
+          style={{
+            color: Colors.dark.textMuted,
+            fontSize: 14,
+            lineHeight: 20,
+            marginBottom: Spacing.md,
+            textAlign: "center",
+          }}
+        >
+          {suggestedName ? `Welcome ${suggestedName}! ` : "Welcome! "}
+          Tell us your birthday so we can put you on the right tennis level from day one.
+        </Text>
+
+        <DOBField value={dateOfBirth} onChange={setDateOfBirth} />
+
+        <View style={{ marginTop: Spacing.md }}>
+          <PremiumButton
+            onPress={handleAppleBirthdaySubmit}
+            title="CREATE ACCOUNT"
+            isLoading={isSubmitting}
+            disabled={!dateOfBirth}
+            colors={[Colors.dark.xpCyan, "#0078A8"] as const}
+          />
+        </View>
+      </>
+    );
+  };
+
   const renderInviteCode = () => {
     if (inviteValidated && inviteData) {
       return (
@@ -2193,6 +2306,7 @@ export default function LoginScreen() {
           {mode === "coach_info" ? renderCoachInfo() : null}
           {mode === "academy_apply" ? renderAcademyApply() : null}
           {mode === "invite_code" ? renderInviteCode() : null}
+          {mode === "apple_birthday" ? renderAppleBirthday() : null}
         </View>
 
         {mode !== "login" ? (
