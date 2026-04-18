@@ -3102,7 +3102,7 @@ export const storage = {
     sessionId: string,
     academyId?: string,
     sessionPlayerId?: string
-  ): Promise<{ transactionId: string }> {
+  ): Promise<{ transactionId: string | null }> {
     const sessionToCreditType: Record<string, string> = {
       private: "private",
       semi: "semi_private",
