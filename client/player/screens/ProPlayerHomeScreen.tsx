@@ -23,6 +23,7 @@ import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
+import { HeroCarousel } from "@/player/components/HeroCarousel";
 import { NewsTicker } from "@/player/components/NewsTicker";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
@@ -958,8 +959,8 @@ function PlayerHomeContent() {
           </Pressable>
         )}
 
-        {/* HERO CTA - Next Session (PRIMARY ACTION) */}
-        <SessionHeroCard onBookSession={handleBookLesson} />
+        {/* HERO CAROUSEL - 3 lenses: TRAIN / COMPETE / EVENTS */}
+        <HeroCarousel onBookSession={handleBookLesson} />
 
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
         {!isGuest ? <UpcomingProviderSessionCard /> : null}
