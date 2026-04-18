@@ -50,6 +50,7 @@ const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
 const HERO_SLOT_HEIGHT = 260;
+const LOCKED_IDLE_DRIFT_MS = 10000;
 
 type SlotId = "train" | "compete" | "events";
 interface SlotMeta {
@@ -699,6 +700,8 @@ export function HeroCarousel({
   const [paused, setPaused] = useState(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lockedIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lockEngagedRef = useRef(false);
   const progress = useSharedValue(0);
 
   const priorityLocked =
@@ -744,19 +747,55 @@ export function HeroCarousel({
     };
   }, [activeIndex, paused, priorityLocked, advance, startProgress, progress]);
 
-  // Priority lock: pin to TRAIN
+  // Priority lock: snap to TRAIN once when the lock first engages, but
+  // afterwards respect manual swipes / dot taps so the player can still
+  // peek at COMPETE / EVENTS while a session is upcoming.
   useEffect(() => {
-    if (priorityLocked && activeIndex !== 0) {
-      scrollTo(0);
-      setActiveIndex(0);
+    if (priorityLocked) {
+      if (!lockEngagedRef.current) {
+        lockEngagedRef.current = true;
+        if (activeIndex !== 0) {
+          scrollTo(0);
+          setActiveIndex(0);
+        }
+      }
+    } else {
+      lockEngagedRef.current = false;
+      if (lockedIdleTimerRef.current) {
+        clearTimeout(lockedIdleTimerRef.current);
+        lockedIdleTimerRef.current = null;
+      }
     }
   }, [priorityLocked, activeIndex, scrollTo]);
+
+  // Idle drift-back: while locked, if the player is on COMPETE/EVENTS and
+  // does nothing for ~10s, slide quietly back to TRAIN so the countdown
+  // is front-and-center again.
+  useEffect(() => {
+    if (lockedIdleTimerRef.current) {
+      clearTimeout(lockedIdleTimerRef.current);
+      lockedIdleTimerRef.current = null;
+    }
+    if (priorityLocked && activeIndex !== 0 && !paused) {
+      lockedIdleTimerRef.current = setTimeout(() => {
+        scrollTo(0);
+        setActiveIndex(0);
+      }, LOCKED_IDLE_DRIFT_MS);
+    }
+    return () => {
+      if (lockedIdleTimerRef.current) {
+        clearTimeout(lockedIdleTimerRef.current);
+        lockedIdleTimerRef.current = null;
+      }
+    };
+  }, [priorityLocked, activeIndex, paused, scrollTo]);
 
   // Cleanup
   useEffect(() => {
     return () => {
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      if (lockedIdleTimerRef.current) clearTimeout(lockedIdleTimerRef.current);
     };
   }, []);
 
