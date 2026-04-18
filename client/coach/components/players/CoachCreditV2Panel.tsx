@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
+import { InvoiceViewerModal, type ViewableInvoice } from "./InvoiceViewerModal";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -132,6 +133,8 @@ export function CoachCreditV2Panel({ playerId }: Props) {
   const [addPrice, setAddPrice] = useState("");
   const [addPayment, setAddPayment] = useState<"cash" | "bank_transfer" | "already_paid">("cash");
   const [addError, setAddError] = useState<string | null>(null);
+  // Task #700: invoice returned by purchase-credits, opened via "View invoice" CTA.
+  const [purchasedInvoice, setPurchasedInvoice] = useState<ViewableInvoice | null>(null);
   const queryClient = useQueryClient();
 
   const walletQuery = useQuery<WalletData>({
@@ -169,7 +172,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -177,8 +180,25 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/ledger/${playerId}`, { limit: 20 }] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credits-summary`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
       setShowAddModal(false);
       setAddError(null);
+      // Surface the auto-generated invoice so coaches can view/share the PDF.
+      const inv = data?.invoice;
+      if (inv?.id && inv?.invoiceNumber) {
+        setPurchasedInvoice({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          amount: inv.amount,
+          currency: inv.currency || "AED",
+          status: inv.status || (addPayment === "already_paid" ? "paid" : "pending"),
+          dueDate: inv.dueDate || null,
+          paidAt: inv.paidAt || null,
+          createdAt: inv.createdAt || new Date().toISOString(),
+          notes: inv.notes || null,
+        });
+      }
     },
     onError: (err: Error) => {
       setAddError(err.message);
@@ -412,6 +432,16 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         isPending={addCreditsMutation.isPending}
         error={addError}
         isBillingAuthorized={isBillingAuthorized}
+      />
+
+      <InvoiceViewerModal
+        invoice={purchasedInvoice}
+        visible={!!purchasedInvoice}
+        onClose={() => setPurchasedInvoice(null)}
+        onPaid={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+        }}
       />
 
       {showLedger ? (

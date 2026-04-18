@@ -7,6 +7,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
+import { InvoiceViewerModal, type ViewableInvoice } from "./InvoiceViewerModal";
 import { styles } from "./playersStyles";
 
 interface PaymentsInvoice {
@@ -74,6 +75,8 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
   const queryClient = useQueryClient();
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  // Task #700: tap-to-open viewer for an existing invoice (PDF download / mark paid).
+  const [viewerInvoice, setViewerInvoice] = useState<ViewableInvoice | null>(null);
 
   if (!playerStats?.payments) return null;
 
@@ -145,7 +148,24 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
               const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
               const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
               return (
-                <View key={inv.id} style={{
+                <Pressable
+                  key={inv.id}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setViewerInvoice({
+                      id: inv.id,
+                      invoiceNumber: inv.invoiceNumber,
+                      amount: inv.amount,
+                      currency: inv.currency,
+                      status: inv.status,
+                      dueDate: inv.dueDate,
+                      paidAt: inv.paidAt,
+                      createdAt: inv.createdAt,
+                      notes: inv.notes,
+                      isOverdue: inv.isOverdue,
+                    });
+                  }}
+                  style={{
                   backgroundColor: "rgba(255,255,255,0.04)",
                   borderRadius: BorderRadius.sm,
                   padding: Spacing.sm,
@@ -216,12 +236,22 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                       </View>
                     ) : null}
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
         ) : null}
       </View>
+
+      <InvoiceViewerModal
+        invoice={viewerInvoice}
+        visible={!!viewerInvoice}
+        onClose={() => setViewerInvoice(null)}
+        onPaid={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+        }}
+      />
 
       <CreateInvoiceModal
         visible={showInvoiceModal}
