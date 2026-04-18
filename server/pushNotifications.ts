@@ -1635,6 +1635,19 @@ export async function fixHolidayOvercharges(): Promise<void> {
               const newBalance = currentBalance + refundAmount;
               const pkgStatus = pkgResult.rows[0].status;
 
+              // Task #676 Phase 2 — V1 write gate. Skip the V1 refund + V1
+              // ledger insert for V2 academies; the V2 engine owns the ledger.
+              const { v1WritesAllowed: _v1Ok_holiday } = await import(
+                "./services/credit-feature-flag"
+              );
+              if (!(await _v1Ok_holiday(row.academy_id))) {
+                console.warn(
+                  `[HolidayOverchargeFix][V2] academy=${row.academy_id} player=${row.player_name} session=${row.session_id} — V1 write blocked, V2 holiday-refund repair path not yet wired (Task #684 Phase 3). Skipping refund + ledger insert.`,
+                );
+                await client.query("ROLLBACK");
+                continue;
+              }
+
               const updateFields: string[] = [`remaining_credits = $1`];
               const updateParams: (number | string)[] = [newBalance, origTx.package_id];
               if (pkgStatus === "depleted" && newBalance > 0) {
@@ -1869,6 +1882,17 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
         if (currentRemaining >= 4) {
           console.log(`[AlmaFix] Package already at ${currentRemaining} credits (>= 4) — skipping credit top-up`);
         } else {
+          // Task #676 Phase 2 — V1 write gate. If Alma's academy is V2,
+          // skip the legacy refund + V1 ledger insert (the V2 engine owns the
+          // wallet for V2 academies).
+          const { v1WritesAllowed: _v1Ok_alma } = await import(
+            "./services/credit-feature-flag"
+          );
+          if (!(await _v1Ok_alma(pkg.academy_id))) {
+            console.warn(
+              `[AlmaFix][V2] academy=${pkg.academy_id} — V1 write blocked, V2 manual-correction repair path not yet wired (Task #684 Phase 3). Skipping refund + ledger insert.`,
+            );
+          } else {
           const newRemaining = currentRemaining + 1;
           const client = await pool.connect();
           try {
@@ -1902,6 +1926,7 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
             console.error("[AlmaFix] Failed to add credit:", creditErr);
           } finally {
             client.release();
+          }
           }
         }
       }
@@ -2024,6 +2049,19 @@ export async function fixRouzbehGhostCredit(): Promise<void> {
             $4::jsonb,
             NOW())`,
         [PLAYER_ID, pkg.id, pkg.academy_id, sentinelMeta]
+      );
+      return;
+    }
+
+    // Task #676 Phase 2 — V1 write gate. If Rouzbeh's academy is V2,
+    // skip the legacy package decrement + V1 ledger sentinel insert
+    // (the V2 engine owns the wallet for V2 academies).
+    const { v1WritesAllowed: _v1Ok_rouzbeh } = await import(
+      "./services/credit-feature-flag"
+    );
+    if (!(await _v1Ok_rouzbeh(pkg.academy_id))) {
+      console.warn(
+        `[RouzbehCreditFix][V2] academy=${pkg.academy_id} — V1 write blocked, V2 ghost-credit repair path not yet wired (Task #684 Phase 3). Skipping deduction + sentinel insert.`,
       );
       return;
     }
