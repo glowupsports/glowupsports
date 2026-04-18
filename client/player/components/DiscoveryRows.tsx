@@ -671,20 +671,59 @@ export function GroupLessonsRow() {
 }
 
 // Open Matches Row - for finding players to play with (not coaching)
+// Reads directly from /api/open-matches (same source as the Open Matches feed
+// page) so the Home block and the feed always show the same matches, including
+// matches the viewer hosted themselves. Single cache key means one invalidate
+// after create/cancel refreshes both screens.
 export function OpenMatchesRow() {
   const { t } = useTranslation();
-  const { state } = usePlayerState();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
 
-  // Filter for open matches only (player vs player) and only future matches
-  const now = new Date();
-  const openMatches = (state.openSessions ?? []).filter(s => {
-    if (s.type !== "open_match") return false;
-    const matchDate = (s as any).date || (s as any).startTime || (s as any).scheduledTime;
-    if (!matchDate) return true; // Show if no date (shouldn't happen)
-    return new Date(matchDate) > now;
+  const { data: rawMatches } = useQuery<any[]>({
+    queryKey: ["/api/open-matches"],
   });
+
+  // Map /api/open-matches shape -> shape this row already renders, and apply
+  // a robust future-only filter. The server already returns a canonical
+  // `scheduledTime` ISO when both preferredDate + preferredTime are present;
+  // we trust that as the single source. When scheduledTime is absent (e.g.
+  // date-only or time-only), we DON'T drop the match — better to over-show
+  // (and let the user see their own match) than to silently hide it because
+  // of a timezone-edge parse. Server-side filtering already excluded past
+  // matches with full datetime, so this fallback only affects ambiguous rows.
+  const openMatches = React.useMemo(() => {
+    if (!Array.isArray(rawMatches)) return [];
+    const nowMs = Date.now();
+    return rawMatches
+      .map((m: any) => {
+        const when = m.scheduledTime ? new Date(m.scheduledTime).getTime() : null;
+        const maxPlayers = m.maxPlayers || (m.matchType === "doubles" ? 4 : 2);
+        const currentPlayers = m.currentPlayers ?? (m.players?.length ?? 1);
+        const host = m.host || m.players?.[0];
+        const participants = (m.players?.length ? m.players : (host ? [host] : [])).map((p: any) => ({
+          id: p.id,
+          name: p.name || "Player",
+          profilePhotoUrl: p.photoUrl || p.profilePhotoUrl || null,
+          level: p.level || 1,
+        }));
+        return {
+          id: m.id,
+          type: "open_match",
+          date: m.scheduledTime || null,
+          _when: when,
+          maxPlayers,
+          spotsLeft: Math.max(0, maxPlayers - currentPlayers),
+          ballLevel: (m.ballLevel || m.requiredBallLevel || host?.ballLevel || "glow"),
+          skillLevel: host?.skillLevel,
+          participants,
+          locationName: m.locationName || m.courtName || null,
+          xpReward: m.xpBonus || 0,
+        };
+      })
+      .filter((m: any) => m._when == null || !Number.isFinite(m._when) || m._when > nowMs)
+      .sort((a: any, b: any) => (a._when || Infinity) - (b._when || Infinity));
+  }, [rawMatches]);
 
   const handleMatchPress = (matchId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

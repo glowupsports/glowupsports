@@ -423,9 +423,12 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       { id: "2", name: "Sara", level: "Yellow", status: "available", playedTogether: 5 },
     ];
 
-    const fallbackOpenSessions: OpenSession[] = [
-      { id: "1", type: "group", time: "18:00", spotsLeft: 2, maxPlayers: 6, coachName: "Coach K", ballLevel: levelStage.toUpperCase(), participants: [] },
-    ];
+    // Intentionally no fallbackOpenSessions: an empty server response means
+    // there really are no open sessions. The previous fake "group" row caused
+    // the Home Open Matches block to always render its empty state because the
+    // fake row has type !== "open_match", and similarly hid genuine "no group
+    // lessons" states for everyone with zero real data.
+    const fallbackOpenSessions: OpenSession[] = [];
 
     const fallbackCommunityEvents: CommunityEvent[] = [
       { id: "1", type: "new_group", title: "Welcome to the community!", time: "Today" },
