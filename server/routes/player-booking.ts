@@ -5505,16 +5505,21 @@ Return only the JSON array, nothing else.`;
         exactMatches = filteredMatches.filter(m => matchBallLevel(m) === wanted);
         adjacentMatches = [];
       } else if (!includeAllLevels && callerBallLevel) {
-        // Default: filter by caller's bucket; adjacent fallback if <3 results
+        // Default: filter by caller's bucket; if <3 exact, fall back to ONE
+        // adjacent bucket — prefer easier (idx-1) first, then harder (idx+1).
         const idx = BALL_LEVEL_ORDER.indexOf(callerBallLevel);
         exactMatches = filteredMatches.filter(m => matchBallLevel(m) === callerBallLevel);
         if (exactMatches.length < 3 && idx !== -1) {
-          const adjacentLevels: string[] = [];
-          if (idx - 1 >= 0) adjacentLevels.push(BALL_LEVEL_ORDER[idx - 1]);
-          if (idx + 1 < BALL_LEVEL_ORDER.length) adjacentLevels.push(BALL_LEVEL_ORDER[idx + 1]);
-          adjacentMatches = filteredMatches.filter(m =>
-            adjacentLevels.includes(matchBallLevel(m))
-          );
+          const easierLevel = idx - 1 >= 0 ? BALL_LEVEL_ORDER[idx - 1] : null;
+          const harderLevel = idx + 1 < BALL_LEVEL_ORDER.length ? BALL_LEVEL_ORDER[idx + 1] : null;
+          let adjacent: typeof filteredMatches = [];
+          if (easierLevel) {
+            adjacent = filteredMatches.filter(m => matchBallLevel(m) === easierLevel);
+          }
+          if (adjacent.length === 0 && harderLevel) {
+            adjacent = filteredMatches.filter(m => matchBallLevel(m) === harderLevel);
+          }
+          adjacentMatches = adjacent;
         }
       }
 

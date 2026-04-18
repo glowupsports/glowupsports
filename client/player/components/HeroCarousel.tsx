@@ -253,13 +253,7 @@ function CompeteCard() {
   });
 
   const { data: openMatches = [] } = useQuery<OpenMatchLite[]>({
-    queryKey: ["/api/open-matches", { includeMine: true }],
-    queryFn: async () => {
-      const url = new URL("/api/open-matches?includeMine=true", getApiUrl()).toString();
-      const res = await fetch(url, { credentials: "include", headers: getAuthHeaders() });
-      if (!res.ok) throw new Error("Failed to load open matches");
-      return res.json();
-    },
+    queryKey: ["/api/open-matches"],
     enabled: !!playerId,
   });
 
