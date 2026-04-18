@@ -232,7 +232,7 @@ function CompeteCard() {
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
+  const { navigateToTab, getNavigation } = useTabNavigation();
   const queryClient = useQueryClient();
 
   const { data: challenges = [] } = useQuery<ChallengeData[]>({
@@ -477,18 +477,47 @@ function CompeteCard() {
         : "Adjacent level";
 
     const goManageMatch = () => {
+      const matchId = upcomingOpenMatch.id;
+      if (!matchId) {
+        goOpenMatches();
+        return;
+      }
+      // Primary: walk up from the current (Home tab) navigator. React
+      // Navigation propagates `navigate` upward, so naming the nearest
+      // common ancestor route ("PlayStack" — sibling tab in PlayerTabs)
+      // and providing nested screen+params lands directly on
+      // ManageMatch with the right matchId.
       try {
-        navigateToTab("PlayStack", {
+        navigation.navigate("PlayStack", {
           screen: "ManageMatch",
-          params: { matchId: upcomingOpenMatch.id },
-        } as any);
+          params: { matchId },
+        });
+        return;
       } catch {
+        // fall through
+      }
+      // Fallback: fully qualified path from the global root nav, in
+      // case the primary nav didn't resolve (e.g. on web preview).
+      const rootNav = getNavigation();
+      if (rootNav) {
         try {
-          navigation.navigate("ManageMatch", { matchId: upcomingOpenMatch.id });
+          rootNav.navigate("Player" as never, {
+            screen: "PlayerTabs",
+            params: {
+              screen: "PlayStack",
+              params: {
+                screen: "ManageMatch",
+                params: { matchId },
+              },
+            },
+          } as never);
+          return;
         } catch {
-          goOpenMatches();
+          // fall through
         }
       }
+      // Last resort: at least surface the matches list.
+      goOpenMatches();
     };
 
     return (
