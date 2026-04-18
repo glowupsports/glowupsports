@@ -8708,6 +8708,13 @@ export const storage = {
             } else {
               // No credits - create debt transaction
               try {
+                // Task #676 Phase 2 — V1 write gate. V2 academies record the
+                // owed balance in credit_ledger_v2; do not mint a legacy row.
+                const { v1WritesAllowed } = await import("./services/credit-feature-flag");
+                if (!(await v1WritesAllowed(academyId))) {
+                  results.skipped++;
+                  continue;
+                }
                 const debtResult = await db.execute(sql`
                   INSERT INTO credit_transactions (
                     player_id, academy_id, session_id, package_id, type, credit_type, 

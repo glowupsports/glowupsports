@@ -369,14 +369,20 @@ export async function countRecentV1WritesForV2Academies(
   windowMs: number = 5 * 60 * 1000,
 ): Promise<V1WritesSummary> {
   const seconds = Math.max(1, Math.round(windowMs / 1000));
+  // LEFT JOIN so rows whose academy_id is NULL or doesn't resolve to an
+  // academy still appear under "(unknown)" — those are the most suspicious
+  // leaks, since they bypass any per-academy gating logic upstream.
   const result = await db.execute(sql`
-    SELECT a.id   AS academy_id,
-           a.name AS academy_name,
-           COUNT(ct.id)::int AS cnt
+    SELECT COALESCE(a.id, '(unknown)')   AS academy_id,
+           a.name                         AS academy_name,
+           COUNT(ct.id)::int              AS cnt
     FROM credit_transactions ct
-    JOIN academies a ON a.id = ct.academy_id
-    WHERE COALESCE(a.use_new_credit_system, false) = true
-      AND ct.created_at >= NOW() - make_interval(secs => ${seconds})
+    LEFT JOIN academies a ON a.id = ct.academy_id
+    WHERE ct.created_at >= NOW() - make_interval(secs => ${seconds})
+      AND (
+        COALESCE(a.use_new_credit_system, false) = true
+        OR a.id IS NULL
+      )
     GROUP BY a.id, a.name
     HAVING COUNT(ct.id) > 0
     ORDER BY COUNT(ct.id) DESC

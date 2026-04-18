@@ -2587,12 +2587,16 @@ router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("pla
           const debtAmount = Math.max(0, presentCount - totalCreditsEver);
           
           if (debtAmount > 0) {
-            // Task #676 Phase 2 — V1 write gate. This admin recalc tool uses
-            // a 'default-academy' literal so we can't gate per-academy; fall
-            // back to a global skip if ANY V2 academy is configured. Safer to
-            // refuse than to mint a misattributed debt.
+            // Task #676 Phase 2 — V1 write gate. Resolve the player's REAL
+            // academy id (the original code wrote a literal 'default-academy'
+            // which would have misattributed the debt anyway).
+            const playerRow = await db.execute(sql`
+              SELECT academy_id FROM players WHERE id = ${playerId} LIMIT 1
+            `);
+            const playerAcademyId =
+              (playerRow.rows[0] as any)?.academy_id || 'default-academy';
             const { v1WritesAllowed } = await import("../services/credit-feature-flag");
-            if (!(await v1WritesAllowed('default-academy'))) {
+            if (!(await v1WritesAllowed(playerAcademyId))) {
               continue;
             }
             const debtId = crypto.randomUUID();
@@ -2603,7 +2607,7 @@ router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("pla
               VALUES (
                 ${debtId},
                 ${playerId},
-                'default-academy',
+                ${playerAcademyId},
                 'debit',
                 ${creditType},
                 ${-debtAmount},

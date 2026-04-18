@@ -2488,6 +2488,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         sessionType: sessions.sessionType,
         startTime: sessions.startTime,
+        sessionAcademyId: sessions.academyId,
       })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
@@ -2523,9 +2524,11 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           const creditType = session.sessionType.includes("semi") ? "semi_private" : 
                              session.sessionType.includes("group") ? "group" : "private";
 
-          // Task #676 Phase 2 — V1 write gate.
+          // Task #676 Phase 2 — V1 write gate. Use the session's academy id
+          // (not req.user.currentAcademyId, which can be a different academy
+          // for platform owners switching contexts).
           const { v1WritesAllowed } = await import("../services/credit-feature-flag");
-          const v1Ok = await v1WritesAllowed(req.user?.currentAcademyId);
+          const v1Ok = await v1WritesAllowed(session.sessionAcademyId);
           if (v1Ok) {
             await db.insert(creditTransactions).values({
               id: debtId,
