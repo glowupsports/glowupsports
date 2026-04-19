@@ -401,6 +401,27 @@ export default function AcademyDetailScreen() {
 
         <V2CreditsHealthCard academyId={academyId} />
 
+        <Pressable
+          style={[styles.brandingButton, CardStyles.elevated]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("Branding", { academyId, academyName });
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Edit branding for this academy"
+        >
+          <View style={styles.brandingButtonIcon}>
+            <Ionicons name="color-palette-outline" size={22} color={PLATFORM_COLOR} />
+          </View>
+          <View style={styles.brandingButtonText}>
+            <Text style={styles.brandingButtonTitle}>Edit Branding</Text>
+            <Text style={styles.brandingButtonSubtitle}>
+              Logo, colours and theme presets for {academyName}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+        </Pressable>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Academy Details</Text>
           <View style={[styles.card, CardStyles.elevated]}>
@@ -1554,5 +1575,34 @@ const styles = StyleSheet.create({
   },
   roleOptionTextActive: {
     color: Colors.dark.text,
+  },
+  brandingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  brandingButtonIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(155,89,182,0.15)",
+  },
+  brandingButtonText: {
+    flex: 1,
+    gap: 2,
+  },
+  brandingButtonTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  brandingButtonSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });

@@ -19,6 +19,8 @@ import { useFamily } from "@/player/context/FamilyContext";
 import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
 import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
+import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
+import { themePresets, defaultAcademyTheme, type AcademyTheme } from "@shared/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
@@ -66,6 +68,16 @@ export default function PlayerSettingsScreen() {
 
   const { activeSports, updateActiveSports } = useSport();
   const { preference: appearancePref, setPreference: setAppearancePref } = usePlayerAppearance();
+  const { playerOverride, setPlayerOverride } = useAcademyTheme();
+  const themeMode: "academy" | "preset" = playerOverride ? "preset" : "academy";
+
+  const matchedPresetId = React.useMemo(() => {
+    if (!playerOverride) return null;
+    const match = themePresets.find(
+      (p) => (p.theme.primary ?? "") === (playerOverride.primary ?? ""),
+    );
+    return match?.id ?? "custom";
+  }, [playerOverride]);
 
   const toggleSport = async (sport: Sport) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -602,6 +614,124 @@ export default function PlayerSettingsScreen() {
                 );
               })}
             </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>My Theme</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.appearanceRow}>
+              <Pressable
+                key="follow-academy"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPlayerOverride(null);
+                }}
+                style={[
+                  styles.appearanceSegment,
+                  themeMode === "academy" && styles.appearanceSegmentSelected,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: themeMode === "academy" }}
+                accessibilityLabel="Follow my academy theme"
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color={themeMode === "academy" ? Colors.dark.buttonText : Colors.dark.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.appearanceSegmentLabel,
+                    themeMode === "academy" && styles.appearanceSegmentLabelSelected,
+                  ]}
+                >
+                  Follow Academy
+                </Text>
+              </Pressable>
+              <Pressable
+                key="custom"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (themeMode === "academy") {
+                    // Seed with the default Glow theme so something is selected.
+                    setPlayerOverride(defaultAcademyTheme);
+                  }
+                }}
+                style={[
+                  styles.appearanceSegment,
+                  themeMode === "preset" && styles.appearanceSegmentSelected,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: themeMode === "preset" }}
+                accessibilityLabel="Use my own theme"
+              >
+                <Ionicons
+                  name="color-palette-outline"
+                  size={18}
+                  color={themeMode === "preset" ? Colors.dark.buttonText : Colors.dark.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.appearanceSegmentLabel,
+                    themeMode === "preset" && styles.appearanceSegmentLabelSelected,
+                  ]}
+                >
+                  My Theme
+                </Text>
+              </Pressable>
+            </View>
+
+            {themeMode === "preset" ? (
+              <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm }}>
+                <Text style={styles.languageDescription}>
+                  Pick a preset for your account on this device. Your academy's
+                  branding stays as-is for everyone else.
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+                  {themePresets.map((p) => {
+                    const selected = matchedPresetId === p.id;
+                    const swatch = p.theme.dark?.primary ?? p.theme.primary ?? "#000";
+                    return (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setPlayerOverride({ ...p.theme, dark: { ...(p.theme.dark ?? {}) } });
+                        }}
+                        style={[
+                          {
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                            paddingVertical: Spacing.sm,
+                            paddingHorizontal: Spacing.md,
+                            borderRadius: BorderRadius.md,
+                            borderWidth: 1,
+                            borderColor: selected ? Colors.dark.primary : Colors.dark.borderSubtle,
+                            backgroundColor: selected
+                              ? "rgba(200,255,61,0.08)"
+                              : Colors.dark.backgroundSecondary,
+                          },
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                      >
+                        <View
+                          style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: 8,
+                            backgroundColor: swatch,
+                          }}
+                        />
+                        <Text style={{ color: Colors.dark.text, fontWeight: "500" }}>{p.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
           </View>
         </View>
 

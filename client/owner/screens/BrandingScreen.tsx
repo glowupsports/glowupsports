@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -67,20 +67,41 @@ function emptyTheme(): AcademyTheme {
 export default function BrandingScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const queryClient = useQueryClient();
+
+  // When opened by a platform owner from AcademyDetail, an `academyId` param
+  // targets that academy's theme instead of the caller's own. Without the
+  // param we behave as before and edit the caller's academy.
+  const targetAcademyId: string | undefined = route.params?.academyId;
+  const targetAcademyName: string | undefined = route.params?.academyName;
+  const themeQueryKey = targetAcademyId
+    ? ["/api/academy/theme", targetAcademyId]
+    : ["/api/academy/theme"];
+  const themeQueryUrl = targetAcademyId
+    ? `/api/academy/theme?academyId=${encodeURIComponent(targetAcademyId)}`
+    : "/api/academy/theme";
 
   // Fetch current theme via the public read endpoint.
   const { data, isLoading } = useQuery<{
     theme: AcademyTheme | null;
     logoUrl: string | null;
   }>({
-    queryKey: ["/api/academy/theme"],
+    queryKey: themeQueryKey,
+    queryFn: async () => {
+      const res = await apiRequest("GET", themeQueryUrl);
+      return res.json();
+    },
   });
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const invalidateBranding = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/academy/theme"] });
+    if (targetAcademyId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/theme", targetAcademyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/academies", targetAcademyId] });
+    }
     queryClient.invalidateQueries({ queryKey: ["/api/owner/academy"] });
     queryClient.invalidateQueries({ queryKey: ["/api/player/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/owner/dashboard"] });
@@ -125,8 +146,14 @@ export default function BrandingScreen() {
         formData.append("logo", { uri: asset.uri, name: filename, type } as any);
       }
 
+      if (targetAcademyId) {
+        formData.append("academyId", targetAcademyId);
+      }
       const token = getAuthToken();
-      const res = await fetch(`${getApiUrl()}/api/academy/logo`, {
+      const logoUrl = targetAcademyId
+        ? `${getApiUrl()}/api/academy/logo?academyId=${encodeURIComponent(targetAcademyId)}`
+        : `${getApiUrl()}/api/academy/logo`;
+      const res = await fetch(logoUrl, {
         method: "POST",
         body: formData,
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -147,7 +174,10 @@ export default function BrandingScreen() {
   const handleRemoveLogo = async () => {
     try {
       setUploadingLogo(true);
-      await apiRequest("DELETE", "/api/academy/logo");
+      const path = targetAcademyId
+        ? `/api/academy/logo?academyId=${encodeURIComponent(targetAcademyId)}`
+        : "/api/academy/logo";
+      await apiRequest("DELETE", path);
       invalidateBranding();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (error: any) {
@@ -176,10 +206,12 @@ export default function BrandingScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async (theme: AcademyTheme | null) =>
-      apiRequest("PATCH", "/api/academy/theme", { theme }),
+      apiRequest("PATCH", "/api/academy/theme", {
+        theme,
+        ...(targetAcademyId ? { academyId: targetAcademyId } : {}),
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/academy/theme"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/academy"] });
+      invalidateBranding();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     },
   });
@@ -243,8 +275,12 @@ export default function BrandingScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <View style={styles.headerTextWrap}>
-          <Title>Branding</Title>
-          <Subtitle>Make this academy feel like home.</Subtitle>
+          <Title>{targetAcademyName ? `Branding · ${targetAcademyName}` : "Branding"}</Title>
+          <Subtitle>
+            {targetAcademyId
+              ? "Editing branding on behalf of this academy."
+              : "Make this academy feel like home."}
+          </Subtitle>
         </View>
         <Pressable
           onPress={handleSave}

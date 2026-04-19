@@ -825,6 +825,12 @@ export default function SettingsScreen() {
               value={settings.welcomeVideoUrl ? "Set" : "Not set"}
               onPress={handleOpenWelcomeVideoModal}
             />
+            <SettingRow
+              icon="color-palette"
+              title="Branding & Theme"
+              subtitle="Logo, colours and presets for your academy"
+              onPress={() => navigation.navigate("Branding")}
+            />
           </Section>
         
 

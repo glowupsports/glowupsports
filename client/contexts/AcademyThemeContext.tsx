@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,12 +18,19 @@ import {
   setActiveAcademyTheme,
 } from "@/constants/theme";
 import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
+import { useAuth } from "@/coach/context/AuthContext";
 import {
   AcademyTheme,
   defaultAcademyTheme,
 } from "@shared/theme";
 
 const CACHE_KEY = "@academy_theme_cache_v1";
+const PLAYER_OVERRIDE_KEY_PREFIX = "@player_theme_override_v1";
+
+function buildOverrideKey(userId: string | null | undefined): string {
+  // Scope per-user so switching accounts on one device doesn't bleed themes.
+  return userId ? `${PLAYER_OVERRIDE_KEY_PREFIX}:${userId}` : PLAYER_OVERRIDE_KEY_PREFIX;
+}
 
 function resolveTheme(theme: AcademyTheme | null | undefined, scheme: "light" | "dark"): AcademyThemeResolved {
   const base: AcademyThemeResolved = {
@@ -73,6 +81,13 @@ interface AcademyThemeContextValue {
   resolved: AcademyThemeResolved;
   logoUrl: string | null;
   isLoading: boolean;
+  /**
+   * Player-side personal theme override. When set, this fully replaces the
+   * academy theme on this device only (never sent to the server). Use null
+   * to "follow my academy" again.
+   */
+  playerOverride: AcademyTheme | null;
+  setPlayerOverride: (next: AcademyTheme | null) => Promise<void>;
 }
 
 const AcademyThemeContext = createContext<AcademyThemeContextValue | undefined>(undefined);
@@ -98,9 +113,16 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   const player = usePlayerAppearanceOptional();
   const effectiveScheme: "light" | "dark" =
     scheme ?? player?.resolvedScheme ?? getActivePlayerScheme();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const overrideKey = buildOverrideKey(userId);
   const [cached, setCached] = useState<AcademyTheme | null>(null);
+  const [playerOverride, setPlayerOverrideState] = useState<AcademyTheme | null>(null);
 
-  // Hydrate cache once on mount.
+  // Serialize override writes so rapid toggles always persist last intent.
+  const overrideWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  // Hydrate the global cache (logo / fallback theme) once on mount.
   useEffect(() => {
     let cancelled = false;
     AsyncStorage.getItem(CACHE_KEY)
@@ -118,6 +140,62 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
       cancelled = true;
     };
   }, []);
+
+  // Hydrate the player override whenever the active user changes (account
+  // switch, login, logout). When userId is null we clear the override so
+  // logged-out screens don't apply a previous user's theme.
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId) {
+      setPlayerOverrideState(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    AsyncStorage.getItem(overrideKey)
+      .then((raw) => {
+        if (cancelled) return;
+        if (!raw) {
+          setPlayerOverrideState(null);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(raw) as AcademyTheme;
+          setPlayerOverrideState(
+            parsed && typeof parsed === "object" ? parsed : null,
+          );
+        } catch {
+          setPlayerOverrideState(null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [overrideKey, userId]);
+
+  const setPlayerOverride = useCallback(
+    async (next: AcademyTheme | null) => {
+      setPlayerOverrideState(next);
+      // Chain on the previous write so AsyncStorage operations stay ordered.
+      const key = overrideKey;
+      const run = overrideWriteQueueRef.current.then(async () => {
+        try {
+          if (!userId) return; // Don't persist for logged-out users.
+          if (next) {
+            await AsyncStorage.setItem(key, JSON.stringify(next));
+          } else {
+            await AsyncStorage.removeItem(key);
+          }
+        } catch {
+          /* persistence failure is non-fatal */
+        }
+      });
+      overrideWriteQueueRef.current = run;
+      await run;
+    },
+    [overrideKey, userId],
+  );
 
   // Fetch live theme from the public endpoint. We deliberately use the public
   // endpoint so the player app (which has no owner perms) can still read it.
@@ -140,7 +218,8 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
     AsyncStorage.setItem(CACHE_KEY, JSON.stringify(apiTheme)).catch(() => {});
   }, [data, apiTheme]);
 
-  const effective: AcademyTheme | null = override ?? apiTheme ?? cached ?? null;
+  const effective: AcademyTheme | null =
+    override ?? playerOverride ?? apiTheme ?? cached ?? null;
   const resolved = useMemo(
     () => resolveTheme(effective, effectiveScheme),
     [effective, effectiveScheme],
@@ -155,8 +234,15 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   }, []);
 
   const value = useMemo<AcademyThemeContextValue>(
-    () => ({ theme: effective, resolved, logoUrl, isLoading }),
-    [effective, resolved, logoUrl, isLoading],
+    () => ({
+      theme: effective,
+      resolved,
+      logoUrl,
+      isLoading,
+      playerOverride,
+      setPlayerOverride,
+    }),
+    [effective, resolved, logoUrl, isLoading, playerOverride, setPlayerOverride],
   );
 
   return (
@@ -172,6 +258,8 @@ export function useAcademyTheme(): AcademyThemeContextValue {
       resolved: resolveTheme(null, "dark"),
       logoUrl: null,
       isLoading: false,
+      playerOverride: null,
+      setPlayerOverride: async () => {},
     };
   }
   return ctx;

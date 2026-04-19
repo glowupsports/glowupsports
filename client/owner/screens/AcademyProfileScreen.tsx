@@ -65,30 +65,12 @@ export default function AcademyProfileScreen() {
       phone: academy?.phone || "",
       address: academy?.address || "",
       website: academy?.website || "",
-      primaryColor: academy?.primaryColor || "#FFD700",
-      secondaryColor: academy?.secondaryColor || "#00CED1",
       bankName: academy?.bankName || "",
       bankAccountHolder: academy?.bankAccountHolder || "",
       bankAccountNumber: academy?.bankAccountNumber || "",
       bankIban: academy?.bankIban || "",
     });
     setIsEditing(true);
-  };
-
-  const brandingColors = [
-    { label: "Gold", value: "#FFD700" },
-    { label: "Cyan", value: "#00CED1" },
-    { label: "Purple", value: "#9B59B6" },
-    { label: "Green", value: "#2ECC71" },
-    { label: "Blue", value: "#3498DB" },
-    { label: "Red", value: "#E74C3C" },
-    { label: "Orange", value: "#F39C12" },
-    { label: "Pink", value: "#E91E63" },
-  ];
-
-  const getColorLabel = (hex: string | undefined) => {
-    const color = brandingColors.find(c => c.value === hex);
-    return color ? color.label : "Custom";
   };
 
   if (isLoading) {
@@ -363,74 +345,26 @@ export default function AcademyProfileScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Branding</Text>
-          
-          <View style={[styles.fieldCard, CardStyles.elevated]}>
-            <View style={styles.fieldRow}>
-              <Ionicons name="color-palette-outline" size={20} color={Colors.dark.gold} />
-              <Text style={styles.fieldLabel}>Primary Color</Text>
+          <Pressable
+            style={[styles.fieldCard, CardStyles.elevated, styles.brandingButton]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              (navigation as any).navigate("Branding");
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open branding and theme editor"
+          >
+            <View style={styles.brandingButtonIcon}>
+              <Ionicons name="color-palette-outline" size={22} color={Colors.dark.gold} />
             </View>
-            {isEditing ? (
-              <View style={styles.colorGrid}>
-                {brandingColors.map((color) => (
-                  <Pressable
-                    key={color.value}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color.value },
-                      formData.primaryColor === color.value && styles.colorOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setFormData(prev => ({ ...prev, primaryColor: color.value }));
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    {formData.primaryColor === color.value ? (
-                      <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
-                    ) : null}
-                  </Pressable>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.colorPreview}>
-                <View style={[styles.colorSwatch, { backgroundColor: academy?.primaryColor || "#FFD700" }]} />
-                <Text style={styles.fieldValue}>{getColorLabel(academy?.primaryColor || "#FFD700")}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={[styles.fieldCard, CardStyles.elevated]}>
-            <View style={styles.fieldRow}>
-              <Ionicons name="color-filter-outline" size={20} color={Colors.dark.gold} />
-              <Text style={styles.fieldLabel}>Secondary Color</Text>
+            <View style={styles.brandingButtonText}>
+              <Text style={styles.fieldLabel}>Branding & Theme</Text>
+              <Text style={styles.fieldHint}>
+                Logo, colours and presets — open the full editor.
+              </Text>
             </View>
-            {isEditing ? (
-              <View style={styles.colorGrid}>
-                {brandingColors.map((color) => (
-                  <Pressable
-                    key={color.value}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color.value },
-                      formData.secondaryColor === color.value && styles.colorOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setFormData(prev => ({ ...prev, secondaryColor: color.value }));
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    {formData.secondaryColor === color.value ? (
-                      <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
-                    ) : null}
-                  </Pressable>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.colorPreview}>
-                <View style={[styles.colorSwatch, { backgroundColor: academy?.secondaryColor || "#00CED1" }]} />
-                <Text style={styles.fieldValue}>{getColorLabel(academy?.secondaryColor || "#00CED1")}</Text>
-              </View>
-            )}
-          </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
         </View>
 
         {isEditing ? (
@@ -588,33 +522,25 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
   },
-  colorGrid: {
+  brandingButton: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
+    alignItems: "center",
+    gap: Spacing.md,
   },
-  colorOption: {
+  brandingButtonIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
+    backgroundColor: "rgba(255,215,0,0.12)",
   },
-  colorOptionSelected: {
-    borderColor: Colors.dark.text,
+  brandingButtonText: {
+    flex: 1,
+    gap: 2,
   },
-  colorPreview: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  colorSwatch: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  fieldHint: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });

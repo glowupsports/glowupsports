@@ -47,7 +47,7 @@ export type OwnerStackParamList = {
   AcademyOnboarding: undefined;
   OwnerMain: undefined;
   AcademyProfile: undefined;
-  Branding: undefined;
+  Branding: { academyId?: string; academyName?: string } | undefined;
   CourtsManagement: undefined;
   PlayersManagement: undefined;
   ClassesManagement: { focusSeriesId?: string } | undefined;

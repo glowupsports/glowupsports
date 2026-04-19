@@ -79,7 +79,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     authMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
+        // Platform owners may target any academy via ?academyId=...
+        const overrideAcademyId =
+          req.user?.role === "platform_owner" && typeof req.query.academyId === "string"
+            ? (req.query.academyId as string)
+            : undefined;
+        const academyId = overrideAcademyId ?? req.user?.academyId;
         if (!academyId) return res.json({ theme: null, logoUrl: null });
         const academy = await storage.getAcademy(academyId);
         res.json({
@@ -110,7 +115,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
+        const overrideAcademyId =
+          req.user?.role === "platform_owner" &&
+          (typeof req.body?.academyId === "string" || typeof req.query.academyId === "string")
+            ? ((req.body?.academyId ?? req.query.academyId) as string)
+            : undefined;
+        const academyId = overrideAcademyId ?? req.user?.academyId;
         if (!academyId) return res.status(400).json({ error: "Academy ID required" });
         if (!req.file) return res.status(400).json({ error: "No logo uploaded" });
 
@@ -134,7 +144,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     requireRole("owner", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
+        const overrideAcademyId =
+          req.user?.role === "platform_owner" && typeof req.query.academyId === "string"
+            ? (req.query.academyId as string)
+            : undefined;
+        const academyId = overrideAcademyId ?? req.user?.academyId;
         if (!academyId) return res.status(400).json({ error: "Academy ID required" });
         await storage.updateAcademy(academyId, { logoUrl: null } as any);
         res.json({ success: true, logoUrl: null });
@@ -153,7 +167,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     requireRole("owner", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
+        const overrideAcademyId =
+          req.user?.role === "platform_owner" && typeof req.body?.academyId === "string"
+            ? (req.body.academyId as string)
+            : undefined;
+        const academyId = overrideAcademyId ?? req.user?.academyId;
         if (!academyId) return res.status(400).json({ error: "Academy ID required" });
         const { theme } = req.body ?? {};
         let parsed: any = null;
