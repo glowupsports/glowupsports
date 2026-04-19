@@ -956,6 +956,22 @@ export default function LoginScreen() {
           lastName: credential.fullName?.familyName ?? null,
         });
         setDateOfBirth("");
+        // Pre-creation notice: when Apple gave us a privaterelay (Hide My
+        // Email) address — or no email at all — warn the player BEFORE we
+        // create the account that future password recovery by email won't
+        // work without a real email on file.
+        const newEmail = credential.email ?? "";
+        const isPrivateRelay = newEmail.endsWith("@privaterelay.appleid.com");
+        const hasNoEmail = !newEmail;
+        if (isPrivateRelay || hasNoEmail) {
+          Alert.alert(
+            t("auth.appleRelayPreCreateTitle", { defaultValue: "About to create a new account" }),
+            t("auth.appleRelayPreCreateMessage", {
+              defaultValue:
+                "You signed in with Apple's 'Hide My Email' so no real email address will be stored. We'll create a new Glow Up Sports account — keep using Apple to sign in, since password recovery by email won't be available.",
+            }),
+          );
+        }
         setMode("apple_birthday");
       } else {
         Alert.alert(t("common.error"), result.error || "Apple Sign-In failed");
@@ -3126,6 +3142,16 @@ const styles = StyleSheet.create({
   },
   appleSignInContainer: {
     marginTop: Spacing.md,
+  },
+  forgotPasswordLink: {
+    alignSelf: "center",
+    marginTop: Spacing.md,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
   appleButtonWrapper: {
     borderRadius: 12,
