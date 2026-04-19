@@ -468,6 +468,41 @@ function configureExpoAndLanding(app: express.Application) {
     }
   });
 
+  // Task #750 — Password reset deep-link landing page. The email link points
+  // here; we render a small page that auto-deep-links into the Glow Up Sports
+  // app (`glowupsports://reset-password?token=...`) and offers a manual button
+  // as fallback for users who don't have the app installed.
+  app.get("/reset-password", (req: Request, res: Response) => {
+    const rawToken = typeof req.query.token === "string" ? req.query.token : "";
+    const safeToken = rawToken.replace(/[^A-Za-z0-9_\-]/g, "").slice(0, 200);
+    const deepLink = safeToken ? `glowupsports://reset-password?token=${encodeURIComponent(safeToken)}` : "";
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset Your Password — Glow Up Sports</title>
+<style>
+  body{margin:0;background:#0A0A0B;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+  .card{max-width:420px;background:#16161A;border-radius:18px;padding:32px;text-align:center;}
+  h1{margin:0 0 8px 0;font-size:24px;color:#32FF7E;}
+  p{color:rgba(255,255,255,0.7);font-size:15px;line-height:1.5;}
+  a.button{display:inline-block;margin-top:20px;background:#32FF7E;color:#0A0A0B;padding:14px 28px;border-radius:12px;font-weight:800;text-decoration:none;}
+  .muted{margin-top:24px;font-size:13px;color:rgba(255,255,255,0.45);}
+</style></head><body>
+<div class="card">
+  <h1>Reset your password</h1>
+  ${safeToken ? `
+    <p>Tap the button below to open Glow Up Sports and finish resetting your password.</p>
+    <a class="button" href="${deepLink}">Open the app</a>
+    <p class="muted">If the app doesn't open, install Glow Up Sports first, then tap the link in your email again. The link expires 30 minutes after you requested it.</p>
+    <script>setTimeout(function(){ window.location.href = ${JSON.stringify(deepLink)}; }, 250);</script>
+  ` : `
+    <p>This link is missing a reset token. Open the link from the email we sent you, or request a new password reset from the app.</p>
+  `}
+</div>
+</body></html>`;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(html);
+  });
+
   app.get("/support", (_req: Request, res: Response) => {
     if (supportTemplate) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");

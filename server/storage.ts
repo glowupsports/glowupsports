@@ -539,13 +539,13 @@ export const storage = {
   },
 
   // ==================== PASSWORD RESET CODES (Task #750) ====================
-  async createPasswordResetCode(userId: string, codeHash: string, expiresAt: Date): Promise<void> {
+  async createPasswordResetCode(userId: string, codeHash: string, expiresAt: Date, tokenHash?: string): Promise<void> {
     const { passwordResetCodes } = await import("@shared/schema");
     // Invalidate any existing un-used codes for this user
     await db.update(passwordResetCodes)
       .set({ usedAt: new Date() })
       .where(and(eq(passwordResetCodes.userId, userId), isNull(passwordResetCodes.usedAt)));
-    await db.insert(passwordResetCodes).values({ userId, codeHash, expiresAt });
+    await db.insert(passwordResetCodes).values({ userId, codeHash, expiresAt, tokenHash: tokenHash ?? null });
   },
 
   async getActivePasswordResetCode(userId: string): Promise<{ id: string; codeHash: string; expiresAt: Date; attemptCount: number } | undefined> {
@@ -562,6 +562,24 @@ export const storage = {
     return {
       id: result[0].id,
       codeHash: result[0].codeHash,
+      expiresAt: result[0].expiresAt as Date,
+      attemptCount: result[0].attemptCount,
+    };
+  },
+
+  async getPasswordResetCodeByTokenHash(tokenHash: string): Promise<{ id: string; userId: string; expiresAt: Date; attemptCount: number } | undefined> {
+    const { passwordResetCodes } = await import("@shared/schema");
+    const result = await db.select().from(passwordResetCodes)
+      .where(and(
+        eq(passwordResetCodes.tokenHash, tokenHash),
+        isNull(passwordResetCodes.usedAt),
+        gt(passwordResetCodes.expiresAt, new Date()),
+      ))
+      .limit(1);
+    if (!result[0]) return undefined;
+    return {
+      id: result[0].id,
+      userId: result[0].userId,
       expiresAt: result[0].expiresAt as Date,
       attemptCount: result[0].attemptCount,
     };

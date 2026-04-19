@@ -597,21 +597,43 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         user = await storage.getUserByEmail(identifier);
       }
 
+      // For username lookups (not email), we can safely surface the
+      // "account exists but has no email on file" case so the player knows
+      // to contact their coach/admin. We never do this for email lookups —
+      // that would leak whether the email is registered.
+      const identifierIsEmail = identifier.includes("@");
+      if (user && user.deleted !== true && !identifierIsEmail) {
+        const isAppleStub = user.email?.endsWith("@appleid.local") ?? false;
+        if (!user.email || isAppleStub) {
+          return res.json({
+            success: true,
+            noEmail: true,
+            message: "This account doesn't have an email on file. Please contact your coach or academy admin to reset your password.",
+          });
+        }
+      }
+
       // Always pretend we sent the email — never leak account existence
       if (!user || user.deleted === true || !user.email) {
         return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
       }
 
       // Apple-only accounts shouldn't get reset codes (they have no real password)
-      // Identify by stub email pattern (`@appleid.local`) used in /auth/apple/register
       if (user.email.endsWith("@appleid.local")) {
         return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
       }
 
       const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
       const codeHash = await hashPassword(code);
+      // Deep-link token (32 bytes, base64url) — the user clicks the email
+      // link and we look the row up by hash; the raw token never sits in DB.
+      const token = crypto.randomBytes(32).toString("base64url");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
-      await storage.createPasswordResetCode(user.id, codeHash, expiresAt);
+      await storage.createPasswordResetCode(user.id, codeHash, expiresAt, tokenHash);
+
+      const baseUrl = process.env.EXPO_PUBLIC_DOMAIN || process.env.APP_BASE_URL || "https://glowupsports.replit.app";
+      const resetLink = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
 
       // Resolve a friendly display name for the email greeting
       let displayName: string | undefined;
@@ -625,7 +647,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         displayName = user.username;
       }
 
-      const result = await sendPasswordResetEmail({ to: user.email, code, displayName });
+      const result = await sendPasswordResetEmail({ to: user.email, code, displayName, resetLink });
       if (!result.success) {
         console.error("[ForgotPassword] Email send failed:", result.error);
         // Still return success — caller can retry; we already created the code
@@ -692,6 +714,50 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       return res.json({ success: true, message: "Password reset. You can now sign in with your new password." });
     } catch (error) {
       console.error("Reset password error:", error);
+      return res.status(500).json({ error: "Failed to reset password." });
+    }
+  });
+
+  // Deep-link token reset (Task #750). The user clicks the link in their
+  // email; the app deep-links to /reset-password?token=... and POSTs here
+  // with the new password. No identifier or code required — the token
+  // identifies the row directly and is single-use.
+  router.post("/auth/reset-password-token", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        token: z.string().trim().min(20).max(200),
+        newPassword: z.string().min(8).max(128),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+      const { token, newPassword } = parsed.data;
+
+      const passwordCheck = validatePassword(newPassword);
+      if (!passwordCheck.valid) {
+        return res.status(400).json({ error: passwordCheck.errors.join(". ") });
+      }
+
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const row = await storage.getPasswordResetCodeByTokenHash(tokenHash);
+      if (!row) {
+        return res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+      }
+
+      const user = await storage.getUserById(row.userId);
+      if (!user || user.deleted === true) {
+        return res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+      }
+
+      const hashed = await hashPassword(newPassword);
+      await storage.updateUserPassword(user.id, hashed);
+      await storage.markPasswordResetCodeUsed(row.id);
+      console.log(`[ResetPasswordToken] Password reset for user ${user.id}`);
+
+      return res.json({ success: true, message: "Password reset. You can now sign in with your new password." });
+    } catch (error) {
+      console.error("Reset password (token) error:", error);
       return res.status(500).json({ error: "Failed to reset password." });
     }
   });

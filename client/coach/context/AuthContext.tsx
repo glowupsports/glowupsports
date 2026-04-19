@@ -74,6 +74,7 @@ interface AuthContextType {
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
   requestPasswordReset: (identifier: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (identifier: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  resetPasswordWithToken: (token: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   isImpersonating: boolean;
@@ -458,6 +459,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (error) {
       console.error("Reset password error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
+  const resetPasswordWithToken = async (
+    token: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL("/auth/reset-password-token", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.error || "Could not reset password." };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Reset password (token) error:", error);
       return { success: false, error: "Network error. Please try again." };
     }
   };

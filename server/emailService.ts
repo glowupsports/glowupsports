@@ -808,9 +808,19 @@ export async function sendOTPEmail(email: string): Promise<{ success: boolean; e
 // Send a password reset code (Task #750). Uses a 6-digit code that the user
 // enters in the app along with their new password. The code is hashed in the
 // DB; we only show it in the email body.
-export async function sendPasswordResetEmail(params: { to: string; code: string; displayName?: string }): Promise<{ success: boolean; error?: string }> {
-  const { to, code, displayName } = params;
+export async function sendPasswordResetEmail(params: { to: string; code: string; displayName?: string; resetLink?: string }): Promise<{ success: boolean; error?: string }> {
+  const { to, code, displayName, resetLink } = params;
   const greetingName = displayName ? escapeHtml(displayName) : "there";
+  const linkButton = resetLink ? `
+              <div style="text-align: center; margin: 24px 0 8px 0;">
+                <a href="${escapeHtml(resetLink)}" style="display: inline-block; background: #32FF7E; color: #0A0A0B; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 700; font-size: 15px;">Open the app to reset</a>
+              </div>
+              <p style="margin: 8px 0 16px 0; font-size: 13px; color: rgba(255,255,255,0.45); text-align: center;">
+                Or paste this link in the Glow Up Sports app: <br><span style="color: rgba(255,255,255,0.6); word-break: break-all;">${escapeHtml(resetLink)}</span>
+              </p>
+              <p style="margin: 8px 0 16px 0; font-size: 13px; color: rgba(255,255,255,0.45); text-align: center;">
+                Prefer to enter a code manually? Use this 6-digit code in the app instead:
+              </p>` : "";
   const html = `
 <!DOCTYPE html>
 <html>
@@ -834,8 +844,9 @@ export async function sendPasswordResetEmail(params: { to: string; code: string;
             <td style="padding: 40px 32px;">
               <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">Hi ${greetingName},</h2>
               <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: rgba(255,255,255,0.7);">
-                We received a request to reset the password on your Glow Up Sports account. Use the code below in the app to set a new password. This code expires in 30 minutes.
+                We received a request to reset the password on your Glow Up Sports account. Tap the button to open the app and choose a new password, or enter the 6-digit code manually. This link and code expire in 30 minutes.
               </p>
+              ${linkButton}
               <div style="background: linear-gradient(135deg, rgba(50, 255, 126, 0.15) 0%, rgba(50, 255, 126, 0.05) 100%); border: 2px solid rgba(50, 255, 126, 0.3); border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
                 <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #32FF7E; font-family: 'SF Mono', Monaco, monospace;">${code}</span>
               </div>

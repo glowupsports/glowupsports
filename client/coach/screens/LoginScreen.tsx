@@ -1147,6 +1147,22 @@ export default function LoginScreen() {
           result.user.profilePhotoUrl || undefined
         );
         loadSavedAccounts();
+        // New-account notice: when Apple created a fresh account using a
+        // privaterelay (Hide my email) address — or no email at all — let the
+        // player know we have no contact email so they understand future
+        // password recovery requires staying signed in via Apple.
+        const newEmail = pendingAppleCredential.email ?? "";
+        const isPrivateRelay = newEmail.endsWith("@privaterelay.appleid.com");
+        const hasNoEmail = !newEmail;
+        if (isPrivateRelay || hasNoEmail) {
+          Alert.alert(
+            t("auth.appleRelayTitle", { defaultValue: "Account created with private email" }),
+            t("auth.appleRelayMessage", {
+              defaultValue:
+                "You signed in with Apple's 'Hide My Email' so we don't have your real email on file. Keep using Apple to sign in — password recovery by email won't work without an email address.",
+            }),
+          );
+        }
         setPendingAppleCredential(null);
       } else {
         Alert.alert("Registration Failed", result.error || "Please try again");

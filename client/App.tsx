@@ -112,6 +112,7 @@ const linking: LinkingOptions<any> = {
         path: "coach",
       },
       Login: "login",
+      ResetPassword: "reset-password",
       ProviderJoin: "provider-join/:token",
     },
   },

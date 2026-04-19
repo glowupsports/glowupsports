@@ -12,6 +12,7 @@ import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
 import ProviderNavigator from "@/provider/navigation/ProviderNavigator";
 import ProviderJoinScreen from "@/provider/screens/ProviderJoinScreen";
 import LoginScreen from "@/coach/screens/LoginScreen";
+import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
 import BootScreen from "@/screens/BootScreen";
 import { ClaimInviteScreen } from "@/screens/ClaimInviteScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   Platform: undefined;
   Provider: undefined;
   Login: undefined;
+  ResetPassword: { token?: string } | undefined;
   ProviderJoin: { token: string };
   ClaimInvite: { token: string };
 };
@@ -83,7 +85,7 @@ function useNavigationEffect(
     prevBootRef.current = bootComplete;
     prevModeRef.current = mode;
 
-    const PUBLIC_ROUTES: Array<keyof RootStackParamList> = ["ProviderJoin", "Login"];
+    const PUBLIC_ROUTES: Array<keyof RootStackParamList> = ["ProviderJoin", "Login", "ResetPassword"];
     const navState = navigationRef.getState?.();
     const currentRoute = navState?.routes?.[navState.index]?.name as keyof RootStackParamList | undefined;
     if (!isAuthenticated && currentRoute && PUBLIC_ROUTES.includes(currentRoute) && currentRoute !== "Login") {
@@ -250,6 +252,11 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       <Stack.Screen
         name="Login"
         component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
