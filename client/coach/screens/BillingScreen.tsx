@@ -25,6 +25,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } fr
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { InvoiceViewerModal, type ViewableInvoice } from "@/coach/components/players/InvoiceViewerModal";
 
 interface Invoice {
   id: string;
@@ -105,6 +106,22 @@ export default function BillingScreen() {
   const [newInvoiceAmount, setNewInvoiceAmount] = useState("");
   const [newInvoiceNotes, setNewInvoiceNotes] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [viewerInvoice, setViewerInvoice] = useState<ViewableInvoice | null>(null);
+
+  const openInvoice = (invoice: Invoice) => {
+    setViewerInvoice({
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.amount,
+      currency: invoice.currency,
+      status: invoice.status,
+      dueDate: invoice.dueDate,
+      paidAt: invoice.paidAt,
+      createdAt: invoice.createdAt,
+      notes: invoice.notes,
+      lineItems: invoice.lineItems,
+    });
+  };
 
   const { data: account, isLoading: accountLoading } = useQuery<BillingAccount>({
     queryKey: ["/api/billing/account"],
@@ -299,7 +316,11 @@ export default function BillingScreen() {
           </View>
         ) : (
           invoices.slice(0, 3).map((invoice) => (
-            <View key={invoice.id} style={styles.invoiceCard}>
+            <Pressable
+              key={invoice.id}
+              onPress={() => openInvoice(invoice)}
+              style={({ pressed }) => [styles.invoiceCard, pressed && { opacity: 0.7 }]}
+            >
               <View style={styles.invoiceInfo}>
                 <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
                 <Text style={styles.invoiceDate}>
@@ -316,7 +337,7 @@ export default function BillingScreen() {
                   </Text>
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </View>
@@ -390,7 +411,11 @@ export default function BillingScreen() {
         </View>
       ) : (
         invoices.map((invoice) => (
-          <View key={invoice.id} style={styles.invoiceListCard}>
+          <Pressable
+            key={invoice.id}
+            onPress={() => openInvoice(invoice)}
+            style={({ pressed }) => [styles.invoiceListCard, pressed && { opacity: 0.7 }]}
+          >
             <View style={styles.invoiceListHeader}>
               <Text style={styles.invoiceListNumber}>{invoice.invoiceNumber}</Text>
               <View style={[styles.statusBadge, invoice.status === "paid" ? styles.paidBadge : styles.pendingBadge]}>
@@ -414,12 +439,18 @@ export default function BillingScreen() {
             </View>
             {invoice.notes ? <Text style={styles.invoiceNotes}>{invoice.notes}</Text> : null}
             {invoice.status !== "paid" ? (
-              <Pressable style={styles.markPaidButton} onPress={() => handleMarkAsPaid(invoice)}>
+              <Pressable
+                style={styles.markPaidButton}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  handleMarkAsPaid(invoice);
+                }}
+              >
                 <Ionicons name="checkmark-circle-outline" size={18} color={Colors.dark.primary} />
                 <Text style={styles.markPaidText}>Mark as Paid</Text>
               </Pressable>
             ) : null}
-          </View>
+          </Pressable>
         ))
       )}
     </View>
@@ -860,6 +891,17 @@ export default function BillingScreen() {
           </View>
         </View>
       </Modal>
+
+      <InvoiceViewerModal
+        invoice={viewerInvoice}
+        visible={!!viewerInvoice}
+        onClose={() => setViewerInvoice(null)}
+        onPaid={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/billing/payments"] });
+          setViewerInvoice(null);
+        }}
+      />
     </View>
   );
 }
