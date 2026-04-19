@@ -53,7 +53,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { calculateAgeFromDOB, getBallLevelFromAge, isValidDOB } from "@shared/ballLevel";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
-  import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified } from "../emailService";
+  import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified, sendPasswordResetEmail } from "../emailService";
   import crypto from "crypto";
   const router = Router();
   function generateShortInviteCode(): string {
@@ -194,13 +194,35 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
   router.post("/auth/apple/login", authLimiter, async (req: Request, res: Response) => {
     try {
-      const { identityToken, user: appleUser } = req.body;
+      const { identityToken, user: appleUser, email: appleEmail } = req.body;
 
       if (!identityToken || !appleUser) {
         return res.status(400).json({ error: "Apple identity token and user identifier are required" });
       }
 
-      const existingUser = await storage.getUserByAppleId(appleUser);
+      // Task #750: try to link to an existing account by email instead of
+      // returning APPLE_NOT_LINKED (and forcing a duplicate registration).
+      // Apple only shares the email on the very first sign-in, so the client
+      // forwards it whenever it has one.
+      let existingUser = await storage.getUserByAppleId(appleUser);
+      let linkedToExisting = false;
+      if (!existingUser && appleEmail) {
+        const normalizedEmail = String(appleEmail).toLowerCase().trim();
+        // Real Apple-shared email — privaterelay addresses are unique per app
+        // so they can never match a pre-existing user, but we still respect
+        // them in case the user originally signed up with one. Reject the
+        // `@appleid.local` stub email used by /auth/apple/register to avoid
+        // accidental collisions with previously orphaned stub accounts.
+        const isStub = normalizedEmail.endsWith("@appleid.local");
+        const candidate = !isStub ? await storage.getUserByEmail(normalizedEmail) : null;
+        if (candidate && !candidate.appleId && candidate.deleted !== true) {
+          await storage.linkAppleId(candidate.id, appleUser);
+          existingUser = { ...candidate, appleId: appleUser } as typeof candidate;
+          linkedToExisting = true;
+          console.log(`[AppleLogin] Auto-linked Apple ID to existing user ${candidate.id} via email match`);
+        }
+      }
+
       if (!existingUser) {
         return res.status(404).json({
           error: "No account linked to this Apple ID",
@@ -248,6 +270,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       res.json({
         token,
         refreshToken,
+        linkedToExisting,
         user: {
           id: existingUser.id,
           username: existingUser.username,
@@ -504,6 +527,125 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     } catch (error) {
       console.error("Apple unlink error:", error);
       res.status(500).json({ error: "Failed to unlink Apple ID" });
+    }
+  });
+
+  // ==================== FORGOT PASSWORD (Task #750) ====================
+  // Two endpoints:
+  //  1. POST /auth/forgot-password { identifier } — always returns 200 to avoid
+  //     leaking whether the username/email exists. If a user is found, a
+  //     6-digit code is generated, hashed and stored, and emailed to them.
+  //  2. POST /auth/reset-password { identifier, code, newPassword } — verifies
+  //     the code (max 5 attempts), updates the password, marks the code used.
+  router.post("/auth/forgot-password", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        identifier: z.string().trim().min(3).max(120),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+      const identifier = parsed.data.identifier.toLowerCase();
+
+      // Try username first, fall back to email lookup
+      let user = await storage.getUserByUsername(identifier);
+      if (!user && identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      }
+
+      // Always pretend we sent the email — never leak account existence
+      if (!user || user.deleted === true || !user.email) {
+        return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
+      }
+
+      // Apple-only accounts shouldn't get reset codes (they have no real password)
+      // Identify by stub email pattern (`@appleid.local`) used in /auth/apple/register
+      if (user.email.endsWith("@appleid.local")) {
+        return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
+      }
+
+      const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+      const codeHash = await hashPassword(code);
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+      await storage.createPasswordResetCode(user.id, codeHash, expiresAt);
+
+      // Resolve a friendly display name for the email greeting
+      let displayName: string | undefined;
+      if (user.coachId) {
+        const coach = await storage.getCoach(user.coachId);
+        displayName = coach?.name || user.username;
+      } else if (user.playerId) {
+        const player = await storage.getPlayer(user.playerId);
+        displayName = player?.name || user.username;
+      } else {
+        displayName = user.username;
+      }
+
+      const result = await sendPasswordResetEmail({ to: user.email, code, displayName });
+      if (!result.success) {
+        console.error("[ForgotPassword] Email send failed:", result.error);
+        // Still return success — caller can retry; we already created the code
+      }
+      console.log(`[ForgotPassword] Reset code issued for user ${user.id}`);
+      return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      // Same opaque response on errors so attackers can't probe
+      return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
+    }
+  });
+
+  router.post("/auth/reset-password", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        identifier: z.string().trim().min(3).max(120),
+        code: z.string().trim().regex(/^\d{6}$/, "Code must be 6 digits"),
+        newPassword: z.string().min(8).max(128),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+      const { code, newPassword } = parsed.data;
+      const identifier = parsed.data.identifier.toLowerCase();
+
+      const passwordCheck = validatePassword(newPassword);
+      if (!passwordCheck.valid) {
+        return res.status(400).json({ error: passwordCheck.errors.join(". ") });
+      }
+
+      let user = await storage.getUserByUsername(identifier);
+      if (!user && identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      }
+      if (!user || user.deleted === true) {
+        return res.status(400).json({ error: "Invalid or expired code." });
+      }
+
+      const active = await storage.getActivePasswordResetCode(user.id);
+      if (!active) {
+        return res.status(400).json({ error: "Invalid or expired code." });
+      }
+      if (active.attemptCount >= 5) {
+        return res.status(429).json({ error: "Too many attempts. Please request a new code." });
+      }
+
+      const matches = await verifyPassword(code, active.codeHash);
+      if (!matches) {
+        await storage.incrementPasswordResetAttempt(active.id);
+        return res.status(400).json({ error: "Invalid or expired code." });
+      }
+
+      const hashed = await hashPassword(newPassword);
+      await storage.updateUserPassword(user.id, hashed);
+      await storage.markPasswordResetCodeUsed(active.id);
+      console.log(`[ResetPassword] Password reset for user ${user.id}`);
+
+      return res.json({ success: true, message: "Password reset. You can now sign in with your new password." });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      return res.status(500).json({ error: "Failed to reset password." });
     }
   });
 

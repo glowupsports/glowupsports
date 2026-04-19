@@ -538,6 +538,51 @@ export const storage = {
     return result[0];
   },
 
+  // ==================== PASSWORD RESET CODES (Task #750) ====================
+  async createPasswordResetCode(userId: string, codeHash: string, expiresAt: Date): Promise<void> {
+    const { passwordResetCodes } = await import("@shared/schema");
+    // Invalidate any existing un-used codes for this user
+    await db.update(passwordResetCodes)
+      .set({ usedAt: new Date() })
+      .where(and(eq(passwordResetCodes.userId, userId), isNull(passwordResetCodes.usedAt)));
+    await db.insert(passwordResetCodes).values({ userId, codeHash, expiresAt });
+  },
+
+  async getActivePasswordResetCode(userId: string): Promise<{ id: string; codeHash: string; expiresAt: Date; attemptCount: number } | undefined> {
+    const { passwordResetCodes } = await import("@shared/schema");
+    const result = await db.select().from(passwordResetCodes)
+      .where(and(
+        eq(passwordResetCodes.userId, userId),
+        isNull(passwordResetCodes.usedAt),
+        gt(passwordResetCodes.expiresAt, new Date()),
+      ))
+      .orderBy(desc(passwordResetCodes.createdAt))
+      .limit(1);
+    if (!result[0]) return undefined;
+    return {
+      id: result[0].id,
+      codeHash: result[0].codeHash,
+      expiresAt: result[0].expiresAt as Date,
+      attemptCount: result[0].attemptCount,
+    };
+  },
+
+  async incrementPasswordResetAttempt(id: string): Promise<void> {
+    const { passwordResetCodes } = await import("@shared/schema");
+    await db.update(passwordResetCodes)
+      .set({ attemptCount: sql`${passwordResetCodes.attemptCount} + 1` })
+      .where(eq(passwordResetCodes.id, id));
+  },
+
+  async markPasswordResetCodeUsed(id: string): Promise<void> {
+    const { passwordResetCodes } = await import("@shared/schema");
+    await db.update(passwordResetCodes).set({ usedAt: new Date() }).where(eq(passwordResetCodes.id, id));
+  },
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+  },
+
   async getUserByPlayerId(playerId: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.playerId, playerId));
     return result[0];

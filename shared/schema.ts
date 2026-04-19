@@ -28,6 +28,21 @@ export const users = pgTable("users", {
   chatOnboardingSeenAt: timestamp("chat_onboarding_seen_at"), // when the user dismissed the chat tutorial
 });
 
+// Password reset codes (Task #750) — stores hashed 6-digit codes for password recovery
+export const passwordResetCodes = pgTable("password_reset_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIdx: index("password_reset_codes_user_id_idx").on(table.userId),
+}));
+
+export type PasswordResetCode = typeof passwordResetCodes.$inferSelect;
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   email: true,

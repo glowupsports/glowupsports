@@ -805,6 +805,67 @@ export async function sendOTPEmail(email: string): Promise<{ success: boolean; e
   }
 }
 
+// Send a password reset code (Task #750). Uses a 6-digit code that the user
+// enters in the app along with their new password. The code is hashed in the
+// DB; we only show it in the email body.
+export async function sendPasswordResetEmail(params: { to: string; code: string; displayName?: string }): Promise<{ success: boolean; error?: string }> {
+  const { to, code, displayName } = params;
+  const greetingName = displayName ? escapeHtml(displayName) : "there";
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0A0A0B; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0A0A0B; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="500" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #1A1A1D 0%, #16161A 100%); border-radius: 16px; overflow: hidden;">
+          <tr>
+            <td style="padding: 32px; text-align: center; border-bottom: 1px solid rgba(50, 255, 126, 0.1);">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #32FF7E;">Glow Up Sports</h1>
+              <p style="margin: 8px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.6);">Password reset</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 32px;">
+              <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">Hi ${greetingName},</h2>
+              <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: rgba(255,255,255,0.7);">
+                We received a request to reset the password on your Glow Up Sports account. Use the code below in the app to set a new password. This code expires in 30 minutes.
+              </p>
+              <div style="background: linear-gradient(135deg, rgba(50, 255, 126, 0.15) 0%, rgba(50, 255, 126, 0.05) 100%); border: 2px solid rgba(50, 255, 126, 0.3); border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+                <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #32FF7E; font-family: 'SF Mono', Monaco, monospace;">${code}</span>
+              </div>
+              <p style="margin: 24px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.5);">
+                If you didn't request this, you can safely ignore this email — your password will not change.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background: rgba(0,0,0,0.3); text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.4);">
+                This is an automated message from Glow Up Sports. Please do not reply.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return sendEmail({
+    to,
+    subject: `Your Glow Up Sports password reset code: ${code}`,
+    html,
+    text: `Your Glow Up Sports password reset code is: ${code}. This code expires in 30 minutes. If you didn't request this, you can ignore this email.`,
+  });
+}
+
 export function verifyOTPCode(email: string, code: string): { valid: boolean; error?: string } {
   const normalizedEmail = email.toLowerCase();
   const storedOTP = otpStore.get(normalizedEmail);

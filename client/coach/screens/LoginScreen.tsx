@@ -46,7 +46,7 @@ import {
   checkBiometricSupport,
 } from "@/lib/savedAccounts";
 
-type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code" | "apple_birthday";
+type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code" | "apple_birthday" | "forgot_password" | "reset_password";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -62,7 +62,17 @@ interface PremiumInputProps {
   onToggle?: () => void;
   showPassword?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  autoComplete?: "username" | "password" | "email" | "name" | "off";
+  autoComplete?: "username" | "password" | "new-password" | "email" | "name" | "one-time-code" | "off";
+  textContentType?:
+    | "none"
+    | "username"
+    | "password"
+    | "newPassword"
+    | "emailAddress"
+    | "name"
+    | "oneTimeCode";
+  keyboardType?: "default" | "email-address" | "number-pad" | "numeric";
+  maxLength?: number;
   rightElement?: React.ReactNode;
 }
 
@@ -78,6 +88,9 @@ function PremiumInput({
   showPassword = false,
   autoCapitalize = "none",
   autoComplete = "off",
+  textContentType,
+  keyboardType,
+  maxLength,
   rightElement,
 }: PremiumInputProps) {
   const focusAnim = useSharedValue(0);
@@ -113,6 +126,9 @@ function PremiumInput({
         secureTextEntry={secureTextEntry && !showPassword}
         autoCapitalize={autoCapitalize}
         autoComplete={autoComplete}
+        textContentType={textContentType}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
         onFocus={handleFocus}
         onBlur={handleBlur}
         style={premiumInputStyles.input}
@@ -559,7 +575,7 @@ const dobFieldStyles = StyleSheet.create({
 export default function LoginScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { login, loginWithApple, registerWithApple, loginAsGuest, registerPlayer, refreshAuth } = useAuth();
+  const { login, loginWithApple, registerWithApple, loginAsGuest, registerPlayer, requestPasswordReset, resetPassword: resetPasswordApi, refreshAuth } = useAuth();
   const [pendingAppleCredential, setPendingAppleCredential] = useState<{
     identityToken: string;
     appleUser: string;
@@ -598,6 +614,9 @@ export default function LoginScreen() {
 
   // OTP verification state
   const [otpCode, setOtpCode] = useState("");
+  const [resetIdentifier, setResetIdentifier] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
@@ -901,7 +920,11 @@ export default function LoginScreen() {
       setIsSubmitting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const result = await loginWithApple(credential.identityToken, credential.user);
+      const result = await loginWithApple(
+        credential.identityToken,
+        credential.user,
+        credential.email ?? null,
+      );
 
       if (result.success && result.user) {
         await saveAccount(
@@ -911,6 +934,15 @@ export default function LoginScreen() {
           result.user.profilePhotoUrl || undefined
         );
         loadSavedAccounts();
+        if (result.linkedToExisting) {
+          // Apple share an email exactly once. Apple "Hide my email" generates a
+          // unique privaterelay address, so when we land here it's because the
+          // user picked "Share my email" and we matched their existing account.
+          Alert.alert(
+            t("auth.appleLinkedTitle"),
+            t("auth.appleLinkedMessage"),
+          );
+        }
       } else if (result.code === "APPLE_NOT_LINKED") {
         // First-time Apple Sign-In: capture the credential and prompt for the
         // player's birthday so we can create their account at the right level
@@ -934,6 +966,63 @@ export default function LoginScreen() {
       }
       console.error("Apple Sign-In error:", error);
       Alert.alert(t("common.error"), "Apple Sign-In failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRequestReset = async () => {
+    if (!resetIdentifier.trim()) return;
+    try {
+      setIsSubmitting(true);
+      const result = await requestPasswordReset(resetIdentifier.trim());
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          t("auth.resetCodeSentTitle"),
+          t("auth.resetCodeSentMessage"),
+        );
+        setResetCode("");
+        setNewPassword("");
+        setMode("reset_password");
+      } else {
+        Alert.alert(t("common.error"), result.error || "Could not send reset code.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (resetCode.length !== 6) {
+      Alert.alert(t("common.error"), t("auth.resetCodeInvalid"));
+      return;
+    }
+    if (newPassword.length < 8) {
+      Alert.alert(t("common.error"), t("auth.passwordTooShort"));
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      const result = await resetPasswordApi(resetIdentifier.trim(), resetCode, newPassword);
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(t("auth.resetSuccessTitle"), t("auth.resetSuccessMessage"), [
+          {
+            text: t("auth.loginButton"),
+            onPress: () => {
+              setUsername(resetIdentifier.trim());
+              setPassword(newPassword);
+              setResetIdentifier("");
+              setResetCode("");
+              setNewPassword("");
+              setMode("login");
+            },
+          },
+        ]);
+      } else {
+        Alert.alert(t("common.error"), result.error || "Could not reset password.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1375,6 +1464,7 @@ export default function LoginScreen() {
           icon="person-outline"
           iconColor={Colors.dark.primary}
           autoComplete="username"
+          textContentType="username"
         />
 
         <PremiumInput
@@ -1388,6 +1478,7 @@ export default function LoginScreen() {
           onToggle={() => setShowPassword(!showPassword)}
           showPassword={showPassword}
           autoComplete="password"
+          textContentType="password"
         />
       </View>
 
@@ -1397,6 +1488,14 @@ export default function LoginScreen() {
         isLoading={isSubmitting}
         disabled={isSubmitting}
       />
+
+      <Pressable
+        style={styles.forgotPasswordLink}
+        onPress={() => handleModeChange("forgot_password")}
+        hitSlop={10}
+      >
+        <Text style={styles.forgotPasswordText}>{t("auth.forgotPassword")}</Text>
+      </Pressable>
 
       {Platform.OS === "ios" ? (
         <View style={styles.appleSignInContainer}>
@@ -1504,6 +1603,7 @@ export default function LoginScreen() {
             placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="none"
             autoComplete="username"
+            textContentType="username"
             style={[styles.input, styles.usernameInput]}
           />
           {usernameStatus.checking ? (
@@ -1595,6 +1695,8 @@ export default function LoginScreen() {
             placeholderTextColor={Colors.dark.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
             style={styles.input}
           />
           {otpVerified ? (
@@ -1697,6 +1799,8 @@ export default function LoginScreen() {
             placeholderTextColor={Colors.dark.textMuted}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
+            autoComplete="new-password"
+            textContentType="newPassword"
             style={[styles.input, styles.passwordInput]}
           />
           <Pressable
@@ -1963,6 +2067,106 @@ export default function LoginScreen() {
       </>
     );
   };
+
+  const renderForgotPassword = () => (
+    <>
+      <View style={styles.formHeader}>
+        <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.formTitle}>{t("auth.forgotPasswordTitle")}</Text>
+      </View>
+
+      <Text
+        style={{
+          color: Colors.dark.textMuted,
+          fontSize: 14,
+          lineHeight: 20,
+          marginBottom: Spacing.md,
+          textAlign: "center",
+        }}
+      >
+        {t("auth.forgotPasswordSubtitle")}
+      </Text>
+
+      <View style={styles.inputsContainer}>
+        <PremiumInput
+          value={resetIdentifier}
+          onChangeText={setResetIdentifier}
+          placeholder={t("auth.usernameOrEmailPlaceholder")}
+          icon="person-outline"
+          iconColor={Colors.dark.primary}
+          autoComplete="username"
+          textContentType="username"
+        />
+      </View>
+
+      <PremiumButton
+        onPress={handleRequestReset}
+        title={t("auth.sendResetCode")}
+        isLoading={isSubmitting}
+        disabled={isSubmitting || !resetIdentifier.trim()}
+      />
+    </>
+  );
+
+  const renderResetPassword = () => (
+    <>
+      <View style={styles.formHeader}>
+        <Pressable style={styles.backButton} onPress={() => handleModeChange("forgot_password")}>
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.formTitle}>{t("auth.resetPasswordTitle")}</Text>
+      </View>
+
+      <Text
+        style={{
+          color: Colors.dark.textMuted,
+          fontSize: 14,
+          lineHeight: 20,
+          marginBottom: Spacing.md,
+          textAlign: "center",
+        }}
+      >
+        {t("auth.resetPasswordSubtitle")}
+      </Text>
+
+      <View style={styles.inputsContainer}>
+        <PremiumInput
+          value={resetCode}
+          onChangeText={(text) => setResetCode(text.replace(/[^0-9]/g, "").slice(0, 6))}
+          placeholder={t("auth.resetCodePlaceholder")}
+          icon="key-outline"
+          iconColor={Colors.dark.primary}
+          keyboardType="number-pad"
+          maxLength={6}
+          autoComplete="one-time-code"
+          textContentType="oneTimeCode"
+        />
+
+        <PremiumInput
+          value={newPassword}
+          onChangeText={setNewPassword}
+          placeholder={t("auth.newPasswordPlaceholder")}
+          icon="lock-closed-outline"
+          iconColor={Colors.dark.primary}
+          secureTextEntry
+          showToggle
+          onToggle={() => setShowPassword(!showPassword)}
+          showPassword={showPassword}
+          autoComplete="new-password"
+          textContentType="newPassword"
+        />
+      </View>
+
+      <PremiumButton
+        onPress={handleResetPassword}
+        title={t("auth.resetPasswordButton")}
+        isLoading={isSubmitting}
+        disabled={isSubmitting || resetCode.length !== 6 || newPassword.length < 8}
+      />
+    </>
+  );
 
   const renderInviteCode = () => {
     if (inviteValidated && inviteData) {
@@ -2306,6 +2510,8 @@ export default function LoginScreen() {
           {mode === "academy_apply" ? renderAcademyApply() : null}
           {mode === "invite_code" ? renderInviteCode() : null}
           {mode === "apple_birthday" ? renderAppleBirthday() : null}
+          {mode === "forgot_password" ? renderForgotPassword() : null}
+          {mode === "reset_password" ? renderResetPassword() : null}
         </View>
 
         {mode !== "login" ? (

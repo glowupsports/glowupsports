@@ -72,6 +72,8 @@ interface AuthContextType {
   loginAsGuest: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
+  requestPasswordReset: (identifier: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (identifier: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   isImpersonating: boolean;
@@ -282,29 +284,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true);
   };
 
-  const loginWithApple = async (identityToken: string, appleUser: string): Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }> => {
+  const loginWithApple = async (
+    identityToken: string,
+    appleUser: string,
+    email?: string | null,
+  ): Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser; linkedToExisting?: boolean }> => {
     try {
       queryClient.clear();
-      
+
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/auth/apple/login", apiUrl).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identityToken, user: appleUser }),
+        body: JSON.stringify({ identityToken, user: appleUser, email: email || undefined }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         return { success: false, error: data.error || "Apple Sign-In failed", code: data.code };
       }
-      
+
       await saveAuthState(data.token, data.user, data.refreshToken);
       setAuthToken(data.token);
       await fetchUserData(data.token, true);
       setIsAuthenticated(true);
-      
-      return { success: true, user: data.user };
+
+      return { success: true, user: data.user, linkedToExisting: !!data.linkedToExisting };
     } catch (error) {
       console.error("Apple login error:", error);
       return { success: false, error: "Network error. Please try again." };
@@ -408,6 +414,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (error) {
       console.error("Player registration error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
+  const requestPasswordReset = async (
+    identifier: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL("/auth/forgot-password", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.error || "Could not send reset code." };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
+  const resetPassword = async (
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL("/auth/reset-password", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, code, newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.error || "Could not reset password." };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("Reset password error:", error);
       return { success: false, error: "Network error. Please try again." };
     }
   };
@@ -545,6 +595,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginAsGuest,
         register,
         registerPlayer,
+        requestPasswordReset,
+        resetPassword,
         logout,
         refreshAuth,
         isImpersonating,
