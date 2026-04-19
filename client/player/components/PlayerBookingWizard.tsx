@@ -285,9 +285,14 @@ export default function PlayerBookingWizard({
     if (browseMode === "by_coach" && selectedCoachId) {
       params.append("coachId", selectedCoachId);
     }
-    
+    // When a court is preselected (browse by_court), let the server filter slots
+    // to that court (or court-agnostic slots) to shrink the response payload.
+    if (presetCourtId) {
+      params.append("courtId", presetCourtId);
+    }
+
     return `/api/player/availability?${params}`;
-  }, [selectedDateString, duration, browseMode, selectedCoachId]);
+  }, [selectedDateString, duration, browseMode, selectedCoachId, presetCourtId]);
 
   // Fetch available slots using default queryFn
   // Enable when on slide 2 (When & Where) or later
@@ -1087,16 +1092,11 @@ export default function PlayerBookingWizard({
     // Combine joinable sessions and available slots for display
     const showJoinable = sessionType === "group" || sessionType === "semi_private";
 
-    // Filter slots by location AND, when in by_court mode, by the chosen court
-    // (slots from other courts are filtered out; slots without an assigned court are kept
-    // since the booking can still be placed on the chosen court)
+    // Filter slots by location. Court filtering (when presetCourtId is set) is now
+    // handled server-side via the courtId query param, so no client-side court filter.
     const filteredSlots = availableSlots.filter(slot => {
       const locOk = !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null;
-      if (!locOk) return false;
-      if (presetCourtId) {
-        return !slot.courtId || slot.courtId === presetCourtId;
-      }
-      return true;
+      return locOk;
     });
 
     return (

@@ -129,7 +129,7 @@ function toDubaiTime(utcDate: Date): Date {
         return res.status(403).json({ error: "Player access required" });
       }
 
-      const { coachId, locationId, date, startDate, endDate, duration } = req.query;
+      const { coachId, locationId, courtId, date, startDate, endDate, duration } = req.query;
 
       // Support either `date` (date string, preferred) or `startDate`/`endDate` (legacy ISO timestamps)
       let rangeStart: Date;
@@ -162,6 +162,7 @@ function toDubaiTime(utcDate: Date): Date {
         academyId: player.academyId || "",
         coachId: coachId as string | undefined,
         locationId: locationId as string | undefined,
+        courtId: courtId as string | undefined,
         startDate: rangeStart,
         endDate: rangeEnd,
         duration: parseInt(duration as string) || 60,

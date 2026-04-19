@@ -9917,6 +9917,7 @@ export const storage = {
     academyId: string;
     coachId?: string;
     locationId?: string;
+    courtId?: string;
     startDate: Date;
     endDate: Date;
     duration: number;
@@ -9943,7 +9944,15 @@ export const storage = {
         isNull(coachAvailability.locationId)
       ));
     }
-    
+    if (params.courtId) {
+      // Match slots assigned to this court OR court-agnostic (null) slots that can be
+      // booked on any court. Mirrors the legacy client-side filter.
+      conditions.push(or(
+        eq(coachAvailability.courtId, params.courtId),
+        isNull(coachAvailability.courtId)
+      ));
+    }
+
     const availabilitySlots = await db.select().from(coachAvailability)
       .where(and(...conditions));
     
