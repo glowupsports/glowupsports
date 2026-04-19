@@ -110,7 +110,7 @@ export default function MatchScreen() {
       }}
     >
       <LinearGradient
-        colors={[Colors.dark.xpCyan + "20", "transparent"]}
+        colors={[Colors.dark.primary + "20", "transparent"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.matchCardGradient}

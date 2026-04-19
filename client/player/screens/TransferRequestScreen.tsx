@@ -201,7 +201,7 @@ export default function TransferRequestScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading transfer requests...</Text>
         </View>
       </View>
@@ -226,7 +226,7 @@ export default function TransferRequestScreen() {
             <Text style={styles.sectionTitle}>Request Transfer</Text>
             <View style={styles.targetAcademy}>
               <View style={styles.academyIcon}>
-                <Ionicons name="school" size={24} color={Colors.dark.xpCyan} />
+                <Ionicons name="school" size={24} color={Colors.dark.primary} />
               </View>
               <View style={styles.academyInfo}>
                 <Text style={styles.academyName}>{toAcademyName || "Selected Academy"}</Text>
@@ -254,7 +254,7 @@ export default function TransferRequestScreen() {
               </View>
             ) : hasRequestForThisAcademy ? (
               <View style={styles.warningBox}>
-                <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="information-circle" size={20} color={Colors.dark.primary} />
                 <Text style={styles.warningText}>
                   You already have a transfer request for this academy.
                 </Text>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
   },
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   browseButton: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,

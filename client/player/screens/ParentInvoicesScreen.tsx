@@ -416,7 +416,7 @@ export default function ParentInvoicesScreen() {
 
                 {!paymentInfo ? (
                   <View style={styles.paymentLoadingState}>
-                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
                     <Text style={styles.paymentLoadingText}>Loading payment options...</Text>
                   </View>
                 ) : !paymentInfo.acceptsCash && !paymentInfo.acceptsBankTransfer ? (
@@ -444,7 +444,7 @@ export default function ParentInvoicesScreen() {
                 {paymentInfo?.acceptsBankTransfer ? (
                   <View style={styles.paymentMethodCard}>
                     <View style={styles.paymentMethodHeader}>
-                      <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
+                      <Ionicons name="card-outline" size={24} color={Colors.dark.primary} />
                       <Text style={styles.paymentMethodName}>Bank Transfer</Text>
                     </View>
                     <Text style={styles.paymentMethodDescription}>
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.lg,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
   },
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
   },
   paymentInvoiceNumber: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   paymentMethodsTitle: {
     ...Typography.body,
@@ -914,11 +914,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,255,255,0.1)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   referenceLabel: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginBottom: Spacing.xs,
   },
   referenceValueRow: {

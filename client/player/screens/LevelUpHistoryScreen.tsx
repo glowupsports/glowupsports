@@ -118,7 +118,7 @@ export default function LevelUpHistoryScreen() {
           <View style={styles.rewardsSection}>
             <View style={styles.rewardItem}>
               <View style={styles.rewardIcon}>
-                <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="flash" size={18} color={Colors.dark.primary} />
               </View>
               <Text style={styles.rewardText}>+{item.xpAwarded} XP</Text>
             </View>
@@ -184,7 +184,7 @@ export default function LevelUpHistoryScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: Colors.dark.xpCyan }]}>{totalXP}</Text>
+          <Text style={[styles.statValue, { color: Colors.dark.primary }]}>{totalXP}</Text>
           <Text style={styles.statLabel}>XP Earned</Text>
         </View>
         <View style={styles.statDivider} />
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
   },

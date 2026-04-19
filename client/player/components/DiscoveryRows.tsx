@@ -754,7 +754,7 @@ export function OpenMatchesRow() {
   const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
     const isDoubles = maxPlayers === 4;
     if (isDoubles) return ["#9333EA", "#7C3AED", "#6366F1"] as const;
-    return [Colors.dark.xpCyan, "#22D3EE", "#06B6D4"] as const;
+    return [Colors.dark.primary, "#22D3EE", "#06B6D4"] as const;
   };
 
   const getSkillLabel = (skillLevel?: number) => {
@@ -1654,7 +1654,7 @@ const styles = StyleSheet.create({
   xpBadgeSmallText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   premiumMatchDateRow: {
     flexDirection: "row",

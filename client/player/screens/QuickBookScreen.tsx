@@ -232,7 +232,7 @@ export default function QuickBookScreen() {
             <Text style={styles.successTitle}>BOOM!</Text>
             <Text style={styles.successSubtitle}>Session Confirmed</Text>
             <View style={styles.xpRewardBig}>
-              <Ionicons name="flash" size={24} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={24} color={Colors.dark.primary} />
               <Text style={styles.xpRewardText}>+50 XP</Text>
             </View>
             <Text style={styles.successDetail}>
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     borderRadius: 20,
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
   xpRewardText: {
     fontSize: FontSizes.xl,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   successDetail: {
     fontSize: FontSizes.md,

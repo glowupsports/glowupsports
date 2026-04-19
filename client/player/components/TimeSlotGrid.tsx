@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FontSizes.sm,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   legend: {
@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.textMuted,
   },
   legendSelected: {
-    backgroundColor: Colors.dark.xpCyan,
-    shadowColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 4,

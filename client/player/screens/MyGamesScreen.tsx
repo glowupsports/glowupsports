@@ -87,7 +87,7 @@ function formatDateTime(dateStr: string): string {
 function getStatusColor(status: string): string {
   switch (status) {
     case "open": return Colors.dark.primary;
-    case "full": return Colors.dark.xpCyan;
+    case "full": return Colors.dark.primary;
     case "expired": return Colors.dark.textMuted;
     case "cancelled": return Colors.dark.error;
     default: return Colors.dark.textMuted;

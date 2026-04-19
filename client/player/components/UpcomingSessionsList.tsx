@@ -25,7 +25,7 @@ interface DashboardShape {
 
 function getTypeColor(type: string): string {
   if (type === "private") return Colors.dark.primary;
-  if (type === "semi_private") return Colors.dark.xpCyan;
+  if (type === "semi_private") return Colors.dark.primary;
   if (type === "group") return Colors.dark.orange;
   return Colors.dark.primary;
 }

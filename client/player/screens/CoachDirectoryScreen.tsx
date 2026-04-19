@@ -94,7 +94,7 @@ function PremiumCoachCard({ coach, onPress, index }: { coach: CoachDirectoryEntr
             )}
             
             {coach.level ? (
-              <View style={[styles.levelBadge, { backgroundColor: Colors.dark.xpCyan }]}>
+              <View style={[styles.levelBadge, { backgroundColor: Colors.dark.primary }]}>
                 <Text style={styles.levelText}>Lvl {coach.level}</Text>
               </View>
             ) : null}

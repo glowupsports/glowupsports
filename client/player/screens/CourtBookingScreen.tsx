@@ -64,7 +64,7 @@ interface Court {
 }
 
 const SURFACE_CONFIG = {
-  all: { icon: "apps", color: Colors.dark.xpCyan, label: "All", gradient: ["#00D4FF20", "#00D4FF05"] },
+  all: { icon: "apps", color: Colors.dark.primary, label: "All", gradient: ["#00D4FF20", "#00D4FF05"] },
   hard: { icon: "tennisball", color: "#00D4FF", label: "Hard", gradient: ["#00D4FF30", "#00D4FF10"] },
   clay: { icon: "leaf", color: "#E07B39", label: "Clay", gradient: ["#E07B3930", "#E07B3910"] },
   grass: { icon: "golf", color: "#4CAF50", label: "Grass", gradient: ["#4CAF5030", "#4CAF5010"] },
@@ -259,7 +259,7 @@ function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Cour
               <Text style={styles.viewSlotsText}>
                 {court.hasAvailability !== false ? "View All Slots" : "View Details"}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
             </View>
           </LinearGradient>
           
@@ -416,7 +416,7 @@ export default function CourtBookingScreen() {
                 >
                   {isSelected && (
                     <LinearGradient
-                      colors={[Colors.dark.xpCyan, "#00A8CC"]}
+                      colors={[Colors.dark.primary, "#00A8CC"]}
                       style={StyleSheet.absoluteFill}
                     />
                   )}
@@ -514,7 +514,7 @@ export default function CourtBookingScreen() {
           {isLoading ? (
             <View style={styles.stateContainer}>
               <View style={styles.loadingPulse}>
-                <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+                <ActivityIndicator size="large" color={Colors.dark.primary} />
               </View>
               <Text style={styles.stateTitle}>Finding courts...</Text>
               <Text style={styles.stateSubtitle}>Checking availability in real-time</Text>
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     borderColor: "#1F2430",
   },
   dateChipActive: {
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   dateWeekday: {
     fontSize: 11,
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
   resultsCount: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   resultsDate: {
     fontSize: 13,
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   priceCredits: {
     color: Colors.dark.primaryGlow,
@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
   viewSlotsText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   noAvailDot: {
     width: 6,
@@ -975,13 +975,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   timeSlotText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
 });

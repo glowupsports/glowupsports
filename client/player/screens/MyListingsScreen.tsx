@@ -37,7 +37,7 @@ interface MarketplaceListing {
 
 const CONDITIONS: Record<string, { label: string; color: string }> = {
   new: { label: "New", color: Colors.dark.primary },
-  like_new: { label: "Like New", color: Colors.dark.xpCyan },
+  like_new: { label: "Like New", color: Colors.dark.primary },
   good: { label: "Good", color: Colors.dark.gold },
   fair: { label: "Fair", color: Colors.dark.textSecondary },
   used: { label: "Used", color: Colors.dark.textMuted },

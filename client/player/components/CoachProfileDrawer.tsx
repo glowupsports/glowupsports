@@ -154,7 +154,7 @@ export default function CoachProfileDrawer({
             <View style={styles.quickStatsRow}>
               {coach.yearsExperience && (
                 <View style={styles.quickStatCard}>
-                  <Ionicons name="ribbon" size={20} color={Colors.dark.xpCyan} />
+                  <Ionicons name="ribbon" size={20} color={Colors.dark.primary} />
                   <Text style={styles.quickStatValue}>
                     {EXPERIENCE_LABELS[coach.yearsExperience] || coach.yearsExperience}
                   </Text>
@@ -245,7 +245,7 @@ export default function CoachProfileDrawer({
                 <Text style={styles.sectionTitle}>Certifications</Text>
                 {coach.certifications.map((cert, index) => (
                   <View key={index} style={styles.certRow}>
-                    <Ionicons name="ribbon-outline" size={16} color={Colors.dark.xpCyan} />
+                    <Ionicons name="ribbon-outline" size={16} color={Colors.dark.primary} />
                     <Text style={styles.certText}>{cert}</Text>
                   </View>
                 ))}

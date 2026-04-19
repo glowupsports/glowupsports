@@ -54,7 +54,7 @@ const DECLINE_REASON_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   pending: { label: "Pending", color: Colors.dark.orange || "#F97316", icon: "time" },
-  awaiting_player_reply: { label: "Reply needed", color: Colors.dark.xpCyan ?? Colors.dark.primary, icon: "chatbubble-ellipses" },
+  awaiting_player_reply: { label: "Reply needed", color: Colors.dark.primary ?? Colors.dark.primary, icon: "chatbubble-ellipses" },
   approved: { label: "Approved", color: Colors.dark.primary, icon: "checkmark-circle" },
   declined: { label: "Declined", color: Colors.dark.error || "#EF4444", icon: "close-circle" },
   cancelled: { label: "Cancelled", color: Colors.dark.textMuted || "#6B7280", icon: "ban" },
@@ -176,7 +176,7 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
 
           {item.coachWelcomeMessage ? (
             <View style={styles.welcomeMsgCard}>
-              <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.xpCyan} />
+              <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.primary} />
               <Text style={styles.welcomeMsgText}>{item.coachWelcomeMessage}</Text>
             </View>
           ) : null}
@@ -439,10 +439,10 @@ export default function MyLessonRequestsScreen() {
 
         {/* Coach pre-confirm message */}
         {item.coachPreConfirmMessage ? (
-          <View style={[styles.noteContainer, { backgroundColor: (Colors.dark.xpCyan ?? Colors.dark.primary) + "10", borderWidth: 1, borderColor: (Colors.dark.xpCyan ?? Colors.dark.primary) + "30" }]}>
+          <View style={[styles.noteContainer, { backgroundColor: (Colors.dark.primary ?? Colors.dark.primary) + "10", borderWidth: 1, borderColor: (Colors.dark.primary ?? Colors.dark.primary) + "30" }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
-              <Ionicons name="chatbubble-ellipses" size={13} color={Colors.dark.xpCyan ?? Colors.dark.primary} />
-              <Text style={[styles.noteLabel, { color: Colors.dark.xpCyan ?? Colors.dark.primary }]}>Message from your coach:</Text>
+              <Ionicons name="chatbubble-ellipses" size={13} color={Colors.dark.primary ?? Colors.dark.primary} />
+              <Text style={[styles.noteLabel, { color: Colors.dark.primary ?? Colors.dark.primary }]}>Message from your coach:</Text>
             </View>
             <Text style={styles.noteText}>{item.coachPreConfirmMessage}</Text>
           </View>
@@ -599,11 +599,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
-    backgroundColor: Colors.dark.xpCyan + "10",
+    backgroundColor: Colors.dark.primary + "10",
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "25",
+    borderColor: Colors.dark.primary + "25",
   },
   welcomeMsgText: {
     flex: 1,

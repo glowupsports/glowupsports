@@ -41,7 +41,7 @@ interface Trial {
 }
 
 const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
-  in_progress: { color: Colors.dark.xpCyan, label: "In Progress", icon: "hourglass-outline" },
+  in_progress: { color: Colors.dark.primary, label: "In Progress", icon: "hourglass-outline" },
   passed: { color: Colors.dark.primary, label: "Passed", icon: "checkmark-circle" },
   failed: { color: Colors.dark.error, label: "Not Passed", icon: "close-circle" },
   expired: { color: Colors.dark.textMuted, label: "Expired", icon: "time-outline" },
@@ -60,7 +60,7 @@ function getBallColor(levelName: string): string {
   if (lower.includes("orange")) return BALL_LEVEL_COLORS.orange;
   if (lower.includes("green")) return BALL_LEVEL_COLORS.green;
   if (lower.includes("yellow")) return BALL_LEVEL_COLORS.yellow;
-  return Colors.dark.xpCyan;
+  return Colors.dark.primary;
 }
 
 export default function TrialGatesScreen() {
@@ -210,7 +210,7 @@ export default function TrialGatesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={24} color={Colors.dark.xpCyan} />
+          <Ionicons name="information-circle" size={24} color={Colors.dark.primary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>What are Trial Gates?</Text>
             <Text style={styles.infoText}>
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.lg,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     ...Typography.bodyLarge,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
     marginBottom: 4,
   },

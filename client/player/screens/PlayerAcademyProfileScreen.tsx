@@ -244,7 +244,7 @@ export default function PlayerAcademyProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading academy...</Text>
         </View>
       </View>
@@ -311,19 +311,19 @@ export default function PlayerAcademyProfileScreen() {
           <View style={styles.chipRow}>
             {trustSignals.activePlayers > 0 ? (
               <View style={styles.chip}>
-                <Ionicons name="people-outline" size={13} color={Colors.dark.xpCyan} />
+                <Ionicons name="people-outline" size={13} color={Colors.dark.primary} />
                 <Text style={styles.chipText}>{trustSignals.activePlayers} players</Text>
               </View>
             ) : null}
             {profile.coachCount > 0 ? (
               <View style={styles.chip}>
-                <Ionicons name="ribbon-outline" size={13} color={Colors.dark.xpCyan} />
+                <Ionicons name="ribbon-outline" size={13} color={Colors.dark.primary} />
                 <Text style={styles.chipText}>{profile.coachCount} coaches</Text>
               </View>
             ) : null}
             {trustSignals.totalSessions > 0 ? (
               <View style={styles.chip}>
-                <Ionicons name="checkmark-circle-outline" size={13} color={Colors.dark.xpCyan} />
+                <Ionicons name="checkmark-circle-outline" size={13} color={Colors.dark.primary} />
                 <Text style={styles.chipText}>{trustSignals.totalSessions} sessions</Text>
               </View>
             ) : null}
@@ -376,19 +376,19 @@ export default function PlayerAcademyProfileScreen() {
             <Text style={styles.sectionTitle}>Contact</Text>
             {profile.website != null ? (
               <Pressable style={styles.contactRow} onPress={() => Linking.openURL(profile.website!)}>
-                <Ionicons name="globe-outline" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="globe-outline" size={18} color={Colors.dark.primary} />
                 <Text style={styles.contactLink}>{profile.website}</Text>
               </Pressable>
             ) : null}
             {profile.phone != null ? (
               <Pressable style={styles.contactRow} onPress={() => Linking.openURL(`tel:${profile.phone}`)}>
-                <Ionicons name="call-outline" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="call-outline" size={18} color={Colors.dark.primary} />
                 <Text style={styles.contactLink}>{profile.phone}</Text>
               </Pressable>
             ) : null}
             {profile.email != null ? (
               <Pressable style={styles.contactRow} onPress={() => Linking.openURL(`mailto:${profile.email}`)}>
-                <Ionicons name="mail-outline" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="mail-outline" size={18} color={Colors.dark.primary} />
                 <Text style={styles.contactLink}>{profile.email}</Text>
               </Pressable>
             ) : null}
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   backBtnText: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   backRow: {
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   logoInitial: {
     fontSize: 40,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   academyName: {
     fontSize: 26,
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   section: {
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
   },
   contactLink: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     flex: 1,
   },
   coachScroll: {
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   coachInitial: {
     fontSize: 24,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   coachName: {
     ...Typography.caption,
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   },
   groupPrice: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   spotsText: {
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   smallBtnText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   tournamentCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   },
   tournamentFee: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   ctaCard: {
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
   },

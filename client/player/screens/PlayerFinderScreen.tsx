@@ -92,7 +92,7 @@ function PlayerCard({ player, index }: { player: PlayerResult; index: number }) 
         
         <View style={styles.playerScore}>
           {player.hasHomeAddress ? (
-            <Ionicons name="home" size={14} color={Colors.dark.xpCyan} style={{ marginRight: 4 }} />
+            <Ionicons name="home" size={14} color={Colors.dark.primary} style={{ marginRight: 4 }} />
           ) : null}
           <Ionicons name="flame" size={16} color={Colors.dark.gold} />
           <ThemedText style={styles.scoreText}>{player.glowScore}</ThemedText>
@@ -175,14 +175,14 @@ export default function PlayerFinderScreen() {
           style={[styles.tab, activeTab === "discover" && styles.tabActive]}
           onPress={() => setActiveTab("discover")}
         >
-          <Ionicons name="compass" size={18} color={activeTab === "discover" ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+          <Ionicons name="compass" size={18} color={activeTab === "discover" ? Colors.dark.primary : Colors.dark.textMuted} />
           <ThemedText style={[styles.tabText, activeTab === "discover" && styles.tabTextActive]}>Discover</ThemedText>
         </Pressable>
         <Pressable
           style={[styles.tab, activeTab === "search" && styles.tabActive]}
           onPress={() => setActiveTab("search")}
         >
-          <Ionicons name="search" size={18} color={activeTab === "search" ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+          <Ionicons name="search" size={18} color={activeTab === "search" ? Colors.dark.primary : Colors.dark.textMuted} />
           <ThemedText style={[styles.tabText, activeTab === "search" && styles.tabTextActive]}>Search</ThemedText>
         </Pressable>
         <Pressable
@@ -215,7 +215,7 @@ export default function PlayerFinderScreen() {
               setDiscoverFilter("sameLevel");
             }}
           >
-            <Ionicons name="bar-chart" size={14} color={discoverFilter === "sameLevel" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} />
+            <Ionicons name="bar-chart" size={14} color={discoverFilter === "sameLevel" ? Colors.dark.backgroundRoot : Colors.dark.primary} />
             <ThemedText style={[styles.discoverChipText, discoverFilter === "sameLevel" && styles.discoverChipTextActive]}>
               Same Level
             </ThemedText>
@@ -310,7 +310,7 @@ export default function PlayerFinderScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
         </View>
       ) : isError ? (
         <View style={styles.loadingContainer}>
@@ -329,7 +329,7 @@ export default function PlayerFinderScreen() {
             <RefreshControl 
               refreshing={false} 
               onRefresh={() => refetch()}
-              tintColor={Colors.dark.xpCyan}
+              tintColor={Colors.dark.primary}
             />
           }
           contentContainerStyle={[
@@ -437,8 +437,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   discoverChipActive: {
-    backgroundColor: Colors.dark.xpCyan,
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
   },
   discoverChipText: {
     fontSize: 13,
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.xs,
   },
   filterChipActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   filterText: {
     fontSize: 13,
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.md,
   },
   retryText: {

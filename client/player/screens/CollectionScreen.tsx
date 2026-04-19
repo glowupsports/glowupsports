@@ -54,7 +54,7 @@ interface CollectionData {
 const RARITY_COLORS: Record<string, string> = {
   common: Colors.dark.textMuted,
   uncommon: Colors.dark.primary,
-  rare: Colors.dark.xpCyan,
+  rare: Colors.dark.primary,
   epic: "#9B59B6",
   legendary: Colors.dark.orange,
 };
@@ -216,7 +216,7 @@ export default function CollectionScreen() {
           <Text style={styles.statLabel}>Badges</Text>
         </View>
         <View style={styles.statCard}>
-          <Ionicons name="medal" size={24} color={Colors.dark.xpCyan} />
+          <Ionicons name="medal" size={24} color={Colors.dark.primary} />
           <Text style={styles.statValue}>
             {stats?.unlockedTitles || 0}/{stats?.totalTitles || 0}
           </Text>

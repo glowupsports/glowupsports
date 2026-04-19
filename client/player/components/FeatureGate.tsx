@@ -160,7 +160,7 @@ export function UpcomingUnlocksList({
   return (
     <View style={styles.upcomingContainer}>
       <View style={styles.upcomingHeader}>
-        <Ionicons name="gift-outline" size={16} color={Colors.dark.xpCyan} />
+        <Ionicons name="gift-outline" size={16} color={Colors.dark.primary} />
         <Text style={styles.upcomingTitle}>Upcoming Unlocks</Text>
       </View>
       
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   upcomingTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   upcomingList: {
     gap: Spacing.xs,

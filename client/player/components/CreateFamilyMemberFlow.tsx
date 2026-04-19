@@ -122,7 +122,7 @@ function DOBPicker({ value, onChange }: { value: string | null; onChange: (d: st
         style={[fStyles.dobBtn, value ? fStyles.dobBtnActive : null]}
         onPress={openPicker}
       >
-        <Ionicons name="calendar-outline" size={20} color={value ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+        <Ionicons name="calendar-outline" size={20} color={value ? Colors.dark.primary : Colors.dark.textMuted} />
         <Text style={[fStyles.dobText, value ? fStyles.dobTextActive : null]}>{displayText}</Text>
       </Pressable>
 
@@ -345,7 +345,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                     setTimeout(handleNext, 250);
                   }}
                 >
-                  <Ionicons name={opt.icon} size={22} color={data.motivationType === opt.id ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                  <Ionicons name={opt.icon} size={22} color={data.motivationType === opt.id ? Colors.dark.primary : Colors.dark.textMuted} />
                   <Text style={[fStyles.selectCardText, data.motivationType === opt.id ? fStyles.selectCardTextActive : null]}>{opt.label}</Text>
                   {data.motivationType === opt.id ? (
                     <View style={fStyles.checkBadge}>
@@ -375,7 +375,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                     style={[fStyles.handBtn, data.dominantHand === opt.id ? fStyles.handBtnActive : null]}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setData((prev) => ({ ...prev, dominantHand: opt.id })); }}
                   >
-                    <Ionicons name={opt.icon} size={24} color={data.dominantHand === opt.id ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                    <Ionicons name={opt.icon} size={24} color={data.dominantHand === opt.id ? Colors.dark.primary : Colors.dark.textMuted} />
                     <Text style={[fStyles.handBtnText, data.dominantHand === opt.id ? fStyles.handBtnTextActive : null]}>{opt.label}</Text>
                   </Pressable>
                 ))}
@@ -391,7 +391,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                     style={[fStyles.handBtn, data.backhandType === opt.id ? fStyles.handBtnActive : null]}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setData((prev) => ({ ...prev, backhandType: opt.id })); }}
                   >
-                    <Ionicons name={opt.icon} size={24} color={data.backhandType === opt.id ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                    <Ionicons name={opt.icon} size={24} color={data.backhandType === opt.id ? Colors.dark.primary : Colors.dark.textMuted} />
                     <Text style={[fStyles.handBtnText, data.backhandType === opt.id ? fStyles.handBtnTextActive : null]}>{opt.label}</Text>
                   </Pressable>
                 ))}
@@ -433,7 +433,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); toggleEnjoyment(opt.id); }}
                     disabled={disabled}
                   >
-                    <Ionicons name={opt.icon} size={26} color={sel ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                    <Ionicons name={opt.icon} size={26} color={sel ? Colors.dark.primary : Colors.dark.textMuted} />
                     <Text style={[fStyles.gridCardText, sel ? fStyles.gridCardTextActive : null]}>{opt.label}</Text>
                   </Pressable>
                 );
@@ -459,7 +459,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                     style={[fStyles.gridCard, sel ? fStyles.gridCardActive : null]}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); toggleFocus(opt.id); }}
                   >
-                    <Ionicons name={opt.icon} size={26} color={sel ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                    <Ionicons name={opt.icon} size={26} color={sel ? Colors.dark.primary : Colors.dark.textMuted} />
                     <Text style={[fStyles.gridCardText, sel ? fStyles.gridCardTextActive : null]}>{opt.label}</Text>
                   </Pressable>
                 );
@@ -559,7 +559,7 @@ const fStyles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
   },
   dotActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     width: 20,
   },
   stepContent: {
@@ -607,8 +607,8 @@ const fStyles = StyleSheet.create({
     borderColor: "transparent",
   },
   dobBtnActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   dobText: {
     ...Typography.body,
@@ -661,14 +661,14 @@ const fStyles = StyleSheet.create({
     alignItems: "center",
   },
   dobItemActive: {
-    backgroundColor: `${Colors.dark.xpCyan}20`,
+    backgroundColor: `${Colors.dark.primary}20`,
   },
   dobItemText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   dobItemTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   dobActions: {
@@ -691,7 +691,7 @@ const fStyles = StyleSheet.create({
     flex: 1,
     padding: Spacing.md,
     alignItems: "center",
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.md,
   },
   dobConfirmDisabled: {
@@ -716,8 +716,8 @@ const fStyles = StyleSheet.create({
     borderColor: "transparent",
   },
   selectCardActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   selectCardText: {
     ...Typography.body,
@@ -725,13 +725,13 @@ const fStyles = StyleSheet.create({
     flex: 1,
   },
   selectCardTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   checkBadge: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -760,15 +760,15 @@ const fStyles = StyleSheet.create({
     borderColor: "transparent",
   },
   handBtnActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   handBtnText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   handBtnTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   expGrid: {
     flexDirection: "row",
@@ -784,15 +784,15 @@ const fStyles = StyleSheet.create({
     borderColor: "transparent",
   },
   expBtnActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   expBtnText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   expBtnTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   gridOptions: {
     flexDirection: "row",
@@ -811,8 +811,8 @@ const fStyles = StyleSheet.create({
     borderColor: "transparent",
   },
   gridCardActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   gridCardDisabled: {
     opacity: 0.4,
@@ -823,7 +823,7 @@ const fStyles = StyleSheet.create({
     textAlign: "center",
   },
   gridCardTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   countText: {
     ...Typography.small,
@@ -854,7 +854,7 @@ const fStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,

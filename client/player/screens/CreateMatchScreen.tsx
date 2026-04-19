@@ -357,14 +357,14 @@ export default function CreateMatchScreen() {
             onPress={() => handleSelectType("doubles")}
           >
             <LinearGradient
-              colors={matchType === "doubles" ? [Colors.dark.xpCyan, "#00A3D9"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
+              colors={matchType === "doubles" ? [Colors.dark.primary, "#00A3D9"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
               style={styles.typeCardGradient}
             >
               <View style={styles.typeIconContainer}>
                 <Ionicons 
                   name="people" 
                   size={32} 
-                  color={matchType === "doubles" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} 
+                  color={matchType === "doubles" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
                 />
               </View>
               <Text style={[styles.typeCardTitle, matchType === "doubles" && styles.typeCardTitleSelected]}>
@@ -409,7 +409,7 @@ export default function CreateMatchScreen() {
             <Ionicons 
               name="flame-outline" 
               size={24} 
-              color={matchIntent === "competitive" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} 
+              color={matchIntent === "competitive" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
             />
             <Text style={[styles.intentCardText, matchIntent === "competitive" && styles.intentCardTextSelected]}>
               Competitive
@@ -491,14 +491,14 @@ export default function CreateMatchScreen() {
               setPartnerOption("select");
             }}
           >
-            <View style={[styles.partnerIconCircle, partnerOption === "select" && { backgroundColor: Colors.dark.xpCyan }]}>
+            <View style={[styles.partnerIconCircle, partnerOption === "select" && { backgroundColor: Colors.dark.primary }]}>
               <Ionicons 
                 name="people" 
                 size={28} 
-                color={partnerOption === "select" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} 
+                color={partnerOption === "select" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
               />
             </View>
-            <Text style={[styles.partnerOptionTitle, partnerOption === "select" && { color: Colors.dark.xpCyan }]}>
+            <Text style={[styles.partnerOptionTitle, partnerOption === "select" && { color: Colors.dark.primary }]}>
               Invite a Friend
             </Text>
             <Text style={styles.partnerOptionDesc}>
@@ -705,9 +705,9 @@ export default function CreateMatchScreen() {
               setSkillLevelMax(value);
               if (value < skillLevelMin) setSkillLevelMin(value);
             }}
-            minimumTrackTintColor={Colors.dark.xpCyan}
+            minimumTrackTintColor={Colors.dark.primary}
             maximumTrackTintColor={Colors.dark.border}
-            thumbTintColor={Colors.dark.xpCyan}
+            thumbTintColor={Colors.dark.primary}
           />
         </View>
       ) : (
@@ -795,7 +795,7 @@ export default function CreateMatchScreen() {
           <Text style={styles.summaryText}>{matchType === "singles" ? "Singles" : "Doubles"}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+          <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
           <Text style={styles.summaryText}>
             {formatDate(selectedDate).day}, {formatDate(selectedDate).date} {formatDate(selectedDate).month} at {selectedTime}
           </Text>
@@ -1143,8 +1143,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timeChipSelected: {
-    backgroundColor: Colors.dark.xpCyan + "20",
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
   },
   timeText: {
     ...Typography.body,
@@ -1152,7 +1152,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   timeTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   bottomActions: {
     flexDirection: "row",
@@ -1360,7 +1360,7 @@ const styles = StyleSheet.create({
   },
   viewMatchesText: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   partnerOptions: {

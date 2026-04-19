@@ -49,7 +49,7 @@ export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: Acade
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Ionicons name="school-outline" size={24} color={Colors.dark.xpCyan} />
+          <Ionicons name="school-outline" size={24} color={Colors.dark.primary} />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.title}>Find Your Academy</Text>
@@ -59,7 +59,7 @@ export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: Acade
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="small" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Checking requests...</Text>
         </View>
       ) : (
@@ -108,7 +108,7 @@ export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: Acade
             </Pressable>
           ) : (
             <Pressable style={styles.browseButtonSecondary} onPress={handleBrowsePress}>
-              <Ionicons name="add" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="add" size={18} color={Colors.dark.primary} />
               <Text style={styles.browseButtonTextSecondary}>Request Another Academy</Text>
             </Pressable>
           )}
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.lg,
   },
   browseButtonText: {
@@ -258,11 +258,11 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   browseButtonTextSecondary: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
 });

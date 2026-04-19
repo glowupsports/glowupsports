@@ -191,7 +191,7 @@ export default function MyCourtBookingsScreen() {
 
   const getPartnerColor = (partnerType?: string) => {
     switch (partnerType) {
-      case "friend": return Colors.dark.xpCyan;
+      case "friend": return Colors.dark.primary;
       case "guest": return Colors.dark.primaryGlow;
       case "open_match": return "#E040FB";
       case "solo": return "#FF9500";
@@ -205,14 +205,14 @@ export default function MyCourtBookingsScreen() {
     if (booking.partnerType === "friend" && booking.partner) {
       return (
         <View style={styles.partnerRow}>
-          <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+          <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.primary + "20" }]}>
             {booking.partner.photoUrl ? (
               <Image 
                 source={{ uri: `${apiUrl}${booking.partner.photoUrl}` }} 
                 style={styles.partnerPhoto}
               />
             ) : (
-              <Ionicons name="person" size={14} color={Colors.dark.xpCyan} />
+              <Ionicons name="person" size={14} color={Colors.dark.primary} />
             )}
           </View>
           <View style={styles.partnerInfo}>
@@ -296,7 +296,7 @@ export default function MyCourtBookingsScreen() {
             <Ionicons 
               name={getSurfaceIcon(booking.court.surface)} 
               size={20} 
-              color={Colors.dark.xpCyan} 
+              color={Colors.dark.primary} 
             />
             <Text style={styles.courtName}>{booking.court.name}</Text>
           </View>
@@ -336,7 +336,7 @@ export default function MyCourtBookingsScreen() {
           </Text>
           {booking.xpAwarded > 0 && (
             <View style={styles.xpBadge}>
-              <Ionicons name="star" size={12} color={Colors.dark.xpCyan} />
+              <Ionicons name="star" size={12} color={Colors.dark.primary} />
               <Text style={styles.xpText}>+{booking.xpAwarded} XP</Text>
             </View>
           )}
@@ -392,13 +392,13 @@ export default function MyCourtBookingsScreen() {
           <RefreshControl 
             refreshing={refreshing} 
             onRefresh={handleRefresh}
-            tintColor={Colors.dark.xpCyan}
+            tintColor={Colors.dark.primary}
           />
         }
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+            <ActivityIndicator size="large" color={Colors.dark.primary} />
             <Text style={styles.loadingText}>Loading your bookings...</Text>
           </View>
         ) : isError ? (
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     backgroundColor: Backgrounds.card,
   },
   tabActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   tabText: {
     fontSize: 14,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   bookNewButton: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.md,
   },
   bookNewButtonText: {
@@ -594,13 +594,13 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   xpBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   xpText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   cancelButton: {
     paddingHorizontal: Spacing.md,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   partnerLevelBadge: {
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   partnerLevelText: {
     fontSize: 11,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   openMatchStatus: {
     backgroundColor: "#E040FB20",

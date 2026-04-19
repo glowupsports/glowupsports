@@ -145,7 +145,7 @@ export default function ProductDetailScreen() {
       case "official":
         return { icon: "shield-checkmark", color: Colors.dark.primary, label: "Official Store" };
       case "academy":
-        return { icon: "business", color: Colors.dark.xpCyan, label: "Academy" };
+        return { icon: "business", color: Colors.dark.primary, label: "Academy" };
       case "pro":
         return { icon: "star", color: Colors.dark.gold, label: "Pro Seller" };
       default:

@@ -133,7 +133,7 @@ function MilestoneCard({ milestone, isFirst, isExpanded, onToggle }: {
           <View style={styles.milestoneHeaderRight}>
             {milestone.xpEarned ? (
               <View style={styles.xpBadge}>
-                <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+                <Ionicons name="flash" size={12} color={Colors.dark.primary} />
                 <Text style={styles.xpText}>+{milestone.xpEarned}</Text>
               </View>
             ) : null}
@@ -153,9 +153,9 @@ function MilestoneCard({ milestone, isFirst, isExpanded, onToggle }: {
                 <Ionicons name="fitness" size={12} color={Colors.dark.primary} />
                 <Text style={styles.skillChipText}>{skillInfo.domain}</Text>
               </View>
-              <View style={[styles.skillChip, { backgroundColor: Colors.dark.xpCyan + "15" }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.dark.xpCyan} />
-                <Text style={[styles.skillChipText, { color: Colors.dark.xpCyan }]}>{skillInfo.skill}</Text>
+              <View style={[styles.skillChip, { backgroundColor: Colors.dark.primary + "15" }]}>
+                <Ionicons name="trending-up" size={12} color={Colors.dark.primary} />
+                <Text style={[styles.skillChipText, { color: Colors.dark.primary }]}>{skillInfo.skill}</Text>
               </View>
             </View>
             <View style={styles.improvementBox}>
@@ -323,7 +323,7 @@ function AchievementDetailModal({
 
             <View style={styles.achievementModalStats}>
               <View style={styles.achievementStat}>
-                <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="flash" size={20} color={Colors.dark.primary} />
                 <Text style={styles.achievementStatValue}>+{req.xp} XP</Text>
                 <Text style={styles.achievementStatLabel}>Reward</Text>
               </View>
@@ -464,7 +464,7 @@ export default function PlayerJourneyScreen() {
   if (isLoading || recognitionLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading your journey...</Text>
       </View>
     );
@@ -527,7 +527,7 @@ export default function PlayerJourneyScreen() {
           <Ionicons 
             name="time-outline" 
             size={16} 
-            color={activeTab === "timeline" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            color={activeTab === "timeline" ? Colors.dark.primary : Colors.dark.textMuted} 
           />
           <Text style={[styles.tabText, activeTab === "timeline" && styles.tabTextActive]}>
             Timeline
@@ -543,7 +543,7 @@ export default function PlayerJourneyScreen() {
           <Ionicons 
             name="trophy-outline" 
             size={16} 
-            color={activeTab === "achievements" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            color={activeTab === "achievements" ? Colors.dark.primary : Colors.dark.textMuted} 
           />
           <Text style={[styles.tabText, activeTab === "achievements" && styles.tabTextActive]}>
             Awards
@@ -559,7 +559,7 @@ export default function PlayerJourneyScreen() {
           <Ionicons 
             name="star-outline" 
             size={16} 
-            color={activeTab === "skills" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            color={activeTab === "skills" ? Colors.dark.primary : Colors.dark.textMuted} 
           />
           <Text style={[styles.tabText, activeTab === "skills" && styles.tabTextActive]}>
             Skills
@@ -589,7 +589,7 @@ export default function PlayerJourneyScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="tennisball-outline" size={64} color={Colors.dark.xpCyan} />
+              <Ionicons name="tennisball-outline" size={64} color={Colors.dark.primary} />
               <Text style={styles.emptyText}>Your story starts today</Text>
               <Text style={styles.emptySubtext}>
                 Every training session writes a new chapter in your tennis journey
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     ...Typography.numberMedium,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   statLabel: {
     ...Typography.caption,
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   tabTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   timelineContent: {
     paddingHorizontal: Spacing.xl,
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
   },
   xpText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontSize: 10,
   },
   milestoneDescription: {
@@ -951,7 +951,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   milestoneCardExpanded: {
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
     borderWidth: 1,
   },
   milestoneHeaderRight: {
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
   },
   overallProgressValue: {
     ...Typography.h2,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginBottom: Spacing.sm,
   },
   overallProgressBar: {

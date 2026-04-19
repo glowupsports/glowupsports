@@ -196,7 +196,7 @@ function ExpandableHelpItem({
     <View style={styles.helpItemContainer}>
       <Pressable style={styles.helpItem} onPress={onToggle}>
         <View style={styles.helpIcon}>
-          <Ionicons name={guide.icon as any} size={20} color={Colors.dark.xpCyan} />
+          <Ionicons name={guide.icon as any} size={20} color={Colors.dark.primary} />
         </View>
         <View style={styles.helpContent}>
           <Text style={styles.helpTitle}>{guide.title}</Text>
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     marginTop: 6,
     marginRight: Spacing.sm,
   },

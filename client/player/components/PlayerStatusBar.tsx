@@ -188,7 +188,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
     }
   };
 
-  const streakColor = player.streak >= 6 ? "#FF4136" : player.streak >= 3 ? Colors.dark.orange : Colors.dark.xpCyan;
+  const streakColor = player.streak >= 6 ? "#FF4136" : player.streak >= 3 ? Colors.dark.orange : Colors.dark.primary;
 
   return (
     <View style={styles.container}>

@@ -248,11 +248,11 @@ export default function ManageMatchScreen() {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={[isDoubles ? "#9333EA20" : Colors.dark.xpCyan + "20", Colors.dark.backgroundSecondary]}
+          colors={[isDoubles ? "#9333EA20" : Colors.dark.primary + "20", Colors.dark.backgroundSecondary]}
           style={styles.matchCard}
         >
           <View style={styles.matchHeader}>
-            <View style={[styles.typeBadge, { backgroundColor: isDoubles ? "#9333EA" : Colors.dark.xpCyan }]}>
+            <View style={[styles.typeBadge, { backgroundColor: isDoubles ? "#9333EA" : Colors.dark.primary }]}>
               <Ionicons name={isDoubles ? "people" : "person"} size={14} color="#fff" />
               <Text style={styles.typeBadgeText}>
                 {match.matchType.charAt(0).toUpperCase() + match.matchType.slice(1)}
@@ -275,11 +275,11 @@ export default function ManageMatchScreen() {
 
           <View style={styles.detailsSection}>
             <View style={styles.detailRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
               <Text style={styles.detailText}>{formatDate(match.scheduledTime)}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="time" size={18} color={Colors.dark.primary} />
               <Text style={styles.detailText}>{formatTime(match.scheduledTime)}</Text>
             </View>
             {(match.courtName || match.locationName) ? (
@@ -287,14 +287,14 @@ export default function ManageMatchScreen() {
                 style={styles.detailRow}
                 onPress={() => openDirections({ label: match.locationName || match.courtName })}
               >
-                <Ionicons name="navigate" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="navigate" size={18} color={Colors.dark.primary} />
                 <Text style={[styles.detailText, styles.directionsText]}>
                   {match.courtName || match.locationName}
                 </Text>
               </Pressable>
             ) : (
               <View style={styles.detailRow}>
-                <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="location" size={18} color={Colors.dark.primary} />
                 <Text style={styles.detailText}>TBD</Text>
               </View>
             )}
@@ -382,7 +382,7 @@ export default function ManageMatchScreen() {
 
         {match.xpBonus > 0 && (
           <View style={styles.xpSection}>
-            <Ionicons name="flash" size={24} color={Colors.dark.xpCyan} />
+            <Ionicons name="flash" size={24} color={Colors.dark.primary} />
             <Text style={styles.xpText}>+{match.xpBonus} XP Bonus for participants</Text>
           </View>
         )}
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
   },
   directionsText: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     textDecorationLine: "underline",
   },
   levelDot: {
@@ -705,14 +705,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: Colors.dark.primary + "30",
   },
   xpText: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontSize: FontSizes.md,
     fontWeight: "600",
   },

@@ -302,7 +302,7 @@ export default function ServiceDetailScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <Ionicons name="build-outline" size={48} color={Colors.dark.xpCyan} />
+          <Ionicons name="build-outline" size={48} color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading service...</Text>
         </View>
       </View>
@@ -347,13 +347,13 @@ export default function ServiceDetailScreen() {
       >
         <Animated.View entering={FadeIn.duration(400)} style={styles.serviceHeader}>
           <LinearGradient
-            colors={[Colors.dark.xpCyan + "20", Colors.dark.backgroundSecondary]}
+            colors={[Colors.dark.primary + "20", Colors.dark.backgroundSecondary]}
             style={styles.serviceIconContainer}
           >
             <Ionicons
               name={(service.iconName as any) || "build"}
               size={48}
-              color={Colors.dark.xpCyan}
+              color={Colors.dark.primary}
             />
           </LinearGradient>
         </Animated.View>
@@ -363,7 +363,7 @@ export default function ServiceDetailScreen() {
           style={styles.content}
         >
           <View style={styles.providerBadge}>
-            <Ionicons name="business" size={14} color={Colors.dark.xpCyan} />
+            <Ionicons name="business" size={14} color={Colors.dark.primary} />
             <Text style={styles.providerBadgeText}>Academy Service</Text>
           </View>
 
@@ -413,7 +413,7 @@ export default function ServiceDetailScreen() {
               style={styles.datePickerButton}
             >
               <View style={styles.datePickerContent}>
-                <Ionicons name="calendar-outline" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="calendar-outline" size={20} color={Colors.dark.primary} />
                 <View>
                   <Text style={styles.datePickerLabel}>Preferred Date</Text>
                   <Text style={styles.datePickerValue}>
@@ -505,12 +505,12 @@ export default function ServiceDetailScreen() {
             {/* Time Slot Picker */}
             <View style={styles.timeSlotsSection}>
               <View style={styles.timeSlotsHeader}>
-                <Ionicons name="time-outline" size={16} color={Colors.dark.xpCyan} />
+                <Ionicons name="time-outline" size={16} color={Colors.dark.primary} />
                 <Text style={styles.notesLabel}>
                   {showFreePicker ? "Preferred Time" : "Available Time Slots"}
                 </Text>
                 {isLoadingSlots && !isAnyProvider ? (
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginLeft: 6 }} />
+                  <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: 6 }} />
                 ) : null}
               </View>
 
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: Colors.dark.primary + "30",
   },
   content: {
     padding: Spacing.lg,
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     borderRadius: 12,
@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
   providerBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   serviceName: {
     fontSize: 24,
@@ -795,12 +795,12 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 28,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   discountedPrice: {
     fontSize: 28,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   originalPrice: {
     fontSize: 18,
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: 14,

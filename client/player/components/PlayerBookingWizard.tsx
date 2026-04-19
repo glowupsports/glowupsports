@@ -157,8 +157,8 @@ const SESSION_TYPE_CARDS: {
     label: "Semi-Private",
     subtitle: "Train with 1 partner",
     icon: "people-outline",
-    color: Colors.dark.xpCyan,
-    gradient: [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"],
+    color: Colors.dark.primary,
+    gradient: [Colors.dark.primary + "40", Colors.dark.primary + "10"],
   },
   {
     value: "open_play",
@@ -779,17 +779,17 @@ export default function PlayerBookingWizard({
           }}
           style={[
             styles.browseModeCard,
-            browseMode === "by_time" && { borderColor: Colors.dark.xpCyan, borderWidth: 2 },
+            browseMode === "by_time" && { borderColor: Colors.dark.primary, borderWidth: 2 },
           ]}
         >
           <LinearGradient
-            colors={browseMode === "by_time" ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+            colors={browseMode === "by_time" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
             style={styles.browseModeCardGradient}
           >
-            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.xpCyan + "30" }]}>
-              <Ionicons name="calendar" size={36} color={Colors.dark.xpCyan} />
+            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
+              <Ionicons name="calendar" size={36} color={Colors.dark.primary} />
             </View>
-            <Text style={[styles.browseModeLabel, browseMode === "by_time" && { color: Colors.dark.xpCyan }]}>
+            <Text style={[styles.browseModeLabel, browseMode === "by_time" && { color: Colors.dark.primary }]}>
               Browse by Time
             </Text>
             <Text style={styles.browseModeSubtitle}>See available courts & times first</Text>
@@ -951,7 +951,7 @@ export default function PlayerBookingWizard({
 
           {/* Date Selector */}
           <View style={styles.sectionHeader}>
-            <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+            <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
             <Text style={styles.sectionTitle}>Date</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
@@ -985,7 +985,7 @@ export default function PlayerBookingWizard({
 
           {/* Duration Selector */}
           <View style={styles.sectionHeader}>
-            <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+            <Ionicons name="time" size={18} color={Colors.dark.primary} />
             <Text style={styles.sectionTitle}>Duration</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
@@ -1012,7 +1012,7 @@ export default function PlayerBookingWizard({
           {locations.length > 0 && (
             <>
               <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
-                <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="location" size={18} color={Colors.dark.primary} />
                 <Text style={styles.sectionTitle}>Location</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
@@ -1060,7 +1060,7 @@ export default function PlayerBookingWizard({
 
           {/* Available Sessions Section */}
           <View style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
-            <Ionicons name="tennisball" size={18} color={Colors.dark.xpCyan} />
+            <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
             <Text style={styles.sectionTitle}>
               {showJoinable ? "Available Sessions" : "Available Times"}
             </Text>
@@ -1068,7 +1068,7 @@ export default function PlayerBookingWizard({
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+              <ActivityIndicator size="large" color={Colors.dark.primary} />
               <Text style={styles.loadingText}>Finding sessions...</Text>
             </View>
           ) : (
@@ -1092,12 +1092,12 @@ export default function PlayerBookingWizard({
                       }}
                     >
                       <LinearGradient
-                        colors={isSelected ? [Colors.dark.primary + "30", Colors.dark.xpCyan + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+                        colors={isSelected ? [Colors.dark.primary + "30", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
                         style={styles.sessionCardGradient}
                       >
                         <View style={styles.sessionCardHeader}>
                           <View style={styles.sessionTimeRow}>
-                            <Ionicons name="time" size={16} color={Colors.dark.xpCyan} />
+                            <Ionicons name="time" size={16} color={Colors.dark.primary} />
                             <Text style={styles.sessionTime}>
                               {formatTime(session.startTime)} - {formatTime(session.endTime)}
                             </Text>
@@ -1216,7 +1216,7 @@ export default function PlayerBookingWizard({
 
                       <View style={styles.slotInfoColumn}>
                         <View style={styles.coachRow}>
-                          <View style={[styles.coachAvatarSmall, isSelected && { borderColor: Colors.dark.xpCyan }]}>
+                          <View style={[styles.coachAvatarSmall, isSelected && { borderColor: Colors.dark.primary }]}>
                             <Text style={styles.coachAvatarTextSmall}>
                               {(slot.coachName || "C").charAt(0)}
                             </Text>
@@ -1231,7 +1231,7 @@ export default function PlayerBookingWizard({
 
                       {isSelected ? (
                         reservationLoading ? (
-                          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                          <ActivityIndicator size="small" color={Colors.dark.primary} />
                         ) : reservationId ? (
                           <View style={styles.countdownBadge}>
                             <Ionicons name="time-outline" size={11} color="#000" />
@@ -1240,7 +1240,7 @@ export default function PlayerBookingWizard({
                             </Text>
                           </View>
                         ) : (
-                          <Ionicons name="checkmark-circle" size={24} color={Colors.dark.xpCyan} />
+                          <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
                         )
                       ) : null}
                     </Pressable>
@@ -1325,13 +1325,13 @@ export default function PlayerBookingWizard({
                   ) : null}
                 </View>
                 <View style={styles.confirmRow}>
-                  <Ionicons name="time-outline" size={15} color={Colors.dark.xpCyan} />
+                  <Ionicons name="time-outline" size={15} color={Colors.dark.primary} />
                   <Text style={[styles.confirmText, { fontSize: 14 }]}>
                     {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} – {formatTime(sessionInfo.endTime)}
                   </Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Ionicons name="location-outline" size={15} color={Colors.dark.xpCyan} />
+                  <Ionicons name="location-outline" size={15} color={Colors.dark.primary} />
                   <Text style={[styles.confirmText, { fontSize: 14 }]}>
                     {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
                     {" · "}
@@ -1395,10 +1395,10 @@ export default function PlayerBookingWizard({
           {(aiFocusLoading || aiFocusSuggestions.length > 0) ? (
             <View style={styles.aiFocusSection}>
               <View style={styles.aiFocusHeader}>
-                <Ionicons name="sparkles" size={15} color={Colors.dark.xpCyan} />
+                <Ionicons name="sparkles" size={15} color={Colors.dark.primary} />
                 <Text style={styles.aiFocusLabel}>AI Focus Suggestions</Text>
                 {aiFocusLoading ? (
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginLeft: 4 }} />
+                  <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: 4 }} />
                 ) : null}
               </View>
               {aiFocusSuggestions.length > 0 ? (
@@ -1431,7 +1431,7 @@ export default function PlayerBookingWizard({
           <View style={styles.detailsForm}>
             <View style={styles.inputGroup}>
               <View style={styles.inputLabel}>
-                <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.primary} />
                 <Text style={styles.inputLabelText}>Note for Coach</Text>
               </View>
               <TextInput
@@ -1451,7 +1451,7 @@ export default function PlayerBookingWizard({
             {(sessionType === "semi_private" || sessionType === "group") ? (
               <View style={styles.inputGroup}>
                 <View style={styles.inputLabel}>
-                  <Ionicons name="person-add-outline" size={18} color={Colors.dark.xpCyan} />
+                  <Ionicons name="person-add-outline" size={18} color={Colors.dark.primary} />
                   <Text style={styles.inputLabelText}>Invite a Friend</Text>
                 </View>
                 <TextInput
@@ -1514,7 +1514,7 @@ export default function PlayerBookingWizard({
               {isJoining ? "See you on the court!" : "Coach will confirm soon"}
             </Text>
             <Animated.View style={[styles.xpReward, xpStyle]}>
-              <Ionicons name="flash" size={24} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={24} color={Colors.dark.primary} />
               <Text style={styles.xpRewardText}>+10 Glow XP</Text>
             </Animated.View>
           </View>
@@ -1537,7 +1537,7 @@ export default function PlayerBookingWizard({
 
                 {/* Time & Date */}
                 <View style={styles.confirmRow}>
-                  <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+                  <Ionicons name="time" size={18} color={Colors.dark.primary} />
                   <Text style={styles.confirmText}>
                     {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} - {formatTime(sessionInfo.endTime)}
                   </Text>
@@ -1545,7 +1545,7 @@ export default function PlayerBookingWizard({
 
                 {/* Location */}
                 <View style={styles.confirmRow}>
-                  <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+                  <Ionicons name="location" size={18} color={Colors.dark.primary} />
                   <Text style={styles.confirmText}>
                     {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
                     {" · "}
@@ -1572,7 +1572,7 @@ export default function PlayerBookingWizard({
 
                 {/* Coach */}
                 <View style={styles.confirmRow}>
-                  <Ionicons name="person" size={18} color={Colors.dark.xpCyan} />
+                  <Ionicons name="person" size={18} color={Colors.dark.primary} />
                   <Text style={styles.confirmText}>
                     Coach: {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
                   </Text>
@@ -1581,7 +1581,7 @@ export default function PlayerBookingWizard({
                 {/* Players for group */}
                 {isJoining && selectedSession && (
                   <View style={styles.confirmRow}>
-                    <Ionicons name="people" size={18} color={Colors.dark.xpCyan} />
+                    <Ionicons name="people" size={18} color={Colors.dark.primary} />
                     <Text style={styles.confirmText}>
                       {selectedSession.currentPlayers}/{selectedSession.maxPlayers || 6} players joining
                     </Text>
@@ -1593,7 +1593,7 @@ export default function PlayerBookingWizard({
             {/* XP Preview */}
             <View style={styles.rewardPreview}>
               <View style={styles.rewardItem}>
-                <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="flash" size={20} color={Colors.dark.primary} />
                 <Text style={styles.rewardText}>+10 Glow XP</Text>
               </View>
               <View style={styles.rewardItem}>
@@ -1859,7 +1859,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: "100%",
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: 2,
     position: "relative",
   },
@@ -1869,7 +1869,7 @@ const styles = StyleSheet.create({
     right: -2,
     bottom: -2,
     width: 20,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: 10,
   },
   contentContainer: {
@@ -2046,15 +2046,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   locationChipSelected: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "20",
   },
   locationChipText: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
   },
   locationChipTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   dateScroll: {
     flexGrow: 0,
@@ -2073,8 +2073,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   dateChipSelected: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "20",
   },
   dateChipDay: {
     fontSize: 14,
@@ -2087,7 +2087,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dateChipTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   durationScroll: {
     flexGrow: 0,
@@ -2102,15 +2102,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   durationChipSelected: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "20",
   },
   durationChipText: {
     fontSize: 16,
     color: Colors.dark.textSecondary,
   },
   durationChipTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   loadingContainer: {
     flex: 1,
@@ -2142,7 +2142,7 @@ const styles = StyleSheet.create({
   sessionSectionTitle: {
     fontSize: 16,
     fontWeight: 600,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginBottom: Spacing.md,
     marginTop: Spacing.sm,
   },
@@ -2235,7 +2235,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -2268,8 +2268,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   slotCardSelected: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: Colors.dark.xpCyan + "10",
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "10",
   },
   slotTimeColumn: {
     alignItems: "center",
@@ -2281,7 +2281,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   slotTimeSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   slotDuration: {
     fontSize: 12,
@@ -2481,7 +2481,7 @@ const styles = StyleSheet.create({
   aiFocusLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     flex: 1,
   },
   aiFocusChips: {
@@ -2498,8 +2498,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   aiFocusChipSelected: {
-    backgroundColor: Colors.dark.xpCyan + "20",
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
   },
   aiFocusChipText: {
     fontSize: 13,
@@ -2507,7 +2507,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   aiFocusChipTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   aiFocusEmpty: {
@@ -2635,7 +2635,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
@@ -2644,7 +2644,7 @@ const styles = StyleSheet.create({
   xpRewardText: {
     fontSize: 18,
     fontWeight: 700,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   footer: {
     flexDirection: "row",
@@ -2673,7 +2673,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.full,
   },
   nextButtonDisabled: {
@@ -2742,11 +2742,11 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
   },
   calendarDaySelected: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   calendarDayToday: {
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   calendarDayPast: {
     opacity: 0.3,

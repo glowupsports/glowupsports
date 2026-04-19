@@ -472,7 +472,7 @@ function LevelExplanationModal({
                 <Text style={modalStyles.howToText}>Attend training sessions</Text>
               </View>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="star" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="star" size={18} color={Colors.dark.primary} />
                 <Text style={modalStyles.howToText}>Earn XP from coach feedback</Text>
               </View>
               <View style={modalStyles.howToItem}>
@@ -520,7 +520,7 @@ function LevelExplanationModal({
             </View>
 
             <View style={modalStyles.xpInfo}>
-              <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={18} color={Colors.dark.primary} />
               <Text style={modalStyles.xpInfoText}>
                 Earn 500 XP to reach the next level. XP is awarded by your coach after each training session based on effort and improvement.
               </Text>
@@ -700,11 +700,11 @@ function XpExplanationModal({
 
           <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
             <View style={modalStyles.currentLevel}>
-              <View style={[modalStyles.currentLevelCircle, { borderColor: Colors.dark.xpCyan }]}>
-                <Text style={[modalStyles.currentLevelNumber, { color: Colors.dark.xpCyan, fontSize: 24 }]}>{totalXp}</Text>
+              <View style={[modalStyles.currentLevelCircle, { borderColor: Colors.dark.primary }]}>
+                <Text style={[modalStyles.currentLevelNumber, { color: Colors.dark.primary, fontSize: 24 }]}>{totalXp}</Text>
               </View>
               <View style={modalStyles.currentLevelInfo}>
-                <Text style={[modalStyles.currentLevelTitle, { color: Colors.dark.xpCyan }]}>Total XP</Text>
+                <Text style={[modalStyles.currentLevelTitle, { color: Colors.dark.primary }]}>Total XP</Text>
                 <Text style={modalStyles.currentLevelDesc}>Experience points earned</Text>
               </View>
             </View>
@@ -735,7 +735,7 @@ function XpExplanationModal({
                 <Text style={modalStyles.howToText}>Training streaks (bonus XP)</Text>
               </View>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="ribbon" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="ribbon" size={18} color={Colors.dark.primary} />
                 <Text style={modalStyles.howToText}>Complete achievements (+50-100 XP)</Text>
               </View>
             </View>
@@ -961,7 +961,7 @@ function BallLevelModal({
                 <Text style={modalStyles.howToText}>Pass coach skill assessments</Text>
               </View>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="trophy" size={18} color={Colors.dark.xpCyan} />
+                <Ionicons name="trophy" size={18} color={Colors.dark.primary} />
                 <Text style={modalStyles.howToText}>Complete all 3 sub-levels (1, 2, 3)</Text>
               </View>
             </View>
@@ -1166,7 +1166,7 @@ function PillarDetailModal({
               <View>
                 <Text style={[modalStyles.title, { color: domain.color }]}>{domain.name}</Text>
                 {levelLabel ? (
-                  <Text style={{ fontSize: 12, color: Colors.dark.xpCyan, marginTop: 2 }}>
+                  <Text style={{ fontSize: 12, color: Colors.dark.primary, marginTop: 2 }}>
                     Your Level: {levelLabel}
                   </Text>
                 ) : null}
@@ -1737,7 +1737,7 @@ export default function PlayerProgressScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading your progress...</Text>
       </View>
     );
@@ -1961,7 +1961,7 @@ export default function PlayerProgressScreen() {
           </View>
           <View style={styles.xpBarTrack}>
             <LinearGradient
-              colors={[GlowColors.primary, Colors.dark.xpCyan]}
+              colors={[GlowColors.primary, Colors.dark.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.xpBarFill, { width: `${(currentLevelXp / 500) * 100}%` }]}
@@ -2314,7 +2314,7 @@ export default function PlayerProgressScreen() {
             <View style={styles.insightsList}>
               {(data.overallInsights?.focusAreas ?? []).map((area, i) => (
                 <View key={i} style={styles.insightItem}>
-                  <Ionicons name="arrow-forward-circle" size={16} color={Colors.dark.xpCyan} />
+                  <Ionicons name="arrow-forward-circle" size={16} color={Colors.dark.primary} />
                   <Text style={styles.insightText}>{area}</Text>
                 </View>
               ))}
@@ -2390,7 +2390,7 @@ export default function PlayerProgressScreen() {
                                   width: 8,
                                   height: 8,
                                   borderRadius: 4,
-                                  backgroundColor: i <= (metric.value ?? 0) ? Colors.dark.xpCyan : Colors.dark.backgroundSecondary,
+                                  backgroundColor: i <= (metric.value ?? 0) ? Colors.dark.primary : Colors.dark.backgroundSecondary,
                                 }}
                               />
                             ))}
@@ -2607,7 +2607,7 @@ export default function PlayerProgressScreen() {
         ) : null}
 
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
+          <Ionicons name="information-circle" size={20} color={Colors.dark.primary} />
           <Text style={styles.infoText}>
             Progress is updated by your coach after each training session. 
             Keep training to unlock new levels!
@@ -2992,7 +2992,7 @@ const styles = StyleSheet.create({
   },
   xpAmount: {
     ...Typography.small,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   xpBarTrack: {
@@ -3226,7 +3226,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   feedbackCenterLink: {
     flexDirection: "row",
@@ -3623,7 +3623,7 @@ const styles = StyleSheet.create({
   },
   approvalText: {
     ...Typography.small,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   tapHint: {
     flexDirection: "row",

@@ -103,7 +103,7 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
             contentFit="cover"
           />
         ) : (
-          <View style={[styles.academyIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
+          <View style={[styles.academyIcon, { backgroundColor: `${Colors.dark.primary}20` }]}>
             <Text style={styles.academyInitial}>{academy.name.charAt(0).toUpperCase()}</Text>
           </View>
         )}
@@ -288,7 +288,7 @@ export default function AcademyBrowserScreen() {
       >
         {academiesLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+            <ActivityIndicator size="large" color={Colors.dark.primary} />
           </View>
         ) : filteredAcademies.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.h1,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginBottom: Spacing.xs,
   },
   subtitle: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   },
   academyInitial: {
     ...Typography.h4,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "700",
   },
   academyInfo: {
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     gap: Spacing.sm,
   },
   joinButtonText: {

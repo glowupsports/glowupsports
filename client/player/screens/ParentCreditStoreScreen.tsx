@@ -40,7 +40,7 @@ const CREDIT_TYPE_COLORS: Record<CreditType, string> = {
   group: Colors.dark.sessionGroup,
   private: Colors.dark.sessionPrivate,
   semi_private: Colors.dark.sessionSemiPrivate,
-  court: Colors.dark.xpCyan,
+  court: Colors.dark.primary,
 };
 
 const CREDIT_TYPE_LABELS: Record<CreditType, string> = {
@@ -383,7 +383,7 @@ export default function ParentCreditStoreScreen() {
                     <ActivityIndicator color={Colors.dark.buttonText} />
                   ) : (
                     <>
-                      <Ionicons name="card-outline" size={24} color={Colors.dark.xpCyan} />
+                      <Ionicons name="card-outline" size={24} color={Colors.dark.primary} />
                       <Text style={styles.paymentMethodLabel}>Bank Transfer</Text>
                     </>
                   )}

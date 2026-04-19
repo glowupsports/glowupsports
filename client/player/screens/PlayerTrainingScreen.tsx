@@ -33,7 +33,7 @@ const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string
   mental: { icon: "brain", color: "#9B59B6", label: "MEN" },
   physical: { icon: "fitness", color: Colors.dark.orange, label: "PHY" },
   tactical: { icon: "compass", color: Colors.dark.gold, label: "TAC" },
-  social: { icon: "people", color: Colors.dark.xpCyan, label: "SOC" },
+  social: { icon: "people", color: Colors.dark.primary, label: "SOC" },
 };
 
 function SessionCard({ session, onPress }: { session: TrainingSession; onPress: () => void }) {
@@ -58,7 +58,7 @@ function SessionCard({ session, onPress }: { session: TrainingSession; onPress: 
       case "private": return Colors.dark.primary;
       case "group": return Colors.dark.gold;
       case "physical": return Colors.dark.orange;
-      default: return Colors.dark.xpCyan;
+      default: return Colors.dark.primary;
     }
   };
 
@@ -79,7 +79,7 @@ function SessionCard({ session, onPress }: { session: TrainingSession; onPress: 
           </View>
         </View>
         <View style={styles.xpBadge}>
-          <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+          <Ionicons name="flash" size={14} color={Colors.dark.primary} />
           <Text style={styles.xpText}>+{session.xpEarned} XP</Text>
         </View>
       </View>
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   xpText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   feedbackSection: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   focusSetBy: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginTop: 4,
   },
   emptyState: {

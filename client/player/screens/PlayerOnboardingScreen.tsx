@@ -200,7 +200,7 @@ function SelectableCard({
         <Ionicons 
           name={icon as any} 
           size={24} 
-          color={selected ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+          color={selected ? Colors.dark.primary : Colors.dark.textMuted} 
         />
       ) : null}
       <Text style={[
@@ -391,7 +391,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
               setShowBrowse(true);
             }}
           >
-            <Ionicons name="globe-outline" size={20} color={Colors.dark.xpCyan} />
+            <Ionicons name="globe-outline" size={20} color={Colors.dark.primary} />
             <Text style={styles.browseButtonText}>Browse All Academies</Text>
           </Pressable>
         </Animated.View>
@@ -436,7 +436,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
                   <Ionicons 
                     name="tennisball-outline" 
                     size={28} 
-                    color={data.academyId === academy.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                    color={data.academyId === academy.id ? Colors.dark.primary : Colors.dark.textMuted} 
                   />
                 </View>
                 <View style={styles.academyInfo}>
@@ -569,7 +569,7 @@ function DateOfBirthPicker({
         <Ionicons 
           name="calendar-outline" 
           size={22} 
-          color={value ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+          color={value ? Colors.dark.primary : Colors.dark.textMuted} 
         />
         <Text style={[styles.datePickerText, value ? styles.datePickerTextActive : null]}>
           {value ? formatDate(value) : "Select your date of birth"}
@@ -788,7 +788,7 @@ function ProfileStep({ data, setData, onNext }: StepProps) {
                 <Ionicons 
                   name={option.icon as any} 
                   size={28} 
-                  color={data.dominantHand === option.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                  color={data.dominantHand === option.id ? Colors.dark.primary : Colors.dark.textMuted} 
                 />
                 <Text style={[
                   styles.handButtonText,
@@ -819,7 +819,7 @@ function ProfileStep({ data, setData, onNext }: StepProps) {
                 <Ionicons 
                   name={option.icon as any} 
                   size={28} 
-                  color={data.backhandType === option.id ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                  color={data.backhandType === option.id ? Colors.dark.primary : Colors.dark.textMuted} 
                 />
                 <Text style={[
                   styles.handButtonText,
@@ -903,7 +903,7 @@ function EnjoymentStep({ data, setData, onNext }: StepProps) {
             <Ionicons 
               name={option.icon as any} 
               size={28} 
-              color={data.enjoymentTags.includes(option.id) ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+              color={data.enjoymentTags.includes(option.id) ? Colors.dark.primary : Colors.dark.textMuted} 
             />
             <Text style={[
               styles.enjoymentCardText,
@@ -958,7 +958,7 @@ function FocusStep({ data, setData, onNext }: StepProps) {
             <Ionicons 
               name={option.icon as any} 
               size={28} 
-              color={data.focusGoals.includes(option.id) ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+              color={data.focusGoals.includes(option.id) ? Colors.dark.primary : Colors.dark.textMuted} 
             />
             <Text style={[
               styles.focusCardText,
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundTertiary,
   },
   progressDotActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   content: {
     flex: 1,
@@ -1245,8 +1245,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   selectableCardActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   selectableCardDisabled: {
     opacity: 0.5,
@@ -1257,13 +1257,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectableCardTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   checkIcon: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1291,15 +1291,15 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   ageButtonActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   ageButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   ageButtonTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   handSelector: {
     flexDirection: "row",
@@ -1317,15 +1317,15 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   handButtonActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   handButtonText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   handButtonTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   experienceGrid: {
     flexDirection: "row",
@@ -1341,15 +1341,15 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   experienceButtonActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   experienceButtonText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   experienceButtonTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   heightInput: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -1382,8 +1382,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tshirtSizeButtonActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   tshirtSizeButtonKids: {
     borderColor: Colors.dark.orange + "30",
@@ -1393,7 +1393,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   tshirtSizeButtonTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   optionsGrid: {
     flexDirection: "row",
@@ -1412,8 +1412,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   enjoymentCardActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   enjoymentCardDisabled: {
     opacity: 0.4,
@@ -1424,7 +1424,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   enjoymentCardTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   selectionCount: {
     ...Typography.small,
@@ -1444,8 +1444,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   focusCardActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   focusCardText: {
     ...Typography.small,
@@ -1453,7 +1453,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   focusCardTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   baselineContainer: {
     gap: Spacing.md,
@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   confidenceOptionActive: {
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   checkbox: {
     width: 24,
@@ -1479,8 +1479,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxActive: {
-    backgroundColor: Colors.dark.xpCyan,
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
   },
   confidenceOptionText: {
     ...Typography.body,
@@ -1488,7 +1488,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   confidenceOptionTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   footer: {
     flexDirection: "row",
@@ -1511,7 +1511,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
@@ -1541,8 +1541,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   datePickerButtonActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   datePickerText: {
     ...Typography.body,
@@ -1553,7 +1553,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   ageBadge: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
@@ -1609,14 +1609,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   datePickerItemActive: {
-    backgroundColor: `${Colors.dark.xpCyan}20`,
+    backgroundColor: `${Colors.dark.primary}20`,
   },
   datePickerItemText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   datePickerItemTextActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   datePickerActions: {
@@ -1639,7 +1639,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.md,
     alignItems: "center",
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.md,
   },
   datePickerConfirmButtonDisabled: {
@@ -1684,8 +1684,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   academyCardActive: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}10`,
   },
   academyIconContainer: {
     width: 48,
@@ -1705,7 +1705,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   academyNameActive: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   academyStats: {
     ...Typography.small,
@@ -1723,7 +1723,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.lg,
   },
@@ -1758,7 +1758,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1840,11 +1840,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   browseButtonText: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   skipSection: {

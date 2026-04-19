@@ -164,7 +164,7 @@ export default function FriendSelector({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="people" size={20} color={Colors.dark.xpCyan} />
+        <Ionicons name="people" size={20} color={Colors.dark.primary} />
         <ThemedText style={styles.headerTitle}>Invite Friends</ThemedText>
         <ThemedText style={styles.headerCount}>
           {selectedFriends.length}/{maxSelection}
@@ -202,7 +202,7 @@ export default function FriendSelector({
 
       {isLoading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={Colors.dark.xpCyan} />
+          <ActivityIndicator color={Colors.dark.primary} />
           <ThemedText style={styles.loadingText}>Loading friends...</ThemedText>
         </View>
       ) : filteredFriends.length === 0 ? (
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   headerCount: {
     fontSize: FontSizes.sm,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "500",
   },
   selectedContainer: {
@@ -259,13 +259,13 @@ const styles = StyleSheet.create({
   selectedChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     borderRadius: BorderRadius.full,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     gap: Spacing.xs,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   selectedChipAvatar: {
     width: 24,
@@ -350,9 +350,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   friendRowSelected: {
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   friendRowDisabled: {
     opacity: 0.5,
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxSelected: {
-    backgroundColor: Colors.dark.xpCyan,
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
   },
 });

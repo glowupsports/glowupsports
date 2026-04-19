@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   creditNumber: {
     fontSize: 40,
     fontWeight: "900",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   creditLabel: {
     ...Typography.caption,

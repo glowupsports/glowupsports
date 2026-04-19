@@ -123,7 +123,7 @@ export function BookingConfirmationCard({
 
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}>
-              <Ionicons name="time" size={20} color={Colors.dark.xpCyan} />
+              <Ionicons name="time" size={20} color={Colors.dark.primary} />
             </View>
             <View>
               <Text style={styles.detailLabel}>Time</Text>
@@ -172,7 +172,7 @@ export function BookingConfirmationCard({
               <Ionicons 
                 name={bookWithFriends ? "people" : "people-outline"} 
                 size={22} 
-                color={bookWithFriends ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+                color={bookWithFriends ? Colors.dark.primary : Colors.dark.textMuted} 
               />
               <Text style={[styles.friendsToggleText, bookWithFriends && styles.friendsToggleTextActive]}>
                 Book with Friends
@@ -207,7 +207,7 @@ export function BookingConfirmationCard({
             </Text>
             {onEditFriends && (
               <Pressable onPress={onEditFriends} style={styles.editFriendsButton}>
-                <Ionicons name="pencil" size={14} color={Colors.dark.xpCyan} />
+                <Ionicons name="pencil" size={14} color={Colors.dark.primary} />
               </Pressable>
             )}
           </View>
@@ -314,10 +314,10 @@ export function BookingConfirmationCard({
         <Animated.View entering={ZoomIn.delay(200).duration(300)} style={styles.xpContainer}>
           <Animated.View style={xpAnimatedStyle}>
             <LinearGradient
-              colors={[Colors.dark.xpCyan + "30", Colors.dark.primary + "20"]}
+              colors={[Colors.dark.primary + "30", Colors.dark.primary + "20"]}
               style={styles.xpBadge}
             >
-              <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={18} color={Colors.dark.primary} />
               <Text style={styles.xpText}>+{xpReward} XP</Text>
               <Text style={styles.xpLabel}>Booking Reward</Text>
             </LinearGradient>
@@ -419,12 +419,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   xpText: {
     fontSize: FontSizes.lg,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   xpLabel: {
     fontSize: FontSizes.xs,
@@ -492,8 +492,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   friendsToggleActive: {
-    backgroundColor: Colors.dark.xpCyan + "15",
-    borderColor: Colors.dark.xpCyan + "40",
+    backgroundColor: Colors.dark.primary + "15",
+    borderColor: Colors.dark.primary + "40",
   },
   friendsToggleLeft: {
     flexDirection: "row",
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   toggleSwitchActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   toggleThumb: {
     width: 24,
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   friendAvatarPlaceholder: {
     width: "100%",
     height: "100%",
-    backgroundColor: Colors.dark.xpCyan + "30",
+    backgroundColor: Colors.dark.primary + "30",
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
   },

@@ -165,7 +165,7 @@ export default function CartScreen() {
                     <Ionicons
                       name={(item.iconName as any) || (item.type === "service" ? "build" : "tennisball-outline")}
                       size={24}
-                      color={item.type === "service" ? Colors.dark.xpCyan : Colors.dark.primary}
+                      color={item.type === "service" ? Colors.dark.primary : Colors.dark.primary}
                     />
                   </View>
                 )}

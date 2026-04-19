@@ -50,7 +50,7 @@ function getScoreColor(score: string | null): string {
   const num = parseFloat(score);
   if (isNaN(num)) return TextColors.muted;
   if (num >= 2.5) return GlowColors.primary;
-  if (num >= 1.5) return Colors.dark.xpCyan;
+  if (num >= 1.5) return Colors.dark.primary;
   return Colors.dark.orange;
 }
 
@@ -137,8 +137,8 @@ export default function FeedbackCenterScreen() {
         ) : sortedSummaries.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                <Ionicons name="school" size={16} color={Colors.dark.xpCyan} />
+              <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+                <Ionicons name="school" size={16} color={Colors.dark.primary} />
               </View>
               <View style={styles.sectionHeaderText}>
                 <Text style={styles.sectionTitle}>Deep Assessments</Text>
@@ -154,8 +154,8 @@ export default function FeedbackCenterScreen() {
         ) : (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                <Ionicons name="school" size={16} color={Colors.dark.xpCyan} />
+              <View style={[styles.sectionIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+                <Ionicons name="school" size={16} color={Colors.dark.primary} />
               </View>
               <View style={styles.sectionHeaderText}>
                 <Text style={styles.sectionTitle}>Deep Assessments</Text>

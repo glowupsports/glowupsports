@@ -245,7 +245,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
         <View style={styles.overlay}>
           <Animated.View entering={ZoomIn.duration(400)} style={styles.card}>
             <LinearGradient
-              colors={[`${Colors.dark.xpCyan}20`, "transparent"]}
+              colors={[`${Colors.dark.primary}20`, "transparent"]}
               style={styles.gradient}
             />
 
@@ -255,7 +255,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
               <>
                 <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.iconRow}>
                   <View style={styles.iconBg}>
-                    <Ionicons name="people" size={48} color={Colors.dark.xpCyan} />
+                    <Ionicons name="people" size={48} color={Colors.dark.primary} />
                   </View>
                 </Animated.View>
 
@@ -294,7 +294,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel="I have a coach invite code"
                   >
-                    <Ionicons name="key-outline" size={20} color={Colors.dark.xpCyan} />
+                    <Ionicons name="key-outline" size={20} color={Colors.dark.primary} />
                     <Text style={styles.coachCodeBtnText}>I have an invite code</Text>
                   </Pressable>
 
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}30`,
+    borderColor: `${Colors.dark.primary}30`,
   },
   gradient: {
     position: "absolute",
@@ -358,11 +358,11 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: `${Colors.dark.xpCyan}15`,
+    backgroundColor: `${Colors.dark.primary}15`,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: `${Colors.dark.xpCyan}30`,
+    borderColor: `${Colors.dark.primary}30`,
   },
   title: {
     ...Typography.h2,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md + 2,
   },
@@ -417,13 +417,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md + 2,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
     backgroundColor: "transparent",
   },
   coachCodeBtnText: {
     fontSize: FontSizes.md,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   doneBtn: {
     flexDirection: "row",
@@ -452,10 +452,10 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     flex: 1,
-    backgroundColor: `${Colors.dark.xpCyan}10`,
+    backgroundColor: `${Colors.dark.primary}10`,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}40`,
+    borderColor: `${Colors.dark.primary}40`,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     fontSize: FontSizes.lg,
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   lookupBtn: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,

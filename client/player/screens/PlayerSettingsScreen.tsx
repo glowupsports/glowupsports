@@ -435,7 +435,7 @@ export default function PlayerSettingsScreen() {
       accessibilityLabel={item.type === "toggle" ? undefined : item.label}
     >
       <View style={styles.settingIcon}>
-        <Ionicons name={item.icon as any} size={20} color={Colors.dark.xpCyan} />
+        <Ionicons name={item.icon as any} size={20} color={Colors.dark.primary} />
       </View>
       <Text style={styles.settingLabel}>{item.label}</Text>
       {item.type === "toggle" ? (
@@ -576,7 +576,7 @@ export default function PlayerSettingsScreen() {
                   <Ionicons 
                     name={option.id === "player" ? "happy" : option.id === "coach" ? "code" : "people"} 
                     size={20} 
-                    color={Colors.dark.xpCyan} 
+                    color={Colors.dark.primary} 
                   />
                 </View>
                 <View style={styles.languageTextContainer}>
@@ -606,7 +606,7 @@ export default function PlayerSettingsScreen() {
                 accessibilityLabel={`Select ${lang.label} language`}
               >
                 <View style={styles.settingIcon}>
-                  <Ionicons name="language" size={20} color={Colors.dark.xpCyan} />
+                  <Ionicons name="language" size={20} color={Colors.dark.primary} />
                 </View>
                 <View style={styles.languageTextContainer}>
                   <Text style={styles.settingLabel}>{lang.nativeLabel}</Text>
@@ -651,7 +651,7 @@ export default function PlayerSettingsScreen() {
               accessibilityLabel="Join a family account"
             >
               <View style={styles.settingIcon}>
-                <Ionicons name="people" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="people" size={20} color={Colors.dark.primary} />
               </View>
               <Text style={styles.settingLabel}>Join a Family</Text>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -671,7 +671,7 @@ export default function PlayerSettingsScreen() {
           <View style={styles.sectionCard}>
             <View style={styles.settingItem}>
               <View style={styles.settingIcon}>
-                <Ionicons name="code" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="code" size={20} color={Colors.dark.primary} />
               </View>
               <Text style={styles.settingLabel}>Version</Text>
               <Text style={styles.settingValue}>{appVersion}</Text>
@@ -685,13 +685,13 @@ export default function PlayerSettingsScreen() {
             <View style={styles.sectionCard}>
               <View style={styles.settingItem}>
                 <View style={styles.settingIcon}>
-                  <Ionicons name="logo-apple" size={20} color={Colors.dark.xpCyan} />
+                  <Ionicons name="logo-apple" size={20} color={Colors.dark.primary} />
                 </View>
                 <Text style={styles.settingLabel}>
                   {appleLinked ? "Apple ID Linked" : "Link Apple ID"}
                 </Text>
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <ActivityIndicator size="small" color={Colors.dark.primary} />
                 ) : (
                   <Pressable
                     onPress={appleLinked ? handleUnlinkApple : handleLinkApple}

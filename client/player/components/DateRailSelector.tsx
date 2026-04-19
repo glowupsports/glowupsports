@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   dayNameToday: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   dayNumber: {

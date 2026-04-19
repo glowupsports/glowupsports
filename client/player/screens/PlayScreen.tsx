@@ -814,7 +814,7 @@ export default function PlayScreen() {
                             <Ionicons 
                               name="timer-outline" 
                               size={11} 
-                              color={countdown.urgent ? Colors.dark.error : Colors.dark.xpCyan} 
+                              color={countdown.urgent ? Colors.dark.error : Colors.dark.primary} 
                             />
                             <Text style={[styles.countdownTextSmall, countdown.urgent && styles.countdownTextUrgent]}>
                               {countdown.text}
@@ -953,7 +953,7 @@ export default function PlayScreen() {
                   ) : session.isOnWaitlist ? (
                     <View style={styles.waitlistStatusContainer}>
                       <View style={styles.waitlistPositionBadge}>
-                        <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
+                        <Ionicons name="time-outline" size={14} color={Colors.dark.primary} />
                         <Text style={styles.waitlistPositionText}>
                           {session.waitlistPosition != null ? `#${session.waitlistPosition} on waitlist — you'll get a notification when a spot opens` : "On waitlist — you'll get a notification when a spot opens"}
                         </Text>
@@ -1068,8 +1068,8 @@ export default function PlayScreen() {
               {/* Credit Cost Indicator — only shown for academy members using credits, not drop-in players */}
               {!isDropInSession ? (
                 <View style={styles.creditCostRow}>
-                  <Ionicons name="ticket-outline" size={14} color={hasCorporateCredits ? Colors.dark.xpCyan : Colors.dark.textMuted} />
-                  <Text style={[styles.creditCostText, hasCorporateCredits ? { color: Colors.dark.xpCyan } : {}]}>
+                  <Ionicons name="ticket-outline" size={14} color={hasCorporateCredits ? Colors.dark.primary : Colors.dark.textMuted} />
+                  <Text style={[styles.creditCostText, hasCorporateCredits ? { color: Colors.dark.primary } : {}]}>
                     {hasCorporateCredits
                       ? `Company credit (${corporateData?.corporateAccount?.companyName})`
                       : `1 ${session.sessionType === "group" ? "Group" : "Semi-Private"} Credit`}
@@ -1137,7 +1137,7 @@ export default function PlayScreen() {
                       setSelectedSession(session);
                     }}
                   >
-                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.xpCyan} />
+                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.primary} />
                   </Pressable>
                 </View>
               ) : (
@@ -1150,7 +1150,7 @@ export default function PlayScreen() {
                       setSelectedSession(session);
                     }}
                   >
-                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.xpCyan} />
+                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.primary} />
                   </Pressable>
                 </View>
               )}
@@ -1388,7 +1388,7 @@ export default function PlayScreen() {
                   </View>
                   {court.distance != null ? (
                     <View style={styles.nearbyCourtDistanceBadge}>
-                      <Ionicons name="navigate" size={10} color={Colors.dark.xpCyan} />
+                      <Ionicons name="navigate" size={10} color={Colors.dark.primary} />
                       <Text style={styles.nearbyCourtDistanceText}>{court.distance} km away</Text>
                     </View>
                   ) : (
@@ -1553,7 +1553,7 @@ export default function PlayScreen() {
             )}
             {player.hasHomeAddress ? (
               <View style={styles.homeAddressBadge}>
-                <Ionicons name="home" size={10} color={Colors.dark.xpCyan} />
+                <Ionicons name="home" size={10} color={Colors.dark.primary} />
               </View>
             ) : null}
           </View>
@@ -1667,7 +1667,7 @@ export default function PlayScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={[Colors.dark.xpCyan, "#00A3D9"]}
+                  colors={[Colors.dark.primary, "#00A3D9"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.findMatchGradient}
@@ -2403,7 +2403,7 @@ export default function PlayScreen() {
                 {/* Waitlist position (if player is on waitlist) */}
                 {selectedSession.isOnWaitlist && selectedSession.waitlistPosition != null ? (
                   <View style={styles.sessionInfoWaitlistRow}>
-                    <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
+                    <Ionicons name="time-outline" size={14} color={Colors.dark.primary} />
                     <Text style={styles.sessionInfoWaitlistText}>
                       #{selectedSession.waitlistPosition} on waitlist
                     </Text>
@@ -2440,7 +2440,7 @@ export default function PlayScreen() {
                 </Text>
                 {selectedSession.coachName ? (
                   <Text style={styles.sessionInfoCoach}>
-                    <Ionicons name="person" size={13} color={Colors.dark.xpCyan} />
+                    <Ionicons name="person" size={13} color={Colors.dark.primary} />
                     {" "}Coach {selectedSession.coachName}
                   </Text>
                 ) : null}
@@ -2534,7 +2534,7 @@ export default function PlayScreen() {
                   </View>
                 ) : friendRequestState.kind === "already_pending_by_me" ? (
                   <View style={styles.friendModalSentContainer}>
-                    <Ionicons name="time-outline" size={48} color={Colors.dark.xpCyan} />
+                    <Ionicons name="time-outline" size={48} color={Colors.dark.primary} />
                     <Text style={styles.friendModalSentText}>
                       Waiting for {friendRequestPlayer.name} to respond.
                     </Text>
@@ -2547,7 +2547,7 @@ export default function PlayScreen() {
                   </View>
                 ) : friendRequestState.kind === "already_sent_by_them" ? (
                   <View style={styles.friendModalSentContainer}>
-                    <Ionicons name="mail-unread-outline" size={48} color={Colors.dark.xpCyan} />
+                    <Ionicons name="mail-unread-outline" size={48} color={Colors.dark.primary} />
                     <Text style={styles.friendModalSentText}>
                       {friendRequestPlayer.name} already sent you a request — open Connections to accept.
                     </Text>
@@ -2778,7 +2778,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: Colors.dark.xpCyan + "60",
+    borderColor: Colors.dark.primary + "60",
   },
   lessonsButton: {
     flex: 1,
@@ -3019,11 +3019,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   countdownTextSmall: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
     fontSize: 11,
   },
@@ -3044,7 +3044,7 @@ const styles = StyleSheet.create({
   },
   epicCoachText: {
     ...Typography.small,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "500",
   },
   coachAvatarSmall: {
@@ -3052,19 +3052,19 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "80",
+    borderColor: Colors.dark.primary + "80",
   },
   coachAvatarSmallPlaceholder: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: Colors.dark.xpCyan + "30",
+    backgroundColor: Colors.dark.primary + "30",
     justifyContent: "center",
     alignItems: "center",
   },
   coachAvatarSmallInitial: {
     fontSize: 10,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "700",
   },
   coachRatingBadge: {
@@ -3134,12 +3134,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   countdownUrgent: {
     backgroundColor: Colors.dark.error + "20",
@@ -3147,7 +3147,7 @@ const styles = StyleSheet.create({
   },
   countdownText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
     fontSize: 11,
   },
@@ -3235,17 +3235,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 4,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
     flexShrink: 1,
   },
   waitlistPositionText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
     flexShrink: 1,
   },
@@ -3611,11 +3611,11 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: Colors.dark.xpCyan + "25",
+    backgroundColor: Colors.dark.primary + "25",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   compactDriveTimeBadge: {
     flexDirection: "row",
@@ -4115,12 +4115,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
   },
   nearbyCourtDistanceText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   nearbyCourtName: {
     fontSize: 13,
@@ -4254,11 +4254,11 @@ const styles = StyleSheet.create({
   },
   courtsMapCalloutDistance: {
     fontSize: 11,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
   },
   courtsMapCalloutBookBtn: {
     marginTop: 4,
@@ -4330,7 +4330,7 @@ const styles = StyleSheet.create({
   },
   sessionInfoCoach: {
     fontSize: 13,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   sessionInfoMapWrapper: {
     borderRadius: BorderRadius.md,
@@ -4426,7 +4426,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 5,
     borderRadius: BorderRadius.sm,
@@ -4434,7 +4434,7 @@ const styles = StyleSheet.create({
   sessionInfoWaitlistText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   scopeToggleContainer: {
     flexDirection: "row",

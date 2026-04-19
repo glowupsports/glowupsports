@@ -254,7 +254,7 @@ export default function BookingConfirmedScreen() {
         {coachWelcomeMessage ? (
           <Animated.View style={[styles.welcomeCard, { opacity: cardOpacity }]}>
             <View style={styles.welcomeRow}>
-              <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.xpCyan ?? Colors.dark.primary} />
+              <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.primary ?? Colors.dark.primary} />
               <Text style={styles.welcomeFrom}>Message from your coach</Text>
             </View>
             <Text style={styles.welcomeText}>{coachWelcomeMessage}</Text>
@@ -390,11 +390,11 @@ const styles = StyleSheet.create({
   },
   welcomeCard: {
     width: "100%",
-    backgroundColor: (Colors.dark.xpCyan ?? Colors.dark.primary) + "10",
+    backgroundColor: (Colors.dark.primary ?? Colors.dark.primary) + "10",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: (Colors.dark.xpCyan ?? Colors.dark.primary) + "30",
+    borderColor: (Colors.dark.primary ?? Colors.dark.primary) + "30",
     gap: Spacing.xs,
   },
   welcomeRow: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   welcomeFrom: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.xpCyan ?? Colors.dark.primary,
+    color: Colors.dark.primary ?? Colors.dark.primary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },

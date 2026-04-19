@@ -146,7 +146,7 @@ export default function AcademyProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading academy profile...</Text>
         </View>
       </View>
@@ -269,7 +269,7 @@ export default function AcademyProfileScreen() {
                 style={styles.contactRow}
                 onPress={() => Linking.openURL(profile.website!)}
               >
-                <Ionicons name="globe-outline" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="globe-outline" size={20} color={Colors.dark.primary} />
                 <Text style={styles.contactLink}>{profile.website}</Text>
               </Pressable>
             ) : null}
@@ -278,7 +278,7 @@ export default function AcademyProfileScreen() {
                 style={styles.contactRow}
                 onPress={() => Linking.openURL(`tel:${profile.phone}`)}
               >
-                <Ionicons name="call-outline" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="call-outline" size={20} color={Colors.dark.primary} />
                 <Text style={styles.contactLink}>{profile.phone}</Text>
               </Pressable>
             ) : null}
@@ -287,7 +287,7 @@ export default function AcademyProfileScreen() {
                 style={styles.contactRow}
                 onPress={() => Linking.openURL(`mailto:${profile.email}`)}
               >
-                <Ionicons name="mail-outline" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="mail-outline" size={20} color={Colors.dark.primary} />
                 <Text style={styles.contactLink}>{profile.email}</Text>
               </Pressable>
             ) : null}
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   header: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   academyInitial: {
     ...Typography.h1,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   academyName: {
     ...Typography.h2,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     ...Typography.h3,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   statLabel: {
     ...Typography.caption,
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   },
   coachLevelText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   contactRow: {
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   contactLink: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   footer: {
     position: "absolute",
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
   },

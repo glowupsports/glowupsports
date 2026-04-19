@@ -151,7 +151,7 @@ const getPlayerStatusBadge = (stats: { matchesPlayed: number; wins: number; sess
   } else if (totalActivity >= 10) {
     return { label: "Active", color: Colors.dark.primary, borderColor: Colors.dark.primary };
   } else if (totalActivity >= 3) {
-    return { label: "Rising", color: Colors.dark.xpCyan, borderColor: Colors.dark.xpCyan };
+    return { label: "Rising", color: Colors.dark.primary, borderColor: Colors.dark.primary };
   }
   return { label: "New Player", color: Colors.dark.text, borderColor: Colors.dark.backgroundTertiary };
 };
@@ -483,8 +483,8 @@ export default function PlayerPublicProfileScreen() {
               <Text style={styles.chipText}>LV {profile.level}</Text>
             </View>
             <View style={[styles.chip, styles.glowChip]}>
-              <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-              <Text style={[styles.chipText, { color: Colors.dark.xpCyan }]}>{profile.glowScore}</Text>
+              <Ionicons name="flash" size={14} color={Colors.dark.primary} />
+              <Text style={[styles.chipText, { color: Colors.dark.primary }]}>{profile.glowScore}</Text>
             </View>
           </View>
 
@@ -492,7 +492,7 @@ export default function PlayerPublicProfileScreen() {
           <View style={styles.xpBarContainer}>
             <View style={styles.xpBarBg}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                colors={[Colors.dark.primary, Colors.dark.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.xpBarFill, { width: `${profile.xpProgress * 100}%` }]}
@@ -518,7 +518,7 @@ export default function PlayerPublicProfileScreen() {
               </View>
             )}
             <View style={styles.statItem}>
-              <Ionicons name="flash" size={16} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={16} color={Colors.dark.primary} />
               <Text style={styles.statValue}>{profile.stats.sessionsAttended}</Text>
               <Text style={styles.statLabel}>Sessions</Text>
             </View>
@@ -549,7 +549,7 @@ export default function PlayerPublicProfileScreen() {
               <>
                 {connectionStatusLoading ? (
                   <View style={styles.connectionLoadingBtn}>
-                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
                   </View>
                 ) : connectionStatus?.status === "unavailable" ? (
                   <Pressable
@@ -625,7 +625,7 @@ export default function PlayerPublicProfileScreen() {
                   </View>
                 ) : null}
                 <Pressable style={styles.challengeBtn} onPress={handleChallengePlayer} testID="button-challenge-player">
-                  <Ionicons name="flash" size={18} color={Colors.dark.xpCyan} />
+                  <Ionicons name="flash" size={18} color={Colors.dark.primary} />
                   <Text style={styles.challengeBtnText}>Challenge</Text>
                 </Pressable>
               </>
@@ -663,7 +663,7 @@ export default function PlayerPublicProfileScreen() {
               <Text style={styles.dnaLabel}>{getHandLabel(profile.dna.dominantHand)}</Text>
             </View>
             <View style={styles.dnaItem}>
-              <Ionicons name="tennisball" size={20} color={Colors.dark.xpCyan} />
+              <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
               <Text style={styles.dnaLabel}>{getBackhandLabel(profile.dna.backhandType)}</Text>
             </View>
             <View style={styles.dnaItem}>
@@ -767,7 +767,7 @@ export default function PlayerPublicProfileScreen() {
               {profile.connections.total > 0 && (
                 <View style={styles.activityItem}>
                   <View style={[styles.activityIcon, { backgroundColor: "rgba(0,212,255,0.2)" }]}>
-                    <Ionicons name="people" size={16} color={Colors.dark.xpCyan} />
+                    <Ionicons name="people" size={16} color={Colors.dark.primary} />
                   </View>
                   <View style={styles.activityContent}>
                     <Text style={styles.activityText}>
@@ -918,12 +918,12 @@ export default function PlayerPublicProfileScreen() {
           ) : (
             <View style={styles.emptyConnectionsCard}>
               <View style={styles.emptyIconContainer}>
-                <Ionicons name="people" size={40} color={Colors.dark.xpCyan} />
+                <Ionicons name="people" size={40} color={Colors.dark.primary} />
               </View>
               <Text style={styles.emptyConnectionsTitle}>Connections Unlock After First Match</Text>
               <Text style={styles.emptyConnectionsSubtitle}>Play matches to build your tennis network</Text>
               <Pressable 
-                style={[styles.findMatchCta, { backgroundColor: Colors.dark.xpCyan }]}
+                style={[styles.findMatchCta, { backgroundColor: Colors.dark.primary }]}
                 onPress={() => navigation.navigate("FindMatch" as never)}
               >
                 <Ionicons name="people-outline" size={18} color={Colors.dark.buttonText} />
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
   },
   glowChip: {
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   chipText: {
     fontSize: 13,
@@ -1263,12 +1263,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
   },
   challengeBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   connectionLoadingBtn: {
     flexDirection: "row",
@@ -1284,7 +1284,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
@@ -1321,7 +1321,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
@@ -1772,7 +1772,7 @@ const styles = StyleSheet.create({
   },
   activityXp: {
     fontSize: 12,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
     marginTop: 2,
   },

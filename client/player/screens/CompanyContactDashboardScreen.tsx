@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   },
   memberUsage: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginTop: 2,
   },
   statusBadge: {

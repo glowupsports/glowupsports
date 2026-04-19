@@ -139,7 +139,7 @@ interface TitleData {
 const RARITY_COLORS: Record<string, string> = {
   common: Colors.dark.textMuted,
   uncommon: Colors.dark.primary,
-  rare: Colors.dark.xpCyan,
+  rare: Colors.dark.primary,
   epic: "#9B59B6",
   legendary: Colors.dark.orange,
 };
@@ -739,7 +739,7 @@ export default function PlayerProfileScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>{t("player.profile.loadingProfile")}</Text>
       </View>
     );
@@ -840,7 +840,7 @@ export default function PlayerProfileScreen() {
                 )
               ) : (
                 <LinearGradient
-                  colors={[ballColor, Colors.dark.xpCyan]}
+                  colors={[ballColor, Colors.dark.primary]}
                   style={styles.avatarGradient}
                 >
                   <View style={styles.avatarInner}>
@@ -959,7 +959,7 @@ export default function PlayerProfileScreen() {
               ))
             ) : null}
             <View style={styles.glowBadge}>
-              <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={14} color={Colors.dark.primary} />
               <Text style={styles.glowText}>{player.glowScore} Glow</Text>
             </View>
             {isBirthday ? (
@@ -1430,7 +1430,7 @@ export default function PlayerProfileScreen() {
             }}
           >
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(0, 212, 255, 0.15)" }]}>
-              <Ionicons name="people-outline" size={20} color={Colors.dark.xpCyan} />
+              <Ionicons name="people-outline" size={20} color={Colors.dark.primary} />
             </View>
             <Text style={styles.settingsLabel}>{t("player.profile.findCoaches")}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -1971,7 +1971,7 @@ const styles = StyleSheet.create({
   },
   glowText: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   birthdayBadge: {
@@ -2446,14 +2446,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   equipButton: {
-    backgroundColor: Colors.dark.xpCyan + "30",
+    backgroundColor: Colors.dark.primary + "30",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
   },
   equipButtonText: {
     ...Typography.small,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   emptyTitles: {

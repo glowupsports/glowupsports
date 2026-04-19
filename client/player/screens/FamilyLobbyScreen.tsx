@@ -155,7 +155,7 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
           </View>
 
           <View style={styles.xpRow}>
-            <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+            <Ionicons name="flash" size={14} color={Colors.dark.primary} />
             <Text style={styles.xpText}>{member.xp.toLocaleString()} XP</Text>
           </View>
 
@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
   xpText: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   sessionRow: {
     flexDirection: "row",
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   createMemberButton: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   addMemberSecondaryButton: {
     backgroundColor: Colors.dark.backgroundSecondary,

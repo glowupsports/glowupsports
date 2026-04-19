@@ -46,7 +46,7 @@ export function LockedScreen({ featureKey, children }: LockedScreenProps) {
             <Ionicons 
               name="lock-closed" 
               size={48} 
-              color={Colors.dark.xpCyan} 
+              color={Colors.dark.primary} 
             />
           </LinearGradient>
         </View>
@@ -58,7 +58,7 @@ export function LockedScreen({ featureKey, children }: LockedScreenProps) {
             <Ionicons 
               name={featureIcon as any} 
               size={24} 
-              color={Colors.dark.xpCyan} 
+              color={Colors.dark.primary} 
             />
           </View>
           <View style={styles.featureInfo}>
@@ -141,7 +141,7 @@ export function LockedSection({ featureKey, children, fallback }: LockedSectionP
   return (
     <View style={styles.lockedSection}>
       <View style={styles.lockedSectionIcon}>
-        <Ionicons name="lock-closed" size={20} color={Colors.dark.xpCyan} />
+        <Ionicons name="lock-closed" size={20} color={Colors.dark.primary} />
       </View>
       <View style={styles.lockedSectionInfo}>
         <Text style={styles.lockedSectionTitle}>{featureName}</Text>
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   title: {
     fontSize: 24,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -264,12 +264,12 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: 4,
   },
   progressHint: {
     fontSize: 13,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     textAlign: "center",
   },
   tipText: {
@@ -300,14 +300,14 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: Colors.dark.primary + "30",
     borderStyle: "dashed",
   },
   lockedSectionIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,

@@ -3,6 +3,29 @@ import { Platform } from "react-native";
 // ============================================
 // GLOW UP SPORTS - MASTER DESIGN TOKENS v2.0
 // ============================================
+//
+// PLAYER APP PALETTE POLICY (2026-04-19)
+// --------------------------------------
+// The Player app must read as premium and minimal. Strict rules:
+//
+// 1. ONE accent only: GlowColors.primary (#C8FF3D) — CTAs, active state,
+//    focus rings, XP icons, level badges, link text. Not used decoratively.
+// 2. Neutrals only otherwise: TextColors + Backgrounds + borderSubtle.
+// 3. Status colours (FunctionColors.error / success) only when conveying
+//    actual status — never as decoration.
+// 4. Sport colours (tennis/padel/pickleball) only inside sport-specific UI:
+//    sport filter chips, sport badge on a session, ball-level dot.
+// 5. Gold (RoleColors.owner) only for: Glow Market discount/spotlight,
+//    owner-tier-only badges. Nowhere else in the Player app.
+// 6. xpCyan / accentCyan / accentNeon / cyan aliases are DEPRECATED for new
+//    Player-app code. Existing Player references are being migrated to
+//    primary. They remain in the theme only for non-Player apps.
+// 7. Cards use Backgrounds.card + borderSubtle for depth — NOT gradients.
+//    Gradients are allowed on at most ONE hero/feature element per screen.
+//
+// This policy applies to client/player/** only. Coach, Owner, Admin,
+// Platform, and Service-Provider apps are unaffected.
+// ============================================
 
 // Premium Background System
 export const Backgrounds = {
@@ -180,6 +203,8 @@ export const Colors = {
     overlay: Backgrounds.overlay,
     // Warning
     warning: FunctionColors.social,
+    // Subtle border for cards (replaces decorative gradients)
+    borderSubtle: "rgba(255, 255, 255, 0.06)",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,
@@ -256,6 +281,8 @@ export const Colors = {
     overlay: Backgrounds.overlay,
     // Warning
     warning: FunctionColors.social,
+    // Subtle border for cards (replaces decorative gradients)
+    borderSubtle: "rgba(255, 255, 255, 0.06)",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,

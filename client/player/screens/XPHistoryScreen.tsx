@@ -37,7 +37,7 @@ interface XPEvent {
 const ACTION_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   session_attendance: { icon: "tennisball", color: Colors.dark.primary, label: "Session Attended" },
   positive_feedback: { icon: "happy", color: Colors.dark.gold, label: "Positive Feedback" },
-  match_played: { icon: "trophy", color: Colors.dark.xpCyan, label: "Match Played" },
+  match_played: { icon: "trophy", color: Colors.dark.primary, label: "Match Played" },
   match_won: { icon: "medal", color: Colors.dark.gold, label: "Match Won" },
   match_reflection: { icon: "bulb", color: "#9B59B6", label: "Match Reflection" },
   quest_completed: { icon: "flag", color: Colors.dark.orange, label: "Quest Completed" },
@@ -45,13 +45,13 @@ const ACTION_CONFIG: Record<string, { icon: string; color: string; label: string
   first_session: { icon: "rocket", color: "#E91E63", label: "First Session" },
   streak_bonus: { icon: "flame", color: Colors.dark.orange, label: "Streak Bonus" },
   level_up_bonus: { icon: "star", color: Colors.dark.gold, label: "Level Up Bonus" },
-  skill_evidence: { icon: "videocam", color: Colors.dark.xpCyan, label: "Skill Evidence" },
+  skill_evidence: { icon: "videocam", color: Colors.dark.primary, label: "Skill Evidence" },
   trial_passed: { icon: "checkmark-circle", color: Colors.dark.primary, label: "Trial Passed" },
   community_post: { icon: "chatbubble", color: "#9B59B6", label: "Community Post" },
   friend_added: { icon: "people", color: "#E91E63", label: "Friend Added" },
 };
 
-const DEFAULT_ACTION_CONFIG = { icon: "flash", color: Colors.dark.xpCyan, label: "XP Earned" };
+const DEFAULT_ACTION_CONFIG = { icon: "flash", color: Colors.dark.primary, label: "XP Earned" };
 
 export default function XPHistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -177,7 +177,7 @@ export default function XPHistoryScreen() {
 
       <View style={styles.summaryCard}>
         <LinearGradient
-          colors={[Colors.dark.xpCyan + "20", "transparent"]}
+          colors={[Colors.dark.primary + "20", "transparent"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.summaryGradient}
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: Colors.dark.primary + "30",
   },
   currentLevel: {
     flexDirection: "row",
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: 4,
   },
   progressText: {
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   dateTotalXp: {
     ...Typography.bodySmall,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   eventCard: {

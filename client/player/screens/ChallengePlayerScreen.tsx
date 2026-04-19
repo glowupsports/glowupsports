@@ -281,7 +281,7 @@ export default function ChallengePlayerScreen() {
               ) : null}
               {opponentLevel ? (
                 <View style={styles.xpBadge}>
-                  <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+                  <Ionicons name="flash" size={12} color={Colors.dark.primary} />
                   <Text style={styles.xpBadgeText}>Lvl {opponentLevel}</Text>
                 </View>
               ) : null}
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
   xpBadgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
 
   section: {

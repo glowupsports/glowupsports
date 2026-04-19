@@ -734,6 +734,6 @@ const styles = StyleSheet.create({
   academyCardText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
 });

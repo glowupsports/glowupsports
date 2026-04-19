@@ -146,7 +146,7 @@ export default function BookingCoachCard({
               <View style={styles.statsRow}>
                 {coach.yearsExperience && (
                   <View style={styles.statItem}>
-                    <Ionicons name="ribbon-outline" size={14} color={Colors.dark.xpCyan} />
+                    <Ionicons name="ribbon-outline" size={14} color={Colors.dark.primary} />
                     <Text style={styles.statText}>
                       {EXPERIENCE_LABELS[coach.yearsExperience] || coach.yearsExperience}
                     </Text>

@@ -199,7 +199,7 @@ function StreakHero({ streak }: { streak: StreakData }) {
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStat}>
             <View style={styles.shieldRow}>
-              <Ionicons name="shield-checkmark" size={13} color={Colors.dark.xpCyan} />
+              <Ionicons name="shield-checkmark" size={13} color={Colors.dark.primary} />
               <ThemedText style={styles.heroStatValue}>{streak.streakShields}</ThemedText>
             </View>
             <ThemedText style={styles.heroStatLabel}>Shields</ThemedText>
@@ -244,7 +244,7 @@ function ChainCompleteCelebration({ visible, type, onDone }: { visible: boolean;
   return (
     <Animated.View style={[styles.chainCelebration, animStyle]}>
       <LinearGradient
-        colors={[Colors.dark.primary + "20", Colors.dark.xpCyan + "10"]}
+        colors={[Colors.dark.primary + "20", Colors.dark.primary + "10"]}
         style={styles.chainCelebrationInner}
       >
         <Ionicons name="trophy" size={28} color={Colors.dark.primary} />
@@ -311,7 +311,7 @@ function ClaimCelebrationModal({
           >
             <Animated.View style={pulseStyle}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                colors={[Colors.dark.primary, Colors.dark.primary]}
                 style={styles.xpBurst}
               >
                 <Ionicons name="flash" size={36} color={Colors.dark.buttonText} />
@@ -341,7 +341,7 @@ function ClaimCelebrationModal({
 
             <Pressable style={styles.claimModalClose} onPress={onClose}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                colors={[Colors.dark.primary, Colors.dark.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.claimModalCloseGradient}
@@ -569,7 +569,7 @@ function QuestCard({
                 disabled={isClaiming}
               >
                 <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  colors={[Colors.dark.primary, Colors.dark.primary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.claimBtnGradient}
@@ -585,7 +585,7 @@ function QuestCard({
               </View>
             ) : (
               <View style={styles.xpBadge}>
-                <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+                <Ionicons name="flash" size={12} color={Colors.dark.primary} />
                 <ThemedText style={styles.xpBadgeText}>+{quest.xpReward}</ThemedText>
                 {multiplier > 1 ? (
                   <ThemedText style={styles.multiplierTag}>x{multiplier}</ThemedText>
@@ -656,7 +656,7 @@ const infoToastStyles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     backgroundColor: "rgba(0,0,0,0.85)",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
     zIndex: 9999,
   },
   text: {
@@ -858,7 +858,7 @@ export default function QuestsScreen() {
                   <LinearGradient
                     colors={allDone
                       ? ["#FFD700", "#FF8C00"]
-                      : [Colors.dark.primary, Colors.dark.xpCyan]}
+                      : [Colors.dark.primary, Colors.dark.primary]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.tabActiveGradient}
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
   },
   chainCelebrationSub: {
     fontSize: 12,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
 
@@ -1437,7 +1437,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: Colors.dark.xpCyan + "14",
+    backgroundColor: Colors.dark.primary + "14",
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 10,
@@ -1445,7 +1445,7 @@ const styles = StyleSheet.create({
   xpBadgeText: {
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   multiplierTag: {
     fontSize: 10,
@@ -1573,7 +1573,7 @@ const styles = StyleSheet.create({
   claimXpLabel: {
     fontSize: 20,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   claimMultiplierRow: {
     flexDirection: "row",

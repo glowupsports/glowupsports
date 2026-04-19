@@ -103,7 +103,7 @@ export function FeatureOnboardingModal({
           <View style={styles.header}>
             <View style={styles.iconContainer}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                colors={[Colors.dark.primary, Colors.dark.primary]}
                 style={styles.iconGradient}
               >
                 <Ionicons name={icon as any} size={32} color={Colors.dark.buttonText} />
@@ -135,7 +135,7 @@ export function FeatureOnboardingModal({
 
           <Pressable style={styles.button} onPress={handleDismiss}>
             <LinearGradient
-              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              colors={[Colors.dark.primary, Colors.dark.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.buttonGradient}

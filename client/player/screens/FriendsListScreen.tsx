@@ -351,7 +351,7 @@ export default function FriendsListScreen() {
             navigation.navigate("PlayerFinder");
           }}
         >
-          <Ionicons name="person-add-outline" size={22} color={Colors.dark.xpCyan} />
+          <Ionicons name="person-add-outline" size={22} color={Colors.dark.primary} />
         </Pressable>
       </View>
       
@@ -363,7 +363,7 @@ export default function FriendsListScreen() {
           <Ionicons 
             name="people" 
             size={18} 
-            color={activeTab === "friends" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textMuted} 
           />
           <ThemedText style={[styles.tabText, activeTab === "friends" && styles.tabTextActive]}>
             Friends ({friends.length})
@@ -391,7 +391,7 @@ export default function FriendsListScreen() {
       
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
         </View>
       ) : isError ? (
         <View style={styles.loadingContainer}>
@@ -413,7 +413,7 @@ export default function FriendsListScreen() {
             />
           )}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.xpCyan} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.primary} />
           }
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + Spacing.xl }]}
           ListEmptyComponent={
@@ -441,7 +441,7 @@ export default function FriendsListScreen() {
             />
           )}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.xpCyan} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.primary} />
           }
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + Spacing.xl }]}
           ListHeaderComponent={
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.md,
   },
   retryText: {

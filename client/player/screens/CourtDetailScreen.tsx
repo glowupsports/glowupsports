@@ -412,7 +412,7 @@ export default function CourtDetailScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <View style={styles.loadingPulse}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
         </View>
         <Text style={styles.loadingText}>Loading court details...</Text>
       </View>
@@ -542,11 +542,11 @@ export default function CourtDetailScreen() {
             
             <View style={styles.rulesRow}>
               <View style={styles.ruleChip}>
-                <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
+                <Ionicons name="time-outline" size={14} color={Colors.dark.primary} />
                 <Text style={styles.ruleText}>Min {court.minBookingDurationMinutes || 60}m</Text>
               </View>
               <View style={styles.ruleChip}>
-                <Ionicons name="hourglass-outline" size={14} color={Colors.dark.xpCyan} />
+                <Ionicons name="hourglass-outline" size={14} color={Colors.dark.primary} />
                 <Text style={styles.ruleText}>Max {court.maxBookingDurationHours || 2}h</Text>
               </View>
               <View style={styles.ruleChip}>
@@ -627,7 +627,7 @@ export default function CourtDetailScreen() {
             style={styles.findPartnerGradient}
           >
             <View style={styles.findPartnerIcon}>
-              <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
+              <Ionicons name="people" size={24} color={Colors.dark.primary} />
             </View>
             <View style={styles.findPartnerContent}>
               <Text style={styles.findPartnerTitle}>Looking for a hitting partner?</Text>
@@ -668,7 +668,7 @@ export default function CourtDetailScreen() {
               disabled={bookingMutation.isPending}
             >
               <LinearGradient
-                colors={bookingMutation.isPending ? ["#4A4F5C", "#4A4F5C"] : [Colors.dark.xpCyan, "#00A8CC"]}
+                colors={bookingMutation.isPending ? ["#4A4F5C", "#4A4F5C"] : [Colors.dark.primary, "#00A8CC"]}
                 style={styles.bookButtonGradient}
               >
                 {bookingMutation.isPending ? (
@@ -725,8 +725,8 @@ export default function CourtDetailScreen() {
                       onPress={() => handlePartnerTypeSelect("friend")}
                     >
                       <LinearGradient colors={["#1A2332", "#151C28"]} style={styles.partnerOptionGradient}>
-                        <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                          <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
+                        <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.primary + "20" }]}>
+                          <Ionicons name="people" size={24} color={Colors.dark.primary} />
                         </View>
                         <View style={styles.partnerOptionText}>
                           <Text style={styles.partnerOptionTitle}>Academy Player</Text>
@@ -818,7 +818,7 @@ export default function CourtDetailScreen() {
                             <Text style={styles.playerName}>{player.displayName}</Text>
                             <Text style={styles.playerLevel}>Level {player.xpLevel || 1}</Text>
                           </View>
-                          <Ionicons name="add-circle" size={24} color={Colors.dark.xpCyan} />
+                          <Ionicons name="add-circle" size={24} color={Colors.dark.primary} />
                         </Pressable>
                       ))}
                       {playerSearchQuery.length >= 2 && (!searchResults || searchResults.length === 0) && (
@@ -875,7 +875,7 @@ export default function CourtDetailScreen() {
                       onChangeText={setOpenMatchTitle}
                     />
                     <View style={styles.openMatchInfo}>
-                      <Ionicons name="information-circle" size={16} color={Colors.dark.xpCyan} />
+                      <Ionicons name="information-circle" size={16} color={Colors.dark.primary} />
                       <Text style={styles.openMatchInfoText}>
                         Other players in your academy will see this match and can request to join
                       </Text>
@@ -909,7 +909,7 @@ export default function CourtDetailScreen() {
                       <Ionicons 
                         name={partnerType === "friend" ? "people" : partnerType === "guest" ? "person-add" : partnerType === "open_match" ? "globe" : "fitness"} 
                         size={20} 
-                        color={Colors.dark.xpCyan} 
+                        color={Colors.dark.primary} 
                       />
                       <Text style={styles.partnerSummaryText}>{getPartnerDescription()}</Text>
                     </View>
@@ -939,7 +939,7 @@ export default function CourtDetailScreen() {
                         disabled={bookingMutation.isPending}
                       >
                         <LinearGradient
-                          colors={bookingMutation.isPending ? ["#4A4F5C", "#4A4F5C"] : [Colors.dark.xpCyan, "#00A8CC"]}
+                          colors={bookingMutation.isPending ? ["#4A4F5C", "#4A4F5C"] : [Colors.dark.primary, "#00A8CC"]}
                           style={styles.confirmBookGradient}
                         >
                           {bookingMutation.isPending ? (
@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
   retryButton: {
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.full,
     marginTop: Spacing.md,
   },
@@ -1137,7 +1137,7 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 28,
     fontWeight: "800",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   priceCredits: {
     color: Colors.dark.primaryGlow,
@@ -1197,7 +1197,7 @@ const styles = StyleSheet.create({
   },
   sectionDate: {
     fontSize: 14,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "600",
   },
   slotsGrid: {
@@ -1234,12 +1234,12 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   slotSelected: {
-    borderColor: Colors.dark.xpCyan,
-    backgroundColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary,
   },
   slotGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   slotTime: {
     fontSize: 14,
@@ -1305,7 +1305,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1448,7 +1448,7 @@ const styles = StyleSheet.create({
   confirmTime: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   confirmPriceRow: {
     flexDirection: "row",
@@ -1465,7 +1465,7 @@ const styles = StyleSheet.create({
   confirmPriceValue: {
     fontSize: 22,
     fontWeight: "800",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   approvalNote: {
     flexDirection: "row",
@@ -1535,7 +1535,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2A2E38",
   },
   stepDotActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
   stepLine: {
     width: 30,
@@ -1544,7 +1544,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   stepLineActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
   },
 
   // Partner options
@@ -1686,7 +1686,7 @@ const styles = StyleSheet.create({
   openMatchInfo: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: Colors.dark.xpCyan + "15",
+    backgroundColor: Colors.dark.primary + "15",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.md,
@@ -1695,7 +1695,7 @@ const styles = StyleSheet.create({
   openMatchInfoText: {
     flex: 1,
     fontSize: 13,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     lineHeight: 18,
   },
 
@@ -1713,7 +1713,7 @@ const styles = StyleSheet.create({
   nextStepButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,

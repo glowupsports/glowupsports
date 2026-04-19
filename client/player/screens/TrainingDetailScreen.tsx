@@ -61,7 +61,7 @@ const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string
   mental: { icon: "brain", color: "#9B59B6", label: "Mental" },
   physical: { icon: "fitness", color: Colors.dark.orange, label: "Physical" },
   tactical: { icon: "compass", color: Colors.dark.gold, label: "Tactical" },
-  social: { icon: "people", color: Colors.dark.xpCyan, label: "Social" },
+  social: { icon: "people", color: Colors.dark.primary, label: "Social" },
 };
 
 const ENERGY_LABELS = ["", "Low", "Tired", "Okay", "Good", "Great"];
@@ -668,7 +668,7 @@ export default function TrainingDetailScreen() {
             </Text>
           </View>
           <View style={styles.totalXpBadge}>
-            <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+            <Ionicons name="flash" size={20} color={Colors.dark.primary} />
             <Text style={styles.totalXpText}>+{data.xpEarned} XP</Text>
           </View>
         </View>
@@ -699,7 +699,7 @@ export default function TrainingDetailScreen() {
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="chatbubble-ellipses" size={18} color={Colors.dark.xpCyan} />
+            <Ionicons name="chatbubble-ellipses" size={18} color={Colors.dark.primary} />
             <Text style={styles.sectionTitle}>Coach Feedback</Text>
           </View>
           <Text style={styles.feedbackText}>
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
   },
   totalXpText: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "700",
   },
   coachCard: {
@@ -1086,7 +1086,7 @@ const styles = StyleSheet.create({
   },
   totalValue: {
     ...Typography.body,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "700",
   },
   emptyState: {

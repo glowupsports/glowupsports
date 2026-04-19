@@ -48,7 +48,7 @@ interface Evidence {
 
 const PILLAR_COLORS: Record<string, string> = {
   TECHNIQUE: Colors.dark.primary,
-  TACTICAL: Colors.dark.xpCyan,
+  TACTICAL: Colors.dark.primary,
   PHYSICAL: Colors.dark.orange,
   MENTAL: "#9B59B6",
   SOCIAL: "#E91E63",
@@ -375,11 +375,11 @@ export default function SkillEvidenceScreen() {
         >
           <View style={styles.captureSection}>
             <LinearGradient
-              colors={[Colors.dark.xpCyan + "20", "transparent"]}
+              colors={[Colors.dark.primary + "20", "transparent"]}
               style={styles.captureSectionGradient}
             >
               <View style={styles.captureSectionHeader}>
-                <Ionicons name="videocam" size={24} color={Colors.dark.xpCyan} />
+                <Ionicons name="videocam" size={24} color={Colors.dark.primary} />
                 <Text style={styles.captureSectionTitle}>Record New Evidence</Text>
               </View>
               
@@ -427,7 +427,7 @@ export default function SkillEvidenceScreen() {
               >
                 <LinearGradient
                   colors={selectedSkill 
-                    ? [Colors.dark.primary, Colors.dark.xpCyan]
+                    ? [Colors.dark.primary, Colors.dark.primary]
                     : [Colors.dark.backgroundTertiary, Colors.dark.backgroundTertiary]
                   }
                   start={{ x: 0, y: 0 }}
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "30",
+    borderColor: Colors.dark.primary + "30",
   },
   captureSectionHeader: {
     flexDirection: "row",
@@ -549,8 +549,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.backgroundTertiary,
   },
   skillChipSelected: {
-    backgroundColor: Colors.dark.xpCyan + "20",
-    borderColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
   },
   skillChipDot: {
     width: 8,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   skillChipTextSelected: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   captureButton: {
     borderRadius: BorderRadius.md,
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
   },
   timerText: {
     ...Typography.heading3,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     marginTop: Spacing.sm,
   },
   cameraControls: {

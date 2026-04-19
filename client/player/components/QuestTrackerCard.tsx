@@ -78,7 +78,7 @@ function QuestItem({ quest, onPress, onClaim }: { quest: Quest; onPress?: () => 
       {isComplete && !isClaimed ? (
         <Pressable style={styles.claimButton} onPress={onClaim}>
           <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            colors={[Colors.dark.primary, Colors.dark.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.claimButtonGradient}
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     minWidth: 30,
   },
   xpBadge: {
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   xpBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   claimButton: {
     borderRadius: 8,

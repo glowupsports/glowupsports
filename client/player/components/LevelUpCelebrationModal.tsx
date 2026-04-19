@@ -80,7 +80,7 @@ export function LevelUpCelebrationModal({
       <View style={styles.overlay}>
         <Animated.View style={[styles.container, containerStyle]}>
           <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+            colors={[Colors.dark.primary, Colors.dark.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
@@ -132,7 +132,7 @@ export function LevelUpCelebrationModal({
             {celebration.titleUnlock && (
               <View style={styles.rewardRow}>
                 <View style={styles.rewardIcon}>
-                  <Ionicons name="trophy" size={20} color={Colors.dark.xpCyan} />
+                  <Ionicons name="trophy" size={20} color={Colors.dark.primary} />
                 </View>
                 <View style={styles.rewardInfo}>
                   <Text style={styles.rewardLabel}>Title Unlocked</Text>
@@ -159,7 +159,7 @@ export function LevelUpCelebrationModal({
 
             <Pressable style={styles.continueButton} onPress={handleDismiss}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                colors={[Colors.dark.primary, Colors.dark.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.continueButtonGradient}
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   titleHighlight: {
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     fontWeight: "700",
   },
   rewardRow: {

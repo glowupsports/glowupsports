@@ -98,7 +98,7 @@ function GroupCard({
                 </View>
               ) : (
                 <Pressable style={styles.memberBadge} onPress={onLeave}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.xpCyan} />
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.primary} />
                   <Text style={styles.memberBadgeText}>Joined</Text>
                 </Pressable>
               )
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   memberBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   memberBadgeText: {
     fontSize: 11,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   joinButton: {
     backgroundColor: Colors.dark.primary,

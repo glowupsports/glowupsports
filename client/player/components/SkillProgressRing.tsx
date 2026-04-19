@@ -48,7 +48,7 @@ export function SkillProgressRing({
   const getProgressColor = () => {
     if (progressPercent >= 90) return Colors.dark.gold;
     if (progressPercent >= 70) return Colors.dark.primary;
-    if (progressPercent >= 40) return Colors.dark.xpCyan;
+    if (progressPercent >= 40) return Colors.dark.primary;
     return Colors.dark.primary;
   };
 

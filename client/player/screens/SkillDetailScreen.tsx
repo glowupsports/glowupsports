@@ -32,14 +32,14 @@ const DOMAIN_CONFIG: Record<string, { icon: string; color: string; label: string
   mental: { icon: "bulb", color: "#9B59B6", label: "Mental" },
   physical: { icon: "fitness", color: Colors.dark.orange, label: "Physical" },
   tactical: { icon: "compass", color: Colors.dark.gold, label: "Tactical" },
-  social: { icon: "people", color: Colors.dark.xpCyan, label: "Social" },
+  social: { icon: "people", color: Colors.dark.primary, label: "Social" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   needs_work: { label: "Needs Work", color: Colors.dark.orange },
   stable: { label: "Stable", color: Colors.dark.textMuted },
   strong: { label: "Strong", color: Colors.dark.primary },
-  improving: { label: "Improving", color: Colors.dark.xpCyan },
+  improving: { label: "Improving", color: Colors.dark.primary },
 };
 
 export default function SkillDetailScreen() {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   impactTitle: {
     ...Typography.caption,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },

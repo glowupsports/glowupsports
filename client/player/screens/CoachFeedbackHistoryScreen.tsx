@@ -25,14 +25,14 @@ interface SessionFeedback {
 
 const SESSION_TYPE_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
   private: { color: GlowColors.primary, icon: "person", label: "Private" },
-  semi_private: { color: Colors.dark.xpCyan, icon: "people", label: "Semi-Private" },
+  semi_private: { color: Colors.dark.primary, icon: "people", label: "Semi-Private" },
   group: { color: Colors.dark.orange, icon: "people-circle", label: "Group" },
   camp: { color: "#9B59B6", icon: "school", label: "Camp" },
 };
 
 const FEEDBACK_TYPE_CONFIG: Record<string, { color: string; icon: string }> = {
   praise: { color: GlowColors.primary, icon: "star" },
-  technique: { color: Colors.dark.xpCyan, icon: "build" },
+  technique: { color: Colors.dark.primary, icon: "build" },
   effort: { color: "#FF6B6B", icon: "flame" },
   focus: { color: "#AA96DA", icon: "eye" },
   attitude: { color: "#4ECDC4", icon: "heart" },
@@ -75,7 +75,7 @@ function FeedbackCard({ feedback }: { feedback: SessionFeedback }) {
         </View>
         {feedback.xpAwarded > 0 ? (
           <View style={styles.xpBadge}>
-            <Ionicons name="flash" size={12} color={Colors.dark.xpCyan} />
+            <Ionicons name="flash" size={12} color={Colors.dark.primary} />
             <Text style={styles.xpText}>+{feedback.xpAwarded} XP</Text>
           </View>
         ) : null}
@@ -187,7 +187,7 @@ export default function CoachFeedbackHistoryScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+            <Ionicons name="flash" size={20} color={Colors.dark.primary} />
             <Text style={styles.statValue}>{totalXP}</Text>
             <Text style={styles.statLabel}>XP Earned</Text>
           </View>
@@ -405,13 +405,13 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     borderRadius: BorderRadius.full,
   },
   xpText: {
     ...Typography.caption,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   feedbackContent: {
     flexDirection: "row",

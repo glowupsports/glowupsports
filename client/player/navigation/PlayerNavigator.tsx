@@ -835,7 +835,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     <SwipeableTabBar
       tabs={playerTabs}
       primaryColor={Colors.dark.primary}
-      secondaryColor={Colors.dark.xpCyan}
+      secondaryColor={Colors.dark.primary}
       onEdgeSwipeLeft={onEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
@@ -1579,7 +1579,7 @@ export default function PlayerNavigator() {
   if (isLoading && shouldFetchDashboard) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
       </View>
     );
   }

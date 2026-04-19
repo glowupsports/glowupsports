@@ -51,7 +51,7 @@ interface MarketplaceListing {
 
 const CONDITIONS: Record<string, { label: string; color: string }> = {
   new: { label: "New", color: Colors.dark.primary },
-  like_new: { label: "Like New", color: Colors.dark.xpCyan },
+  like_new: { label: "Like New", color: Colors.dark.primary },
   good: { label: "Good", color: Colors.dark.gold },
   fair: { label: "Fair", color: Colors.dark.textSecondary },
   used: { label: "Used", color: Colors.dark.textMuted },
@@ -253,7 +253,7 @@ export default function MarketplaceListingDetailScreen() {
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + Spacing.md }]}>
         <Pressable onPress={() => setShowMessageModal(true)} style={styles.messageButton}>
-          <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.xpCyan} />
+          <Ionicons name="chatbubble-outline" size={20} color={Colors.dark.primary} />
           <Text style={styles.messageButtonText}>Message Seller</Text>
         </Pressable>
       </View>
@@ -493,9 +493,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.primary,
     paddingVertical: Spacing.md,
     borderRadius: 12,
     gap: Spacing.sm,
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   messageButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   messageModalOverlay: {
     position: "absolute",

@@ -60,7 +60,7 @@ const CATEGORIES = [
 
 const CONDITIONS = [
   { key: "new", label: "New", color: Colors.dark.primary },
-  { key: "like_new", label: "Like New", color: Colors.dark.xpCyan },
+  { key: "like_new", label: "Like New", color: Colors.dark.primary },
   { key: "good", label: "Good", color: Colors.dark.gold },
   { key: "fair", label: "Fair", color: Colors.dark.textSecondary },
   { key: "used", label: "Used", color: Colors.dark.textMuted },

@@ -221,13 +221,13 @@ function PremiumMatchCard({
   const getMatchGradient = (): readonly [string, string, ...string[]] => {
     if (isDoubles) return ["#9333EA", "#7C3AED", "#6366F1"] as const;
     if (isMixed) return ["#EC4899", "#F472B6", "#FB7185"] as const;
-    return [Colors.dark.xpCyan, "#22D3EE", "#06B6D4"] as const;
+    return [Colors.dark.primary, "#22D3EE", "#06B6D4"] as const;
   };
 
   const getMatchGlowColor = () => {
     if (isDoubles) return "#9333EA";
     if (isMixed) return "#EC4899";
-    return Colors.dark.xpCyan;
+    return Colors.dark.primary;
   };
 
   const getBallLevelColor = (level?: string) => {
@@ -321,7 +321,7 @@ function PremiumMatchCard({
 
           {match.xpBonus > 0 ? (
             <View style={styles.xpBadgeLarge}>
-              <Ionicons name="flash" size={16} color={Colors.dark.xpCyan} />
+              <Ionicons name="flash" size={16} color={Colors.dark.primary} />
               <Text style={styles.xpBadgeText}>+{match.xpBonus}</Text>
             </View>
           ) : null}
@@ -383,7 +383,7 @@ function PremiumMatchCard({
                 styles.joinButtonLarge,
                 isFull && !isHost && styles.joinButtonDisabled,
                 isJoining && styles.joinButtonLoading,
-                isHost && { borderWidth: 2, borderColor: Colors.dark.xpCyan },
+                isHost && { borderWidth: 2, borderColor: Colors.dark.primary },
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -443,7 +443,7 @@ function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
     <Animated.View entering={FadeIn.delay(200)} style={styles.emptyState}>
       <Animated.View style={animatedStyle}>
         <LinearGradient
-          colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+          colors={[Colors.dark.primary + "30", Colors.dark.primary + "20"]}
           style={styles.emptyIcon}
         >
           <Ionicons name="tennisball" size={48} color={Colors.dark.primary} />
@@ -589,7 +589,7 @@ export default function OpenMatchFeedScreen() {
               const isActive = activeFilter === filter;
               const getFilterColor = () => {
                 if (filter === "doubles") return "#9333EA";
-                if (filter === "singles") return Colors.dark.xpCyan;
+                if (filter === "singles") return Colors.dark.primary;
                 return Colors.dark.primary;
               };
               
@@ -866,17 +866,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    backgroundColor: Colors.dark.primary + "20",
     paddingVertical: 6,
     paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.xpCyan + "40",
+    borderColor: Colors.dark.primary + "40",
   },
   xpBadgeText: {
     fontSize: FontSizes.sm,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.primary,
   },
   matchTitle: {
     fontSize: FontSizes.lg,
