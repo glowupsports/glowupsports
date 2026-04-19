@@ -6,7 +6,7 @@ import { db } from "../db";
 import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
-  sessionRatings, coachReviews, coachReviewStats,
+  sessionRatings, coachReviews, coachReviewStats, seriesPlayers, locations, courts,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte, gt } from "drizzle-orm";
@@ -3955,9 +3955,73 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         const sortedSessions = levelFilteredSessions.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         totalSessionCount = sortedSessions.length;
         const upcomingSessions = sortedSessions.slice(offsetParam, offsetParam + limitParam);
-        
+
+        // ===== Bulk prefetch for upcomingSessions enrichment (eliminates N+1) =====
+        const _sessionIds = upcomingSessions.map(s => s.id);
+        const _coachIds = [...new Set(upcomingSessions.map(s => s.coachId).filter((v): v is string => !!v))];
+        const _locationIds = [...new Set(upcomingSessions.map(s => (s as any).locationId).filter((v): v is string => !!v))];
+        const _courtIds = [...new Set(upcomingSessions.map(s => (s as any).courtId).filter((v): v is string => !!v))];
+
+        const _coachRows = _coachIds.length
+          ? await db.select().from(coaches).where(inArray(coaches.id, _coachIds))
+          : [];
+        const _coachMap = new Map(_coachRows.map(c => [c.id, c]));
+
+        const _spRows = _sessionIds.length
+          ? await db.select({ sessionId: sessionPlayers.sessionId, playerId: sessionPlayers.playerId })
+              .from(sessionPlayers)
+              .where(inArray(sessionPlayers.sessionId, _sessionIds))
+          : [];
+        const _spBySession = new Map<string, string[]>();
+        for (const r of _spRows) {
+          if (!r.playerId) continue;
+          const arr = _spBySession.get(r.sessionId) || [];
+          arr.push(r.playerId);
+          _spBySession.set(r.sessionId, arr);
+        }
+
+        const _seriesIdsNeedingPlayers = [...new Set(
+          upcomingSessions
+            .filter(s => (s as any).seriesId && (_spBySession.get(s.id)?.length ?? 0) === 0)
+            .map(s => (s as any).seriesId as string)
+        )];
+        const _seriesPlayerMap = new Map<string, string[]>();
+        if (_seriesIdsNeedingPlayers.length) {
+          const rows = await db.select({ seriesId: seriesPlayers.seriesId, playerId: seriesPlayers.playerId, status: seriesPlayers.status })
+            .from(seriesPlayers)
+            .where(inArray(seriesPlayers.seriesId, _seriesIdsNeedingPlayers));
+          for (const r of rows) {
+            if (!r.seriesId || !r.playerId || r.status !== 'active') continue;
+            const arr = _seriesPlayerMap.get(r.seriesId) || [];
+            arr.push(r.playerId);
+            _seriesPlayerMap.set(r.seriesId, arr);
+          }
+        }
+
+        const _allPlayerIds = new Set<string>();
+        for (const s of upcomingSessions) {
+          const ids = (_spBySession.get(s.id) && _spBySession.get(s.id)!.length > 0)
+            ? _spBySession.get(s.id)!
+            : ((s as any).seriesId ? (_seriesPlayerMap.get((s as any).seriesId) || []) : []);
+          for (const pid of ids.slice(0, 6)) _allPlayerIds.add(pid);
+        }
+        const _playerRows = _allPlayerIds.size
+          ? await db.select().from(players).where(inArray(players.id, [..._allPlayerIds]))
+          : [];
+        const _playerMap = new Map(_playerRows.map(p => [p.id, p]));
+
+        const _locationRows = _locationIds.length
+          ? await db.select().from(locations).where(inArray(locations.id, _locationIds))
+          : [];
+        const _locationMap = new Map(_locationRows.map(l => [l.id, l]));
+
+        const _courtRows = _courtIds.length
+          ? await db.select().from(courts).where(inArray(courts.id, _courtIds))
+          : [];
+        const _courtMap = new Map(_courtRows.map(c => [c.id, c]));
+
         for (const session of upcomingSessions) {
-          const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
+          const coach = session.coachId ? (_coachMap.get(session.coachId) || null) : null;
           const time = new Date(session.startTime);
           const maxPlayers = session.maxPlayers || 6;
           const currentPlayers = session.currentPlayers || 0;
@@ -3967,13 +4031,11 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           let isEnrolled = false;
           
           // Check session_players first, then series_players for recurring sessions
-          const sessionPlayerRecords = await storage.getSessionPlayers(session.id);
-          let playerIds = sessionPlayerRecords.map(sp => sp.playerId);
+          let playerIds = _spBySession.get(session.id) || [];
           
           // If no session_players and session has seriesId, check series_players
           if (playerIds.length === 0 && (session as any).seriesId) {
-            const seriesPlayers = await storage.getSeriesPlayers((session as any).seriesId);
-            playerIds = seriesPlayers.map(sp => sp.playerId);
+            playerIds = _seriesPlayerMap.get((session as any).seriesId) || [];
           }
           
           // Check if current player is enrolled
@@ -3981,7 +4043,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           
           // Get participant details
           for (const pid of playerIds.slice(0, 6)) {
-            const p = await storage.getPlayer(pid);
+            const p = _playerMap.get(pid);
             if (p) {
               participants.push({
                 id: p.id,
@@ -4010,14 +4072,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           let locationLat: number | undefined;
           let locationLng: number | undefined;
           if ((session as any).locationId) {
-            const location = await storage.getLocationById((session as any).locationId);
+            const location = _locationMap.get((session as any).locationId);
             if (location) {
               locationName = location.name;
               locationLat = (location as any).lat ?? undefined;
               locationLng = (location as any).lng ?? undefined;
             }
           } else if ((session as any).courtId) {
-            const court = await storage.getCourtById((session as any).courtId);
+            const court = _courtMap.get((session as any).courtId);
             if (court) locationName = court.name;
           }
 
