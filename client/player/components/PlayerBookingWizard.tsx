@@ -46,6 +46,7 @@ import { SuccessToast } from "@/components/SuccessToast";
 import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -1297,10 +1298,11 @@ export default function PlayerBookingWizard({
 
     const inner = (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
-        <ScrollView
+        <KeyboardAwareScrollViewCompat
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Spacing.xl }}
+          contentContainerStyle={{ paddingBottom: Spacing.xl * 4 }}
+          bottomOffset={120}
         >
           <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
 
