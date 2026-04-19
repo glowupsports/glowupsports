@@ -1058,7 +1058,7 @@ export function HeroCarousel({
 }: HeroCarouselProps = {}) {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
+  const { navigateToTab, setScrollEnabled } = useTabNavigation();
   const [containerWidth, setContainerWidth] = useState<number>(
     Dimensions.get("window").width
   );
@@ -1150,6 +1150,27 @@ export function HeroCarousel({
     };
   }, []);
 
+  const parentScrollDisabledRef = useRef(false);
+  const disableParentScroll = useCallback(() => {
+    if (parentScrollDisabledRef.current) return;
+    parentScrollDisabledRef.current = true;
+    setScrollEnabled(false);
+  }, [setScrollEnabled]);
+  const enableParentScroll = useCallback(() => {
+    if (!parentScrollDisabledRef.current) return;
+    parentScrollDisabledRef.current = false;
+    setScrollEnabled(true);
+  }, [setScrollEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (parentScrollDisabledRef.current) {
+        parentScrollDisabledRef.current = false;
+        setScrollEnabled(true);
+      }
+    };
+  }, [setScrollEnabled]);
+
   const pauseNow = useCallback(() => {
     setPaused(true);
     if (resumeTimerRef.current) {
@@ -1171,6 +1192,7 @@ export function HeroCarousel({
       Haptics.selectionAsync().catch(() => {});
     }
     scheduleResume();
+    enableParentScroll();
   };
 
   const progressStyle = useAnimatedStyle(() => ({
@@ -1278,7 +1300,11 @@ export function HeroCarousel({
           keyExtractor={(it) => it.id}
           renderItem={renderItem}
           onMomentumScrollEnd={handleMomentumEnd}
-          onScrollBeginDrag={pauseNow}
+          onScrollBeginDrag={() => {
+            pauseNow();
+            disableParentScroll();
+          }}
+          onScrollEndDrag={enableParentScroll}
           getItemLayout={(_, idx) => ({
             length: containerWidth,
             offset: containerWidth * idx,
