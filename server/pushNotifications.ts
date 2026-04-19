@@ -248,16 +248,64 @@ export async function getUserPushTokens(userId: string): Promise<string[]> {
 }
 
 export async function getCoachPushTokens(coachId: string): Promise<string[]> {
-  const tokens = await db
-    .select({ token: pushDeviceTokens.token })
-    .from(pushDeviceTokens)
-    .where(
-      and(
-        eq(pushDeviceTokens.coachId, coachId),
-        eq(pushDeviceTokens.isActive, true)
-      )
-    );
-  return tokens.map((t) => t.token);
+  if (!coachId) {
+    console.warn("[PushNotification] getCoachPushTokens called with empty coachId");
+    return [];
+  }
+
+  // Always union BOTH lookups so a coach with mixed token registrations
+  // (some rows linked by coach_id, some only by user_id) still gets pushes
+  // delivered to every active device.
+  const collected = new Set<string>();
+
+  try {
+    const byCoach = await db
+      .select({ token: pushDeviceTokens.token })
+      .from(pushDeviceTokens)
+      .where(
+        and(
+          eq(pushDeviceTokens.coachId, coachId),
+          eq(pushDeviceTokens.isActive, true)
+        )
+      );
+    for (const row of byCoach) collected.add(row.token);
+  } catch (err) {
+    console.error("[PushNotification] getCoachPushTokens by coachId failed:", err);
+  }
+
+  try {
+    const coachUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.coachId, coachId));
+
+    if (coachUsers.length > 0) {
+      const userIds = coachUsers.map((u) => u.id);
+      const byUser = await db
+        .select({ token: pushDeviceTokens.token })
+        .from(pushDeviceTokens)
+        .where(
+          and(
+            inArray(pushDeviceTokens.userId, userIds),
+            eq(pushDeviceTokens.isActive, true)
+          )
+        );
+      let added = 0;
+      for (const row of byUser) {
+        if (!collected.has(row.token)) {
+          collected.add(row.token);
+          added++;
+        }
+      }
+      if (added > 0) {
+        console.log(`[PushNotification] getCoachPushTokens(${coachId}) added ${added} additional token(s) via userId linkage`);
+      }
+    }
+  } catch (err) {
+    console.error("[PushNotification] getCoachPushTokens by userId failed:", err);
+  }
+
+  return Array.from(collected);
 }
 
 export async function getPlayerPushTokens(playerId: string): Promise<string[]> {

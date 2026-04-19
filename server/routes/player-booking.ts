@@ -30,8 +30,9 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
 import { localHHMMToUtc, utcToLocalTime } from "../utils/timezone";
-import { playerNotifications } from "@shared/schema";
+import { playerNotifications, coachNotifications } from "@shared/schema";
 import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
+import { enrollPlayerInGroupSession } from "../sessionEnrolment";
 import { broadcastToPlayerIds } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
 
@@ -666,31 +667,76 @@ function toDubaiTime(utcDate: Date): Date {
         }
       }
 
-      // Send push notification to coach (non-blocking)
-      try {
-        if (coachId) {
+      // Notify coach (in-app + push). The in-app row is ALWAYS written so the
+      // coach sees the request even if push delivery fails (no tokens, stale
+      // tokens, transport error, etc.). Push is best-effort and logged.
+      if (coachId) {
+        const sessionTypeLabel =
+          sessionType === "private" ? "Private Lesson" :
+          sessionType === "semi_private" ? "Semi-Private Lesson" :
+          sessionType === "group" ? "Group Session" : "Open Play";
+        const requestedDate = new Date(requestedStart).toLocaleDateString("en-GB", {
+          weekday: "short", day: "numeric", month: "short"
+        });
+        const notifTitle = isJoinRequest ? "New Join Request" : "New Lesson Request";
+        const notifBody = `${player.name} wants a ${duration}-min ${sessionTypeLabel} on ${requestedDate}`;
+
+        // 1) Always write the in-app coach notification row.
+        try {
+          await db.insert(coachNotifications).values({
+            coachId,
+            type: "booking_request",
+            title: notifTitle,
+            message: notifBody,
+            priority: "high",
+            actionUrl: `/coach/booking-requests/${request.id}`,
+            metadata: {
+              bookingRequestId: request.id,
+              playerId,
+              isJoinRequest: !!isJoinRequest,
+              sessionId: isJoinRequest ? sessionId : null,
+            },
+          });
+        } catch (inAppErr) {
+          console.error(`[Booking] Failed to write in-app coach notification for request ${request.id}:`, inAppErr);
+        }
+
+        // 2) Best-effort push to all of the coach's registered devices.
+        try {
           const coachTokens = await getCoachPushTokens(coachId);
-          if (coachTokens.length > 0) {
-            const sessionTypeLabel =
-              sessionType === "private" ? "Private Lesson" :
-              sessionType === "semi_private" ? "Semi-Private Lesson" :
-              sessionType === "group" ? "Group Session" : "Open Play";
-            const requestedDate = new Date(requestedStart).toLocaleDateString("en-GB", {
-              weekday: "short", day: "numeric", month: "short"
-            });
-            const notifTitle = isJoinRequest ? "New Join Request" : "New Lesson Request";
-            const notifBody = `${player.name} wants a ${duration}-min ${sessionTypeLabel} on ${requestedDate}`;
-            await sendPushNotification(
+          console.log(
+            `[Booking] coach ${coachId} push notify for request ${request.id}: ${coachTokens.length} active token(s) (isJoinRequest=${!!isJoinRequest})`
+          );
+          if (coachTokens.length === 0) {
+            console.warn(
+              `[Booking] coach ${coachId} has 0 active push tokens — request ${request.id} will only show in-app`
+            );
+          } else {
+            const tickets = await sendPushNotification(
               coachTokens,
               notifTitle,
               notifBody,
               { type: "booking_request", bookingRequestId: request.id },
-              coachId
+              undefined
             );
+            const okCount = tickets.filter((t) => t.status === "ok").length;
+            const errCount = tickets.length - okCount;
+            console.log(
+              `[Booking] push delivery for request ${request.id} → ${okCount} ok, ${errCount} error of ${tickets.length} ticket(s)`
+            );
+            if (errCount > 0) {
+              for (const t of tickets) {
+                if (t.status !== "ok") {
+                  console.error(
+                    `[Booking] push ticket error for request ${request.id}: ${t.message || ""} (${t.details?.error || "unknown"})`
+                  );
+                }
+              }
+            }
           }
+        } catch (notifErr) {
+          console.error(`[Booking] Failed to send coach push for request ${request.id}:`, notifErr);
         }
-      } catch (notifErr) {
-        console.error("[Booking] Failed to send coach notification:", notifErr);
       }
 
       res.status(201).json(request);
@@ -1670,35 +1716,28 @@ Return only the JSON array, nothing else.`;
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // Check if already joined
-      const existingPlayer = await db.query.sessionPlayers.findFirst({
-        where: (sp, { and, eq }) => and(
-          eq(sp.sessionId, sessionId),
-          eq(sp.playerId, playerId)
-        ),
-      });
-
-      if (existingPlayer) {
-        return res.status(400).json({ error: "Already joined this session" });
-      }
-
-      // Check capacity (count offered waitlist entries as reserved)
-      const maxPlayers = session.maxPlayers || 6;
-      const effectiveJoinCount = await getEffectivePlayerCount(sessionId);
-      if (effectiveJoinCount >= maxPlayers) {
-        return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
-      }
-
       const player = await storage.getPlayer(playerId);
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Add player to session first
-      await db.insert(sessionPlayers).values({
-        sessionId,
-        playerId,
-      });
+      // Enrol via the shared canonical helper (atomic capacity re-check + insert).
+      // The same helper is used by the booking-expiry auto-accept path so both
+      // flows stay in sync on capacity rules and statuses.
+      const enrol = await enrollPlayerInGroupSession(sessionId, playerId);
+      if (!enrol.ok) {
+        if (enrol.reason === "full") {
+          return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
+        }
+        if (enrol.reason === "session_cancelled") {
+          return res.status(400).json({ error: "Session has been cancelled" });
+        }
+        return res.status(404).json({ error: "Session not found" });
+      }
+      if (enrol.alreadyIn) {
+        return res.status(400).json({ error: "Already joined this session" });
+      }
+
       // REFACTORED: Player join creates pending session_player only
       // Credits are processed when coach marks attendance (present/late)
       // This prevents premature credit deduction and enables proper refund handling
