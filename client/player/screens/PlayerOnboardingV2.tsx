@@ -3542,7 +3542,7 @@ const styles = StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: `${Colors.dark.border}60`,
+    borderColor: "rgba(255, 255, 255, 0.4)",
     padding: Spacing.md,
   },
   academyCardActive: {

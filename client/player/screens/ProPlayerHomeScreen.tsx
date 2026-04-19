@@ -434,29 +434,39 @@ function MiniTile({
   headerRight,
   accessibilityLabel,
 }: MiniTileProps) {
+  // Root is a plain View so the footer slot can host its own interactive
+  // elements (e.g. Spotlight's Vote/Nominate pill) without nesting a
+  // <button> inside another <button>, which React refuses to hydrate on
+  // web and causes a fully white screen.
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         miniTileStyles.tile,
         { backgroundColor: accentBg, borderColor: accentBorder },
-        pressed && miniTileStyles.tilePressed,
       ]}
     >
-      <View style={miniTileStyles.header}>
-        <View style={miniTileStyles.headerLeft}>
-          <Ionicons name={icon} size={11} color={iconColor} />
-          <Text style={[miniTileStyles.label, { color: iconColor }]} numberOfLines={1}>
-            {label}
-          </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={onPress}
+        style={({ pressed }) => [
+          miniTileStyles.tileTapArea,
+          pressed && miniTileStyles.tilePressed,
+        ]}
+      >
+        <View style={miniTileStyles.header}>
+          <View style={miniTileStyles.headerLeft}>
+            <Ionicons name={icon} size={11} color={iconColor} />
+            <Text style={[miniTileStyles.label, { color: iconColor }]} numberOfLines={1}>
+              {label}
+            </Text>
+          </View>
+          {headerRight}
         </View>
-        {headerRight}
-      </View>
-      <View style={miniTileStyles.body}>{children}</View>
+        <View style={miniTileStyles.body}>{children}</View>
+      </Pressable>
       {footer ? <View style={miniTileStyles.footer}>{footer}</View> : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -2342,6 +2352,10 @@ const miniTileStyles = StyleSheet.create({
   tilePressed: {
     transform: [{ scale: 0.97 }],
     opacity: 0.92,
+  },
+  tileTapArea: {
+    flex: 1,
+    gap: Spacing.xs,
   },
   header: {
     flexDirection: "row",
