@@ -20,6 +20,7 @@ import { formatCredits } from "@/lib/dateUtils";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
+import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { useTranslation } from "react-i18next";
 import { HelpCenterModal } from "@/components/HelpCenterModal";
 import type { FAQItem } from "@/components/HelpCenterModal";
@@ -72,6 +73,8 @@ export function ProPlayerCard({
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl);
+  const { logoUrl: academyLogoFromTheme } = useAcademyTheme();
+  const academyLogoUrl = buildPhotoUrl(academyLogoFromTheme);
   const [showHelp, setShowHelp] = useState(false);
   const [showAppearanceSheet, setShowAppearanceSheet] = useState(false);
   const { preference: appearancePref, resolvedScheme, setPreference: setAppearancePref } = usePlayerAppearance();
@@ -237,7 +240,15 @@ export function ProPlayerCard({
               <Text style={styles.roleLabel}>PLAYER</Text>
               <Text style={styles.playerName} numberOfLines={1}>{player.name || "Player"}</Text>
               <View style={styles.academyRow}>
-                <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
+                {academyLogoUrl ? (
+                  <RNImage
+                    source={{ uri: academyLogoUrl }}
+                    style={styles.academyLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
+                )}
                 <Text style={styles.academyText} numberOfLines={1}>
                   {academyName || "Free Player"}
                 </Text>
@@ -520,6 +531,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  academyLogo: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
   },
   academyText: {
     fontSize: 12,

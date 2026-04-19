@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image as RNImage,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -30,7 +34,8 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
 
 const COLOR_FIELDS: Array<{
   key: keyof AcademyThemeColors;
@@ -65,9 +70,92 @@ export default function BrandingScreen() {
   const queryClient = useQueryClient();
 
   // Fetch current theme via the public read endpoint.
-  const { data, isLoading } = useQuery<{ theme: AcademyTheme | null }>({
+  const { data, isLoading } = useQuery<{
+    theme: AcademyTheme | null;
+    logoUrl: string | null;
+  }>({
     queryKey: ["/api/academy/theme"],
   });
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const invalidateBranding = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/academy/theme"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/owner/academy"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/player/dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/owner/dashboard"] });
+  };
+
+  const handleUploadLogo = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please allow access to your photo library to upload a logo.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setUploadingLogo(true);
+      const asset = result.assets[0];
+      const filename = asset.uri.split("/").pop() || "logo.png";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1].toLowerCase().replace("jpg", "jpeg")}` : "image/png";
+
+      const formData = new FormData();
+      if (Platform.OS === "web") {
+        if ((asset as any).file) {
+          formData.append("logo", (asset as any).file);
+        } else {
+          const r = await fetch(asset.uri);
+          const blob = await r.blob();
+          formData.append("logo", blob, filename);
+        }
+      } else {
+        formData.append("logo", { uri: asset.uri, name: filename, type } as any);
+      }
+
+      const token = getAuthToken();
+      const res = await fetch(`${getApiUrl()}/api/academy/logo`, {
+        method: "POST",
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Upload failed");
+      }
+      invalidateBranding();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (error: any) {
+      Alert.alert("Upload failed", error?.message || "Could not upload logo.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      setUploadingLogo(true);
+      await apiRequest("DELETE", "/api/academy/logo");
+      invalidateBranding();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (error: any) {
+      Alert.alert("Remove failed", error?.message || "Could not remove logo.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const [draft, setDraft] = useState<AcademyTheme | null>(null);
   const [mode, setMode] = useState<"light" | "dark">("dark");
@@ -181,6 +269,57 @@ export default function BrandingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Academy logo */}
+        <Section title="Academy logo">
+          <View style={styles.logoRow}>
+            <View style={styles.logoPreview}>
+              {data?.logoUrl ? (
+                <RNImage
+                  source={{ uri: data.logoUrl }}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Ionicons name="image-outline" size={32} color={Colors.dark.textMuted} />
+              )}
+            </View>
+            <View style={{ flex: 1, gap: Spacing.sm }}>
+              <Text style={styles.colorHint}>
+                Shown on the player home, owner dashboard and invoices. PNG or
+                SVG works best — square images look cleanest.
+              </Text>
+              <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                <Pressable
+                  onPress={handleUploadLogo}
+                  disabled={uploadingLogo}
+                  style={[styles.logoBtn, { opacity: uploadingLogo ? 0.6 : 1 }]}
+                >
+                  {uploadingLogo ? (
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  ) : (
+                    <>
+                      <Ionicons name="cloud-upload" size={16} color={Colors.dark.buttonText} />
+                      <Text style={styles.logoBtnLabel}>
+                        {data?.logoUrl ? "Replace" : "Upload"}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+                {data?.logoUrl ? (
+                  <Pressable
+                    onPress={handleRemoveLogo}
+                    disabled={uploadingLogo}
+                    style={[styles.logoBtnGhost, { opacity: uploadingLogo ? 0.6 : 1 }]}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={Colors.dark.text} />
+                    <Text style={{ color: Colors.dark.text }}>Remove</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        </Section>
+
         {/* Mode toggle */}
         <View style={styles.modeToggleRow}>
           <ModeBtn label="Dark" active={mode === "dark"} onPress={() => setMode("dark")} />
@@ -639,5 +778,48 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
+  },
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+  },
+  logoPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  logoImage: {
+    width: "100%",
+    height: "100%",
+  },
+  logoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.primary,
+  },
+  logoBtnLabel: { color: Colors.dark.buttonText, fontWeight: "700" },
+  logoBtnGhost: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
   },
 });

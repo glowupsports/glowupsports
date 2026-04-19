@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
+import { buildPhotoUrl } from "@/lib/query-client";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,6 +33,8 @@ export function BusinessCommandCenter({
   onNotificationPress,
   notificationCount = 0,
 }: BusinessCommandCenterProps) {
+  const { logoUrl } = useAcademyTheme();
+  const academyLogo = buildPhotoUrl(logoUrl);
   const pulseScale = useSharedValue(1);
   const shimmerX = useSharedValue(-1);
 
@@ -88,7 +92,15 @@ export function BusinessCommandCenter({
           <View style={styles.header}>
             <View style={styles.logoSection}>
               <View style={styles.logoContainer}>
-                <Ionicons name="business" size={26} color={Colors.dark.gold} />
+                {academyLogo ? (
+                  <RNImage
+                    source={{ uri: academyLogo }}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons name="business" size={26} color={Colors.dark.gold} />
+                )}
               </View>
               <View>
                 <Text style={styles.label}>BUSINESS CENTER</Text>
@@ -195,6 +207,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.dark.gold + "40",
+    overflow: "hidden",
+  },
+  logoImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
   },
   label: {
     ...Typography.small,

@@ -3682,6 +3682,7 @@ Return only the JSON array, nothing else.`;
           name: academy?.name || 'Academy',
           email: settings?.contactEmail || undefined,
           phone: settings?.contactPhone || undefined,
+          logo: (academy as any)?.logoUrl || undefined,
           vatRegistrationNumber: (settings as any)?.vatRegistrationNumber || undefined,
         },
         player: {

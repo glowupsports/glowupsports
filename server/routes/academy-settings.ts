@@ -80,12 +80,67 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user?.academyId;
-        if (!academyId) return res.json({ theme: null });
+        if (!academyId) return res.json({ theme: null, logoUrl: null });
         const academy = await storage.getAcademy(academyId);
-        res.json({ theme: (academy as any)?.theme ?? null });
+        res.json({
+          theme: (academy as any)?.theme ?? null,
+          logoUrl: (academy as any)?.logoUrl ?? null,
+        });
       } catch (error) {
         console.error("Get academy theme error:", error);
         res.status(500).json({ error: "Failed to fetch theme" });
+      }
+    },
+  );
+
+  // Upload an academy logo. Owner-only. Stored inline as a data URI on the
+  // academy record so the existing theme endpoint can serve it without an
+  // extra static-file route. Limited to ~512KB after base64 encoding to keep
+  // requests reasonable.
+  router.post(
+    "/api/academy/logo",
+    authMiddleware,
+    requireRole("owner", "academy_owner", "platform_owner"),
+    (req, res, next) => {
+      const { academyLogoUpload } = require("../upload-middleware");
+      academyLogoUpload.single("logo")(req, res, (err: any) => {
+        if (err) return res.status(400).json({ error: err.message || "Upload failed" });
+        next();
+      });
+    },
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) return res.status(400).json({ error: "Academy ID required" });
+        if (!req.file) return res.status(400).json({ error: "No logo uploaded" });
+
+        const mimeType = req.file.mimetype || "image/png";
+        const base64Data = req.file.buffer.toString("base64");
+        const logoUrl = `data:${mimeType};base64,${base64Data}`;
+
+        await storage.updateAcademy(academyId, { logoUrl } as any);
+        res.json({ success: true, logoUrl });
+      } catch (error) {
+        console.error("Upload academy logo error:", error);
+        res.status(500).json({ error: "Failed to upload logo" });
+      }
+    },
+  );
+
+  // Remove the academy logo.
+  router.delete(
+    "/api/academy/logo",
+    authMiddleware,
+    requireRole("owner", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) return res.status(400).json({ error: "Academy ID required" });
+        await storage.updateAcademy(academyId, { logoUrl: null } as any);
+        res.json({ success: true, logoUrl: null });
+      } catch (error) {
+        console.error("Delete academy logo error:", error);
+        res.status(500).json({ error: "Failed to remove logo" });
       }
     },
   );
@@ -1791,6 +1846,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             name: academy?.name || "Academy",
             email: settings?.contactEmail || undefined,
             phone: settings?.contactPhone || undefined,
+            logo: (academy as any)?.logoUrl || undefined,
             vatRegistrationNumber: (settings as any)?.vatRegistrationNumber || undefined,
           },
           player: {

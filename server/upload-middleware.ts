@@ -41,6 +41,22 @@ export const profilePhotoUpload = multer({
   fileFilter: imageFilter,
 });
 
+// Academy logo uploader — accepts SVG in addition to raster formats so owners
+// can upload a vector wordmark. Stored in memory and inlined as a data URI on
+// the academy record (see /api/academy/logo).
+export const academyLogoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "image/jpeg", "image/png", "image/webp",
+      "image/heic", "image/heif", "image/svg+xml",
+    ];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Invalid file type. Logo must be PNG, JPEG, WebP, HEIC, or SVG."));
+  },
+});
+
 const SAFE_VIDEO_EXTENSIONS: Record<string, string> = {
   ".mp4": ".mp4", ".mov": ".mov", ".m4v": ".m4v",
   ".mpeg": ".mpeg", ".3gp": ".3gp", ".webm": ".webm",

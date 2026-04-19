@@ -324,6 +324,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
   <div class="invoice-container">
     <div class="header">
       <div class="academy-info">
+        ${data.academy.logo ? `<img src="${data.academy.logo}" alt="${data.academy.name}" style="max-height:64px;max-width:200px;display:block;margin-bottom:12px;object-fit:contain;" />` : ''}
         <h1>${data.academy.name}</h1>
         ${data.academy.address ? `<p>${data.academy.address}</p>` : ''}
         ${data.academy.email ? `<p>${data.academy.email}</p>` : ''}

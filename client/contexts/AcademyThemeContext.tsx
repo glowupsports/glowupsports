@@ -71,6 +71,7 @@ function resolveTheme(theme: AcademyTheme | null | undefined, scheme: "light" | 
 interface AcademyThemeContextValue {
   theme: AcademyTheme | null;
   resolved: AcademyThemeResolved;
+  logoUrl: string | null;
   isLoading: boolean;
 }
 
@@ -120,7 +121,10 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
 
   // Fetch live theme from the public endpoint. We deliberately use the public
   // endpoint so the player app (which has no owner perms) can still read it.
-  const { data, isLoading } = useQuery<{ theme: AcademyTheme | null } | null>({
+  const { data, isLoading } = useQuery<{
+    theme: AcademyTheme | null;
+    logoUrl?: string | null;
+  } | null>({
     queryKey: ["/api/academy/theme"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
@@ -128,6 +132,7 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   });
 
   const apiTheme = data?.theme ?? null;
+  const logoUrl = data?.logoUrl ?? null;
 
   // Persist whatever the API returned (or null) to local cache.
   useEffect(() => {
@@ -150,8 +155,8 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   }, []);
 
   const value = useMemo<AcademyThemeContextValue>(
-    () => ({ theme: effective, resolved, isLoading }),
-    [effective, resolved, isLoading],
+    () => ({ theme: effective, resolved, logoUrl, isLoading }),
+    [effective, resolved, logoUrl, isLoading],
   );
 
   return (
@@ -165,6 +170,7 @@ export function useAcademyTheme(): AcademyThemeContextValue {
     return {
       theme: null,
       resolved: resolveTheme(null, "dark"),
+      logoUrl: null,
       isLoading: false,
     };
   }
