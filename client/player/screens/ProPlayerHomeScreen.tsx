@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, LayoutAnimation, InteractionManager } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, InteractionManager } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -90,168 +90,6 @@ interface DashboardData {
   lastFeedback?: { message: string; date: string } | null;
 }
 
-const WEEKLY_DIGEST_DISMISSED_KEY = "@glow_weekly_digest_dismissed_id";
-
-interface WeeklyDigestNotification {
-  id: string;
-  title: string;
-  body: string;
-  type: string;
-  data: {
-    focusArea?: string;
-    keepDoing?: string;
-    improve?: string;
-    reason?: string;
-    drillTip?: string;
-    motivation?: string;
-  } | null;
-  createdAt: string;
-}
-
-function WeeklyAIFocusCard({ playerId }: { playerId: string }) {
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const [dismissedLoaded, setDismissedLoaded] = useState(false);
-
-  const { data: digest } = useQuery<WeeklyDigestNotification | null>({
-    queryKey: ["/api/player/me/weekly-digest"],
-    enabled: !!playerId,
-  });
-
-  useEffect(() => {
-    AsyncStorage.getItem(WEEKLY_DIGEST_DISMISSED_KEY).then((val) => {
-      setDismissed(val);
-      setDismissedLoaded(true);
-    });
-  }, []);
-
-  if (!dismissedLoaded || !digest || !digest.data?.focusArea) return null;
-  if (dismissed === digest.id) return null;
-
-  const handleDismiss = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setDismissed(digest.id);
-    AsyncStorage.setItem(WEEKLY_DIGEST_DISMISSED_KEY, digest.id);
-  };
-
-  const { focusArea, keepDoing, improve, drillTip, motivation } = digest.data;
-  const keepDoingText = keepDoing || drillTip;
-  const improveText = improve || motivation;
-
-  return (
-    <View style={wStyles.card}>
-      <View style={wStyles.header}>
-        <View style={wStyles.headerLeft}>
-          <View style={wStyles.iconWrap}>
-            <Ionicons name="sparkles" size={16} color="#8B5CF6" />
-          </View>
-          <Text style={wStyles.badge}>THIS WEEK'S AI FOCUS</Text>
-        </View>
-        <Pressable onPress={handleDismiss} hitSlop={10} style={wStyles.dismissBtn}>
-          <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
-        </Pressable>
-      </View>
-
-      <View style={wStyles.bulletRow}>
-        <View style={wStyles.bulletIconWrap}>
-          <Ionicons name="flag" size={13} color="#8B5CF6" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={wStyles.bulletLabel}>FOCUS THIS WEEK</Text>
-          <Text style={wStyles.bulletText} numberOfLines={3}>{focusArea}</Text>
-        </View>
-      </View>
-
-      {keepDoingText ? (
-        <View style={wStyles.bulletRow}>
-          <View style={wStyles.bulletIconWrap}>
-            <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[wStyles.bulletLabel, { color: "#10B981" }]}>KEEP DOING</Text>
-            <Text style={wStyles.bulletText} numberOfLines={3}>{keepDoingText}</Text>
-          </View>
-        </View>
-      ) : null}
-
-      {improveText ? (
-        <View style={wStyles.bulletRow}>
-          <View style={wStyles.bulletIconWrap}>
-            <Ionicons name="trending-up" size={13} color="#F59E0B" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[wStyles.bulletLabel, { color: "#F59E0B" }]}>ONE THING TO IMPROVE</Text>
-            <Text style={wStyles.bulletText} numberOfLines={3}>{improveText}</Text>
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-const wStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "rgba(139, 92, 246, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(139, 92, 246, 0.25)",
-    borderRadius: BorderRadius.lg,
-    marginHorizontal: Spacing.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  headerLeft: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(139, 92, 246, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badge: {
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1.5,
-    color: "#8B5CF6",
-  },
-  dismissBtn: {
-    padding: 4,
-  },
-  bulletRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    paddingTop: 2,
-  },
-  bulletIconWrap: {
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
-  },
-  bulletLabel: {
-    fontSize: 8,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    color: "#8B5CF6",
-    marginBottom: 2,
-  },
-  bulletText: {
-    fontSize: 13,
-    color: Colors.dark.text,
-    lineHeight: 18,
-  },
-});
 
 const _unusedAiCardStyles = StyleSheet.create({
   wrapper: {
@@ -1842,10 +1680,6 @@ function PlayerHomeContent() {
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
               <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>IMPROVE</Text>
             </View>
-
-            {player?.id ? (
-              <WeeklyAIFocusCard playerId={player.id} />
-            ) : null}
 
             <UnifiedImproveCard
               quest={activeQuest}
