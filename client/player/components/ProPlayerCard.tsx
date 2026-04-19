@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
-import { View, Text, StyleSheet, Pressable, Platform, Image as RNImage } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform, Image as RNImage, Modal } from "react-native";
+import { usePlayerAppearance, PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -72,6 +73,39 @@ export function ProPlayerCard({
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl);
   const [showHelp, setShowHelp] = useState(false);
+  const [showAppearanceSheet, setShowAppearanceSheet] = useState(false);
+  const { preference: appearancePref, resolvedScheme, setPreference: setAppearancePref } = usePlayerAppearance();
+
+  const appearanceLabels: Record<PlayerAppearancePreference, string> = {
+    light: t("player.home.appearance.light"),
+    dark: t("player.home.appearance.dark"),
+    system: t("player.home.appearance.system"),
+  };
+  const appearanceIcons: Record<PlayerAppearancePreference, React.ComponentProps<typeof Ionicons>["name"]> = {
+    light: "sunny-outline",
+    dark: "moon-outline",
+    system: "phone-portrait-outline",
+  };
+  const currentAppearanceIcon =
+    appearancePref === "system" ? appearanceIcons.system : appearanceIcons[resolvedScheme];
+
+  const didLongPressAppearance = React.useRef(false);
+  const cycleAppearance = () => {
+    if (didLongPressAppearance.current) {
+      didLongPressAppearance.current = false;
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next: PlayerAppearancePreference =
+      appearancePref === "system" ? "light" : appearancePref === "light" ? "dark" : "system";
+    setAppearancePref(next);
+  };
+
+  const pickAppearance = (next: PlayerAppearancePreference) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAppearancePref(next);
+    setShowAppearanceSheet(false);
+  };
 
   const playerFAQs: FAQItem[] = [
     { question: t("player.home.faqBookSession"), answer: t("player.home.faqBookSessionAnswer"), category: "Booking" },
@@ -265,6 +299,20 @@ export function ProPlayerCard({
             <LanguageHeaderButton />
             <Pressable
               style={styles.bottomActionBtn}
+              onPress={cycleAppearance}
+              onLongPress={() => {
+                didLongPressAppearance.current = true;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowAppearanceSheet(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Appearance: ${appearanceLabels[appearancePref]}, double-tap to change`}
+              accessibilityHint="Cycles between system, light, and dark. Long-press to choose."
+            >
+              <Ionicons name={currentAppearanceIcon} size={18} color="rgba(255,255,255,0.5)" />
+            </Pressable>
+            <Pressable
+              style={styles.bottomActionBtn}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowHelp(true);
@@ -298,6 +346,44 @@ export function ProPlayerCard({
         </View>
         </View>
       </View>
+      <Modal
+        visible={showAppearanceSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAppearanceSheet(false)}
+      >
+        <Pressable style={styles.appearanceBackdrop} onPress={() => setShowAppearanceSheet(false)}>
+          <Pressable style={styles.appearanceSheet} onPress={(e) => e.stopPropagation()}>
+            {(["light", "dark", "system"] as PlayerAppearancePreference[]).map((opt) => {
+              const selected = appearancePref === opt;
+              return (
+                <Pressable
+                  key={opt}
+                  style={[styles.appearanceOption, selected && styles.appearanceOptionSelected]}
+                  onPress={() => pickAppearance(opt)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${appearanceLabels[opt]} appearance`}
+                  accessibilityState={{ selected }}
+                >
+                  <Ionicons
+                    name={appearanceIcons[opt]}
+                    size={18}
+                    color={selected ? GlowColors.primary : "rgba(255,255,255,0.7)"}
+                  />
+                  <Text style={[styles.appearanceOptionText, selected && styles.appearanceOptionTextSelected]}>
+                    {appearanceLabels[opt]}
+                  </Text>
+                  {selected ? (
+                    <Ionicons name="checkmark" size={18} color={GlowColors.primary} />
+                  ) : (
+                    <View style={{ width: 18 }} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
       <HelpCenterModal
         visible={showHelp}
         onClose={() => setShowHelp(false)}
@@ -556,5 +642,41 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "700",
     color: GlowColors.primary,
     letterSpacing: 0.5,
+  },
+  appearanceBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  appearanceSheet: {
+    minWidth: 220,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    gap: 4,
+  },
+  appearanceOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.sm,
+    gap: 10,
+  },
+  appearanceOptionSelected: {
+    backgroundColor: "rgba(200, 255, 61, 0.10)",
+  },
+  appearanceOptionText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: TextColors.primary,
+  },
+  appearanceOptionTextSelected: {
+    color: GlowColors.primary,
   },
 }));

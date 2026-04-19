@@ -353,6 +353,11 @@
       "reflectOnSession": "Reflect on your session",
       "credits": "Credits",
       "family": "Family",
+      "appearance": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
       "bookCourt": "BOOK COURT",
       "joinOpenGroup": "JOIN OPEN GROUP",
       "liveNow": "LIVE NOW",

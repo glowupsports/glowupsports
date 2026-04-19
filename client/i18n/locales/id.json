@@ -334,6 +334,11 @@
       "bookLesson": "PESAN PELAJARAN",
       "credits": "Kredit",
       "family": "Keluarga",
+      "appearance": {
+        "light": "Terang",
+        "dark": "Gelap",
+        "system": "Sistem"
+      },
       "bookCourt": "PESAN LAPANGAN",
       "joinOpenGroup": "GABUNG GRUP TERBUKA",
       "liveNow": "LANGSUNG SEKARANG",

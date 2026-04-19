@@ -334,6 +334,11 @@
       "bookLesson": "احجز درسًا",
       "credits": "رصيد",
       "family": "العائلة",
+      "appearance": {
+        "light": "فاتح",
+        "dark": "داكن",
+        "system": "النظام"
+      },
       "bookCourt": "احجز ملعبًا",
       "joinOpenGroup": "انضم لمجموعة مفتوحة",
       "liveNow": "مباشر الآن",
