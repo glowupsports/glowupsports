@@ -824,11 +824,14 @@ export const storage = {
       
       await tx.delete(payments).where(eq(payments.academyId, id));
       await tx.delete(invoices).where(eq(invoices.academyId, id));
-      await tx.delete(packages).where(eq(packages.academyId, id));
-      await tx.delete(packageTemplates).where(eq(packageTemplates.academyId, id));
-      // Task #692 step 1 — mirror the legacy templates delete onto the V2
-      // table so an academy reset doesn't leave stale credit_package_templates
-      // behind. The full V2-only rewrite of resetAcademyData lands in step 2.
+      // Credit Engine V2 cleanup (Task #692 step 2). The legacy V1 tables
+      // (`packages`, `package_templates`, `credit_transactions`) are inert
+      // and no longer touched here. V2 ledger/lots/balance/wallet rows cascade
+      // on academy_id, but we delete them explicitly for clarity & safety.
+      await tx.delete(creditLedgerV2).where(eq(creditLedgerV2.academyId, id));
+      await tx.delete(creditLots).where(eq(creditLots.academyId, id));
+      await tx.delete(playerCreditBalance).where(eq(playerCreditBalance.academyId, id));
+      await tx.delete(playerMoneyWallet).where(eq(playerMoneyWallet.academyId, id));
       await tx.delete(creditPackageTemplates).where(eq(creditPackageTemplates.academyId, id));
       await tx.delete(playerSubscriptions).where(eq(playerSubscriptions.academyId, id));
       await tx.delete(subscriptions).where(eq(subscriptions.academyId, id));
@@ -939,8 +942,15 @@ export const storage = {
       }
       
       if (resetTypes.packages && playerIds.length > 0) {
-        const pkgDel = await tx.delete(packages).where(eq(packages.academyId, id)).returning();
-        deleted.packages = pkgDel.length;
+        // Credit Engine V2 (Task #692 step 2). Wipe the V2 ledger, lots,
+        // balances, and money wallet for this academy. Legacy V1 `packages`
+        // is inert and no longer touched. Report the lot count as the
+        // user-visible "packages" number.
+        await tx.delete(creditLedgerV2).where(eq(creditLedgerV2.academyId, id));
+        const lotDel = await tx.delete(creditLots).where(eq(creditLots.academyId, id)).returning();
+        await tx.delete(playerCreditBalance).where(eq(playerCreditBalance.academyId, id));
+        await tx.delete(playerMoneyWallet).where(eq(playerMoneyWallet.academyId, id));
+        deleted.packages = lotDel.length;
       }
       
       if (resetTypes.invoices) {
@@ -987,7 +997,14 @@ export const storage = {
         await tx.delete(domainAssessments).where(inArray(domainAssessments.playerId, playerIds));
         await tx.delete(xpTransactions).where(inArray(xpTransactions.playerId, playerIds));
         await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.playerId, playerIds));
-        await tx.delete(packages).where(inArray(packages.playerId, playerIds));
+        // Credit Engine V2 (Task #692 step 2). V2 ledger/lots/balance/wallet
+        // cascade on player delete (player_id FK), but we wipe them here so
+        // the rows are gone before we remove the players. Legacy V1 `packages`
+        // is inert and no longer touched.
+        await tx.delete(creditLedgerV2).where(inArray(creditLedgerV2.playerId, playerIds));
+        await tx.delete(creditLots).where(inArray(creditLots.playerId, playerIds));
+        await tx.delete(playerCreditBalance).where(inArray(playerCreditBalance.playerId, playerIds));
+        await tx.delete(playerMoneyWallet).where(inArray(playerMoneyWallet.playerId, playerIds));
         await tx.delete(bookingRequests).where(inArray(bookingRequests.playerId, playerIds));
         await tx.delete(joinRequests).where(inArray(joinRequests.playerId, playerIds));
         await tx.delete(playerNotes).where(inArray(playerNotes.playerId, playerIds));
@@ -1043,7 +1060,8 @@ export const storage = {
     const [feedbackCount] = await db.select({ count: count() }).from(sessionFeedback)
       .innerJoin(sessions, eq(sessionFeedback.sessionId, sessions.id))
       .where(eq(sessions.academyId, academyId));
-    const [packagesCount] = await db.select({ count: count() }).from(packages).where(eq(packages.academyId, academyId));
+    // Credit Engine V2 (Task #692 step 2). Count V2 lots; V1 `packages` is inert.
+    const [packagesCount] = await db.select({ count: count() }).from(creditLots).where(eq(creditLots.academyId, academyId));
     const [invoicesCount] = await db.select({ count: count() }).from(invoices).where(eq(invoices.academyId, academyId));
     
     const academyPlayerIds = await db.select({ id: players.id }).from(players).where(eq(players.academyId, academyId));
@@ -2378,8 +2396,14 @@ export const storage = {
     
     // Use a transaction to ensure atomicity
     try {
-      // Delete credit transactions first — they FK-reference session_players, packages, and players
-      await db.delete(creditTransactions).where(eq(creditTransactions.playerId, id));
+      // Credit Engine V2 (Task #692 step 2). V2 ledger/lots/balance/wallet
+      // cascade on player_id, but we delete them up-front so no V2 rows are
+      // left dangling if a later batch fails. Legacy V1 `credit_transactions`
+      // / `packages` are inert and no longer touched here.
+      await db.delete(creditLedgerV2).where(eq(creditLedgerV2.playerId, id));
+      await db.delete(creditLots).where(eq(creditLots.playerId, id));
+      await db.delete(playerCreditBalance).where(eq(playerCreditBalance.playerId, id));
+      await db.delete(playerMoneyWallet).where(eq(playerMoneyWallet.playerId, id));
 
       // ---------------------------------------------------------------
       // Batch A: Pure leaf tables — no other table FKs reference them
@@ -2605,8 +2629,9 @@ export const storage = {
         )
       );
       await db.delete(shopOrders).where(eq(shopOrders.playerId, id));
-      await db.delete(packages).where(eq(packages.playerId, id));
-      
+      // Legacy V1 `packages` removed (Task #692 step 2). V2 cleanup runs at the
+      // top of this function; the inert V1 table is no longer touched.
+
       // Update users table to unlink the player
       await db.update(users).set({ playerId: null }).where(eq(users.playerId, id));
       
@@ -4800,8 +4825,9 @@ export const storage = {
     // Step 2: Delete future sessions and their related data (credits not yet used)
     if (futureSessionIds.length > 0) {
       await db.transaction(async (tx) => {
-        // Delete credit transactions for future sessions (these are pending/unused)
-        await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, futureSessionIds));
+        // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
+        // V2 ledger rows for these sessions are immutable history and stay;
+        // no V2 cleanup is required when a series is ended.
 
         // Delete session players for future sessions
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, futureSessionIds));
@@ -4842,7 +4868,8 @@ export const storage = {
       if (sessionIds.length > 0) {
         await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
         await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
-        await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
+        // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
+        // V2 ledger rows are immutable history and remain.
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         // Nullify booking_requests.sessionId before deleting sessions (FK constraint)
         await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
