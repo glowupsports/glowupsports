@@ -1299,6 +1299,7 @@ export default function PlayerBookingWizard({
     const inner = (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         <KeyboardAwareScrollViewCompat
+          style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: Spacing.xl * 4 }}
@@ -2424,6 +2425,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   nextButtonWrapper: {
+    flex: 1,
     borderRadius: BorderRadius.md,
     overflow: "visible",
   },
