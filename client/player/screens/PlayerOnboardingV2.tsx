@@ -201,7 +201,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -2685,6 +2685,28 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const age = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
   const ageGroup = age !== null ? getAgeGroup(age) : "adult";
 
+  // Pre-fill DOB + gender from the existing player record so users only confirm
+  // (Task #760). We seed once when the profile loads, and only for fields the
+  // user hasn't already touched in this session.
+  const { data: existingProfile } = useQuery<{ player?: { dateOfBirth?: string | null; gender?: string | null } | null }>({
+    queryKey: ["/api/player/me/profile"],
+  });
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (prefillAppliedRef.current) return;
+    const p = existingProfile?.player;
+    if (!p) return;
+    const seedDob = p.dateOfBirth || null;
+    const seedGender = p.gender || null;
+    if (!seedDob && !seedGender) return;
+    prefillAppliedRef.current = true;
+    setData(prev => ({
+      ...prev,
+      dateOfBirth: prev.dateOfBirth || seedDob,
+      gender: prev.gender || seedGender,
+    }));
+  }, [existingProfile]);
+
   const saveMutation = useMutation({
     mutationFn: async (onboardingData: OnboardingData) => {
       const payload = {
@@ -2816,8 +2838,14 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         await saveAuthState(responseData.token, updatedUser, responseData.refreshToken);
       }
       await refreshAuth();
+      // Task #760 — refresh every surface that renders the player avatar so the
+      // newly uploaded photo appears immediately in drawer, profile, chat, and
+      // discovery without requiring a manual reload.
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/family/status"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete();
     },
@@ -2866,9 +2894,10 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         if (minorAge < 16) return !!data.parentEmail && data.parentEmail.includes("@");
         return true;
       }
-      case 2: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
-      case 3: return true; // Academy (optional)
-      case 4: return true; // Completion
+      case 2: return true; // Photo (optional, has its own Skip button)
+      case 3: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
+      case 4: return true; // Academy (optional)
+      case 5: return true; // Completion
       default: return false;
     }
   };
@@ -2879,15 +2908,16 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     switch (currentStep) {
       case 0: return <WelcomeStep {...stepProps} />;
       case 1: return <AboutYouStep {...stepProps} />;
-      case 2: return <SportAndSkillStep {...stepProps} />;
-      case 3: return <AcademySelectionStep {...stepProps} />;
-      case 4: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 2: return <PhotoUploadStep {...stepProps} />;
+      case 3: return <SportAndSkillStep {...stepProps} />;
+      case 4: return <AcademySelectionStep {...stepProps} />;
+      case 5: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === 4;
-  const showFooter = currentStep > 0 && currentStep < 4;
+  const isCompletionStep = currentStep === 5;
+  const showFooter = currentStep > 0 && currentStep < 5;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
