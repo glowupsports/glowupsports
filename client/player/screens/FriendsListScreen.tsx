@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -210,8 +210,17 @@ function RequestCard({
 export default function FriendsListScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabType>("friends");
+  const routeInitialTab = route.params?.initialTab;
+  const initialTab: TabType = routeInitialTab === "requests" ? "requests" : "friends";
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+
+  useEffect(() => {
+    if (routeInitialTab === "friends" || routeInitialTab === "requests") {
+      setActiveTab(routeInitialTab);
+    }
+  }, [routeInitialTab]);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   
   const { data, isLoading, refetch, isRefetching, isError } = useQuery<ConnectionsData>({

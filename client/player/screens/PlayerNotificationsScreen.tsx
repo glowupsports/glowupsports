@@ -32,6 +32,8 @@ const NOTIFICATION_CONFIG: Record<string, { icon: string; color: string; iconSet
   praise: { icon: "star", color: "#FFD700", iconSet: "ionicons" },
   general: { icon: "notifications", color: "#78909C", iconSet: "ionicons" },
   welcome: { icon: "heart", color: "#FF4081", iconSet: "ionicons" },
+  friend_request: { icon: "person-add", color: "#00E5FF", iconSet: "ionicons" },
+  friend_request_accepted: { icon: "people", color: "#C8FF3D", iconSet: "ionicons" },
 };
 
 function getNotificationConfig(type: string) {
@@ -92,6 +94,12 @@ export default function PlayerNotificationsScreen() {
         markReadMutation.mutate([item.id]);
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      if (item.type === "friend_request") {
+        (navigation as any).navigate("FriendsList", { initialTab: "requests" });
+      } else if (item.type === "friend_request_accepted") {
+        (navigation as any).navigate("FriendsList", { initialTab: "friends" });
+      }
     };
 
     return (

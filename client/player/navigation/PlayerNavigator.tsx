@@ -303,7 +303,7 @@ export type PlayerStackParamList = {
     durationMinutes?: number;
   };
   PlayerFinder: undefined;
-  FriendsList: undefined;
+  FriendsList: { initialTab?: "friends" | "requests" } | undefined;
   Groups: undefined;
   GroupDetail: { groupId: string; groupName: string };
   PlayerMessages: undefined;
