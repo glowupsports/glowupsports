@@ -1512,6 +1512,39 @@ export const insertPackageTemplateSchema = createInsertSchema(packageTemplates).
 export type InsertPackageTemplate = z.infer<typeof insertPackageTemplateSchema>;
 export type PackageTemplate = typeof packageTemplates.$inferSelect;
 
+// Credit Package Templates (V2) — replaces the legacy `package_templates` table.
+// Same shape as the V1 table; data is copied 1:1 by the 0016 migration. The V1
+// table stays in place (inert) until Task #692 finally drops it; all live reads
+// and writes go through this table from Task #692 step 1 onwards.
+export const creditPackageTemplates = pgTable("credit_package_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+
+  name: text("name").notNull(),
+  description: text("description"),
+
+  credits: integer("credits").notNull(),
+  price: numeric("price").notNull(),
+  currency: text("currency").default("AED"),
+
+  validityDays: integer("validity_days").default(90),
+  sessionType: text("session_type"),
+
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  academyIdx: index("credit_package_templates_academy_idx").on(table.academyId),
+}));
+
+export const insertCreditPackageTemplateSchema = createInsertSchema(creditPackageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCreditPackageTemplate = z.infer<typeof insertCreditPackageTemplateSchema>;
+export type CreditPackageTemplate = typeof creditPackageTemplates.$inferSelect;
+
 // Packages (Credits) - Assigned to players
 // Can be linked to a specific class (seriesId) or be a general credit pool
 export const packages = pgTable("packages", {

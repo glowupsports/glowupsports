@@ -119,6 +119,7 @@ import {
   refunds,
   playerSubscriptions,
   packageTemplates,
+  creditPackageTemplates,
   type PackageTemplate,
   type InsertPackageTemplate,
   // Session Ratings
@@ -753,6 +754,10 @@ export const storage = {
       await tx.delete(invoices).where(eq(invoices.academyId, id));
       await tx.delete(packages).where(eq(packages.academyId, id));
       await tx.delete(packageTemplates).where(eq(packageTemplates.academyId, id));
+      // Task #692 step 1 — mirror the legacy templates delete onto the V2
+      // table so an academy reset doesn't leave stale credit_package_templates
+      // behind. The full V2-only rewrite of resetAcademyData lands in step 2.
+      await tx.delete(creditPackageTemplates).where(eq(creditPackageTemplates.academyId, id));
       await tx.delete(playerSubscriptions).where(eq(playerSubscriptions.academyId, id));
       await tx.delete(subscriptions).where(eq(subscriptions.academyId, id));
       await tx.delete(billingAccounts).where(eq(billingAccounts.academyId, id));
@@ -3545,37 +3550,43 @@ export const storage = {
   },
 
   // ==================== PACKAGE TEMPLATES ====================
+  // Task #692 step 1 — All reads/writes now go through the V2 table
+  // `credit_package_templates`. The legacy `package_templates` table is
+  // inert and will be dropped in the final phase of Task #692. The public
+  // API surface (`/api/billing/package-templates`) and the returned shape
+  // are unchanged so the coach BillingScreen / SeriesDetailDrawer keep
+  // working without any frontend release.
   async getPackageTemplates(academyId: string): Promise<PackageTemplate[]> {
-    return db.select().from(packageTemplates)
-      .where(eq(packageTemplates.academyId, academyId))
-      .orderBy(asc(packageTemplates.sortOrder), asc(packageTemplates.name));
+    return db.select().from(creditPackageTemplates)
+      .where(eq(creditPackageTemplates.academyId, academyId))
+      .orderBy(asc(creditPackageTemplates.sortOrder), asc(creditPackageTemplates.name));
   },
 
   async getPackageTemplate(id: string, academyId?: string): Promise<PackageTemplate | undefined> {
-    const conditions = [eq(packageTemplates.id, id)];
+    const conditions = [eq(creditPackageTemplates.id, id)];
     if (academyId) {
-      conditions.push(eq(packageTemplates.academyId, academyId));
+      conditions.push(eq(creditPackageTemplates.academyId, academyId));
     }
-    const result = await db.select().from(packageTemplates).where(and(...conditions));
+    const result = await db.select().from(creditPackageTemplates).where(and(...conditions));
     return result[0];
   },
 
   async createPackageTemplate(data: InsertPackageTemplate): Promise<PackageTemplate> {
-    const result = await db.insert(packageTemplates).values(data).returning();
+    const result = await db.insert(creditPackageTemplates).values(data).returning();
     return result[0];
   },
 
   async updatePackageTemplate(id: string, data: Partial<InsertPackageTemplate>, academyId: string): Promise<PackageTemplate | undefined> {
-    const result = await db.update(packageTemplates)
+    const result = await db.update(creditPackageTemplates)
       .set({ ...data, updatedAt: new Date() })
-      .where(and(eq(packageTemplates.id, id), eq(packageTemplates.academyId, academyId)))
+      .where(and(eq(creditPackageTemplates.id, id), eq(creditPackageTemplates.academyId, academyId)))
       .returning();
     return result[0];
   },
 
   async deletePackageTemplate(id: string, academyId: string): Promise<boolean> {
-    const result = await db.delete(packageTemplates)
-      .where(and(eq(packageTemplates.id, id), eq(packageTemplates.academyId, academyId)))
+    const result = await db.delete(creditPackageTemplates)
+      .where(and(eq(creditPackageTemplates.id, id), eq(creditPackageTemplates.academyId, academyId)))
       .returning();
     return result.length > 0;
   },
