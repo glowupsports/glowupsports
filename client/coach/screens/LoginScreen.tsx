@@ -612,7 +612,6 @@ export default function LoginScreen() {
   }>({ checking: false, available: null, error: null, suggestions: [] });
   const usernameCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInviteRegisteringRef = useRef(false);
-
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [biometryType, setBiometryType] = useState<string | null>(null);
 

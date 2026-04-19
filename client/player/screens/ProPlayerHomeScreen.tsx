@@ -28,6 +28,7 @@ import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import PinEntryModal from "@/components/PinEntryModal";
+import ChooseUsernameModal from "@/player/components/ChooseUsernameModal";
 import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
 import { BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 import { RamadanConfettiOverlay, RamadanBanner, RamadanBonusCard } from "@/player/components/RamadanCelebrationOverlay";
@@ -881,7 +882,8 @@ function PlayerHomeContent() {
       {isRamadan && !isBirthday && !ramadanDismissed && <RamadanConfettiOverlay />}
       
       <FeedbackToast />
-      
+      <ChooseUsernameModal />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[

@@ -384,6 +384,74 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     }
   });
 
+  // Allow a freshly registered Apple Sign-In user to replace their generated
+  // `apple_<hex>` handle with a real, user-chosen username (Task #687).
+  // Only callable while the current username still matches the auto-generated
+  // pattern, so existing users who already picked a name can never be silently
+  // renamed.
+  router.post("/auth/apple/choose-username", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const schema = z.object({
+        username: z.string().trim().min(3).max(30),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+
+      const username = parsed.data.username.toLowerCase();
+      if (!/^[a-z0-9_]+$/.test(username)) {
+        return res.status(400).json({ error: "Only letters, numbers, and underscores allowed" });
+      }
+      if (/^apple_[a-f0-9]+$/.test(username)) {
+        return res.status(400).json({ error: "Please pick a friendlier username" });
+      }
+
+      const currentUser = await storage.getUserById(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Guard: only auto-generated Apple handles may be renamed via this route.
+      if (!/^apple_[a-f0-9]+$/.test(currentUser.username)) {
+        return res.status(409).json({
+          error: "Username has already been chosen",
+          code: "USERNAME_ALREADY_SET",
+        });
+      }
+
+      // If the user is just re-submitting the same name they already have we
+      // should still treat it as a no-op success — but guarded above already.
+      const taken = await storage.checkUsernameExists(username);
+      if (taken) {
+        return res.status(409).json({ error: "Username already taken. Please choose a different one." });
+      }
+
+      const updated = await storage.updateUser(userId, { username });
+      if (!updated) {
+        return res.status(500).json({ error: "Failed to update username" });
+      }
+
+      res.json({
+        success: true,
+        user: {
+          id: updated.id,
+          username: updated.username,
+          email: updated.email,
+          role: updated.role,
+        },
+      });
+    } catch (error) {
+      console.error("Apple choose-username error:", error);
+      res.status(500).json({ error: "Failed to update username" });
+    }
+  });
+
   router.post("/auth/apple/link", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
