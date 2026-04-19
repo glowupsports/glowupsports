@@ -824,6 +824,10 @@ export default function PlayerBookingWizard({
   // SLIDE 1: How to Browse (by time or by coach)
   const renderBrowseModeSlide = () => (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.slideScrollContent}
+      >
       <Text style={styles.slideSubtitle}>How would you like to find a session?</Text>
       
       <View style={styles.browseModeGrid}>
@@ -910,6 +914,7 @@ export default function PlayerBookingWizard({
           </LinearGradient>
         </Pressable>
       </View>
+      </ScrollView>
     </Animated.View>
   );
 
@@ -944,8 +949,6 @@ export default function PlayerBookingWizard({
 
     return (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
-        <Text style={styles.slideSubtitle}>Pick a court to play on</Text>
-
         {academyCourtsLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={GlowColors.primary} />
@@ -953,11 +956,15 @@ export default function PlayerBookingWizard({
           </View>
         ) : academyCourts.length === 0 ? (
           <View style={styles.emptyCoachesContainer}>
-            <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyCoachesText}>No courts available</Text>
+            <Ionicons name="tennisball-outline" size={56} color={Colors.dark.textMuted} />
+            <Text style={[styles.emptyCoachesText, { fontWeight: "600", marginTop: Spacing.sm }]}>No courts available</Text>
+            <Text style={[styles.emptyCoachesText, { fontSize: 13, textAlign: "center", paddingHorizontal: Spacing.xl }]}>
+              Your academy hasn't added any courts yet. Try Browse by Time or Choose Coach instead.
+            </Text>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.xl * 2 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.slideScrollContent}>
+            <Text style={styles.slideSubtitle}>Pick a court to play on</Text>
             {groups.map((group, gi) => (
               <View key={gi} style={{ marginBottom: Spacing.lg }}>
                 <Text style={styles.sessionSectionTitle}>{group.locationName}</Text>
@@ -1489,7 +1496,11 @@ export default function PlayerBookingWizard({
   // SLIDE 3: Details
   const renderDetailsSlide = () => {
     const sessionInfo = selectedSlot ?? selectedSession;
-    const typeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType);
+    // Fall back to a neutral card when sessionType is unknown so the slide
+    // never collapses to empty just because of a missing card definition.
+    const typeCard =
+      SESSION_TYPE_CARDS.find((t) => t.value === sessionType) ??
+      SESSION_TYPE_CARDS[0];
 
     const inner = (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
@@ -1497,10 +1508,22 @@ export default function PlayerBookingWizard({
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Spacing.xl * 4 }}
+          contentContainerStyle={styles.slideScrollContent}
           bottomOffset={120}
         >
           <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
+
+          {/* Placeholder when no session has been picked — keeps the slide
+              from looking empty if the user somehow lands here without a slot. */}
+          {!sessionInfo ? (
+            <View style={[styles.emptyCoachesContainer, { paddingVertical: Spacing.lg, marginBottom: Spacing.lg }]}>
+              <Ionicons name="alert-circle-outline" size={40} color={Colors.dark.textMuted} />
+              <Text style={[styles.emptyCoachesText, { fontWeight: "600" }]}>No session selected</Text>
+              <Text style={[styles.emptyCoachesText, { fontSize: 13, textAlign: "center", paddingHorizontal: Spacing.xl }]}>
+                Tap Back and pick a time to continue. You can still leave a note for your coach below.
+              </Text>
+            </View>
+          ) : null}
 
           {/* Booking Summary Card */}
           {sessionInfo && typeCard ? (
@@ -2113,6 +2136,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   slideContent: {
     flex: 1,
+  },
+  slideScrollContent: {
+    paddingBottom: Spacing.xl * 5,
+    flexGrow: 1,
   },
   slideSubtitle: {
     fontSize: 16,

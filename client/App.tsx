@@ -45,6 +45,7 @@ if (SENTRY_DSN) {
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
+import { getEnv } from "@/lib/env";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -76,7 +77,9 @@ function KeyboardWrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(NativeKeyboardProvider, null, children);
 }
 
-const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
+// Use getEnv() so we get the production-fallback domain when EXPO_PUBLIC_DOMAIN
+// is missing in a built app (otherwise deep-link prefixes silently drop).
+const DOMAIN = getEnv().EXPO_PUBLIC_DOMAIN || undefined;
 
 const GROUP_PATH_RE = /^group\/([a-zA-Z0-9\-_]+)$/;
 
