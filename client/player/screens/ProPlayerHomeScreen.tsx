@@ -253,95 +253,7 @@ const wStyles = StyleSheet.create({
   },
 });
 
-function AICoachEntryCard() {
-  const navigation = useNavigation<any>();
-
-  const { data: aiStatus } = useQuery<{
-    isPro: boolean;
-    isCoach: boolean;
-    callCount: number;
-    limit: number;
-  }>({
-    queryKey: ["/api/ai-pro/status"],
-    staleTime: 60 * 1000,
-    retry: false,
-  });
-
-  const { data: aiCoachContext } = useQuery<{
-    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
-  }>({
-    queryKey: ["/api/player/me/ai-coach/context"],
-    staleTime: 60 * 1000,
-  });
-
-  const { data: weeklyDigest } = useQuery<{
-    data: { focusArea?: string } | null;
-  } | null>({
-    queryKey: ["/api/player/me/weekly-digest"],
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const layers = aiCoachContext?.glowMirrorLayers;
-  const activeCount = layers
-    ? [layers.sessionCheckins, layers.monthlyVoice, layers.perceptionGaps].filter(Boolean).length
-    : 0;
-  const focusPreview = weeklyDigest?.data?.focusArea;
-  const isNearLimit = aiStatus && aiStatus.limit > 0 && aiStatus.callCount / aiStatus.limit >= 0.9;
-
-  return (
-    <Pressable
-      style={aiCardStyles.wrapper}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate("PlayerAICoach");
-      }}
-    >
-      <LinearGradient
-        colors={["rgba(200,255,61,0.12)", "rgba(167,139,250,0.08)", "rgba(0,229,255,0.06)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={aiCardStyles.gradientBorder}
-      >
-        <View style={aiCardStyles.card}>
-          <View style={aiCardStyles.topRow}>
-            <View style={aiCardStyles.left}>
-              <View style={aiCardStyles.iconWrap}>
-                <Ionicons name="sparkles" size={18} color={Colors.dark.buttonText} />
-              </View>
-              <View style={aiCardStyles.textWrap}>
-                <Text style={aiCardStyles.title}>AI Coach</Text>
-                <Text style={aiCardStyles.sub}>Ask about your game, progress and strategy</Text>
-              </View>
-            </View>
-            <View style={aiCardStyles.right}>
-              <View style={aiCardStyles.layersBadge}>
-                <View style={[aiCardStyles.layersDot, { backgroundColor: activeCount > 0 ? GlowColors.primary : Colors.dark.textMuted }]} />
-                <Text style={aiCardStyles.layersBadgeText}>{activeCount}/3 active</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-            </View>
-          </View>
-          {focusPreview ? (
-            <View style={aiCardStyles.focusRow}>
-              <Ionicons name="flag" size={11} color="#8B5CF6" />
-              <Text style={aiCardStyles.focusText} numberOfLines={1}>{focusPreview}</Text>
-            </View>
-          ) : null}
-          {isNearLimit && aiStatus ? (
-            <View style={aiCardStyles.limitRow}>
-              <Ionicons name="warning-outline" size={11} color={Colors.dark.error} />
-              <Text style={aiCardStyles.limitText}>
-                {Math.max(aiStatus.limit - aiStatus.callCount, 0)} messages left this month
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </LinearGradient>
-    </Pressable>
-  );
-}
-
-const aiCardStyles = StyleSheet.create({
+const _unusedAiCardStyles = StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg + 1,
@@ -709,6 +621,725 @@ function MiniTile({
     </Pressable>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unified IMPROVE card — AI Coach (top) + Tennis IQ / Quest (2 cols) + Spotlight (bottom)
+// All interactive elements are SIBLING Pressables, never nested. Replaces the
+// old AICoachEntryCard + MiniTile row, including the buggy nested-Pressable
+// inside SpotlightMiniTile that caused a "<button> cannot contain a nested
+// <button>" white screen on web.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TENNIS_IQ_SCORE_KEY_INLINE = "@glow_tennis_iq_score";
+
+interface IQQuestionInline {
+  q: string;
+  opts: string[];
+  correct: string;
+  explanation: string;
+}
+
+function IQQuizModal({
+  visible,
+  onClose,
+  onComplete,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onComplete: (score: number) => void;
+}) {
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+
+  const { data: quizData, isLoading: quizLoading } = useQuery<{ questions: IQQuestionInline[] }>({
+    queryKey: ["/api/quiz/tennis-iq"],
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+  const questions = quizData?.questions ?? [];
+
+  // Reset internal state whenever the modal is opened.
+  useEffect(() => {
+    if (visible) {
+      setCurrentQ(0);
+      setAnswers([]);
+      setSelectedAnswer(null);
+    }
+  }, [visible]);
+
+  const handleSelectAnswer = (answer: string) => {
+    if (selectedAnswer !== null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedAnswer(answer);
+  };
+
+  const handleNext = () => {
+    if (selectedAnswer === null || questions.length === 0) return;
+    const newAnswers = [...answers, selectedAnswer];
+    setAnswers(newAnswers);
+    setSelectedAnswer(null);
+    if (currentQ < questions.length - 1) {
+      setCurrentQ((prev) => prev + 1);
+    } else {
+      const finalScore = newAnswers.filter((a, i) => a === questions[i].correct).length;
+      onComplete(finalScore);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const quizComplete = questions.length > 0 && answers.length === questions.length;
+  const liveScore = answers.filter((a, i) => a === questions[i]?.correct).length;
+  const currentQuestion = questions[currentQ];
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={iqCardStyles.modalOverlay}>
+        <View style={iqCardStyles.modalSheet}>
+          <View style={iqCardStyles.modalHandle} />
+          <Text style={iqCardStyles.modalTitle}>Tennis IQ Quiz</Text>
+
+          {quizLoading ? (
+            <View style={iqCardStyles.loadingWrap}>
+              <ActivityIndicator color="#FFD700" size="small" />
+              <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
+            </View>
+          ) : quizComplete ? (
+            <View style={iqCardStyles.resultWrap}>
+              <View style={iqCardStyles.resultCircle}>
+                <Text style={iqCardStyles.resultScore}>{liveScore}/{questions.length}</Text>
+              </View>
+              <Text style={iqCardStyles.resultLabel}>
+                {liveScore === questions.length
+                  ? "Perfect score!"
+                  : liveScore >= questions.length * 0.6
+                  ? "Well done!"
+                  : "Keep learning!"}
+              </Text>
+              <Pressable style={iqCardStyles.doneBtn} onPress={onClose}>
+                <Text style={iqCardStyles.doneBtnText}>Done</Text>
+              </Pressable>
+            </View>
+          ) : currentQuestion ? (
+            <View style={iqCardStyles.quizBody}>
+              <Text style={iqCardStyles.questionNum}>Question {currentQ + 1} of {questions.length}</Text>
+              <Text style={iqCardStyles.question}>{currentQuestion.q}</Text>
+              {currentQuestion.opts.map((opt) => {
+                const isSelected = selectedAnswer === opt;
+                const revealed = selectedAnswer !== null;
+                const isCorrect = opt === currentQuestion.correct;
+                let optStyle = iqCardStyles.optionBtn;
+                if (revealed && isCorrect) optStyle = iqCardStyles.optionCorrect;
+                else if (revealed && isSelected && !isCorrect) optStyle = iqCardStyles.optionWrong;
+                else if (revealed) optStyle = iqCardStyles.optionLocked;
+                return (
+                  <Pressable key={opt} style={optStyle} onPress={() => handleSelectAnswer(opt)}>
+                    <Text style={[iqCardStyles.optionText, revealed && isCorrect && { color: "#22c55e", fontWeight: "700" }, revealed && isSelected && !isCorrect && { color: "#f87171" }]}>{opt}</Text>
+                  </Pressable>
+                );
+              })}
+              {selectedAnswer !== null ? (
+                <>
+                  <Text style={iqCardStyles.explanation}>{currentQuestion.explanation}</Text>
+                  <Pressable style={iqCardStyles.nextBtn} onPress={handleNext}>
+                    <Text style={iqCardStyles.nextBtnText}>
+                      {currentQ < questions.length - 1 ? "Next Question" : "See Results"}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function UnifiedImproveCard({
+  quest,
+  questType,
+  onQuestPress,
+  onSpotlightNominate,
+  onSpotlightDetails,
+}: {
+  quest: Quest | null;
+  questType: "daily" | "weekly" | null;
+  onQuestPress: () => void;
+  onSpotlightNominate: () => void;
+  onSpotlightDetails: () => void;
+}) {
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
+
+  // ── AI Coach data
+  const { data: aiStatus } = useQuery<{
+    isPro: boolean;
+    isCoach: boolean;
+    callCount: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/ai-pro/status"],
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  const { data: aiCoachContext } = useQuery<{
+    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
+  }>({
+    queryKey: ["/api/player/me/ai-coach/context"],
+    staleTime: 60 * 1000,
+  });
+  const { data: weeklyDigest } = useQuery<{ data: { focusArea?: string } | null } | null>({
+    queryKey: ["/api/player/me/weekly-digest"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const layers = aiCoachContext?.glowMirrorLayers;
+  const activeCount = layers
+    ? [layers.sessionCheckins, layers.monthlyVoice, layers.perceptionGaps].filter(Boolean).length
+    : 0;
+  const focusPreview = weeklyDigest?.data?.focusArea;
+  const isNearLimit = aiStatus && aiStatus.limit > 0 && aiStatus.callCount / aiStatus.limit >= 0.9;
+
+  // ── Tennis IQ
+  const [iqScore, setIqScore] = useState<number | null>(null);
+  const [iqLoaded, setIqLoaded] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const { data: profileData } = useQuery<{ player: { quizScore?: number | null } | null }>({
+    queryKey: ["/api/player/me/profile"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: quizData } = useQuery<{ questions: IQQuestionInline[] }>({
+    queryKey: ["/api/quiz/tennis-iq"],
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+  const totalIQ = quizData?.questions?.length || 5;
+
+  useEffect(() => {
+    AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY_INLINE).then((val) => {
+      const serverScore = profileData?.player?.quizScore ?? null;
+      if (serverScore !== null && serverScore !== undefined) {
+        setIqScore(serverScore);
+        AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY_INLINE, String(serverScore));
+      } else if (val !== null) {
+        setIqScore(parseInt(val, 10));
+      }
+      setIqLoaded(true);
+    });
+  }, [profileData]);
+
+  // ── Spotlight
+  const { data: currentWeek } = useQuery<SpotlightCurrentWeekMini>({
+    queryKey: ["/api/player/spotlight/current-week"],
+    enabled: !!user?.playerId,
+  });
+  const { data: weeklyWinner } = useQuery<{ winner: SpotlightWeeklyWinnerMini | null }>({
+    queryKey: ["/api/player/spotlight/weekly-winner"],
+    enabled: !!user?.playerId,
+  });
+  const hasVoted = !!currentWeek?.myNomination;
+  const topNominee = currentWeek?.nominations?.[0] ?? null;
+  const lastWinner = weeklyWinner?.winner ?? null;
+  const daysRemaining = currentWeek?.daysRemaining;
+  const chipText =
+    daysRemaining === undefined ? null : daysRemaining <= 0 ? "Ends today!" : `${daysRemaining}d left`;
+
+  const stateA = !!topNominee && !hasVoted;
+  const stateB = hasVoted;
+  const stateC = !stateA && !stateB;
+
+  const spotPlayer: { profilePhotoUrl: string | null; playerName: string } | null =
+    (stateA || stateB) && topNominee
+      ? topNominee
+      : stateC && lastWinner
+      ? lastWinner
+      : null;
+  const spotName = spotPlayer ? spotPlayer.playerName.split(" ")[0] : null;
+  const spotSecondary = stateA && topNominee
+    ? `${topNominee.totalVotes} votes`
+    : stateB
+    ? "You voted this week"
+    : stateC && lastWinner
+    ? "Last week's winner"
+    : "Vote for your favourite player";
+  const ctaLabel = stateA ? "Vote" : stateB ? "Voted" : stateC && !lastWinner ? "Nominate" : "View";
+
+  const handleSpotlightCTA = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (stateA || (stateC && !lastWinner)) onSpotlightNominate();
+    else onSpotlightDetails();
+  };
+  const handleSpotlightRow = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (stateC && !lastWinner) onSpotlightNominate();
+    else onSpotlightDetails();
+  };
+
+  const questProgress = quest && quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
+
+  return (
+    <View style={u.wrapper}>
+      <LinearGradient
+        colors={["rgba(200,255,61,0.12)", "rgba(167,139,250,0.08)", "rgba(0,229,255,0.06)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={u.gradientBorder}
+      >
+        <View style={u.card}>
+          {/* AI COACH TOP SECTION */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open AI Coach"
+            style={({ pressed }) => [u.aiSection, pressed && u.pressed]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("PlayerAICoach");
+            }}
+          >
+            <View style={u.aiTopRow}>
+              <View style={u.aiLeft}>
+                <View style={u.aiIconWrap}>
+                  <Ionicons name="sparkles" size={18} color={Colors.dark.buttonText} />
+                </View>
+                <View style={u.aiTextWrap}>
+                  <Text style={u.aiTitle}>AI Coach</Text>
+                  <Text style={u.aiSub} numberOfLines={1}>
+                    Ask about your game, progress and strategy
+                  </Text>
+                </View>
+              </View>
+              <View style={u.aiRight}>
+                <View style={u.layersBadge}>
+                  <View
+                    style={[
+                      u.layersDot,
+                      { backgroundColor: activeCount > 0 ? GlowColors.primary : Colors.dark.textMuted },
+                    ]}
+                  />
+                  <Text style={u.layersBadgeText}>{activeCount}/3</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+              </View>
+            </View>
+            {focusPreview ? (
+              <View style={u.focusRow}>
+                <Ionicons name="flag" size={11} color="#8B5CF6" />
+                <Text style={u.focusText} numberOfLines={1}>
+                  {focusPreview}
+                </Text>
+              </View>
+            ) : null}
+            {isNearLimit && aiStatus ? (
+              <View style={u.limitRow}>
+                <Ionicons name="warning-outline" size={11} color={Colors.dark.error} />
+                <Text style={u.limitText}>
+                  {Math.max(aiStatus.limit - aiStatus.callCount, 0)} messages left this month
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+
+          <View style={u.hDivider} />
+
+          {/* IQ + QUEST TWO-COLUMN ROW */}
+          <View style={u.middleRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tennis IQ quiz"
+              style={({ pressed }) => [u.col, pressed && u.pressed]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                if (!iqLoaded) return;
+                setShowQuiz(true);
+              }}
+            >
+              <View style={u.colHeader}>
+                <Ionicons name="bulb-outline" size={11} color="#FFD700" />
+                <Text style={[u.colLabel, { color: "#FFD700" }]} numberOfLines={1}>
+                  TENNIS IQ
+                </Text>
+              </View>
+              <Text style={u.iqScore} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {iqScore !== null ? `${iqScore}/${totalIQ}` : "—"}
+              </Text>
+              <View style={u.dotsRow}>
+                {Array.from({ length: totalIQ }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      u.dot,
+                      iqScore !== null && i < iqScore
+                        ? { backgroundColor: "#FFD700" }
+                        : { backgroundColor: "rgba(255,255,255,0.15)" },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={u.colFooter} numberOfLines={1}>
+                {iqScore !== null ? "Tap to retake" : "Take quiz"}
+              </Text>
+            </Pressable>
+
+            <View style={u.vDivider} />
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={quest ? `Quest ${quest.name}` : "View quests"}
+              style={({ pressed }) => [u.col, pressed && u.pressed]}
+              onPress={onQuestPress}
+            >
+              <View style={u.colHeader}>
+                <Ionicons name={quest ? "flame" : "flame-outline"} size={11} color={GlowColors.orange} />
+                <Text style={[u.colLabel, { color: GlowColors.orange }]} numberOfLines={1}>
+                  {quest ? (questType === "weekly" ? "WEEKLY" : "DAILY") : "QUEST"}
+                </Text>
+              </View>
+              {quest ? (
+                <>
+                  <Text style={u.questName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+                    {quest.name}
+                  </Text>
+                  <View style={u.progressBar}>
+                    <View
+                      style={[
+                        u.progressFill,
+                        {
+                          width: `${Math.max(questProgress * 100, 2)}%` as DimensionValue,
+                          backgroundColor: quest.iconColor || GlowColors.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={u.questFooterRow}>
+                    <Text style={u.progressText} numberOfLines={1}>
+                      {quest.currentProgress}/{quest.targetProgress}
+                    </Text>
+                    <View style={u.xpRow}>
+                      <Ionicons name="flash" size={10} color="#FFD700" />
+                      <Text style={u.xpText} numberOfLines={1}>
+                        +{quest.xpReward ?? 0} XP
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={u.questEmpty} numberOfLines={2}>
+                    No active quest
+                  </Text>
+                  <Text style={u.colFooter} numberOfLines={1}>
+                    View all
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+
+          <View style={u.hDivider} />
+
+          {/* SPOTLIGHT FULL-WIDTH ROW — main row + CTA are SIBLING Pressables */}
+          <View style={u.spotWrap}>
+            <View style={u.spotHeaderRow}>
+              <Ionicons name="trophy" size={11} color="#FFD700" />
+              <Text style={[u.colLabel, { color: "#FFD700" }]} numberOfLines={1}>
+                PLAYER OF THE WEEK
+              </Text>
+              {chipText ? (
+                <View style={u.urgencyChip}>
+                  <Text style={u.urgencyChipText} numberOfLines={1}>
+                    {chipText}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={u.spotRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open spotlight details"
+                style={({ pressed }) => [u.spotMain, pressed && u.pressed]}
+                onPress={handleSpotlightRow}
+              >
+                {spotPlayer ? (
+                  <SpotlightTileAvatar photoUrl={spotPlayer.profilePhotoUrl} />
+                ) : (
+                  <View style={u.spotAvatarFallback}>
+                    <Ionicons name="person" size={14} color={Colors.dark.textMuted} />
+                  </View>
+                )}
+                <View style={u.spotTextWrap}>
+                  <Text style={u.spotName} numberOfLines={1}>
+                    {spotName ?? "Be the first to nominate"}
+                  </Text>
+                  <Text style={u.spotSecondary} numberOfLines={1}>
+                    {spotSecondary}
+                  </Text>
+                </View>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={ctaLabel}
+                style={({ pressed }) => [
+                  u.spotCTA,
+                  stateB && u.spotCTAGhost,
+                  pressed && u.pressed,
+                ]}
+                onPress={handleSpotlightCTA}
+              >
+                <Ionicons
+                  name={stateB ? "checkmark-circle" : "star"}
+                  size={12}
+                  color={stateB ? GlowColors.primary : Colors.dark.buttonText}
+                />
+                <Text style={[u.spotCTAText, stateB && { color: GlowColors.primary }]}>
+                  {ctaLabel}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <IQQuizModal
+        visible={showQuiz}
+        onClose={() => setShowQuiz(false)}
+        onComplete={(s) => {
+          setIqScore(s);
+          AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY_INLINE, String(s));
+          apiRequest("PATCH", "/api/player/me/info", { quizScore: s }).catch(() => {});
+        }}
+      />
+    </View>
+  );
+}
+
+const u = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg + 1,
+    overflow: "hidden",
+  },
+  gradientBorder: {
+    padding: 1.5,
+    borderRadius: BorderRadius.lg + 1,
+  },
+  card: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+  hDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginHorizontal: Spacing.md,
+  },
+  // AI section
+  aiSection: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.xs,
+  },
+  aiTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  aiLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  aiIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: GlowColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  aiTextWrap: { flex: 1 },
+  aiTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
+  aiSub: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 1 },
+  aiRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    flexShrink: 0,
+  },
+  layersBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  layersDot: { width: 6, height: 6, borderRadius: 3 },
+  layersBadgeText: { fontSize: 10, fontWeight: "600", color: Colors.dark.textMuted },
+  focusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(139,92,246,0.1)",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+  },
+  focusText: { flex: 1, fontSize: 11, color: Colors.dark.textSubtle, fontStyle: "italic" },
+  limitRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  limitText: { fontSize: 11, color: Colors.dark.error, fontWeight: "600" },
+  // Middle row (IQ + Quest)
+  middleRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  vDivider: {
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginVertical: Spacing.sm,
+  },
+  col: {
+    flex: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: 6,
+    minWidth: 0,
+  },
+  colHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  colLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    flexShrink: 1,
+  },
+  colFooter: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  iqScore: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    lineHeight: 26,
+  },
+  dotsRow: { flexDirection: "row", gap: 4, flexWrap: "wrap" },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  questName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    lineHeight: 15,
+    minHeight: 30,
+  },
+  questEmpty: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+    minHeight: 30,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: { height: "100%", borderRadius: 2 },
+  progressText: {
+    fontSize: 10,
+    color: Colors.dark.textSubtle,
+    fontWeight: "700",
+  },
+  questFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  xpRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  xpText: { fontSize: 10, color: "#FFD700", fontWeight: "700" },
+  // Spotlight
+  spotWrap: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: 8,
+  },
+  spotHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  spotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  spotMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    minWidth: 0,
+  },
+  spotAvatarFallback: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,215,0,0.4)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  spotTextWrap: { flex: 1, minWidth: 0 },
+  spotName: { fontSize: 13, fontWeight: "700", color: Colors.dark.text },
+  spotSecondary: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 1 },
+  spotCTA: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFD700",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.full,
+    flexShrink: 0,
+  },
+  spotCTAGhost: {
+    backgroundColor: "rgba(200,255,61,0.12)",
+    borderWidth: 1,
+    borderColor: GlowColors.primary,
+  },
+  spotCTAText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.buttonText,
+  },
+  urgencyChip: {
+    backgroundColor: "rgba(255,215,0,0.18)",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.35)",
+    marginLeft: "auto",
+  },
+  urgencyChipText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFD700",
+    letterSpacing: 0.3,
+  },
+});
 
 function PlayerHomeContent() {
   const { t } = useTranslation();
@@ -1191,9 +1822,6 @@ function PlayerHomeContent() {
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
         {!isGuest ? <UpcomingProviderSessionCard /> : null}
 
-        {/* AI COACH ENTRY - Below Court Time, above PLAY */}
-        {!isGuest ? <AICoachEntryCard /> : null}
-
         {/* ── PLAY SECTION ── Book, find players, join matches */}
         <View style={styles.playDivider}>
           <View style={styles.playDividerLeft}>
@@ -1207,8 +1835,8 @@ function PlayerHomeContent() {
 
         <PlayersNearYouRow />
 
-        {/* ── IMPROVE SECTION ── shown only when player has real content: feedback received OR skill progress data (ball level assigned) */}
-        {secondaryReady && !isGuest && (!!effectiveData?.lastFeedback || !!effectiveData?.player?.ballLevel) ? (
+        {/* ── IMPROVE SECTION ── always shown for logged-in players (AI Coach is the entry point) */}
+        {secondaryReady && !isGuest ? (
           <>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
@@ -1219,26 +1847,24 @@ function PlayerHomeContent() {
               <WeeklyAIFocusCard playerId={player.id} />
             ) : null}
 
-            <View style={improveTilesRowStyles.row}>
-              <TennisIQMiniTile />
-              <QuestMiniTile
-                quest={activeQuest}
-                questType={activeQuestType}
-                onPress={() => {
-                  track("home:quest_tracker");
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigateToTab("Growth", { screen: "QuestsMain" });
-                }}
-              />
-              <SpotlightMiniTile
-                onNominate={() => setShowSpotlightNomination(true)}
-                onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
-              />
-            </View>
+            <UnifiedImproveCard
+              quest={activeQuest}
+              questType={activeQuestType}
+              onQuestPress={() => {
+                track("home:quest_tracker");
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigateToTab("Growth", { screen: "QuestsMain" });
+              }}
+              onSpotlightNominate={() => setShowSpotlightNomination(true)}
+              onSpotlightDetails={() => navigation.navigate("SpotlightDetail" as never)}
+            />
 
-            <RecentFeedbackCard />
-
-            <UpcomingAppointmentCard />
+            {(!!effectiveData?.lastFeedback || !!effectiveData?.player?.ballLevel) ? (
+              <>
+                <RecentFeedbackCard />
+                <UpcomingAppointmentCard />
+              </>
+            ) : null}
           </>
         ) : null}
 
