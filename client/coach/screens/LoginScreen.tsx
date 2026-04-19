@@ -976,7 +976,19 @@ export default function LoginScreen() {
     try {
       setIsSubmitting(true);
       const result = await requestPasswordReset(resetIdentifier.trim());
-      if (result.success) {
+      if (result.success && result.noEmail) {
+        // Account exists but has no email on file (only surfaced for username
+        // lookups, never for email lookups, so we don't leak existence).
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          t("auth.resetNoEmailTitle", { defaultValue: "No email on file" }),
+          result.message ||
+            t("auth.resetNoEmailMessage", {
+              defaultValue:
+                "This account doesn't have an email on file. Please contact your coach or academy admin to reset your password.",
+            }),
+        );
+      } else if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           t("auth.resetCodeSentTitle"),

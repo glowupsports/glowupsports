@@ -72,7 +72,7 @@ interface AuthContextType {
   loginAsGuest: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
-  requestPasswordReset: (identifier: string) => Promise<{ success: boolean; error?: string }>;
+  requestPasswordReset: (identifier: string) => Promise<{ success: boolean; error?: string; noEmail?: boolean; message?: string }>;
   resetPassword: (identifier: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   resetPasswordWithToken: (token: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -421,7 +421,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestPasswordReset = async (
     identifier: string,
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{ success: boolean; error?: string; noEmail?: boolean; message?: string }> => {
     try {
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/auth/forgot-password", apiUrl).toString(), {
@@ -433,7 +433,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok) {
         return { success: false, error: data.error || "Could not send reset code." };
       }
-      return { success: true };
+      return { success: true, noEmail: !!data?.noEmail, message: data?.message };
     } catch (error) {
       console.error("Forgot password error:", error);
       return { success: false, error: "Network error. Please try again." };
@@ -620,6 +620,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerPlayer,
         requestPasswordReset,
         resetPassword,
+        resetPasswordWithToken,
         logout,
         refreshAuth,
         isImpersonating,
