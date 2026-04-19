@@ -336,6 +336,7 @@ export default function CoachInviteRegistrationScreen({
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="none"
                 autoComplete="username"
+                textContentType="username"
               />
             </View>
             <Text style={styles.hintText}>Letters, numbers, and underscores only</Text>
@@ -352,6 +353,8 @@ export default function CoachInviteRegistrationScreen({
                 placeholder="Enter your full name"
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
               />
             </View>
           </View>
@@ -368,6 +371,8 @@ export default function CoachInviteRegistrationScreen({
                 placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
                 editable={!inviteData.invitedEmail}
               />
             </View>
@@ -389,6 +394,8 @@ export default function CoachInviteRegistrationScreen({
                 placeholder="At least 8 characters"
                 placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
@@ -411,6 +418,8 @@ export default function CoachInviteRegistrationScreen({
                 placeholder="Confirm your password"
                 placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
               />
             </View>
           </View>

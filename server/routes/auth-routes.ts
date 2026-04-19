@@ -55,6 +55,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
   import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified, sendPasswordResetEmail } from "../emailService";
   import crypto from "crypto";
+  import { verifyAppleIdentityToken } from "../utils/appleAuth";
+
+  // Per-identifier rate limit for password-reset endpoints. The IP-based
+  // `authLimiter` already applies; this adds defence-in-depth so that a
+  // single account can't be used to flood email or burn reset codes from
+  // many IPs.
+  const passwordResetByIdentifier = new Map<string, { count: number; resetAt: number }>();
+  function checkPasswordResetIdentifierLimit(identifier: string, max = 5, windowMs = 15 * 60 * 1000): boolean {
+    const key = identifier.toLowerCase();
+    const now = Date.now();
+    const entry = passwordResetByIdentifier.get(key);
+    if (!entry || entry.resetAt < now) {
+      passwordResetByIdentifier.set(key, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    if (entry.count >= max) return false;
+    entry.count += 1;
+    return true;
+  }
   const router = Router();
   function generateShortInviteCode(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -194,32 +213,49 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
   router.post("/auth/apple/login", authLimiter, async (req: Request, res: Response) => {
     try {
-      const { identityToken, user: appleUser, email: appleEmail } = req.body;
+      const { identityToken, user: appleUser } = req.body;
 
       if (!identityToken || !appleUser) {
         return res.status(400).json({ error: "Apple identity token and user identifier are required" });
       }
 
-      // Task #750: try to link to an existing account by email instead of
-      // returning APPLE_NOT_LINKED (and forcing a duplicate registration).
-      // Apple only shares the email on the very first sign-in, so the client
-      // forwards it whenever it has one.
+      // CRITICAL (Task #750): verify the identity token against Apple's JWKS
+      // before trusting *any* of its contents. The body's `appleUser` field is
+      // only accepted if it matches the verified `sub` claim — otherwise an
+      // attacker could submit any Apple user id to pivot into another account.
+      let claims;
+      try {
+        claims = await verifyAppleIdentityToken(identityToken);
+      } catch (err) {
+        console.warn("[AppleLogin] Identity token verification failed:", (err as Error).message);
+        return res.status(401).json({ error: "Apple identity token is invalid or expired" });
+      }
+      if (claims.sub !== appleUser) {
+        console.warn(`[AppleLogin] sub mismatch: token=${claims.sub} body=${appleUser}`);
+        return res.status(401).json({ error: "Apple identity token does not match user" });
+      }
+
+      // Use the email from the verified JWT only — never from the request body.
+      // Apple only includes `email` on the very first sign-in for an app.
+      const verifiedEmail = typeof claims.email === "string" ? claims.email.toLowerCase().trim() : null;
+      const emailVerified = claims.email_verified === true || claims.email_verified === "true";
+
       let existingUser = await storage.getUserByAppleId(appleUser);
       let linkedToExisting = false;
-      if (!existingUser && appleEmail) {
-        const normalizedEmail = String(appleEmail).toLowerCase().trim();
-        // Real Apple-shared email — privaterelay addresses are unique per app
-        // so they can never match a pre-existing user, but we still respect
-        // them in case the user originally signed up with one. Reject the
-        // `@appleid.local` stub email used by /auth/apple/register to avoid
-        // accidental collisions with previously orphaned stub accounts.
-        const isStub = normalizedEmail.endsWith("@appleid.local");
-        const candidate = !isStub ? await storage.getUserByEmail(normalizedEmail) : null;
+      if (!existingUser && verifiedEmail && emailVerified) {
+        // Reject Apple's privaterelay addresses (per-app, can never match an
+        // existing user) and our own `@appleid.local` stub used by
+        // /auth/apple/register, both of which would create false-positive links.
+        const isStub = verifiedEmail.endsWith("@appleid.local");
+        const isPrivateRelay = verifiedEmail.endsWith("@privaterelay.appleid.com");
+        const candidate = !isStub && !isPrivateRelay
+          ? await storage.getUserByEmail(verifiedEmail)
+          : null;
         if (candidate && !candidate.appleId && candidate.deleted !== true) {
           await storage.linkAppleId(candidate.id, appleUser);
           existingUser = { ...candidate, appleId: appleUser } as typeof candidate;
           linkedToExisting = true;
-          console.log(`[AppleLogin] Auto-linked Apple ID to existing user ${candidate.id} via email match`);
+          console.log(`[AppleLogin] Auto-linked Apple ID to existing user ${candidate.id} via verified email match`);
         }
       }
 
@@ -548,6 +584,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       }
       const identifier = parsed.data.identifier.toLowerCase();
 
+      // Per-identifier throttle (5 / 15 min) on top of IP-based authLimiter so
+      // an attacker can't burn email quota or codes by rotating IPs.
+      if (!checkPasswordResetIdentifierLimit(identifier)) {
+        // Still opaque — never leak whether the identifier exists.
+        return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
+      }
+
       // Try username first, fall back to email lookup
       let user = await storage.getUserByUsername(identifier);
       if (!user && identifier.includes("@")) {
@@ -609,6 +652,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       }
       const { code, newPassword } = parsed.data;
       const identifier = parsed.data.identifier.toLowerCase();
+
+      if (!checkPasswordResetIdentifierLimit(identifier, 10, 15 * 60 * 1000)) {
+        return res.status(429).json({ error: "Too many attempts. Please try again later." });
+      }
 
       const passwordCheck = validatePassword(newPassword);
       if (!passwordCheck.valid) {

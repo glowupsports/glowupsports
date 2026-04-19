@@ -210,6 +210,8 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                     placeholder="First name"
                     placeholderTextColor={Colors.dark.textMuted}
                     autoCapitalize="words"
+                    autoComplete="given-name"
+                    textContentType="givenName"
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -221,6 +223,8 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                     placeholder="Last name"
                     placeholderTextColor={Colors.dark.textMuted}
                     autoCapitalize="words"
+                    autoComplete="family-name"
+                    textContentType="familyName"
                   />
                 </View>
               </View>
@@ -235,6 +239,7 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
+                textContentType="emailAddress"
               />
 
               <Text style={styles.sectionLabel}>CREATE YOUR LOGIN</Text>
@@ -248,6 +253,7 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="none"
                 autoComplete="username"
+                textContentType="username"
               />
 
               <Text style={styles.inputLabel}>Password</Text>
@@ -260,6 +266,7 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                   placeholderTextColor={Colors.dark.textMuted}
                   secureTextEntry={!showPassword}
                   autoComplete="new-password"
+                  textContentType="newPassword"
                 />
                 <Pressable
                   style={styles.eyeBtn}

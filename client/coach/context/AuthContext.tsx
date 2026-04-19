@@ -60,7 +60,7 @@ interface AuthContextType {
   isGuest: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   loginWithToken: (token: string, user: AuthUser) => Promise<void>;
-  loginWithApple: (identityToken: string, appleUser: string) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }>;
+  loginWithApple: (identityToken: string, appleUser: string, email?: string | null) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser; linkedToExisting?: boolean }>;
   registerWithApple: (data: {
     identityToken: string;
     appleUser: string;

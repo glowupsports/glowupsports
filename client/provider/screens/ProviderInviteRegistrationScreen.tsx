@@ -200,6 +200,7 @@ export default function ProviderInviteRegistrationScreen({
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="none"
                 autoComplete="username"
+                textContentType="username"
               />
             </View>
             <Text style={styles.hint}>Letters, numbers, and underscores only</Text>
@@ -216,6 +217,8 @@ export default function ProviderInviteRegistrationScreen({
                 placeholder="Your name or business name"
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
               />
             </View>
           </View>
@@ -234,6 +237,7 @@ export default function ProviderInviteRegistrationScreen({
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="email"
+                textContentType="emailAddress"
                 editable={!inviteData.invitedEmail}
               />
             </View>
@@ -253,6 +257,8 @@ export default function ProviderInviteRegistrationScreen({
                 placeholder="At least 8 characters"
                 placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={Colors.dark.textMuted} />
@@ -271,6 +277,8 @@ export default function ProviderInviteRegistrationScreen({
                 placeholder="Confirm your password"
                 placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
               />
             </View>
           </View>
