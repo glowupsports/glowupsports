@@ -301,47 +301,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // If caller is a parent with no children yet, still expose family (single-member)
         // so the Family Lobby Add Child flow is accessible
 
-        // Get outstanding balances for each player
-        const memberData = await Promise.all(
-          familyMembers.map(async (member) => {
-            // Get next session - skip for now to get basic functionality working
-            // TODO: Implement proper session query after fixing SQL template issues
-            const nextSessionResult: any[] = [];
+        // Task #736 — batch outstanding-balance lookup for all family members
+        // in a single grouped query (was N+1: one query per member).
+        const memberIds = familyMembers.map((m) => m.id);
+        const outstandingByPlayerId = new Map<string, number>();
+        if (memberIds.length > 0) {
+          type NetNegRow = { player_id: string; net_neg: string | number | null };
+          const balanceRows = await db.execute(sql`
+            SELECT player_id, COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
+            FROM player_credit_balance
+            WHERE player_id = ANY(${memberIds}::text[])
+            GROUP BY player_id
+          `);
+          for (const row of balanceRows.rows as NetNegRow[]) {
+            const netNeg = Number(row.net_neg ?? 0);
+            outstandingByPlayerId.set(row.player_id, netNeg < 0 ? Math.abs(netNeg) : 0);
+          }
+        }
 
-            const nextSession = nextSessionResult[0]
-              ? {
-                  date: nextSessionResult[0].date,
-                  type: nextSessionResult[0].sessionType || "training",
-                }
-              : null;
-
-            // Task #681 Phase 3 — outstanding balance from V2 signed balance.
-            // `player_credit_balance.credits` is signed: negative => owed.
-            type NetNegRow = { net_neg: string | number | null };
-            const balanceRows = await db.execute(sql`
-              SELECT COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
-              FROM player_credit_balance
-              WHERE player_id = ${member.id}
-            `);
-            const netNegRow = (balanceRows.rows as NetNegRow[])[0];
-            const netNeg = Number(netNegRow?.net_neg ?? 0);
-            const outstandingBalance = netNeg < 0 ? Math.abs(netNeg) : 0;
-
-            return {
-              id: member.id,
-              name: member.name,
-              avatarUrl: member.profilePhotoUrl,
-              level: member.level || 1,
-              xp: member.totalXp || 0,
-              ballLevel: member.ballLevel,
-              nextSession,
-              outstandingBalance,
-              lastActiveAt: member.lastActiveAt?.toISOString() || null,
-              chatEnabled: member.chatEnabled ?? null,
-              communityEnabled: member.communityEnabled ?? null,
-            };
-          }),
-        );
+        const memberData = familyMembers.map((member) => ({
+          id: member.id,
+          name: member.name,
+          avatarUrl: member.profilePhotoUrl,
+          level: member.level || 1,
+          xp: member.totalXp || 0,
+          ballLevel: member.ballLevel,
+          nextSession: null,
+          outstandingBalance: outstandingByPlayerId.get(member.id) ?? 0,
+          lastActiveAt: member.lastActiveAt?.toISOString() || null,
+          chatEnabled: member.chatEnabled ?? null,
+          communityEnabled: member.communityEnabled ?? null,
+        }));
 
         const outstandingTotal = memberData.reduce(
           (sum, m) => sum + m.outstandingBalance,

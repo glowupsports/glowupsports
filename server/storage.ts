@@ -6131,68 +6131,39 @@ export const storage = {
 
   // Unread count
   async getUnreadCountForCoach(coachId: string): Promise<number> {
-    const participations = await db
-      .select()
-      .from(conversationParticipants)
-      .where(
-        and(
-          eq(conversationParticipants.coachId, coachId),
-          eq(conversationParticipants.participantType, "coach")
-        )
-      );
-    
-    let unreadCount = 0;
-    
-    for (const p of participations) {
-      const lastRead = p.lastReadAt || new Date(0);
-      const unreadMessages = await db
-        .select()
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, p.conversationId),
-            gt(messages.createdAt, lastRead),
-            or(isNull(messages.senderCoachId), ne(messages.senderCoachId, coachId)),
-            eq(messages.isDeleted, false)
-          )
-        );
-      unreadCount += unreadMessages.length;
-    }
-    
-    return unreadCount;
+    // Task #736 — single grouped query instead of N+1 per conversation.
+    type Row = { total: string | number | null };
+    const rows = await db.execute(sql`
+      SELECT COUNT(*)::int AS total
+      FROM ${messages} m
+      INNER JOIN ${conversationParticipants} cp
+        ON cp.conversation_id = m.conversation_id
+      WHERE cp.coach_id = ${coachId}
+        AND cp.participant_type = 'coach'
+        AND m.created_at > COALESCE(cp.last_read_at, '1970-01-01'::timestamptz)
+        AND (m.sender_coach_id IS NULL OR m.sender_coach_id <> ${coachId})
+        AND m.is_deleted = false
+    `);
+    const row = (rows.rows as Row[])[0];
+    return Number(row?.total ?? 0);
   },
 
   async getUnreadCountForPlayer(playerId: string): Promise<number> {
-    const participations = await db
-      .select()
-      .from(conversationParticipants)
-      .where(
-        and(
-          eq(conversationParticipants.playerId, playerId),
-          eq(conversationParticipants.participantType, "player")
-        )
-      );
-    
-    let unreadCount = 0;
-    
-    for (const p of participations) {
-      const lastRead = p.lastReadAt || new Date(0);
-      const unreadMessages = await db
-        .select()
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, p.conversationId),
-            gt(messages.createdAt, lastRead),
-            // Null-safe: count messages not sent by this player (provider/system/coach msgs have senderPlayerId=null)
-            or(isNull(messages.senderPlayerId), ne(messages.senderPlayerId, playerId)),
-            eq(messages.isDeleted, false)
-          )
-        );
-      unreadCount += unreadMessages.length;
-    }
-    
-    return unreadCount;
+    // Task #736 — single grouped query instead of N+1 per conversation.
+    type Row = { total: string | number | null };
+    const rows = await db.execute(sql`
+      SELECT COUNT(*)::int AS total
+      FROM ${messages} m
+      INNER JOIN ${conversationParticipants} cp
+        ON cp.conversation_id = m.conversation_id
+      WHERE cp.player_id = ${playerId}
+        AND cp.participant_type = 'player'
+        AND m.created_at > COALESCE(cp.last_read_at, '1970-01-01'::timestamptz)
+        AND (m.sender_player_id IS NULL OR m.sender_player_id <> ${playerId})
+        AND m.is_deleted = false
+    `);
+    const row = (rows.rows as Row[])[0];
+    return Number(row?.total ?? 0);
   },
 
   // ==================== PLAYER CHAT STORAGE FUNCTIONS ====================
@@ -6370,36 +6341,23 @@ export const storage = {
   },
 
   async getPlayerUnreadCount(playerId: string, academyId: string): Promise<number> {
-    const participations = await db
-      .select()
-      .from(conversationParticipants)
-      .where(
-        and(
-          eq(conversationParticipants.playerId, playerId),
-          eq(conversationParticipants.participantType, "player")
-        )
-      );
-    
-    let unreadCount = 0;
-    
-    for (const p of participations) {
-      const lastRead = p.lastReadAt || new Date(0);
-      const unreadMessages = await db
-        .select()
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, p.conversationId),
-            gt(messages.createdAt, lastRead),
-            // Null-safe: count messages not sent by this player (provider/system/coach msgs have senderPlayerId=null)
-            or(isNull(messages.senderPlayerId), ne(messages.senderPlayerId, playerId)),
-            eq(messages.isDeleted, false)
-          )
-        );
-      unreadCount += unreadMessages.length;
-    }
-    
-    return unreadCount;
+    // Task #736 — single grouped query instead of N+1 per conversation.
+    // academyId is accepted for API compatibility but not used for filtering
+    // because conversations span academy boundaries (group/player_player chats).
+    type Row = { total: string | number | null };
+    const rows = await db.execute(sql`
+      SELECT COUNT(*)::int AS total
+      FROM ${messages} m
+      INNER JOIN ${conversationParticipants} cp
+        ON cp.conversation_id = m.conversation_id
+      WHERE cp.player_id = ${playerId}
+        AND cp.participant_type = 'player'
+        AND m.created_at > COALESCE(cp.last_read_at, '1970-01-01'::timestamptz)
+        AND (m.sender_player_id IS NULL OR m.sender_player_id <> ${playerId})
+        AND m.is_deleted = false
+    `);
+    const row = (rows.rows as Row[])[0];
+    return Number(row?.total ?? 0);
   },
 
   // ==================== RECURRING SERIES ====================
@@ -9137,6 +9095,93 @@ export const storage = {
     return db.select().from(skillDomains);
   },
 
+  // Task #736 — batched variant. Loads observations for ALL given domains in
+  // one query (was N+1: one query per domain in /api/player/me/progress).
+  async getPlayerDomainInsightsBulk(
+    playerId: string,
+    domainIds: string[],
+  ): Promise<Map<string, {
+    recentHighlights: string[];
+    focusAreas: string[];
+    lastObservation: { direction: string; note: string | null; date: Date | null } | null;
+    avgDelta: number;
+    observationCount: number;
+  }>> {
+    const result = new Map<string, {
+      recentHighlights: string[];
+      focusAreas: string[];
+      lastObservation: { direction: string; note: string | null; date: Date | null } | null;
+      avgDelta: number;
+      observationCount: number;
+    }>();
+    if (domainIds.length === 0) return result;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const rows = await db
+      .select()
+      .from(sessionSkillObservations)
+      .where(and(
+        eq(sessionSkillObservations.playerId, playerId),
+        inArray(sessionSkillObservations.domainId, domainIds),
+        gte(sessionSkillObservations.createdAt, thirtyDaysAgo),
+      ))
+      .orderBy(desc(sessionSkillObservations.createdAt));
+
+    // Bucket by domainId, keeping the 20 most-recent per domain
+    const byDomain = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const list = byDomain.get(row.domainId) || [];
+      if (list.length < 20) {
+        list.push(row);
+        byDomain.set(row.domainId, list);
+      }
+    }
+
+    for (const domainId of domainIds) {
+      const observations = byDomain.get(domainId) || [];
+      if (observations.length === 0) {
+        result.set(domainId, {
+          recentHighlights: [],
+          focusAreas: [],
+          lastObservation: null,
+          avgDelta: 0,
+          observationCount: 0,
+        });
+        continue;
+      }
+
+      const recentHighlights: string[] = [];
+      const focusAreas: string[] = [];
+      for (const obs of observations) {
+        if (obs.direction === "up" && obs.note && obs.effortLevel === "high") {
+          if (!recentHighlights.includes(obs.note) && recentHighlights.length < 3) {
+            recentHighlights.push(obs.note);
+          }
+        }
+        if (obs.direction === "down" && obs.note) {
+          if (!focusAreas.includes(obs.note) && focusAreas.length < 3) {
+            focusAreas.push(obs.note);
+          }
+        }
+      }
+      const totalDelta = observations.reduce((sum, o) => sum + (o.appliedDelta || 0), 0);
+      result.set(domainId, {
+        recentHighlights,
+        focusAreas,
+        lastObservation: {
+          direction: observations[0].direction,
+          note: observations[0].note,
+          date: observations[0].createdAt,
+        },
+        avgDelta: observations.length > 0 ? Math.round((totalDelta / observations.length) * 10) / 10 : 0,
+        observationCount: observations.length,
+      });
+    }
+    return result;
+  },
+
   async getPlayerDomainInsights(playerId: string, domainId: string): Promise<{
     recentHighlights: string[];
     focusAreas: string[];
@@ -11577,6 +11622,7 @@ export const storage = {
         ));
     }
     
+    apiCache.invalidate(`pricing:${academyId}:`);
     return newRecord;
   },
   
@@ -11670,6 +11716,8 @@ export const storage = {
         .set({ isActive: true, updatedAt: new Date() })
         .where(eq(academyPricing.id, candidate.id));
     }
+    // Task #736 — invalidate the cached read for this academy/sessionType.
+    apiCache.invalidate(`pricing:${academyId}:${sessionType}`);
   },
 
   // Bulk lazy activation for all pricing in an academy
@@ -11769,6 +11817,8 @@ export const storage = {
         .set({ isActive: true, updatedAt: new Date() })
         .where(eq(academyPricing.id, candidate.id));
     }
+    // Task #736 — invalidate all cached reads for this academy.
+    apiCache.invalidate(`pricing:${academyId}:`);
   },
 
   // Get current active pricing for an academy (with lazy activation)
@@ -11792,24 +11842,36 @@ export const storage = {
   },
 
   async getAcademyPricingByType(academyId: string, sessionType: string): Promise<AcademyPricing | null> {
+    // Task #736 — moved the lazy `activateScheduledPricing` UPDATE off the
+    // read path (it was firing on every per-row pricing lookup, causing the
+    // academy_pricing N+1 storm in Sentry). Activation now runs only:
+    //  - via `getAcademyPricing` (admin/list endpoints)
+    //  - via the throttled scheduler in server/services/credit-reconcile.ts
+    //  - via `activateScheduledPricing` called explicitly when a coach
+    //    creates/edits a pricing row.
+    // Reads now also use a 60s in-memory memoization cache keyed by
+    // (academyId, sessionType) so request bursts collapse to one query.
     const today = new Date().toISOString().split('T')[0];
-    
-    // Lazy activation: activate any scheduled pricing that should now be active
-    await this.activateScheduledPricing(academyId, sessionType);
-    
-    const result = await db.select().from(academyPricing)
-      .where(and(
-        eq(academyPricing.academyId, academyId),
-        eq(academyPricing.sessionType, sessionType),
-        eq(academyPricing.isActive, true),
-        lte(academyPricing.effectiveFrom, today),
-        or(
-          isNull(academyPricing.effectiveUntil),
-          gte(academyPricing.effectiveUntil, today)
-        )
-      ))
-      .limit(1);
-    return result[0] || null;
+    const cacheKey = `pricing:${academyId}:${sessionType}:${today}`;
+    return apiCache.getOrFetch(
+      cacheKey,
+      async () => {
+        const result = await db.select().from(academyPricing)
+          .where(and(
+            eq(academyPricing.academyId, academyId),
+            eq(academyPricing.sessionType, sessionType),
+            eq(academyPricing.isActive, true),
+            lte(academyPricing.effectiveFrom, today),
+            or(
+              isNull(academyPricing.effectiveUntil),
+              gte(academyPricing.effectiveUntil, today)
+            )
+          ))
+          .limit(1);
+        return result[0] || null;
+      },
+      60 * 1000
+    );
   },
 
   async updateAcademyPricing(id: string, data: Partial<InsertAcademyPricing>): Promise<AcademyPricing | null> {
@@ -11817,15 +11879,20 @@ export const storage = {
       .set({ ...data, updatedAt: new Date() })
       .where(eq(academyPricing.id, id))
       .returning();
+    // Task #736 — invalidate the read-path cache for this pricing row.
+    if (result[0]) apiCache.invalidate(`pricing:${result[0].academyId}:`);
     return result[0] || null;
   },
 
   // Soft-delete: set isActive=false and effectiveUntil=today (preserves history)
   async deleteAcademyPricing(id: string): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
-    await db.update(academyPricing)
+    const result = await db.update(academyPricing)
       .set({ isActive: false, effectiveUntil: today, updatedAt: new Date() })
-      .where(eq(academyPricing.id, id));
+      .where(eq(academyPricing.id, id))
+      .returning();
+    // Task #736 — invalidate the read-path cache for this pricing row.
+    if (result[0]) apiCache.invalidate(`pricing:${result[0].academyId}:`);
   },
 
   // Coach Contracts (Layer 2) - What coaches earn

@@ -13,7 +13,7 @@ import {
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
   sessionRatings, sessionRatingInputSchema,
-  academies, coachReviewStats,
+  academies, coachReviewStats, locations,
   type Coach, type InsertInvoice, type InsertPayment,
 } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
@@ -1051,17 +1051,20 @@ Return only the JSON array, nothing else.`;
 
       const sessions = mergedSessions;
 
-      // Pre-fetch academy names for cross-academy sessions
+      // Task #736 — bulk-fetch academy names for cross-academy sessions
+      // (was N+1: one storage.getAcademy call per unique academy).
       const academyNameCache = new Map<string, string>();
       {
         const uniqueAcademyIds = [...new Set(sessions.map(s => s.academyId).filter(Boolean) as string[])];
-        for (const aid of uniqueAcademyIds) {
-          if (!academyNameCache.has(aid)) {
-            try {
-              const acad = await storage.getAcademy(aid);
-              if (acad?.name) academyNameCache.set(aid, acad.name);
-            } catch (e) {}
-          }
+        if (uniqueAcademyIds.length > 0) {
+          try {
+            const rows = await db.select({ id: academies.id, name: academies.name })
+              .from(academies)
+              .where(inArray(academies.id, uniqueAcademyIds));
+            for (const row of rows) {
+              if (row.name) academyNameCache.set(row.id, row.name);
+            }
+          } catch (e) {}
         }
       }
 
@@ -1073,20 +1076,22 @@ Return only the JSON array, nothing else.`;
       const playerBallLevel = (currentPlayer?.ballLevel || "green").toLowerCase();
       const targetLevel = levelParam ?? playerBallLevel;
 
-      const seriesIds = [...new Set(sessions.map(s => s.seriesId).filter(Boolean))];
+      // Task #736 — bulk-fetch series rows in a single query (was N+1: one
+      // storage.getCoachingSeriesById call per unique series).
+      const seriesIds = [...new Set(sessions.map(s => s.seriesId).filter(Boolean))] as string[];
       const seriesLevelMap = new Map<string, string>();
       const seriesDropInMap = new Map<string, { isPublic: boolean; publicDropInPrice: number | null }>();
-      for (const sid of seriesIds) {
+      const seriesLocationMap = new Map<string, string>();
+      if (seriesIds.length > 0) {
         try {
-          const series = await storage.getCoachingSeriesById(sid as string);
-          if (series?.ballLevel) {
-            seriesLevelMap.set(sid as string, series.ballLevel.toLowerCase());
-          }
-          if (series) {
-            seriesDropInMap.set(sid as string, {
+          const seriesRows = await db.select().from(coachingSeries).where(inArray(coachingSeries.id, seriesIds));
+          for (const series of seriesRows) {
+            if (series.ballLevel) seriesLevelMap.set(series.id, series.ballLevel.toLowerCase());
+            seriesDropInMap.set(series.id, {
               isPublic: series.isPublic ?? false,
               publicDropInPrice: series.publicDropInPrice ? parseFloat(series.publicDropInPrice.toString()) : null,
             });
+            if (series.locationId) seriesLocationMap.set(series.id, series.locationId);
           }
         } catch (e) {}
       }
@@ -1100,116 +1105,179 @@ Return only the JSON array, nothing else.`;
             return effectiveLevel === targetLevel;
           });
 
-      const enrichedSessions = await Promise.all(levelFilteredSessions.map(async (session) => {
-        // Get players in this session - first check session_players
-        const sessionPlayerRecords = await db.query.sessionPlayers.findMany({
-          where: (sp, { eq }) => eq(sp.sessionId, session.id),
-        });
-        
-        let playerIds = sessionPlayerRecords.map(sp => sp.playerId).filter(Boolean) as string[];
-        
-        // If no session_players and session has a series, check series_players (for recurring sessions)
-        if (playerIds.length === 0 && session.seriesId) {
-          const seriesPlayers = await storage.getSeriesPlayers(session.seriesId);
-          playerIds = seriesPlayers
-            .filter(sp => sp.status === 'active')
-            .map(sp => sp.playerId)
-            .filter(Boolean) as string[];
-        }
-        
-        const players = playerIds.length > 0 
-          ? await db.query.players.findMany({
-              where: (p, { inArray }) => inArray(p.id, playerIds),
-            })
-          : [];
+      // Task #736 — replaced per-session enrichment N+1 (8-10 queries per
+      // session) with batched prefetches keyed by Map for O(1) lookup.
+      const filteredSessionIds = levelFilteredSessions.map(s => s.id).filter(Boolean) as string[];
 
-        // Get coach info (name, photo, rating)
-        let coachName: string | null = null;
-        let coachPhotoUrl: string | null = null;
-        let coachAverageRating: number | null = null;
-        let coachTotalRatings: number = 0;
-        let sessionAcademyId: string | null = null;
-        let academyName: string | null = null;
-        let academyLogoUrl: string | null = null;
-        let academyCity: string | null = null;
-        if (session.coachId) {
-          const coach = await storage.getCoach(session.coachId);
-          coachName = coach?.name || null;
-          coachPhotoUrl = coach?.photoUrl || null;
-          sessionAcademyId = coach?.academyId || null;
-          // Get coach rating stats
-          const ratingStats = await db.select().from(coachReviewStats).where(eq(coachReviewStats.coachId, session.coachId)).limit(1);
-          if (ratingStats[0]) {
-            coachAverageRating = ratingStats[0].averageOverall ? parseFloat(ratingStats[0].averageOverall.toString()) : null;
-            coachTotalRatings = ratingStats[0].totalReviews || 0;
+      // 1. session_players for ALL filtered sessions
+      const sessionPlayersBySessionId = new Map<string, Array<{ playerId: string | null }>>();
+      if (filteredSessionIds.length > 0) {
+        const rows = await db.select({ sessionId: sessionPlayers.sessionId, playerId: sessionPlayers.playerId })
+          .from(sessionPlayers)
+          .where(inArray(sessionPlayers.sessionId, filteredSessionIds));
+        for (const row of rows) {
+          if (!row.sessionId) continue;
+          const list = sessionPlayersBySessionId.get(row.sessionId) || [];
+          list.push({ playerId: row.playerId });
+          sessionPlayersBySessionId.set(row.sessionId, list);
+        }
+      }
+
+      // 2. series_players for sessions whose session_players list is empty
+      const seriesIdsNeedingPlayers = [...new Set(
+        levelFilteredSessions
+          .filter(s => s.seriesId && (sessionPlayersBySessionId.get(s.id) || []).filter(sp => sp.playerId).length === 0)
+          .map(s => s.seriesId!)
+      )];
+      const seriesPlayersBySeriesId = new Map<string, string[]>();
+      if (seriesIdsNeedingPlayers.length > 0) {
+        const rows = await db.select({ seriesId: seriesPlayers.seriesId, playerId: seriesPlayers.playerId, status: seriesPlayers.status })
+          .from(seriesPlayers)
+          .where(inArray(seriesPlayers.seriesId, seriesIdsNeedingPlayers));
+        for (const row of rows) {
+          if (!row.seriesId || row.status !== 'active' || !row.playerId) continue;
+          const list = seriesPlayersBySeriesId.get(row.seriesId) || [];
+          list.push(row.playerId);
+          seriesPlayersBySeriesId.set(row.seriesId, list);
+        }
+      }
+
+      // 3. Resolve all unique playerIds across both sources, fetch them once
+      const allPlayerIds = new Set<string>();
+      for (const s of levelFilteredSessions) {
+        const direct = (sessionPlayersBySessionId.get(s.id) || []).map(sp => sp.playerId).filter(Boolean) as string[];
+        if (direct.length > 0) {
+          direct.forEach(id => allPlayerIds.add(id));
+        } else if (s.seriesId) {
+          (seriesPlayersBySeriesId.get(s.seriesId) || []).forEach(id => allPlayerIds.add(id));
+        }
+      }
+      const playerById = new Map<string, any>();
+      if (allPlayerIds.size > 0) {
+        const rows = await db.select().from(players).where(inArray(players.id, [...allPlayerIds]));
+        for (const p of rows) playerById.set(p.id, p);
+      }
+
+      // 4. Coaches + coach review stats (bulk)
+      const coachIds = [...new Set(levelFilteredSessions.map(s => s.coachId).filter(Boolean) as string[])];
+      const coachById = new Map<string, any>();
+      const coachStatsByCoachId = new Map<string, { averageOverall: number | null; totalReviews: number }>();
+      if (coachIds.length > 0) {
+        const [coachRows, statRows] = await Promise.all([
+          db.select().from(coaches).where(inArray(coaches.id, coachIds)),
+          db.select().from(coachReviewStats).where(inArray(coachReviewStats.coachId, coachIds)),
+        ]);
+        for (const c of coachRows) coachById.set(c.id, c);
+        for (const s of statRows) {
+          if (s.coachId) {
+            coachStatsByCoachId.set(s.coachId, {
+              averageOverall: s.averageOverall ? parseFloat(s.averageOverall.toString()) : null,
+              totalReviews: s.totalReviews || 0,
+            });
           }
         }
-        // Get academy info for this session (from session.academyId or coach's academy)
-        const resolvedAcademyId = session.academyId || sessionAcademyId;
-        if (resolvedAcademyId) {
-          const academyRows = await db.select({ id: academies.id, name: academies.name, logoUrl: academies.logoUrl, city: academies.city })
-            .from(academies).where(eq(academies.id, resolvedAcademyId)).limit(1);
-          if (academyRows[0]) {
-            academyName = academyRows[0].name || null;
-            academyLogoUrl = academyRows[0].logoUrl || null;
-            academyCity = academyRows[0].city || null;
-            sessionAcademyId = academyRows[0].id;
-          }
-        }
-        // Get court info first (needed for location fallback)
-        let courtName = null;
-        let courtLocationId: string | null = null;
-        if (session.courtId) {
-          const court = await storage.getCourt(session.courtId);
-          courtName = court?.name || null;
-          courtLocationId = court?.locationId || null;
-        }
+      }
 
-        // Get location info - check session first, then series, then court
-        let locationName = "Location TBD";
-        let locationId = session.locationId;
-        
-        // If session doesnt have locationId but has a series, get location from series
-        if (!locationId && session.seriesId) {
-          const series = await db.query.coachingSeries.findFirst({
-            where: (s, { eq }) => eq(s.id, session.seriesId!),
-          });
-          if (series?.locationId) {
-            locationId = series.locationId;
-          }
-        }
-        
-        // If still no locationId, get from court
-        if (!locationId && courtLocationId) {
-          locationId = courtLocationId;
-        }
-        
-        let locationLat: number | null = null;
-        let locationLng: number | null = null;
-        let locationGooglePlaceId: string | null = null;
-        if (locationId) {
-          const location = await storage.getLocation(locationId);
-          locationName = location?.name || "Location TBD";
-          locationLat = location?.lat ?? null;
-          locationLng = location?.lng ?? null;
-          locationGooglePlaceId = location?.googlePlaceId ?? null;
-        }
+      // 5. Courts (bulk)
+      const courtIds = [...new Set(levelFilteredSessions.map(s => s.courtId).filter(Boolean) as string[])];
+      const courtById = new Map<string, any>();
+      if (courtIds.length > 0) {
+        const rows = await db.select().from(courts).where(inArray(courts.id, courtIds));
+        for (const c of rows) courtById.set(c.id, c);
+      }
 
-        // Get academy rating
-        let academyAverageRating: number | null = null;
-        if (session.academyId) {
-          const academy = await storage.getAcademy(session.academyId);
-          academyAverageRating = academy?.averageRating ? parseFloat(academy.averageRating.toString()) : null;
-        }
+      // 6. Academies (bulk) - resolved by session.academyId OR coach.academyId
+      const academyIdSet = new Set<string>();
+      for (const s of levelFilteredSessions) {
+        if (s.academyId) academyIdSet.add(s.academyId);
+        const coach = s.coachId ? coachById.get(s.coachId) : null;
+        if (coach?.academyId) academyIdSet.add(coach.academyId);
+      }
+      const academyById = new Map<string, any>();
+      if (academyIdSet.size > 0) {
+        const rows = await db.select().from(academies).where(inArray(academies.id, [...academyIdSet]));
+        for (const a of rows) academyById.set(a.id, a);
+      }
 
-        // Check waitlist
-        const waitlistRecords = await db.query.sessionWaitlist.findMany({
-          where: (w, { and, eq, inArray }) => and(
-            eq(w.sessionId, session.id),
-            inArray(w.status, ["waiting", "offered"])
+      // 7. Resolve location IDs (session > series > court chain), then bulk-fetch
+      const locationIdSet = new Set<string>();
+      const resolvedLocationIdBySession = new Map<string, string | null>();
+      for (const s of levelFilteredSessions) {
+        let locId = (s.locationId as string | null) || null;
+        if (!locId && s.seriesId) locId = seriesLocationMap.get(s.seriesId) || null;
+        if (!locId && s.courtId) locId = (courtById.get(s.courtId)?.locationId as string | null) || null;
+        resolvedLocationIdBySession.set(s.id, locId);
+        if (locId) locationIdSet.add(locId);
+      }
+      const locationById = new Map<string, any>();
+      if (locationIdSet.size > 0) {
+        const rows = await db.select().from(locations).where(inArray(locations.id, [...locationIdSet]));
+        for (const l of rows) locationById.set(l.id, l);
+      }
+
+      // 8. Waitlist for ALL filtered sessions
+      const waitlistBySessionId = new Map<string, Array<{ playerId: string | null; status: string; offeredAt: Date | null; claimWindowMinutes: number | null; createdAt: Date | null }>>();
+      if (filteredSessionIds.length > 0) {
+        const rows = await db.query.sessionWaitlist.findMany({
+          where: (w, { and, inArray, inArray: ia }) => and(
+            inArray(w.sessionId, filteredSessionIds),
+            ia(w.status, ["waiting", "offered"])
           ),
           orderBy: (w, { asc }) => asc(w.createdAt),
         });
+        for (const w of rows) {
+          if (!w.sessionId) continue;
+          const list = waitlistBySessionId.get(w.sessionId) || [];
+          list.push({
+            playerId: w.playerId,
+            status: w.status,
+            offeredAt: w.offeredAt,
+            claimWindowMinutes: w.claimWindowMinutes,
+            createdAt: w.createdAt,
+          });
+          waitlistBySessionId.set(w.sessionId, list);
+        }
+      }
+
+      const enrichedSessions = levelFilteredSessions.map((session) => {
+        // Resolve players for this session (session_players first, then series_players)
+        const directSessionPlayers = sessionPlayersBySessionId.get(session.id) || [];
+        let playerIds = directSessionPlayers.map(sp => sp.playerId).filter(Boolean) as string[];
+        if (playerIds.length === 0 && session.seriesId) {
+          playerIds = seriesPlayersBySeriesId.get(session.seriesId) || [];
+        }
+        const players = playerIds.map(id => playerById.get(id)).filter(Boolean);
+
+        // Coach + rating stats
+        const coach = session.coachId ? coachById.get(session.coachId) : null;
+        const coachName: string | null = coach?.name || null;
+        const coachPhotoUrl: string | null = coach?.photoUrl || null;
+        const stats = session.coachId ? coachStatsByCoachId.get(session.coachId) : null;
+        const coachAverageRating: number | null = stats?.averageOverall ?? null;
+        const coachTotalRatings: number = stats?.totalReviews ?? 0;
+
+        // Academy (session.academyId || coach.academyId)
+        const resolvedAcademyId = session.academyId || coach?.academyId || null;
+        const academy = resolvedAcademyId ? academyById.get(resolvedAcademyId) : null;
+        const sessionAcademyId: string | null = academy?.id ?? resolvedAcademyId ?? null;
+        const academyName: string | null = academy?.name ?? null;
+        const academyLogoUrl: string | null = academy?.logoUrl ?? null;
+        const academyCity: string | null = academy?.city ?? null;
+
+        // Court name
+        const court = session.courtId ? courtById.get(session.courtId) : null;
+        const courtName: string | null = court?.name || null;
+
+        // Location
+        const locationId = resolvedLocationIdBySession.get(session.id) || null;
+        const location = locationId ? locationById.get(locationId) : null;
+        const locationName: string = location?.name || "Location TBD";
+        const locationLat: number | null = location?.lat ?? null;
+        const locationLng: number | null = location?.lng ?? null;
+        const locationGooglePlaceId: string | null = location?.googlePlaceId ?? null;
+
+        // Waitlist
+        const waitlistRecords = waitlistBySessionId.get(session.id) || [];
 
         const maxPlayers = session.maxPlayers || 6;
         const currentPlayers = players.length;
@@ -1291,7 +1359,7 @@ Return only the JSON array, nothing else.`;
           sessionAcademyId: session.academyId || null,
           sessionAcademyName: session.academyId ? (academyNameCache.get(session.academyId) || null) : null,
         };
-      }));
+      });
 
       res.json(enrichedSessions);
     } catch (error) {
@@ -1351,42 +1419,46 @@ Return only the JSON array, nothing else.`;
         userLoginRows.map(u => [u.playerId!, u.lastLoginAt ?? null])
       );
 
-      // Build enriched players with mutual session counts and openToPlay status
-      const enrichedPlayers = await Promise.all(activePlayers.map(async (player) => {
-        let mutualCount = 0;
-        
-        // Only query mutual sessions if both player IDs are valid
-        if (playerId && player.id) {
-          try {
-            const mutualSessions = await db.execute(
-              sql`SELECT COUNT(DISTINCT sp1.session_id)::int as count
-                  FROM session_players sp1
-                  INNER JOIN session_players sp2 ON sp1.session_id = sp2.session_id
-                  WHERE sp1.player_id = ${playerId}
-                    AND sp2.player_id = ${player.id}`
-            );
-            mutualCount = Number(mutualSessions.rows[0]?.count || 0);
-          } catch (e) {
-            console.error("Mutual sessions query failed:", e);
-          }
-        }
-        
-        // Check if player is "open to play" (from player field or openToPlay table)
-        let isOpenToPlay = (player as any).openToPlay || false;
+      // Task #736 — batch mutual-session counts and open-to-play lookups in
+      // 2 set-based queries instead of 2 per candidate.
+      const mutualByPlayerId = new Map<string, number>();
+      const openToPlaySet = new Set<string>();
+      if (playerId && playerIds.length > 0) {
         try {
-          const otpRecord = await db.execute(
-            sql`SELECT id FROM open_to_play 
-                WHERE user_id = (SELECT id FROM users WHERE player_id = ${player.id} LIMIT 1)
-                  AND is_active = true 
-                  AND available_until > NOW()
-                LIMIT 1`
-          );
-          if (otpRecord.rows.length > 0) {
-            isOpenToPlay = true;
+          const mutualRows = await db.execute(sql`
+            SELECT sp2.player_id AS player_id, COUNT(DISTINCT sp1.session_id)::int AS count
+            FROM session_players sp1
+            INNER JOIN session_players sp2 ON sp1.session_id = sp2.session_id
+            WHERE sp1.player_id = ${playerId}
+              AND sp2.player_id = ANY(${playerIds}::text[])
+            GROUP BY sp2.player_id
+          `);
+          for (const row of mutualRows.rows as Array<{ player_id: string; count: number }>) {
+            mutualByPlayerId.set(row.player_id, Number(row.count));
           }
         } catch (e) {
-          // Table might not exist or query failed, use player field
+          console.error("Mutual sessions batch query failed:", e);
         }
+        try {
+          const otpRows = await db.execute(sql`
+            SELECT u.player_id AS player_id
+            FROM open_to_play o
+            INNER JOIN users u ON u.id = o.user_id
+            WHERE u.player_id = ANY(${playerIds}::text[])
+              AND o.is_active = true
+              AND o.available_until > NOW()
+          `);
+          for (const row of otpRows.rows as Array<{ player_id: string }>) {
+            if (row.player_id) openToPlaySet.add(row.player_id);
+          }
+        } catch (e) {
+          // Table might not exist; fall back to player field below
+        }
+      }
+
+      const enrichedPlayers = activePlayers.map((player) => {
+        const mutualCount = mutualByPlayerId.get(player.id) ?? 0;
+        const isOpenToPlay = openToPlaySet.has(player.id) || ((player as any).openToPlay || false);
 
         return {
           privacyLevel: (player as any).privacyLevel || "platform",
@@ -1406,7 +1478,7 @@ Return only the JSON array, nothing else.`;
           lastLongitude: player.lastLongitude ?? null,
           lastOnlineAt: lastLoginByPlayerId[player.id]?.toISOString() ?? null,
         };
-      }));
+      });
 
       // Apply privacy filter first - hidden players are never visible
       let filteredPlayers = enrichedPlayers.filter(p => {

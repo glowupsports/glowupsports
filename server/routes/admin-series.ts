@@ -2417,49 +2417,79 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           isPaid: pkg.isPaid || false,
           price: pkg.price || 0,
         })),
-        sessions: await Promise.all(sessions.slice(0, 50).map(async (s: any) => {
-          // Calculate effective session type based on attendance
-          let effectiveType = s.sessionType;
-          if (s.sessionType === 'semi_private' || s.sessionType === 'group') {
+        sessions: await (async () => {
+          // Task #736 — batch session_players + coaching_series lookups in 2
+          // queries instead of 2 per session (was N+1).
+          const slice = sessions.slice(0, 50) as any[];
+          const sliceSessionIds = slice.map((s) => s.id).filter(Boolean) as string[];
+          const sliceSeriesIds = Array.from(new Set(slice.map((s) => s.seriesId).filter(Boolean))) as string[];
+
+          const presentCountBySession = new Map<string, number>();
+          if (sliceSessionIds.length > 0) {
             try {
-              const allAttendees = await storage.getSessionPlayers(s.id);
-              const presentCount = allAttendees.filter((a: any) => a.attendanceStatus === 'present').length;
+              const rows = await db
+                .select({
+                  sessionId: sessionPlayers.sessionId,
+                  attendanceStatus: sessionPlayers.attendanceStatus,
+                })
+                .from(sessionPlayers)
+                .where(inArray(sessionPlayers.sessionId, sliceSessionIds));
+              for (const row of rows) {
+                if (row.attendanceStatus === 'present' && row.sessionId) {
+                  presentCountBySession.set(
+                    row.sessionId,
+                    (presentCountBySession.get(row.sessionId) ?? 0) + 1,
+                  );
+                }
+              }
+            } catch (e) {
+              // Fall back: leave map empty, effectiveType defaults to original
+            }
+          }
+
+          const seriesNameById = new Map<string, string>();
+          if (sliceSeriesIds.length > 0) {
+            try {
+              const rows = await db
+                .select({ id: coachingSeries.id, name: coachingSeries.title })
+                .from(coachingSeries)
+                .where(inArray(coachingSeries.id, sliceSeriesIds));
+              for (const row of rows) {
+                if (row.name) seriesNameById.set(row.id, row.name);
+              }
+            } catch (e) {
+              // Fall back: leave map empty, seriesName defaults to null
+            }
+          }
+
+          return slice.map((s: any) => {
+            let effectiveType = s.sessionType;
+            if (s.sessionType === 'semi_private' || s.sessionType === 'group') {
+              const presentCount = presentCountBySession.get(s.id) ?? 0;
               if (presentCount === 1) {
                 effectiveType = 'private';
               } else if (presentCount === 2 && s.sessionType === 'group') {
                 effectiveType = 'semi_private';
               }
-            } catch (e) {
-              // Fall back to original type
             }
-          }
-          // Look up series name if session has a seriesId
-          let seriesName = null;
-          if (s.seriesId) {
-            try {
-              const series = await storage.getCoachingSeries(s.seriesId);
-              seriesName = series?.name || null;
-            } catch (e) {
-              // Fall back to null
-            }
-          }
-          
-          return {
-            id: s.id,
-            sessionId: s.sessionId,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            sessionType: effectiveType,
-            attended: s.attendanceStatus || s.attended,
-            attendanceStatus: s.attendanceStatus || null,
-            status: s.status || null,
-            courtId: s.courtId || null,
-            creditsUsed: s.creditsUsed || 0,
-            isPaid: (s.creditsUsed || 0) > 0,
-            seriesId: s.seriesId || null,
-            seriesName: seriesName,
-          };
-        })),
+            const seriesName = s.seriesId ? (seriesNameById.get(s.seriesId) ?? null) : null;
+            return {
+              id: s.id,
+              sessionId: s.sessionId,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              sessionType: effectiveType,
+              attended: s.attendanceStatus || s.attended,
+              attendanceStatus: s.attendanceStatus || null,
+              status: s.status || null,
+              courtId: s.courtId || null,
+              creditsUsed: s.creditsUsed || 0,
+              isPaid: (s.creditsUsed || 0) > 0,
+              seriesId: s.seriesId || null,
+              seriesName,
+            };
+          });
+        })(),
       });
     } catch (error) {
       console.error("Player stats error:", error);

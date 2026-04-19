@@ -1055,14 +1055,23 @@ import fs from "fs";
         const totalXp = xpData.totalXp || player.totalXp || 0;
         const level = xpData.level || player.level || 1;
 
-        // Build skill radar data with domain insights
-        const skillRadarPromises = domains.map(async (domain) => {
+        // Task #736 — batch domain insights in 1 query instead of N (was N+1
+        // per skill domain).
+        const insightsByDomain = await storage.getPlayerDomainInsightsBulk(
+          playerId,
+          domains.map((d) => d.id),
+        );
+
+        const skillRadar = domains.map((domain) => {
           const skillState = skillStates.find((s) => s.domainId === domain.id);
           const xpInfo = domainXpSummary.find((x) => x.domainId === domain.id);
-          const insights = await storage.getPlayerDomainInsights(
-            playerId,
-            domain.id,
-          );
+          const insights = insightsByDomain.get(domain.id) ?? {
+            recentHighlights: [],
+            focusAreas: [],
+            lastObservation: null,
+            avgDelta: 0,
+            observationCount: 0,
+          };
 
           return {
             domain: domain.displayName || domain.name,
@@ -1083,8 +1092,6 @@ import fs from "fs";
             },
           };
         });
-
-        const skillRadar = await Promise.all(skillRadarPromises);
 
         // Calculate Glow Score based on average progress across all domains
         const avgProgress =
