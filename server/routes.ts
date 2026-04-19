@@ -47,7 +47,6 @@ import {
   payments,
   sessionPlayers,
   sessionWaitlist,
-  creditTransactions,
   players,
   locationTravelTimes,
   sessions,
@@ -61,7 +60,6 @@ import {
   playerPillarProgress,
   coachXpTransactions,
   xpTransactions,
-  packages,
   playerBaselineSkillScores,
   playerBaselines,
   // Social features
@@ -103,7 +101,6 @@ import {
   // Monthly report tables
   courtBookings,
   matchLogs,
-  playerCreditPackages,
   playerBallLevels,
   academies,
   pushDeviceTokens,

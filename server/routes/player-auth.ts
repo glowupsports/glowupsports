@@ -23,8 +23,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
   import {
-    users, coaches, players, academies, sessions, packages, coachingSeries, seriesPlayers,
-    creditTransactions, invoices, payments, sessionPlayers, sessionWaitlist,
+    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
+    invoices, payments, sessionPlayers, sessionWaitlist,
     locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
     sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
     coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
@@ -32,7 +32,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     courtAvailability, courtAvailabilitySnapshots,
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
     matchRequests, playerBookingPreferences,
-    courtBookings, matchLogs, playerCreditPackages, playerBallLevels,
+    courtBookings, matchLogs, playerBallLevels,
     playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
     levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
     spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
