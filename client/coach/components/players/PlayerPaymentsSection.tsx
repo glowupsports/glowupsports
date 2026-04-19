@@ -7,7 +7,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
-import { InvoiceViewerModal, type ViewableInvoice } from "./InvoiceViewerModal";
+import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
 import { styles } from "./playersStyles";
 
 interface PaymentsInvoice {

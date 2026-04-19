@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
-import { InvoiceViewerModal, type ViewableInvoice } from "./InvoiceViewerModal";
+import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
 
 type CreditType = "group" | "semi_private" | "private";
 

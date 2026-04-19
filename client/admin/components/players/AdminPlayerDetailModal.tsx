@@ -26,6 +26,7 @@ import { AdminRecordPaymentModal } from "./AdminRecordPaymentModal";
 import CreditStoreModal from "../CreditStoreModal";
 import { AdminCreditV2Panel } from "./AdminCreditV2Panel";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
+import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
 
 // CONVENTION: If a modal is opened from inside another modal, render it as a
 // child of the parent modal's JSX (below), not as a sibling on the screen.
@@ -234,6 +235,9 @@ export function AdminPlayerDetailModal({
       ]
     );
   };
+
+  // Task #702: tap-to-open invoice viewer for any of the player's invoices.
+  const [viewerInvoice, setViewerInvoice] = useState<ViewableInvoice | null>(null);
 
   const [showCustomPackageForm, setShowCustomPackageForm] = useState(false);
   const [customCreditType, setCustomCreditType] = useState<"group" | "semi_private" | "private">("group");
@@ -701,6 +705,89 @@ export function AdminPlayerDetailModal({
                 ) : null}
               </View>
 
+              {/* Invoices Section — admin parity with coach PlayerPaymentsSection (Task #702) */}
+              {stats.payments?.invoices && stats.payments.invoices.length > 0 ? (
+                <View style={[styles.section, CardStyles.elevated]}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="document-text-outline" size={18} color={Colors.dark.primary} />
+                    <Text style={styles.sectionTitle}>Invoices ({stats.payments.invoices.length})</Text>
+                  </View>
+                  <View style={{ marginTop: Spacing.sm }}>
+                    {stats.payments.invoices.map((inv) => {
+                      const isPaid = inv.status === "paid";
+                      const isOverdue = inv.isOverdue;
+                      const statusColor = isPaid
+                        ? Colors.dark.successNeon
+                        : isOverdue
+                        ? Colors.dark.error
+                        : Colors.dark.gold;
+                      const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
+                      const openViewer = () => {
+                        Haptics.selectionAsync();
+                        setViewerInvoice({
+                          id: inv.id,
+                          invoiceNumber: inv.invoiceNumber || "",
+                          amount: inv.amount,
+                          currency: inv.currency,
+                          status: inv.status,
+                          dueDate: inv.dueDate,
+                          paidAt: inv.paidAt,
+                          createdAt: inv.createdAt,
+                          notes: inv.notes,
+                          isOverdue: inv.isOverdue,
+                        });
+                      };
+                      return (
+                        <Pressable
+                          key={inv.id}
+                          onPress={openViewer}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View invoice ${inv.invoiceNumber || inv.id}`}
+                          style={{
+                            backgroundColor: "rgba(255,255,255,0.04)",
+                            borderRadius: BorderRadius.sm,
+                            padding: Spacing.sm,
+                            marginBottom: 6,
+                            borderLeftWidth: 3,
+                            borderLeftColor: statusColor,
+                          }}
+                        >
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 13, color: Colors.dark.text, fontWeight: "600" }}>
+                                #{inv.invoiceNumber || inv.id.slice(0, 8)}
+                              </Text>
+                              <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
+                                {inv.dueDate ? `Due: ${new Date(inv.dueDate).toLocaleDateString()}` : "No due date"}
+                              </Text>
+                            </View>
+                            <Text style={{ fontSize: 15, fontWeight: "700", color: statusColor }}>
+                              {inv.currency} {Number(inv.amount).toLocaleString()}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
+                            <View
+                              style={{
+                                backgroundColor: `${statusColor}20`,
+                                paddingHorizontal: 6,
+                                paddingVertical: 2,
+                                borderRadius: BorderRadius.xs,
+                              }}
+                            >
+                              <Text style={{ fontSize: 10, fontWeight: "700", color: statusColor }}>{statusLabel}</Text>
+                            </View>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 4 }}>
+                              <Ionicons name="document-text-outline" size={12} color={Colors.dark.textMuted} />
+                              <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" }}>View</Text>
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+
               {/* Attendance History Section - Premium */}
               <View style={[styles.section, styles.attendanceSectionPremium]}>
                 <View style={styles.attendanceHeader}>
@@ -1041,6 +1128,15 @@ export function AdminPlayerDetailModal({
           onClose={() => setShowRecordPaymentModal(false)}
           packages={playerStats?.packages}
           selectedPlayerId={selectedPlayerId}
+        />
+        <InvoiceViewerModal
+          invoice={viewerInvoice}
+          visible={!!viewerInvoice}
+          onClose={() => setViewerInvoice(null)}
+          onPaid={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+          }}
         />
       </Modal>
     );

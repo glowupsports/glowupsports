@@ -25,7 +25,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } fr
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { InvoiceViewerModal, type ViewableInvoice } from "@/coach/components/players/InvoiceViewerModal";
+import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
 
 interface Invoice {
   id: string;
