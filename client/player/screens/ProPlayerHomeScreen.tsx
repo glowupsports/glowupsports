@@ -8,7 +8,8 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, apiRequest } from "@/lib/query-client";
+import { apiFetch, apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { Image as ExpoImage } from "expo-image";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
@@ -36,7 +37,6 @@ import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { FeedbackToast } from "@/player/components/FeedbackToast";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { SpotlightCard } from "@/player/components/SpotlightCard";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
@@ -88,11 +88,6 @@ interface DashboardData {
   };
   isFreePlayer?: boolean;
   lastFeedback?: { message: string; date: string } | null;
-}
-
-function toIoniconName(name: string | null | undefined, fallback: keyof typeof Ionicons.glyphMap = "star"): keyof typeof Ionicons.glyphMap {
-  if (!name) return fallback;
-  return name as keyof typeof Ionicons.glyphMap;
 }
 
 const WEEKLY_DIGEST_DISMISSED_KEY = "@glow_weekly_digest_dismissed_id";
@@ -451,56 +446,265 @@ const aiCardStyles = StyleSheet.create({
   },
 });
 
-function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null; questType: "daily" | "weekly" | null; onViewAll: () => void }) {
+function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; questType: "daily" | "weekly" | null; onPress: () => void }) {
   if (!quest) {
     return (
-      <Pressable style={hStyles.questCardEmpty} onPress={onViewAll}>
-        <Ionicons name="trophy-outline" size={20} color={Colors.dark.textSubtle} />
-        <Text style={hStyles.questEmptyText}>No active quest — check your missions</Text>
-        <View style={hStyles.questViewAllBtn}>
-          <Text style={hStyles.questViewAllText}>View All</Text>
-          <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
-        </View>
-      </Pressable>
+      <MiniTile
+        label="QUEST"
+        icon="flame-outline"
+        iconColor="#FF6B35"
+        accentBg="rgba(255,107,53,0.06)"
+        accentBorder="rgba(255,107,53,0.2)"
+        accessibilityLabel="View quests"
+        onPress={onPress}
+        footer={<Text style={miniTileStyles.footerText} numberOfLines={1}>View all</Text>}
+      >
+        <Text style={miniTileStyles.questEmptyText} numberOfLines={2}>
+          No active quest
+        </Text>
+      </MiniTile>
     );
   }
 
   const progress = quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
   const typeLabel = questType === "weekly" ? "WEEKLY" : "DAILY";
-  const typeColor = typeLabel === "WEEKLY" ? "#9B59B6" : "#00D4FF";
 
   return (
-    <Pressable style={hStyles.questCard} onPress={onViewAll}>
-      <View style={hStyles.questCardHeader}>
-        <View style={[hStyles.questIconBg, { backgroundColor: (quest.iconColor || GlowColors.primary) + "18" }]}>
-          <Ionicons name={toIoniconName(quest.iconName, "star")} size={16} color={quest.iconColor || GlowColors.primary} />
+    <MiniTile
+      label={typeLabel}
+      icon="flame"
+      iconColor="#FF6B35"
+      accentBg="rgba(255,107,53,0.06)"
+      accentBorder="rgba(255,107,53,0.2)"
+      accessibilityLabel={`Quest ${quest.name}`}
+      onPress={onPress}
+      footer={
+        <View style={miniTileStyles.footerRow}>
+          <Ionicons name="flash" size={10} color="#FFD700" />
+          <Text style={miniTileStyles.xpFooterText} numberOfLines={1}>+{quest.xpReward ?? 0} XP</Text>
         </View>
-        <View style={hStyles.questInfoBlock}>
-          <View style={hStyles.questTopRow}>
-            <Text style={hStyles.questName} numberOfLines={1}>{quest.name}</Text>
-            <View style={[hStyles.questTypePill, { backgroundColor: typeColor + "18" }]}>
-              <Text style={[hStyles.questTypeText, { color: typeColor }]}>{typeLabel}</Text>
-            </View>
-          </View>
-          <View style={hStyles.questXpRow}>
-            <Ionicons name="flash" size={12} color="#FFD700" />
-            <Text style={hStyles.questXpText}>+{quest.xpReward} XP</Text>
-          </View>
-        </View>
-        <Pressable style={hStyles.viewAllLink} onPress={onViewAll} hitSlop={8}>
-          <Text style={hStyles.viewAllText}>View All</Text>
-          <Ionicons name="chevron-forward" size={11} color={GlowColors.primary} />
-        </Pressable>
+      }
+    >
+      <Text style={miniTileStyles.questName} numberOfLines={2}>{quest.name}</Text>
+      <View style={miniTileStyles.progressBar}>
+        <View
+          style={[
+            miniTileStyles.progressFill,
+            {
+              width: `${Math.max(progress * 100, 2)}%` as DimensionValue,
+              backgroundColor: quest.iconColor || GlowColors.primary,
+            },
+          ]}
+        />
       </View>
-      <View style={hStyles.questProgressWrap}>
-        <View style={hStyles.questProgressBar}>
-          <View style={[hStyles.questProgressFill, {
-            width: `${Math.max(progress * 100, 2)}%` as DimensionValue,
-            backgroundColor: quest.iconColor || GlowColors.primary,
-          }]} />
+      <Text style={miniTileStyles.progressText}>{quest.currentProgress}/{quest.targetProgress}</Text>
+    </MiniTile>
+  );
+}
+
+interface SpotlightNomineeMini {
+  playerId: string;
+  playerName: string;
+  profilePhotoUrl: string | null;
+  totalVotes: number;
+}
+interface SpotlightCurrentWeekMini {
+  weekStart: string;
+  nominations: SpotlightNomineeMini[];
+  myNomination: { nominatedPlayerId: string; reason: string } | null;
+  daysRemaining: number;
+  totalVotes: number;
+}
+interface SpotlightWeeklyWinnerMini {
+  playerId: string;
+  playerName: string;
+  profilePhotoUrl: string | null;
+}
+
+function SpotlightTileAvatar({ photoUrl, borderColor = "#FFD700" }: { photoUrl?: string | null; borderColor?: string }) {
+  const baseUrl = getStaticAssetsUrl();
+  const fullUrl = photoUrl ? (photoUrl.startsWith("http") ? photoUrl : `${baseUrl}${photoUrl}`) : null;
+  return (
+    <View style={[miniTileStyles.spotAvatar, { borderColor }]}>
+      {fullUrl ? (
+        <ExpoImage source={{ uri: fullUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+      ) : (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Ionicons name="person" size={14} color={Colors.dark.textMuted} />
         </View>
-        <Text style={hStyles.questProgressText}>{quest.currentProgress}/{quest.targetProgress}</Text>
+      )}
+    </View>
+  );
+}
+
+function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => void; onViewDetails: () => void }) {
+  const { user } = useAuth();
+
+  const { data: currentWeek } = useQuery<SpotlightCurrentWeekMini>({
+    queryKey: ["/api/player/spotlight/current-week"],
+    enabled: !!user?.playerId,
+  });
+  const { data: weeklyWinner } = useQuery<{ winner: SpotlightWeeklyWinnerMini | null }>({
+    queryKey: ["/api/player/spotlight/weekly-winner"],
+    enabled: !!user?.playerId,
+  });
+
+  const hasVoted = !!currentWeek?.myNomination;
+  const topNominee = currentWeek?.nominations?.[0] ?? null;
+  const lastWinner = weeklyWinner?.winner ?? null;
+  const daysRemaining = currentWeek?.daysRemaining;
+  const chipText = daysRemaining === undefined ? null : daysRemaining <= 0 ? "Ends today!" : `${daysRemaining}d left`;
+
+  // State A: voting open + has top nominee + I haven't voted -> show nominee + Vote pill
+  // State B: I have voted -> show top nominee (if any) + "You voted" footer; tap opens details
+  // State C: no nominees this week -> show last winner OR fully empty "be the first" CTA
+  const stateA = !!topNominee && !hasVoted;
+  const stateB = hasVoted;
+  const stateC = !stateA && !stateB;
+
+  const handleTilePress = () => {
+    if (stateA) {
+      onNominate();
+    } else if (stateC && !lastWinner) {
+      onNominate();
+    } else {
+      onViewDetails();
+    }
+  };
+
+  const headerRight = chipText ? (
+    <View style={miniTileStyles.urgencyChip}>
+      <Text style={miniTileStyles.urgencyChipText} numberOfLines={1}>{chipText}</Text>
+    </View>
+  ) : null;
+
+  let footer: React.ReactNode = null;
+  if (stateA || (stateC && !lastWinner)) {
+    footer = (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={stateA ? "Vote for spotlight nominee" : "Nominate spotlight player"}
+        onPress={(e) => {
+          e.stopPropagation?.();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onNominate();
+        }}
+        style={miniTileStyles.votePill}
+      >
+        <Ionicons name="star" size={10} color={Colors.dark.buttonText} />
+        <Text style={miniTileStyles.votePillText}>{stateA ? "Vote" : "Nominate"}</Text>
+      </Pressable>
+    );
+  } else if (stateB) {
+    footer = (
+      <View style={miniTileStyles.votedRow}>
+        <Ionicons name="checkmark-circle" size={12} color={GlowColors.primary} />
+        <Text style={miniTileStyles.votedFooterText} numberOfLines={1}>You voted</Text>
       </View>
+    );
+  } else if (stateC && lastWinner) {
+    footer = (
+      <View style={miniTileStyles.footerRow}>
+        <Ionicons name="ribbon" size={10} color="#FFD700" />
+        <Text style={miniTileStyles.footerText} numberOfLines={1}>Winner</Text>
+      </View>
+    );
+  }
+
+  let body: React.ReactNode = null;
+  if ((stateA || stateB) && topNominee) {
+    body = (
+      <>
+        <SpotlightTileAvatar photoUrl={topNominee.profilePhotoUrl} />
+        <Text style={miniTileStyles.spotName} numberOfLines={1}>
+          {topNominee.playerName.split(" ")[0]}
+        </Text>
+        <View style={miniTileStyles.starRow}>
+          <Ionicons name="star" size={10} color="#FFD700" />
+          <Text style={miniTileStyles.starCountText}>{topNominee.totalVotes}</Text>
+        </View>
+      </>
+    );
+  } else if (stateB && !topNominee) {
+    // Edge: voted but no nominee data; just show muted text
+    body = <Text style={miniTileStyles.questEmptyText} numberOfLines={2}>Vote recorded</Text>;
+  } else if (stateC && lastWinner) {
+    body = (
+      <>
+        <SpotlightTileAvatar photoUrl={lastWinner.profilePhotoUrl} />
+        <Text style={miniTileStyles.spotName} numberOfLines={1}>
+          {lastWinner.playerName.split(" ")[0]}
+        </Text>
+      </>
+    );
+  } else {
+    body = <Text style={miniTileStyles.questEmptyText} numberOfLines={2}>Be the first to nominate</Text>;
+  }
+
+  return (
+    <MiniTile
+      label="SPOTLIGHT"
+      icon="trophy"
+      iconColor="#FFD700"
+      accentBg="rgba(255,215,0,0.08)"
+      accentBorder="rgba(255,215,0,0.25)"
+      accessibilityLabel="Player spotlight"
+      onPress={handleTilePress}
+      headerRight={headerRight}
+      footer={footer}
+    >
+      {body}
+    </MiniTile>
+  );
+}
+
+interface MiniTileProps {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  accentBg: string;
+  accentBorder: string;
+  onPress: () => void;
+  children?: React.ReactNode;
+  footer?: React.ReactNode;
+  headerRight?: React.ReactNode;
+  accessibilityLabel?: string;
+}
+
+function MiniTile({
+  label,
+  icon,
+  iconColor,
+  accentBg,
+  accentBorder,
+  onPress,
+  children,
+  footer,
+  headerRight,
+  accessibilityLabel,
+}: MiniTileProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [
+        miniTileStyles.tile,
+        { backgroundColor: accentBg, borderColor: accentBorder },
+        pressed && miniTileStyles.tilePressed,
+      ]}
+    >
+      <View style={miniTileStyles.header}>
+        <View style={miniTileStyles.headerLeft}>
+          <Ionicons name={icon} size={11} color={iconColor} />
+          <Text style={[miniTileStyles.label, { color: iconColor }]} numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+        {headerRight}
+      </View>
+      <View style={miniTileStyles.body}>{children}</View>
+      {footer ? <View style={miniTileStyles.footer}>{footer}</View> : null}
     </Pressable>
   );
 }
@@ -1014,27 +1218,26 @@ function PlayerHomeContent() {
               <WeeklyAIFocusCard playerId={player.id} />
             ) : null}
 
-            <TennisIQCard />
+            <View style={improveTilesRowStyles.row}>
+              <TennisIQMiniTile />
+              <QuestMiniTile
+                quest={activeQuest}
+                questType={activeQuestType}
+                onPress={() => {
+                  track("home:quest_tracker");
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigateToTab("Growth", { screen: "QuestsMain" });
+                }}
+              />
+              <SpotlightMiniTile
+                onNominate={() => setShowSpotlightNomination(true)}
+                onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
+              />
+            </View>
 
             <RecentFeedbackCard />
 
             <UpcomingAppointmentCard />
-
-            <ActiveQuestCard
-              quest={activeQuest}
-              questType={activeQuestType}
-              onViewAll={() => {
-                track("home:quest_tracker");
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigateToTab("Growth", { screen: "QuestsMain" });
-              }}
-            />
-
-            <SpotlightCard
-              onNominate={() => setShowSpotlightNomination(true)}
-              onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
-              accessibilityLabel="Player spotlight card"
-            />
           </>
         ) : null}
 
@@ -1165,7 +1368,7 @@ interface IQQuestion {
   explanation: string;
 }
 
-function TennisIQCard() {
+function TennisIQMiniTile() {
   const [score, setScore] = useState<number | null>(null);
   const [scoreLoaded, setScoreLoaded] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -1237,8 +1440,13 @@ function TennisIQCard() {
 
   return (
     <>
-      <Pressable
-        style={iqCardStyles.card}
+      <MiniTile
+        label="TENNIS IQ"
+        icon="bulb-outline"
+        iconColor="#FFD700"
+        accentBg="rgba(255,215,0,0.06)"
+        accentBorder="rgba(255,215,0,0.2)"
+        accessibilityLabel="Test your tennis IQ"
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           if (score !== null) {
@@ -1247,33 +1455,29 @@ function TennisIQCard() {
             setShowModal(true);
           }
         }}
-        accessibilityLabel="Test your tennis IQ"
+        footer={
+          <Text style={miniTileStyles.footerText} numberOfLines={1}>
+            {score !== null ? "Tap to retake" : "Take quiz"}
+          </Text>
+        }
       >
-        <View style={iqCardStyles.row}>
-          <View style={iqCardStyles.iconWrap}>
-            <Ionicons name="bulb-outline" size={20} color="#FFD700" />
-          </View>
-          <View style={iqCardStyles.textWrap}>
-            <Text style={iqCardStyles.title}>Test Your Tennis IQ</Text>
-            {score !== null ? (
-              <Text style={iqCardStyles.sub}>Your score: {score}/{totalQ} — Tap to retake</Text>
-            ) : (
-              <Text style={iqCardStyles.sub}>{totalQ} quick questions — how well do you know the game?</Text>
-            )}
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#FFD700" />
+        <Text style={miniTileStyles.bigScore}>
+          {score !== null ? `${score}/${totalQ}` : "—"}
+        </Text>
+        <View style={miniTileStyles.dotsRow}>
+          {Array.from({ length: totalQ }).map((_, i) => (
+            <View
+              key={i}
+              style={[
+                miniTileStyles.dot,
+                score !== null && i < score
+                  ? { backgroundColor: "#FFD700" }
+                  : { backgroundColor: "rgba(255,255,255,0.15)" },
+              ]}
+            />
+          ))}
         </View>
-        {score !== null ? (
-          <View style={iqCardStyles.scoreRow}>
-            {Array.from({ length: totalQ }).map((_, i) => (
-              <View
-                key={i}
-                style={[iqCardStyles.scoreDot, i < score ? iqCardStyles.scoreDotFilled : iqCardStyles.scoreDotEmpty]}
-              />
-            ))}
-          </View>
-        ) : null}
-      </Pressable>
+      </MiniTile>
 
       <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
         <View style={iqCardStyles.modalOverlay}>
@@ -1650,122 +1854,183 @@ const styles = StyleSheet.create({
   },
 });
 
-const hStyles = StyleSheet.create({
-  questCard: {
-    backgroundColor: "#0F141B",
+const improveTilesRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    alignItems: "stretch",
+  },
+});
+
+const MINI_TILE_HEIGHT = 138;
+
+const miniTileStyles = StyleSheet.create({
+  tile: {
+    flex: 1,
+    height: MINI_TILE_HEIGHT,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    marginHorizontal: Spacing.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.xs,
+    justifyContent: "space-between",
+    overflow: "hidden",
   },
-  questCardEmpty: {
-    backgroundColor: "#0F141B",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    marginHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    alignItems: "center",
-    gap: Spacing.sm,
-    flexDirection: "row",
+  tilePressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.92,
   },
-  questEmptyText: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-  },
-  questViewAllBtn: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    justifyContent: "space-between",
+    gap: 4,
   },
-  questViewAllText: {
-    fontSize: 12,
-    color: GlowColors.primary,
-    fontWeight: "700",
-  },
-  questCardHeader: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: 4,
+    flexShrink: 1,
   },
-  questIconBg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  questInfoBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  questTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  questName: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  questTypePill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-  },
-  questTypeText: {
+  label: {
     fontSize: 9,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
+    flexShrink: 1,
   },
-  questXpRow: {
+  body: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 4,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  footerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
   },
-  questXpText: {
-    fontSize: 11,
-    color: "#FFD700",
-    fontWeight: "700",
+  footerText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
   },
-  viewAllLink: {
+  // Tennis IQ
+  bigScore: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    lineHeight: 26,
+  },
+  dotsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 1,
+    gap: 4,
+    flexWrap: "wrap",
   },
-  viewAllText: {
-    fontSize: 11,
-    color: GlowColors.primary,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  // Quest
+  questName: {
+    fontSize: 12,
     fontWeight: "700",
+    color: Colors.dark.text,
+    lineHeight: 15,
   },
-  questProgressWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  questProgressBar: {
-    flex: 1,
+  progressBar: {
     height: 4,
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 2,
     overflow: "hidden",
   },
-  questProgressFill: {
+  progressFill: {
     height: "100%",
     borderRadius: 2,
   },
-  questProgressText: {
-    fontSize: 11,
+  progressText: {
+    fontSize: 10,
     color: Colors.dark.textSubtle,
-    fontWeight: "600",
-    minWidth: 32,
-    textAlign: "right",
+    fontWeight: "700",
+  },
+  questEmptyText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  xpFooterText: {
+    fontSize: 10,
+    color: "#FFD700",
+    fontWeight: "700",
+  },
+  // Spotlight
+  urgencyChip: {
+    backgroundColor: "rgba(255,215,0,0.18)",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.35)",
+    maxWidth: 70,
+  },
+  urgencyChipText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: "#FFD700",
+    letterSpacing: 0.3,
+  },
+  spotAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  spotName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  starRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  starCountText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFD700",
+  },
+  votePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFD700",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.full,
+    alignSelf: "flex-start",
+  },
+  votePillText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.dark.buttonText,
+  },
+  votedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  votedFooterText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
 });
