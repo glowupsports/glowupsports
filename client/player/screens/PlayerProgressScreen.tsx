@@ -81,6 +81,7 @@ interface ProgressData {
     focusAreas: string[];
   };
   levelReadiness: LevelReadiness | null;
+  weeklyXp?: number;
 }
 
 interface CoachFeedbackItem {
@@ -1991,12 +1992,9 @@ export default function PlayerProgressScreen() {
         <View style={styles.xpSection}>
           <View style={styles.xpSectionHeader}>
             <Text style={styles.xpSectionTitle}>XP to Level {data.level + 1}</Text>
-            {(() => {
-              const weeklyXp = (data as unknown as { weeklyXp?: number }).weeklyXp;
-              return typeof weeklyXp === "number" && weeklyXp > 0 ? (
-                <Text style={styles.xpWeeklyDelta}>+{weeklyXp} XP this week</Text>
-              ) : null;
-            })()}
+            {typeof data.weeklyXp === "number" && data.weeklyXp > 0 ? (
+              <Text style={styles.xpWeeklyDelta}>+{data.weeklyXp} XP this week</Text>
+            ) : null}
           </View>
           <XPProgressBar
             currentXP={currentLevelXp}
