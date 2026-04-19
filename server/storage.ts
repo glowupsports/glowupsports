@@ -11622,7 +11622,7 @@ export const storage = {
         ));
     }
     
-    apiCache.invalidate(`pricing:${academyId}:`);
+    apiCache.invalidate(`pricing:${data.academyId}:`);
     return newRecord;
   },
   
