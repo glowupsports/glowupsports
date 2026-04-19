@@ -612,7 +612,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           user = eligible[0];
         } else if (eligible.length > 1) {
           console.log(`[ForgotPassword] Email matches ${eligible.length} accounts; refusing to disambiguate (opaque response)`);
-          user = undefined as any;
+          // Leave `user` undefined so the next branch returns the opaque success.
         }
       }
 
