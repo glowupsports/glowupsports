@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, LayoutAnimation } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, LayoutAnimation, InteractionManager } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -524,6 +524,24 @@ function PlayerHomeContent() {
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showWelcome, setShowWelcome] = useState(false);
 
+  // Defer below-the-fold heavy widgets (IMPROVE, COMMUNITY, SHOP) until after
+  // the first frame settles. The home screen mounts ~10 useQuery-driven
+  // sections at once, which has caused 2s+ main-thread freezes on slower
+  // devices (Sentry REACT-NATIVE-1A). InteractionManager lets the initial
+  // paint + scroll be responsive before we hydrate secondary content.
+  const [secondaryReady, setSecondaryReady] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setSecondaryReady(true);
+    });
+    // Safety fallback: never wait longer than 1.2s.
+    const fallback = setTimeout(() => setSecondaryReady(true), 1200);
+    return () => {
+      handle.cancel?.();
+      clearTimeout(fallback);
+    };
+  }, []);
+
   const guestDashboard: DashboardData = useMemo(() => ({
     player: {
       id: "guest",
@@ -546,7 +564,10 @@ function PlayerHomeContent() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: questsData } = useQuests(!isGuest);
+  // Quests/social/shop only feed deferred below-the-fold sections, so gate
+  // their network + JSON work on `secondaryReady` to keep the first frame
+  // light (Sentry REACT-NATIVE-1A — 2s app hang).
+  const { data: questsData } = useQuests(!isGuest && secondaryReady);
 
   const { data: socialPosts } = useQuery<any[]>({
     queryKey: ["/api/social/feed", "dashboard-preview"],
@@ -556,13 +577,13 @@ function PlayerHomeContent() {
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: !isGuest,
+    enabled: !isGuest && secondaryReady,
     staleTime: 60000,
   });
 
   const { data: shopData } = useQuery<{ featuredProducts?: any[] }>({
     queryKey: ["/api/player/shop"],
-    enabled: !isGuest,
+    enabled: !isGuest && secondaryReady,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -981,7 +1002,7 @@ function PlayerHomeContent() {
         <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── shown only when player has real content: feedback received OR skill progress data (ball level assigned) */}
-        {!isGuest && (!!effectiveData?.lastFeedback || !!effectiveData?.player?.ballLevel) ? (
+        {secondaryReady && !isGuest && (!!effectiveData?.lastFeedback || !!effectiveData?.player?.ballLevel) ? (
           <>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
@@ -1021,10 +1042,10 @@ function PlayerHomeContent() {
         ) : null}
 
         {/* ── COMMUNITY ── only show when there are real social posts */}
-        {!isGuest && socialPosts && socialPosts.length > 0 && <MiniFeed />}
+        {secondaryReady && !isGuest && socialPosts && socialPosts.length > 0 ? <MiniFeed /> : null}
 
         {/* ── SHOP ── only show when there are marketplace products */}
-        {!isGuest && shopData?.featuredProducts && shopData.featuredProducts.length > 0 && <GlowMarketSpotlight />}
+        {secondaryReady && !isGuest && shopData?.featuredProducts && shopData.featuredProducts.length > 0 ? <GlowMarketSpotlight /> : null}
       </ScrollView>
 
       <BetaFeedbackButton
