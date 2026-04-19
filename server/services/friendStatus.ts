@@ -81,26 +81,3 @@ export async function buildFriendStatusMap(
   return result;
 }
 
-/**
- * Enrich a list of player-shaped objects (anything with an `id: string`) with
- * `friendStatus` and `friendConnectionId` fields, based on the viewer's
- * friend connections. Players with no connection get `friendStatus: "none"`
- * and `friendConnectionId: null`.
- */
-export async function enrichPlayersWithFriendStatus<T extends { id: string }>(
-  viewerPlayerId: string,
-  players: T[],
-): Promise<Array<T & { friendStatus: FriendStatus; friendConnectionId: string | null }>> {
-  const map = await buildFriendStatusMap(
-    viewerPlayerId,
-    players.map((p) => p.id),
-  );
-  return players.map((p) => {
-    const fs = map.get(p.id);
-    return {
-      ...p,
-      friendStatus: (fs?.status ?? "none") as FriendStatus,
-      friendConnectionId: fs?.connectionId ?? null,
-    };
-  });
-}
