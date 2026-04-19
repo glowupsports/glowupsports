@@ -1800,8 +1800,7 @@ export default function PlayerProgressScreen() {
   })();
 
   const currentLevelXp = data.xp % 500;
-  let tabBarHeight = 80;
-  try { tabBarHeight = useBottomTabBarHeight(); } catch { tabBarHeight = 80; }
+  const tabBarHeight = useBottomTabBarHeight();
 
   const totalObservations = (data.skillRadar ?? []).reduce((sum, s) => sum + s.observationCount, 0);
   const isNewPlayer = totalObservations === 0;
@@ -1810,7 +1809,7 @@ export default function PlayerProgressScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xxl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
@@ -1886,40 +1885,60 @@ export default function PlayerProgressScreen() {
               style={styles.ballLevelInner}
               onPress={handleBallLevelPress}
             >
-              <View style={styles.ballLevelHeroRow}>
+              <View style={styles.ballLevelArcWrap}>
+                {(() => {
+                  const arcSize = 132;
+                  const arcRadius = (arcSize - 8) / 2;
+                  const arcCircumference = 2 * Math.PI * arcRadius;
+                  const arcPct = Math.max(0, Math.min(1, currentLevelXp / 500));
+                  return (
+                    <Svg
+                      width={arcSize}
+                      height={arcSize}
+                      style={styles.ballLevelArcSvg}
+                    >
+                      <Circle
+                        cx={arcSize / 2}
+                        cy={arcSize / 2}
+                        r={arcRadius}
+                        stroke="rgba(255,255,255,0.08)"
+                        strokeWidth={3}
+                        fill="none"
+                      />
+                      <Circle
+                        cx={arcSize / 2}
+                        cy={arcSize / 2}
+                        r={arcRadius}
+                        stroke={GlowColors.primary}
+                        strokeWidth={3}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeDasharray={`${arcCircumference}`}
+                        strokeDashoffset={`${arcCircumference * (1 - arcPct)}`}
+                        transform={`rotate(-90 ${arcSize / 2} ${arcSize / 2})`}
+                      />
+                    </Svg>
+                  );
+                })()}
                 <BallLevelBadge 
                   levelId={data.ballLevel || "red1"} 
                   size="large" 
                   showLabel={true}
                   labelOverride={data.displayName ?? undefined}
                 />
-                <View style={styles.ballLevelMetaCol}>
-                  <Text style={styles.ballLevelMetaLabel}>Level</Text>
-                  <Text style={styles.ballLevelMetaValue}>{data.level}</Text>
-                  <View style={styles.ballLevelMetaInfoRow}>
-                    <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
-                    <Text style={styles.ballLevelMetaHint}>Tap for details</Text>
-                  </View>
-                </View>
               </View>
-
-              <View style={styles.ballLevelXpWrap}>
-                <XPProgressBar
-                  currentXP={currentLevelXp}
-                  xpToNextLevel={500}
-                  level={data.level}
-                />
+              <View style={styles.levelLabelRow}>
+                <Text style={styles.ballLevelHint}>
+                  {isNewPlayer
+                    ? "Your starting level"
+                    : activeSport === "padel"
+                    ? "Padel level"
+                    : activeSport === "pickleball"
+                    ? "Pickleball rating"
+                    : "Tap to learn more"}
+                </Text>
+                <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
               </View>
-
-              <Text style={styles.ballLevelFooter}>
-                {isNewPlayer
-                  ? "Your starting level"
-                  : activeSport === "padel"
-                  ? "Padel level"
-                  : activeSport === "pickleball"
-                  ? "Pickleball rating"
-                  : "Coach-validated skill level"}
-              </Text>
             </Pressable>
           </LinearGradient>
         </View>
@@ -1965,6 +1984,15 @@ export default function PlayerProgressScreen() {
             </View>
             <Text style={[styles.statTileValue, { color: Colors.dark.gold }]}>{data.xp}</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.xpSection}>
+          <Text style={styles.xpSectionTitle}>XP to Level {data.level + 1}</Text>
+          <XPProgressBar
+            currentXP={currentLevelXp}
+            xpToNextLevel={500}
+            level={data.level}
+          />
         </View>
 
         {/* AI COACH HERO SECTION */}
@@ -2840,51 +2868,20 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   ballLevelInner: {
     backgroundColor: "rgba(11, 13, 16, 0.95)",
     borderRadius: BorderRadius.xl - 2,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-  },
-  ballLevelHeroRow: {
-    flexDirection: "row",
+    paddingVertical: Spacing.xl + 8,
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.lg,
+    gap: Spacing.sm,
   },
-  ballLevelMetaCol: {
-    flex: 1,
-    alignItems: "flex-end",
-    gap: 2,
-  },
-  ballLevelMetaLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
-    color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-  },
-  ballLevelMetaValue: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    lineHeight: 40,
-  },
-  ballLevelMetaInfoRow: {
-    flexDirection: "row",
+  ballLevelArcWrap: {
     alignItems: "center",
-    gap: 4,
-    marginTop: 2,
+    justifyContent: "center",
+    width: 132,
+    height: 132,
   },
-  ballLevelMetaHint: {
-    fontSize: 10,
-    color: Colors.dark.textMuted,
-  },
-  ballLevelXpWrap: {
-    width: "100%",
-  },
-  ballLevelFooter: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
+  ballLevelArcSvg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
   ballLevelHint: {
     fontSize: 11,
@@ -3006,6 +3003,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   xpSection: {
     paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  xpSectionTitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
   xpHeader: {
     flexDirection: "row",
