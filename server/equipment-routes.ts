@@ -14,6 +14,12 @@ import {
   type AuthenticatedRequest,
 } from "./auth";
 import { z } from "zod";
+import { getBalance, manualAdjustment } from "./services/credit-engine";
+
+// Equipment items have no per-type credit pricing — they're charged from the
+// player's "group" wallet by convention (mirrors the legacy
+// `pkg.creditType ?? 'group'` shim used elsewhere).
+const EQUIPMENT_CREDIT_TYPE = "group" as const;
 
 const router = Router();
 
@@ -535,6 +541,14 @@ router.post(
           return res.status(400).json({ error: "Credits payment not available for this item" });
         }
         creditsUsed = item[0].priceCredits;
+
+        // Pre-check the V2 wallet so we can fail fast with a clean 402 before
+        // touching stock. The engine itself allows debt, but for equipment we
+        // refuse the rental when the player can't actually cover it.
+        const balance = await getBalance(playerId, academyId);
+        if (balance[EQUIPMENT_CREDIT_TYPE] < creditsUsed) {
+          throw new Error("INSUFFICIENT_CREDITS");
+        }
       } else {
         if (item[0].priceCash == null) {
           return res.status(400).json({ error: "Cash payment not available for this item" });
@@ -577,17 +591,6 @@ router.post(
             AND available_quantity > 0
         `);
 
-        // Deduct credits from player's active package if paying by credits
-        if (data.paymentMethod === "credits" && creditsUsed != null) {
-          // Task #685 Phase 4 — V1 retired. V2 owns the wallet
-          // (credit_ledger_v2); the equipment-credit path on V2 is not yet
-          // wired so we fail closed and the client falls back to cash.
-          console.warn(
-            `[Equipment][V2] academy=${academyId} player=${playerId} equipment=${data.equipmentId} — V1 retired, V2 equipment-credit path not yet wired. Forcing cash fallback.`,
-          );
-          throw new Error("V2_CREDITS_UNSUPPORTED");
-        }
-
         const [created] = await tx
           .insert(equipmentRentals)
           .values({
@@ -606,6 +609,40 @@ router.post(
           .returning();
         rental = created;
       });
+
+      // Debit V2 wallet AFTER the rental row + stock decrement are committed.
+      // Idempotent via a deterministic event_key tied to the rental.id; safe
+      // to retry. If the engine call fails, compensate by cancelling the
+      // rental and restoring stock so the player isn't left holding an
+      // unpaid reservation.
+      if (data.paymentMethod === "credits" && creditsUsed != null) {
+        try {
+          await manualAdjustment({
+            playerId,
+            academyId,
+            type: EQUIPMENT_CREDIT_TYPE,
+            delta: -creditsUsed,
+            reason: `equipment_rental:${rental!.id}`,
+            actorId: req.user!.id,
+            actorRole: "player",
+            eventKey: `equipment:debit:rental:${rental!.id}`,
+          });
+        } catch (debitErr) {
+          await db.transaction(async (tx) => {
+            await tx
+              .update(equipmentRentals)
+              .set({ status: "cancelled", updatedAt: new Date() })
+              .where(eq(equipmentRentals.id, rental!.id));
+            await tx.execute(sql`
+              UPDATE equipment
+              SET available_quantity = LEAST(quantity, available_quantity + 1),
+                  updated_at = NOW()
+              WHERE id = ${data.equipmentId}
+            `);
+          });
+          throw debitErr;
+        }
+      }
 
       res.status(201).json({ rental: rental! });
     } catch (err: unknown) {
@@ -677,6 +714,13 @@ router.post(
           return res.status(400).json({ error: "Credits payment not available" });
         totalCredits = item[0].priceCredits * data.quantity;
         creditsUsed = totalCredits;
+
+        // Pre-check the V2 wallet so we can fail fast with a clean 402 before
+        // touching stock.
+        const balance = await getBalance(playerId, academyId);
+        if (balance[EQUIPMENT_CREDIT_TYPE] < totalCredits) {
+          throw new Error("INSUFFICIENT_CREDITS");
+        }
       } else {
         if (item[0].priceCash == null)
           return res.status(400).json({ error: "Cash payment not available" });
@@ -701,17 +745,6 @@ router.post(
           throw new Error("NO_STOCK");
         }
 
-        // Deduct credits from player's active package if paying by credits
-        if (data.paymentMethod === "credits" && totalCredits > 0) {
-          // Task #685 Phase 4 — V1 retired. V2 owns the wallet
-          // (credit_ledger_v2); the equipment-purchase-credit path on V2 is
-          // not yet wired so we fail closed and the client falls back to cash.
-          console.warn(
-            `[Equipment][V2] academy=${academyId} player=${playerId} equipment=${data.equipmentId} qty=${data.quantity} — V1 retired, V2 equipment-purchase-credit path not yet wired. Forcing cash fallback.`,
-          );
-          throw new Error("V2_CREDITS_UNSUPPORTED");
-        }
-
         const [created] = await tx
           .insert(equipmentRentals)
           .values({
@@ -731,6 +764,38 @@ router.post(
           .returning();
         purchase = created;
       });
+
+      // Debit V2 wallet AFTER stock + purchase row are committed. Idempotent
+      // via a deterministic event_key. Compensate by restoring stock if the
+      // engine call fails (purchases have no "cancellable" state, so we hard
+      // delete the row to keep it from showing up in the player's history).
+      if (data.paymentMethod === "credits" && totalCredits > 0) {
+        try {
+          await manualAdjustment({
+            playerId,
+            academyId,
+            type: EQUIPMENT_CREDIT_TYPE,
+            delta: -totalCredits,
+            reason: `equipment_purchase:${purchase!.id}`,
+            actorId: req.user!.id,
+            actorRole: "player",
+            eventKey: `equipment:debit:purchase:${purchase!.id}`,
+          });
+        } catch (debitErr) {
+          await db.transaction(async (tx) => {
+            await tx
+              .delete(equipmentRentals)
+              .where(eq(equipmentRentals.id, purchase!.id));
+            await tx.execute(sql`
+              UPDATE equipment
+              SET available_quantity = LEAST(quantity, available_quantity + ${data.quantity}),
+                  updated_at = NOW()
+              WHERE id = ${data.equipmentId}
+            `);
+          });
+          throw debitErr;
+        }
+      }
 
       res.status(201).json({ purchase: purchase! });
     } catch (err: unknown) {
@@ -778,19 +843,24 @@ router.post(
               updated_at = NOW()
           WHERE id = ${rental[0].equipmentId}
         `);
-
-        // Refund credits if originally paid by credits
-        if (rental[0].paymentMethod === "credits" && rental[0].creditsUsed != null) {
-          // Task #685 Phase 4 — V1 retired. Original credit debits are
-          // already rejected for V2 (V2_CREDITS_UNSUPPORTED), so reaching
-          // this branch with paymentMethod=="credits" is now anomalous.
-          // Surface a warn but never mutate the legacy `packages` /
-          // `credit_transactions` tables.
-          console.warn(
-            `[Equipment][V2] academy=${rental[0].academyId} player=${playerId} rental=${id} — V1 retired, no legacy refund. (creditsUsed=${rental[0].creditsUsed})`,
-          );
-        }
       });
+
+      // Refund credits to the V2 wallet if originally paid by credits.
+      // Idempotent via a deterministic event_key — repeat cancel calls are
+      // already blocked above by the status check, but the engine guarantees
+      // safety even if the same event_key is replayed.
+      if (rental[0].paymentMethod === "credits" && rental[0].creditsUsed != null && rental[0].creditsUsed > 0) {
+        await manualAdjustment({
+          playerId,
+          academyId: rental[0].academyId,
+          type: EQUIPMENT_CREDIT_TYPE,
+          delta: rental[0].creditsUsed,
+          reason: `equipment_rental_refund:${id}`,
+          actorId: req.user!.id,
+          actorRole: "player",
+          eventKey: `equipment:refund:rental:${id}`,
+        });
+      }
 
       res.json({ success: true });
     } catch (err: unknown) {
