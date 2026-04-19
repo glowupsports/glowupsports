@@ -1095,6 +1095,19 @@
     "blessingsSubtitle": "نتمنى لك السلام والسعادة في هذا الشهر الفضيل"
   },
   "chat": {
-    "newMessage": "رسالة جديدة"
+    "newMessage": "رسالة جديدة",
+    "tabs": {
+      "groups": "المجموعات"
+    },
+    "empty": {
+      "playersTitle": "لا توجد محادثات لاعبين",
+      "playersSubtitle": "اضغط + للدردشة مع زميل",
+      "coachesTitle": "لا توجد محادثات مع المدرب",
+      "coachesSubtitle": "سيبدأ مدربك المحادثة",
+      "academyTitle": "لا توجد محادثة أكاديمية",
+      "academySubtitle": "محادثة الأكاديمية قريباً",
+      "groupsTitle": "لست في أي مجموعة بعد",
+      "groupsSubtitle": "انضم إلى مجموعة درس أو مجموعة مجتمع لبدء الدردشة"
+    }
   }
 }

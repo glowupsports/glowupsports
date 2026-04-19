@@ -66,10 +66,59 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       return res.json({ friends: [], pendingRequests: [] });
     }
 
-    const conversations = await storage.getConversationsForPlayer(playerId, academyId);
+    const conversationsRaw = await storage.getConversationsForPlayer(playerId, academyId);
 
     // Get the current user's userId to check against playerBlocks
     const currentUserId = req.user!.userId;
+
+    // Pre-fetch player's active series enrollments + community group memberships so we can
+    // filter ghost group conversations (lessons/groups the player is no longer in).
+    const activeSeriesRows = await db.select({ seriesId: seriesPlayers.seriesId })
+      .from(seriesPlayers)
+      .where(and(eq(seriesPlayers.playerId, playerId), eq(seriesPlayers.status, "active")));
+    const activeSeriesIds = new Set(activeSeriesRows.map(r => r.seriesId));
+
+    const groupMemberRows = currentUserId
+      ? await db.select({ groupId: groupMembers.groupId })
+          .from(groupMembers)
+          .where(eq(groupMembers.userId, currentUserId))
+      : [];
+    const memberGroupIds = new Set(groupMemberRows.map(r => r.groupId));
+
+    // Pre-fetch series details (title + schedule) for all referenced series_group/squad/lesson_group conversations
+    const seriesGroupTitles = conversationsRaw
+      .filter(c => (c.type === "series_group" || c.type === "squad" || c.type === "lesson_group") && c.title)
+      .map(c => c.title!) as string[];
+    const seriesById = new Map<string, { title: string; dayOfWeek: number; startTime: string; duration: number | null }>();
+    if (seriesGroupTitles.length > 0) {
+      const seriesRows = await db.select({
+        id: coachingSeries.id,
+        title: coachingSeries.title,
+        dayOfWeek: coachingSeries.dayOfWeek,
+        startTime: coachingSeries.startTime,
+        duration: coachingSeries.duration,
+      }).from(coachingSeries).where(inArray(coachingSeries.id, seriesGroupTitles));
+      for (const s of seriesRows) {
+        seriesById.set(s.id, { title: s.title, dayOfWeek: s.dayOfWeek, startTime: s.startTime, duration: s.duration ?? null });
+      }
+    }
+
+    // Filter out group-type conversations the player isn't actually a member of.
+    // Defensive: only apply ID-based filtering when `title` looks like a UUID. Legacy chats
+    // whose title is a display string are kept (they fall back to the participant-based
+    // membership check that storage.getConversationsForPlayer already enforces).
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const conversations = conversationsRaw.filter(conv => {
+      if (conv.type === "series_group" || conv.type === "squad" || conv.type === "lesson_group") {
+        if (!conv.title || !UUID_RE.test(conv.title)) return true;
+        return activeSeriesIds.has(conv.title);
+      }
+      if (conv.type === "group") {
+        if (!conv.title || !UUID_RE.test(conv.title)) return true;
+        return memberGroupIds.has(conv.title);
+      }
+      return true;
+    });
 
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
@@ -79,6 +128,8 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         let playerPhoto: string | null = null;
         let providerName: string | null = null;
         let providerPhoto: string | null = null;
+        let seriesDayOfWeek: number | null = null;
+        let seriesStartTime: string | null = null;
         if (conv.coachId) {
           const coach = await storage.getCoach(conv.coachId, academyId);
           coachName = coach?.name ?? null;
@@ -125,7 +176,15 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
             resolvedTitle = group.name;
           }
         }
-        return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
+        if ((conv.type === "series_group" || conv.type === "squad" || conv.type === "lesson_group") && conv.title) {
+          const series = seriesById.get(conv.title);
+          if (series) {
+            resolvedTitle = series.title;
+            seriesDayOfWeek = series.dayOfWeek;
+            seriesStartTime = series.startTime;
+          }
+        }
+        return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime };
       })
     );
 

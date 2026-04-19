@@ -64,20 +64,35 @@ interface Conversation {
   coachPhoto?: string | null;
   playerName?: string | null;
   playerPhoto?: string | null;
+  seriesDayOfWeek?: number | null;
+  seriesStartTime?: string | null;
 }
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
 const TAB_BAR_HEIGHT = 85;
 
-type ChatTab = "players" | "coaches" | "academy" | "squad";
+type ChatTab = "players" | "coaches" | "academy" | "groups";
 
 const CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["player_player"] },
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
-  { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
+  { id: "groups", name: "Groups", icon: "people-circle-outline", types: ["squad", "group", "series_group", "lesson_group"] },
 ];
+
+const DAY_LABELS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const SERIES_GROUP_TYPES = new Set(["series_group", "squad", "lesson_group"]);
+
+function formatGroupSubtitle(conv: { type: string; seriesDayOfWeek?: number | null; seriesStartTime?: string | null }): string | null {
+  if (!SERIES_GROUP_TYPES.has(conv.type)) return null;
+  const day = conv.seriesDayOfWeek;
+  const time = conv.seriesStartTime;
+  if (day == null && !time) return null;
+  const dayLabel = day != null && day >= 0 && day <= 6 ? DAY_LABELS_SHORT[day] : null;
+  if (dayLabel && time) return `${dayLabel} ${time}`;
+  return dayLabel || time || null;
+}
 
 interface OtherPlayer {
   id: string;
@@ -361,7 +376,7 @@ export function PlayerChatFooter() {
             color={currentTab === tab.id ? Colors.dark.primary : Colors.dark.text}
           />
           <ThemedText style={[styles.tabName, currentTab === tab.id && styles.tabNameActive]}>
-            {tab.name}
+            {tab.id === "groups" ? t("chat.tabs.groups") : tab.name}
           </ThemedText>
         </Pressable>
       ))}
@@ -741,7 +756,9 @@ export function PlayerChatFooter() {
                 <FlatList
                   data={filteredConversations.length > 0 ? filteredConversations : (currentTab === "coaches" || currentTab === "academy" ? conversations : [])}
                   keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
+                  renderItem={({ item }) => {
+                    const groupSubtitle = currentTab === "groups" ? formatGroupSubtitle(item) : null;
+                    return (
                     <Pressable
                       onPress={() => handleSelectConversation(item)}
                       style={styles.conversationItem}
@@ -766,7 +783,7 @@ export function PlayerChatFooter() {
                         return (
                           <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
                             <Ionicons
-                              name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "fitness"}
+                              name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "people-circle"}
                               size={20}
                               color={Colors.dark.primary}
                             />
@@ -777,26 +794,31 @@ export function PlayerChatFooter() {
                         <ThemedText style={styles.conversationName}>
                           {(currentTab === "players" ? item.playerName : null) || item.coachName || item.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
                         </ThemedText>
-                        {item.lastMessagePreview ? (
+                        {groupSubtitle ? (
+                          <ThemedText numberOfLines={1} style={styles.conversationPreview}>
+                            {groupSubtitle}
+                          </ThemedText>
+                        ) : item.lastMessagePreview ? (
                           <ThemedText numberOfLines={1} style={styles.conversationPreview}>
                             {item.lastMessagePreview}
                           </ThemedText>
                         ) : null}
                       </View>
                     </Pressable>
-                  )}
+                    );
+                  }}
                   ListEmptyComponent={
                     <View style={styles.emptyState}>
                       <Ionicons 
-                        name={currentTab === "coaches" ? "ribbon-outline" : currentTab === "players" ? "people-outline" : currentTab === "academy" ? "home-outline" : "fitness-outline"} 
+                        name={currentTab === "coaches" ? "ribbon-outline" : currentTab === "players" ? "people-outline" : currentTab === "academy" ? "home-outline" : "people-circle-outline"} 
                         size={40} 
                         color={Colors.dark.tabIconDefault} 
                       />
                       <ThemedText style={styles.emptyText}>
-                        {currentTab === "coaches" ? "No coach chats" : currentTab === "players" ? "No player chats" : currentTab === "academy" ? "No academy chat" : "No group chats"}
+                        {currentTab === "coaches" ? t("chat.empty.coachesTitle") : currentTab === "players" ? t("chat.empty.playersTitle") : currentTab === "academy" ? t("chat.empty.academyTitle") : t("chat.empty.groupsTitle")}
                       </ThemedText>
                       <ThemedText style={styles.emptySubtext}>
-                        {currentTab === "coaches" ? "Your coach will start a conversation" : currentTab === "players" ? "Tap + to chat with a teammate" : currentTab === "academy" ? "Academy chat coming soon" : "Join a group to chat"}
+                        {currentTab === "coaches" ? t("chat.empty.coachesSubtitle") : currentTab === "players" ? t("chat.empty.playersSubtitle") : currentTab === "academy" ? t("chat.empty.academySubtitle") : t("chat.empty.groupsSubtitle")}
                       </ThemedText>
                     </View>
                   }

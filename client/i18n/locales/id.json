@@ -1085,6 +1085,19 @@
     "blessingsSubtitle": "Semoga kedamaian dan kebahagiaan menyertai Anda di bulan suci ini"
   },
   "chat": {
-    "newMessage": "Pesan baru"
+    "newMessage": "Pesan baru",
+    "tabs": {
+      "groups": "Grup"
+    },
+    "empty": {
+      "playersTitle": "Belum ada chat pemain",
+      "playersSubtitle": "Ketuk + untuk chat dengan rekan",
+      "coachesTitle": "Belum ada chat pelatih",
+      "coachesSubtitle": "Pelatih akan memulai percakapan",
+      "academyTitle": "Belum ada chat akademi",
+      "academySubtitle": "Chat akademi segera hadir",
+      "groupsTitle": "Kamu belum ada di grup mana pun",
+      "groupsSubtitle": "Gabung grup les atau grup komunitas untuk mulai chat"
+    }
   }
 }

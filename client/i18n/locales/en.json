@@ -1090,6 +1090,19 @@
     "blessingsSubtitle": "Wishing you peace and joy this holy month"
   },
   "chat": {
-    "newMessage": "New message"
+    "newMessage": "New message",
+    "tabs": {
+      "groups": "Groups"
+    },
+    "empty": {
+      "playersTitle": "No player chats",
+      "playersSubtitle": "Tap + to chat with a teammate",
+      "coachesTitle": "No coach chats",
+      "coachesSubtitle": "Your coach will start a conversation",
+      "academyTitle": "No academy chat",
+      "academySubtitle": "Academy chat coming soon",
+      "groupsTitle": "You're not in any groups yet",
+      "groupsSubtitle": "Join a lesson group or community group to start chatting"
+    }
   }
 }
