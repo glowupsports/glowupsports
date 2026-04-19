@@ -452,9 +452,9 @@ function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; que
       <MiniTile
         label="QUEST"
         icon="flame-outline"
-        iconColor="#FF6B35"
-        accentBg="rgba(255,107,53,0.06)"
-        accentBorder="rgba(255,107,53,0.2)"
+        iconColor={GlowColors.orange}
+        accentBg="rgba(255,133,27,0.06)"
+        accentBorder="rgba(255,133,27,0.2)"
         accessibilityLabel="View quests"
         onPress={onPress}
         footer={<Text style={miniTileStyles.footerText} numberOfLines={1}>View all</Text>}
@@ -473,9 +473,9 @@ function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; que
     <MiniTile
       label={typeLabel}
       icon="flame"
-      iconColor="#FF6B35"
-      accentBg="rgba(255,107,53,0.06)"
-      accentBorder="rgba(255,107,53,0.2)"
+      iconColor={GlowColors.orange}
+      accentBg="rgba(255,133,27,0.06)"
+      accentBorder="rgba(255,133,27,0.2)"
       accessibilityLabel={`Quest ${quest.name}`}
       onPress={onPress}
       footer={
@@ -563,9 +563,10 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
   const stateC = !stateA && !stateB;
 
   const handleTilePress = () => {
-    if (stateA) {
-      onNominate();
-    } else if (stateC && !lastWinner) {
+    // Empty-no-winner state: tile tap nominates directly (only meaningful action).
+    // All other states: tile tap routes to spotlight details; the Vote/Nominate
+    // pill is the explicit one-tap nominate entry point.
+    if (stateC && !lastWinner) {
       onNominate();
     } else {
       onViewDetails();
