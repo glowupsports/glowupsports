@@ -1,15 +1,18 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Alert } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-type RouteParams = { token?: string };
+type ResetNav = NativeStackNavigationProp<RootStackParamList, "ResetPassword">;
+type ResetRoute = RouteProp<RootStackParamList, "ResetPassword">;
 
 export default function ResetPasswordScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
+  const navigation = useNavigation<ResetNav>();
+  const route = useRoute<ResetRoute>();
   const { resetPasswordWithToken } = useAuth();
 
   const token = useMemo(() => route.params?.token ?? "", [route.params]);
