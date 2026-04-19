@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export type TickerItemType = "chat" | "goal" | "streak" | "news" | "achievement" | "notification";
@@ -150,7 +151,7 @@ export function SocialTickerFooter({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "absolute",
     bottom: 0,
@@ -199,4 +200,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: Spacing.sm,
   },
-});
+}));

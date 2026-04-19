@@ -30,6 +30,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "LadderDetail">;
 
@@ -434,7 +435,7 @@ export default function LadderDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -791,9 +792,9 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: "#00E676",
   },
-});
+}));
 
-const modalStyles = StyleSheet.create({
+const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -900,4 +901,4 @@ const modalStyles = StyleSheet.create({
     ...Typography.body,
     color: TextColors.muted,
   },
-});
+}));

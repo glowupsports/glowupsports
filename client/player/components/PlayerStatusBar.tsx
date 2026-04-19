@@ -19,6 +19,7 @@ import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface PlayerData {
   id: string;
   name: string;
@@ -452,7 +453,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
@@ -968,4 +969,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
     fontWeight: "600",
   },
-});
+}));

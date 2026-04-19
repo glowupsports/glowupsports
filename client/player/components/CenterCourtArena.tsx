@@ -19,6 +19,7 @@ import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, Col
 import * as Haptics from "expo-haptics";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const ARENA_HEIGHT = 220;
 
@@ -350,7 +351,7 @@ export function CenterCourtArena({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     height: ARENA_HEIGHT,
     marginHorizontal: Spacing.md,
@@ -500,4 +501,4 @@ const styles = StyleSheet.create({
     color: ProTennisColors.neonCyan,
     letterSpacing: 0.5,
   },
-});
+}));

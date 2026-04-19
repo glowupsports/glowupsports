@@ -31,6 +31,7 @@ import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize } from "@shared/schema";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
@@ -1183,7 +1184,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1869,4 +1870,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     opacity: 0.7,
   },
-});
+}));

@@ -20,11 +20,12 @@ import Animated, { FadeIn, FadeInUp, FadeInRight } from "react-native-reanimated
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 import { LockedScreen } from "../components/LockedScreen";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const HEAD_ORANGE = "#FF6600";
@@ -256,7 +257,7 @@ function PendingUpsellsBanner() {
   );
 }
 
-const pendingUpsellStyles = StyleSheet.create({
+const pendingUpsellStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.lg,
@@ -332,7 +333,7 @@ const pendingUpsellStyles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.backgroundDefault,
   },
-});
+}));
 
 function formatPrice(price: string, currency: string = "AED") {
   const num = parseFloat(price);
@@ -384,7 +385,7 @@ function ProductHCard({ product, onPress, onAddToBag }: { product: ShopProduct; 
         onPress={(e) => { e.stopPropagation?.(); onAddToBag(product); }}
         style={styles.hCardAddBtn}
       >
-        <Ionicons name="add" size={18} color="#0A0A0A" />
+        <Ionicons name="add" size={18} color={Backgrounds.root} />
       </Pressable>
     </Pressable>
   );
@@ -525,14 +526,14 @@ export default function ShopScreen() {
           <>
             <View style={styles.topBar}>
               <Pressable onPress={() => navigation.goBack()} style={styles.topBarButton}>
-                <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+                <Ionicons name="arrow-back" size={22} color={TextColors.primary} />
               </Pressable>
               <View style={styles.topBarCenter}>
                 <Text style={styles.topBarBrand}>HEAD</Text>
                 <Text style={styles.topBarTitle}>OFFICIAL STORE</Text>
               </View>
               <Pressable onPress={handleCartPress} style={styles.topBarButton}>
-                <Ionicons name="bag-outline" size={22} color="#FFFFFF" />
+                <Ionicons name="bag-outline" size={22} color={TextColors.primary} />
                 {itemCount > 0 ? (
                   <View style={styles.cartBadge}>
                     <Text style={styles.cartBadgeText}>{itemCount > 9 ? "9+" : itemCount}</Text>
@@ -785,7 +786,7 @@ export default function ShopScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: HEAD_BLACK,
@@ -870,7 +871,7 @@ const styles = StyleSheet.create({
   cartBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
 
   heroBanner: {
@@ -899,7 +900,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 30,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     lineHeight: 34,
     letterSpacing: -0.5,
   },
@@ -964,7 +965,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
 
   categoryRow: {
@@ -1000,7 +1001,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.3,
   },
   newBadge: {
@@ -1068,7 +1069,7 @@ const styles = StyleSheet.create({
   hCardDiscountText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   hCardBody: {
     padding: 10,
@@ -1084,7 +1085,7 @@ const styles = StyleSheet.create({
   hCardName: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     lineHeight: 17,
     marginBottom: 5,
   },
@@ -1137,7 +1138,7 @@ const styles = StyleSheet.create({
   collectionName: {
     fontSize: 16,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.3,
   },
   collectionSub: {
@@ -1167,7 +1168,7 @@ const styles = StyleSheet.create({
   serviceHName: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     lineHeight: 18,
   },
   serviceHDesc: {
@@ -1220,7 +1221,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   emptyText: {
     fontSize: 14,
@@ -1257,7 +1258,7 @@ const styles = StyleSheet.create({
   marketplaceTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.2,
   },
   marketplaceSub: {
@@ -1265,4 +1266,4 @@ const styles = StyleSheet.create({
     color: "#666",
     lineHeight: 16,
   },
-});
+}));

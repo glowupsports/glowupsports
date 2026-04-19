@@ -6,6 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useWalkthrough } from "../context/WalkthroughContext";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width } = Dimensions.get("window");
 
 export function WalkthroughOverlay() {
@@ -82,7 +83,7 @@ export function WalkthroughOverlay() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -178,4 +179,4 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     color: Colors.dark.buttonText,
   },
-});
+}));

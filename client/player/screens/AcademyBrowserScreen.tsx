@@ -19,6 +19,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors } fro
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Academy {
   id: string;
   name: string;
@@ -330,7 +331,7 @@ export default function AcademyBrowserScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -546,4 +547,4 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-});
+}));

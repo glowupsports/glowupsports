@@ -18,6 +18,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface LessonRatingModalProps {
   visible: boolean;
   sessionId: string;
@@ -214,7 +215,7 @@ export default function LessonRatingModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.72)",
@@ -355,4 +356,4 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors.dark.tabIconDefault,
   },
-});
+}));

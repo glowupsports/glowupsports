@@ -12,10 +12,11 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, TextColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface BirthdayCelebrationModalProps {
   visible: boolean;
   onDismiss: () => void;
@@ -89,7 +90,7 @@ export function BirthdayCelebrationModal({
     onDismiss();
   };
 
-  const confettiColors = ["#C8FF3D", "#00D4FF", "#FFD700", "#FF69B4", "#00FF88"];
+  const confettiColors = [GlowColors.primary, "#00D4FF", "#FFD700", "#FF69B4", "#00FF88"];
 
   return (
     <Modal
@@ -138,7 +139,7 @@ export function BirthdayCelebrationModal({
                     },
                   ]}
                 >
-                  <Ionicons name="star" size={16} color="#FFFFFF" />
+                  <Ionicons name="star" size={16} color={TextColors.primary} />
                 </View>
               ))}
             </View>
@@ -162,7 +163,7 @@ export function BirthdayCelebrationModal({
             <View style={styles.bonusSection}>
               <View style={styles.bonusRow}>
                 <View style={styles.bonusIcon}>
-                  <Ionicons name="flash" size={24} color="#C8FF3D" />
+                  <Ionicons name="flash" size={24} color={GlowColors.primary} />
                 </View>
                 <View style={styles.bonusInfo}>
                   <Text style={styles.bonusLabel}>Birthday Bonus</Text>
@@ -183,7 +184,7 @@ export function BirthdayCelebrationModal({
 
             <Pressable style={styles.celebrateButton} onPress={handleDismiss}>
               <LinearGradient
-                colors={["#C8FF3D", "#00FF88"]}
+                colors={[GlowColors.primary, "#00FF88"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.buttonGradient}
@@ -217,7 +218,7 @@ export async function shouldShowBirthdayCelebration(isBirthday: boolean): Promis
   }
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.85)",
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
   birthdayText: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     textShadowColor: "rgba(0, 0, 0, 0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0A0A0A",
+    color: Backgrounds.root,
     letterSpacing: 0.5,
   },
-});
+}));

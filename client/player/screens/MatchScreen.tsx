@@ -22,6 +22,7 @@ import { apiRequest } from "@/lib/query-client";
 import type { PlayerStackParamList, ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Opponent {
   id: string;
   name: string;
@@ -898,7 +899,7 @@ function MatchResultModal({ visible, onClose, playerId, plan, onSuccess }: Match
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ProTennisColors.midnightBlue,
@@ -1398,4 +1399,4 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     fontWeight: "600",
   },
-});
+}));

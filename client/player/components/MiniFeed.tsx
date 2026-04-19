@@ -17,12 +17,13 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors, TextColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { apiFetch, getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Post {
   id: string;
   caption: string | null;
@@ -141,7 +142,7 @@ function LatestPostCard({ post, onPress, queryClient }: { post: Post; onPress: (
   return (
     <Pressable onPress={onPress} style={styles.latestPostCard}>
       <View
-        style={[styles.latestPostGradient, { backgroundColor: "#0F141B" }]}
+        style={[styles.latestPostGradient, { backgroundColor: Backgrounds.root }]}
       >
         <View style={styles.latestPostHeader}>
           <View style={styles.latestPostAvatar}>
@@ -339,7 +340,7 @@ export function MiniFeed() {
     <Animated.View entering={FadeInUp.delay(150).duration(400)} layout={LinearTransition.springify()} style={styles.outerCard}>
       <View style={styles.accentLine} />
       <View
-        style={[styles.container, { backgroundColor: "#0F141B" }]}
+        style={[styles.container, { backgroundColor: Backgrounds.root }]}
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -363,12 +364,12 @@ export function MiniFeed() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   outerCard: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -404,7 +405,7 @@ const styles = StyleSheet.create({
   titleGaming: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: 2,
   },
   seeAllButton: {
@@ -590,9 +591,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "500",
   },
-});
+}));
 
-const collapsedStyles = StyleSheet.create({
+const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -639,4 +640,4 @@ const collapsedStyles = StyleSheet.create({
     fontWeight: "600",
     color: ProTennisColors.textSecondary,
   },
-});
+}));

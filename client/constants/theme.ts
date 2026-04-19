@@ -27,7 +27,8 @@ import { Platform } from "react-native";
 // Platform, and Service-Provider apps are unaffected.
 // ============================================
 
-// Premium Background System
+// Premium Background System (mutable: switched between dark and light palettes by
+// applyPlayerScheme so existing inline `Backgrounds.*` references flip at render time).
 export const Backgrounds = {
   root: "#0B0D10",        // Main app background - deepest
   card: "#11141A",        // Cards, panels
@@ -37,12 +38,35 @@ export const Backgrounds = {
   glass: "rgba(17, 20, 26, 0.85)", // Glass effect base
 };
 
-// Premium Text Hierarchy
+// Premium Text Hierarchy (mutable for the same reason as Backgrounds).
 export const TextColors = {
   primary: "#FFFFFF",     // Titles, important values
   secondary: "#B8BCC6",   // Labels, descriptions
   muted: "#7C8290",       // Helper text, meta
   disabled: "#4A4F5C",    // Inactive elements
+};
+
+// Snapshot of the original dark tokens so we can restore them when switching back.
+const DarkBackgrounds = { ...Backgrounds };
+const DarkTextColors = { ...TextColors };
+
+// Light palette tokens — premium minimal, paired with the existing GlowColors.primary
+// accent which is darkened slightly via GlowColors.dark for sufficient contrast on
+// light surfaces.
+const LightBackgrounds = {
+  root: "#F5F6F8",
+  card: "#FFFFFF",
+  elevated: "#FFFFFF",
+  surface: "#EEF0F4",
+  overlay: "rgba(15, 18, 24, 0.45)",
+  glass: "rgba(255, 255, 255, 0.78)",
+};
+
+const LightTextColors = {
+  primary: "#0B0D10",
+  secondary: "#3D434E",
+  muted: "#6B7280",
+  disabled: "#B5B9C2",
 };
 
 // Glow Primary - The DNA of Glow Up
@@ -140,20 +164,20 @@ export const ProTennisColors = {
 
 export const Colors = {
   light: {
-    text: TextColors.primary,
-    textMuted: TextColors.secondary,
-    textSubtle: TextColors.muted,
-    textSecondary: TextColors.secondary,
+    text: LightTextColors.primary,
+    textMuted: LightTextColors.secondary,
+    textSubtle: LightTextColors.muted,
+    textSecondary: LightTextColors.secondary,
     buttonText: "#000000",
-    border: "rgba(255, 255, 255, 0.15)",
-    tabIconDefault: TextColors.muted,
-    tabIconSelected: GlowColors.primary,
-    link: GlowColors.primary,
-    backgroundRoot: Backgrounds.root,
-    backgroundDefault: Backgrounds.card,
-    backgroundSecondary: Backgrounds.elevated,
-    backgroundTertiary: Backgrounds.surface,
-    primary: GlowColors.primary,
+    border: "rgba(11, 13, 16, 0.12)",
+    tabIconDefault: LightTextColors.muted,
+    tabIconSelected: GlowColors.dark,
+    link: GlowColors.dark,
+    backgroundRoot: LightBackgrounds.root,
+    backgroundDefault: LightBackgrounds.card,
+    backgroundSecondary: LightBackgrounds.elevated,
+    backgroundTertiary: LightBackgrounds.surface,
+    primary: GlowColors.dark,
     gold: RoleColors.owner,
     orange: RoleColors.admin,
     /** @deprecated Player palette policy: new Player code must use primary. Kept as cyan-info for backwards-compatibility in non-Player apps; all Player references have been migrated. */
@@ -162,8 +186,8 @@ export const Colors = {
     bronzeCoin: "#CD7F32",
     successNeon: FunctionColors.success,
     error: FunctionColors.error,
-    disabled: TextColors.disabled,
-    headerBorder: "rgba(200, 255, 61, 0.2)",
+    disabled: LightTextColors.disabled,
+    headerBorder: "rgba(11, 13, 16, 0.08)",
     // Ball level colors
     ballBlue: BallLevelColors.blue,
     ballRed: BallLevelColors.red,
@@ -200,17 +224,17 @@ export const Colors = {
     roleAdmin: RoleColors.admin,
     roleOwner: RoleColors.owner,
     // Glass effect
-    glass: Backgrounds.glass,
-    overlay: Backgrounds.overlay,
+    glass: LightBackgrounds.glass,
+    overlay: LightBackgrounds.overlay,
     // Warning
     warning: FunctionColors.social,
     // Subtle border for cards (replaces decorative gradients)
-    borderSubtle: "rgba(255, 255, 255, 0.06)",
+    borderSubtle: "rgba(11, 13, 16, 0.06)",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,
     cyan: FunctionColors.info,
-    surface: Backgrounds.surface,
+    surface: LightBackgrounds.surface,
     accentOrange: RoleColors.adminSecondary,
     // Missing color aliases
     accentCyan: FunctionColors.info,
@@ -298,6 +322,41 @@ export const Colors = {
     accent: FunctionColors.info,
   },
 };
+
+// Snapshot Colors.dark so we can restore it when the player switches back to dark.
+const DarkColorsSnapshot: Record<string, string> = { ...Colors.dark };
+
+export type ResolvedScheme = "light" | "dark";
+
+let activeScheme: ResolvedScheme = "dark";
+
+/**
+ * Mutates the exported `Backgrounds`, `TextColors` and `Colors.dark` objects so
+ * that any inline reference (e.g. `<View style={{ backgroundColor: Colors.dark.text }}/>`
+ * or `Backgrounds.root`) reflects the new player-app scheme on the next render.
+ *
+ * Note: values captured at module-import time inside `StyleSheet.create({...})`
+ * are frozen to whatever the value was at import. Components that want full
+ * theme reactivity should read colors from `useTheme()` at render time.
+ */
+export function applyPlayerScheme(scheme: ResolvedScheme): void {
+  if (scheme === activeScheme) return;
+  activeScheme = scheme;
+
+  if (scheme === "light") {
+    Object.assign(Backgrounds, LightBackgrounds);
+    Object.assign(TextColors, LightTextColors);
+    Object.assign(Colors.dark, Colors.light);
+  } else {
+    Object.assign(Backgrounds, DarkBackgrounds);
+    Object.assign(TextColors, DarkTextColors);
+    Object.assign(Colors.dark, DarkColorsSnapshot);
+  }
+}
+
+export function getActivePlayerScheme(): ResolvedScheme {
+  return activeScheme;
+}
 
 // Get avatar color based on player ball level
 export function getPlayerLevelColor(ballLevel?: string | null): string {

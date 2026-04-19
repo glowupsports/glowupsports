@@ -8,6 +8,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { GlassCard } from "./GlassCard";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface GlanceItem {
   id: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -132,7 +133,7 @@ export function TodayAtAGlance() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
@@ -202,9 +203,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-});
+}));
 
-const collapsedStyles = StyleSheet.create({
+const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -251,4 +252,4 @@ const collapsedStyles = StyleSheet.create({
     fontWeight: "600",
     color: ProTennisColors.textSecondary,
   },
-});
+}));

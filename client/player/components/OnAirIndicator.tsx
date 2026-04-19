@@ -12,6 +12,7 @@ import Animated, {
 import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface OnAirIndicatorProps {
   mode?: BroadcastMode;
   size?: "small" | "medium" | "large";
@@ -166,7 +167,7 @@ export function OnAirIndicator({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -187,4 +188,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1,
   },
-});
+}));

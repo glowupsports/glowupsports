@@ -48,6 +48,7 @@ import CoachProfileDrawer from "./CoachProfileDrawer";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Coach {
@@ -1818,7 +1819,7 @@ export default function PlayerBookingWizard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -2776,4 +2777,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "500",
   },
-});
+}));

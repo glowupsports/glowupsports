@@ -6,6 +6,7 @@ import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface ToastData {
   id: string;
   title: string;
@@ -86,7 +87,7 @@ export function FeedbackToast() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "absolute",
     top: 60,
@@ -130,4 +131,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     lineHeight: 16,
   },
-});
+}));

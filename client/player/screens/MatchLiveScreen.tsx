@@ -21,11 +21,12 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Backgrounds, Spacing, BorderRadius, Colors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type MatchLiveParams = {
   matchId: string;
   opponentName: string;
@@ -512,7 +513,7 @@ export default function MatchLiveScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -674,7 +675,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
   },
   pointButtonCreator: {
-    backgroundColor: "#CCFF00",
+    backgroundColor: GlowColors.primary,
   },
   pointButtonOpponent: {
     backgroundColor: "rgba(255,68,68,0.12)",
@@ -746,4 +747,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-});
+}));

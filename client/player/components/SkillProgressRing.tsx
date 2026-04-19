@@ -9,6 +9,7 @@ import Animated, {
 import Svg, { Circle } from "react-native-svg";
 import { Colors, Typography } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface SkillProgressRingProps {
@@ -83,7 +84,7 @@ export function SkillProgressRing({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "relative",
     alignItems: "center",
@@ -102,4 +103,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-});
+}));

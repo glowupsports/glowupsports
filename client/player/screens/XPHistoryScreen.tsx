@@ -19,6 +19,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { usePlayerLevelContext } from "@/player/context/PlayerLevelContext";
 import { LockedScreen } from "../components/LockedScreen";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface XPEvent {
   id: string;
   playerId: string;
@@ -252,7 +253,7 @@ export default function XPHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -444,4 +445,4 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: Spacing.xl,
   },
-});
+}));

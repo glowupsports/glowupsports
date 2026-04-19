@@ -17,6 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 type BookingConfirmedParams = {
@@ -295,7 +296,7 @@ export default function BookingConfirmedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -457,4 +458,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border || Colors.dark.primary + "30",
   },
-});
+}));

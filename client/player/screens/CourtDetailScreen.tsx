@@ -20,13 +20,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { openDirections } from "@/lib/maps";
 import type { ScheduleStackParamList, PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 type RouteProp = NativeStackScreenProps<ScheduleStackParamList, "CourtDetail">["route"];
 
@@ -174,12 +175,12 @@ function TimeSlot({
         )}
         {status === "blocked" && (
           <View style={styles.slotStatusIcon}>
-            <Ionicons name="lock-closed" size={10} color="#7C8290" />
+            <Ionicons name="lock-closed" size={10} color={TextColors.muted} />
           </View>
         )}
         {isSelected && (
           <View style={styles.slotCheckIcon}>
-            <Ionicons name="checkmark" size={12} color="#0B0D10" />
+            <Ionicons name="checkmark" size={12} color={Backgrounds.root} />
           </View>
         )}
       </Pressable>
@@ -451,7 +452,7 @@ export default function CourtDetailScreen() {
           />
         ) : (
           <LinearGradient
-            colors={[surfaceConfig.color + "30", "#11141A"]}
+            colors={[surfaceConfig.color + "30", Backgrounds.card]}
             style={styles.heroPlaceholder}
           >
             <Ionicons name="tennisball-outline" size={60} color={surfaceConfig.color + "50"} />
@@ -459,7 +460,7 @@ export default function CourtDetailScreen() {
         )}
         
         <LinearGradient
-          colors={["transparent", "rgba(11, 13, 16, 0.6)", "#0B0D10"]}
+          colors={["transparent", "rgba(11, 13, 16, 0.6)", Backgrounds.root]}
           style={styles.heroGradient}
         />
 
@@ -471,7 +472,7 @@ export default function CourtDetailScreen() {
             }} 
             style={styles.backButton}
           >
-            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={28} color={TextColors.primary} />
           </Pressable>
         </View>
 
@@ -485,7 +486,7 @@ export default function CourtDetailScreen() {
           <Text style={styles.courtName}>{court.name}</Text>
           {court.academy && (
             <View style={styles.metaRow}>
-              <Ionicons name="business-outline" size={14} color="#B8BCC6" />
+              <Ionicons name="business-outline" size={14} color={TextColors.secondary} />
               <Text style={styles.metaText}>{court.academy.name}</Text>
             </View>
           )}
@@ -497,7 +498,7 @@ export default function CourtDetailScreen() {
                 openDirections({ address: addr, label: addr });
               }}
             >
-              <Ionicons name="location-outline" size={14} color="#B8BCC6" />
+              <Ionicons name="location-outline" size={14} color={TextColors.secondary} />
               <Text style={styles.metaText}>{court.location.address || court.location.name}</Text>
               {court.location.address ? (
                 <Ionicons name="navigate-outline" size={12} color="#00D4FF" style={{ marginLeft: 4 }} />
@@ -522,7 +523,7 @@ export default function CourtDetailScreen() {
       >
         <View style={styles.pricingCard}>
           <LinearGradient
-            colors={["#171B22", "#11141A"]}
+            colors={[Backgrounds.elevated, Backgrounds.card]}
             style={styles.pricingGradient}
           >
             <View style={styles.pricingRow}>
@@ -608,7 +609,7 @@ export default function CourtDetailScreen() {
             />
             <View style={styles.staticMapOverlay}>
               <View style={styles.staticMapBadge}>
-                <Ionicons name="navigate" size={14} color="#FFFFFF" />
+                <Ionicons name="navigate" size={14} color={TextColors.primary} />
                 <Text style={styles.staticMapBadgeText}>Open in Maps</Text>
               </View>
             </View>
@@ -623,7 +624,7 @@ export default function CourtDetailScreen() {
           }}
         >
           <LinearGradient
-            colors={["#171B22", "#11141A"]}
+            colors={[Backgrounds.elevated, Backgrounds.card]}
             style={styles.findPartnerGradient}
           >
             <View style={styles.findPartnerIcon}>
@@ -633,7 +634,7 @@ export default function CourtDetailScreen() {
               <Text style={styles.findPartnerTitle}>Looking for a hitting partner?</Text>
               <Text style={styles.findPartnerSubtitle}>Find players nearby to join your session</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#7C8290" />
+            <Ionicons name="chevron-forward" size={20} color={TextColors.muted} />
           </LinearGradient>
         </Pressable>
       </ScrollView>
@@ -672,7 +673,7 @@ export default function CourtDetailScreen() {
                 style={styles.bookButtonGradient}
               >
                 {bookingMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={TextColors.primary} />
                 ) : (
                   <>
                     <Text style={styles.bookButtonText}>Book Now</Text>
@@ -696,7 +697,7 @@ export default function CourtDetailScreen() {
             <Pressable style={styles.confirmBackdrop} onPress={resetBookingFlow} />
             <View style={[styles.confirmModal, { marginBottom: 145 + Spacing.xl, maxHeight: "80%" }]}>
               <LinearGradient
-                colors={["#1F2430", "#171B22"]}
+                colors={[Backgrounds.surface, Backgrounds.elevated]}
                 style={styles.confirmGradient}
               >
                 {/* Header with step indicator */}
@@ -857,7 +858,7 @@ export default function CourtDetailScreen() {
                         disabled={guestName.trim().length < 2}
                       >
                         <Text style={styles.nextStepText}>Continue</Text>
-                        <Ionicons name="arrow-forward" size={18} color="#0B0D10" />
+                        <Ionicons name="arrow-forward" size={18} color={Backgrounds.root} />
                       </Pressable>
                     </View>
                   </View>
@@ -888,7 +889,7 @@ export default function CourtDetailScreen() {
                       </Pressable>
                       <Pressable style={styles.nextStepButton} onPress={handleOpenMatchConfirm}>
                         <Text style={styles.nextStepText}>Continue</Text>
-                        <Ionicons name="arrow-forward" size={18} color="#0B0D10" />
+                        <Ionicons name="arrow-forward" size={18} color={Backgrounds.root} />
                       </Pressable>
                     </View>
                   </View>
@@ -943,7 +944,7 @@ export default function CourtDetailScreen() {
                           style={styles.confirmBookGradient}
                         >
                           {bookingMutation.isPending ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <ActivityIndicator size="small" color={TextColors.primary} />
                           ) : (
                             <Text style={styles.confirmBookText}>Book Now</Text>
                           )}
@@ -980,10 +981,10 @@ export default function CourtDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0D10",
+    backgroundColor: Backgrounds.root,
     marginBottom: 85,
   },
   centered: {
@@ -995,12 +996,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#171B22",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    color: "#7C8290",
+    color: TextColors.muted,
     fontSize: 14,
   },
   errorIcon: {
@@ -1014,11 +1015,11 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   errorSubtitle: {
     fontSize: 14,
-    color: "#7C8290",
+    color: TextColors.muted,
   },
   retryButton: {
     paddingHorizontal: Spacing.xl,
@@ -1028,7 +1029,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   retryButtonText: {
-    color: "#0B0D10",
+    color: Backgrounds.root,
     fontWeight: "700",
     fontSize: 14,
   },
@@ -1094,7 +1095,7 @@ const styles = StyleSheet.create({
   courtName: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.5,
   },
   metaRow: {
@@ -1104,7 +1105,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 14,
-    color: "#B8BCC6",
+    color: TextColors.secondary,
   },
 
   content: {
@@ -1118,7 +1119,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: "#1F2430",
+    borderColor: Backgrounds.surface,
   },
   pricingGradient: {
     padding: Spacing.md,
@@ -1144,7 +1145,7 @@ const styles = StyleSheet.create({
   },
   priceUnit: {
     fontSize: 14,
-    color: "#7C8290",
+    color: TextColors.muted,
     fontWeight: "500",
   },
   xpBadge: {
@@ -1173,11 +1174,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
-    backgroundColor: "#1F2430",
+    backgroundColor: Backgrounds.surface,
   },
   ruleText: {
     fontSize: 12,
-    color: "#FFFFFF",
+    color: TextColors.primary,
     fontWeight: "500",
   },
 
@@ -1193,7 +1194,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   sectionDate: {
     fontSize: 14,
@@ -1213,8 +1214,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
-    borderColor: "#1F2430",
-    backgroundColor: "#11141A",
+    borderColor: Backgrounds.surface,
+    backgroundColor: Backgrounds.card,
     position: "relative",
     overflow: "hidden",
   },
@@ -1244,13 +1245,13 @@ const styles = StyleSheet.create({
   slotTime: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   slotTimeDisabled: {
-    color: "#7C8290",
+    color: TextColors.muted,
   },
   slotTimeSelected: {
-    color: "#0B0D10",
+    color: Backgrounds.root,
     fontWeight: "700",
   },
   slotStatusIcon: {
@@ -1265,7 +1266,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: "#0B0D10",
+    backgroundColor: Backgrounds.root,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1286,14 +1287,14 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: "#7C8290",
+    color: TextColors.muted,
   },
 
   findPartnerCard: {
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#1F2430",
+    borderColor: Backgrounds.surface,
   },
   findPartnerGradient: {
     flexDirection: "row",
@@ -1315,12 +1316,12 @@ const styles = StyleSheet.create({
   findPartnerTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     marginBottom: 2,
   },
   findPartnerSubtitle: {
     fontSize: 13,
-    color: "#7C8290",
+    color: TextColors.muted,
   },
 
   communityOnlyBar: {
@@ -1349,7 +1350,7 @@ const styles = StyleSheet.create({
   },
   communityOnlySubtitle: {
     fontSize: 12,
-    color: "#7C8290",
+    color: TextColors.muted,
     marginTop: 2,
   },
   bookingBar: {
@@ -1365,20 +1366,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "#1F2430",
+    borderTopColor: Backgrounds.surface,
   },
   bookingSummary: {
     flex: 1,
   },
   bookingLabel: {
     fontSize: 12,
-    color: "#7C8290",
+    color: TextColors.muted,
     marginBottom: 2,
   },
   bookingTime: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   bookButton: {
     borderRadius: BorderRadius.lg,
@@ -1397,12 +1398,12 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
   bookButtonPrice: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#0B0D10",
+    color: Backgrounds.root,
     opacity: 0.8,
   },
 
@@ -1431,7 +1432,7 @@ const styles = StyleSheet.create({
   confirmTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   confirmDetails: {
     gap: 4,
@@ -1439,11 +1440,11 @@ const styles = StyleSheet.create({
   confirmCourtName: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   confirmDate: {
     fontSize: 14,
-    color: "#B8BCC6",
+    color: TextColors.secondary,
   },
   confirmTime: {
     fontSize: 16,
@@ -1456,11 +1457,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "#1F2430",
+    borderTopColor: Backgrounds.surface,
   },
   confirmPriceLabel: {
     fontSize: 16,
-    color: "#7C8290",
+    color: TextColors.muted,
   },
   confirmPriceValue: {
     fontSize: 22,
@@ -1488,13 +1489,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     alignItems: "center",
-    backgroundColor: "#1F2430",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.lg,
   },
   cancelConfirmText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   confirmBookButton: {
     flex: 1,
@@ -1508,7 +1509,7 @@ const styles = StyleSheet.create({
   confirmBookText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
   confirmBookButtonDisabled: {
     opacity: 0.6,
@@ -1532,7 +1533,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#2A2E38",
+    backgroundColor: Backgrounds.surface,
   },
   stepDotActive: {
     backgroundColor: Colors.dark.primary,
@@ -1540,7 +1541,7 @@ const styles = StyleSheet.create({
   stepLine: {
     width: 30,
     height: 2,
-    backgroundColor: "#2A2E38",
+    backgroundColor: Backgrounds.surface,
     marginHorizontal: 4,
   },
   stepLineActive: {
@@ -1575,7 +1576,7 @@ const styles = StyleSheet.create({
   partnerOptionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     marginBottom: 2,
   },
   partnerOptionDesc: {
@@ -1590,19 +1591,19 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#11141A",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: "#2A2E38",
+    borderColor: Backgrounds.surface,
   },
   searchInput: {
     flex: 1,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.sm,
     fontSize: 15,
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   searchResults: {
     maxHeight: 200,
@@ -1619,7 +1620,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#1F2430",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -1636,7 +1637,7 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   playerLevel: {
     fontSize: 12,
@@ -1659,13 +1660,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   guestInput: {
-    backgroundColor: "#11141A",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     fontSize: 16,
-    color: "#FFFFFF",
+    color: TextColors.primary,
     borderWidth: 1,
-    borderColor: "#2A2E38",
+    borderColor: Backgrounds.surface,
     marginBottom: Spacing.sm,
   },
   guestHint: {
@@ -1725,7 +1726,7 @@ const styles = StyleSheet.create({
   nextStepText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
 
   // Final confirm step
@@ -1743,7 +1744,7 @@ const styles = StyleSheet.create({
   },
   partnerSummaryText: {
     fontSize: 14,
-    color: "#FFFFFF",
+    color: TextColors.primary,
     fontWeight: "500",
   },
 
@@ -1778,6 +1779,6 @@ const styles = StyleSheet.create({
   staticMapBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
-});
+}));

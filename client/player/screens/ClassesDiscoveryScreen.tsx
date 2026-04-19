@@ -19,16 +19,17 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, Backgrounds, TextColors, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, buildPhotoUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
-const BG = "#090E17";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+const BG = Backgrounds.root;
 const CARD_BG = "#12151C";
 const CARD_BORDER = "#1E2332";
-const TEXT_PRIMARY = "#FFFFFF";
+const TEXT_PRIMARY = TextColors.primary;
 const TEXT_SECONDARY = "#8A95A8";
 const TEXT_MUTED = "#4A5568";
-const ACCENT = "#C8FF3D";
+const ACCENT = GlowColors.primary;
 
 type SportFilter = "all" | "tennis" | "padel" | "pickleball";
 type TypeFilter = "all" | "group" | "private" | "open_match";
@@ -709,7 +710,7 @@ export default function ClassesDiscoveryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   root: {
     flex: 1,
   },
@@ -944,7 +945,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
   bookedBadge: {
     flexDirection: "row",
@@ -1064,4 +1065,4 @@ const styles = StyleSheet.create({
     color: TEXT_PRIMARY,
     fontWeight: "700",
   },
-});
+}));

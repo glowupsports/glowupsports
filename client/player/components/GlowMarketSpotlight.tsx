@@ -6,8 +6,9 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, GlowColors, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PRODUCT_CARD_WIDTH = 140;
 const CARD_SPACING = 10;
@@ -134,7 +135,7 @@ export function GlowMarketSpotlight() {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
       <View
-        style={[styles.card, { backgroundColor: "#0F141B" }]}
+        style={[styles.card, { backgroundColor: Backgrounds.root }]}
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -224,7 +225,7 @@ export function GlowMarketSpotlight() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
   saleBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   productName: {
     fontSize: 12,
@@ -373,4 +374,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: Colors.dark.textMuted,
   },
-});
+}));

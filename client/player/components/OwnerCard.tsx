@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const OWNER_COLOR = Colors.dark.gold;
 
 interface OwnerCardProps {
@@ -114,7 +115,7 @@ export function OwnerCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
@@ -279,4 +280,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: 10,
   },
-});
+}));

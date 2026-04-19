@@ -17,6 +17,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, FontSizes } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
 const MOTIVATION_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
@@ -525,7 +526,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
   );
 }
 
-const fStyles = StyleSheet.create({
+const fStyles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
@@ -867,4 +868,4 @@ const fStyles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "600",
   },
-});
+}));

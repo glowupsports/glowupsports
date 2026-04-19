@@ -16,7 +16,7 @@ import Animated, {
   cancelAnimation 
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors, Colors, TextColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
@@ -30,6 +30,7 @@ import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 function PremiumEmptyCard({
   icon,
   accentColor,
@@ -120,7 +121,7 @@ function PremiumEmptyCard({
           ]}
         >
           <Text style={styles.premiumEmptyCtaText} numberOfLines={1}>{ctaLabel}</Text>
-          <Feather name="arrow-right" size={13} color="#0B0D10" />
+          <Feather name="arrow-right" size={13} color={Backgrounds.root} />
         </Pressable>
       </LinearGradient>
     </View>
@@ -147,7 +148,7 @@ interface SectionHeaderProps {
   accentColor?: string;
 }
 
-function SectionHeader({ title, count, actionLabel, onAction, accentColor = "#FFFFFF" }: SectionHeaderProps) {
+function SectionHeader({ title, count, actionLabel, onAction, accentColor = TextColors.primary }: SectionHeaderProps) {
   const glowValue = useSharedValue(0.4);
   
   useEffect(() => {
@@ -601,10 +602,10 @@ export function GroupLessonsRow() {
                         onPress={() => !isJoining && handleJoinSession(session.id)}
                       >
                         {isJoining ? (
-                          <ActivityIndicator size="small" color="#0B0D10" />
+                          <ActivityIndicator size="small" color={Backgrounds.root} />
                         ) : (
                           <>
-                            <Ionicons name="enter-outline" size={16} color="#0B0D10" />
+                            <Ionicons name="enter-outline" size={16} color={Backgrounds.root} />
                             <Text style={styles.playCardJoinText}>{t("common.join")}</Text>
                           </>
                         )}
@@ -1048,7 +1049,7 @@ export function CommunityFeedPreview() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   section: {
     gap: Spacing.sm,
   },
@@ -1814,7 +1815,7 @@ const styles = StyleSheet.create({
   matchTypeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   matchTime: {
     fontSize: 18,
@@ -2254,7 +2255,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   premiumEmptyTitle: {
-    color: "#FFFFFF",
+    color: TextColors.primary,
     fontSize: 14,
     fontWeight: "700",
     marginBottom: 3,
@@ -2273,8 +2274,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   premiumEmptyCtaText: {
-    color: "#0B0D10",
+    color: Backgrounds.root,
     fontSize: 12,
     fontWeight: "700",
   },
-});
+}));

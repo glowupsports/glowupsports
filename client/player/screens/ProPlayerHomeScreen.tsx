@@ -50,6 +50,7 @@ import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface DashboardData {
   player: {
     id: string;
@@ -91,7 +92,7 @@ interface DashboardData {
 }
 
 
-const _unusedAiCardStyles = StyleSheet.create({
+const _unusedAiCardStyles = makeReactiveStyles(() => StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg + 1,
@@ -194,7 +195,7 @@ const _unusedAiCardStyles = StyleSheet.create({
     color: Colors.dark.error,
     fontWeight: "600",
   },
-});
+}));
 
 function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; questType: "daily" | "weekly" | null; onPress: () => void }) {
   if (!quest) {
@@ -958,7 +959,7 @@ function UnifiedImproveCard({
   );
 }
 
-const u = StyleSheet.create({
+const u = makeReactiveStyles(() => StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg + 1,
@@ -1187,7 +1188,7 @@ const u = StyleSheet.create({
     color: "#FFD700",
     letterSpacing: 0.3,
   },
-});
+}));
 
 function PlayerHomeContent() {
   const { t } = useTranslation();
@@ -1519,7 +1520,7 @@ function PlayerHomeContent() {
 
   if (!isGuest && (isLoading || !effectiveData)) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: Colors.dark.backgroundRoot }]}>
         <ActivityIndicator size="large" color={GlowColors.primary} />
       </View>
     );
@@ -1561,7 +1562,7 @@ function PlayerHomeContent() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
       {isBirthday && <BirthdayConfettiOverlay />}
       {isRamadan && !isBirthday && !ramadanDismissed && <RamadanConfettiOverlay />}
       
@@ -2013,7 +2014,7 @@ function TennisIQMiniTile() {
   );
 }
 
-const iqCardStyles = StyleSheet.create({
+const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
@@ -2093,7 +2094,7 @@ const iqCardStyles = StyleSheet.create({
     padding: Spacing.md, alignItems: "center",
   },
   nextBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
-});
+}));
 
 function PlayerDNABanner({ playerId }: { playerId: string }) {
   const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
@@ -2157,7 +2158,7 @@ function PlayerDNABanner({ playerId }: { playerId: string }) {
   );
 }
 
-const dnaBannerStyles = StyleSheet.create({
+const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
@@ -2210,7 +2211,7 @@ const dnaBannerStyles = StyleSheet.create({
     fontWeight: "600",
     color: GlowColors.primary,
   },
-});
+}));
 
 export default function ProPlayerHomeScreen() {
   return (
@@ -2220,7 +2221,7 @@ export default function ProPlayerHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -2323,9 +2324,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
-});
+}));
 
-const improveTilesRowStyles = StyleSheet.create({
+const improveTilesRowStyles = makeReactiveStyles(() => StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -2333,11 +2334,11 @@ const improveTilesRowStyles = StyleSheet.create({
     marginBottom: Spacing.md,
     alignItems: "stretch",
   },
-});
+}));
 
 const MINI_TILE_HEIGHT = 138;
 
-const miniTileStyles = StyleSheet.create({
+const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
   tile: {
     flex: 1,
     height: MINI_TILE_HEIGHT,
@@ -2508,4 +2509,4 @@ const miniTileStyles = StyleSheet.create({
     fontWeight: "700",
     color: GlowColors.primary,
   },
-});
+}));

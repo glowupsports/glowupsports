@@ -14,6 +14,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } fr
 import * as Haptics from "expo-haptics";
 import { PendingCelebration } from "../hooks/usePlayerLevel";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface LevelUpCelebrationModalProps {
   celebration: PendingCelebration | null;
   visible: boolean;
@@ -175,7 +176,7 @@ export function LevelUpCelebrationModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
@@ -327,4 +328,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

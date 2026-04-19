@@ -13,6 +13,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Notification {
   id: string;
   title: string;
@@ -35,7 +36,7 @@ const NOTIFICATION_CONFIG: Record<string, { icon: string; color: string; iconSet
   general: { icon: "notifications", color: "#78909C", iconSet: "ionicons" },
   welcome: { icon: "heart", color: "#FF4081", iconSet: "ionicons" },
   friend_request: { icon: "person-add", color: "#00E5FF", iconSet: "ionicons" },
-  friend_request_accepted: { icon: "people", color: "#C8FF3D", iconSet: "ionicons" },
+  friend_request_accepted: { icon: "people", color: GlowColors.primary, iconSet: "ionicons" },
 };
 
 function getNotificationConfig(type: string) {
@@ -188,7 +189,7 @@ export default function PlayerNotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -308,4 +309,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-});
+}));

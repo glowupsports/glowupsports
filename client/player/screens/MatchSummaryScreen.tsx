@@ -13,9 +13,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Backgrounds, Spacing, BorderRadius, Colors, Typography } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, Colors, Typography, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type MatchSummaryParams = {
   matchId: string;
   opponentName: string;
@@ -90,7 +91,7 @@ export default function MatchSummaryScreen() {
     } catch (_e) {}
   };
 
-  const accentColor = wasUndecided ? "#888" : didWin ? "#CCFF00" : "#FF4444";
+  const accentColor = wasUndecided ? "#888" : didWin ? GlowColors.primary : "#FF4444";
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -144,7 +145,7 @@ export default function MatchSummaryScreen() {
                 <Feather
                   name={mmrDelta >= 0 ? "arrow-up" : "arrow-down"}
                   size={20}
-                  color={mmrDelta >= 0 ? "#CCFF00" : "#FF4444"}
+                  color={mmrDelta >= 0 ? GlowColors.primary : "#FF4444"}
                 />
               </View>
               <View style={styles.mmrItem}>
@@ -153,7 +154,7 @@ export default function MatchSummaryScreen() {
               </View>
             </View>
             <View style={[styles.mmrDeltaBadge, { backgroundColor: mmrDelta >= 0 ? "rgba(204,255,0,0.12)" : "rgba(255,68,68,0.12)" }]}>
-              <Text style={[styles.mmrDeltaText, { color: mmrDelta >= 0 ? "#CCFF00" : "#FF4444" }]}>
+              <Text style={[styles.mmrDeltaText, { color: mmrDelta >= 0 ? GlowColors.primary : "#FF4444" }]}>
                 {mmrDelta >= 0 ? "+" : ""}{mmrDelta} MMR
               </Text>
             </View>
@@ -162,9 +163,9 @@ export default function MatchSummaryScreen() {
                 <Feather
                   name={newRank! < prevRank! ? "trending-up" : "trending-down"}
                   size={16}
-                  color={newRank! < prevRank! ? "#CCFF00" : "#FF4444"}
+                  color={newRank! < prevRank! ? GlowColors.primary : "#FF4444"}
                 />
-                <Text style={[styles.rankChangeText, { color: newRank! < prevRank! ? "#CCFF00" : "#FF4444" }]}>
+                <Text style={[styles.rankChangeText, { color: newRank! < prevRank! ? GlowColors.primary : "#FF4444" }]}>
                   {newRank! < prevRank! ? "Promoted to" : "Demoted to"} {getRankName(newRank)}
                 </Text>
               </View>
@@ -211,7 +212,7 @@ export default function MatchSummaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -323,7 +324,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "#CCFF00",
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.lg,
   },
@@ -357,4 +358,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.textMuted,
   },
-});
+}));

@@ -16,9 +16,10 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface BookingRequest {
   id: string;
   coachId: string | null;
@@ -57,7 +58,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string
   awaiting_player_reply: { label: "Reply needed", color: Colors.dark.primary, icon: "chatbubble-ellipses" },
   approved: { label: "Approved", color: Colors.dark.primary, icon: "checkmark-circle" },
   declined: { label: "Declined", color: Colors.dark.error || "#EF4444", icon: "close-circle" },
-  cancelled: { label: "Cancelled", color: Colors.dark.textMuted || "#6B7280", icon: "ban" },
+  cancelled: { label: "Cancelled", color: Colors.dark.textMuted || TextColors.muted, icon: "ban" },
 };
 
 function useCountdown(expiresAt: string | null | undefined) {
@@ -531,7 +532,7 @@ function PendingCountdown({ expiresAt }: { expiresAt: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -843,4 +844,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.dark.buttonText || "#000",
   },
-});
+}));

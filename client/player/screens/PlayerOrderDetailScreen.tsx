@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpsellRequest {
   id: string;
   orderId: string;
@@ -264,7 +265,7 @@ export default function PlayerOrderDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   content: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -393,4 +394,4 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   notesText: { fontSize: 14, color: Colors.dark.textSecondary, lineHeight: 20 },
-});
+}));

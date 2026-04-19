@@ -21,13 +21,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation, TextColors } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SessionHeroCardProps {
   onCheckIn?: () => void;
   onCancel?: () => void;
@@ -144,7 +145,7 @@ function NeonBorderGlow({ color, children, style }: { color: string; children: R
   );
 }
 
-const gamingStyles = StyleSheet.create({
+const gamingStyles = makeReactiveStyles(() => StyleSheet.create({
   countdownDigitBox: {
     alignItems: "center",
     marginHorizontal: 4,
@@ -224,7 +225,7 @@ const gamingStyles = StyleSheet.create({
     borderRadius: BorderRadius.md - 1,
     padding: Spacing.sm,
   },
-});
+}));
 
 export function SessionHeroCard({
   onCheckIn,
@@ -821,7 +822,7 @@ export function SessionHeroCard({
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, { backgroundColor: accentColor }]} />
         <View
-          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
+          style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -997,7 +998,7 @@ export function SessionHeroCard({
                       onPress={() => navigation.navigate("BookingInvites" as never)}
                       hitSlop={16}
                     >
-                      <Feather name="inbox" size={14} color="#B8BCC6" />
+                      <Feather name="inbox" size={14} color={TextColors.secondary} />
                       <Text style={styles.commandLinkText}>View all {incomingChallenges.length} challenges</Text>
                     </Pressable>
                   </SwipeBlocker>
@@ -1066,8 +1067,8 @@ export function SessionHeroCard({
                       end={{ x: 1, y: 1 }}
                       style={styles.cleanPrimaryGradient}
                     >
-                      <Feather name="activity" size={18} color="#FFFFFF" />
-                      <Text style={[styles.cleanPrimaryButtonText, { color: "#FFFFFF" }]}>View Match</Text>
+                      <Feather name="activity" size={18} color={TextColors.primary} />
+                      <Text style={[styles.cleanPrimaryButtonText, { color: TextColors.primary }]}>View Match</Text>
                     </LinearGradient>
                   </Pressable>
                 </SwipeBlocker>
@@ -1105,8 +1106,8 @@ export function SessionHeroCard({
                       end={{ x: 1, y: 1 }}
                       style={styles.cleanPrimaryGradient}
                     >
-                      <Feather name="edit-3" size={18} color="#FFFFFF" />
-                      <Text style={[styles.cleanPrimaryButtonText, { color: "#FFFFFF" }]}>Log Score</Text>
+                      <Feather name="edit-3" size={18} color={TextColors.primary} />
+                      <Text style={[styles.cleanPrimaryButtonText, { color: TextColors.primary }]}>Log Score</Text>
                     </LinearGradient>
                   </Pressable>
                 </SwipeBlocker>
@@ -1173,8 +1174,8 @@ export function SessionHeroCard({
                     onPress={() => cancelChallengeMutation.mutate(c.id)}
                     disabled={cancelChallengeMutation.isPending}
                   >
-                    <Feather name="x-circle" size={16} color="#FFFFFF" />
-                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#FFFFFF" }}>
+                    <Feather name="x-circle" size={16} color={TextColors.primary} />
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: TextColors.primary }}>
                       {cancelChallengeMutation.isPending ? "Cancelling..." : "Cancel Match"}
                     </Text>
                   </Pressable>
@@ -1310,7 +1311,7 @@ export function SessionHeroCard({
                           onPress={() => setScoreResult("win")}
                         >
                           <Feather name="award" size={28} color={scoreResult === "win" ? "#4ADE80" : ProTennisColors.textSecondary} />
-                          <Text style={{ fontSize: 16, fontWeight: "700", color: scoreResult === "win" ? "#4ADE80" : "#FFFFFF", marginTop: 8 }}>I Won</Text>
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: scoreResult === "win" ? "#4ADE80" : TextColors.primary, marginTop: 8 }}>I Won</Text>
                         </Pressable>
                         <Pressable
                           style={({ pressed }) => [{
@@ -1322,7 +1323,7 @@ export function SessionHeroCard({
                           onPress={() => setScoreResult("loss")}
                         >
                           <Feather name="shield" size={28} color={scoreResult === "loss" ? "#FF6B6B" : ProTennisColors.textSecondary} />
-                          <Text style={{ fontSize: 16, fontWeight: "700", color: scoreResult === "loss" ? "#FF6B6B" : "#FFFFFF", marginTop: 8 }}>I Lost</Text>
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: scoreResult === "loss" ? "#FF6B6B" : TextColors.primary, marginTop: 8 }}>I Lost</Text>
                         </Pressable>
                       </View>
                       <View>
@@ -1506,12 +1507,12 @@ export function SessionHeroCard({
                       }}
                       disabled={(scoreStep === 1 && !scoreResult) || completeChallengeMutation.isPending}
                     >
-                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#FFFFFF" }}>
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: TextColors.primary }}>
                         {scoreStep === 3
                           ? (completeChallengeMutation.isPending ? "Saving..." : "Submit")
                           : "Next"}
                       </Text>
-                      {scoreStep < 3 ? <Feather name="arrow-right" size={16} color="#FFFFFF" /> : null}
+                      {scoreStep < 3 ? <Feather name="arrow-right" size={16} color={TextColors.primary} /> : null}
                     </Pressable>
                   </View>
                 </KeyboardAwareScrollViewCompat>
@@ -1528,7 +1529,7 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, { backgroundColor: "#A78BFA" }]} />
-        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+        <View style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}>
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
@@ -1554,7 +1555,7 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, { backgroundColor: "#A78BFA" }]} />
-        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+        <View style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}>
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
@@ -1595,8 +1596,8 @@ export function SessionHeroCard({
                   end={{ x: 1, y: 1 }}
                   style={styles.cleanPrimaryGradient}
                 >
-                  <Feather name="mic" size={18} color="#FFFFFF" />
-                  <Text style={[styles.cleanPrimaryButtonText, { color: "#FFFFFF" }]}>{t("player.home.reflectOnSession")}</Text>
+                  <Feather name="mic" size={18} color={TextColors.primary} />
+                  <Text style={[styles.cleanPrimaryButtonText, { color: TextColors.primary }]}>{t("player.home.reflectOnSession")}</Text>
                 </LinearGradient>
               </Pressable>
             </SwipeBlocker>
@@ -1649,7 +1650,7 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={styles.coachCardAccentLine} />
-        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+        <View style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}>
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
@@ -1706,7 +1707,7 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={styles.coachCardAccentLine} />
-        <View style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}>
+        <View style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}>
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
@@ -1813,7 +1814,7 @@ export function SessionHeroCard({
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, { backgroundColor: ProTennisColors.live }]} />
         <View
-          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
+          style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -1879,7 +1880,7 @@ export function SessionHeroCard({
               ]}
               onPress={handleExtend}
             >
-              <Feather name="plus-circle" size={16} color="#B8BCC6" />
+              <Feather name="plus-circle" size={16} color={TextColors.secondary} />
               <Text style={styles.cleanMutedButtonText}>{t("player.home.extend")}</Text>
             </Pressable>
             <Pressable
@@ -1893,7 +1894,7 @@ export function SessionHeroCard({
                 setShowReportModal(true);
               }}
             >
-              <Feather name="alert-circle" size={16} color="#B8BCC6" />
+              <Feather name="alert-circle" size={16} color={TextColors.secondary} />
               <Text style={styles.cleanMutedButtonText}>{t("player.home.report")}</Text>
             </Pressable>
           </View>
@@ -2231,7 +2232,7 @@ export function SessionHeroCard({
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, isSoon ? { backgroundColor: ProTennisColors.warning } : undefined]} />
         <View
-          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
+          style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -2555,7 +2556,7 @@ export function SessionHeroCard({
     <View style={styles.coachStyleCard}>
       <View style={styles.coachCardAccentLine} />
       <View
-        style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
+        style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}
       >
         <View style={styles.commandHeader}>
           <View style={styles.commandTitleSection}>
@@ -2628,7 +2629,7 @@ export function SessionHeroCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   heroCard: {
     padding: Spacing.lg,
     marginHorizontal: Spacing.lg,
@@ -3442,7 +3443,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
   },
   coachCardAccentLine: {
     height: 2,
@@ -3520,7 +3521,7 @@ const styles = StyleSheet.create({
   commandPrimary: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     textAlign: "center",
     letterSpacing: -0.5,
   },
@@ -3588,7 +3589,7 @@ const styles = StyleSheet.create({
   cleanTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: 0.3,
   },
   cleanSubtitle: {
@@ -3687,7 +3688,7 @@ const styles = StyleSheet.create({
   cleanTextButtonLabel: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#B8BCC6",
+    color: TextColors.secondary,
   },
   cleanLiveDot: {
     width: 8,
@@ -3714,7 +3715,7 @@ const styles = StyleSheet.create({
   cleanCountdownValue: {
     fontSize: 32,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     fontVariant: ["tabular-nums"],
   },
   cleanCountdownLabel: {
@@ -3734,12 +3735,12 @@ const styles = StyleSheet.create({
   cleanSessionType: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     marginBottom: Spacing.xs,
   },
   cleanCourtLabel: {
     ...Typography.caption,
-    color: "#B8BCC6",
+    color: TextColors.secondary,
     marginTop: 2,
   },
   cleanAttendButton: {
@@ -3756,7 +3757,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   cleanMutedButtonText: {
-    color: "#B8BCC6",
+    color: TextColors.secondary,
     fontWeight: "600",
     fontSize: 13,
   },
@@ -3774,4 +3775,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.3,
   },
-});
+}));

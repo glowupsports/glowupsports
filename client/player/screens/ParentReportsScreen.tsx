@@ -15,10 +15,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, TextColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { WebView } from "react-native-webview";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface MonthlyReport {
   id: string;
   playerId: string;
@@ -55,7 +56,7 @@ function getTrendIcon(trend: string): IoniconName {
 function getTrendColor(trend: string) {
   if (trend === "improving") return "#10b981";
   if (trend === "declining") return "#ef4444";
-  return "#6b7280";
+  return TextColors.muted;
 }
 
 export default function ParentReportsScreen() {
@@ -395,7 +396,7 @@ export default function ParentReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -720,4 +721,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
-});
+}));

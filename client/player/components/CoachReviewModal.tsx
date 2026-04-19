@@ -10,6 +10,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } fr
 import { apiRequest } from "@/lib/query-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CoachReviewModalProps {
   visible: boolean;
   onClose: () => void;
@@ -324,7 +325,7 @@ export function CoachReviewModal({ visible, onClose, coach, onSuccess }: CoachRe
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -601,4 +602,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: Spacing.xl,
   },
-});
+}));

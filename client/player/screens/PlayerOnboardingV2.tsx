@@ -37,17 +37,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Colors,
-  Spacing,
-  Typography,
-  BorderRadius,
-  FontSizes,
-  CardStyles,
-  GlowColors,
-  BallLevelColors,
-  Shadows,
- Backgrounds, } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, FontSizes, CardStyles, GlowColors, BallLevelColors, Shadows, Backgrounds, TextColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -57,6 +47,7 @@ import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import * as Localization from "expo-localization";
 import * as Location from "expo-location";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const SPORT_LABELS: Record<string, string> = {
@@ -980,7 +971,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
       {revealed ? (
         <Animated.View entering={ZoomIn.springify()} style={styles.ballLevelCard}>
           <View style={[styles.ballIcon, { backgroundColor: ballLevel.color }]}>
-            <Ionicons name={isAdult ? "star" : "tennisball"} size={48} color="#FFFFFF" />
+            <Ionicons name={isAdult ? "star" : "tennisball"} size={48} color={TextColors.primary} />
           </View>
           <Text style={[styles.ballLevelTitle, { color: ballLevel.color }]}>
             {isAdult ? "Glow DSS Rating" : `${ballLevel.level} Ball`}
@@ -1039,7 +1030,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
                   }}
                 >
                   <View style={[styles.adjustBallIcon, { backgroundColor: option.color }]}>
-                    <Ionicons name="tennisball" size={24} color="#FFFFFF" />
+                    <Ionicons name="tennisball" size={24} color={TextColors.primary} />
                   </View>
                   <View style={styles.adjustOptionInfo}>
                     <Text style={styles.adjustOptionLabel}>{option.label}</Text>
@@ -1529,7 +1520,7 @@ const PLAY_STYLE_ARCHETYPES: Array<{
     name: "All-Court Ace",
     tagline: "Adapt to any court, any opponent",
     icon: "star",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     bgColor: "rgba(255, 255, 255, 0.10)",
   },
   {
@@ -2427,7 +2418,7 @@ function TennisQuizStep({ data, setData, onNext }: StepProps) {
 
       {quizLoading ? (
         <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.quizLoadingWrap}>
-          <ActivityIndicator color="#C8FF3D" size="small" />
+          <ActivityIndicator color={GlowColors.primary} size="small" />
         </Animated.View>
       ) : quizComplete ? (
         <Animated.View entering={ZoomIn} style={styles.quizResultContainer}>
@@ -2953,7 +2944,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -4278,4 +4269,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

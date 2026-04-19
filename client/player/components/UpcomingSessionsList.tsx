@@ -7,6 +7,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useScheduleFocus } from "@/player/context/ScheduleFocusContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpcomingSessionItem {
   id: string;
   date: string;
@@ -116,7 +117,7 @@ export function UpcomingSessionsList() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
@@ -193,4 +194,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.textMuted,
   },
-});
+}));

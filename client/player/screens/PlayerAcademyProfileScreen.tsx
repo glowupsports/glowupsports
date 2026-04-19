@@ -19,6 +19,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type NavProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "AcademyPublicProfile">;
 
@@ -478,7 +479,7 @@ export default function PlayerAcademyProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -869,4 +870,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
-});
+}));

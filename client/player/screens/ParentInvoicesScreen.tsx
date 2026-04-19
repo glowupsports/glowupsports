@@ -12,6 +12,7 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constan
 import { getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface AcademyPaymentInfo {
   acceptsCash: boolean;
   acceptsBankTransfer: boolean;
@@ -525,7 +526,7 @@ export default function ParentInvoicesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -978,4 +979,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
-});
+}));

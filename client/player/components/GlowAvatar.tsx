@@ -13,6 +13,7 @@ import Animated, {
 import { ProTennisColors, BorderRadius } from "@/constants/theme";
 import { getPlayerLevelColor } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "hero";
 
 interface GlowAvatarProps {
@@ -276,7 +277,7 @@ export function AvatarStack({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
@@ -325,4 +326,4 @@ const styles = StyleSheet.create({
     color: ProTennisColors.textMuted,
     fontWeight: "600",
   },
-});
+}));

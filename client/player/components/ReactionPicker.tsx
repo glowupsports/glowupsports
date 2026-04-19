@@ -6,6 +6,7 @@ import { BlurView } from "expo-blur";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export interface ReactionType {
   type: string;
   iconName: string;
@@ -216,7 +217,7 @@ export function ReactionSummary({ reactions, totalCount, onPress }: ReactionSumm
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -284,4 +285,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontWeight: "500",
   },
-});
+}));

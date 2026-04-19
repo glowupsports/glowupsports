@@ -9,6 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SpotlightNominee {
   playerId: string;
   playerName: string;
@@ -97,7 +98,7 @@ function CountdownBadge({ daysRemaining }: { daysRemaining: number }) {
   );
 }
 
-const countdownStyles = StyleSheet.create({
+const countdownStyles = makeReactiveStyles(() => StyleSheet.create({
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -114,7 +115,7 @@ const countdownStyles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFD700",
   },
-});
+}));
 
 export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void }) {
   const { user } = useAuth();
@@ -129,7 +130,7 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
   return (
     <Animated.View entering={FadeInDown.delay(250).duration(600)} style={[styles.outerContainer]}>
       <View style={[styles.accentLine, { backgroundColor: GlowColors.primary }]} />
-      <View style={[styles.gradient, { backgroundColor: "#0F141B" }]}>
+      <View style={[styles.gradient, { backgroundColor: Backgrounds.root }]}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={[styles.trophyContainer, { backgroundColor: "rgba(200, 255, 61, 0.12)" }]}>
@@ -197,7 +198,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
       <View style={styles.accentLine} />
       <View
-        style={[styles.gradient, { backgroundColor: "#0F141B" }]}
+        style={[styles.gradient, { backgroundColor: Backgrounds.root }]}
       >
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -317,12 +318,12 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   outerContainer: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -399,7 +400,7 @@ const styles = StyleSheet.create({
   winnerName: {
     fontSize: 15,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   winnerStats: {
     flexDirection: "row",
@@ -459,7 +460,7 @@ const styles = StyleSheet.create({
   monthName: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   monthStats: {
     alignItems: "center",
@@ -554,9 +555,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 215, 0, 0.2)",
   },
-});
+}));
 
-const friendSpotStyles = StyleSheet.create({
+const friendSpotStyles = makeReactiveStyles(() => StyleSheet.create({
   friendRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -580,7 +581,7 @@ const friendSpotStyles = StyleSheet.create({
   friendName: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   xpBadge: {
     flexDirection: "row",
@@ -619,4 +620,4 @@ const friendSpotStyles = StyleSheet.create({
     fontWeight: "700",
     color: GlowColors.primary,
   },
-});
+}));

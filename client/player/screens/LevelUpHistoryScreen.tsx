@@ -18,6 +18,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { usePlayer } from "@/player/context/PlayerContext";
 import { LockedScreen } from "../components/LockedScreen";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface LevelUpEvent {
   id: string;
   playerId: string;
@@ -248,7 +249,7 @@ export default function LevelUpHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -426,4 +427,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-});
+}));

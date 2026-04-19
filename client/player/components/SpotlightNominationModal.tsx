@@ -12,6 +12,7 @@ import { getStaticAssetsUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface AcademyPlayer {
   id: string;
   name: string;
@@ -56,21 +57,21 @@ function PlayerAvatar({ photoUrl, size = 48 }: { photoUrl?: string | null; size?
 function BallLevelBadge({ level }: { level: string | null }) {
   if (!level) return null;
   const colorMap: Record<string, string> = {
-    red: "#FF4D4D", orange: "#FF851B", green: "#C8FF3D", yellow: "#FFD700", blue: "#4FC3F7",
+    red: "#FF4D4D", orange: "#FF851B", green: GlowColors.primary, yellow: "#FFD700", blue: "#4FC3F7",
   };
   return (
-    <View style={[ballStyles.badge, { backgroundColor: `${colorMap[level] || "#7C8290"}20`, borderColor: `${colorMap[level] || "#7C8290"}40` }]}>
-      <View style={[ballStyles.dot, { backgroundColor: colorMap[level] || "#7C8290" }]} />
-      <Text style={[ballStyles.text, { color: colorMap[level] || "#7C8290" }]}>{level.toUpperCase()}</Text>
+    <View style={[ballStyles.badge, { backgroundColor: `${colorMap[level] || TextColors.muted}20`, borderColor: `${colorMap[level] || TextColors.muted}40` }]}>
+      <View style={[ballStyles.dot, { backgroundColor: colorMap[level] || TextColors.muted }]} />
+      <Text style={[ballStyles.text, { color: colorMap[level] || TextColors.muted }]}>{level.toUpperCase()}</Text>
     </View>
   );
 }
 
-const ballStyles = StyleSheet.create({
+const ballStyles = makeReactiveStyles(() => StyleSheet.create({
   badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   text: { fontSize: 10, fontWeight: "700" },
-});
+}));
 
 export default function SpotlightNominationModal({ visible, onClose }: SpotlightNominationModalProps) {
   const { user } = useAuth();
@@ -322,7 +323,7 @@ export default function SpotlightNominationModal({ visible, onClose }: Spotlight
   );
 }
 
-const itemStyles = StyleSheet.create({
+const itemStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -332,12 +333,12 @@ const itemStyles = StyleSheet.create({
     backgroundColor: Backgrounds.surface,
   },
   info: { flex: 1, gap: 3 },
-  name: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
+  name: { fontSize: 15, fontWeight: "700", color: TextColors.primary },
   meta: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   level: { fontSize: 12, fontWeight: "600", color: TextColors.muted },
-});
+}));
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   subtitle: {
     fontSize: 14,
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     fontSize: 15,
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   list: {
     flex: 1,
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
   selectedName: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   selectedMeta: {
     fontSize: 12,
@@ -489,7 +490,7 @@ const styles = StyleSheet.create({
   },
   reasonInput: {
     fontSize: 15,
-    color: "#FFFFFF",
+    color: TextColors.primary,
     minHeight: 60,
     textAlignVertical: "top",
   },
@@ -577,4 +578,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: TextColors.primary,
   },
-});
+}));

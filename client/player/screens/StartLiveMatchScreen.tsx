@@ -14,10 +14,11 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type StartLiveMatchParams = {
   opponentId: string;
   opponentName: string;
@@ -194,7 +195,7 @@ export default function StartLiveMatchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
   opponentInitial: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#CCFF00",
+    color: GlowColors.primary,
   },
   opponentInfo: {
     flex: 1,
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
   },
   chipSelected: {
     backgroundColor: "rgba(204,255,0,0.12)",
-    borderColor: "#CCFF00",
+    borderColor: GlowColors.primary,
   },
   chipText: {
     ...Typography.small,
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   chipTextSelected: {
-    color: "#CCFF00",
+    color: GlowColors.primary,
   },
   noteCard: {
     flexDirection: "row",
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "#CCFF00",
+    backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.lg,
     marginTop: Spacing.sm,
@@ -310,4 +311,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

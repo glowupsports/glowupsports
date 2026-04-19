@@ -23,7 +23,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload } from "@/lib/useWebSocket";
@@ -32,6 +32,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface GroupDetail {
   group: {
     id: string;
@@ -2268,7 +2269,7 @@ function ChatBubble({
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowReactions(true); }}
         style={[chatStyles.bubble, isMe ? [chatStyles.bubbleMe, { backgroundColor: typeColor + "30", borderColor: typeColor + "50" }] : chatStyles.bubbleOther]}
       >
-        <Text style={[chatStyles.bubbleTxt, isMe && { color: "#FFFFFF" }]}>{message.body}</Text>
+        <Text style={[chatStyles.bubbleTxt, isMe && { color: TextColors.primary }]}>{message.body}</Text>
         <View style={chatStyles.bubbleFooter}>
           <Text style={[chatStyles.bubbleTime, isMe && { color: typeColor }]}>{time}</Text>
           {isMe ? (
@@ -2400,7 +2401,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       {/* HERO HEADER */}
       <View style={styles.heroWrapper}>
         <LinearGradient
-          colors={[typeColor + "CC", typeColor + "44", "#0a0f1a"]}
+          colors={[typeColor + "CC", typeColor + "44", Backgrounds.root]}
           locations={[0, 0.55, 1]}
           style={[styles.hero, { paddingTop: insets.top + 12 }]}
         >
@@ -2615,8 +2616,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
 // ─── STYLES ────────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0a0f1a" },
+const styles = makeReactiveStyles(() => StyleSheet.create({
+  container: { flex: 1, backgroundColor: Backgrounds.root },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
   // Hero
@@ -2626,21 +2627,21 @@ const styles = StyleSheet.create({
   heroBackBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center" },
   heroMenuBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center" },
   heroIcon: { width: 80, height: 80, borderRadius: 24, justifyContent: "center", alignItems: "center", borderWidth: 1.5, marginBottom: 14 },
-  heroName: { fontSize: 22, fontWeight: "800", color: "#FFFFFF", textAlign: "center", marginBottom: 10, letterSpacing: 0.3 },
+  heroName: { fontSize: 22, fontWeight: "800", color: TextColors.primary, textAlign: "center", marginBottom: 10, letterSpacing: 0.3 },
   heroBadge: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20 },
   heroBadgeText: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 },
 
   // Stats
-  statsScroll: { backgroundColor: "#0a0f1a" },
+  statsScroll: { backgroundColor: Backgrounds.root },
   statsContent: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   statPill: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginRight: 8 },
   statPillText: { fontSize: 13, fontWeight: "500", color: "#7A8EA0" },
 
   // Tabs
-  tabRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)", backgroundColor: "#0a0f1a", alignItems: "center" },
+  tabRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)", backgroundColor: Backgrounds.root, alignItems: "center" },
   tabItem: { flex: 1, alignItems: "center", paddingVertical: 13, position: "relative" },
   tabLabel: { fontSize: 14, fontWeight: "600", color: "#445566" },
-  tabLabelActive: { color: "#FFFFFF" },
+  tabLabelActive: { color: TextColors.primary },
   tabUnderline: { position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2.5, borderRadius: 2 },
   tabAddBtn: { paddingHorizontal: 16, paddingVertical: 13, justifyContent: "center", alignItems: "center" },
 
@@ -2648,12 +2649,12 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingTop: 14 },
 
   // Post card
-  postCard: { backgroundColor: "#0F141B", borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  postCard: { backgroundColor: Backgrounds.root, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
   postHeader: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   postAvatar: { width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center" },
   postAvatarInitial: { fontSize: 15, fontWeight: "700" },
   postMeta: { flex: 1, marginLeft: 10 },
-  postAuthor: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
+  postAuthor: { fontSize: 14, fontWeight: "600", color: TextColors.primary },
   postTime: { fontSize: 12, color: "#445566", marginTop: 1 },
   postCaption: { fontSize: 14, color: "#8899AA", lineHeight: 21, marginBottom: 10 },
 
@@ -2675,13 +2676,13 @@ const styles = StyleSheet.create({
   memberCellAvatar: { width: 58, height: 58, borderRadius: 29, justifyContent: "center", alignItems: "center" },
   memberCellAvatarImg: { width: 58, height: 58, borderRadius: 29 },
   memberCellInitial: { fontSize: 20, fontWeight: "700" },
-  adminStarBadge: { position: "absolute", bottom: 0, right: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.dark.gold + "25", borderWidth: 1.5, borderColor: "#0a0f1a", justifyContent: "center", alignItems: "center" },
+  adminStarBadge: { position: "absolute", bottom: 0, right: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.dark.gold + "25", borderWidth: 1.5, borderColor: Backgrounds.root, justifyContent: "center", alignItems: "center" },
   memberCellName: { fontSize: 11, fontWeight: "500", color: "#7A8EA0", textAlign: "center", maxWidth: 70 },
 
   // Empty state
   emptyState: { alignItems: "center", paddingVertical: 60 },
   emptyIcon: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", marginBottom: 18 },
-  emptyTitle: { fontSize: 18, fontWeight: "700", color: "#FFFFFF", marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "700", color: TextColors.primary, marginBottom: 8 },
   emptySubtitle: { fontSize: 14, color: "#445566", textAlign: "center" },
 
   // FAB
@@ -2693,15 +2694,15 @@ const styles = StyleSheet.create({
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
 
   // Compose modal
-  composeSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, minHeight: 300, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  composeSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, minHeight: 300, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   composeHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginTop: 10, marginBottom: 4 },
   composeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
   composeCancelBtn: { paddingVertical: 4, paddingHorizontal: 4, minWidth: 60 },
   composeCancelText: { fontSize: 15, color: "#7A8EA0" },
-  composeTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  composeTitle: { fontSize: 16, fontWeight: "700", color: TextColors.primary },
   composePostBtn: { paddingVertical: 7, paddingHorizontal: 18, borderRadius: 20, minWidth: 60, alignItems: "center" },
   composePostBtnText: { fontSize: 14, fontWeight: "700", color: Colors.dark.buttonText },
-  composeInput: { color: "#FFFFFF", fontSize: 16, lineHeight: 24, padding: 16, minHeight: 100, textAlignVertical: "top" },
+  composeInput: { color: TextColors.primary, fontSize: 16, lineHeight: 24, padding: 16, minHeight: 100, textAlignVertical: "top" },
   composeThumbnailStrip: { maxHeight: 90 },
   composeThumbnailContent: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
   composeThumbnailWrap: { position: "relative" },
@@ -2713,9 +2714,9 @@ const styles = StyleSheet.create({
   composeCounter: { fontSize: 12, color: "#445566" },
 
   // Comments sheet
-  commentsSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "85%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  commentsSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "85%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   commentsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
-  commentsTitle: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
+  commentsTitle: { fontSize: 17, fontWeight: "700", color: TextColors.primary },
   commentsLoading: { paddingVertical: 40, alignItems: "center" },
   commentsEmpty: { paddingVertical: 40, alignItems: "center", gap: 12 },
   commentsEmptyText: { fontSize: 14, color: "#445566" },
@@ -2726,21 +2727,21 @@ const styles = StyleSheet.create({
   commentAvatarInitial: { fontSize: 14, fontWeight: "700" },
   commentBubble: { flex: 1, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 14, padding: 10 },
   commentBubbleHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
-  commentAuthor: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
+  commentAuthor: { fontSize: 13, fontWeight: "600", color: TextColors.primary },
   commentTime: { fontSize: 11, color: "#445566" },
   commentText: { fontSize: 14, color: "#8899AA", lineHeight: 20 },
   commentInputRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", gap: 10 },
-  commentInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: "#FFFFFF", fontSize: 14, maxHeight: 100, minHeight: 42 },
+  commentInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: TextColors.primary, fontSize: 14, maxHeight: 100, minHeight: 42 },
   commentSendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
 
   // Add members sheet
-  addMembersSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  addMembersSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   addMembersHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
-  addMembersTitle: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
+  addMembersTitle: { fontSize: 17, fontWeight: "700", color: TextColors.primary },
   addMembersCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.07)", justifyContent: "center", alignItems: "center" },
   searchWrap: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, marginHorizontal: 16, marginTop: 14, marginBottom: 4, paddingHorizontal: 12, gap: 8 },
   searchIcon: { marginRight: 2 },
-  searchInput: { flex: 1, height: 42, color: "#FFFFFF", fontSize: 15 },
+  searchInput: { flex: 1, height: 42, color: TextColors.primary, fontSize: 15 },
   addMembersScroll: { flex: 1, paddingTop: 6 },
   addMembersLoading: { paddingVertical: 40, alignItems: "center" },
   addMembersEmpty: { paddingVertical: 40, alignItems: "center", paddingHorizontal: 32, gap: 14 },
@@ -2752,24 +2753,24 @@ const styles = StyleSheet.create({
   suggestionAvatar: { width: 46, height: 46, borderRadius: 23, justifyContent: "center", alignItems: "center" },
   suggestionAvatarImg: { width: 46, height: 46, borderRadius: 23 },
   suggestionInitial: { fontSize: 17, fontWeight: "700" },
-  suggestionName: { flex: 1, fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
+  suggestionName: { flex: 1, fontSize: 15, fontWeight: "600", color: TextColors.primary },
   addBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, minWidth: 56, alignItems: "center", justifyContent: "center" },
   addBtnDone: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   addBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.buttonText },
-});
+}));
 
-const evtStyles = StyleSheet.create({
-  card: { backgroundColor: "#0F141B", borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+const evtStyles = makeReactiveStyles(() => StyleSheet.create({
+  card: { backgroundColor: Backgrounds.root, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
   cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   eventTypeBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   eventTypeTxt: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
   deleteBtn: { padding: 6 },
-  eventTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
+  eventTitle: { fontSize: 16, fontWeight: "700", color: TextColors.primary, marginBottom: 4 },
   eventDesc: { fontSize: 14, color: "#7A8EA0", lineHeight: 20, marginBottom: 8 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   metaTxt: { fontSize: 13, color: "#7A8EA0" },
   avatarRow: { flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 4 },
-  miniAvatar: { width: 26, height: 26, borderRadius: 13, justifyContent: "center", alignItems: "center", borderWidth: 1.5, borderColor: "#0a0f1a" },
+  miniAvatar: { width: 26, height: 26, borderRadius: 13, justifyContent: "center", alignItems: "center", borderWidth: 1.5, borderColor: Backgrounds.root },
   miniAvatarImg: { width: 26, height: 26, borderRadius: 13 },
   miniAvatarInit: { fontSize: 10, fontWeight: "700" },
   goingTxt: { fontSize: 12, color: "#7A8EA0", marginLeft: 10 },
@@ -2780,16 +2781,16 @@ const evtStyles = StyleSheet.create({
   // Wizard header
   wizardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
   wizardCancel: { fontSize: 15, color: "#7A8EA0", fontWeight: "600" },
-  wizardTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  wizardTitle: { fontSize: 16, fontWeight: "700", color: TextColors.primary },
   wizardNext: { fontSize: 15, fontWeight: "700" },
 
   // Wizard
-  wizardSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "96%", minHeight: "75%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  wizardSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "96%", minHeight: "75%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   stepRow: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 12 },
   stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.15)" },
   wizardSection: { paddingHorizontal: 20, paddingTop: 4 },
   wizardLabel: { fontSize: 13, fontWeight: "700", color: "#7A8EA0", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 },
-  wizardInput: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: "#FFFFFF", fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  wizardInput: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: TextColors.primary, fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   typeChip: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)", minWidth: "45%" },
   typeChipTxt: { fontSize: 14, fontWeight: "600", color: "#7A8EA0" },
@@ -2801,20 +2802,20 @@ const evtStyles = StyleSheet.create({
   dateBtn: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   dateBtnTxt: { fontSize: 15, fontWeight: "600" },
   wizardSummary: { marginTop: 20, borderRadius: 14, padding: 16, borderWidth: 1 },
-  wizardSummaryTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
+  wizardSummaryTitle: { fontSize: 16, fontWeight: "700", color: TextColors.primary, marginBottom: 4 },
   wizardSummaryMeta: { fontSize: 13, color: "#7A8EA0", marginTop: 2 },
   courtRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)" },
   courtRowTxt: { flex: 1, fontSize: 14, fontWeight: "600", color: "#7A8EA0" },
   courtSurface: { fontSize: 11, color: "#445566", textTransform: "capitalize" },
   wagerRow: { flexDirection: "row", alignItems: "center" },
-  wagerCurrency: { fontSize: 14, fontWeight: "700", color: "#FFFFFF", backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRightWidth: 0 },
+  wagerCurrency: { fontSize: 14, fontWeight: "700", color: TextColors.primary, backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRightWidth: 0 },
   pickerDoneBtn: { alignSelf: "flex-end", marginTop: 8, marginRight: 16, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.1)" },
-  pickerDoneTxt: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
-});
+  pickerDoneTxt: { fontSize: 15, fontWeight: "700", color: TextColors.primary },
+}));
 
-const chatStyles = StyleSheet.create({
-  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", backgroundColor: "#0a0f1a" },
-  chatInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: "#FFFFFF", fontSize: 14, maxHeight: 100, minHeight: 42, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+const chatStyles = makeReactiveStyles(() => StyleSheet.create({
+  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", backgroundColor: Backgrounds.root },
+  chatInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: TextColors.primary, fontSize: 14, maxHeight: 100, minHeight: 42, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   sendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
   bubbleWrap: { marginBottom: 10, maxWidth: "80%" },
   bubbleWrapMe: { alignSelf: "flex-end" },
@@ -2835,12 +2836,12 @@ const chatStyles = StyleSheet.create({
   reactionPicker: { flexDirection: "row", position: "absolute", backgroundColor: "#1A2535", borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", top: 0 },
   reactionPickerBtn: { padding: 4 },
   seenLabel: { fontSize: 10, color: "#445566", marginTop: 2 },
-});
+}));
 
-const detailStyles = StyleSheet.create({
-  sheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", paddingTop: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+const detailStyles = makeReactiveStyles(() => StyleSheet.create({
+  sheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", paddingTop: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   header: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 12 },
-  title: { fontSize: 20, fontWeight: "700", color: "#FFFFFF", flexShrink: 1 },
+  title: { fontSize: 20, fontWeight: "700", color: TextColors.primary, flexShrink: 1 },
   desc: { fontSize: 14, color: "#7A8EA0", lineHeight: 22, paddingHorizontal: 16, marginBottom: 12 },
   metaSection: { paddingHorizontal: 16, marginBottom: 16, gap: 4 },
   countRow: { flexDirection: "row", gap: 10, paddingHorizontal: 16, marginBottom: 16 },
@@ -2854,4 +2855,4 @@ const detailStyles = StyleSheet.create({
   attendeeAvatarFallback: { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center" },
   attendeeAvatarInit: { fontSize: 14, fontWeight: "700" },
   attendeeName: { fontSize: 14, color: "#CCDDEE", fontWeight: "500" },
-});
+}));

@@ -10,6 +10,7 @@ import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
 import { buildPhotoUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export function SocialDiscoveryStrip() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
@@ -190,7 +191,7 @@ export function SocialDiscoveryStrip() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     gap: Spacing.sm,
   },
@@ -395,4 +396,4 @@ const styles = StyleSheet.create({
     color: ProTennisColors.textMuted,
     marginTop: Spacing.md,
   },
-});
+}));

@@ -29,6 +29,7 @@ import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { getAuthToken, secureSet, clearAuthState } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export const FAMILY_SWITCH_KEY = "family_switch";
 
 function parseApiError(error: any, fallback: string): string {
@@ -877,7 +878,7 @@ export default function FamilyLobbyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1468,4 +1469,4 @@ const styles = StyleSheet.create({
   },
   enterCodeSuccessTitle: { fontSize: FontSizes.xl, fontWeight: "700", color: Colors.dark.text },
   enterCodeSuccessText: { fontSize: FontSizes.md, color: Colors.dark.textMuted, textAlign: "center" },
-});
+}));

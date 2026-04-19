@@ -27,6 +27,7 @@ import { Colors, Spacing, BorderRadius, getPlayerLevelColor, GlowColors } from "
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface PublicProfile {
   id: string;
   name: string;
@@ -1020,7 +1021,7 @@ export default function PlayerPublicProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1885,4 +1886,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-});
+}));

@@ -6,6 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Payment {
   id: string;
   amount: string;
@@ -153,7 +154,7 @@ export default function ParentPaymentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -271,4 +272,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
-});
+}));

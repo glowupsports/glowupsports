@@ -23,6 +23,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Skill {
   id: string;
   name: string;
@@ -473,7 +474,7 @@ export default function SkillEvidenceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -811,4 +812,4 @@ const styles = StyleSheet.create({
     ...Typography.buttonMedium,
     color: Colors.dark.buttonText,
   },
-});
+}));

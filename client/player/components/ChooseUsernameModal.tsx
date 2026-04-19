@@ -16,6 +16,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const APPLE_HANDLE_RE = /^apple_[a-f0-9]+$/i;
 const VALID_RE = /^[a-z0-9_]+$/;
 
@@ -220,7 +221,7 @@ export default function ChooseUsernameModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
@@ -307,4 +308,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1,
   },
-});
+}));

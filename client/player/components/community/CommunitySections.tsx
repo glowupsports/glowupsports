@@ -23,7 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useTranslation } from "react-i18next";
@@ -43,6 +43,7 @@ import {
   formatTimeAgo,
 } from "./CommunityTypes";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -73,11 +74,11 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
   const getAchievementGradient = (type: string): [string, string] => {
     switch (type) {
       case "match_won": return ["#FFD700", "#FF8C00"];
-      case "level_up": return ["#C8FF3D", "#7CFC00"];
+      case "level_up": return [GlowColors.primary, "#7CFC00"];
       case "streak": return ["#FF6B35", "#FF4500"];
       case "badge": return ["#E040FB", "#9C27B0"];
       case "rating_up": return ["#00E5FF", "#00BFFF"];
-      default: return ["#C8FF3D", "#7CFC00"];
+      default: return [GlowColors.primary, "#7CFC00"];
     }
   };
 
@@ -160,7 +161,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
       ListHeaderComponent={
         <View style={achievementStyles.header}>
           <LinearGradient
-            colors={["#C8FF3D", "#7CFC00"]}
+            colors={[GlowColors.primary, "#7CFC00"]}
             style={achievementStyles.headerIconBg}
           >
             <Ionicons name="trophy" size={28} color={Colors.dark.buttonText} />
@@ -1086,7 +1087,7 @@ export function GroupsSection() {
   );
 }
 
-const achievementStyles = StyleSheet.create({
+const achievementStyles = makeReactiveStyles(() => StyleSheet.create({
   list: {
     padding: Spacing.md,
     gap: Spacing.md,
@@ -1196,9 +1197,9 @@ const achievementStyles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     textAlign: "center",
   },
-});
+}));
 
-const newsStyles = StyleSheet.create({
+const newsStyles = makeReactiveStyles(() => StyleSheet.create({
   list: {
     padding: Spacing.md,
     gap: Spacing.md,
@@ -1297,9 +1298,9 @@ const newsStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));
 
-const friendStyles = StyleSheet.create({
+const friendStyles = makeReactiveStyles(() => StyleSheet.create({
   sectionContainer: {
     flex: 1,
   },
@@ -1687,9 +1688,9 @@ const friendStyles = StyleSheet.create({
   activityCheerTextActive: {
     color: Colors.dark.error,
   },
-});
+}));
 
-const groupStyles = StyleSheet.create({
+const groupStyles = makeReactiveStyles(() => StyleSheet.create({
   sectionContainer: {
     flex: 1,
   },
@@ -1990,4 +1991,4 @@ const groupStyles = StyleSheet.create({
     marginBottom: Spacing.sm,
     paddingHorizontal: 2,
   },
-});
+}));

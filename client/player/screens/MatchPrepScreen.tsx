@@ -16,11 +16,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Slider from "@react-native-community/slider";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
 import type { PlayerStackParamList, ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const MIRROR_ACCENT = "#A78BFA";
 const PRIMARY = Colors.dark.primary;
 
@@ -114,7 +115,7 @@ function ChipRow({
   );
 }
 
-const chipRowStyles = StyleSheet.create({
+const chipRowStyles = makeReactiveStyles(() => StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   chip: {
     paddingHorizontal: 12,
@@ -125,7 +126,7 @@ const chipRowStyles = StyleSheet.create({
     backgroundColor: Colors.dark?.backgroundTertiary || "#333",
   },
   chipText: { ...Typography.small, color: Colors.dark?.textMuted || "#888" },
-});
+}));
 
 export default function MatchPrepScreen() {
   const insets = useSafeAreaInsets();
@@ -521,10 +522,10 @@ export default function MatchPrepScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -617,7 +618,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
     borderRadius: BorderRadius.sm,
   },
   sideChipText: {
@@ -633,7 +634,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
   },
   styleTagText: {
     ...Typography.small,
@@ -754,4 +755,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "700",
   },
-});
+}));

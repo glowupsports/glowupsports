@@ -7,6 +7,7 @@ import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export default function LessonBookingScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -37,9 +38,9 @@ export default function LessonBookingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-});
+}));

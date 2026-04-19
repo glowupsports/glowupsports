@@ -30,6 +30,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
@@ -1062,7 +1063,7 @@ export default function TournamentDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -1683,9 +1684,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: TextColors.muted,
   },
-});
+}));
 
-const readinessStyles = StyleSheet.create({
+const readinessStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
@@ -1841,9 +1842,9 @@ const readinessStyles = StyleSheet.create({
     color: TextColors.secondary,
     lineHeight: 18,
   },
-});
+}));
 
-const detailRegStyles = StyleSheet.create({
+const detailRegStyles = makeReactiveStyles(() => StyleSheet.create({
   registerSection: {
     marginHorizontal: Spacing.md,
     marginBottom: 8,
@@ -2002,4 +2003,4 @@ const detailRegStyles = StyleSheet.create({
     fontWeight: "700",
     color: "#fff",
   },
-});
+}));

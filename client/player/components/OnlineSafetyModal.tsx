@@ -3,8 +3,9 @@ import { View, Modal, Pressable, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface OnlineSafetyModalProps {
   visible: boolean;
   onAccept: () => void;
@@ -91,7 +92,7 @@ export default function OnlineSafetyModal({ visible, onAccept }: OnlineSafetyMod
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.8)",
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     textAlign: "center",
     marginBottom: Spacing.lg,
   },
@@ -144,6 +145,6 @@ const styles = StyleSheet.create({
   acceptText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000000",
+    color: Backgrounds.root,
   },
-});
+}));

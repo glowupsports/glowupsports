@@ -12,6 +12,7 @@ import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpcomingSession {
   id: string;
   title?: string | null;
@@ -62,7 +63,7 @@ interface CoachDetails {
   recentReviews?: RecentReview[];
 }
 
-const NEON_GREEN = "#CCFF00";
+const NEON_GREEN = GlowColors.primary;
 
 function StarRatingRow({ rating, count }: { rating: number; count: number }) {
   const stars = [1, 2, 3, 4, 5];
@@ -391,7 +392,7 @@ export default function PlayerCoachProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -736,4 +737,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.primary,
   },
-});
+}));

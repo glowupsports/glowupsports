@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { apiRequest } from "@/lib/query-client";
 import { usePlayer } from "@/player/context/PlayerContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const MIRROR_ACCENT = "#A78BFA";
 
 interface MatchDetail {
@@ -200,7 +201,7 @@ function ChipSelector({
   );
 }
 
-const chipStyles = StyleSheet.create({
+const chipStyles = makeReactiveStyles(() => StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     paddingHorizontal: 12,
@@ -210,7 +211,7 @@ const chipStyles = StyleSheet.create({
     borderColor: Colors.dark?.backgroundTertiary || "#333",
   },
   chipText: { ...Typography.small, color: Colors.dark?.textMuted || "#888" },
-});
+}));
 
 function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDate: string }) {
   const queryClient = useQueryClient();
@@ -548,7 +549,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
   );
 }
 
-const mirrorStyles = StyleSheet.create({
+const mirrorStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
     borderRadius: BorderRadius.lg,
@@ -648,7 +649,7 @@ const mirrorStyles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   saveText: { ...Typography.body, color: Colors.dark.buttonText, fontWeight: "700" },
-});
+}));
 
 const PILLAR_GUIDES: Record<string, string> = {
   technical: "How clean was your technique?",
@@ -1127,7 +1128,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
   );
 }
 
-const deepStyles = StyleSheet.create({
+const deepStyles = makeReactiveStyles(() => StyleSheet.create({
   pillarRatingCard: {
     backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
     borderRadius: BorderRadius.lg,
@@ -1347,9 +1348,9 @@ const deepStyles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-});
+}));
 
-const debriefStyles = StyleSheet.create({
+const debriefStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     backgroundColor: Colors.dark?.backgroundSecondary || "#1A1A2E",
     borderRadius: BorderRadius.lg,
@@ -1441,7 +1442,7 @@ const debriefStyles = StyleSheet.create({
     color: Colors.dark?.textMuted || "#888",
     fontStyle: "italic",
   },
-});
+}));
 
 const renderPillarCard = (pillar: string, score?: number, status?: string, insight?: string) => {
   const statusInfo = status ? STATUS_ICONS[status] : null;
@@ -1715,7 +1716,7 @@ export default function MatchDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -1978,4 +1979,4 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontStyle: "italic",
   },
-});
+}));

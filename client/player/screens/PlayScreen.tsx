@@ -21,7 +21,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors, Backgrounds } from "@/constants/theme";
 import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
@@ -32,6 +32,7 @@ import { useSport, getSportLabel, getSportColor, getSportIcon, SPORT_DEFINITIONS
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import * as WebBrowser from "expo-web-browser";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -2457,7 +2458,7 @@ export default function PlayScreen() {
                       contentFit="cover"
                     />
                     <View style={styles.sessionInfoMapBadge}>
-                      <Ionicons name="navigate" size={12} color="#FFFFFF" />
+                      <Ionicons name="navigate" size={12} color={TextColors.primary} />
                       <Text style={styles.sessionInfoMapBadgeText}>Open in Maps</Text>
                     </View>
                   </Pressable>
@@ -2620,7 +2621,7 @@ export default function PlayScreen() {
 
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -4358,7 +4359,7 @@ const styles = StyleSheet.create({
   sessionInfoMapBadgeText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
   sessionInfoClose: {
     marginTop: Spacing.md,
@@ -4592,4 +4593,4 @@ const styles = StyleSheet.create({
     minWidth: 50,
     textAlign: "right",
   },
-});
+}));

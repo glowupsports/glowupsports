@@ -20,6 +20,7 @@ import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Conversation {
   id: string;
   type: string;
@@ -225,7 +226,7 @@ export default function PlayerMessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -415,4 +416,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255,255,255,0.7)",
   },
-});
+}));

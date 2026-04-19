@@ -15,13 +15,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
-const TEXT_PRIMARY = "#FFFFFF";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+const TEXT_PRIMARY = TextColors.primary;
 const TEXT_SECONDARY = "#8A95A8";
 const TEXT_MUTED = "#5C6678";
-const ACCENT = "#C8FF3D";
+const ACCENT = GlowColors.primary;
 const CARD_BORDER = "rgba(255,255,255,0.08)";
 
 interface Participant {
@@ -277,7 +278,7 @@ function LessonCard({
               disabled={isJoining}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color="#0F141B" />
+                <ActivityIndicator size="small" color={Backgrounds.root} />
               ) : (
                 <Text style={styles.joinBtnText}>
                   Join{session.price != null ? ` · AED ${session.price}` : ""}
@@ -369,7 +370,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLe
     if (fallback) return <>{fallback}</>;
     return (
       <View style={styles.root}>
-        <View style={[styles.emptyCard, { borderColor: tint + "55", backgroundColor: "#11141A" }]}>
+        <View style={[styles.emptyCard, { borderColor: tint + "55", backgroundColor: Backgrounds.card }]}>
           <View style={[styles.emptyIconWrap, { backgroundColor: tint + "22", borderColor: tint + "55" }]}>
             <Ionicons name="people-outline" size={28} color={tint} />
           </View>
@@ -389,7 +390,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLe
             }}
           >
             <Text style={styles.emptyCtaText}>Browse Classes</Text>
-            <Ionicons name="arrow-forward" size={14} color="#0F141B" />
+            <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
           </Pressable>
         </View>
       </View>
@@ -451,13 +452,13 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLe
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   root: { flex: 1, justifyContent: "center" },
   card: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     padding: Spacing.md,
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     minHeight: 200,
     justifyContent: "space-between",
   },
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
     minWidth: 90,
     alignItems: "center",
   },
-  joinBtnText: { fontSize: 13, fontWeight: "800", color: "#0F141B" },
+  joinBtnText: { fontSize: 13, fontWeight: "800", color: Backgrounds.root },
   viewBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -572,7 +573,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
     marginRight: -8,
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
   emptyCtaText: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#0F141B",
+    color: Backgrounds.root,
   },
 
   dotsRow: {
@@ -645,4 +646,4 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
   },
-});
+}));

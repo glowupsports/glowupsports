@@ -19,11 +19,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, TextColors } from "@/constants/theme";
 import type { ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -135,7 +136,7 @@ function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Cour
       <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
         <View style={styles.courtCard}>
           <LinearGradient
-            colors={["#171B22", "#11141A"]}
+            colors={[Backgrounds.elevated, Backgrounds.card]}
             style={styles.courtCardGradient}
           >
             <View style={styles.courtCardInner}>
@@ -147,7 +148,7 @@ function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Cour
                     contentFit="cover"
                   />
                   <LinearGradient
-                    colors={["transparent", "rgba(17, 20, 26, 0.8)", "#11141A"]}
+                    colors={["transparent", "rgba(17, 20, 26, 0.8)", Backgrounds.card]}
                     style={styles.photoOverlay}
                   />
                 </View>
@@ -380,7 +381,7 @@ export default function CourtBookingScreen() {
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <LinearGradient
-              colors={["#1F2430", "#171B22"]}
+              colors={[Backgrounds.surface, Backgrounds.elevated]}
               style={styles.searchGradient}
             >
               <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
@@ -563,10 +564,10 @@ export default function CourtBookingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0D10",
+    backgroundColor: Backgrounds.root,
     marginBottom: 85,
   },
   header: {
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 22,
-    backgroundColor: "#171B22",
+    backgroundColor: Backgrounds.elevated,
   },
   headerCenter: {
     alignItems: "center",
@@ -590,12 +591,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: 0.5,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: "#7C8290",
+    color: TextColors.muted,
     marginTop: 2,
   },
   headerSpacer: {
@@ -618,11 +619,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "#1F2430",
+    borderColor: Backgrounds.surface,
   },
   searchInput: {
     flex: 1,
-    color: "#FFFFFF",
+    color: TextColors.primary,
     fontSize: 16,
   },
 
@@ -637,19 +638,19 @@ const styles = StyleSheet.create({
     width: 60,
     height: 72,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "#171B22",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#1F2430",
+    borderColor: Backgrounds.surface,
   },
   dateChipActive: {
     borderColor: Colors.dark.primary,
   },
   dateWeekday: {
     fontSize: 11,
-    color: "#7C8290",
+    color: TextColors.muted,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -657,11 +658,11 @@ const styles = StyleSheet.create({
   dateDay: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     marginTop: 2,
   },
   dateTextActive: {
-    color: "#0B0D10",
+    color: Backgrounds.root,
   },
 
   filterSection: {
@@ -678,13 +679,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    backgroundColor: "#171B22",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
-    borderColor: "#1F2430",
+    borderColor: Backgrounds.surface,
   },
   filterText: {
     fontSize: 14,
-    color: "#B8BCC6",
+    color: TextColors.secondary,
     fontWeight: "500",
   },
 
@@ -709,7 +710,7 @@ const styles = StyleSheet.create({
   },
   resultsDate: {
     fontSize: 13,
-    color: "#7C8290",
+    color: TextColors.muted,
   },
 
   stateContainer: {
@@ -723,7 +724,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#171B22",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -739,18 +740,18 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#171B22",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
   stateTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   stateSubtitle: {
     fontSize: 14,
-    color: "#7C8290",
+    color: TextColors.muted,
     textAlign: "center",
   },
 
@@ -762,7 +763,7 @@ const styles = StyleSheet.create({
   courtCardGradient: {
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: "#1F2430",
+    borderColor: Backgrounds.surface,
     overflow: "hidden",
   },
   courtCardGlow: {
@@ -858,7 +859,7 @@ const styles = StyleSheet.create({
   courtName: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     marginTop: 2,
   },
   courtMetaRow: {
@@ -871,7 +872,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: "#7C8290",
+    color: TextColors.muted,
     flex: 1,
   },
   placeRatingBadge: {
@@ -936,7 +937,7 @@ const styles = StyleSheet.create({
   },
   priceUnit: {
     fontSize: 11,
-    color: "#7C8290",
+    color: TextColors.muted,
     fontWeight: "500",
   },
   viewSlotsButton: {
@@ -946,8 +947,8 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "#1F2430",
-    backgroundColor: "#11141A",
+    borderTopColor: Backgrounds.surface,
+    backgroundColor: Backgrounds.card,
   },
   viewSlotsText: {
     fontSize: 14,
@@ -984,4 +985,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.primary,
   },
-});
+}));

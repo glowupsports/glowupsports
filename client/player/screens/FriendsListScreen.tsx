@@ -15,6 +15,7 @@ import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStaticAssetsUrl, apiFetch, apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface ConnectionPlayer {
   id: string;
   name: string;
@@ -489,7 +490,7 @@ export default function FriendsListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -801,4 +802,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
-});
+}));

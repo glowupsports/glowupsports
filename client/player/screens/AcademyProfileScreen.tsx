@@ -18,6 +18,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface AcademyProfile {
   id: string;
   name: string;
@@ -327,7 +328,7 @@ export default function AcademyProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -568,4 +569,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.orange,
     fontWeight: "600",
   },
-});
+}));

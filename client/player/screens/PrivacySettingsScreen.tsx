@@ -5,9 +5,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, TextColors, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type PrivacyLevel = "everyone" | "platform" | "academy" | "hidden";
 
 interface PrivacyOption {
@@ -24,7 +25,7 @@ const PRIVACY_OPTIONS: PrivacyOption[] = [
     icon: "globe-outline",
     title: "Visible to Everyone",
     description: "Other players can find you for Open Matches and see your profile",
-    color: "#C8FF3D",
+    color: GlowColors.primary,
   },
   {
     id: "academy",
@@ -112,7 +113,7 @@ export default function PrivacySettingsScreen({
         )}
         <View style={styles.headerContent}>
           <View style={styles.iconContainer}>
-            <Ionicons name="shield-checkmark" size={32} color="#C8FF3D" />
+            <Ionicons name="shield-checkmark" size={32} color={GlowColors.primary} />
           </View>
           <Text style={styles.title}>Privacy Settings</Text>
           <Text style={styles.subtitle}>
@@ -185,13 +186,13 @@ export default function PrivacySettingsScreen({
           disabled={updatePrivacyMutation.isPending}
         >
           <LinearGradient
-            colors={["#C8FF3D", "#A6E92A"]}
+            colors={[GlowColors.primary, "#A6E92A"]}
             style={StyleSheet.absoluteFillObject}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
           {updatePrivacyMutation.isPending ? (
-            <ActivityIndicator color="#0B0D10" />
+            <ActivityIndicator color={Backgrounds.root} />
           ) : (
             <Text style={styles.confirmButtonText}>
               {isOnboarding ? "Continue" : "Save Changes"}
@@ -203,7 +204,7 @@ export default function PrivacySettingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     ...Typography.h4,
-    color: "#0B0D10",
+    color: Backgrounds.root,
     fontWeight: "700",
   },
-});
+}));

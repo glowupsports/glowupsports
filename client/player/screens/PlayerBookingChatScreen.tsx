@@ -20,6 +20,7 @@ import { Colors, Spacing } from "@/constants/theme";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Message {
   id: string;
   body: string;
@@ -237,7 +238,7 @@ export default function PlayerBookingChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   jumpUnreadPill: {
     position: "absolute",
     bottom: Spacing.md,
@@ -393,4 +394,4 @@ const styles = StyleSheet.create({
   sendBtnDisabled: {
     opacity: 0.4,
   },
-});
+}));

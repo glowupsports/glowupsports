@@ -9,6 +9,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
 
@@ -200,7 +201,7 @@ export default function BookingCoachCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   cardWrapper: {
     marginBottom: Spacing.md,
   },
@@ -329,4 +330,4 @@ const styles = StyleSheet.create({
     color: "#22C55E",
     fontWeight: "500",
   },
-});
+}));

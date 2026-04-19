@@ -23,6 +23,7 @@ import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/l
 import { useAuth } from "@/coach/context/AuthContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type ChallengePlayerParams = {
   ChallengePlayer: {
     opponentId: string;
@@ -807,7 +808,7 @@ export default function ChallengePlayerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -1519,4 +1520,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

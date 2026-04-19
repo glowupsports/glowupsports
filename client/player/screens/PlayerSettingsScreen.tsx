@@ -18,7 +18,9 @@ import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportC
 import { useFamily } from "@/player/context/FamilyContext";
 import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
+import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
   id: string;
   icon: string;
@@ -63,6 +65,7 @@ export default function PlayerSettingsScreen() {
   const [switchedName, setSwitchedName] = useState<string | null>(null);
 
   const { activeSports, updateActiveSports } = useSport();
+  const { preference: appearancePref, setPreference: setAppearancePref } = usePlayerAppearance();
 
   const toggleSport = async (sport: Sport) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -454,7 +457,7 @@ export default function PlayerSettingsScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: Colors.dark.backgroundRoot }]}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
@@ -550,6 +553,57 @@ export default function PlayerSettingsScreen() {
             </View>
           </View>
         ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Appearance</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.appearanceRow}>
+              {(["light", "dark", "system"] as PlayerAppearancePreference[]).map((opt) => {
+                const selected = appearancePref === opt;
+                const labels: Record<PlayerAppearancePreference, string> = {
+                  light: "Light",
+                  dark: "Dark",
+                  system: "System",
+                };
+                const icons: Record<PlayerAppearancePreference, keyof typeof Ionicons.glyphMap> = {
+                  light: "sunny-outline",
+                  dark: "moon-outline",
+                  system: "phone-portrait-outline",
+                };
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setAppearancePref(opt);
+                    }}
+                    style={[
+                      styles.appearanceSegment,
+                      selected && styles.appearanceSegmentSelected,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`${labels[opt]} appearance`}
+                  >
+                    <Ionicons
+                      name={icons[opt]}
+                      size={18}
+                      color={selected ? Colors.dark.buttonText : Colors.dark.textMuted}
+                    />
+                    <Text
+                      style={[
+                        styles.appearanceSegmentLabel,
+                        selected && styles.appearanceSegmentLabelSelected,
+                      ]}
+                    >
+                      {labels[opt]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('player.settings.notifications')}</Text>
@@ -815,7 +869,7 @@ export default function PlayerSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -865,6 +919,32 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.06)",
+  },
+  appearanceRow: {
+    flexDirection: "row",
+    padding: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  appearanceSegment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "transparent",
+  },
+  appearanceSegmentSelected: {
+    backgroundColor: GlowColors.primary,
+  },
+  appearanceSegmentLabel: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  appearanceSegmentLabelSelected: {
+    color: Colors.dark.buttonText,
   },
   settingIcon: {
     width: 36,
@@ -1110,4 +1190,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

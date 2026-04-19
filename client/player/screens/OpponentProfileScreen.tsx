@@ -14,10 +14,11 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const PRIMARY = Colors.dark.primary;
 const MIRROR_ACCENT = "#A78BFA";
 
@@ -90,7 +91,7 @@ function ChipSelector({
   );
 }
 
-const chipStyles = StyleSheet.create({
+const chipStyles = makeReactiveStyles(() => StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   chip: {
     paddingHorizontal: 12,
@@ -101,7 +102,7 @@ const chipStyles = StyleSheet.create({
     backgroundColor: Colors.dark?.backgroundTertiary || "#333",
   },
   chipText: { ...Typography.small, color: Colors.dark?.textMuted || "#888" },
-});
+}));
 
 export default function OpponentProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -491,10 +492,10 @@ export default function OpponentProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -572,7 +573,7 @@ const styles = StyleSheet.create({
   h2hDivider: {
     width: 1,
     height: 40,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
   },
   sectionSubtitle: {
     ...Typography.caption,
@@ -636,7 +637,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: "transparent",
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark?.backgroundRoot || "#090E17",
+    backgroundColor: Colors.dark?.backgroundRoot || Backgrounds.root,
     borderWidth: 1,
     borderColor: Colors.dark?.backgroundTertiary || "#333",
   },
@@ -704,4 +705,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "700",
   },
-});
+}));

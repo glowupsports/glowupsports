@@ -8,6 +8,7 @@ import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, Tex
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SessionFeedback {
   id: string;
   sessionId: string;
@@ -230,7 +231,7 @@ export default function CoachFeedbackHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -438,4 +439,4 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     marginTop: Spacing.sm,
   },
-});
+}));

@@ -18,6 +18,7 @@ import { BlurView } from "expo-blur";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const NEON_YELLOW = "#FFE600";
 
 type Category = "bug" | "idea" | "compliment";
@@ -234,7 +235,7 @@ export function BetaFeedbackButton({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     position: "absolute",
     flexDirection: "row",
@@ -405,4 +406,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.dark.textMuted,
   },
-});
+}));

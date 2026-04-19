@@ -16,6 +16,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CorporateAccount {
   id: string;
   companyName: string;
@@ -315,7 +316,7 @@ export default function CompanyContactDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -603,4 +604,4 @@ const styles = StyleSheet.create({
   txAmountDebit: {
     color: Colors.dark.danger,
   },
-});
+}));

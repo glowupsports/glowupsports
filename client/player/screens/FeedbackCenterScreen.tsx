@@ -9,6 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import type { PlayerStackParamList, ProgressStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type FeedbackCenterNavProp = CompositeNavigationProp<
   NativeStackNavigationProp<ProgressStackParamList, "FeedbackCenter">,
   NativeStackNavigationProp<PlayerStackParamList>
@@ -174,7 +175,7 @@ export default function FeedbackCenterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -346,4 +347,4 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-});
+}));

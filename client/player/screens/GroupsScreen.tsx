@@ -26,6 +26,7 @@ import GroupPreviewSheet, { type SheetGroup } from "@/player/components/communit
 import { useSport, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Group {
   id: string;
   name: string;
@@ -431,7 +432,7 @@ export default function GroupsScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -765,4 +766,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
-});
+}));

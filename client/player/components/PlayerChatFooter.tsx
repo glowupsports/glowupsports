@@ -29,6 +29,7 @@ import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const CHAT_PILL_LIFT = 22;
@@ -845,7 +846,7 @@ export function PlayerChatFooter() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   jumpUnreadPill: {
     position: "absolute",
     bottom: Spacing.md,
@@ -1341,4 +1342,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.primary,
   },
-});
+}));

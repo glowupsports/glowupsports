@@ -16,10 +16,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Colors, GlowColors, TextColors, Backgrounds } from "@/constants/theme";
 import { useQuests } from "@/player/hooks/useQuests";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const STORAGE_KEY_PREFIX = "@glow_daily_briefing_";
@@ -34,10 +35,10 @@ type PlayStyleKey =
   | "tactical_mastermind";
 
 const ARCHETYPE_META: Record<PlayStyleKey, { name: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  baseline_warrior: { name: "Baseline Warrior", color: "#C8FF3D", icon: "tennisball" },
+  baseline_warrior: { name: "Baseline Warrior", color: GlowColors.primary, icon: "tennisball" },
   net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
   serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
-  all_court_ace: { name: "All-Court Ace", color: "#FFFFFF", icon: "star" },
+  all_court_ace: { name: "All-Court Ace", color: TextColors.primary, icon: "star" },
   counter_puncher: { name: "Counter-Puncher", color: "#9B59B6", icon: "shield" },
   tactical_mastermind: { name: "Tactical Mastermind", color: "#FFD700", icon: "bulb" },
 };
@@ -59,9 +60,9 @@ const FEEDBACK_TYPE_COLORS: Record<string, string> = {
   technical: "#00E5FF",
   tactical: "#FFD700",
   effort: "#FF8C00",
-  fitness: "#C8FF3D",
+  fitness: GlowColors.primary,
   mental: "#9B59B6",
-  default: "#C8FF3D",
+  default: GlowColors.primary,
 };
 
 const BALL_COLORS: Record<string, string> = {
@@ -896,7 +897,7 @@ function StarField() {
             width: s.size,
             height: s.size,
             borderRadius: s.size,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: TextColors.primary,
             opacity: s.opacity,
           }}
         />
@@ -907,7 +908,7 @@ function StarField() {
 
 // ─── Styles ────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#060B10",
@@ -981,10 +982,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-});
+}));
 
 // Card 1 styles
-const s1 = StyleSheet.create({
+const s1 = makeReactiveStyles(() => StyleSheet.create({
   wrap: {
     alignItems: "center",
     gap: 14,
@@ -1007,7 +1008,7 @@ const s1 = StyleSheet.create({
   name: {
     fontSize: 32,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.5,
     textAlign: "center",
   },
@@ -1093,7 +1094,7 @@ const s1 = StyleSheet.create({
   statValue: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.5,
   },
   streakValueRow: {
@@ -1108,10 +1109,10 @@ const s1 = StyleSheet.create({
     color: "rgba(255,255,255,0.35)",
     textTransform: "uppercase",
   },
-});
+}));
 
 // Level-up styles
-const lu = StyleSheet.create({
+const lu = makeReactiveStyles(() => StyleSheet.create({
   wrap: {
     alignItems: "center",
     gap: 18,
@@ -1148,7 +1149,7 @@ const lu = StyleSheet.create({
   titleText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   subText: {
     fontSize: 13,
@@ -1170,10 +1171,10 @@ const lu = StyleSheet.create({
     color: "rgba(255,255,255,0.5)",
     fontWeight: "500",
   },
-});
+}));
 
 // Card 2 styles
-const s2 = StyleSheet.create({
+const s2 = makeReactiveStyles(() => StyleSheet.create({
   wrap: {
     flexGrow: 1,
     justifyContent: "center",
@@ -1190,7 +1191,7 @@ const s2 = StyleSheet.create({
   headline: {
     fontSize: 30,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
@@ -1238,7 +1239,7 @@ const s2 = StyleSheet.create({
   feedbackCoach: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   feedbackDate: {
     fontSize: 11,
@@ -1299,7 +1300,7 @@ const s2 = StyleSheet.create({
   questName: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   questBar: {
     height: 4,
@@ -1316,10 +1317,10 @@ const s2 = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.4)",
   },
-});
+}));
 
 // Card 3 styles
-const s3 = StyleSheet.create({
+const s3 = makeReactiveStyles(() => StyleSheet.create({
   wrap: {
     flexGrow: 1,
     justifyContent: "center",
@@ -1336,7 +1337,7 @@ const s3 = StyleSheet.create({
   headline: {
     fontSize: 32,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
@@ -1354,7 +1355,7 @@ const s3 = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.md,
     padding: 12,
   },
@@ -1367,7 +1368,7 @@ const s3 = StyleSheet.create({
   sessionCourt: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   sessionCoach: {
     fontSize: 11,
@@ -1388,7 +1389,7 @@ const s3 = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255,107,53,0.2)",
@@ -1411,7 +1412,7 @@ const s3 = StyleSheet.create({
   challengerName: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   challengerSub: {
     fontSize: 11,
@@ -1472,7 +1473,7 @@ const s3 = StyleSheet.create({
   playerName: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     textAlign: "center",
   },
   playerLevel: {
@@ -1512,10 +1513,10 @@ const s3 = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1.5,
   },
-});
+}));
 
 // Background styles
-const bg = StyleSheet.create({
+const bg = makeReactiveStyles(() => StyleSheet.create({
   courtCircle: {
     position: "absolute",
     width: 340,
@@ -1545,6 +1546,6 @@ const bg = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#C8FF3D",
+    backgroundColor: GlowColors.primary,
   },
-});
+}));

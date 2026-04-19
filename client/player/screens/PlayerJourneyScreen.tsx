@@ -9,6 +9,7 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } fro
 import { LinearGradient } from "expo-linear-gradient";
 import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Milestone {
   id: string;
   type: string;
@@ -666,7 +667,7 @@ export default function PlayerJourneyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1178,4 +1179,4 @@ const styles = StyleSheet.create({
     width: 40,
     textAlign: "right",
   },
-});
+}));

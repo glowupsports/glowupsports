@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type RouteParams = {
   TrainingDetail: {
     sessionId: string;
@@ -99,10 +100,10 @@ function StarPicker({
   );
 }
 
-const starPickerStyles = StyleSheet.create({
+const starPickerStyles = makeReactiveStyles(() => StyleSheet.create({
   row: { flexDirection: "row", gap: 8, justifyContent: "center" },
   star: { padding: 4 },
-});
+}));
 
 const ENERGY_CHIPS = [
   { label: "Low", color: "#EF4444" },
@@ -156,7 +157,7 @@ function MoodChips({
   );
 }
 
-const moodChipStyles = StyleSheet.create({
+const moodChipStyles = makeReactiveStyles(() => StyleSheet.create({
   row: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 8 },
   chip: {
     paddingHorizontal: 10,
@@ -165,7 +166,7 @@ const moodChipStyles = StyleSheet.create({
     borderWidth: 1.5,
   },
   chipText: { fontSize: 11, fontWeight: "600" },
-});
+}));
 
 const SUGGESTION_CHIPS: Record<string, string[]> = {
   hardest: ["Staying focused", "Footwork", "Consistency", "Mental reset", "Pressure points"],
@@ -202,7 +203,7 @@ function SuggestionChips({
   );
 }
 
-const suggestionStyles = StyleSheet.create({
+const suggestionStyles = makeReactiveStyles(() => StyleSheet.create({
   scroll: { marginTop: 6 },
   row: { gap: 6, paddingBottom: 2 },
   chip: {
@@ -213,7 +214,7 @@ const suggestionStyles = StyleSheet.create({
     borderColor: "rgba(167,139,250,0.45)",
   },
   chipText: { fontSize: 11, color: MIRROR_ACCENT, fontWeight: "500" },
-});
+}));
 
 function GlowMirrorCard({
   sessionId,
@@ -455,7 +456,7 @@ function GlowMirrorCard({
   );
 }
 
-const mirrorStyles = StyleSheet.create({
+const mirrorStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     ...CardStyles.elevated,
     padding: Spacing.lg,
@@ -597,7 +598,7 @@ const mirrorStyles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "700",
   },
-});
+}));
 
 export default function TrainingDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -815,7 +816,7 @@ export default function TrainingDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -1108,4 +1109,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-});
+}));

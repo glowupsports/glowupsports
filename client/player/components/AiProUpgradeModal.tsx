@@ -14,6 +14,7 @@ import { useSubscription } from "@/lib/revenuecat";
 import { PurchasesPackage } from "react-native-purchases";
 import type { PurchasesError } from "@revenuecat/purchases-typescript-internal";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -210,7 +211,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.75)",
@@ -378,4 +379,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textDecorationLine: "underline",
   },
-});
+}));

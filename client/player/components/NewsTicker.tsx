@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
 type SportKey = "tennis" | "padel" | "pickleball";
 const SPORT_LABELS: Record<SportKey, string> = {
@@ -295,7 +296,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     height: 42,
     overflow: "hidden",
@@ -483,4 +484,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-});
+}));

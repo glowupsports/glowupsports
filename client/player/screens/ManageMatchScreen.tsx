@@ -23,6 +23,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes } fro
 import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface OpenMatch {
   id: string;
   bookingId: string;
@@ -520,7 +521,7 @@ export default function ManageMatchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -929,4 +930,4 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: "700",
   },
-});
+}));

@@ -7,7 +7,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
+import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
+import { PlayerAppearanceProvider, usePlayerAppearance } from "@/player/context/PlayerAppearanceContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -126,6 +128,7 @@ import { SportContextProvider } from "@/player/context/SportContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const FAMILY_SWITCH_KEY = "family_switch";
 
 interface FamilySwitchInfo {
@@ -408,9 +411,9 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: t('player.booking.openMatch'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
           headerBackVisible: true,
         }}
       />
@@ -420,9 +423,9 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Find a Match",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <PlayStack.Screen 
@@ -431,9 +434,9 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Challenge",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <PlayStack.Screen 
@@ -442,9 +445,9 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: t('player.booking.invites'),
-          headerStyle: { backgroundColor: '#090E17' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: '#E040FB',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <PlayStack.Screen 
@@ -453,9 +456,9 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: t('player.booking.preferences'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
     </PlayStack.Navigator>
@@ -490,9 +493,9 @@ function ScheduleStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: t('nav.matches'),
-          headerStyle: { backgroundColor: '#0a0f1a' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: '#00ff88',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ScheduleStack.Screen 
@@ -501,9 +504,9 @@ function ScheduleStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Match Details",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ScheduleStack.Screen
@@ -512,9 +515,9 @@ function ScheduleStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Match Preparation",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#C8FF3D',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ScheduleStack.Screen
@@ -523,9 +526,9 @@ function ScheduleStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Opponent Profile",
-          headerStyle: { backgroundColor: '#090E17' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: '#A78BFA',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
     </ScheduleStack.Navigator>
@@ -609,9 +612,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Leaderboard",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -656,9 +659,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Skill Evidence",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -667,9 +670,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Trial Gates",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -678,9 +681,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Collection",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -689,9 +692,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "XP History",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -700,9 +703,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Level History",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -726,9 +729,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: t('nav.matches'),
-          headerStyle: { backgroundColor: '#0a0f1a' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: '#00ff88',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen 
@@ -737,9 +740,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Match Details",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen
@@ -748,9 +751,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Match Preparation",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#C8FF3D',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <ProgressStack.Screen
@@ -759,9 +762,9 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Opponent Profile",
-          headerStyle: { backgroundColor: '#090E17' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: '#A78BFA',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
     </ProgressStack.Navigator>
@@ -1013,9 +1016,9 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: t('player.booking.manageMatch'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
           headerBackVisible: true,
           presentation: "card",
         }}
@@ -1070,9 +1073,9 @@ function PlayerStackNavigator() {
           presentation: "fullScreenModal",
           headerShown: true,
           headerTitle: t('player.booking.bookSession'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1132,9 +1135,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: t('player.home.newsFeed'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1161,9 +1164,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Start Live Match",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen
@@ -1191,9 +1194,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Match History",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1299,9 +1302,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Product",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1311,9 +1314,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Service",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1323,9 +1326,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Booking Detail",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1335,9 +1338,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Cart",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1347,9 +1350,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Category",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1359,9 +1362,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Marketplace",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1371,9 +1374,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Listing",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1383,9 +1386,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "My Listings",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1395,9 +1398,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Equipment",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1407,9 +1410,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: t('player.booking.preferences'),
-          headerStyle: { backgroundColor: '#0B0D10' },
-          headerTintColor: '#C8FF3D',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '700' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '700' },
         }}
       />
       <Stack.Screen 
@@ -1419,9 +1422,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: t('player.booking.invites'),
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1431,9 +1434,9 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Family",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen 
@@ -1471,9 +1474,9 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Find a Game",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen
@@ -1482,9 +1485,9 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Post a Game",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen
@@ -1493,9 +1496,9 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "My Games",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen
@@ -1504,9 +1507,9 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Classes",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
           headerTransparent: false,
         }}
       />
@@ -1516,9 +1519,9 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Class Details",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
       <Stack.Screen name="Schedule" component={LegacyScheduleRedirect} options={{ headerShown: false }} />
@@ -1546,6 +1549,23 @@ interface PlayerDashboard {
     onboardingCompleted?: boolean;
     academyId?: string | null;
   };
+}
+
+function PlayerThemedRoot({ children }: { children: React.ReactNode }) {
+  const { resolvedScheme } = usePlayerAppearance();
+  return (
+    <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
+      <StatusBar style={resolvedScheme === "light" ? "dark" : "light"} />
+      {/* Keying the inner tree on the resolved scheme forces a remount when
+          the player toggles Light/Dark/System. Combined with the
+          `makeReactiveStyles` Proxy, every screen and component re-evaluates
+          its StyleSheet against the freshly mutated theme tokens, giving us
+          a coherent player-wide repaint without per-component refactors. */}
+      <View key={resolvedScheme} style={styles.container}>
+        {children}
+      </View>
+    </View>
+  );
 }
 
 export default function PlayerNavigator() {
@@ -1613,33 +1633,35 @@ export default function PlayerNavigator() {
   const playerId = user?.playerId || dashboard?.player?.id || null;
 
   return (
-    <ChatStateProvider>
-      <TabNavigationProvider>
-        <ScheduleFocusProvider>
-        <PlayerDataProvider>
-          <SportContextProvider>
-            <CartProvider>
-              <FamilyProvider playerId={playerId}>
-                <PlayerLevelProvider playerId={playerId}>
-                  <WalkthroughProvider>
-                    <View style={styles.container}>
-                      <FamilySwitchBackBanner />
-                      <PlayerStackNavigator />
-                      <WalkthroughOverlay />
-                    </View>
-                  </WalkthroughProvider>
-                </PlayerLevelProvider>
-              </FamilyProvider>
-            </CartProvider>
-          </SportContextProvider>
-        </PlayerDataProvider>
-        </ScheduleFocusProvider>
-      </TabNavigationProvider>
-    </ChatStateProvider>
+    <PlayerAppearanceProvider>
+      <ChatStateProvider>
+        <TabNavigationProvider>
+          <ScheduleFocusProvider>
+          <PlayerDataProvider>
+            <SportContextProvider>
+              <CartProvider>
+                <FamilyProvider playerId={playerId}>
+                  <PlayerLevelProvider playerId={playerId}>
+                    <WalkthroughProvider>
+                      <PlayerThemedRoot>
+                        <FamilySwitchBackBanner />
+                        <PlayerStackNavigator />
+                        <WalkthroughOverlay />
+                      </PlayerThemedRoot>
+                    </WalkthroughProvider>
+                  </PlayerLevelProvider>
+                </FamilyProvider>
+              </CartProvider>
+            </SportContextProvider>
+          </PlayerDataProvider>
+          </ScheduleFocusProvider>
+        </TabNavigationProvider>
+      </ChatStateProvider>
+    </PlayerAppearanceProvider>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1707,4 +1729,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: -2,
   },
-});
+}));

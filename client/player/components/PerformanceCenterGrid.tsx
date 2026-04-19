@@ -8,6 +8,7 @@ import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface TileConfig {
   id: string;
   title: string;
@@ -140,7 +141,7 @@ export function PerformanceCenterGrid({ playerLevel }: PerformanceCenterGridProp
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
@@ -206,4 +207,4 @@ const styles = StyleSheet.create({
     height: 2,
     opacity: 0.5,
   },
-});
+}));

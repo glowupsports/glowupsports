@@ -21,6 +21,7 @@ import { CoachReviewModal } from "@/player/components/CoachReviewModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface DomainInsights {
   recentHighlights: string[];
   focusAreas: string[];
@@ -237,7 +238,7 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
               cy={point.y}
               r={5}
               fill={domains[i].color}
-              stroke="#0B0D10"
+              stroke={Backgrounds.root}
               strokeWidth={2}
             />
           </React.Fragment>
@@ -550,7 +551,7 @@ function GlowScoreModal({
     { name: "Platinum", min: 500, max: 999, color: "#00E5FF", icon: "diamond" as const },
     { name: "Diamond", min: 1000, max: 1999, color: "#E040FB", icon: "diamond" as const },
     { name: "Master", min: 2000, max: 4999, color: "#FF4444", icon: "star" as const },
-    { name: "Grandmaster", min: 5000, max: 9999, color: "#C8FF3D", icon: "star" as const },
+    { name: "Grandmaster", min: 5000, max: 9999, color: GlowColors.primary, icon: "star" as const },
     { name: "Legend", min: 10000, max: Infinity, color: "#FFD700", icon: "trophy" as const },
   ];
   
@@ -759,7 +760,7 @@ function AdultGlowLevelModal({
   
   const glowLevels = [
     { 
-      rank: 9, name: "Absolute Beginner", color: "#6B7280",
+      rank: 9, name: "Absolute Beginner", color: TextColors.muted,
       summary: "Just starting tennis. Learning to make contact with the ball.",
       skills: ["Basic grip knowledge", "Can hit ball over net", "Understanding of court layout"]
     },
@@ -1048,7 +1049,7 @@ function SkillProgressBar({ score, maxScore, color }: { score: number; maxScore:
   );
 }
 
-const skillBarStyles = StyleSheet.create({
+const skillBarStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -1079,7 +1080,7 @@ const skillBarStyles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
   },
-});
+}));
 
 const BALL_LEVEL_DISPLAY: Record<string, string> = {
   blue: "BLUE 3",
@@ -1254,7 +1255,7 @@ function PillarDetailModal({
   );
 }
 
-const skillCategoryStyles = StyleSheet.create({
+const skillCategoryStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderRadius: BorderRadius.md,
@@ -1321,7 +1322,7 @@ const skillCategoryStyles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
   },
-});
+}));
 
 function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;
@@ -1814,7 +1815,7 @@ export default function PlayerProgressScreen() {
             <Text style={styles.title}>My Progress</Text>
             {isNewPlayer && (
               <View style={styles.newPlayerBadge}>
-                <Ionicons name="sparkles" size={12} color="#C8FF3D" />
+                <Ionicons name="sparkles" size={12} color={GlowColors.primary} />
                 <Text style={styles.newPlayerBadgeText}>NEW</Text>
               </View>
             )}
@@ -2085,7 +2086,7 @@ export default function PlayerProgressScreen() {
               }}
             >
               <View style={styles.glowPlanIconWrap}>
-                <Ionicons name="flash" size={18} color="#C8FF3D" />
+                <Ionicons name="flash" size={18} color={GlowColors.primary} />
               </View>
               <View style={styles.glowPlanHeaderContent}>
                 <Text style={styles.glowPlanTitle}>This Week's Focus</Text>
@@ -2661,7 +2662,7 @@ export default function PlayerProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -2781,7 +2782,7 @@ const styles = StyleSheet.create({
   newPlayerBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#C8FF3D",
+    color: GlowColors.primary,
     letterSpacing: 1,
   },
   subtitle: {
@@ -2885,7 +2886,7 @@ const styles = StyleSheet.create({
   },
   statCardXp: {
     borderColor: "rgba(200, 255, 61, 0.4)",
-    shadowColor: "#C8FF3D",
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
@@ -2941,10 +2942,10 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: "rgba(200, 255, 61, 0.2)",
     borderWidth: 2.5,
-    borderColor: "#C8FF3D",
+    borderColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#C8FF3D",
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -2953,7 +2954,7 @@ const styles = StyleSheet.create({
   xpValue: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#C8FF3D",
+    color: GlowColors.primary,
   },
   levelValue: {
     ...Typography.numberMedium,
@@ -3006,7 +3007,7 @@ const styles = StyleSheet.create({
   xpBarFill: {
     height: "100%",
     borderRadius: 5,
-    shadowColor: "#C8FF3D",
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 8,
@@ -3080,7 +3081,7 @@ const styles = StyleSheet.create({
   radarOverlayText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#C8FF3D",
+    color: GlowColors.primary,
   },
   sectionTitle: {
     fontSize: 11,
@@ -3097,7 +3098,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.2)",
-    shadowColor: "#C8FF3D",
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
@@ -3880,9 +3881,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));
 
-const modalStyles = StyleSheet.create({
+const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -4335,4 +4336,4 @@ const modalStyles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

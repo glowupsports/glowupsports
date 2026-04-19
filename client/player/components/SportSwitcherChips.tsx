@@ -5,6 +5,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useSport, SPORT_DEFINITIONS } from "@/player/context/SportContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SportSwitcherChipsProps {
   style?: StyleProp<ViewStyle>;
 }
@@ -47,7 +48,7 @@ export function SportSwitcherChips({ style }: SportSwitcherChipsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexGrow: 0,
   },
@@ -73,4 +74,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.textMuted,
   },
-});
+}));

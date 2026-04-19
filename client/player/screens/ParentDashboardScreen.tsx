@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface DashboardData {
   player: { id: string; name: string };
   academy: { id: string; name: string } | null;
@@ -253,7 +254,7 @@ export default function ParentDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -447,4 +448,4 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
   },
-});
+}));

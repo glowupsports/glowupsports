@@ -20,12 +20,13 @@ import Animated, {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Colors, Spacing, GlowColors, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, GlowColors, BorderRadius, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface ProviderBooking {
@@ -526,9 +527,9 @@ export function UpcomingProviderSessionCard() {
   );
 }
 
-const cardStyles = StyleSheet.create({
+const cardStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -715,9 +716,9 @@ const cardStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-});
+}));
 
-const wrapStyles = StyleSheet.create({
+const wrapStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.lg,
     gap: Spacing.sm,
@@ -738,4 +739,4 @@ const wrapStyles = StyleSheet.create({
     width: 14,
     backgroundColor: GlowColors.primary,
   },
-});
+}));

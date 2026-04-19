@@ -27,6 +27,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const DNA_CARDS: Array<{ id: string; title: string; subtitle: string; icon: IoniconName }> = [
@@ -634,7 +635,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -961,4 +962,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#000",
   },
-});
+}));

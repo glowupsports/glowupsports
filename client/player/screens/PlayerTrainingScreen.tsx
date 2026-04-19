@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface TrainingSession {
   id: string;
   date: string;
@@ -222,7 +223,7 @@ export default function PlayerTrainingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -404,4 +405,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
-});
+}));

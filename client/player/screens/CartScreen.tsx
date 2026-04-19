@@ -20,6 +20,7 @@ import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface XPDiscount {
   discountPercent: number;
   tierName: string;
@@ -327,7 +328,7 @@ export default function CartScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -612,4 +613,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.backgroundDefault,
   },
-});
+}));

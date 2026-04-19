@@ -30,17 +30,29 @@ const springConfig: WithSpringConfig = {
 
 const getBackgroundColorForElevation = (
   elevation: number,
-  _theme: any,
+  isDark: boolean,
 ): string => {
+  if (isDark) {
+    switch (elevation) {
+      case 1:
+        return "rgba(255, 255, 255, 0.06)";
+      case 2:
+        return "rgba(255, 255, 255, 0.08)";
+      case 3:
+        return "rgba(255, 255, 255, 0.04)";
+      default:
+        return "rgba(255, 255, 255, 0.06)";
+    }
+  }
   switch (elevation) {
     case 1:
-      return "rgba(255, 255, 255, 0.06)";
+      return "rgba(11, 13, 16, 0.04)";
     case 2:
-      return "rgba(255, 255, 255, 0.08)";
+      return "#FFFFFF";
     case 3:
-      return "rgba(255, 255, 255, 0.04)";
+      return "rgba(11, 13, 16, 0.02)";
     default:
-      return "rgba(255, 255, 255, 0.06)";
+      return "rgba(11, 13, 16, 0.04)";
   }
 };
 
@@ -54,10 +66,10 @@ export function Card({
   onPress,
   style,
 }: CardProps) {
-  const { theme } = useTheme();
+  const { isDark } = useTheme();
   const scale = useSharedValue(1);
 
-  const cardBackgroundColor = getBackgroundColorForElevation(elevation, theme);
+  const cardBackgroundColor = getBackgroundColorForElevation(elevation, isDark);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

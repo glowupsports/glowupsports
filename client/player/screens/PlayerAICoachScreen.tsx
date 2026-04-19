@@ -23,6 +23,7 @@ import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
 import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const AI_COACH_INTRO_SEEN_KEY = "ai_coach_intro_seen";
 
 interface Message {
@@ -298,7 +299,7 @@ function FeatureIntroModal({ visible, isPro, callCount, limit, glowMirrorLayers,
   );
 }
 
-const introStyles = StyleSheet.create({
+const introStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#080C14",
@@ -523,7 +524,7 @@ const introStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
   },
-});
+}));
 
 function OnboardingSplash({ onStart }: { onStart: () => void }) {
   return (
@@ -787,7 +788,7 @@ function MyMirrorTab({
   );
 }
 
-const mirrorTabStyles = StyleSheet.create({
+const mirrorTabStyles = makeReactiveStyles(() => StyleSheet.create({
   scroll: {
     paddingBottom: 40,
     gap: 0,
@@ -1040,7 +1041,7 @@ const mirrorTabStyles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.primary,
   },
-});
+}));
 
 interface PlayerSession {
   id: string;
@@ -1322,7 +1323,7 @@ function GlowPlanTab({ digest }: { digest: WeeklyDigest | null }) {
   );
 }
 
-const planTabStyles = StyleSheet.create({
+const planTabStyles = makeReactiveStyles(() => StyleSheet.create({
   scroll: {
     paddingBottom: 40,
     gap: 0,
@@ -1436,7 +1437,7 @@ const planTabStyles = StyleSheet.create({
     color: Colors.dark.textMuted,
     lineHeight: 19,
   },
-});
+}));
 
 export default function PlayerAICoachScreen() {
   const insets = useSafeAreaInsets();
@@ -1925,7 +1926,7 @@ export default function PlayerAICoachScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -2378,4 +2379,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-});
+}));

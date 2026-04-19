@@ -17,17 +17,18 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, Backgrounds, TextColors, GlowColors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { openDirections } from "@/lib/maps";
 
-const BG = "#090E17";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+const BG = Backgrounds.root;
 const CARD_BG = "#12151C";
 const CARD_BORDER = "#1E2332";
-const TEXT_PRIMARY = "#FFFFFF";
+const TEXT_PRIMARY = TextColors.primary;
 const TEXT_SECONDARY = "#8A95A8";
 const TEXT_MUTED = "#4A5568";
-const ACCENT = "#C8FF3D";
+const ACCENT = GlowColors.primary;
 const DANGER = "#FF5A5F";
 
 interface Participant {
@@ -424,7 +425,7 @@ export default function ClassDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   root: { flex: 1 },
   banner: {
     paddingHorizontal: Spacing.lg,
@@ -630,4 +631,4 @@ const styles = StyleSheet.create({
     backgroundColor: DANGER + "12",
   },
   cancelBtnText: { fontSize: 15, fontWeight: "700", color: DANGER },
-});
+}));

@@ -19,6 +19,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Tex
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface VideoAnnotation {
   timestamp: number;
   text: string;
@@ -234,7 +235,7 @@ export default function VideoFeedbackPlayerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -395,4 +396,4 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     fontStyle: "italic",
   },
-});
+}));

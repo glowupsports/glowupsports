@@ -16,6 +16,7 @@ import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Friend {
   id: string;
   name: string;
@@ -229,7 +230,7 @@ export default function FriendSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -420,4 +421,4 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     borderColor: Colors.dark.primary,
   },
-});
+}));

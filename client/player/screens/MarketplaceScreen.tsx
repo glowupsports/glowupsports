@@ -25,6 +25,7 @@ import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 3) / 2;
 
@@ -578,7 +579,7 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -809,9 +810,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));
 
-const modalStyles = StyleSheet.create({
+const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -938,4 +939,4 @@ const modalStyles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
-});
+}));

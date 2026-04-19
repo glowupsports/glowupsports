@@ -52,6 +52,7 @@ import {
 } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
@@ -836,7 +837,7 @@ function FriendSpotlightLensCard() {
   );
 }
 
-const friendSpotlightStyles = StyleSheet.create({
+const friendSpotlightStyles = makeReactiveStyles(() => StyleSheet.create({
   emptyWrap: {
     flex: 1,
     alignItems: "center",
@@ -903,7 +904,7 @@ const friendSpotlightStyles = StyleSheet.create({
     color: TextColors.secondary,
     marginTop: 1,
   },
-});
+}));
 
 // =============================================================================
 // LENS SHELL (consistent COMPETE/EVENTS card surface)
@@ -1379,7 +1380,7 @@ export function HeroCarousel({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     width: "100%",
   },
@@ -1579,9 +1580,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xs,
   },
-});
+}));
 
-const openMatchHeroStyles = StyleSheet.create({
+const openMatchHeroStyles = makeReactiveStyles(() => StyleSheet.create({
   hostRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1613,4 +1614,4 @@ const openMatchHeroStyles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-});
+}));

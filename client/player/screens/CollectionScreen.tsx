@@ -20,6 +20,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { LockedScreen } from "../components/LockedScreen";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Badge {
   id: string;
   name: string;
@@ -402,7 +403,7 @@ export default function CollectionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -675,4 +676,4 @@ const styles = StyleSheet.create({
     ...Typography.heading2,
     textAlign: "center",
   },
-});
+}));

@@ -13,9 +13,10 @@ import Animated, {
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 import { useTranslation } from "react-i18next";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface ConfettiPiece {
@@ -172,7 +173,7 @@ export function RamadanBanner({ playerName, onDismiss }: RamadanBannerProps) {
         </Animated.View>
 
         <View style={styles.bonusBadge}>
-          <Ionicons name="moon" size={12} color="#0A0A0A" />
+          <Ionicons name="moon" size={12} color={Backgrounds.root} />
           <Text style={styles.bonusBadgeText}>Blessed Month</Text>
         </View>
 
@@ -205,8 +206,8 @@ export function RamadanBonusCard({ onDismiss }: { onDismiss?: () => void }) {
           <Text style={styles.xpBonusSubtitle}>{t('ramadan.blessingsSubtitle', 'Wishing you peace and joy this holy month')}</Text>
         </View>
         <View style={styles.xpBonusMultiplier}>
-          <Ionicons name="moon" size={14} color="#0A0A0A" />
-          <Ionicons name="star" size={12} color="#0A0A0A" style={{ marginLeft: 2 }} />
+          <Ionicons name="moon" size={14} color={Backgrounds.root} />
+          <Ionicons name="star" size={12} color={Backgrounds.root} style={{ marginLeft: 2 }} />
         </View>
         {onDismiss ? (
           <Pressable style={styles.bonusCardDismiss} onPress={onDismiss} hitSlop={8}>
@@ -218,7 +219,7 @@ export function RamadanBonusCard({ onDismiss }: { onDismiss?: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   confettiContainer: {
     position: "absolute",
     top: 0,
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
   ramadanMubarakText: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: 2,
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 1 },
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
   bonusBadgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#0A0A0A",
+    color: Backgrounds.root,
     marginLeft: 3,
     letterSpacing: 0.5,
   },
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
   xpMultiplierText: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0A0A0A",
+    color: Backgrounds.root,
   },
   dismissButton: {
     position: "absolute",
@@ -375,4 +376,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerLevelContext } from "../context/PlayerLevelContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface LockedScreenProps {
   featureKey: string;
   children: React.ReactNode;
@@ -157,7 +158,7 @@ export function LockedSection({ featureKey, children, fallback }: LockedSectionP
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -338,4 +339,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.gold,
   },
-});
+}));

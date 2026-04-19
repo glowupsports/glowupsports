@@ -59,6 +59,7 @@ import {
   CreateMomentModal,
 } from "../components/community/CommunityModals";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export default function CommunityScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -363,7 +364,7 @@ export default function CommunityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -423,4 +424,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
-});
+}));

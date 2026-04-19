@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface JoinRequest {
   id: string;
   academyId: string;
@@ -118,7 +119,7 @@ export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: Acade
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
@@ -265,4 +266,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
     fontWeight: "600",
   },
-});
+}));

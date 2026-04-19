@@ -15,6 +15,7 @@ import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 function PlayerAvatar({ photoUrl, size = 48, borderColor = "#FFD700" }: { photoUrl?: string | null; size?: number; borderColor?: string }) {
   const baseUrl = getStaticAssetsUrl();
   const fullUrl = photoUrl ? (photoUrl.startsWith("http") ? photoUrl : `${baseUrl}${photoUrl}`) : null;
@@ -94,7 +95,7 @@ function PodiumSection({ nominees }: { nominees: any[] }) {
   );
 }
 
-const podiumStyles = StyleSheet.create({
+const podiumStyles = makeReactiveStyles(() => StyleSheet.create({
   container: { gap: Spacing.lg, paddingHorizontal: Spacing.lg },
   title: { fontSize: 11, fontWeight: "800", color: "#FFD700", letterSpacing: 2, textAlign: "center" },
   podium: { flexDirection: "row", justifyContent: "center", alignItems: "flex-end", gap: Spacing.sm },
@@ -108,7 +109,7 @@ const podiumStyles = StyleSheet.create({
   podiumRank: { fontSize: 18, fontWeight: "800", color: TextColors.primary },
   voteBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.06)" },
   voteText: { fontSize: 11, fontWeight: "700" },
-});
+}));
 
 function NomineeList({ nominees }: { nominees: any[] }) {
   if (!nominees || nominees.length <= 3) return null;
@@ -136,7 +137,7 @@ function NomineeList({ nominees }: { nominees: any[] }) {
   );
 }
 
-const listStyles = StyleSheet.create({
+const listStyles = makeReactiveStyles(() => StyleSheet.create({
   container: { gap: Spacing.sm, paddingHorizontal: Spacing.lg },
   title: { fontSize: 11, fontWeight: "800", color: TextColors.muted, letterSpacing: 2, marginBottom: Spacing.xs },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.md, padding: Spacing.md, backgroundColor: Backgrounds.card, borderRadius: BorderRadius.lg },
@@ -146,7 +147,7 @@ const listStyles = StyleSheet.create({
   reason: { fontSize: 11, fontStyle: "italic", color: TextColors.muted },
   voteBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
   voteText: { fontSize: 13, fontWeight: "700", color: "#FFD700" },
-});
+}));
 
 function HistorySection({ weeklyWinners, monthlyWinners }: { weeklyWinners: any[]; monthlyWinners: any[] }) {
   if ((!weeklyWinners || weeklyWinners.length === 0) && (!monthlyWinners || monthlyWinners.length === 0)) return null;
@@ -212,7 +213,7 @@ function HistorySection({ weeklyWinners, monthlyWinners }: { weeklyWinners: any[
   );
 }
 
-const histStyles = StyleSheet.create({
+const histStyles = makeReactiveStyles(() => StyleSheet.create({
   container: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
   sectionTitle: { fontSize: 11, fontWeight: "800", color: TextColors.muted, letterSpacing: 2, marginBottom: Spacing.xs },
   monthRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md, padding: Spacing.md, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: "rgba(200, 255, 61, 0.1)" },
@@ -227,7 +228,7 @@ const histStyles = StyleSheet.create({
   weekDate: { fontSize: 11, color: TextColors.muted },
   weekVotes: { flexDirection: "row", alignItems: "center", gap: 4 },
   weekVoteText: { fontSize: 13, fontWeight: "700", color: "#FFD700" },
-});
+}));
 
 export default function SpotlightDetailScreen() {
   const navigation = useNavigation();
@@ -365,7 +366,7 @@ export default function SpotlightDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -392,7 +393,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   shareBtn: {
     width: 40,
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
   winnerName: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   winnerReasonBox: {
     flexDirection: "row",
@@ -525,4 +526,4 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     textAlign: "center",
   },
-});
+}));

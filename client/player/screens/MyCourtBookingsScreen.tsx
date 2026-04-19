@@ -19,6 +19,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/consta
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 
 interface BookingPartner {
@@ -440,7 +441,7 @@ export default function MyCourtBookingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -711,4 +712,4 @@ const styles = StyleSheet.create({
   openMatchFullText: {
     color: Colors.dark.successNeon,
   },
-});
+}));

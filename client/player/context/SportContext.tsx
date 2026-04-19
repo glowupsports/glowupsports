@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
+import { GlowColors } from "@/constants/theme";
 export type Sport = "tennis" | "padel" | "pickleball";
 
 export const SPORT_DEFINITIONS: {
@@ -12,13 +13,13 @@ export const SPORT_DEFINITIONS: {
   color: string;
   description: string;
 }[] = [
-  { key: "tennis", label: "Tennis", icon: "tennisball", color: "#C8FF3D", description: "Classic racquet sport" },
+  { key: "tennis", label: "Tennis", icon: "tennisball", color: GlowColors.primary, description: "Classic racquet sport" },
   { key: "padel", label: "Padel", icon: "golf", color: "#00E5FF", description: "Enclosed court with walls" },
   { key: "pickleball", label: "Pickleball", icon: "baseball", color: "#A855F7", description: "Fast-growing paddle sport" },
 ];
 
 export function getSportColor(sport: string): string {
-  return SPORT_DEFINITIONS.find(s => s.key === sport)?.color ?? "#C8FF3D";
+  return SPORT_DEFINITIONS.find(s => s.key === sport)?.color ?? GlowColors.primary;
 }
 
 export function getSportLabel(sport: string): string {

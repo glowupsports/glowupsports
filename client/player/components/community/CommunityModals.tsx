@@ -22,7 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -35,6 +35,7 @@ import {
   DRAWER_HEIGHT,
 } from "./CommunityTypes";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CommentsModalProps {
   visible: boolean;
   postId: string | null;
@@ -321,11 +322,11 @@ interface SharePreviewModalProps {
 }
 
 const SHARE_BACKGROUNDS = [
-  { id: "neon", name: "Neon Glow", colors: ["#0B0D10", "#1a1a2e", "#16213e"] as const },
-  { id: "court", name: "Court Green", colors: ["#0B0D10", "#0d2818", "#1e4d2b"] as const },
-  { id: "gold", name: "Champion Gold", colors: ["#0B0D10", "#2d1f00", "#4a3200"] as const },
-  { id: "purple", name: "Royal Purple", colors: ["#0B0D10", "#1a0a2e", "#2d1b4e"] as const },
-  { id: "fire", name: "On Fire", colors: ["#0B0D10", "#2d0a00", "#4a1a00"] as const },
+  { id: "neon", name: "Neon Glow", colors: [Backgrounds.root, "#1a1a2e", "#16213e"] as const },
+  { id: "court", name: "Court Green", colors: [Backgrounds.root, "#0d2818", "#1e4d2b"] as const },
+  { id: "gold", name: "Champion Gold", colors: [Backgrounds.root, "#2d1f00", "#4a3200"] as const },
+  { id: "purple", name: "Royal Purple", colors: [Backgrounds.root, "#1a0a2e", "#2d1b4e"] as const },
+  { id: "fire", name: "On Fire", colors: [Backgrounds.root, "#2d0a00", "#4a1a00"] as const },
 ];
 
 export function SharePreviewModal({ visible, achievement, onClose }: SharePreviewModalProps) {
@@ -406,11 +407,11 @@ export function SharePreviewModal({ visible, achievement, onClose }: SharePrevie
 
   const gradient: [string, string] = achievement ? (
     achievement.type === "match_won" ? ["#FFD700", "#FF8C00"] :
-    achievement.type === "level_up" ? ["#C8FF3D", "#7CFC00"] :
+    achievement.type === "level_up" ? [GlowColors.primary, "#7CFC00"] :
     achievement.type === "streak" ? ["#FF6B35", "#FF4500"] :
     achievement.type === "badge" ? ["#E040FB", "#9C27B0"] :
     ["#00E5FF", "#00BFFF"]
-  ) : ["#C8FF3D", "#7CFC00"];
+  ) : [GlowColors.primary, "#7CFC00"];
 
   if (!visible || !achievement) return null;
 
@@ -553,7 +554,7 @@ export function SharePreviewModal({ visible, achievement, onClose }: SharePrevie
             disabled={isSharing}
           >
             <LinearGradient
-              colors={["#C8FF3D", "#7CFC00"]}
+              colors={[GlowColors.primary, "#7CFC00"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={shareStyles.shareBtnGradient}
@@ -1246,7 +1247,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
   );
 }
 
-const commentStyles = StyleSheet.create({
+const commentStyles = makeReactiveStyles(() => StyleSheet.create({
   drawerBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -1435,9 +1436,9 @@ const commentStyles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: Colors.dark.primary + "50",
   },
-});
+}));
 
-const shareStyles = StyleSheet.create({
+const shareStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1654,9 +1655,9 @@ const shareStyles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));
 
-const postDetailStyles = StyleSheet.create({
+const postDetailStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1889,9 +1890,9 @@ const postDetailStyles = StyleSheet.create({
   sendBtnDisabled: {
     backgroundColor: Colors.dark.primary + "50",
   },
-});
+}));
 
-const createStyles = StyleSheet.create({
+const createStyles = makeReactiveStyles(() => StyleSheet.create({
   modalContainer: {
     flex: 1,
   },
@@ -2104,4 +2105,4 @@ const createStyles = StyleSheet.create({
     color: Colors.dark.primary,
     fontWeight: "500",
   },
-});
+}));

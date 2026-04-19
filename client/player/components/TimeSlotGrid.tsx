@@ -21,6 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SLOT_WIDTH = 70;
 const SLOT_HEIGHT = 56;
@@ -251,7 +252,7 @@ export function TimeSlotGrid({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -425,6 +426,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: 12,
   },
-});
+}));
 
 export default TimeSlotGrid;

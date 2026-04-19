@@ -18,6 +18,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface QuickAction {
@@ -96,7 +97,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       id: "classes",
       label: "Classes",
       icon: "people-outline",
-      color: "#C8FF3D",
+      color: GlowColors.primary,
       onPress: () => {
         track("action:classes");
         navigation.navigate("ClassesDiscovery");
@@ -263,7 +264,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   fab: {
     position: "absolute",
     width: 48,
@@ -324,4 +325,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
-});
+}));

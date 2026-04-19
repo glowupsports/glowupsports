@@ -25,6 +25,7 @@ import {
   formatTimeAgo,
 } from "./CommunityTypes";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 function MediaUnavailable() {
   return (
     <View style={styles.mediaUnavailable}>
@@ -464,7 +465,7 @@ export function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onCha
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   mediaUnavailable: {
     width: "100%",
     height: 200,
@@ -831,4 +832,4 @@ const styles = StyleSheet.create({
   xpSparkText: {
     fontSize: 12,
   },
-});
+}));

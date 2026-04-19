@@ -12,9 +12,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 function formatDate(iso: string): string {
   try {
     return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(iso));
@@ -49,7 +50,7 @@ function MatchCard({ match, myId }: { match: HistoryMatch; myId?: string }) {
     ? match.opponents?.[0]?.name || "Unknown"
     : match.creator?.name || "Unknown";
 
-  const resultColor = match.didWin ? "#CCFF00" : "#FF4444";
+  const resultColor = match.didWin ? GlowColors.primary : "#FF4444";
   const resultLabel = match.didWin ? "W" : "L";
   const mmrDelta = match.isCreator ? match.mmrDeltaCreator : undefined;
   const dateStr = match.completedAt ? formatDate(match.completedAt) : "Unknown date";
@@ -83,7 +84,7 @@ function MatchCard({ match, myId }: { match: HistoryMatch; myId?: string }) {
             <Text
               style={[
                 styles.mmrDelta,
-                { color: mmrDelta >= 0 ? "#CCFF00" : "#FF4444" },
+                { color: mmrDelta >= 0 ? GlowColors.primary : "#FF4444" },
               ]}
             >
               {mmrDelta >= 0 ? "+" : ""}
@@ -151,7 +152,7 @@ export default function MatchHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -231,4 +232,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.5,
   },
-});
+}));

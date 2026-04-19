@@ -16,11 +16,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Image } from "expo-image";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Participant {
   id: string;
   playerId: string;
@@ -52,7 +53,7 @@ interface GameRequest {
 
 function getSportColor(sport: string): string {
   switch (sport) {
-    case "tennis": return "#CCFF00";
+    case "tennis": return GlowColors.primary;
     case "padel": return "#00E5FF";
     case "squash": return "#FF6B35";
     case "pickleball": return "#A855F7";
@@ -296,7 +297,7 @@ export default function MyGamesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -476,4 +477,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.textMuted,
   },
-});
+}));

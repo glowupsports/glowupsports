@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface ParentSettings {
   id: string;
   userId: string;
@@ -181,7 +182,7 @@ export default function ParentSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -309,4 +310,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     lineHeight: 18,
   },
-});
+}));

@@ -17,6 +17,7 @@ import CreateFamilyMemberFlow from "./CreateFamilyMemberFlow";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Props {
   visible: boolean;
   onDone: () => void;
@@ -325,7 +326,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.9)",
@@ -552,4 +553,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-});
+}));

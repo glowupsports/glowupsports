@@ -9,7 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors, TextColors } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -23,6 +23,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
 interface ProfileData {
@@ -147,10 +148,10 @@ const RARITY_COLORS: Record<string, string> = {
 type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
 
 const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: string }> = {
-  baseline_warrior: { name: "Baseline Warrior", color: "#C8FF3D", icon: "tennisball" },
+  baseline_warrior: { name: "Baseline Warrior", color: GlowColors.primary, icon: "tennisball" },
   net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
   serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
-  all_court_ace: { name: "All-Court Ace", color: "#FFFFFF", icon: "star" },
+  all_court_ace: { name: "All-Court Ace", color: TextColors.primary, icon: "star" },
   counter_puncher: { name: "Counter-Puncher", color: "#9B59B6", icon: "shield" },
   tactical_mastermind: { name: "Tactical Mastermind", color: "#FFD700", icon: "bulb" },
 };
@@ -273,7 +274,7 @@ function SportProfilesSection({ sportProfiles, onUpdateSports, isSaving }: Sport
   );
 }
 
-const sportSectionStyles = StyleSheet.create({
+const sportSectionStyles = makeReactiveStyles(() => StyleSheet.create({
   emptyCard: {
     marginHorizontal: Spacing.xl,
     ...CardStyles.elevated,
@@ -400,7 +401,7 @@ const sportSectionStyles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
-});
+}));
 
 export default function PlayerProfileScreen() {
   const { t } = useTranslation();
@@ -1033,7 +1034,7 @@ export default function PlayerProfileScreen() {
               navigation.navigate("MatchHistory");
             }}
           >
-            <Ionicons name="trophy-outline" size={20} color="#CCFF00" />
+            <Ionicons name="trophy-outline" size={20} color={GlowColors.primary} />
             <Text style={styles.actionCardLabel}>{t("player.profile.matchHistory")}</Text>
             <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} style={{ alignSelf: "flex-end", marginTop: "auto" }} />
           </Pressable>
@@ -1627,7 +1628,7 @@ export default function PlayerProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -2561,9 +2562,9 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
   },
-});
+}));
 
-const profileStyles = StyleSheet.create({
+const profileStyles = makeReactiveStyles(() => StyleSheet.create({
   liveMatchBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -2632,4 +2633,4 @@ const profileStyles = StyleSheet.create({
     fontWeight: "800",
     marginLeft: Spacing.sm,
   },
-});
+}));

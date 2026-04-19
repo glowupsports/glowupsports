@@ -12,7 +12,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
+import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { HelpCenterModal } from "@/components/HelpCenterModal";
 import type { FAQItem } from "@/components/HelpCenterModal";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface PlayerData {
   id: string;
   name: string;
@@ -137,7 +138,7 @@ export function ProPlayerCard({
         <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
         <View style={styles.container}>
           <View
-            style={[styles.cardGradient, { backgroundColor: "#0F141B" }]}
+            style={[styles.cardGradient, { backgroundColor: Backgrounds.root }]}
           >
           <LinearGradient
             colors={[GlowColors.primary, GlowColors.soft, GlowColors.primary]}
@@ -310,7 +311,7 @@ export function ProPlayerCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   cardContainer: {
     position: "relative",
     marginHorizontal: Spacing.md,
@@ -412,7 +413,7 @@ const styles = StyleSheet.create({
   levelBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#000000",
+    color: Backgrounds.root,
   },
   identitySection: {
     flex: 1,
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   academyRow: {
     flexDirection: "row",
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
   academyText: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#7C8290",
+    color: TextColors.muted,
   },
   xpSection: {
     marginTop: 4,
@@ -464,7 +465,7 @@ const styles = StyleSheet.create({
   },
   xpRequired: {
     fontSize: 11,
-    color: "#7C8290",
+    color: TextColors.muted,
     fontWeight: "500",
   },
   bottomActionBtn: {
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
   notifBadgeText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   cardDivider: {
     height: 1,
@@ -556,4 +557,4 @@ const styles = StyleSheet.create({
     color: GlowColors.primary,
     letterSpacing: 0.5,
   },
-});
+}));

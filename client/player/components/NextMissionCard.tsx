@@ -6,6 +6,7 @@ import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withRepeat, withTim
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface NextMission {
   type: "session" | "quest" | "event";
   title: string;
@@ -159,7 +160,7 @@ export function NextMissionCard({ mission, onPress }: NextMissionCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -280,4 +281,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     marginTop: 2,
   },
-});
+}));

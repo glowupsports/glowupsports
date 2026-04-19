@@ -17,6 +17,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2) / 7;
 
@@ -195,7 +196,7 @@ export function DateRailSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
   },
@@ -294,6 +295,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 6,
   },
-});
+}));
 
 export default DateRailSelector;

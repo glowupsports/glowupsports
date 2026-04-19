@@ -18,9 +18,10 @@ import Animated, {
   withTiming,
   useSharedValue,
 } from "react-native-reanimated";
-import { Backgrounds, Spacing, BorderRadius, Colors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type LiveMatchViewerParams = {
   matchId: string;
   playerName?: string;
@@ -249,7 +250,7 @@ export default function LiveMatchViewerScreen() {
           {/* Completed result */}
           {isComplete && data.match.winnerId ? (
             <View style={styles.resultCard}>
-              <Feather name="award" size={28} color="#CCFF00" />
+              <Feather name="award" size={28} color={GlowColors.primary} />
               <Text style={styles.resultWinner}>
                 {data.match.winnerId === data.creator?.id ? creatorName : opponentName} wins!
               </Text>
@@ -272,7 +273,7 @@ export default function LiveMatchViewerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
   resultWinner: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#CCFF00",
+    color: GlowColors.primary,
   },
   resultScore: {
     fontSize: 18,
@@ -453,4 +454,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "500",
   },
-});
+}));

@@ -17,6 +17,7 @@ import { Colors, Backgrounds, Spacing, FontSizes, BorderRadius, GlowColors } fro
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 function getBallColor(ball: string | null): string {
   switch (ball?.toLowerCase()) {
     case "green": return "#2ECC40";
@@ -180,7 +181,7 @@ export default function FamilyQuickSwitch() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   switchButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -309,4 +310,4 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.border,
     marginVertical: Spacing.sm,
   },
-});
+}));

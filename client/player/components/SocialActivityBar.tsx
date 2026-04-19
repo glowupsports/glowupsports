@@ -1,9 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export function SocialActivityBar() {
   const { state } = usePlayerState();
 
@@ -38,7 +39,7 @@ export function SocialActivityBar() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -61,12 +62,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   statLabel: {
     fontSize: 11,
     fontWeight: "500",
-    color: "#7C8290",
+    color: TextColors.muted,
   },
   dot: {
     width: 3,
@@ -75,4 +76,4 @@ const styles = StyleSheet.create({
     backgroundColor: "#4A4F5C",
     marginHorizontal: 4,
   },
-});
+}));

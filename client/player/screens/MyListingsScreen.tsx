@@ -19,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Colors, Backgrounds, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface MarketplaceListing {
   id: string;
   title: string;
@@ -266,7 +267,7 @@ export default function MyListingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -437,4 +438,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: Colors.dark.primary,
   },
-});
+}));

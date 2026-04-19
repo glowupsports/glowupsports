@@ -17,6 +17,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { usePlayer } from "@/player/context/PlayerContext";
 import { LockedScreen } from "../components/LockedScreen";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface BallLevel {
   id: string;
   name: string;
@@ -253,7 +254,7 @@ export default function TrialGatesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -464,4 +465,4 @@ const styles = StyleSheet.create({
   loader: {
     marginVertical: Spacing.xl,
   },
-});
+}));

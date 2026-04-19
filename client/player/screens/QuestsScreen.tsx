@@ -35,6 +35,7 @@ import {
   ClaimRewardResult,
 } from "@/player/hooks/useQuests";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type QuestType = "daily" | "weekly" | "monthly";
@@ -43,7 +44,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   training: "#00FF88",
   social: "#00D9FF",
   performance: "#FF4444",
-  consistency: "#CCFF00",
+  consistency: GlowColors.primary,
   mental: "#E040FB",
 };
 
@@ -643,7 +644,7 @@ function InfoToast({ message, onHide }: { message: string; onHide: () => void })
   );
 }
 
-const infoToastStyles = StyleSheet.create({
+const infoToastStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "absolute",
     left: Spacing.lg,
@@ -664,7 +665,7 @@ const infoToastStyles = StyleSheet.create({
     fontSize: 13,
     color: "#fff",
   },
-});
+}));
 
 function EmptyState({ type }: { type: QuestType }) {
   const icons: Record<QuestType, string> = {
@@ -996,7 +997,7 @@ export default function QuestsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1618,4 +1619,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

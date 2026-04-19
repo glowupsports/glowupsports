@@ -6,6 +6,7 @@ import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SocialPulseCardProps {
   newMoments: number;
   openToPlay: number;
@@ -102,7 +103,7 @@ export function SocialPulseCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     padding: Spacing.md,
   },
@@ -192,4 +193,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     textAlign: "center",
   },
-});
+}));

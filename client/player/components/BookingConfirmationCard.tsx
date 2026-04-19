@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes } from "@/constants/theme";
 import { TimeSlot } from "./TimeSlotGrid";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SelectedFriend {
   id: string;
   name: string;
@@ -354,7 +355,7 @@ export function BookingConfirmationCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     marginTop: Spacing.md,
@@ -657,6 +658,6 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
-});
+}));
 
 export default BookingConfirmationCard;

@@ -11,6 +11,7 @@ import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/l
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Challenge {
   id: number;
   challengerId: number;
@@ -323,7 +324,7 @@ export function ChallengeCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     gap: Spacing.md,
     marginHorizontal: Spacing.lg,
@@ -479,9 +480,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: TextColors.secondary,
   },
-});
+}));
 
-const collapsedStyles = StyleSheet.create({
+const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -528,4 +529,4 @@ const collapsedStyles = StyleSheet.create({
     fontWeight: "600",
     color: TextColors.secondary,
   },
-});
+}));

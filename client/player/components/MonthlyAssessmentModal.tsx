@@ -18,6 +18,7 @@ import { apiRequest, getAuthHeaders, getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const MIRROR_ACCENT = "#A78BFA";
 const ACCENT2 = "#7C3AED";
 
@@ -337,7 +338,7 @@ export function MonthlyAssessmentModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -537,4 +538,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

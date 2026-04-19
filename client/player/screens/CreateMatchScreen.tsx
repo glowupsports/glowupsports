@@ -40,13 +40,14 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useSport } from "@/player/context/SportContext";
 import { getAuthToken } from "@/lib/auth";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Slider from "@react-native-community/slider";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type MatchType = "singles" | "doubles";
@@ -916,7 +917,7 @@ export default function CreateMatchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1055,7 +1056,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   intentCardTextSelected: {
-    color: "#000000",
+    color: Backgrounds.root,
   },
   intentCardDesc: {
     ...Typography.caption,
@@ -1456,4 +1457,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
-});
+}));

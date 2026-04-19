@@ -23,6 +23,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const SPORTS = [
   { key: "tennis", label: "Tennis", icon: "tennisball-outline" },
   { key: "padel", label: "Padel", icon: "golf-outline" },
@@ -276,7 +277,7 @@ export default function CreateGameRequestScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -436,4 +437,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

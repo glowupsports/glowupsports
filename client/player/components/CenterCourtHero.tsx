@@ -15,6 +15,7 @@ import { ProTennisColors, Spacing, BorderRadius, GlowColors, Colors } from "@/co
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SessionData {
   id: string;
   date: string;
@@ -71,7 +72,7 @@ function CountdownTimer({ targetDate }: { targetDate: Date }) {
   );
 }
 
-const countdownStyles = StyleSheet.create({
+const countdownStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -104,7 +105,7 @@ const countdownStyles = StyleSheet.create({
     color: GlowColors.primary,
     opacity: 0.6,
   },
-});
+}));
 
 function SessionScheduled({ session, onCheckIn }: { session: SessionData; onCheckIn?: () => void }) {
   const pulseDot = useSharedValue(0);
@@ -265,7 +266,7 @@ export function CenterCourtHero({ nextSession, onCheckIn, onBookSession, onFindM
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
@@ -400,4 +401,4 @@ const styles = StyleSheet.create({
     color: ProTennisColors.textMuted,
     textAlign: "center",
   },
-});
+}));

@@ -27,6 +27,7 @@ import {
   getSportColor,
 } from "@/player/context/SportContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export const COMPETE_ACCENT = FunctionColors.info;
 
 export interface MatchSummaryHost {
@@ -365,7 +366,7 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
   return <View style={cardStyle}>{inner}</View>;
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   cardOuter: {
     borderRadius: BorderRadius.md,
     borderWidth: 1,
@@ -455,4 +456,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Backgrounds.root,
   },
-});
+}));

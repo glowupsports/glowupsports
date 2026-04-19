@@ -25,6 +25,7 @@ import { Colors, Spacing, BorderRadius, Typography, FontSizes } from "@/constant
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface EquipmentItem {
   id: string;
   name: string;
@@ -767,7 +768,7 @@ export default function PlayerEquipmentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1181,4 +1182,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: FontSizes.md,
   },
-});
+}));

@@ -10,6 +10,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { CoachReviewModal } from "./CoachReviewModal";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface ReviewPrompt {
   id: string;
   coachId: string;
@@ -106,7 +107,7 @@ export function ReviewPromptBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
@@ -170,4 +171,4 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
     marginLeft: Spacing.sm,
   },
-});
+}));

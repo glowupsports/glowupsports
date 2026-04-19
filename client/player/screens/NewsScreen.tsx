@@ -30,9 +30,10 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
@@ -68,7 +69,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string; icon: string }> 
   "Padel Magazine": { bg: "#FF6B35", text: Colors.dark.text, icon: "newspaper" },
   "PPA Tour": { bg: "#7B2FBE", text: Colors.dark.text, icon: "newspaper" },
   "The Pickler": { bg: "#2ECC71", text: Colors.dark.text, icon: "newspaper" },
-  "PickleballCentral": { bg: "#FFD700", text: "#000000", icon: "newspaper" },
+  "PickleballCentral": { bg: "#FFD700", text: Backgrounds.root, icon: "newspaper" },
   default: { bg: ProTennisColors.neonGreen, text: Colors.dark.buttonText, icon: "newspaper" },
 };
 
@@ -425,7 +426,7 @@ export default function NewsScreen() {
     return (
       <View style={styles.container}>
         <LinearGradient
-          colors={[ProTennisColors.midnightBlue, "#0A0A0A"]}
+          colors={[ProTennisColors.midnightBlue, Backgrounds.root]}
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.chipsRowStandalone, { paddingTop: insets.top + Spacing.md }]}>
@@ -439,7 +440,7 @@ export default function NewsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[ProTennisColors.midnightBlue, "#0A0A0A"]}
+        colors={[ProTennisColors.midnightBlue, Backgrounds.root]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -467,7 +468,7 @@ export default function NewsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ProTennisColors.midnightBlue,
@@ -739,4 +740,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.dark.textMuted,
   },
-});
+}));

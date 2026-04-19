@@ -11,6 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ProTennisColors, Backgrounds, BorderRadius, Spacing, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type GlassCardVariant = "default" | "neon" | "hero" | "subtle" | "premium";
 
 interface GlassCardProps {
@@ -241,7 +242,7 @@ export function FloatingCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     overflow: "hidden",
   },
@@ -281,4 +282,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
-});
+}));

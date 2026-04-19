@@ -17,22 +17,45 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
-import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
-const ProTennisColors = {
-  midnightBlue: "#0B0D10",
-  surfaceCard: "#141820",
-  surfaceElevated: "#1A1F2A",
-  neonGreen: "#C8FF3D",
-  neonCyan: "#00E5FF",
-  neonPurple: "#E040FB",
-  white: "#FFFFFF",
-  textSecondary: "#A0A4B0",
-  textMuted: "#6B7280",
-  gold: "#FFD700",
-  border: "#2A2E38",
-};
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+const ProTennisColors = new Proxy({} as Record<string, string>, {
+  get(_t, prop: string) {
+    switch (prop) {
+      case 'midnightBlue':
+      case 'backgroundPrimary':
+        return Backgrounds.root;
+      case 'surfaceCard':
+      case 'cardBackground':
+        return Backgrounds.card;
+      case 'surfaceElevated':
+      case 'backgroundSecondary':
+        return Backgrounds.elevated;
+      case 'border':
+        return Backgrounds.surface;
+      case 'neonGreen':
+      case 'electricGreen':
+        return GlowColors.primary;
+      case 'neonCyan': return '#00E5FF';
+      case 'neonPurple': return '#E040FB';
+      case 'neonOrange': return '#FF8A00';
+      case 'gold': return '#FFD700';
+      case 'vacationBlue': return '#4DA3FF';
+      case 'error': return '#FF4D4D';
+      case 'success': return '#00E676';
+      case 'white':
+      case 'textPrimary':
+        return TextColors.primary;
+      case 'textSecondary': return TextColors.secondary;
+      case 'textMuted': return TextColors.muted;
+      default:
+        if (typeof console !== 'undefined') console.warn('ProTennisColors: missing key', prop);
+        return undefined;
+    }
+  },
+});
 
 interface BookingPreferences {
   id: string;
@@ -457,7 +480,7 @@ export default function BookingPreferencesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ProTennisColors.midnightBlue,
@@ -641,4 +664,4 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-});
+}));

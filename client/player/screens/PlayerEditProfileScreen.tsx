@@ -17,7 +17,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { MapLocationPickerModal, type MapLocationResult } from "@/components/MapLocationPickerModal";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type ProfileData = {
   player: {
     id: string;
@@ -66,7 +67,7 @@ const BALL_LEVELS = [
   { value: "blue", label: "Blue", color: "#4FC3F7" },
   { value: "red", label: "Red", color: "#FF4D4D" },
   { value: "orange", label: "Orange", color: "#FF851B" },
-  { value: "green", label: "Green", color: "#C8FF3D" },
+  { value: "green", label: "Green", color: GlowColors.primary },
   { value: "yellow", label: "Yellow", color: "#FFD700" },
   { value: "glow", label: "Glow", color: "#00E5FF" },
 ];
@@ -132,7 +133,7 @@ function PillChips({
       {options.map((opt) => {
         const isSelected = selected === opt.value;
         const accentColor = getColor ? getColor(opt.value) : Colors.dark.primary;
-        const isLightAccent = accentColor === "#00E5FF" || accentColor === "#C8FF3D" || accentColor === "#FFD700";
+        const isLightAccent = accentColor === "#00E5FF" || accentColor === GlowColors.primary || accentColor === "#FFD700";
         return (
           <Pressable
             key={opt.value}
@@ -922,7 +923,7 @@ export default function PlayerEditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   outerContainer: {
     flex: 1,
     backgroundColor: Backgrounds.root,
@@ -1141,4 +1142,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
   },
-});
+}));

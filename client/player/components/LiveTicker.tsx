@@ -12,6 +12,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface TickerItem {
@@ -223,7 +224,7 @@ export function LiveTicker({ customItems, stats }: LiveTickerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -285,4 +286,4 @@ const styles = StyleSheet.create({
   dotActive: {
     backgroundColor: ProTennisColors.electricGreen,
   },
-});
+}));

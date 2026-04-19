@@ -20,6 +20,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Backgrounds, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type RouteParams = {
@@ -293,7 +294,7 @@ export default function MarketplaceListingDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -559,4 +560,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
-});
+}));

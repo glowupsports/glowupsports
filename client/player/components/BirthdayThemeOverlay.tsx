@@ -13,8 +13,9 @@ import Animated, {
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface BirthdayThemeOverlayProps {
@@ -82,7 +83,7 @@ function ConfettiPiece({ piece }: { piece: ConfettiPiece }) {
 }
 
 export function BirthdayConfettiOverlay() {
-  const confettiColors = ["#C8FF3D", "#00D4FF", "#FFD700", "#FF69B4", "#00FF88", "#FF6B6B"];
+  const confettiColors = [GlowColors.primary, "#00D4FF", "#FFD700", "#FF69B4", "#00FF88", "#FF6B6B"];
   
   const confettiPieces = useMemo<ConfettiPiece[]>(() => {
     return [...Array(40)].map((_, i) => ({
@@ -178,7 +179,7 @@ export function BirthdayBanner({ playerName, playerAge }: BirthdayThemeOverlayPr
         </Animated.View>
 
         <View style={styles.bonusBadge}>
-          <Ionicons name="flash" size={12} color="#0A0A0A" />
+          <Ionicons name="flash" size={12} color={Backgrounds.root} />
           <Text style={styles.bonusBadgeText}>2x XP TODAY</Text>
         </View>
       </LinearGradient>
@@ -210,7 +211,7 @@ export function BirthdayXPBonusCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   confettiContainer: {
     position: "absolute",
     top: 0,
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
   happyBirthdayText: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
     letterSpacing: 2,
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 1 },
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
   bonusBadgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#0A0A0A",
+    color: Backgrounds.root,
     marginLeft: 3,
     letterSpacing: 0.5,
   },
@@ -351,6 +352,6 @@ const styles = StyleSheet.create({
   xpMultiplierText: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0A0A0A",
+    color: Backgrounds.root,
   },
-});
+}));

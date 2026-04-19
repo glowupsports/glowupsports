@@ -8,6 +8,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface FeedbackItem {
   id: string;
   feedbackType: string;
@@ -60,7 +61,7 @@ export function RecentFeedbackCard() {
     <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.wrapper}>
       <View style={styles.accentLine} />
       <View
-        style={[styles.gradientInner, { backgroundColor: "#0F141B" }]}
+        style={[styles.gradientInner, { backgroundColor: Backgrounds.root }]}
       >
         <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigateToTab("Growth", { screen: "CoachFeedbackHistory" }); }} style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -97,12 +98,12 @@ export function RecentFeedbackCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -203,4 +204,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFD700",
   },
-});
+}));

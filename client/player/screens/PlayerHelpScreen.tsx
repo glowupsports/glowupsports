@@ -7,6 +7,7 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constan
 import { Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface HelpGuide {
   id: string;
   icon: string;
@@ -222,7 +223,7 @@ function ExpandableHelpItem({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -366,4 +367,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
   },
-});
+}));

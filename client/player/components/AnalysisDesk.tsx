@@ -14,6 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ProTennisColors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface StatOverlay {
   id: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -157,7 +158,7 @@ export function AnalysisDesk({ stats }: AnalysisDeskProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
@@ -223,4 +224,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-});
+}));

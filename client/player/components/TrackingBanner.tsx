@@ -5,6 +5,7 @@ import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withRepeat, withSeq
 import { ProTennisColors, Spacing } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export function TrackingBanner() {
   const { state } = usePlayerState();
   const pulseOpacity = useSharedValue(0.6);
@@ -46,7 +47,7 @@ export function TrackingBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -67,4 +68,4 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
   },
-});
+}));

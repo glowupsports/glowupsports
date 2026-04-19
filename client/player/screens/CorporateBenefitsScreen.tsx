@@ -16,6 +16,7 @@ import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import { TextInput } from "react-native";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CorporateAccount {
   id: string;
   companyName: string;
@@ -210,7 +211,7 @@ export default function CorporateBenefitsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -414,4 +415,4 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
   },
-});
+}));

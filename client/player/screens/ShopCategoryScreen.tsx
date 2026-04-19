@@ -16,9 +16,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors, TextColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 3) / 2;
 
@@ -272,7 +273,7 @@ export default function ShopCategoryScreen() {
                         onPress={(e) => { e.stopPropagation?.(); handleAddToCart(product); }}
                         style={styles.addBtn}
                       >
-                        <Ionicons name="add" size={18} color="#FFFFFF" />
+                        <Ionicons name="add" size={18} color={TextColors.primary} />
                       </Pressable>
                     </Pressable>
                   </Animated.View>
@@ -286,7 +287,7 @@ export default function ShopCategoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
     color: "#AAA",
   },
   collectionChipTextActive: {
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
 
   loadingContainer: {
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
   discountText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   productInfo: {
     padding: Spacing.md,
@@ -487,4 +488,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

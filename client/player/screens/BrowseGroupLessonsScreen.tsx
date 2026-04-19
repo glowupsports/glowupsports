@@ -19,10 +19,11 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInUp, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Colors, Spacing, getPlayerLevelTextColor } from "@/constants/theme";
+import { Colors, Spacing, getPlayerLevelTextColor, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const BALL_LEVEL_FILTERS = [
   { id: "my_level", label: "My Level", color: "dynamic" },
   { id: "all", label: "All Levels", color: "#A0A8B8" },
@@ -34,19 +35,41 @@ const BALL_LEVEL_FILTERS = [
   { id: "glow", label: "Glow", color: "#E040FB" },
 ];
 
-const ProTennisColors = {
-  backgroundPrimary: "#0B0D10",
-  backgroundSecondary: "#12151A",
-  cardBackground: "#171B22",
-  electricGreen: "#C8FF3D",
-  textPrimary: "#FFFFFF",
-  textSecondary: "#A0A8B8",
-  textMuted: "#6B7280",
-  border: "#2A2E36",
-  success: "#22C55E",
-  warning: "#F59E0B",
-  error: "#EF4444",
-};
+const ProTennisColors = new Proxy({} as Record<string, string>, {
+  get(_t, prop: string) {
+    switch (prop) {
+      case 'midnightBlue':
+      case 'backgroundPrimary':
+        return Backgrounds.root;
+      case 'surfaceCard':
+      case 'cardBackground':
+        return Backgrounds.card;
+      case 'surfaceElevated':
+      case 'backgroundSecondary':
+        return Backgrounds.elevated;
+      case 'border':
+        return Backgrounds.surface;
+      case 'neonGreen':
+      case 'electricGreen':
+        return GlowColors.primary;
+      case 'neonCyan': return '#00E5FF';
+      case 'neonPurple': return '#E040FB';
+      case 'neonOrange': return '#FF8A00';
+      case 'gold': return '#FFD700';
+      case 'vacationBlue': return '#4DA3FF';
+      case 'error': return '#FF4D4D';
+      case 'success': return '#00E676';
+      case 'white':
+      case 'textPrimary':
+        return TextColors.primary;
+      case 'textSecondary': return TextColors.secondary;
+      case 'textMuted': return TextColors.muted;
+      default:
+        if (typeof console !== 'undefined') console.warn('ProTennisColors: missing key', prop);
+        return undefined;
+    }
+  },
+});
 
 function getBallLevelColor(level: string): string {
   const l = level?.toLowerCase() || "";
@@ -545,7 +568,7 @@ export default function BrowseGroupLessonsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   modalOverlayContainer: {
     flex: 1,
     justifyContent: "flex-end",
@@ -997,4 +1020,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: ProTennisColors.textSecondary,
   },
-});
+}));

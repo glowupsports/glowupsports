@@ -19,6 +19,7 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface TransferRequest {
   id: string;
   playerId: string;
@@ -307,7 +308,7 @@ export default function TransferRequestScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -554,4 +555,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "600",
   },
-});
+}));

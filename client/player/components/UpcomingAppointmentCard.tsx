@@ -6,11 +6,12 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Colors, Spacing, GlowColors, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, GlowColors, BorderRadius, Backgrounds } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpcomingAppointment {
   id: string;
   orderNumber: string;
@@ -227,13 +228,13 @@ export function UpcomingAppointmentCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
   },
   card: {
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     overflow: "hidden",
@@ -363,4 +364,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-});
+}));

@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface LessonSummary {
   scheduled: number;
   attended: number;
@@ -198,7 +199,7 @@ export default function ParentLessonsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -354,4 +355,4 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-});
+}));

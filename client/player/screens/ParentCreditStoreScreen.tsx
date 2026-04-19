@@ -10,6 +10,7 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constan
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type CreditType = "group" | "private" | "semi_private" | "court";
 
 interface CreditPackage {
@@ -515,7 +516,7 @@ export default function ParentCreditStoreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -887,4 +888,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "700",
   },
-});
+}));

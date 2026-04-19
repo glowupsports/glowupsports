@@ -27,6 +27,7 @@ import { BookingConfirmationCard } from "../components/BookingConfirmationCard";
 import FriendSelector from "../components/FriendSelector";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SelectedFriend {
   id: string;
   name: string;
@@ -369,7 +370,7 @@ export default function QuickBookScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -533,4 +534,4 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.lg,
   },
-});
+}));

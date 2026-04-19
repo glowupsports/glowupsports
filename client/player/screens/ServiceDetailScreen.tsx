@@ -20,9 +20,10 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Service {
   id: string;
   name: string;
@@ -698,7 +699,7 @@ export default function ServiceDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -989,7 +990,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   providerChipSelected: {
-    borderColor: "#C8FF3D",
+    borderColor: GlowColors.primary,
     backgroundColor: "#C8FF3D15",
   },
   providerAvatar: {
@@ -1001,7 +1002,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   providerAvatarSelected: {
-    backgroundColor: "#C8FF3D",
+    backgroundColor: GlowColors.primary,
   },
   providerInitials: {
     fontSize: 14,
@@ -1018,7 +1019,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   providerChipNameSelected: {
-    color: "#C8FF3D",
+    color: GlowColors.primary,
     fontWeight: "700",
   },
   providerRatingRow: {
@@ -1062,7 +1063,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timeSlotChipSelected: {
-    borderColor: "#C8FF3D",
+    borderColor: GlowColors.primary,
     backgroundColor: "#C8FF3D20",
   },
   timeSlotChipDisabled: {
@@ -1076,7 +1077,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   timeSlotTextSelected: {
-    color: "#C8FF3D",
+    color: GlowColors.primary,
     fontWeight: "700",
   },
   timeSlotTextDisabled: {
@@ -1093,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   selectedTimeHint: {
     fontSize: 13,
-    color: "#C8FF3D",
+    color: GlowColors.primary,
     fontWeight: "600",
     marginTop: Spacing.xs,
   },
@@ -1119,4 +1120,4 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     paddingVertical: 8,
   },
-});
+}));

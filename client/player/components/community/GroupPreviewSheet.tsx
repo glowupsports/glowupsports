@@ -11,10 +11,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Colors } from "@/constants/theme";
+import { Colors, Backgrounds, TextColors, GlowColors } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
 import { apiRequest } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 export interface SheetGroup {
   id: string;
   name: string;
@@ -337,13 +338,13 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.75)",
   },
   sheet: {
-    backgroundColor: "#0F141B",
+    backgroundColor: Backgrounds.root,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 22,
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: TextColors.primary,
   },
   typeBadge: {
     alignSelf: "flex-start",
@@ -457,7 +458,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#0F141B",
+    borderColor: Backgrounds.root,
   },
   memberAvatarInitial: {
     fontSize: 14,
@@ -521,7 +522,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#C8FF3D",
+    color: GlowColors.primary,
   },
   feedbackBanner: {
     flexDirection: "row",
@@ -604,4 +605,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FF6B6B",
   },
-});
+}));

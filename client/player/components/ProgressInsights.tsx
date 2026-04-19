@@ -8,6 +8,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { GlassCard } from "./GlassCard";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const trendConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   up: { icon: "arrow-up", color: GlowColors.primary },
   down: { icon: "arrow-down", color: FunctionColors.error },
@@ -102,7 +103,7 @@ export function ProgressInsights() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
@@ -202,4 +203,4 @@ const styles = StyleSheet.create({
     color: ProTennisColors.textMuted,
     fontStyle: "italic",
   },
-});
+}));

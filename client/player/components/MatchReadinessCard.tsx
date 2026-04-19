@@ -7,6 +7,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface MatchReadinessData {
   id: string;
   playerId: string;
@@ -46,7 +47,7 @@ function ReadinessGauge({ score }: { score: number }) {
   );
 }
 
-const gaugeStyles = StyleSheet.create({
+const gaugeStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     alignItems: "center",
   },
@@ -81,7 +82,7 @@ const gaugeStyles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: 4,
   },
-});
+}));
 
 export function MatchReadinessCard({ playerId }: MatchReadinessCardProps) {
   const queryClient = useQueryClient();
@@ -194,7 +195,7 @@ export function MatchReadinessCard({ playerId }: MatchReadinessCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
@@ -298,4 +299,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     lineHeight: 17,
   },
-});
+}));

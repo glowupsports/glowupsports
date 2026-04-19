@@ -32,6 +32,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
@@ -1016,7 +1017,7 @@ export default function TournamentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -1591,4 +1592,4 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
 
-});
+}));

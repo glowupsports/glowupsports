@@ -21,6 +21,7 @@ import { Card } from "@/components/Card";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface BookingInvite {
   booking_invite_guests: {
     id: string;
@@ -523,7 +524,7 @@ export default function BookingInvitesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -798,4 +799,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontStyle: "italic",
   },
-});
+}));

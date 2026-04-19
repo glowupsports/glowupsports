@@ -5,6 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerLevelContext } from "../context/PlayerLevelContext";
 
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface FeatureGateProps {
   featureKey: string;
   children: React.ReactNode;
@@ -181,7 +182,7 @@ export function UpcomingUnlocksList({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   lockedContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
@@ -303,4 +304,4 @@ const styles = StyleSheet.create({
   upcomingList: {
     gap: Spacing.xs,
   },
-});
+}));
