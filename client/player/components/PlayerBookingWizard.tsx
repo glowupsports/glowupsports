@@ -204,6 +204,15 @@ export default function PlayerBookingWizard({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
+  // Reserve enough room below scrollable slide content so the sticky footer
+  // (Back / Next buttons) never overlaps the last item. Footer height ≈
+  // button (~52) + paddingTop (12) + paddingBottom (insets.bottom + md=12).
+  // We round up to ~96 to give a small breathing room above the buttons.
+  const slideScrollPadding = useMemo(
+    () => ({ paddingBottom: insets.bottom + 96, flexGrow: 1 }),
+    [insets.bottom],
+  );
+
   const navigation = useNavigation<any>();
   // Current slide (0-4)
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -613,11 +622,25 @@ export default function PlayerBookingWizard({
   // Navigation
   const goNext = useCallback(() => {
     const totalSlides = getTotalSlides();
+    // Active interception (in addition to the disabled-button state):
+    // when the user taps Next on the find-session step without picking a
+    // slot/session, surface a clear toast instead of silently no-op'ing.
+    const findSessionIndex =
+      browseMode === "by_coach" || browseMode === "by_court" ? 3 : 2;
+    if (
+      currentSlide === findSessionIndex &&
+      !selectedSlot &&
+      !selectedSession
+    ) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert("Pick a time first", "Tap one of the available time slots before continuing.");
+      return;
+    }
     if (currentSlide < totalSlides - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setCurrentSlide((prev) => prev + 1);
     }
-  }, [currentSlide, browseMode]);
+  }, [currentSlide, browseMode, selectedSlot, selectedSession]);
 
   const goBack = useCallback(() => {
     if (currentSlide > 0) {
@@ -826,7 +849,7 @@ export default function PlayerBookingWizard({
     <Animated.View entering={FadeIn} style={styles.slideContent}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.slideScrollContent}
+        contentContainerStyle={slideScrollPadding}
       >
       <Text style={styles.slideSubtitle}>How would you like to find a session?</Text>
       
@@ -963,7 +986,7 @@ export default function PlayerBookingWizard({
             </Text>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.slideScrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={slideScrollPadding}>
             <Text style={styles.slideSubtitle}>Pick a court to play on</Text>
             {groups.map((group, gi) => (
               <View key={gi} style={{ marginBottom: Spacing.lg }}>
@@ -1508,7 +1531,7 @@ export default function PlayerBookingWizard({
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.slideScrollContent}
+          contentContainerStyle={slideScrollPadding}
           bottomOffset={120}
         >
           <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
@@ -2136,10 +2159,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   slideContent: {
     flex: 1,
-  },
-  slideScrollContent: {
-    paddingBottom: Spacing.xl * 5,
-    flexGrow: 1,
   },
   slideSubtitle: {
     fontSize: 16,

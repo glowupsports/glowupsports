@@ -8,14 +8,13 @@ type EnvConfig = {
 const PRODUCTION_FALLBACK_DOMAIN = "glow-up-sports--ltvjeugd.replit.app";
 
 function isBuiltApp(): boolean {
-  // __DEV__ is a global injected by Metro/React Native at build time.
-  // false in any production / preview / EAS build.
-  // Fall back to checking EXPO_PUBLIC_ENV when __DEV__ isn't defined (web bundling).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Strict spec: only treat as a built app when __DEV__ is false AND
+  // EXPO_PUBLIC_ENV is not "development". This keeps dev runs loud
+  // (validateEnv throws) even if a stale EXPO_PUBLIC_ENV=preview is
+  // hanging around locally.
   const dev = (typeof __DEV__ !== "undefined" ? __DEV__ : true) as boolean;
-  if (!dev) return true;
-  const env = process.env.EXPO_PUBLIC_ENV;
-  return env === "production" || env === "preview";
+  if (dev) return false;
+  return process.env.EXPO_PUBLIC_ENV !== "development";
 }
 
 function getEnvVar(key: string): string {
