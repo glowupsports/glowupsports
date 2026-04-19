@@ -1885,6 +1885,9 @@ export default function PlayerProgressScreen() {
               style={styles.ballLevelInner}
               onPress={handleBallLevelPress}
             >
+              <Text style={styles.ballLevelHeroNumber}>
+                {data.displayName ?? `Glow ${data.level}`}
+              </Text>
               <View style={styles.ballLevelArcWrap}>
                 {(() => {
                   const arcSize = 132;
@@ -1923,8 +1926,7 @@ export default function PlayerProgressScreen() {
                 <BallLevelBadge 
                   levelId={data.ballLevel || "red1"} 
                   size="large" 
-                  showLabel={true}
-                  labelOverride={data.displayName ?? undefined}
+                  showLabel={false}
                 />
               </View>
               <View style={styles.levelLabelRow}>
@@ -1987,12 +1989,25 @@ export default function PlayerProgressScreen() {
         </View>
 
         <View style={styles.xpSection}>
-          <Text style={styles.xpSectionTitle}>XP to Level {data.level + 1}</Text>
+          <View style={styles.xpSectionHeader}>
+            <Text style={styles.xpSectionTitle}>XP to Level {data.level + 1}</Text>
+            {(() => {
+              const weeklyXp = (data as unknown as { weeklyXp?: number }).weeklyXp;
+              return typeof weeklyXp === "number" && weeklyXp > 0 ? (
+                <Text style={styles.xpWeeklyDelta}>+{weeklyXp} XP this week</Text>
+              ) : null;
+            })()}
+          </View>
           <XPProgressBar
             currentXP={currentLevelXp}
             xpToNextLevel={500}
             level={data.level}
           />
+          <View style={styles.xpSegmentRow} pointerEvents="none">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <View key={i} style={styles.xpSegmentDivider} />
+            ))}
+          </View>
         </View>
 
         {/* AI COACH HERO SECTION */}
@@ -2872,6 +2887,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  ballLevelHeroNumber: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
   ballLevelArcWrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -2896,8 +2918,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   statTile: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius["2xl"],
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     gap: Spacing.xs,
@@ -3008,6 +3030,31 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   xpSectionTitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  xpSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  xpWeeklyDelta: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  xpSegmentRow: {
+    position: "absolute",
+    left: Spacing.xl,
+    right: Spacing.xl,
+    bottom: 0,
+    height: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 1,
+  },
+  xpSegmentDivider: {
+    width: 1,
+    height: "100%",
+    backgroundColor: "rgba(11, 13, 16, 0.55)",
   },
   xpHeader: {
     flexDirection: "row",
