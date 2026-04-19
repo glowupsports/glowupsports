@@ -2,6 +2,8 @@ import React, { useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, FlatList, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Feather } from "@expo/vector-icons";
@@ -53,7 +55,7 @@ function timeAgo(dateStr: string): string {
 
 export default function PlayerNotificationsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -96,9 +98,9 @@ export default function PlayerNotificationsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       if (item.type === "friend_request") {
-        (navigation as any).navigate("FriendsList", { initialTab: "requests" });
+        navigation.navigate("FriendsList", { initialTab: "requests" });
       } else if (item.type === "friend_request_accepted") {
-        (navigation as any).navigate("FriendsList", { initialTab: "friends" });
+        navigation.navigate("FriendsList", { initialTab: "friends" });
       }
     };
 
