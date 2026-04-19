@@ -50,7 +50,11 @@ export function validateEnv(): EnvConfig {
       return {
         EXPO_PUBLIC_API_URL: `https://${PRODUCTION_FALLBACK_DOMAIN}`,
         EXPO_PUBLIC_DOMAIN: PRODUCTION_FALLBACK_DOMAIN,
-        EXPO_PUBLIC_ENV: (env as EnvConfig["EXPO_PUBLIC_ENV"]) || "production",
+        // Use the raw env value (not the dev-defaulted `env`) so a missing
+        // EXPO_PUBLIC_ENV in a built app is treated as "production" — matching
+        // getEnv()'s behavior and keeping the two paths deterministic.
+        EXPO_PUBLIC_ENV:
+          (process.env.EXPO_PUBLIC_ENV as EnvConfig["EXPO_PUBLIC_ENV"]) ?? "production",
       };
     }
 
