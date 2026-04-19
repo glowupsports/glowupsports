@@ -9,7 +9,6 @@ import {
   coachTimeBlocks, courtAvailability, courtAvailabilitySnapshots, courts,
   bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
   matchRequests, playerBookingPreferences, bookingRequests,
-  playerConnections,
   submitReviewSchema,
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
@@ -35,6 +34,7 @@ import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from ".
 import { enrollPlayerInGroupSession } from "../sessionEnrolment";
 import { broadcastToPlayerIds } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
+import { buildFriendStatusMap } from "../services/friendStatus";
 
 async function getEffectivePlayerCount(sessionId: string): Promise<number> {
   const [enrolledRows, offeredRows] = await Promise.all([
@@ -1642,46 +1642,13 @@ Return only the JSON array, nothing else.`;
       }
 
       // Batch-fetch friend connection statuses between current player and every candidate.
-      // Returns one row per candidate, mapped to: friends | pending_sent | pending_received | none.
-      const friendStatusByPlayerId = new Map<string, { status: "friends" | "pending_sent" | "pending_received"; connectionId: string }>();
-      const candidateIds = filteredPlayers.map(p => p.id);
-      if (candidateIds.length > 0) {
-        try {
-          const conns = await db
-            .select({
-              id: playerConnections.id,
-              player1Id: playerConnections.player1Id,
-              player2Id: playerConnections.player2Id,
-              status: playerConnections.status,
-            })
-            .from(playerConnections)
-            .where(and(
-              eq(playerConnections.connectionType, "friend"),
-              or(
-                and(eq(playerConnections.player1Id, playerId), inArray(playerConnections.player2Id, candidateIds)),
-                and(eq(playerConnections.player2Id, playerId), inArray(playerConnections.player1Id, candidateIds))
-              )!
-            ));
-          // If duplicate rows exist for the same pair (legacy data), prefer accepted
-          // over pending so the displayed status is deterministic.
-          for (const c of conns) {
-            const otherId = c.player1Id === playerId ? c.player2Id : c.player1Id;
-            const existing = friendStatusByPlayerId.get(otherId);
-            if (existing?.status === "friends") continue;
-            if (c.status === "accepted") {
-              friendStatusByPlayerId.set(otherId, { status: "friends", connectionId: c.id });
-            } else if (c.status === "pending") {
-              const iAmRequester = c.player1Id === playerId;
-              friendStatusByPlayerId.set(otherId, {
-                status: iAmRequester ? "pending_sent" : "pending_received",
-                connectionId: c.id,
-              });
-            }
-          }
-        } catch (err) {
-          console.error("[NearbyPlayers] Friend status batch query failed:", err);
-        }
-      }
+      // Helper handles deterministic conflict resolution
+      // (accepted > pending_received > pending_sent) and swallows DB errors so
+      // a friend-table outage never blocks the players list.
+      const friendStatusByPlayerId = await buildFriendStatusMap(
+        playerId,
+        filteredPlayers.map(p => p.id),
+      );
 
       // Strip internal fields from response (location data + server-only privacy fields).
       // Attach friendStatus + connectionId so the player card can render the right pill.
