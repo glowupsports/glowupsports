@@ -232,7 +232,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
       // Get credit balances for all players
       const playerIds = seriesPlayers.map(sp => sp.playerId);
-      const creditBalances = await storage.getPlayersCreditBalances(playerIds);
+      const creditBalances = await storage.getPlayersCreditBalances(playerIds, academyId);
 
       const playerDetails = await Promise.all(seriesPlayers.map(async (sp) => {
         const player = await storage.getPlayer(sp.playerId);

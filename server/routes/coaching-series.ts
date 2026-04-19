@@ -422,6 +422,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       try {
         const { id } = req.params;
         const coachId = req.user!.coachId;
+        const academyId = req.user!.academyId;
 
         const series = await storage.getCoachingSeriesById(id);
 
@@ -442,7 +443,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Get credit balances for all players in batch (efficient)
         const playerIds = seriesPlayersList.map((sp) => sp.playerId);
         const creditBalances =
-          await storage.getPlayersCreditBalances(playerIds);
+          await storage.getPlayersCreditBalances(playerIds, academyId || undefined);
 
         // Get real attendance counts aggregated from sessionPlayers (source of truth)
         const attendanceSummary =
