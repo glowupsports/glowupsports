@@ -73,6 +73,10 @@ export default function PlayerSettingsScreen() {
   const { playerOverride, setPlayerOverride } = useAcademyTheme();
   const themeMode: "academy" | "preset" = playerOverride ? "preset" : "academy";
 
+  // Local draft for in-progress hex typing. We only commit a valid #RRGGBB
+  // value to the global theme override so partial input like "#" or "#12"
+  // never reaches AcademyThemeProvider.
+  const [hexDraft, setHexDraft] = useState<{ primary?: string; secondary?: string }>({});
   const matchedPresetId = React.useMemo(() => {
     if (!playerOverride) return null;
     const match = themePresets.find(
@@ -772,9 +776,11 @@ export default function PlayerSettingsScreen() {
                 <View style={{ gap: Spacing.sm }}>
                   <Text style={{ color: Colors.dark.textMuted, fontWeight: "600" }}>Custom colours</Text>
                   {(["primary", "secondary"] as const).map((field) => {
-                    const current =
+                    const committed =
                       playerOverride?.dark?.[field] ?? playerOverride?.[field] ?? "";
-                    const valid = !current || HEX6_RE.test(current);
+                    const draft = hexDraft[field];
+                    const display = draft !== undefined ? draft : committed;
+                    const valid = !display || HEX6_RE.test(display);
                     return (
                       <View key={field} style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
                         <View
@@ -784,23 +790,48 @@ export default function PlayerSettingsScreen() {
                             borderRadius: 12,
                             borderWidth: 1,
                             borderColor: Colors.dark.borderSubtle,
-                            backgroundColor: valid && current ? current : "transparent",
+                            backgroundColor: HEX6_RE.test(committed) ? committed : "transparent",
                           }}
                         />
                         <Text style={{ color: Colors.dark.text, width: 80, textTransform: "capitalize" }}>{field}</Text>
                         <TextInput
-                          value={current}
+                          value={display}
                           onChangeText={(raw) => {
-                            const trimmed = raw.startsWith("#") ? raw : `#${raw}`;
-                            const next: AcademyTheme = {
-                              ...(playerOverride ?? defaultAcademyTheme),
-                              [field]: trimmed,
-                              dark: {
-                                ...((playerOverride?.dark ?? defaultAcademyTheme.dark) ?? {}),
-                                [field]: trimmed,
-                              },
-                            };
-                            setPlayerOverride(next);
+                            const trimmed = raw.length === 0
+                              ? ""
+                              : raw.startsWith("#") ? raw : `#${raw}`;
+                            // Always update local draft so the user can type freely.
+                            setHexDraft((prev) => ({ ...prev, [field]: trimmed }));
+                            // Only commit to the global theme when the value is a
+                            // complete, valid #RRGGBB (or fully cleared).
+                            if (trimmed === "" || HEX6_RE.test(trimmed)) {
+                              const base = playerOverride ?? defaultAcademyTheme;
+                              const next: AcademyTheme = {
+                                ...base,
+                                [field]: trimmed || base[field],
+                                dark: {
+                                  ...((base.dark) ?? {}),
+                                  [field]: trimmed || base.dark?.[field] ?? base[field],
+                                },
+                              };
+                              setPlayerOverride(next);
+                              // Clear the draft entry so we fall back to the
+                              // committed value (keeps state minimal).
+                              setHexDraft((prev) => {
+                                const { [field]: _, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          onBlur={() => {
+                            // Discard invalid drafts on blur so we don't keep
+                            // a stale red error sitting around forever.
+                            setHexDraft((prev) => {
+                              if (prev[field] === undefined) return prev;
+                              if (HEX6_RE.test(prev[field] ?? "")) return prev;
+                              const { [field]: _, ...rest } = prev;
+                              return rest;
+                            });
                           }}
                           placeholder="#RRGGBB"
                           placeholderTextColor={Colors.dark.textMuted}
@@ -808,6 +839,7 @@ export default function PlayerSettingsScreen() {
                           autoCorrect={false}
                           maxLength={7}
                           accessibilityLabel={`${field} colour hex value`}
+                          accessibilityHint="Enter a six-character hex colour like #C8FF3D"
                           style={{
                             flex: 1,
                             color: valid ? Colors.dark.text : "#FF6B6B",
