@@ -442,7 +442,7 @@ export default function OpponentProfileScreen() {
                     </View>
                   ) : null}
                   {opponent?.weakerSide ? (
-                    <View style={[styles.sideChip, { borderColor: Colors.dark?.primary + "60" || Colors.dark.primary + "60" }]}>
+                    <View style={[styles.sideChip, { borderColor: Colors.dark.primary + "60" }]}>
                       <Ionicons name="leaf" size={12} color={Colors.dark.primary} />
                       <Text style={[styles.sideChipText, { color: Colors.dark.primary }]}>
                         Weak: {opponent.weakerSide}

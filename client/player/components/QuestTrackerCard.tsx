@@ -78,7 +78,7 @@ function QuestItem({ quest, onPress, onClaim }: { quest: Quest; onPress?: () => 
       {isComplete && !isClaimed ? (
         <Pressable style={styles.claimButton} onPress={onClaim}>
           <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.primary]}
+            colors={[GlowColors.primary, GlowColors.dark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.claimButtonGradient}

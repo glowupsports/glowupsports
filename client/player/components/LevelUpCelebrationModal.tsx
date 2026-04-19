@@ -80,7 +80,7 @@ export function LevelUpCelebrationModal({
       <View style={styles.overlay}>
         <Animated.View style={[styles.container, containerStyle]}>
           <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.primary]}
+            colors={[GlowColors.primary, GlowColors.dark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
@@ -159,7 +159,7 @@ export function LevelUpCelebrationModal({
 
             <Pressable style={styles.continueButton} onPress={handleDismiss}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.primary]}
+                colors={[GlowColors.primary, GlowColors.dark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.continueButtonGradient}
