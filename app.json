@@ -3,9 +3,7 @@
     "name": "Glow Up Sports",
     "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
     "version": "1.3.5",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.3.5",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
