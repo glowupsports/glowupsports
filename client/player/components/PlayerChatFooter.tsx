@@ -81,15 +81,27 @@ const CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphM
   { id: "groups", name: "Groups", icon: "people-circle-outline", types: ["squad", "group", "series_group", "lesson_group"] },
 ];
 
-const DAY_LABELS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const SERIES_GROUP_TYPES = new Set(["series_group", "squad", "lesson_group"]);
 
-function formatGroupSubtitle(conv: { type: string; seriesDayOfWeek?: number | null; seriesStartTime?: string | null }): string | null {
+function formatGroupSubtitle(
+  conv: { type: string; seriesDayOfWeek?: number | null; seriesStartTime?: string | null },
+  locale?: string,
+): string | null {
   if (!SERIES_GROUP_TYPES.has(conv.type)) return null;
   const day = conv.seriesDayOfWeek;
   const time = conv.seriesStartTime;
   if (day == null && !time) return null;
-  const dayLabel = day != null && day >= 0 && day <= 6 ? DAY_LABELS_SHORT[day] : null;
+  let dayLabel: string | null = null;
+  if (day != null && day >= 0 && day <= 6) {
+    try {
+      // Use a fixed reference Sunday (2024-01-07) and add `day` days to get a weekday for formatting.
+      const ref = new Date(Date.UTC(2024, 0, 7 + day));
+      dayLabel = new Intl.DateTimeFormat(locale || undefined, { weekday: "short", timeZone: "UTC" }).format(ref);
+    } catch {
+      const fallback = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      dayLabel = fallback[day];
+    }
+  }
   if (dayLabel && time) return `${dayLabel} ${time}`;
   return dayLabel || time || null;
 }
@@ -102,7 +114,7 @@ interface OtherPlayer {
 }
 
 export function PlayerChatFooter() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
@@ -757,7 +769,7 @@ export function PlayerChatFooter() {
                   data={filteredConversations.length > 0 ? filteredConversations : (currentTab === "coaches" || currentTab === "academy" ? conversations : [])}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => {
-                    const groupSubtitle = currentTab === "groups" ? formatGroupSubtitle(item) : null;
+                    const groupSubtitle = currentTab === "groups" ? formatGroupSubtitle(item, i18n.language) : null;
                     return (
                     <Pressable
                       onPress={() => handleSelectConversation(item)}
