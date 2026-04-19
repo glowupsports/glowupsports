@@ -18,7 +18,7 @@ import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { PlayersNearYouRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
+import { PlayersNearYouRow } from "@/player/components/DiscoveryRows";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
@@ -998,7 +998,6 @@ function PlayerHomeContent() {
           <View style={styles.playDividerLine} />
         </View>
 
-        <TrainingSessionsRow />
         <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── shown only when player has real content: feedback received OR skill progress data (ball level assigned) */}

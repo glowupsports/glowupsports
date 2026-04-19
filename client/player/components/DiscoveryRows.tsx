@@ -24,9 +24,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
-import { NeonEdgeCard } from "./GlassCard";
 import { MatchSummaryCard, COMPETE_ACCENT } from "./MatchSummaryCard";
-import { getStaticAssetsUrl, buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
@@ -972,115 +971,6 @@ export function OpenSessionsRow() {
   );
 }
 
-export function TrainingSessionsRow() {
-  const { t } = useTranslation();
-  const { state } = usePlayerState();
-  const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
-
-  const availability = state.availability ?? { groupSessions: 0, privateLessons: 0, courtsAvailable: 0 };
-
-  const handleBookPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("Growth", { screen: "ScheduleMain" });
-  };
-
-  const handleCourtPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("Growth", { screen: "ScheduleMain" });
-  };
-
-  return (
-    <View style={styles.section}>
-      <SectionHeader
-        title={t("player.home.bookAndTrain")}
-        accentColor={ProTennisColors.warning}
-      />
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.rowScrollContent}
-      >
-        <Animated.View entering={FadeInRight.delay(0).duration(300)}>
-          <Pressable onPress={handleBookPress}>
-            <NeonEdgeCard color={ProTennisColors.warning} glowIntensity="low" style={styles.trainingCard}>
-              <LinearGradient
-                colors={["rgba(255, 193, 7, 0.06)", "rgba(0, 0, 0, 0)"]}
-                style={styles.trainingGradient}
-              />
-              <View style={styles.trainingContent}>
-                <View style={styles.trainingIconWrap}>
-                  <Feather name="calendar" size={18} color={ProTennisColors.warning} />
-                </View>
-                <Text style={styles.trainingTitle}>{t("player.home.groupTraining")}</Text>
-                <Text style={styles.trainingSubtitle}>
-                  {availability.groupSessions} {t("player.home.available")}
-                </Text>
-                <View style={styles.trainingChips}>
-                  <View style={styles.trainingChip}>
-                    <Text style={styles.trainingChipText}>{t("player.home.thisWeek")}</Text>
-                  </View>
-                </View>
-              </View>
-            </NeonEdgeCard>
-          </Pressable>
-        </Animated.View>
-
-        <Animated.View entering={FadeInRight.delay(60).duration(300)}>
-          <Pressable onPress={handleBookPress}>
-            <NeonEdgeCard color={GlowColors.primary} glowIntensity="low" style={styles.trainingCard}>
-              <LinearGradient
-                colors={[`${GlowColors.primary}08`, "rgba(0, 0, 0, 0)"]}
-                style={styles.trainingGradient}
-              />
-              <View style={styles.trainingContent}>
-                <View style={styles.trainingIconWrap}>
-                  <Feather name="user" size={18} color={GlowColors.primary} />
-                </View>
-                <Text style={styles.trainingTitle}>{t("common.private")}</Text>
-                <Text style={styles.trainingSubtitle}>
-                  {availability.privateLessons} {t("player.home.available")}
-                </Text>
-                <View style={styles.trainingChips}>
-                  <View style={[styles.trainingChip, { backgroundColor: `${GlowColors.primary}20` }]}>
-                    <Text style={[styles.trainingChipText, { color: GlowColors.primary }]}>{t("player.home.bookNow")}</Text>
-                  </View>
-                </View>
-              </View>
-            </NeonEdgeCard>
-          </Pressable>
-        </Animated.View>
-
-        <Animated.View entering={FadeInRight.delay(120).duration(300)}>
-          <Pressable onPress={handleCourtPress}>
-            <NeonEdgeCard color={GlowColors.primary} glowIntensity="low" style={styles.trainingCard}>
-              <LinearGradient
-                colors={["rgba(200, 255, 61, 0.06)", "rgba(0, 0, 0, 0)"]}
-                style={styles.trainingGradient}
-              />
-              <View style={styles.trainingContent}>
-                <View style={styles.trainingIconWrap}>
-                  <Feather name="grid" size={18} color={GlowColors.primary} />
-                </View>
-                <Text style={styles.trainingTitle}>{t("player.home.courts")}</Text>
-                <Text style={styles.trainingSubtitle}>
-                  {t("player.home.freeTonight", { count: availability.courtsAvailable })}
-                </Text>
-                <View style={styles.trainingChips}>
-                  <View style={[styles.trainingChip, { backgroundColor: "rgba(200, 255, 61, 0.2)" }]}>
-                    <Text style={[styles.trainingChipText, { color: GlowColors.primary }]}>{t("player.home.reserve")}</Text>
-                  </View>
-                </View>
-              </View>
-            </NeonEdgeCard>
-          </Pressable>
-        </Animated.View>
-      </ScrollView>
-    </View>
-  );
-}
-
 export function CommunityFeedPreview() {
   const { t } = useTranslation();
   const { state } = usePlayerState();
@@ -1964,56 +1854,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: Colors.dark.buttonText,
-  },
-  trainingCard: {
-    width: 110,
-    minHeight: 130,
-    overflow: "hidden",
-  },
-  trainingGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 80,
-  },
-  trainingContent: {
-    padding: Spacing.sm,
-    gap: 2,
-    flex: 1,
-  },
-  trainingIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Backgrounds.card,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 2,
-  },
-  trainingTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: ProTennisColors.white,
-  },
-  trainingSubtitle: {
-    fontSize: 10,
-    color: ProTennisColors.textSecondary,
-  },
-  trainingChips: {
-    flexDirection: "row",
-    marginTop: "auto",
-  },
-  trainingChip: {
-    backgroundColor: "rgba(255, 193, 7, 0.2)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.xs,
-  },
-  trainingChipText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: ProTennisColors.warning,
   },
   communityCard: {
     backgroundColor: ProTennisColors.surfaceCard,
