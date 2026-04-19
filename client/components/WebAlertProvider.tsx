@@ -116,7 +116,10 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
           onRequestClose={handleDismissOnBackdrop}
         >
           <View style={styles.overlay}>
-            <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
+            <Animated.View
+              style={[StyleSheet.absoluteFill, styles.backdropLayer, { opacity: fadeAnim }]}
+              pointerEvents="auto"
+            >
               <Pressable style={styles.backdrop} onPress={handleDismissOnBackdrop} />
             </Animated.View>
             <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
@@ -181,11 +184,20 @@ const styles = StyleSheet.create({
     zIndex: 999999,
     elevation: 999999,
   },
+  backdropLayer: {
+    // Explicit z-index keeps the absolute-positioned backdrop BELOW the
+    // flex-positioned card on web. Without this, CSS painting order puts
+    // the positioned sibling on top and the backdrop swallows every click
+    // on Cancel / OK / Sign Out.
+    zIndex: 0,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   card: {
+    // Lifted above the backdrop layer so button presses actually land.
+    zIndex: 1,
     backgroundColor: "#1A2030",
     borderRadius: 16,
     padding: 24,
