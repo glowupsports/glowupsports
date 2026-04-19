@@ -490,17 +490,22 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         try {
           await storage.deleteCourt(id, academyId ?? undefined);
-        } catch (err: any) {
+        } catch (err) {
           // Foreign-key violations from tables we don't yet check explicitly
-          const msg = String(err?.message ?? err ?? "");
-          if (err?.code === "23503" || /foreign key|violates/i.test(msg)) {
-            const updated = await storage.softDeleteCourt(id, academyId ?? undefined);
+          const e = err as { code?: string; message?: string };
+          const msg = String(e?.message ?? "");
+          if (e?.code === "23503" || /foreign key|violates/i.test(msg)) {
+            const recheck = await storage.getCourtDependents(id);
+            const updated = await storage.softDeleteCourt(
+              id,
+              academyId ?? undefined,
+            );
             if (!updated) throw err;
             return res.json({
               success: true,
               archived: true,
-              dependents: {},
-              totalReferences: 0,
+              dependents: recheck.counts,
+              totalReferences: recheck.total,
               message:
                 "Court is referenced by other records and was archived instead of deleted.",
             });
@@ -509,11 +514,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         res.json({ success: true, archived: false });
-      } catch (error: any) {
+      } catch (error) {
+        const e = error as { message?: string };
         console.error("Error deleting court:", error);
         res
           .status(500)
-          .json({ error: error?.message || "Failed to delete court" });
+          .json({ error: e?.message || "Failed to delete court" });
       }
     },
   );

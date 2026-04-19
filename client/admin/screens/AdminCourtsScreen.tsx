@@ -371,16 +371,24 @@ export default function AdminCourtsScreen() {
     },
   });
 
-  const deleteMutation = useMutation({
+  type DeleteCourtResponse = {
+    success: boolean;
+    archived?: boolean;
+    dependents?: Record<string, number>;
+    totalReferences?: number;
+    message?: string;
+  };
+
+  const deleteMutation = useMutation<DeleteCourtResponse, Error, string>({
     mutationFn: async (id: string) => {
       const res = await apiRequest("DELETE", `/api/courts/${id}`);
       try {
-        return await res.json();
+        return (await res.json()) as DeleteCourtResponse;
       } catch {
         return { success: true };
       }
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       invalidateCourts();
       setShowEditModal(false);
       setSelectedCourt(null);
@@ -396,7 +404,7 @@ export default function AdminCourtsScreen() {
         }
       }
     },
-    onError: (error: any) => {
+    onError: (error) => {
       Alert.alert("Error", error.message || "Failed to delete court");
     },
   });

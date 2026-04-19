@@ -70,16 +70,24 @@ export default function CourtsManagementScreen() {
     },
   });
 
-  const deleteMutation = useMutation({
+  type DeleteCourtResponse = {
+    success: boolean;
+    archived?: boolean;
+    dependents?: Record<string, number>;
+    totalReferences?: number;
+    message?: string;
+  };
+
+  const deleteMutation = useMutation<DeleteCourtResponse, Error, string>({
     mutationFn: async (id: string) => {
       const res = await apiRequest("DELETE", `/api/courts/${id}`);
       try {
-        return await (res as Response).json();
+        return (await res.json()) as DeleteCourtResponse;
       } catch {
         return { success: true };
       }
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (data?.archived) {
@@ -90,7 +98,7 @@ export default function CourtsManagementScreen() {
         else Alert.alert("Court archived", msg);
       }
     },
-    onError: (error: any) => {
+    onError: (error) => {
       const msg = error?.message || "Failed to delete court";
       if (Platform.OS === "web") window.alert(msg);
       else Alert.alert("Error", msg);
@@ -119,19 +127,35 @@ export default function CourtsManagementScreen() {
     setShowModal(true);
   };
 
-  const handleDelete = (court: Court) => {
+  const handleDelete = async (court: Court) => {
     const doDelete = () => deleteMutation.mutate(court.id);
-    
+
+    let willArchive = false;
+    let totalRefs = 0;
+    try {
+      const res = await apiRequest("GET", `/api/courts/${court.id}/delete-preview`);
+      const preview = (await res.json()) as { willArchive?: boolean; totalReferences?: number };
+      willArchive = !!preview?.willArchive;
+      totalRefs = Number(preview?.totalReferences ?? 0);
+    } catch {
+      // Preview is best-effort; fall back to a generic confirm
+    }
+
+    const title = willArchive ? "Archive Court" : "Delete Court";
+    const body = willArchive
+      ? `${court.name} is used by ${totalRefs} record${totalRefs === 1 ? "" : "s"} (sessions, bookings or schedules). It will be archived and hidden from active lists, but kept for history. Continue?`
+      : `Delete ${court.name}? This action cannot be undone.`;
+    const action = willArchive ? "Archive" : "Delete";
+
     if (Platform.OS === "web") {
-      const confirmed = window.confirm(`Delete ${court.name}? This action cannot be undone.`);
-      if (confirmed) doDelete();
+      if (window.confirm(body)) doDelete();
     } else {
       Alert.alert(
-        "Delete Court",
-        `Delete ${court.name}? This action cannot be undone.`,
+        title,
+        body,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: doDelete },
+          { text: action, style: "destructive", onPress: doDelete },
         ]
       );
     }
