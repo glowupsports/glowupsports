@@ -1878,6 +1878,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             | "overdue"
             | "cancelled",
           paidAt: invoice.paidAt?.toISOString(),
+          theme: academy?.theme ?? null,
         };
 
         const html = generateInvoiceHtml(invoiceData);

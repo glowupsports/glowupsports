@@ -3324,12 +3324,15 @@ async function autoCancel(
           // Send feedback email if player has email
           const feedbackPlayer = await storage.getPlayer(sp.playerId);
           if (feedbackPlayer?.email) {
+            const feedbackAcademy = academyId ? await storage.getAcademy(academyId) : null;
             sendFeedbackNotificationEmail({
               to: feedbackPlayer.email,
               playerName: feedbackPlayer.name,
               sessionDate,
               coachName,
               feedbackSummary: feedback?.coachNotes?.substring(0, 150),
+              academyName: feedbackAcademy?.name,
+              theme: feedbackAcademy?.theme ?? null,
             }).catch(err => console.error("Failed to send feedback email:", err));
           }
         }

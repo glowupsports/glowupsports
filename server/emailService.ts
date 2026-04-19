@@ -2,6 +2,21 @@
 // Integration: connection:conn_resend_01KDF7GB7D3CMQPBEEJ67T7ZSP
 
 import { Resend } from 'resend';
+import {
+  type AcademyTheme,
+  type BrandingColors,
+  getBrandingColors,
+} from "@shared/theme";
+
+/**
+ * Resolve brand colours for transactional emails. Defensive: any missing or
+ * invalid theme falls back to the built-in Glow Green palette.
+ */
+function resolveEmailBranding(
+  theme?: AcademyTheme | null,
+): BrandingColors {
+  return getBrandingColors(theme ?? null);
+}
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
@@ -98,9 +113,11 @@ export async function sendWelcomeEmail(params: {
   playerName: string;
   academyName: string;
   coachName?: string;
+  theme?: AcademyTheme | null;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, playerName, academyName, coachName } = params;
-  
+  const { to, playerName, academyName, coachName, theme } = params;
+  const brand = resolveEmailBranding(theme);
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -109,22 +126,22 @@ export async function sendWelcomeEmail(params: {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        .logo h1 { color: ${brand.primary}; margin: 0; font-size: 28px; }
         h2 { color: #ffffff; margin-bottom: 20px; }
         p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
-        .highlight { color: #00D4FF; font-weight: 600; }
-        .cta { display: inline-block; background: linear-gradient(135deg, #2ECC40, #27ae60); color: #000000; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }
+        .highlight { color: ${brand.primary}; font-weight: 600; }
+        .cta { display: inline-block; background: ${brand.primary}; color: ${brand.primaryText}; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }
         .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="logo">
-          <h1>Glow Up Sports</h1>
+          <h1>${escapeHtml(academyName)}</h1>
         </div>
-        <h2>Welcome to ${academyName}!</h2>
-        <p>Hi <span class="highlight">${playerName}</span>,</p>
-        <p>You've been added to <strong>${academyName}</strong>${coachName ? ` and will be training with Coach ${coachName}` : ''}.</p>
+        <h2>Welcome to ${escapeHtml(academyName)}!</h2>
+        <p>Hi <span class="highlight">${escapeHtml(playerName)}</span>,</p>
+        <p>You've been added to <strong>${escapeHtml(academyName)}</strong>${coachName ? ` and will be training with Coach ${escapeHtml(coachName)}` : ''}.</p>
         <p>With Glow Up Sports, you can:</p>
         <ul style="color: #a0a0a0;">
           <li>Track your progress and skill development</li>
@@ -134,7 +151,7 @@ export async function sendWelcomeEmail(params: {
         </ul>
         <p>Download the app and sign in to get started!</p>
         <div class="footer">
-          <p>Glow Up Sports - Level Up Your Game</p>
+          <p>${escapeHtml(academyName)} &middot; Powered by Glow Up Sports</p>
         </div>
       </div>
     </body>
@@ -156,9 +173,13 @@ export async function sendSessionReminderEmail(params: {
   sessionTime: string;
   location?: string;
   coachName?: string;
+  academyName?: string;
+  theme?: AcademyTheme | null;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, playerName, sessionDate, sessionTime, location, coachName } = params;
-  
+  const { to, playerName, sessionDate, sessionTime, location, coachName, academyName, theme } = params;
+  const brand = resolveEmailBranding(theme);
+  const headerName = academyName || 'Glow Up Sports';
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -167,11 +188,11 @@ export async function sendSessionReminderEmail(params: {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        .logo h1 { color: ${brand.primary}; margin: 0; font-size: 28px; }
         h2 { color: #ffffff; margin-bottom: 20px; }
         p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
-        .highlight { color: #00D4FF; font-weight: 600; }
-        .session-card { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid #2ECC40; }
+        .highlight { color: ${brand.primary}; font-weight: 600; }
+        .session-card { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid ${brand.primary}; }
         .session-detail { margin-bottom: 12px; }
         .session-label { color: #666; font-size: 12px; text-transform: uppercase; }
         .session-value { color: #ffffff; font-size: 18px; font-weight: 600; }
@@ -181,10 +202,10 @@ export async function sendSessionReminderEmail(params: {
     <body>
       <div class="container">
         <div class="logo">
-          <h1>Glow Up Sports</h1>
+          <h1>${escapeHtml(headerName)}</h1>
         </div>
         <h2>Session Reminder</h2>
-        <p>Hi <span class="highlight">${playerName}</span>,</p>
+        <p>Hi <span class="highlight">${escapeHtml(playerName)}</span>,</p>
         <p>Just a friendly reminder about your upcoming tennis session:</p>
         <div class="session-card">
           <div class="session-detail">
@@ -231,9 +252,13 @@ export async function sendFeedbackNotificationEmail(params: {
   sessionDate: string;
   coachName: string;
   feedbackSummary?: string;
+  academyName?: string;
+  theme?: AcademyTheme | null;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, playerName, sessionDate, coachName, feedbackSummary } = params;
-  
+  const { to, playerName, sessionDate, coachName, feedbackSummary, academyName, theme } = params;
+  const brand = resolveEmailBranding(theme);
+  const headerName = academyName || 'Glow Up Sports';
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -242,23 +267,23 @@ export async function sendFeedbackNotificationEmail(params: {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        .logo h1 { color: ${brand.primary}; margin: 0; font-size: 28px; }
         h2 { color: #ffffff; margin-bottom: 20px; }
         p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
-        .highlight { color: #00D4FF; font-weight: 600; }
-        .feedback-card { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid #00D4FF; }
-        .cta { display: inline-block; background: linear-gradient(135deg, #2ECC40, #27ae60); color: #000000; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }
+        .highlight { color: ${brand.primary}; font-weight: 600; }
+        .feedback-card { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid ${brand.primary}; }
+        .cta { display: inline-block; background: ${brand.primary}; color: ${brand.primaryText}; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }
         .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="logo">
-          <h1>Glow Up Sports</h1>
+          <h1>${escapeHtml(headerName)}</h1>
         </div>
         <h2>New Feedback Available</h2>
-        <p>Hi <span class="highlight">${playerName}</span>,</p>
-        <p>Coach <strong>${coachName}</strong> has submitted feedback for your session on <strong>${sessionDate}</strong>.</p>
+        <p>Hi <span class="highlight">${escapeHtml(playerName)}</span>,</p>
+        <p>Coach <strong>${escapeHtml(coachName)}</strong> has submitted feedback for your session on <strong>${escapeHtml(sessionDate)}</strong>.</p>
         ${feedbackSummary ? `
         <div class="feedback-card">
           <p style="margin: 0; color: #ffffff;">"${escapeHtml(feedbackSummary)}"</p>
@@ -347,9 +372,11 @@ export async function sendCoachInviteEmail(params: {
   academyName: string;
   inviterName: string;
   inviteCode?: string;
+  theme?: AcademyTheme | null;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, academyName, inviterName, inviteCode } = params;
-  
+  const { to, academyName, inviterName, inviteCode, theme } = params;
+  const brand = resolveEmailBranding(theme);
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -358,22 +385,22 @@ export async function sendCoachInviteEmail(params: {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        .logo h1 { color: ${brand.primary}; margin: 0; font-size: 28px; }
         h2 { color: #ffffff; margin-bottom: 20px; }
         p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
-        .highlight { color: #2ECC40; font-weight: 600; }
-        .invite-code { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; }
-        .invite-code-value { color: #2ECC40; font-size: 32px; font-weight: 800; letter-spacing: 4px; }
+        .highlight { color: ${brand.primary}; font-weight: 600; }
+        .invite-code { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center; border: 1px solid ${brand.primary}; }
+        .invite-code-value { color: ${brand.primary}; font-size: 32px; font-weight: 800; letter-spacing: 4px; }
         .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="logo">
-          <h1>Glow Up Sports</h1>
+          <h1>${escapeHtml(academyName)}</h1>
         </div>
         <h2>You're Invited!</h2>
-        <p><span class="highlight">${inviterName}</span> has invited you to join <strong>${academyName}</strong> as a coach on Glow Up Sports.</p>
+        <p><span class="highlight">${escapeHtml(inviterName)}</span> has invited you to join <strong>${escapeHtml(academyName)}</strong> as a coach on Glow Up Sports.</p>
         <p>With Glow Up Sports, you can:</p>
         <ul style="color: #a0a0a0;">
           <li>Manage your players and sessions</li>
@@ -384,12 +411,12 @@ export async function sendCoachInviteEmail(params: {
         ${inviteCode ? `
         <div class="invite-code">
           <p style="color: #666; margin-bottom: 8px;">Your invite code:</p>
-          <div class="invite-code-value">${inviteCode}</div>
+          <div class="invite-code-value">${escapeHtml(inviteCode)}</div>
         </div>
         ` : ''}
         <p>Download the Glow Up Sports app and sign up to get started!</p>
         <div class="footer">
-          <p>Glow Up Sports - Level Up Your Game</p>
+          <p>${escapeHtml(academyName)} &middot; Powered by Glow Up Sports</p>
         </div>
       </div>
     </body>
@@ -411,8 +438,10 @@ export async function sendPlayerInviteEmail(params: {
   inviteCode: string;
   coachName?: string;
   inviteLinkBaseUrl?: string;
+  theme?: AcademyTheme | null;
 }): Promise<{ success: boolean; error?: string }> {
-  const { to, playerName, academyName, inviteCode, coachName, inviteLinkBaseUrl } = params;
+  const { to, playerName, academyName, inviteCode, coachName, inviteLinkBaseUrl, theme } = params;
+  const brand = resolveEmailBranding(theme);
 
   const inviteLink = inviteLinkBaseUrl
     ? `${inviteLinkBaseUrl.replace(/\/$/, "")}/invite/${inviteCode}`
@@ -426,20 +455,20 @@ export async function sendPlayerInviteEmail(params: {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: #C8FF3D; margin: 0; font-size: 28px; letter-spacing: 1px; }
+        .logo h1 { color: ${brand.primary}; margin: 0; font-size: 28px; letter-spacing: 1px; }
         h2 { color: #ffffff; margin-bottom: 8px; }
         .subtitle { color: #a0a0a0; margin-top: 0; margin-bottom: 24px; font-size: 15px; line-height: 1.5; }
         p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
-        .highlight { color: #C8FF3D; font-weight: 600; }
-        .open-btn { display: block; background: #C8FF3D; color: #000 !important; text-decoration: none; font-weight: 800; font-size: 17px; text-align: center; padding: 16px 24px; border-radius: 14px; margin: 24px 0; letter-spacing: -0.2px; }
-        .code-box { background: #0f141b; border: 2px solid #C8FF3D; border-radius: 14px; padding: 28px 24px; margin: 24px 0; text-align: center; }
+        .highlight { color: ${brand.primary}; font-weight: 600; }
+        .open-btn { display: block; background: ${brand.primary}; color: ${brand.primaryText} !important; text-decoration: none; font-weight: 800; font-size: 17px; text-align: center; padding: 16px 24px; border-radius: 14px; margin: 24px 0; letter-spacing: -0.2px; }
+        .code-box { background: #0f141b; border: 2px solid ${brand.primary}; border-radius: 14px; padding: 28px 24px; margin: 24px 0; text-align: center; }
         .code-label { color: #666; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
-        .code-value { color: #C8FF3D; font-size: 40px; font-weight: 900; letter-spacing: 8px; font-family: 'Courier New', monospace; }
+        .code-value { color: ${brand.primary}; font-size: 40px; font-weight: 900; letter-spacing: 8px; font-family: 'Courier New', monospace; }
         .steps { margin: 24px 0; }
         .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
-        .step-num { background: #C8FF3D; color: #000; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; margin-right: 14px; flex-shrink: 0; }
+        .step-num { background: ${brand.primary}; color: ${brand.primaryText}; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; margin-right: 14px; flex-shrink: 0; }
         .step-text { color: #cccccc; font-size: 14px; line-height: 1.5; padding-top: 4px; }
-        .step-text a { color: #C8FF3D; text-decoration: none; }
+        .step-text a { color: ${brand.primary}; text-decoration: none; }
         .step-text strong { color: #ffffff; }
         .divider { border: none; border-top: 1px solid #2a2a2a; margin: 28px 0; }
         .footer { text-align: center; color: #555; font-size: 12px; }
@@ -449,7 +478,7 @@ export async function sendPlayerInviteEmail(params: {
     <body>
       <div class="container">
         <div class="logo">
-          <h1>Glow Up Sports</h1>
+          <h1>${escapeHtml(academyName)}</h1>
         </div>
 
         <h2>You have been invited!</h2>

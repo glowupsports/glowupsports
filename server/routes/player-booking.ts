@@ -3702,6 +3702,7 @@ Return only the JSON array, nothing else.`;
         notes: invoice.notes || undefined,
         status: invoice.status as 'pending' | 'paid' | 'overdue' | 'cancelled',
         paidAt: invoice.paidAt?.toISOString(),
+        theme: academy?.theme ?? null,
       };
       
       const html = generateInvoiceHtml(invoiceData);

@@ -271,3 +271,44 @@ export function safeTextOn(bg: string): "#000000" | "#FFFFFF" {
 export function isReadable(text: string, background: string): boolean {
   return contrastRatio(text, background) >= 4.5;
 }
+
+// ---------- Outbound branding (PDFs / emails) ----------
+
+/**
+ * A small bundle of resolved colours ready to drop into HTML/CSS strings for
+ * outbound assets (invoice PDFs, transactional emails). Falls back to the
+ * built-in Glow Green theme when the academy has no theme configured or only
+ * supplies a partial palette.
+ */
+export interface BrandingColors {
+  primary: string;
+  secondary: string;
+  /** Black or white — whichever is readable on top of `primary`. */
+  primaryText: "#000000" | "#FFFFFF";
+  /** Black or white — whichever is readable on top of `secondary`. */
+  secondaryText: "#000000" | "#FFFFFF";
+}
+
+/**
+ * Resolve a defensive set of brand colours for outbound content. Always
+ * returns valid hex strings: missing or invalid fields fall back to
+ * `defaultAcademyTheme` (Glow Green).
+ */
+export function getBrandingColors(
+  theme?: Partial<AcademyThemeColors> | null,
+): BrandingColors {
+  const primary =
+    theme?.primary && HEX_RE.test(theme.primary)
+      ? theme.primary
+      : (defaultAcademyTheme.primary as string);
+  const secondary =
+    theme?.secondary && HEX_RE.test(theme.secondary)
+      ? theme.secondary
+      : (defaultAcademyTheme.secondary as string);
+  return {
+    primary,
+    secondary,
+    primaryText: safeTextOn(primary),
+    secondaryText: safeTextOn(secondary),
+  };
+}

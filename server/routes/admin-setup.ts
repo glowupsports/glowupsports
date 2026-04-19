@@ -858,6 +858,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             inviteCode,
             coachName: coach?.name,
             inviteLinkBaseUrl,
+            theme: academy?.theme ?? null,
           }).catch((err) =>
             console.error("Failed to send player invite email:", err),
           );
@@ -983,6 +984,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           inviteCode: invite.inviteCode,
           coachName: coach?.name,
           inviteLinkBaseUrl,
+          theme: academy?.theme ?? null,
         });
 
         if (!result.success) {

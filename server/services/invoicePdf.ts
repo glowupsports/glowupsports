@@ -1,3 +1,9 @@
+import {
+  type AcademyTheme,
+  type BrandingColors,
+  getBrandingColors,
+} from "../../shared/theme";
+
 export interface InvoiceData {
   invoiceNumber: string;
   issueDate: string;
@@ -30,9 +36,16 @@ export interface InvoiceData {
   notes?: string;
   status: 'pending' | 'paid' | 'overdue' | 'cancelled';
   paidAt?: string;
+  /**
+   * Optional academy theme. When provided, the invoice uses the academy's
+   * primary/secondary colours for the header, status badge and totals row.
+   * Falls back to the Glow Green default theme when missing or partial.
+   */
+  theme?: AcademyTheme | null;
 }
 
 export function generateInvoiceHtml(data: InvoiceData): string {
+  const branding: BrandingColors = getBrandingColors(data.theme ?? null);
   const currencySymbol = data.currency === 'AED' ? 'AED' : 
                          data.currency === 'USD' ? '$' :
                          data.currency === 'EUR' ? '€' :
@@ -99,7 +112,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
       align-items: flex-start;
       margin-bottom: 48px;
       padding-bottom: 32px;
-      border-bottom: 2px solid #E5E7EB;
+      border-bottom: 4px solid ${branding.primary};
     }
     
     .academy-info h1 {
@@ -246,7 +259,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
     
     .totals-row.total {
       border-bottom: none;
-      border-top: 2px solid #111827;
+      border-top: 3px solid ${branding.primary};
       margin-top: 8px;
       padding-top: 16px;
     }
@@ -315,7 +328,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
     
     .glow-logo {
       font-weight: 700;
-      color: #10B981;
+      color: ${branding.secondary};
       font-size: 12px;
     }
   </style>
@@ -332,9 +345,9 @@ export function generateInvoiceHtml(data: InvoiceData): string {
         <p style="margin-top: 8px; font-style: italic; color: #6B7280; font-size: 12px;">${data.academy.vatRegistrationNumber ? `TRN: ${data.academy.vatRegistrationNumber}` : 'Not VAT registered'}</p>
       </div>
       <div class="invoice-title">
-        <h2>INVOICE</h2>
+        <h2 style="color: ${branding.primary};">INVOICE</h2>
         <p class="invoice-number">${data.invoiceNumber}</p>
-        <span class="status-badge" style="background: ${statusColor}20; color: ${statusColor};">
+        <span class="status-badge" style="background: ${data.status === 'pending' ? branding.primary : statusColor}; color: ${data.status === 'pending' ? branding.primaryText : '#FFFFFF'};">
           ${statusLabel}
         </span>
       </div>
@@ -399,7 +412,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
         ` : ''}
         <div class="totals-row total">
           <span class="totals-label">Total Due</span>
-          <span class="totals-value">${formatCurrency(data.total)}</span>
+          <span class="totals-value" style="color: ${branding.primary};">${formatCurrency(data.total)}</span>
         </div>
       </div>
     </div>
