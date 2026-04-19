@@ -2104,29 +2104,38 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
 
       fireQuestEvent(playerId, "send_connection").catch(() => {});
 
-      // Notify the receiver (push + in-app). Don't block the response on this.
-      // sendFriendRequestNotification only stores an in-app notification when the
-      // receiver has push tokens, so fall back to a direct insert otherwise.
-      (async () => {
-        try {
-          const tokens = await getPlayerPushTokens(targetPlayerId);
-          if (tokens.length > 0) {
-            await sendFriendRequestNotification(targetPlayerId, requester?.name || "A player");
-          } else {
-            await db.insert(playerNotifications).values({
-              playerId: targetPlayerId,
-              title: "Friend Request",
-              body: `${requester?.name || "A player"} wants to connect with you`,
-              type: "friend_request",
-              data: { connectionId: newConnection.id, fromPlayerId: playerId },
-            });
-          }
-        } catch (err) {
-          console.error("[FriendRequest] Failed to send notification:", err);
-        }
-      })();
+      // Check token availability synchronously so we can tell the sender whether
+      // the recipient will get an instant push or only sees it on next app open.
+      let recipientHasPushTokens = false;
+      try {
+        const tokens = await getPlayerPushTokens(targetPlayerId);
+        recipientHasPushTokens = tokens.length > 0;
 
-      res.json({ success: true, connection: newConnection });
+        // Notify the receiver (push + in-app). Don't block the response on this.
+        // sendFriendRequestNotification only stores an in-app notification when the
+        // receiver has push tokens, so fall back to a direct insert otherwise.
+        (async () => {
+          try {
+            if (recipientHasPushTokens) {
+              await sendFriendRequestNotification(targetPlayerId, requester?.name || "A player");
+            } else {
+              await db.insert(playerNotifications).values({
+                playerId: targetPlayerId,
+                title: "Friend Request",
+                body: `${requester?.name || "A player"} wants to connect with you`,
+                type: "friend_request",
+                data: { connectionId: newConnection.id, fromPlayerId: playerId },
+              });
+            }
+          } catch (err) {
+            console.error("[FriendRequest] Failed to send notification:", err);
+          }
+        })();
+      } catch (err) {
+        console.error("[FriendRequest] Failed to look up push tokens:", err);
+      }
+
+      res.json({ success: true, connection: newConnection, recipientHasPushTokens });
     } catch (error) {
       console.error("Error sending friend request:", error);
       res.status(500).json({ error: "Something went wrong sending the friend request. Please try again." });

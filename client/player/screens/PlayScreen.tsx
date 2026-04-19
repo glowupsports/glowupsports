@@ -107,6 +107,8 @@ interface NearbyPlayer {
   driveTimeMinutes?: number;
   driveTimeText?: string;
   lastOnlineAt?: string | null;
+  friendStatus?: "none" | "pending_sent" | "pending_received" | "friends";
+  friendConnectionId?: string | null;
 }
 
 type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
@@ -228,6 +230,7 @@ export default function PlayScreen() {
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
   const [friendRequestPlayer, setFriendRequestPlayer] = useState<NearbyPlayer | null>(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [friendRequestPushDelivered, setFriendRequestPushDelivered] = useState<boolean | null>(null);
   type FriendReqState =
     | { kind: "idle" }
     | { kind: "already_pending_by_me" }
@@ -1179,10 +1182,13 @@ export default function PlayScreen() {
       const response = await apiRequest("POST", `/api/player/connections/request`, { targetPlayerId: playerId });
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { recipientHasPushTokens?: boolean } | undefined) => {
       setFriendRequestSent(true);
+      setFriendRequestPushDelivered(data?.recipientHasPushTokens ?? null);
       setFriendRequestState({ kind: "idle" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Refresh nearby list so the card flips to the "Invited" pill immediately.
+      queryClient.invalidateQueries({ queryKey: [nearbyPlayersQueryKey] });
     },
     onError: (error: Error) => {
       // apiRequest throws errors of the form "<status>: <body>". Extract status + clean message.
@@ -1561,18 +1567,65 @@ export default function PlayScreen() {
         </View>
 
         <View style={styles.compactActions}>
-          <Pressable 
-            style={styles.compactFriendBtn} 
-            onPress={(e) => {
-              e.stopPropagation();
+          {(() => {
+            const status = player.friendStatus ?? "none";
+            const openModal = () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               setFriendRequestPlayer(player);
               setFriendRequestSent(false);
-              setFriendRequestState({ kind: "idle" });
-            }}
-          >
-            <Ionicons name="person-add" size={16} color={Colors.dark.text} />
-          </Pressable>
+              setFriendRequestPushDelivered(null);
+              if (status === "pending_sent") {
+                setFriendRequestState({ kind: "already_pending_by_me" });
+              } else if (status === "pending_received") {
+                setFriendRequestState({ kind: "already_sent_by_them" });
+              } else if (status === "friends") {
+                setFriendRequestState({ kind: "already_friends" });
+              } else {
+                setFriendRequestState({ kind: "idle" });
+              }
+            };
+            if (status === "friends") {
+              return (
+                <Pressable
+                  style={[styles.compactFriendBtn, styles.compactFriendBtnFriends]}
+                  onPress={(e) => { e.stopPropagation(); openModal(); }}
+                >
+                  <Ionicons name="checkmark" size={14} color={Colors.dark.primary} />
+                  <Text style={styles.compactFriendStatusText}>Friends</Text>
+                </Pressable>
+              );
+            }
+            if (status === "pending_sent") {
+              return (
+                <Pressable
+                  style={[styles.compactFriendBtn, styles.compactFriendBtnPending]}
+                  onPress={(e) => { e.stopPropagation(); openModal(); }}
+                >
+                  <Ionicons name="time-outline" size={14} color={Colors.dark.textSecondary} />
+                  <Text style={[styles.compactFriendStatusText, { color: Colors.dark.textSecondary }]}>Invited</Text>
+                </Pressable>
+              );
+            }
+            if (status === "pending_received") {
+              return (
+                <Pressable
+                  style={[styles.compactFriendBtn, styles.compactFriendBtnIncoming]}
+                  onPress={(e) => { e.stopPropagation(); openModal(); }}
+                >
+                  <Ionicons name="person-add" size={14} color={Colors.dark.buttonText} />
+                  <Text style={[styles.compactFriendStatusText, { color: Colors.dark.buttonText }]}>Accept</Text>
+                </Pressable>
+              );
+            }
+            return (
+              <Pressable
+                style={styles.compactFriendBtn}
+                onPress={(e) => { e.stopPropagation(); openModal(); }}
+              >
+                <Ionicons name="person-add" size={16} color={Colors.dark.text} />
+              </Pressable>
+            );
+          })()}
           <Pressable 
             style={styles.compactChallengeBtn} 
             onPress={(e) => {
@@ -2526,6 +2579,15 @@ export default function PlayScreen() {
                   <View style={styles.friendModalSentContainer}>
                     <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
                     <Text style={styles.friendModalSentText}>Friend request sent successfully</Text>
+                    {friendRequestPushDelivered === true ? (
+                      <Text style={styles.friendModalDeliveryHint}>
+                        {friendRequestPlayer.name} just got a notification on their phone.
+                      </Text>
+                    ) : friendRequestPushDelivered === false ? (
+                      <Text style={styles.friendModalDeliveryHint}>
+                        We'll show it to {friendRequestPlayer.name} the next time they open the app.
+                      </Text>
+                    ) : null}
                     <Pressable
                       style={styles.friendModalDoneBtn}
                       onPress={() => setFriendRequestPlayer(null)}
@@ -3679,14 +3741,34 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.sm,
   },
   compactFriendBtn: {
-    width: 36,
+    minWidth: 36,
     height: 36,
+    paddingHorizontal: 10,
     borderRadius: 18,
     backgroundColor: Colors.dark.backgroundTertiary,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  compactFriendBtnPending: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderColor: Colors.dark.border,
+  },
+  compactFriendBtnFriends: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary + "55",
+  },
+  compactFriendBtnIncoming: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  compactFriendStatusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
   },
   compactChallengeBtn: {
     flexDirection: "row",
@@ -3789,6 +3871,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  friendModalDeliveryHint: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginTop: -Spacing.xs,
+    paddingHorizontal: Spacing.md,
   },
   friendModalDoneBtn: {
     backgroundColor: Colors.dark.primary,
