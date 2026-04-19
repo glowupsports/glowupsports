@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -1801,7 +1801,7 @@ export default function PlayerProgressScreen() {
   })();
 
   const currentLevelXp = data.xp % 500;
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? insets.bottom;
 
   const totalObservations = (data.skillRadar ?? []).reduce((sum, s) => sum + s.observationCount, 0);
   const isNewPlayer = totalObservations === 0;
