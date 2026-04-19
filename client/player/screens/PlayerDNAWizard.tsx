@@ -242,21 +242,8 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
       setPhotoUploading(true);
       try {
         const formData = new FormData();
-        if (Platform.OS === "web") {
-          const blobRes = await fetch(uri);
-          const blob = await blobRes.blob();
-          const ext = blob.type.split("/")[1] || "png";
-          const webFile = new window.File([blob], `photo.${ext}`, { type: blob.type });
-          formData.append("photo", webFile);
-        } else {
-          const filename = uri.split("/").pop() || "photo.jpg";
-          const match = /\.(\w+)$/.exec(filename);
-          const type = match ? `image/${match[1].toLowerCase().replace("jpg", "jpeg")}` : "image/jpeg";
-          // React Native FormData accepts { uri, name, type } — cast required as web types don't include this
-          (formData.append as (key: string, value: { uri: string; name: string; type: string }) => void)(
-            "photo", { uri, name: filename, type }
-          );
-        }
+        const { appendImageToFormData } = await import("@/lib/uploads");
+        await appendImageToFormData(formData, "photo", uri);
         const authToken = await import("@/lib/auth").then(m => m.getAuthToken());
         const uploadRes = await fetch(
           new URL("/api/player/me/photo", await import("@/lib/query-client").then(m => m.getApiUrl())).toString(),
@@ -266,9 +253,22 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
           queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
           queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          let message = "We couldn't upload your photo. Please try again.";
+          try {
+            const body = await uploadRes.json();
+            if (body?.error) message = body.error;
+          } catch {}
+          console.warn("[DNA Wizard] Photo upload failed:", uploadRes.status, message);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert("Photo upload failed", message);
+          setDNA(prev => ({ ...prev, profilePhotoUri: null }));
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn("[DNA Wizard] Photo upload error:", err);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Photo upload failed", err?.message || "Please try again.");
+        setDNA(prev => ({ ...prev, profilePhotoUri: null }));
       } finally {
         setPhotoUploading(false);
       }

@@ -1887,8 +1887,11 @@ import fs from "fs";
           );
         }
         if (displayName !== undefined) {
+          const { sanitizeName: _sanitizeName } = await import("../../shared/textSanitize");
+          const cleanedDisplayName =
+            typeof displayName === "string" ? _sanitizeName(displayName) : displayName;
           await db.execute(
-            sql`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`,
+            sql`UPDATE players SET display_name = ${cleanedDisplayName} WHERE id = ${playerId}`,
           );
         }
         if (privacyLevel !== undefined) {
@@ -2010,39 +2013,75 @@ import fs from "fs";
     requirePlayerOrOwner,
     profilePhotoUpload.single("photo"),
     async (req: AuthenticatedRequest, res: Response) => {
+      const playerId = req.user!.playerId;
+      const fileMeta = {
+        playerId,
+        originalName: req.file?.originalname,
+        mimeType: req.file?.mimetype,
+        size: req.file?.size,
+      };
       try {
-        const playerId = req.user!.playerId;
         if (!playerId) {
           return res.status(400).json({ error: "Player profile not found" });
         }
 
         if (!req.file) {
+          console.warn("[PhotoUpload] No file in request", fileMeta);
           return res.status(400).json({ error: "No photo uploaded" });
         }
 
         if (!req.file.buffer || req.file.buffer.length === 0) {
+          console.warn("[PhotoUpload] Empty buffer", fileMeta);
           return res.status(400).json({ error: "Uploaded file is empty. Please try a different photo." });
         }
 
         const mimeType = req.file.mimetype || "image/jpeg";
+        if (!mimeType.startsWith("image/")) {
+          console.warn("[PhotoUpload] Rejected non-image mime", fileMeta);
+          return res.status(400).json({ error: `Unsupported file type: ${mimeType}` });
+        }
+
         const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
         const storagePath = `profile-photos/${playerId}-${Date.now()}.${ext}`;
 
-        const { uploadToSupabaseWithPath } = await import("../utils/supabaseStorage");
-        const photoUrl = await uploadToSupabaseWithPath(req.file.buffer, storagePath, mimeType);
+        console.log("[PhotoUpload] Uploading", { ...fileMeta, storagePath });
+
+        const { uploadToSupabaseWithPath, isSupabaseConfigured } = await import("../utils/supabaseStorage");
+        if (!isSupabaseConfigured()) {
+          console.error("[PhotoUpload] Supabase storage not configured", fileMeta);
+          return res.status(503).json({ error: "Photo storage is not configured. Please contact support." });
+        }
+
+        let photoUrl: string;
+        try {
+          photoUrl = await uploadToSupabaseWithPath(req.file.buffer, storagePath, mimeType);
+        } catch (storageError: unknown) {
+          console.error("[PhotoUpload] Storage upload failed", {
+            ...fileMeta,
+            storagePath,
+            error: storageError instanceof Error ? storageError.message : String(storageError),
+          });
+          return res.status(502).json({ error: "Photo storage upload failed. Please try again." });
+        }
 
         await db.execute(
           sql`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`,
         );
+
+        console.log("[PhotoUpload] Success", { playerId, storagePath, photoUrl });
 
         res.json({
           success: true,
           profilePhotoUrl: photoUrl,
           message: "Profile photo updated successfully",
         });
-      } catch (error) {
-        console.error("Error uploading player profile photo:", error);
-        res.status(500).json({ error: "Failed to upload profile photo" });
+      } catch (error: any) {
+        console.error("[PhotoUpload] Unexpected error", {
+          ...fileMeta,
+          error: error?.message || String(error),
+          stack: error?.stack,
+        });
+        res.status(500).json({ error: "Failed to upload profile photo. Please try again." });
       }
     },
   );

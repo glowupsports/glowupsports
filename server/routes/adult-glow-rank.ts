@@ -632,8 +632,13 @@ router.post("/find-or-create-opponent", async (req: AuthenticatedRequest, res) =
     }
     
     // Create a new "external" opponent scoped to caller's academy
+    const { sanitizeName: _sanitizeName } = await import("../../shared/textSanitize");
+    const sanitizedOpponentName = _sanitizeName(trimmedName);
+    if (!sanitizedOpponentName) {
+      return res.status(400).json({ error: "Opponent name is required" });
+    }
     const [newOpponent] = await db.insert(players).values({
-      name: trimmedName,
+      name: sanitizedOpponentName,
       academyId: scopedAcademyId || null,
       isAdult: true,
       glowMmr: 1000,

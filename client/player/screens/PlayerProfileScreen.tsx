@@ -592,10 +592,11 @@ export default function PlayerProfileScreen() {
       const filename = asset.uri.split("/").pop() || "photo.jpg";
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : "image/jpeg";
-      
+
       if (Platform.OS === "web") {
-        if ((asset as any).file) {
-          formData.append("photo", (asset as any).file);
+        const webAssetFile = (asset as { file?: File }).file;
+        if (webAssetFile) {
+          formData.append("photo", webAssetFile);
         } else if (asset.uri.startsWith("data:")) {
           const response = await fetch(asset.uri);
           const blob = await response.blob();
@@ -606,11 +607,8 @@ export default function PlayerProfileScreen() {
           formData.append("photo", blob, filename);
         }
       } else {
-        formData.append("photo", {
-          uri: asset.uri,
-          name: filename,
-          type,
-        } as any);
+        const { appendImageToFormData } = await import("@/lib/uploads");
+        await appendImageToFormData(formData, "photo", asset.uri, type);
       }
 
       const token = getAuthToken();
@@ -622,16 +620,25 @@ export default function PlayerProfileScreen() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to upload photo");
+        let message = "Failed to upload photo";
+        try {
+          const body = await response.json();
+          if (body?.error) message = body.error;
+        } catch {}
+        throw new Error(message);
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Profile photo updated!");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error uploading photo:", error);
-      Alert.alert("Error", "Failed to upload photo. Please try again.");
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to upload photo. Please try again.";
+      Alert.alert("Photo upload failed", message);
     } finally {
       setIsUploadingPhoto(false);
     }

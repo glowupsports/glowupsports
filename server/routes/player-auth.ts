@@ -688,7 +688,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "Invalid motivation type value" });
         }
 
-        const memberName = `${firstName.trim()} ${lastName.trim()}`;
+        const { sanitizeName: _sanitizeName } = await import("../../shared/textSanitize");
+        const memberName = _sanitizeName(`${firstName} ${lastName}`);
+        if (!memberName) {
+          return res.status(400).json({ error: "Name cannot be empty" });
+        }
 
         // Compute age from dateOfBirth if provided
         let age: number | null = null;

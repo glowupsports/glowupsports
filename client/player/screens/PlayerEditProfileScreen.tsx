@@ -232,20 +232,11 @@ export default function PlayerEditProfileScreen() {
     setPhotoUploading(true);
     try {
       const formData = new FormData();
-      if (Platform.OS === "web") {
-        try {
-          const res = await fetch(photoUri);
-          const blob = await res.blob();
-          const ext = blob.type.split("/")[1] || "jpg";
-          formData.append("photo", new window.File([blob], `profile.${ext}`, { type: blob.type }));
-        } catch {
-          throw new Error("Could not read selected photo");
-        }
-      } else {
-        const filename = photoUri.split("/").pop() || "photo.jpg";
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1].toLowerCase().replace("jpg", "jpeg")}` : "image/jpeg";
-        formData.append("photo", { uri: photoUri, name: filename, type } as any);
+      try {
+        const { appendImageToFormData } = await import("@/lib/uploads");
+        await appendImageToFormData(formData, "photo", photoUri);
+      } catch {
+        throw new Error("Could not read selected photo");
       }
       const token = getAuthToken();
       const response = await fetch(`${getApiUrl()}/api/player/me/photo`, {
@@ -254,8 +245,14 @@ export default function PlayerEditProfileScreen() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!response.ok) {
-        const err = await response.text();
-        throw new Error(err || "Upload failed");
+        let message = "Upload failed";
+        try {
+          const body = await response.json();
+          if (body?.error) message = body.error;
+        } catch {
+          try { message = await response.text() || message; } catch {}
+        }
+        throw new Error(message);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });

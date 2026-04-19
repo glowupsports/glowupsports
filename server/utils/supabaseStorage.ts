@@ -79,7 +79,19 @@ export async function uploadToSupabaseWithPath(
     });
 
   if (error) {
-    throw new Error(`[SupabaseStorage] Upload failed: ${error.message}`);
+    // Supabase StorageError exposes name/statusCode but the typed surface is
+    // narrow; widen via a typed structural type rather than `any`.
+    const errWithMeta = error as { message: string; name?: string; statusCode?: number };
+    console.error("[SupabaseStorage] Upload failed", {
+      bucket: BUCKET,
+      storagePath,
+      mimetype,
+      bufferSize: fileBuffer?.length,
+      message: errWithMeta.message,
+      name: errWithMeta.name,
+      statusCode: errWithMeta.statusCode,
+    });
+    throw new Error(`[SupabaseStorage] Upload failed: ${errWithMeta.message}`);
   }
 
   const { data } = client.storage.from(BUCKET).getPublicUrl(storagePath);

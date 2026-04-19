@@ -48,7 +48,12 @@ const getGlowSize = (size: AvatarSize): number => {
 
 const getInitials = (name?: string): string => {
   if (!name) return "?";
-  const parts = name.trim().split(" ");
+  // Strip invisible/zero-width Unicode chars that would otherwise become
+  // the "first character" of a word and render as nothing.
+  const cleaned = name.replace(/[\u200B-\u200F\u2060\uFEFF\u00AD\u180E]/g, "").trim();
+  if (!cleaned) return "?";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
   if (parts.length === 1) {
     return parts[0].substring(0, 2).toUpperCase();
   }

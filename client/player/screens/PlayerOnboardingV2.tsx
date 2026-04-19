@@ -21,7 +21,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image as ExpoImage } from "expo-image";
-import { File } from "expo-file-system";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -2671,6 +2670,10 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   });
 
   const [completionSaving, setCompletionSaving] = useState(false);
+  // Captures a non-fatal photo upload error from saveMutation so onSuccess
+  // can surface it to the user. Uses a ref instead of state to avoid an
+  // extra render between the upload finishing and onSuccess running.
+  const photoUploadErrorRef = useRef<string | null>(null);
 
   const playerName = user?.username || "";
   const age = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
@@ -2739,54 +2742,15 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
           logger.log("[Onboarding] Uploading profile photo...");
           const formData = new FormData();
           const authToken = await import("@/lib/auth").then(m => m.getAuthToken());
-          
-          if (Platform.OS === 'web') {
-            logger.log("[Onboarding] Web platform - converting blob URL to File...");
-            
-            if (!onboardingData.profilePhotoUri.startsWith('blob:')) {
-              console.warn("[Onboarding] Photo URI is not a blob URL:", onboardingData.profilePhotoUri.substring(0, 50));
-            }
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000);
-            
-            try {
-              const blobResponse = await fetch(onboardingData.profilePhotoUri, { signal: controller.signal });
-              clearTimeout(timeoutId);
-              
-              if (!blobResponse.ok) {
-                console.warn("[Onboarding] Failed to fetch blob URL:", blobResponse.status);
-                throw new Error(`Failed to fetch blob: ${blobResponse.status}`);
-              }
-              
-              const blob = await blobResponse.blob();
-              logger.log("[Onboarding] Blob fetched successfully, size:", blob.size, "type:", blob.type);
-              
-              if (blob.size === 0) {
-                console.warn("[Onboarding] Blob is empty, skipping upload");
-                return result;
-              }
-              
-              const extension = blob.type.split('/')[1] || 'png';
-              const webFile = new window.File([blob], `profile-photo.${extension}`, { type: blob.type });
-              formData.append("photo", webFile);
-            } catch (blobError: any) {
-              if (blobError.name === 'AbortError') {
-                console.warn("[Onboarding] Photo blob fetch timed out after 30s");
-              } else {
-                console.warn("[Onboarding] Failed to fetch blob:", blobError.message || blobError);
-              }
-              return result;
-            }
-          } else {
-            const uri = onboardingData.profilePhotoUri;
-            const filename = uri.split('/').pop() || 'photo.jpg';
-            const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1].toLowerCase().replace('jpg', 'jpeg')}` : 'image/jpeg';
-            // React Native's FormData accepts { uri, name, type } for native file uploads.
-            // expo-file-system's File class wraps this pattern in a Blob-compatible interface.
-            const file = new File(uri, filename, { type });
-            formData.append("photo", file);
+          const { appendImageToFormData } = await import("@/lib/uploads");
+
+          try {
+            await appendImageToFormData(formData, "photo", onboardingData.profilePhotoUri);
+          } catch (blobError: unknown) {
+            const msg = blobError instanceof Error ? blobError.message : String(blobError);
+            console.warn("[Onboarding] Failed to prepare photo for upload:", msg);
+            photoUploadErrorRef.current = msg;
+            return result;
           }
           
           logger.log("[Onboarding] Uploading to server...");
@@ -2805,15 +2769,28 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
           
           logger.log("[Onboarding] Photo upload response:", photoResponse.status);
           if (!photoResponse.ok) {
-            const errorText = await photoResponse.text();
-            console.warn("[Onboarding] Photo upload failed:", errorText);
+            let serverMessage = "";
+            try {
+              const errorBody = await photoResponse.json();
+              serverMessage = errorBody?.error || "";
+            } catch {
+              try { serverMessage = await photoResponse.text(); } catch {}
+            }
+            console.warn("[Onboarding] Photo upload failed:", photoResponse.status, serverMessage);
+            photoUploadErrorRef.current = serverMessage || `Server returned ${photoResponse.status}`;
           } else {
             const uploadResult = await photoResponse.json();
             logger.log("[Onboarding] Photo upload successful!", uploadResult);
           }
-        } catch (photoError: any) {
-          const errorMessage = photoError?.message || photoError?.name || String(photoError) || 'Unknown error';
+        } catch (photoError: unknown) {
+          const errorMessage =
+            photoError instanceof Error
+              ? photoError.message
+              : typeof photoError === "string"
+                ? photoError
+                : "Unknown error";
           console.warn("[Onboarding] Failed to upload profile photo:", errorMessage);
+          photoUploadErrorRef.current = errorMessage;
         }
       }
       
@@ -2838,7 +2815,17 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/family/status"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onComplete();
+      const photoErr = photoUploadErrorRef.current;
+      if (photoErr) {
+        photoUploadErrorRef.current = null;
+        Alert.alert(
+          "Profile saved — photo upload failed",
+          `We saved your profile, but couldn't upload your photo: ${photoErr}. You can retry from your profile screen.`,
+          [{ text: "OK", onPress: () => onComplete() }]
+        );
+      } else {
+        onComplete();
+      }
     },
     onError: () => {
       setCompletionSaving(false);

@@ -1103,6 +1103,70 @@ function setupErrorHandler(app: express.Application) {
         console.error("[GlowProgressConnectivity] Startup migration failed:", err);
       }
 
+      // One-off cleanup: strip invisible/zero-width Unicode and surrounding
+      // whitespace from leading/trailing positions of players.name and
+      // players.display_name. Cheap fast-path: a single SQL pre-check selects
+      // only rows whose name actually starts/ends with an invisible or
+      // whitespace char. In the steady state this returns 0 rows in a few ms
+      // and the per-row JS sanitiser loop is skipped entirely, so this is
+      // effectively a no-op on subsequent boots.
+      try {
+        const { db: dbInstance } = await import("./db");
+        const { sql: sqlTag } = await import("drizzle-orm");
+        const { sanitizeName } = await import("../shared/textSanitize");
+        interface PlayerNameRow {
+          id: string;
+          name: string | null;
+          display_name: string | null;
+        }
+        // Postgres regex character class matching the same set as
+        // shared/textSanitize.ts plus standard whitespace at either end.
+        const dirtyRows = await dbInstance.execute<PlayerNameRow>(sqlTag`
+          SELECT id, name, display_name
+          FROM players
+          WHERE
+            name ~ E'^[\\s\\u200B-\\u200F\\u2060\\uFEFF\\u00AD\\u180E]'
+            OR name ~ E'[\\s\\u200B-\\u200F\\u2060\\uFEFF\\u00AD\\u180E]$'
+            OR display_name ~ E'^[\\s\\u200B-\\u200F\\u2060\\uFEFF\\u00AD\\u180E]'
+            OR display_name ~ E'[\\s\\u200B-\\u200F\\u2060\\uFEFF\\u00AD\\u180E]$'
+        `);
+        let nameFixed = 0;
+        let dispFixed = 0;
+        for (const row of dirtyRows.rows) {
+          const updates: { name?: string; display_name?: string | null } = {};
+          if (typeof row.name === "string") {
+            const cleaned = sanitizeName(row.name);
+            // Only update when something actually changed AND the result is
+            // still non-empty (never blank out a name).
+            if (cleaned && cleaned !== row.name) {
+              updates.name = cleaned;
+            }
+          }
+          if (typeof row.display_name === "string") {
+            const cleaned = sanitizeName(row.display_name);
+            if (cleaned !== row.display_name) {
+              // display_name is allowed to become null/empty if it was only invisibles
+              updates.display_name = cleaned || null;
+            }
+          }
+          if (updates.name !== undefined && updates.display_name !== undefined) {
+            await dbInstance.execute(sqlTag`UPDATE players SET name = ${updates.name}, display_name = ${updates.display_name} WHERE id = ${row.id}`);
+            nameFixed++; dispFixed++;
+          } else if (updates.name !== undefined) {
+            await dbInstance.execute(sqlTag`UPDATE players SET name = ${updates.name} WHERE id = ${row.id}`);
+            nameFixed++;
+          } else if (updates.display_name !== undefined) {
+            await dbInstance.execute(sqlTag`UPDATE players SET display_name = ${updates.display_name} WHERE id = ${row.id}`);
+            dispFixed++;
+          }
+        }
+        if (nameFixed > 0 || dispFixed > 0) {
+          log(`[InvisibleCharCleanup] name: ${nameFixed} fixed, display_name: ${dispFixed} fixed`);
+        }
+      } catch (err) {
+        console.error("[InvisibleCharCleanup] Startup migration failed:", err);
+      }
+
       // Fix session capacity: correct wrong max_players values from before session-type-aware logic
       try {
         const { db } = await import("./db");

@@ -3,6 +3,31 @@ import { apiCache } from "./cache";
 import { randomUUID } from "node:crypto";
 import { localHHMMToUtc } from "./utils/timezone";
 import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
+import { sanitizeName } from "../shared/textSanitize";
+
+// Strip invisible/zero-width Unicode and trim whitespace from player name
+// fields before they are persisted.
+//   - `name` is required: sanitised value is always written. If sanitisation
+//     leaves it empty we throw so callers can return a 400 instead of silently
+//     persisting junk (or silently keeping the unsanitised original).
+//   - `displayName` is optional/nullable: an empty sanitised value collapses
+//     to null (treated as "no display name") rather than persisting "".
+function sanitizePlayerNameFields<T extends Record<string, any>>(data: T): T {
+  if (!data || typeof data !== "object") return data;
+  const out: Record<string, any> = { ...data };
+  if (typeof out.name === "string") {
+    const cleaned = sanitizeName(out.name);
+    if (!cleaned) {
+      throw new Error("Player name cannot be empty after stripping invisible characters");
+    }
+    out.name = cleaned;
+  }
+  if (typeof out.displayName === "string") {
+    const cleaned = sanitizeName(out.displayName);
+    out.displayName = cleaned || null;
+  }
+  return out as T;
+}
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import { desc, asc } from "drizzle-orm";
 import {
@@ -2374,12 +2399,14 @@ export const storage = {
   },
 
   async createPlayer(data: InsertPlayer): Promise<Player> {
-    const result = await db.insert(players).values(data).returning();
+    const sanitized = sanitizePlayerNameFields(data);
+    const result = await db.insert(players).values(sanitized).returning();
     return result[0];
   },
 
   async updatePlayer(id: string, data: Partial<InsertPlayer>): Promise<Player | undefined> {
-    const result = await db.update(players).set(data).where(eq(players.id, id)).returning();
+    const sanitized = sanitizePlayerNameFields(data);
+    const result = await db.update(players).set(sanitized).where(eq(players.id, id)).returning();
     return result[0];
   },
 
