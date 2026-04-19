@@ -35,7 +35,7 @@ import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { FeedbackToast } from "@/player/components/FeedbackToast";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { SpotlightCard, FriendSpotlightCard } from "@/player/components/SpotlightCard";
+import { SpotlightCard } from "@/player/components/SpotlightCard";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
@@ -1032,10 +1032,6 @@ function PlayerHomeContent() {
               onNominate={() => setShowSpotlightNomination(true)}
               onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
               accessibilityLabel="Player spotlight card"
-            />
-
-            <FriendSpotlightCard
-              onAddFriends={() => navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } })}
             />
           </>
         ) : null}

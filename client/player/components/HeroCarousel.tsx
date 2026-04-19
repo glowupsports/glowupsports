@@ -63,7 +63,7 @@ const HeroPillContext = React.createContext<{ onInteract: () => void }>({
   onInteract: () => {},
 });
 
-type SlotId = "train" | "glow_lessons" | "compete" | "events";
+type SlotId = "train" | "glow_lessons" | "compete" | "events" | "friend_spotlight";
 interface SlotMeta {
   id: SlotId;
   label: string;
@@ -71,12 +71,14 @@ interface SlotMeta {
 }
 
 const GLOW_LESSONS_ACCENT = "#E040FB";
+const FRIEND_SPOTLIGHT_ACCENT = GlowColors.primary;
 
 const SLOTS: SlotMeta[] = [
   { id: "train", label: "TRAIN", accent: GlowColors.primary },
   { id: "glow_lessons", label: "GLOW LESSONS", accent: GLOW_LESSONS_ACCENT },
   { id: "compete", label: "OPEN MATCHES", accent: FunctionColors.info },
   { id: "events", label: "TOURNAMENTS & EVENTS", accent: RoleColors.owner },
+  { id: "friend_spotlight", label: "FRIEND SPOTLIGHT", accent: FRIEND_SPOTLIGHT_ACCENT },
 ];
 
 interface ChallengeData {
@@ -687,6 +689,224 @@ function EventsCard() {
 }
 
 // =============================================================================
+// FRIEND SPOTLIGHT LENS
+// =============================================================================
+interface FriendSpotlightConnection {
+  id: string;
+  status: string;
+  matchesPlayed: number;
+  lastPlayedAt: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+  player: {
+    id: string;
+    name: string;
+    photoUrl: string | null;
+    profilePhotoUrl?: string | null;
+    level: number;
+    glowScore: number;
+    ballLevel: string | null;
+    openToPlay: boolean;
+  } | null;
+}
+
+function FriendSpotlightLensCard() {
+  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
+
+  const { data: connectionsData } = useQuery<{ friends: FriendSpotlightConnection[] }>({
+    queryKey: ["/api/player/connections"],
+  });
+
+  const friends = (connectionsData?.friends || [])
+    .filter((c) => c.player)
+    .slice()
+    .sort((a, b) => {
+      const aTime = a.lastPlayedAt ? new Date(a.lastPlayedAt).getTime() : 0;
+      const bTime = b.lastPlayedAt ? new Date(b.lastPlayedAt).getTime() : 0;
+      if (aTime !== bTime) return bTime - aTime;
+      if ((b.matchesPlayed || 0) !== (a.matchesPlayed || 0)) {
+        return (b.matchesPlayed || 0) - (a.matchesPlayed || 0);
+      }
+      const aAcc = a.acceptedAt || a.createdAt;
+      const bAcc = b.acceptedAt || b.createdAt;
+      return new Date(bAcc).getTime() - new Date(aAcc).getTime();
+    })
+    .slice(0, 3);
+
+  const goToFriends = () => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      navigation.navigate("FriendsList");
+    } catch {}
+  };
+
+  const goToPlayerProfile = (playerId: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      navigation.navigate("PublicProfile", { playerId });
+    } catch {}
+  };
+
+  const goFindPlayers = () => {
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      navigation.navigate("PlayerFinder");
+    } catch {}
+  };
+
+  if (friends.length === 0) {
+    return (
+      <LensShell
+        accent={FRIEND_SPOTLIGHT_ACCENT}
+        label="FRIEND SPOTLIGHT"
+        icon="people"
+        actionLabel="View All"
+        onAction={goToFriends}
+      >
+        <View style={friendSpotlightStyles.emptyWrap}>
+          <View style={[friendSpotlightStyles.emptyIcon, { borderColor: `${FRIEND_SPOTLIGHT_ACCENT}55`, backgroundColor: `${FRIEND_SPOTLIGHT_ACCENT}18` }]}>
+            <Ionicons name="people-outline" size={28} color={FRIEND_SPOTLIGHT_ACCENT} />
+          </View>
+          <Text style={styles.lensTitle}>Add friends to see their progress</Text>
+          <Text style={styles.lensSubtitle}>
+            Connect with players from your academy and follow their week.
+          </Text>
+          <Pressable
+            style={[styles.ctaPrimary, { backgroundColor: FRIEND_SPOTLIGHT_ACCENT }]}
+            onPress={goFindPlayers}
+          >
+            <Text style={styles.ctaPrimaryText}>Add friends</Text>
+            <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+          </Pressable>
+        </View>
+      </LensShell>
+    );
+  }
+
+  return (
+    <LensShell
+      accent={FRIEND_SPOTLIGHT_ACCENT}
+      label="FRIEND SPOTLIGHT"
+      icon="people"
+      actionLabel="View All"
+      onAction={goToFriends}
+    >
+      <Text style={[styles.lensSubtitle, { marginBottom: Spacing.xs }]}>Most active this week</Text>
+      <View style={friendSpotlightStyles.list}>
+        {friends.map((conn, idx) => {
+          const p = conn.player!;
+          const photoUri = buildPhotoUrl(p.photoUrl ?? p.profilePhotoUrl ?? null);
+          const stat =
+            (conn.matchesPlayed || 0) > 0
+              ? `${conn.matchesPlayed} match${conn.matchesPlayed === 1 ? "" : "es"}`
+              : `Lvl ${p.level || 1}`;
+          return (
+            <Pressable
+              key={conn.id}
+              onPress={() => goToPlayerProfile(p.id)}
+              style={({ pressed }) => [
+                friendSpotlightStyles.row,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <View style={friendSpotlightStyles.rank}>
+                <Text style={[friendSpotlightStyles.rankText, { color: FRIEND_SPOTLIGHT_ACCENT }]}>
+                  {idx + 1}
+                </Text>
+              </View>
+              <View style={[friendSpotlightStyles.avatarRing, { borderColor: `${FRIEND_SPOTLIGHT_ACCENT}88` }]}>
+                {photoUri ? (
+                  <RNImage source={{ uri: photoUri }} style={friendSpotlightStyles.avatarImg} />
+                ) : (
+                  <View style={[friendSpotlightStyles.avatarFallback, { backgroundColor: `${FRIEND_SPOTLIGHT_ACCENT}22` }]}>
+                    <Ionicons name="person" size={18} color={FRIEND_SPOTLIGHT_ACCENT} />
+                  </View>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={friendSpotlightStyles.name} numberOfLines={1}>{p.name}</Text>
+                <Text style={friendSpotlightStyles.stat} numberOfLines={1}>{stat}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={TextColors.muted} />
+            </Pressable>
+          );
+        })}
+      </View>
+    </LensShell>
+  );
+}
+
+const friendSpotlightStyles = StyleSheet.create({
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: Spacing.xs,
+  },
+  list: {
+    gap: Spacing.xs,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  rank: {
+    width: 22,
+    alignItems: "center",
+  },
+  rankText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  avatarRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  avatarImg: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarFallback: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  name: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: TextColors.primary,
+  },
+  stat: {
+    fontSize: FontSizes.sm,
+    color: TextColors.secondary,
+    marginTop: 1,
+  },
+});
+
+// =============================================================================
 // LENS SHELL (consistent COMPETE/EVENTS card surface)
 // =============================================================================
 function LensShell({
@@ -1015,6 +1235,7 @@ export function HeroCarousel({
       <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
         {item.id === "compete" && <CompeteCard />}
         {item.id === "events" && <EventsCard />}
+        {item.id === "friend_spotlight" && <FriendSpotlightLensCard />}
       </View>
     );
   };
