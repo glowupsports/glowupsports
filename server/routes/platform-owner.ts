@@ -26,7 +26,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
   import {
     users, coaches, players, academies, sessions, packages, coachingSeries, seriesPlayers,
-    creditTransactions, invoices, payments, sessionPlayers, sessionWaitlist,
+    creditTransactions, creditLedgerV2, creditLots, invoices, payments, sessionPlayers, sessionWaitlist,
     locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
     sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
     coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
@@ -2713,12 +2713,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Player not found" });
         }
 
-        const allTransactions = await db.select().from(creditTransactions)
-          .where(eq(creditTransactions.playerId, playerId))
-          .orderBy(creditTransactions.createdAt);
+        // Task #745: V1 retired post #682 — read from V2 ledger + lots instead.
+        const ledgerRows = await db.select().from(creditLedgerV2)
+          .where(eq(creditLedgerV2.playerId, playerId))
+          .orderBy(creditLedgerV2.occurredAt);
 
-        const allPackages = await db.select().from(packages)
-          .where(eq(packages.playerId, playerId));
+        const lotRows = await db.select().from(creditLots)
+          .where(eq(creditLots.playerId, playerId));
 
         const allSessionPlayers = await db.select({
           id: sessionPlayers.id,
@@ -2745,43 +2746,29 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const balance = await storage.getPlayerCreditBalanceByType(playerId);
 
-        const txSummary = allTransactions.map(tx => ({
-          id: tx.id,
-          amount: Number(tx.amount),
-          creditType: tx.creditType,
-          reason: tx.reason,
-          type: tx.type,
-          packageId: tx.packageId,
-          sessionId: tx.sessionId,
-          metadata: tx.metadata,
-          createdAt: tx.createdAt,
-          includedInBalance: (() => {
-            const meta = tx.metadata as any;
-            if (tx.reason === "debt_settlement") return false;
-            if (meta?.cancelled === true || meta?.expired === true) return false;
-            if (!tx.creditType) return false;
-            if (Number(tx.amount) > 0 && !tx.packageId && (
-              tx.reason === "package_purchased" || tx.reason === "package_purchase" || tx.reason === "package_deleted_refund"
-            )) return false;
-            return true;
-          })(),
-          isSettledDebt: (() => {
-            const meta = tx.metadata as any;
-            return meta?.settled === true;
-          })(),
+        // V2 ledger entries are immutable and already net-of-cancellations
+        // (cancellations write a compensating row rather than mutating metadata).
+        // Every row with a non-zero delta therefore counts toward the balance.
+        const txSummary = ledgerRows.map(row => ({
+          id: row.id,
+          amount: Number(row.delta),
+          creditType: row.type,
+          reason: row.reason,
+          type: row.type,
+          packageId: row.lotId,
+          sessionId: row.sessionId,
+          metadata: row.metadata,
+          createdAt: row.occurredAt,
+          includedInBalance: Number(row.delta) !== 0,
+          isSettledDebt: false,
         }));
 
         const attendedSessions = allSessionPlayers
           .filter(sp => sp.attendanceStatus === "present" || sp.attendanceStatus === "late");
         const debitSessionIds = new Set(
-          allTransactions
-            .filter(tx => {
-              const meta = tx.metadata as any;
-              return Number(tx.amount) < 0 && tx.sessionId &&
-                tx.reason !== "debt_settlement" &&
-                meta?.cancelled !== true && meta?.expired !== true;
-            })
-            .map(tx => tx.sessionId!)
+          ledgerRows
+            .filter(row => Number(row.delta) < 0 && row.sessionId && row.reason === "consume")
+            .map(row => row.sessionId!)
         );
         const missingSessions = attendedSessions
           .filter(sp => !debitSessionIds.has(sp.sessionId))
@@ -2795,14 +2782,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           player: { id: player.id, name: player.name },
           computedBalance: balance,
           transactions: txSummary,
-          packages: allPackages.map(pkg => ({
-            id: pkg.id,
-            creditType: pkg.creditType,
-            totalCredits: Number(pkg.totalCredits),
-            remainingCredits: Number(pkg.remainingCredits),
-            status: pkg.status,
-            expiryDate: pkg.expiryDate,
-            createdAt: pkg.createdAt,
+          packages: lotRows.map(lot => ({
+            id: lot.id,
+            creditType: lot.type,
+            totalCredits: Number(lot.qtyTotal),
+            remainingCredits: Number(lot.qtyRemaining),
+            status: lot.status,
+            expiryDate: lot.expiresAt,
+            createdAt: lot.createdAt,
           })),
           sessionPlayers: attendedSessions.map(sp => ({
             sessionPlayerId: sp.id,
@@ -2813,11 +2800,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           })),
           missingSessions,
           summary: {
-            totalTransactions: allTransactions.length,
+            totalTransactions: ledgerRows.length,
             activeTransactions: txSummary.filter(t => t.includedInBalance).length,
             settledTransactions: txSummary.filter(t => (t.metadata as any)?.settled === true).length,
             cancelledTransactions: txSummary.filter(t => (t.metadata as any)?.cancelled === true).length,
-            totalPackages: allPackages.length,
+            totalPackages: lotRows.length,
             totalSessionsAttended: attendedSessions.length,
             sessionsWithoutDebit: missingSessions.length,
           },

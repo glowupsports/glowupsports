@@ -651,7 +651,13 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         await db.transaction(async (tx) => {
           await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
           await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
-          await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
+          // Task #745: legacy `credit_transactions` table is inert post #682.
+          // V2 ledger rows are intentionally NOT touched here — orphan sessions
+          // were attended/charged at the time, and the immutable ledger,
+          // credit_lots.qty_remaining, and aggregate balances already reflect
+          // that consumption. Hard-deleting ledger rows without rebuilding
+          // lots+aggregates would corrupt balances; refunding them would
+          // reverse charges for sessions players actually attended.
           await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
           await tx.delete(sessions).where(inArray(sessions.id, sessionIds));
         });
@@ -2545,11 +2551,12 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         // Record debt transaction
         const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
         
-        // Check if debt already recorded
-        const existingDebt = await db.select().from(creditTransactions)
-          .where(eq(creditTransactions.id, debtId))
-          .limit(1);
-        
+        // Task #745: legacy `credit_transactions` table is inert post #682.
+        // The historical existence-check is no longer meaningful — the V1 row
+        // never gets written. Idempotency for this fixer now lives entirely on
+        // `session_players.creditDeductedAt` being set below.
+        const existingDebt: { id: string }[] = [];
+
         if (existingDebt.length === 0) {
           const creditType = session.sessionType.includes("semi") ? "semi_private" : 
                              session.sessionType.includes("group") ? "group" : "private";

@@ -1435,9 +1435,55 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           );
           await client.query(`UPDATE series_players SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 
-          // packages before credit_transactions (credit_transactions.package_id → packages.id)
-          await client.query(`UPDATE packages SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
-          await client.query(`UPDATE credit_transactions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // V2 credit system (Task #682): repoint immutable history (lots + ledger)
+          // onto the target. credit_lots has no unique-on-player constraint, and
+          // credit_ledger_v2's eventKey is globally unique, so straight UPDATE is safe.
+          await client.query(`UPDATE credit_lots SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await client.query(`UPDATE credit_ledger_v2 SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // Aggregates have UNIQUE(player_id, academy_id[, type]); drop both
+          // sides and rebuild the target's rows from the (now repointed) ledger
+          // inside this transaction. The credit-reconcile watchdog only DETECTS
+          // drift — it does not write — so the rebuild has to happen here.
+          await client.query(`DELETE FROM player_credit_balance WHERE player_id IN ($1, $2)`, [sourceId, targetId]);
+          // Capture existing wallet currency per academy (target preferred,
+          // falling back to source) before we delete, so the rebuild keeps
+          // non-AED wallets intact instead of silently coercing to AED.
+          const walletCurrencyRows = await client.query(
+            `SELECT academy_id, currency FROM player_money_wallet
+             WHERE player_id IN ($1, $2)
+             ORDER BY (player_id = $1) DESC`,
+            [targetId, sourceId]
+          );
+          const walletCurrencyByAcademy = new Map<string, string>();
+          for (const row of walletCurrencyRows.rows as { academy_id: string; currency: string }[]) {
+            if (!walletCurrencyByAcademy.has(row.academy_id)) {
+              walletCurrencyByAcademy.set(row.academy_id, row.currency);
+            }
+          }
+          await client.query(`DELETE FROM player_money_wallet WHERE player_id IN ($1, $2)`, [sourceId, targetId]);
+          await client.query(
+            `INSERT INTO player_credit_balance (player_id, academy_id, type, credits, updated_at)
+             SELECT player_id, academy_id, type, COALESCE(SUM(delta), 0), NOW()
+             FROM credit_ledger_v2
+             WHERE player_id = $1 AND type IN ('group', 'semi_private', 'private')
+             GROUP BY player_id, academy_id, type`,
+            [targetId]
+          );
+          const moneyAggregates = await client.query(
+            `SELECT academy_id, COALESCE(SUM(delta), 0) AS balance
+             FROM credit_ledger_v2
+             WHERE player_id = $1 AND type = 'money'
+             GROUP BY academy_id`,
+            [targetId]
+          );
+          for (const agg of moneyAggregates.rows as { academy_id: string; balance: string | number }[]) {
+            const currency = walletCurrencyByAcademy.get(agg.academy_id) ?? 'AED';
+            await client.query(
+              `INSERT INTO player_money_wallet (player_id, academy_id, balance, currency, updated_at)
+               VALUES ($1, $2, $3, $4, NOW())`,
+              [targetId, agg.academy_id, agg.balance, currency]
+            );
+          }
           await client.query(`UPDATE invoices SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE payments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 

@@ -12,20 +12,11 @@ Preferred communication style: Simple, everyday language.
 - New features → bump minor: 1.3.x → 1.4.0
 - Major release → bump major: 1.x.x → 2.0.0
 - ALWAYS update both `"version"` AND `"runtimeVersion"` in app.json
-- Current version: **1.3.4** — build #24 submitted to App Store Connect on 5 Apr 2026
-- Apple is processing the binary (5-10 min). View at: https://appstoreconnect.apple.com/apps/6759315860/testflight/ios
-- Next build: bump version to 1.3.5 (patch) or 1.4.0 (new features)
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
 **Every `.local/tasks/*.md` plan file MUST have one of these lines near the top (under "Done looks like" or as its own section):**
 - **Deployment: OTA update** — JS/TS-only changes; push instantly via EAS update, no App Store submission needed
 - **Deployment: New build required** — native module changes, `app.json` plugin/permission changes, or new native packages; must rebuild and submit to App Store
-
-**OTA triggers** (no build needed):
-- Server-side only, frontend logic, UI changes, translation strings, API tweaks, bug fixes in JS/TS
-
-**New build triggers** (must rebuild + submit):
-- Adding a native package (non-JS Expo module), changing `app.json` plugins/permissions/bundleId, updating Expo SDK major version, adding new native capabilities
 
 ### CRITICAL: Database Queries — Always Use Supabase
 **The `executeSql` / `code_execution` SQL tool queries a LOCAL database, NOT Supabase.**
@@ -40,8 +31,6 @@ Preferred communication style: Simple, everyday language.
 1. **First**: Check what existing endpoints are available for the feature
 2. **Second**: Modify existing endpoint logic if needed
 3. **Third**: Only if nothing exists, ASK permission before creating a new endpoint
-
-This rule applies to ALL development work going forward. Always search existing routes first using grep/search before proposing any new API endpoints.
 
 ## System Architecture
 
@@ -79,7 +68,7 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Player Calendar Integration**: Players can subscribe to upcoming sessions via ICS feed and add individual sessions to native calendars.
 - **Venue/Club System**: Supports various academy types including coaching, court rental, and social clubs.
 - **Playtomic-Style Court Booking System**: Multi-phase booking with friend invites, cost splitting, and smart availability.
-- **Slot Reservation System**: Prevents double-booking race conditions. When a player taps a slot, the server atomically claims a 5-minute hold via `slot_reservations` table (unique constraint on `coach_id + start_time`). Returns a countdown timer to the client; other players see the slot grayed out. Hold auto-expires after 5 min. Released on booking success or wizard close. CRITICAL NOTE: Drizzle node-postgres adapter returns TIMESTAMP columns as raw strings (not Date objects) — always wrap in `new Date()` after `db.execute()` calls, or use `db.select().from(table)` which applies schema type mapping correctly.
+- **Slot Reservation System**: Prevents double-booking race conditions by atomically claiming a 5-minute hold on a slot.
 - **Family Lobby System**: Netflix-style multi-account management with profile cards and quick-switching.
 - **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, and evidence upload.
 - **Week Planner**: Coach "Week View" showing active groups, player lists, capacity, and holiday/paused counts.
@@ -87,13 +76,17 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
 - **Corporate/Business Accounts**: Companies purchase session credit pools for employees. Managed by `corporateStorage` with dedicated API routes and admin/employee dashboards. Booking integration ensures corporate credits are processed first.
 - **Web Container**: `client/components/WebContainer.tsx` wraps the app in a phone-shaped frame on desktop. Cross-platform shadow system and web-compatible `SwipeableTabBar`.
-- **Credit Drift Watchdog (Task #671)**: `server/services/credit-reconcile.ts` exposes `computeCreditDrift(academyId?)` which recomputes expected vs actual V2 consumption per player. Surfaced via `GET /api/admin/credits/reconcile` and run every 5 min by the reminder scheduler — logs `[Reconcile] OK` when clean, `[Reconcile] DRIFT ...` per player otherwise. Read-only; use `scripts/backfill-credit-drift.ts --apply` to actually fix drift. Player profile SESSIONS stat now uses the same chargeable definition as the wallet (with `+N not charged` subtitle when they differ), so the two can never silently contradict each other.
-- **V1 Credit Retirement (Task #682)**: All academies are now V2 only. `credit-feature-flag.ts` is permanently locked: `isV2EnabledForAcademy` returns `true`, `v1WritesAllowed` returns `false`. `credit-shadow.ts` service and `/api/platform/credit-shadow/*` debug endpoints have been deleted. Storage shims convert legacy V1 calls into V2 ledger ops: `createPackage` → `purchasePackage` (with the package UUID as `sourcePackageId`); `getPackage` resolves the lot back via `credit_lots.source_package_id`; `deletePackage` cancels the V2 lot and detaches the invoice; `usePackageCredit` decrements the lot directly; `createCreditTransaction`/`getCreditTransactionsByPlayer`/`getCreditTransactionsBySession`/`settlePlayerDebts`/`settleUnpaidSessions`/`convertPackageConsumptionToDebt` are now no-ops. The V1 tables (`packages`, `package_templates`, `credit_transactions`, `credit_shadow_diff`) still exist but are inert — drops are deferred to a Phase 5 follow-up because ~50 cleanup-time references (`resetAcademyData`, `deletePlayer`, etc.) still touch them and need targeted refactors before the SQL `DROP TABLE` runs.
+- **Credit Drift Watchdog**: `server/services/credit-reconcile.ts` exposes `computeCreditDrift(academyId?)` which recomputes expected vs actual V2 consumption per player.
+- **V1 Credit Retirement**: All academies are now V2 only. Legacy V1 calls are converted into V2 ledger operations via storage shims.
+- **V1 Route-Layer Cleanup**: Removed unused V1 imports from several route files.
+
+### Conventions
+- **Modal Stacking**: If a modal is opened from inside another modal, render its `<Modal>` JSX as a child of the parent modal's JSX, not as a sibling on the screen to prevent it from appearing behind the parent.
 
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL.
-- **Media Storage**: Supabase Storage (`social-posts` bucket) for social post photos/videos — persistent across server restarts. Upload utility at `server/utils/supabaseStorage.ts`. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` secrets.
+- **Media Storage**: Supabase Storage (`social-posts` bucket).
 - **Deployment**: Replit.
 - **Push Notifications**: Firebase Cloud Messaging (FCM).
 - **Email Service**: Resend API.
@@ -102,18 +95,3 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen.
 - **UI Components**: `expo-glass-effect`.
 - **Keyboard Management**: `react-native-keyboard-controller`.
-
-## Conventions
-
-### Modal stacking (CRITICAL)
-React Native's `<Modal>` mounts every instance into its own native window. When two `<Modal>` components are siblings in the JSX tree, the platform shows the first-presented one on top — so a "child" modal opened from inside a "parent" modal will silently appear **behind** the parent.
-
-Rule: **If a modal is opened from inside another modal, render its `<Modal>` JSX as a child of the parent modal's JSX, not as a sibling on the screen.** Pass any required state/callbacks down as props.
-
-This applies to: admin player detail (Add/Edit, Mark Paid, Record Payment, Credit Store, Report Issue all nested inside `AdminPlayerDetailModal`), `SeriesDetailDrawer` (in-session feedback + deep assessment nested inside the outer modal), `SessionDetailDrawer` sub-drawers, and any future flow that opens a modal from within another modal.
-
-`WebAlertProvider` ships with a very high `zIndex`/`elevation` on its overlay so global alerts always layer above any other open modal on web.
-
-**Do not call `Alert.alert` from inside a presented `<Modal>` — render a nested `<Modal>` (confirmation) or an inline banner as a child of the parent modal instead.** See `client/components/CreditPackagesList.tsx` for the canonical inline-banner + nested-confirm pattern.
-
-**`presentationStyle="pageSheet"` decision:** Nested child modals may keep `pageSheet` even when the parent also uses `pageSheet`. iOS 13+ supports stacked sheet presentations natively (each child slides up over the previous one), and on Android `pageSheet` falls back to a full-screen presentation that also stacks correctly. Switching nested children to `overFullScreen` is unnecessary and would lose the sheet appearance.
