@@ -2,6 +2,7 @@ import { db } from "./db";
 import { randomUUID } from "node:crypto";
 import { localHHMMToUtc } from "./utils/timezone";
 import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
+import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import { desc, asc } from "drizzle-orm";
 import {
   // Auth tables
@@ -2090,7 +2091,7 @@ export const storage = {
     total: number;
     counts: Record<string, number>;
   }> {
-    const tables: Array<{ key: string; table: any; col: any }> = [
+    const tables: Array<{ key: string; table: PgTable; col: AnyPgColumn }> = [
       { key: "sessions", table: sessions, col: sessions.courtId },
       { key: "court_bookings", table: courtBookings, col: courtBookings.courtId },
       { key: "court_availability", table: courtAvailability, col: courtAvailability.courtId },

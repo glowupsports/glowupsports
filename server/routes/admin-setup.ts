@@ -500,7 +500,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               id,
               academyId ?? undefined,
             );
-            if (!updated) throw err;
+            if (!updated) {
+              return res.status(409).json({
+                error:
+                  "Court is referenced by other records and could not be deleted or archived. Please remove the references first.",
+                dependents: recheck.counts,
+                totalReferences: recheck.total,
+              });
+            }
             return res.json({
               success: true,
               archived: true,
