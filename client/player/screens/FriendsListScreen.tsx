@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -210,7 +211,7 @@ function RequestCard({
 export default function FriendsListScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const route = useRoute<RouteProp<PlayerStackParamList, "FriendsList">>();
   const queryClient = useQueryClient();
   const routeInitialTab = route.params?.initialTab;
   const initialTab: TabType = routeInitialTab === "requests" ? "requests" : "friends";
