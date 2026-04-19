@@ -2917,7 +2917,9 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   };
 
   const isCompletionStep = currentStep === 5;
-  const showFooter = currentStep > 0 && currentStep < 5;
+  // Hide global footer on the photo step (currentStep === 2) — that step has
+  // its own Continue/Skip button so a second Next would be a duplicate control.
+  const showFooter = currentStep > 0 && currentStep < 5 && currentStep !== 2;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
