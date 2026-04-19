@@ -1477,7 +1477,7 @@ export default function PlayerBookingWizard({
               </View>
             ) : null}
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollViewCompat>
       </Animated.View>
     );
 
