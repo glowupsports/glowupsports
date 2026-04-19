@@ -427,7 +427,36 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
-  // Delete court
+  // Preview what deleting a court will do (hard vs soft)
+  router.get(
+    "/api/courts/:id/delete-preview",
+    authMiddleware,
+    requireRole("academy_owner", "platform_owner", "admin", "coach"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId;
+
+        const { valid } = await validateCourtOwnership(id, academyId, storage);
+        if (!valid) {
+          return res.status(404).json({ error: "Court not found" });
+        }
+
+        const dependents = await storage.getCourtDependents(id);
+        const willArchive = dependents.total > 0;
+        res.json({
+          willArchive,
+          dependents: dependents.counts,
+          totalReferences: dependents.total,
+        });
+      } catch (error) {
+        console.error("Error previewing court delete:", error);
+        res.status(500).json({ error: "Failed to preview court deletion" });
+      }
+    },
+  );
+
+  // Delete court (hard delete if no history, soft delete/archive otherwise)
   router.delete(
     "/api/courts/:id",
     authMiddleware,
@@ -442,11 +471,49 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Court not found" });
         }
 
-        await storage.deleteCourt(id, academyId ?? undefined);
-        res.json({ success: true });
-      } catch (error) {
+        const dependents = await storage.getCourtDependents(id);
+
+        if (dependents.total > 0) {
+          // Soft delete: archive the court so historical records keep resolving
+          const updated = await storage.softDeleteCourt(id, academyId ?? undefined);
+          if (!updated) {
+            return res.status(404).json({ error: "Court not found" });
+          }
+          return res.json({
+            success: true,
+            archived: true,
+            dependents: dependents.counts,
+            totalReferences: dependents.total,
+            message: "Court has history and was archived instead of deleted.",
+          });
+        }
+
+        try {
+          await storage.deleteCourt(id, academyId ?? undefined);
+        } catch (err: any) {
+          // Foreign-key violations from tables we don't yet check explicitly
+          const msg = String(err?.message ?? err ?? "");
+          if (err?.code === "23503" || /foreign key|violates/i.test(msg)) {
+            const updated = await storage.softDeleteCourt(id, academyId ?? undefined);
+            if (!updated) throw err;
+            return res.json({
+              success: true,
+              archived: true,
+              dependents: {},
+              totalReferences: 0,
+              message:
+                "Court is referenced by other records and was archived instead of deleted.",
+            });
+          }
+          throw err;
+        }
+
+        res.json({ success: true, archived: false });
+      } catch (error: any) {
         console.error("Error deleting court:", error);
-        res.status(500).json({ error: "Failed to delete court" });
+        res
+          .status(500)
+          .json({ error: error?.message || "Failed to delete court" });
       }
     },
   );

@@ -1997,18 +1997,24 @@ export const storage = {
     return result[0];
   },
 
-  async getCourtsByLocation(locationId: string, academyId?: string): Promise<Court[]> {
+  async getCourtsByLocation(locationId: string, academyId?: string, opts?: { includeInactive?: boolean }): Promise<Court[]> {
     const conditions = [eq(courts.locationId, locationId)];
     if (academyId) {
       conditions.push(eq(courts.academyId, academyId));
     }
+    if (!opts?.includeInactive) {
+      conditions.push(eq(courts.isActive, true));
+    }
     return db.select().from(courts).where(and(...conditions)).orderBy(courts.position);
   },
 
-  async getAllCourts(academyId?: string): Promise<Court[]> {
+  async getAllCourts(academyId?: string, opts?: { includeInactive?: boolean }): Promise<Court[]> {
+    const includeInactive = opts?.includeInactive === true;
     if (academyId) {
+      const conditions = [eq(courts.academyId, academyId)];
+      if (!includeInactive) conditions.push(eq(courts.isActive, true));
       const results = await db.select().from(courts)
-        .where(eq(courts.academyId, academyId))
+        .where(and(...conditions))
         .orderBy(courts.position);
       // Sort so courts with locations come first (sorted by locationId), then null locations at end
       return results.sort((a, b) => {
@@ -2020,7 +2026,10 @@ export const storage = {
         return (a.position || 0) - (b.position || 0);
       });
     }
-    const results = await db.select().from(courts).orderBy(courts.position);
+    const baseQuery = db.select().from(courts);
+    const results = await (includeInactive
+      ? baseQuery.orderBy(courts.position)
+      : baseQuery.where(eq(courts.isActive, true)).orderBy(courts.position));
     return results.sort((a, b) => {
       if (a.locationId && !b.locationId) return -1;
       if (!a.locationId && b.locationId) return 1;
@@ -2060,6 +2069,56 @@ export const storage = {
       conditions.push(eq(courts.academyId, academyId));
     }
     await db.delete(courts).where(and(...conditions));
+  },
+
+  async softDeleteCourt(id: string, academyId?: string): Promise<Court | undefined> {
+    const conditions = [eq(courts.id, id)];
+    if (academyId) {
+      conditions.push(eq(courts.academyId, academyId));
+    }
+    const result = await db
+      .update(courts)
+      .set({ isActive: false, bookingEnabled: false })
+      .where(and(...conditions))
+      .returning();
+    return result[0];
+  },
+
+  async getCourtDependents(
+    courtId: string,
+  ): Promise<{
+    total: number;
+    counts: Record<string, number>;
+  }> {
+    const tables: Array<{ key: string; table: any; col: any }> = [
+      { key: "sessions", table: sessions, col: sessions.courtId },
+      { key: "court_bookings", table: courtBookings, col: courtBookings.courtId },
+      { key: "court_availability", table: courtAvailability, col: courtAvailability.courtId },
+      { key: "court_availability_snapshots", table: courtAvailabilitySnapshots, col: courtAvailabilitySnapshots.courtId },
+      { key: "coaching_series", table: coachingSeries, col: coachingSeries.courtId },
+      { key: "recurring_series", table: recurringSeries, col: recurringSeries.courtId },
+      { key: "coach_availability", table: coachAvailability, col: coachAvailability.courtId },
+      { key: "coach_court_preferences", table: coachCourtPreferences, col: coachCourtPreferences.courtId },
+      { key: "booking_requests", table: bookingRequests, col: bookingRequests.courtId },
+      { key: "player_matches", table: playerMatches, col: playerMatches.courtId },
+      { key: "match_challenges", table: matchChallenges, col: matchChallenges.courtId },
+    ];
+    const counts: Record<string, number> = {};
+    let total = 0;
+    await Promise.all(
+      tables.map(async ({ key, table, col }) => {
+        const rows = await db
+          .select({ c: count() })
+          .from(table)
+          .where(eq(col, courtId));
+        const n = Number(rows[0]?.c ?? 0);
+        if (n > 0) {
+          counts[key] = n;
+          total += n;
+        }
+      }),
+    );
+    return { total, counts };
   },
 
   // ==================== PLAYERS ====================

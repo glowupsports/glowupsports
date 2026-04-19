@@ -72,11 +72,28 @@ export default function CourtsManagementScreen() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/courts/${id}`, { method: "DELETE" });
+      const res = await apiRequest("DELETE", `/api/courts/${id}`);
+      try {
+        return await (res as Response).json();
+      } catch {
+        return { success: true };
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data?.archived) {
+        const msg =
+          data?.message ||
+          "Court has past sessions or bookings, so it was archived instead of deleted.";
+        if (Platform.OS === "web") window.alert(msg);
+        else Alert.alert("Court archived", msg);
+      }
+    },
+    onError: (error: any) => {
+      const msg = error?.message || "Failed to delete court";
+      if (Platform.OS === "web") window.alert(msg);
+      else Alert.alert("Error", msg);
     },
   });
 

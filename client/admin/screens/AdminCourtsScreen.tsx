@@ -372,12 +372,29 @@ export default function AdminCourtsScreen() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/courts/${id}`),
-    onSuccess: () => {
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/courts/${id}`);
+      try {
+        return await res.json();
+      } catch {
+        return { success: true };
+      }
+    },
+    onSuccess: (data: any) => {
       invalidateCourts();
       setShowEditModal(false);
       setSelectedCourt(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data?.archived) {
+        const msg =
+          data?.message ||
+          "Court has past sessions or bookings, so it was archived instead of deleted. It will no longer appear in active lists.";
+        if (Platform.OS === "web") {
+          window.alert(msg);
+        } else {
+          Alert.alert("Court archived", msg);
+        }
+      }
     },
     onError: (error: any) => {
       Alert.alert("Error", error.message || "Failed to delete court");
@@ -437,21 +454,40 @@ export default function AdminCourtsScreen() {
     });
   };
 
-  const handleDelete = (court: Court) => {
+  const handleDelete = async (court: Court) => {
     setShowEditModal(false);
+
+    // Fetch a preview so we can tell the user whether this is a hard delete or an archive
+    let willArchive = false;
+    let totalRefs = 0;
+    try {
+      const res = await apiRequest("GET", `/api/courts/${court.id}/delete-preview`);
+      const preview = await res.json();
+      willArchive = !!preview?.willArchive;
+      totalRefs = Number(preview?.totalReferences ?? 0);
+    } catch {
+      // If preview fails we still allow the user to try deleting
+    }
+
+    const title = willArchive ? "Archive Court" : "Delete Court";
+    const body = willArchive
+      ? `"${court.name}" is used by ${totalRefs} record${totalRefs === 1 ? "" : "s"} (sessions, bookings or schedules). It will be archived and hidden from active lists, but kept for history. Continue?`
+      : `Delete court "${court.name}"? This action cannot be undone.`;
+    const action = willArchive ? "Archive" : "Delete";
+
     // Defer one frame so the modal finishes closing before the confirm dialog appears
     setTimeout(() => {
       if (Platform.OS === "web") {
-        if (window.confirm(`Delete court "${court.name}"? This action cannot be undone.`)) {
+        if (window.confirm(body)) {
           deleteMutation.mutate(court.id);
         }
       } else {
         Alert.alert(
-          "Delete Court",
-          `Delete court "${court.name}"? This action cannot be undone.`,
+          title,
+          body,
           [
             { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
+            { text: action, style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
           ]
         );
       }
