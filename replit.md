@@ -13,6 +13,27 @@ Preferred communication style: Simple, everyday language.
 - Major release → bump major: 1.x.x → 2.0.0
 - ALWAYS update both `"version"` AND `"runtimeVersion"` in app.json
 
+### CRITICAL: Split iOS / Android runtime versions
+As of Task #789, **iOS and Android run on different versions and different
+OTA runtimes**:
+- **iOS**: `version` = `1.3.4`, `runtimeVersion` = `1.3.4` (pinned — App Store
+  build is still 1.3.4, no new submission yet).
+- **Android**: `version` = `1.3.5`, `runtimeVersion` = `1.3.5`.
+
+These are configured **per-platform** under `expo.ios` and `expo.android` in
+`app.json`. The top-level `expo.runtimeVersion` has been removed so it cannot
+silently override the per-platform values — do **not** re-add it. A harmless
+top-level `expo.version` is kept as a fallback so legacy tooling doesn't see
+Expo's default `1.0.0`; per-platform `version` still takes precedence.
+
+**Every OTA push MUST target both runtimes** (`1.3.4` for iOS, `1.3.5` for
+Android). The "OTA Push" workflow already does this by running iOS first and
+then Android sequentially via `scripts/ota-push.sh`. After publishing,
+verify with `eas update:list --branch production` (or the Expo dashboard)
+that the latest update has entries for **both** runtime `1.3.4` and runtime
+`1.3.5`. This split stays in place until iOS catches up via a new App Store
+build.
+
 ### CRITICAL: Every task plan MUST include a "Deployment" line
 **Every `.local/tasks/*.md` plan file MUST have one of these lines near the top (under "Done looks like" or as its own section):**
 - **Deployment: OTA update** — JS/TS-only changes; push instantly via EAS update, no App Store submission needed

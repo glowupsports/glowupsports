@@ -3,7 +3,6 @@
     "name": "Glow Up Sports",
     "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
     "version": "1.3.5",
-    "runtimeVersion": "1.3.5",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -16,6 +15,8 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
+      "version": "1.3.4",
+      "runtimeVersion": "1.3.4",
       "supportsTablet": true,
       "bundleIdentifier": "com.glowupsports.app",
       "infoPlist": {
@@ -27,6 +28,8 @@
       }
     },
     "android": {
+      "version": "1.3.5",
+      "runtimeVersion": "1.3.5",
       "adaptiveIcon": {
         "backgroundColor": "#051820",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
