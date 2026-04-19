@@ -227,6 +227,13 @@ export default function PlayScreen() {
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
   const [friendRequestPlayer, setFriendRequestPlayer] = useState<NearbyPlayer | null>(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
+  type FriendReqState =
+    | { kind: "idle" }
+    | { kind: "already_pending_by_me" }
+    | { kind: "already_sent_by_them" }
+    | { kind: "already_friends" }
+    | { kind: "error"; message: string };
+  const [friendRequestState, setFriendRequestState] = useState<FriendReqState>({ kind: "idle" });
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const SCOPE_KEY = "@play_scope";
   const [leaderboardSport, setLeaderboardSport] = useState<string>("all");
@@ -1173,15 +1180,42 @@ export default function PlayScreen() {
     },
     onSuccess: () => {
       setFriendRequestSent(true);
+      setFriendRequestState({ kind: "idle" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: Error) => {
-      const msg = error.message.includes(": ") ? error.message.split(": ").slice(1).join(": ") : error.message;
-      if (Platform.OS === "web") {
-        window.alert(msg || "Could not send friend request");
-      } else {
-        Alert.alert("Oops", msg || "Could not send friend request");
+      // apiRequest throws errors of the form "<status>: <body>". Extract status + clean message.
+      const raw = error?.message || "";
+      const m = raw.match(/^(\d+):\s*(.*)$/s);
+      const status = m ? Number(m[1]) : 0;
+      const bodyRaw = m ? m[2].trim() : raw;
+      let message = bodyRaw;
+      try {
+        const parsed = JSON.parse(bodyRaw);
+        message = parsed?.error || parsed?.message || bodyRaw;
+      } catch {
+        // not JSON, leave as-is
       }
+
+      if (status === 409) {
+        const lower = message.toLowerCase();
+        if (lower.includes("already friends")) {
+          setFriendRequestState({ kind: "already_friends" });
+        } else if (lower.includes("already sent you")) {
+          setFriendRequestState({ kind: "already_sent_by_them" });
+        } else {
+          // "Friend request already sent" — i.e. by me
+          setFriendRequestState({ kind: "already_pending_by_me" });
+        }
+        // No haptic error for an "already sent" state — it's not a failure.
+        return;
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setFriendRequestState({
+        kind: "error",
+        message: message || "Could not send friend request. Please try again.",
+      });
     },
   });
 
@@ -1533,6 +1567,7 @@ export default function PlayScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               setFriendRequestPlayer(player);
               setFriendRequestSent(false);
+              setFriendRequestState({ kind: "idle" });
             }}
           >
             <Ionicons name="person-add" size={16} color={Colors.dark.text} />
@@ -2466,7 +2501,15 @@ export default function PlayScreen() {
                 </View>
 
                 <Text style={styles.friendModalTitle}>
-                  {friendRequestSent ? "Request Sent!" : "Send Friend Request"}
+                  {friendRequestSent
+                    ? "Request Sent!"
+                    : friendRequestState.kind === "already_pending_by_me"
+                    ? "Request already sent"
+                    : friendRequestState.kind === "already_sent_by_them"
+                    ? "They sent you one"
+                    : friendRequestState.kind === "already_friends"
+                    ? "You're already friends"
+                    : "Send Friend Request"}
                 </Text>
                 <Text style={styles.friendModalName}>{friendRequestPlayer.name}</Text>
                 
@@ -2489,32 +2532,82 @@ export default function PlayScreen() {
                       <Text style={styles.friendModalDoneBtnText}>Done</Text>
                     </Pressable>
                   </View>
-                ) : (
-                  <View style={styles.friendModalButtons}>
+                ) : friendRequestState.kind === "already_pending_by_me" ? (
+                  <View style={styles.friendModalSentContainer}>
+                    <Ionicons name="time-outline" size={48} color={Colors.dark.xpCyan} />
+                    <Text style={styles.friendModalSentText}>
+                      Waiting for {friendRequestPlayer.name} to respond.
+                    </Text>
                     <Pressable
-                      style={styles.friendModalCancelBtn}
+                      style={styles.friendModalDoneBtn}
                       onPress={() => setFriendRequestPlayer(null)}
                     >
-                      <Text style={styles.friendModalCancelText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.friendModalSendBtn, sendFriendRequestMutation.isPending && { opacity: 0.6 }]}
-                      onPress={() => {
-                        if (!sendFriendRequestMutation.isPending) {
-                          sendFriendRequestMutation.mutate(friendRequestPlayer.id);
-                        }
-                      }}
-                    >
-                      {sendFriendRequestMutation.isPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
-                      ) : (
-                        <>
-                          <Ionicons name="person-add" size={18} color={Colors.dark.buttonText} />
-                          <Text style={styles.friendModalSendText}>Send Request</Text>
-                        </>
-                      )}
+                      <Text style={styles.friendModalDoneBtnText}>Close</Text>
                     </Pressable>
                   </View>
+                ) : friendRequestState.kind === "already_sent_by_them" ? (
+                  <View style={styles.friendModalSentContainer}>
+                    <Ionicons name="mail-unread-outline" size={48} color={Colors.dark.xpCyan} />
+                    <Text style={styles.friendModalSentText}>
+                      {friendRequestPlayer.name} already sent you a request — open Connections to accept.
+                    </Text>
+                    <Pressable
+                      style={styles.friendModalDoneBtn}
+                      onPress={() => setFriendRequestPlayer(null)}
+                    >
+                      <Text style={styles.friendModalDoneBtnText}>Close</Text>
+                    </Pressable>
+                  </View>
+                ) : friendRequestState.kind === "already_friends" ? (
+                  <View style={styles.friendModalSentContainer}>
+                    <Ionicons name="people" size={48} color={Colors.dark.primary} />
+                    <Text style={styles.friendModalSentText}>
+                      You're already friends with {friendRequestPlayer.name}.
+                    </Text>
+                    <Pressable
+                      style={styles.friendModalDoneBtn}
+                      onPress={() => setFriendRequestPlayer(null)}
+                    >
+                      <Text style={styles.friendModalDoneBtnText}>Close</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    {friendRequestState.kind === "error" ? (
+                      <View style={styles.friendModalErrorBanner}>
+                        <Ionicons name="alert-circle" size={16} color={Colors.dark.error} />
+                        <Text style={styles.friendModalErrorText}>{friendRequestState.message}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.friendModalButtons}>
+                      <Pressable
+                        style={styles.friendModalCancelBtn}
+                        onPress={() => setFriendRequestPlayer(null)}
+                      >
+                        <Text style={styles.friendModalCancelText}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.friendModalSendBtn, sendFriendRequestMutation.isPending && { opacity: 0.6 }]}
+                        onPress={() => {
+                          if (!sendFriendRequestMutation.isPending) {
+                            setFriendRequestState({ kind: "idle" });
+                            sendFriendRequestMutation.mutate(friendRequestPlayer.id);
+                          }
+                        }}
+                      >
+                        {sendFriendRequestMutation.isPending ? (
+                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        ) : (
+                          <>
+                            <Ionicons name="person-add" size={18} color={Colors.dark.buttonText} />
+                            <Text style={styles.friendModalSendText}>
+                              {friendRequestState.kind === "error" ? "Try again" : "Send Request"}
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+                    </View>
+                  </>
                 )}
               </>
             ) : null}
@@ -3721,6 +3814,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  friendModalErrorBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    backgroundColor: `${Colors.dark.error}15`,
+    borderColor: `${Colors.dark.error}40`,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.sm,
+    width: "100%",
+  },
+  friendModalErrorText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.error,
+    lineHeight: 16,
   },
   friendModalCancelText: {
     ...Typography.body,
