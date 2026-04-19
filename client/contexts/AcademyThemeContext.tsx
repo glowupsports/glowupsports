@@ -19,6 +19,7 @@ import {
 } from "@/constants/theme";
 import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useAppMode } from "@/context/AppModeContext";
 import {
   AcademyTheme,
   defaultAcademyTheme,
@@ -114,7 +115,12 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   const effectiveScheme: "light" | "dark" =
     scheme ?? player?.resolvedScheme ?? getActivePlayerScheme();
   const { user } = useAuth();
+  const { mode } = useAppMode();
   const userId = user?.id ?? null;
+  // Player override only applies in player mode. When the same user switches
+  // to coach/admin/owner/platform/service_provider, they always see the
+  // academy's branding so staff tools stay on-brand.
+  const playerOverrideActive = mode === "player";
   const overrideKey = buildOverrideKey(userId);
   const [cached, setCached] = useState<AcademyTheme | null>(null);
   const [playerOverride, setPlayerOverrideState] = useState<AcademyTheme | null>(null);
@@ -219,7 +225,11 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   }, [data, apiTheme]);
 
   const effective: AcademyTheme | null =
-    override ?? playerOverride ?? apiTheme ?? cached ?? null;
+    override
+    ?? (playerOverrideActive ? playerOverride : null)
+    ?? apiTheme
+    ?? cached
+    ?? null;
   const resolved = useMemo(
     () => resolveTheme(effective, effectiveScheme),
     [effective, effectiveScheme],
