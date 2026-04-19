@@ -198,6 +198,31 @@ export const academies = pgTable("academies", {
   // Branding
   primaryColor: text("primary_color"),
   secondaryColor: text("secondary_color"),
+  // Structured academy theme (Task #791): primary, secondary, accent, surface,
+  // panel, panelElevated, panelBorder, text, textMuted, plus optional dark
+  // overrides. When null the app falls back to the built-in Glow Green theme.
+  theme: jsonb("theme").$type<{
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    surface?: string;
+    panel?: string;
+    panelElevated?: string;
+    panelBorder?: string;
+    text?: string;
+    textMuted?: string;
+    dark?: {
+      primary?: string;
+      secondary?: string;
+      accent?: string;
+      surface?: string;
+      panel?: string;
+      panelElevated?: string;
+      panelBorder?: string;
+      text?: string;
+      textMuted?: string;
+    };
+  } | null>(),
   address: text("address"),
   
   // Academy Settings

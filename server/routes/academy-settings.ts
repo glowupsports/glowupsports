@@ -70,6 +70,57 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   
     // ==================== PHASE 3: ACADEMY SETTINGS ====================
 
+  // Theme — read the active academy's theme. Auth-required because we look up
+  // the academy via req.user.academyId. Returns { theme: null } when the user
+  // has no academy or the academy hasn't customised its theme — the client
+  // then falls back to the built-in defaults.
+  router.get(
+    "/api/academy/theme",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) return res.json({ theme: null });
+        const academy = await storage.getAcademy(academyId);
+        res.json({ theme: (academy as any)?.theme ?? null });
+      } catch (error) {
+        console.error("Get academy theme error:", error);
+        res.status(500).json({ error: "Failed to fetch theme" });
+      }
+    },
+  );
+
+  // Update the active academy's theme. Owner / academy_owner / platform_owner
+  // only — admin/coach/player must not change branding.
+  router.patch(
+    "/api/academy/theme",
+    authMiddleware,
+    requireRole("owner", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) return res.status(400).json({ error: "Academy ID required" });
+        const { theme } = req.body ?? {};
+        let parsed: any = null;
+        if (theme !== null && theme !== undefined) {
+          try {
+            const { academyThemeSchema } = await import("@shared/theme");
+            parsed = academyThemeSchema.parse(theme);
+          } catch (err: any) {
+            return res
+              .status(400)
+              .json({ error: "Invalid theme", details: err?.message ?? String(err) });
+          }
+        }
+        const updated = await storage.updateAcademy(academyId, { theme: parsed } as any);
+        res.json({ theme: (updated as any)?.theme ?? null });
+      } catch (error) {
+        console.error("Update academy theme error:", error);
+        res.status(500).json({ error: "Failed to update theme" });
+      }
+    },
+  );
+
   router.get(
     "/api/academy/info",
     authMiddleware,

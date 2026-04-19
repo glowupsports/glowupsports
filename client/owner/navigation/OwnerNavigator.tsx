@@ -14,6 +14,7 @@ import InviteManagementScreen from "@/owner/screens/InviteManagementScreen";
 import OwnerProfileScreen from "@/owner/screens/OwnerProfileScreen";
 import AcademyOnboardingScreen from "@/owner/screens/AcademyOnboardingScreen";
 import AcademyProfileScreen from "@/owner/screens/AcademyProfileScreen";
+import BrandingScreen from "@/owner/screens/BrandingScreen";
 import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
 import AdminPlayersScreen from "@/admin/screens/AdminPlayersScreen";
 import AdminClassesScreen from "@/admin/screens/AdminClassesScreen";
@@ -46,6 +47,7 @@ export type OwnerStackParamList = {
   AcademyOnboarding: undefined;
   OwnerMain: undefined;
   AcademyProfile: undefined;
+  Branding: undefined;
   CourtsManagement: undefined;
   PlayersManagement: undefined;
   ClassesManagement: { focusSeriesId?: string } | undefined;
@@ -93,6 +95,7 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
       <Stack.Screen name="InviteManagement" component={InviteManagementScreen} />
       <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
       <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} />
+      <Stack.Screen name="Branding" component={BrandingScreen} />
       <Stack.Screen name="CourtsManagement" component={AdminCourtsScreen} />
       <Stack.Screen name="PlayersManagement" component={AdminPlayersScreen} />
       <Stack.Screen name="ClassesManagement" component={AdminClassesScreen} />

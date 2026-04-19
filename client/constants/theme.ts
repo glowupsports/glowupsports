@@ -323,17 +323,120 @@ export const Colors = {
   },
 };
 
-// Snapshot Colors.dark so we can restore it when the player switches back to dark.
+// Snapshot Colors.dark / Colors.light so we can restore them when switching
+// schemes or clearing an academy override.
 const DarkColorsSnapshot: Record<string, string> = { ...Colors.dark };
+const LightColorsSnapshot: Record<string, string> = { ...Colors.light };
 
 export type ResolvedScheme = "light" | "dark";
 
+// Academy theme override (Task #791) — flat per-mode color set already
+// resolved for the active scheme.
+export interface AcademyThemeResolved {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  surface?: string;
+  panel?: string;
+  panelElevated?: string;
+  panelBorder?: string;
+  text?: string;
+  textMuted?: string;
+}
+
 let activeScheme: ResolvedScheme = "dark";
+let activeAcademyTheme: AcademyThemeResolved | null = null;
+
+function resetSchemeTokens(scheme: ResolvedScheme): void {
+  if (scheme === "light") {
+    Object.assign(Backgrounds, LightBackgrounds);
+    Object.assign(TextColors, LightTextColors);
+    Object.assign(Colors.dark, LightColorsSnapshot);
+    Object.assign(Colors.light, LightColorsSnapshot);
+  } else {
+    Object.assign(Backgrounds, DarkBackgrounds);
+    Object.assign(TextColors, DarkTextColors);
+    Object.assign(Colors.dark, DarkColorsSnapshot);
+    Object.assign(Colors.light, LightColorsSnapshot);
+  }
+}
+
+function applyAcademyOverlay(t: AcademyThemeResolved | null): void {
+  if (!t) return;
+  if (t.surface) {
+    Backgrounds.root = t.surface;
+    Colors.dark.backgroundRoot = t.surface;
+    Colors.light.backgroundRoot = t.surface;
+  }
+  if (t.panel) {
+    Backgrounds.card = t.panel;
+    Colors.dark.backgroundDefault = t.panel;
+    Colors.light.backgroundDefault = t.panel;
+  }
+  if (t.panelElevated) {
+    Backgrounds.elevated = t.panelElevated;
+    Colors.dark.backgroundSecondary = t.panelElevated;
+    Colors.light.backgroundSecondary = t.panelElevated;
+  }
+  if (t.panelBorder) {
+    Colors.dark.borderSubtle = t.panelBorder;
+    Colors.light.borderSubtle = t.panelBorder;
+    Colors.dark.headerBorder = t.panelBorder;
+    Colors.light.headerBorder = t.panelBorder;
+  }
+  if (t.text) {
+    TextColors.primary = t.text;
+    Colors.dark.text = t.text;
+    Colors.light.text = t.text;
+  }
+  if (t.textMuted) {
+    TextColors.secondary = t.textMuted;
+    Colors.dark.textMuted = t.textMuted;
+    Colors.dark.textSecondary = t.textMuted;
+    Colors.light.textMuted = t.textMuted;
+    Colors.light.textSecondary = t.textMuted;
+  }
+  if (t.primary) {
+    Colors.dark.primary = t.primary;
+    Colors.dark.primaryGlow = t.primary;
+    Colors.dark.glowSoft = t.primary;
+    Colors.dark.glowDark = t.primary;
+    Colors.dark.tabIconSelected = t.primary;
+    Colors.dark.link = t.primary;
+    Colors.light.primary = t.primary;
+    Colors.light.primaryGlow = t.primary;
+    Colors.light.glowSoft = t.primary;
+    Colors.light.glowDark = t.primary;
+    Colors.light.tabIconSelected = t.primary;
+    Colors.light.link = t.primary;
+  }
+  if (t.secondary) {
+    Colors.dark.primaryGlowLight = t.secondary;
+    Colors.light.primaryGlowLight = t.secondary;
+  }
+  if (t.accent) {
+    Colors.dark.accent = t.accent;
+    Colors.dark.accentInfo = t.accent;
+    Colors.light.accent = t.accent;
+    Colors.light.accentInfo = t.accent;
+  }
+}
+
+function rebuild(): void {
+  resetSchemeTokens(activeScheme);
+  // Player-app legacy contract: many screens read from `Colors.dark` even in
+  // light mode because `applyPlayerScheme('light')` historically overwrote
+  // Colors.dark with Colors.light. Preserve that contract here.
+  if (activeScheme === "light") {
+    Object.assign(Colors.dark, LightColorsSnapshot);
+  }
+  applyAcademyOverlay(activeAcademyTheme);
+}
 
 /**
- * Mutates the exported `Backgrounds`, `TextColors` and `Colors.dark` objects so
- * that any inline reference (e.g. `<View style={{ backgroundColor: Colors.dark.text }}/>`
- * or `Backgrounds.root`) reflects the new player-app scheme on the next render.
+ * Mutates the exported `Backgrounds`, `TextColors` and `Colors.*` objects so
+ * any inline reference reflects the new player-app scheme + active academy
+ * theme on the next render.
  *
  * Note: values captured at module-import time inside `StyleSheet.create({...})`
  * are frozen to whatever the value was at import. Components that want full
@@ -342,20 +445,25 @@ let activeScheme: ResolvedScheme = "dark";
 export function applyPlayerScheme(scheme: ResolvedScheme): void {
   if (scheme === activeScheme) return;
   activeScheme = scheme;
-
-  if (scheme === "light") {
-    Object.assign(Backgrounds, LightBackgrounds);
-    Object.assign(TextColors, LightTextColors);
-    Object.assign(Colors.dark, Colors.light);
-  } else {
-    Object.assign(Backgrounds, DarkBackgrounds);
-    Object.assign(TextColors, DarkTextColors);
-    Object.assign(Colors.dark, DarkColorsSnapshot);
-  }
+  rebuild();
 }
 
 export function getActivePlayerScheme(): ResolvedScheme {
   return activeScheme;
+}
+
+/**
+ * Apply (or clear with `null`) the active academy theme overlay. Combines with
+ * the current player scheme so light/dark logic keeps working — academy
+ * colours overrule the neutral tokens, not the mode itself.
+ */
+export function setActiveAcademyTheme(theme: AcademyThemeResolved | null): void {
+  activeAcademyTheme = theme;
+  rebuild();
+}
+
+export function getActiveAcademyTheme(): AcademyThemeResolved | null {
+  return activeAcademyTheme;
 }
 
 // Get avatar color based on player ball level

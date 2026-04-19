@@ -62,6 +62,7 @@ import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { CoachMarksProvider } from "@/components/CoachMarks";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
+import { AcademyThemeProvider } from "@/contexts/AcademyThemeContext";
 import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
 
@@ -237,6 +238,7 @@ export default function App() {
                                 <TabNavigationProvider>
                                   <CoachMarksProvider>
                                     <CelebrationProvider>
+                                      <AcademyThemeProvider>
                                       <WebAlertProvider>
                                         <WebContainer>
                                           <RTLDirectionWrapper>
@@ -245,6 +247,7 @@ export default function App() {
                                           </RTLDirectionWrapper>
                                         </WebContainer>
                                       </WebAlertProvider>
+                                      </AcademyThemeProvider>
                                     </CelebrationProvider>
                                   </CoachMarksProvider>
                                 </TabNavigationProvider>

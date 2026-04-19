@@ -4795,11 +4795,23 @@ import fs from "fs";
           bankAccountHolder,
           bankAccountNumber,
           bankIban,
+          theme,
         } = req.body;
 
         // Build update object with only provided properties to support partial updates
         // Empty strings are valid values (user intentionally clearing a field)
         const updates: Record<string, any> = {};
+        if (theme !== undefined) {
+          // Validate theme structure (Task #791) — reject malformed input.
+          try {
+            const { academyThemeSchema } = await import("@shared/theme");
+            updates.theme = theme === null ? null : academyThemeSchema.parse(theme);
+          } catch (err: any) {
+            return res
+              .status(400)
+              .json({ error: "Invalid theme", details: err?.message ?? String(err) });
+          }
+        }
         if (name !== undefined && name !== null) updates.name = name;
         if (description !== undefined && description !== null)
           updates.description = description;
