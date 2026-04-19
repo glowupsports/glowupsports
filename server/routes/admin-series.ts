@@ -6,7 +6,7 @@ import { db } from "../db";
 import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
-  sessionRatings, coachReviews, coachReviewStats, seriesPlayers, locations, courts,
+  sessionRatings, coachReviews, coachReviewStats, seriesPlayers, locations, courts, coachingSeries,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte, gt } from "drizzle-orm";
