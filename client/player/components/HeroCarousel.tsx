@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -54,8 +55,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 3000;
 const PRIORITY_LOCK_MIN = 120;
-const HERO_SLOT_HEIGHT = 320;
-const LENS_SHELL_HEIGHT = 236;
+const HERO_SLOT_HEIGHT = 380;
 const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v2";
 const PAUSED_HYDRATION_FALLBACK_MS = 1000;
 
@@ -401,7 +401,7 @@ function CompeteCard() {
   if (incomingChallenge) {
     const target = challengeToDate(incomingChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Players" onAction={goPlayerFinder}>
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={incomingChallenge.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
@@ -454,7 +454,7 @@ function CompeteCard() {
       : acceptedChallenge.challengerName;
     const target = challengeToDate(acceptedChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="tennisball" actionLabel="Find Players" onAction={goPlayerFinder}>
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={acceptedChallenge.matchType} accent={COMPETE_ACCENT} />
           {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
@@ -501,7 +501,7 @@ function CompeteCard() {
     };
 
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon={isHost ? "settings-outline" : "people"} actionLabel="Find Players" onAction={goPlayerFinder}>
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
         <MatchSummaryCard
           embedded
           matchId={upcomingOpenMatch.id}
@@ -533,9 +533,9 @@ function CompeteCard() {
     <LensShell
       accent={COMPETE_ACCENT}
       label="OPEN MATCHES"
-      icon="tennisball-outline"
-      actionLabel="Find Players"
-      onAction={goPlayerFinder}
+      icon="flash"
+      actionLabel="Find Matches"
+      onAction={goOpenMatches}
     >
       <Text style={styles.lensTitle}>Find your first match</Text>
       <Text style={styles.lensSubtitle}>
@@ -704,28 +704,60 @@ function LensShell({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  // iOS 26-inspired glass shell: blurred surface, accent gradient wash,
+  // top inner highlight line, accent-tinted hairline border, soft outer
+  // accent glow. Used by all 4 hero carousel slots so they share the same
+  // outer dimensions, header strip, and material.
   return (
-    <View style={[styles.lensShell, { borderColor: `${accent}40` }]}>
-      <LinearGradient
-        colors={[`${accent}18`, "rgba(17, 20, 26, 0.0)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.lensGradient}
+    <View
+      style={[
+        styles.lensShellOuter,
+        Platform.select({
+          ios: {
+            shadowColor: accent,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.35,
+            shadowRadius: 14,
+          },
+          android: { elevation: 6 },
+          default: { boxShadow: `0 0 18px ${accent}55` } as any,
+        }),
+      ]}
+    >
+      <View
+        style={[
+          styles.lensShell,
+          { borderColor: `${accent}55` },
+        ]}
       >
-        <View style={styles.lensHeader}>
-          <View style={[styles.lensIconWrap, { backgroundColor: `${accent}25` }]}>
-            <Ionicons name={icon} size={14} color={accent} />
+        <BlurView
+          intensity={Platform.OS === "web" ? 0 : 28}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={[`${accent}26`, "rgba(17, 20, 26, 0.55)", "rgba(17, 20, 26, 0.85)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.lensTopHighlight, { backgroundColor: `${accent}AA` }]} />
+        <View style={styles.lensInner}>
+          <View style={styles.lensHeader}>
+            <View style={[styles.lensIconWrap, { backgroundColor: `${accent}25`, borderColor: `${accent}55` }]}>
+              <Ionicons name={icon} size={14} color={accent} />
+            </View>
+            <Text style={[styles.lensLabel, { color: accent }]}>{label}</Text>
+            {actionLabel && onAction ? (
+              <View style={styles.jumpPillSpacer} />
+            ) : null}
+            {actionLabel && onAction ? (
+              <JumpPill accent={accent} label={actionLabel} onPress={onAction} />
+            ) : null}
           </View>
-          <Text style={[styles.lensLabel, { color: accent }]}>{label}</Text>
-          {actionLabel && onAction ? (
-            <View style={styles.jumpPillSpacer} />
-          ) : null}
-          {actionLabel && onAction ? (
-            <JumpPill accent={accent} label={actionLabel} onPress={onAction} />
-          ) : null}
+          <View style={styles.lensBody}>{children}</View>
         </View>
-        <View style={styles.lensBody}>{children}</View>
-      </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -943,48 +975,44 @@ export function HeroCarousel({
   };
 
   const renderItem = ({ item }: { item: SlotMeta }) => {
-    const isPlainCard = item.id === "train" || item.id === "glow_lessons";
-    if (isPlainCard) {
+    if (item.id === "train") {
       return (
-        <View
-          style={{
-            width: containerWidth,
-            height: HERO_SLOT_HEIGHT,
-            overflow: "hidden",
-          }}
-        >
-          <SlotHeaderStrip
+        <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
+          <LensShell
             accent={item.accent}
-            icon={item.id === "train" ? "tennisball" : "people"}
             label={item.label}
-            actionLabel={item.id === "train" ? "View Schedule" : "View All"}
-            onAction={item.id === "train" ? goSchedule : goClassesDiscovery}
-          />
-          <View style={{ flex: 1, justifyContent: "center" }}>
-            {item.id === "train" ? (
-              <SessionHeroCard
-                onBookSession={onBookSession}
-                onCheckIn={onCheckIn}
-                onCancel={onCancel}
-                onExtend={onExtend}
-                onFindMatch={onFindMatch}
-              />
-            ) : (
-              <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} />
-            )}
-          </View>
+            icon="tennisball"
+            actionLabel="View Schedule"
+            onAction={goSchedule}
+          >
+            <SessionHeroCard
+              onBookSession={onBookSession}
+              onCheckIn={onCheckIn}
+              onCancel={onCancel}
+              onExtend={onExtend}
+              onFindMatch={onFindMatch}
+            />
+          </LensShell>
+        </View>
+      );
+    }
+    if (item.id === "glow_lessons") {
+      return (
+        <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
+          <LensShell
+            accent={item.accent}
+            label={item.label}
+            icon="people"
+            actionLabel="View All"
+            onAction={goClassesDiscovery}
+          >
+            <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} />
+          </LensShell>
         </View>
       );
     }
     return (
-      <View
-        style={{
-          width: containerWidth,
-          height: HERO_SLOT_HEIGHT,
-          overflow: "hidden",
-          justifyContent: "center",
-        }}
-      >
+      <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
         {item.id === "compete" && <CompeteCard />}
         {item.id === "events" && <EventsCard />}
       </View>
@@ -1163,13 +1191,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   // Lens shell
-  lensShell: {
+  lensShellOuter: {
+    flex: 1,
     marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    marginVertical: Spacing.xs,
+    borderRadius: BorderRadius.lg,
+  },
+  lensShell: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(17, 20, 26, 0.55)",
     overflow: "hidden",
-    height: LENS_SHELL_HEIGHT,
+  },
+  lensTopHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 16,
+    right: 16,
+    height: 1,
+    opacity: 0.55,
+  },
+  lensInner: {
+    flex: 1,
+    padding: Spacing.lg,
   },
   chipRow: {
     flexDirection: "row",
@@ -1197,10 +1242,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.md,
   },
-  lensGradient: {
-    flex: 1,
-    padding: Spacing.lg,
-  },
   lensHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1213,6 +1254,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
   lensLabel: {
     ...Typography.labelSmall,

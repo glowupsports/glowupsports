@@ -1728,25 +1728,23 @@ export function SessionHeroCard({
                 </LinearGradient>
               </Pressable>
             </SwipeBlocker>
-            <SwipeBlocker>
-              <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleBookCourt}>
-                <Feather name="grid" size={16} color={GlowColors.primary} />
-                <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
-              </Pressable>
-            </SwipeBlocker>
-            <View style={styles.commandLinkRow}>
-              <SwipeBlocker>
-                <Pressable style={({ pressed }) => [styles.commandLink, pressed && { opacity: 0.6 }]} onPress={handleFindMatch} hitSlop={16}>
-                  <Feather name="users" size={14} color="#B8BCC6" />
-                  <Text style={styles.commandLinkText}>{t("player.home.findPlayers")}</Text>
-                </Pressable>
-              </SwipeBlocker>
-              <SwipeBlocker>
-                <Pressable style={({ pressed }) => [styles.commandLink, pressed && { opacity: 0.6 }]} onPress={handleJoinOpenGroup} hitSlop={16}>
-                  <Feather name="play-circle" size={14} color="#B8BCC6" />
-                  <Text style={styles.commandLinkText}>{t("player.home.joinOpenGroup")}</Text>
-                </Pressable>
-              </SwipeBlocker>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <SwipeBlocker>
+                  <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleBookCourt}>
+                    <Feather name="grid" size={14} color={GlowColors.primary} />
+                    <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
+                  </Pressable>
+                </SwipeBlocker>
+              </View>
+              <View style={{ flex: 1 }}>
+                <SwipeBlocker>
+                  <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleFindMatch}>
+                    <Feather name="users" size={14} color={GlowColors.primary} />
+                    <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
+                  </Pressable>
+                </SwipeBlocker>
+              </View>
             </View>
           </View>
         </View>
@@ -2594,47 +2592,35 @@ export function SessionHeroCard({
             </Pressable>
           </SwipeBlocker>
 
-          <SwipeBlocker>
-            <Pressable
-              style={({ pressed }) => [
-                styles.commandOutlineButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleBookCourt}
-            >
-              <Feather name="grid" size={16} color={GlowColors.primary} />
-              <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
-            </Pressable>
-          </SwipeBlocker>
-
-          <View style={styles.commandLinkRow}>
-            <SwipeBlocker>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.commandLink,
-                  pressed && { opacity: 0.6 },
-                ]}
-                onPress={handleFindMatch}
-                hitSlop={16}
-              >
-                <Feather name="users" size={14} color="#B8BCC6" />
-                <Text style={styles.commandLinkText}>{t("player.home.findPlayers")}</Text>
-              </Pressable>
-            </SwipeBlocker>
-
-            <SwipeBlocker>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.commandLink,
-                  pressed && { opacity: 0.6 },
-                ]}
-                onPress={handleJoinOpenGroup}
-                hitSlop={16}
-              >
-                <Feather name="play-circle" size={14} color="#B8BCC6" />
-                <Text style={styles.commandLinkText}>{t("player.home.joinOpenGroup")}</Text>
-              </Pressable>
-            </SwipeBlocker>
+          <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.commandOutlineButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={handleBookCourt}
+                >
+                  <Feather name="grid" size={14} color={GlowColors.primary} />
+                  <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
+            <View style={{ flex: 1 }}>
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.commandOutlineButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={handleFindMatch}
+                >
+                  <Feather name="users" size={14} color={GlowColors.primary} />
+                  <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
           </View>
         </View>
       </View>
