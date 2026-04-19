@@ -107,6 +107,7 @@ interface JoinableSession {
   coachId: string;
   coachName: string;
   coachPhotoUrl?: string | null;
+  courtId?: string | null;
   courtName: string;
   locationName: string;
   maxPlayers: number;
@@ -127,7 +128,15 @@ interface PlayerBookingWizardProps {
 }
 
 type SessionType = "private" | "semi_private" | "group" | "open_play";
-type BrowseMode = "by_time" | "by_coach";
+type BrowseMode = "by_time" | "by_coach" | "by_court";
+
+interface AcademyCourt {
+  id: string;
+  name: string;
+  surface: string | null;
+  locationId: string | null;
+  locationName: string | null;
+}
 
 const SESSION_TYPE_CARDS: {
   value: SessionType;
@@ -219,6 +228,10 @@ export default function PlayerBookingWizard({
   // Court selection (can override the slot's pre-assigned court)
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [selectedCourtName, setSelectedCourtName] = useState<string | null>(null);
+
+  // Pre-selected court when player chose the "Choose Court" browse mode
+  const [presetCourtId, setPresetCourtId] = useState<string | null>(null);
+  const [presetCourt, setPresetCourt] = useState<AcademyCourt | null>(null);
 
   // Slot reservation — temp lock to prevent race-condition double-booking
   const activeReservationRef = React.useRef<string | null>(null); // ref so resetForm can access without dep
@@ -337,6 +350,12 @@ export default function PlayerBookingWizard({
     enabled: visible,
   });
 
+  // Fetch all bookable courts in player's academy (for "Choose Court" browse mode)
+  const { data: academyCourts = [], isLoading: academyCourtsLoading } = useQuery<AcademyCourt[]>({
+    queryKey: ["/api/player/academy-courts"],
+    enabled: visible,
+  });
+
   // Fetch all coaches from player's academy for coach selection screen
   const { data: academyCoachesData, isLoading: academyCoachesLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
     queryKey: ["/api/player/academy-coaches"],
@@ -439,11 +458,16 @@ export default function PlayerBookingWizard({
     }
   }, [reservationId, reservationExpiresAt, selectedSlot]);
 
-  // Dynamic slide count - add extra slide when browsing by coach
-  const getTotalSlides = () => browseMode === "by_coach" ? 6 : 5;
+  // Dynamic slide count - add extra slide when browsing by coach or by court
+  const getTotalSlides = () =>
+    browseMode === "by_coach" || browseMode === "by_court" ? 6 : 5;
   const getSlideTitle = (slide: number) => {
     if (browseMode === "by_coach") {
       const titles = ["Choose Your Mode", "How to Browse", "Select Coach", "Find Your Session", "Details", "Confirm & Book"];
+      return titles[slide] || "";
+    }
+    if (browseMode === "by_court") {
+      const titles = ["Choose Your Mode", "How to Browse", "Select Court", "Find Your Session", "Details", "Confirm & Book"];
       return titles[slide] || "";
     }
     return SLIDE_TITLES[slide] || "";
@@ -472,6 +496,8 @@ export default function PlayerBookingWizard({
     setAiFocusFetched(false);
     setSelectedCourtId(null);
     setSelectedCourtName(null);
+    setPresetCourtId(null);
+    setPresetCourt(null);
     setReservationId(null);
     setReservationExpiresAt(null);
     setReservationSecondsLeft(0);
@@ -538,14 +564,28 @@ export default function PlayerBookingWizard({
     if (visible) pulse();
   }, [visible]);
 
-  // Reset court override whenever the selected slot changes (prevents stale court from previous selection)
+  // Reset court override whenever the selected slot changes (prevents stale court from previous selection).
+  // When a preset court is active (Choose Court browse mode), keep it pre-selected so the player sees
+  // their chosen court locked-in on the Details step.
   useEffect(() => {
-    setSelectedCourtId(null);
-    setSelectedCourtName(null);
-  }, [selectedSlot]);
+    // When joining an existing session, never override its court — show the actual court
+    // assigned to that session (don't apply the preset court).
+    if (isJoining) {
+      setSelectedCourtId(null);
+      setSelectedCourtName(null);
+      return;
+    }
+    if (presetCourtId && presetCourt) {
+      setSelectedCourtId(presetCourtId);
+      setSelectedCourtName(presetCourt.name);
+    } else {
+      setSelectedCourtId(null);
+      setSelectedCourtName(null);
+    }
+  }, [selectedSlot, selectedSession, isJoining, presetCourtId, presetCourt]);
 
   // Fetch AI focus suggestions when entering the Details slide
-  const detailsSlideIndex = browseMode === "by_coach" ? 4 : 3;
+  const detailsSlideIndex = (browseMode === "by_coach" || browseMode === "by_court") ? 4 : 3;
   useEffect(() => {
     if (currentSlide === detailsSlideIndex && !aiFocusFetched && visible) {
       setAiFocusLoading(true);
@@ -594,6 +634,17 @@ export default function PlayerBookingWizard({
         case 5: return true; // Confirm
         default: return false;
       }
+    } else if (browseMode === "by_court") {
+      // 6 slides: Mode -> Browse -> Court -> Session -> Details -> Confirm
+      switch (currentSlide) {
+        case 0: return !!sessionType;
+        case 1: return true;
+        case 2: return !!presetCourtId; // Must select a court
+        case 3: return !!selectedSlot || !!selectedSession;
+        case 4: return true;
+        case 5: return true;
+        default: return false;
+      }
     } else {
       // 5 slides: Mode -> Browse -> Session -> Details -> Confirm
       switch (currentSlide) {
@@ -605,7 +656,7 @@ export default function PlayerBookingWizard({
         default: return false;
       }
     }
-  }, [currentSlide, sessionType, browseMode, selectedCoachId, selectedSlot, selectedSession]);
+  }, [currentSlide, sessionType, browseMode, selectedCoachId, presetCourtId, selectedSlot, selectedSession]);
 
   // Create booking request mutation - always uses booking request flow
   // For joining an existing session, we include the sessionId in the request
@@ -777,6 +828,9 @@ export default function PlayerBookingWizard({
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             setBrowseMode("by_time");
             setSelectedCoachId(null);
+            setPresetCourtId(null);
+            setPresetCourt(null);
+            setSelectedLocationId(null);
           }}
           style={[
             styles.browseModeCard,
@@ -802,6 +856,9 @@ export default function PlayerBookingWizard({
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             setBrowseMode("by_coach");
+            setPresetCourtId(null);
+            setPresetCourt(null);
+            setSelectedLocationId(null);
           }}
           style={[
             styles.browseModeCard,
@@ -821,9 +878,117 @@ export default function PlayerBookingWizard({
             <Text style={styles.browseModeSubtitle}>Select your preferred coach first</Text>
           </LinearGradient>
         </Pressable>
+
+        {/* Browse by Court option */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setBrowseMode("by_court");
+            setSelectedCoachId(null);
+          }}
+          style={[
+            styles.browseModeCard,
+            browseMode === "by_court" && { borderColor: Colors.dark.primary, borderWidth: 2 },
+          ]}
+        >
+          <LinearGradient
+            colors={browseMode === "by_court" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+            style={styles.browseModeCardGradient}
+          >
+            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
+              <Ionicons name="tennisball" size={36} color={Colors.dark.primary} />
+            </View>
+            <Text style={[styles.browseModeLabel, browseMode === "by_court" && { color: Colors.dark.primary }]}>
+              Choose Court
+            </Text>
+            <Text style={styles.browseModeSubtitle}>Pick a favorite court first</Text>
+          </LinearGradient>
+        </Pressable>
       </View>
     </Animated.View>
   );
+
+  // SLIDE 2 (only when by_court): Select Court
+  const renderSelectCourtSlide = () => {
+    // Group courts by location for cleaner browsing
+    const grouped = new Map<string, { locationName: string; courts: AcademyCourt[] }>();
+    for (const court of academyCourts) {
+      const key = court.locationId ?? "__none__";
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          locationName: court.locationName ?? "Other",
+          courts: [],
+        });
+      }
+      grouped.get(key)!.courts.push(court);
+    }
+    const groups = Array.from(grouped.values());
+
+    const handleCourtSelect = (court: AcademyCourt) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setPresetCourtId(court.id);
+      setPresetCourt(court);
+      setSelectedCourtId(court.id);
+      setSelectedCourtName(court.name);
+      // Pin location filter to the chosen court's location
+      setSelectedLocationId(court.locationId ?? null);
+      // Clear any stale slot selection from prior court
+      setSelectedSlot(null);
+      setSelectedSession(null);
+    };
+
+    return (
+      <Animated.View entering={FadeIn} style={styles.slideContent}>
+        <Text style={styles.slideSubtitle}>Pick a court to play on</Text>
+
+        {academyCourtsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <Text style={styles.loadingText}>Loading courts...</Text>
+          </View>
+        ) : academyCourts.length === 0 ? (
+          <View style={styles.emptyCoachesContainer}>
+            <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyCoachesText}>No courts available</Text>
+          </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.xl * 2 }}>
+            {groups.map((group, gi) => (
+              <View key={gi} style={{ marginBottom: Spacing.lg }}>
+                <Text style={styles.sessionSectionTitle}>{group.locationName}</Text>
+                {group.courts.map((court) => {
+                  const isSelected = presetCourtId === court.id;
+                  return (
+                    <Pressable
+                      key={court.id}
+                      onPress={() => handleCourtSelect(court)}
+                      style={[styles.slotCard, isSelected && styles.slotCardSelected]}
+                    >
+                      <View style={[styles.slotInfoColumn, { flex: 1 }]}>
+                        <Text style={[styles.slotCoachName, { fontSize: 16 }]}>
+                          {court.name}
+                          {court.surface ? ` · ${court.surface}` : ""}
+                        </Text>
+                        {court.locationName ? (
+                          <View style={styles.locationRow}>
+                            <Ionicons name="location" size={12} color={Colors.dark.textSecondary} />
+                            <Text style={styles.slotLocationText}>{court.locationName}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {isSelected ? (
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </Animated.View>
+    );
+  };
 
   // SLIDE 2 (only when by_coach): Select Coach - Premium coach cards
   const renderSelectCoachSlide = () => {
@@ -922,6 +1087,18 @@ export default function PlayerBookingWizard({
     // Combine joinable sessions and available slots for display
     const showJoinable = sessionType === "group" || sessionType === "semi_private";
 
+    // Filter slots by location AND, when in by_court mode, by the chosen court
+    // (slots from other courts are filtered out; slots without an assigned court are kept
+    // since the booking can still be placed on the chosen court)
+    const filteredSlots = availableSlots.filter(slot => {
+      const locOk = !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null;
+      if (!locOk) return false;
+      if (presetCourtId) {
+        return !slot.courtId || slot.courtId === presetCourtId;
+      }
+      return true;
+    });
+
     return (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
@@ -1009,8 +1186,20 @@ export default function PlayerBookingWizard({
             })}
           </ScrollView>
 
-          {/* Location Filter */}
-          {locations.length > 0 && (
+          {/* Pinned Court banner — shown when player picked a court via "Choose Court" mode */}
+          {presetCourt ? (
+            <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
+              <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
+              <Text style={styles.sectionTitle}>
+                Court: {presetCourt.name}
+                {presetCourt.surface ? ` · ${presetCourt.surface}` : ""}
+                {presetCourt.locationName ? ` · ${presetCourt.locationName}` : ""}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Location Filter — hidden when a court is locked-in (location is auto-pinned) */}
+          {!presetCourt && locations.length > 0 && (
             <>
               <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
                 <Ionicons name="location" size={18} color={Colors.dark.primary} />
@@ -1074,11 +1263,15 @@ export default function PlayerBookingWizard({
             </View>
           ) : (
             <>
-            {/* Joinable Sessions */}
-            {showJoinable && joinableSessions.length > 0 && (
+            {/* Joinable Sessions — filtered by chosen court when in by_court mode */}
+            {(() => {
+              const filteredJoinable = presetCourtId
+                ? joinableSessions.filter(s => s.courtId === presetCourtId)
+                : joinableSessions;
+              return showJoinable && filteredJoinable.length > 0 ? (
               <>
                 <Text style={styles.sessionSectionTitle}>Join Existing Group</Text>
-                {joinableSessions.map((session) => {
+                {filteredJoinable.map((session) => {
                   const isSelected = selectedSession?.id === session.id;
                   const spotsLeft = (session.maxPlayers || 6) - session.currentPlayers;
                   return (
@@ -1153,7 +1346,8 @@ export default function PlayerBookingWizard({
                   );
                 })}
               </>
-            )}
+              ) : null;
+            })()}
 
             {/* Reservation error banner */}
             {reservationError ? (
@@ -1164,12 +1358,12 @@ export default function PlayerBookingWizard({
             ) : null}
 
             {/* Available Slots for New Booking */}
-            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).length > 0 && (
+            {filteredSlots.length > 0 && (
               <>
                 <Text style={styles.sessionSectionTitle}>
                   {showJoinable ? "Or Request New Session" : "Available Times"}
                 </Text>
-                {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).map((slot, index) => {
+                {filteredSlots.map((slot, index) => {
                   const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
                   const displayLocationName = slot.locationId
                     ? slot.locationName
@@ -1250,7 +1444,7 @@ export default function PlayerBookingWizard({
               </>
             )}
 
-            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null).length === 0 && joinableSessions.length === 0 && !isLoading && (
+            {filteredSlots.length === 0 && (presetCourtId ? joinableSessions.filter(s => s.courtId === presetCourtId) : joinableSessions).length === 0 && !isLoading && (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
                 <Text style={styles.emptyStateTitle}>
@@ -1338,6 +1532,14 @@ export default function PlayerBookingWizard({
                     {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
                     {" · "}
                     {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
+                    {(() => {
+                      const cid = selectedCourtId ?? ("courtId" in sessionInfo ? sessionInfo.courtId : null);
+                      const surface =
+                        (presetCourt && presetCourt.id === cid && presetCourt.surface) ||
+                        (cid ? availableCourts.find(c => c.id === cid)?.surface : null) ||
+                        (cid ? academyCourts.find(c => c.id === cid)?.surface : null);
+                      return surface ? ` · ${surface}` : "";
+                    })()}
                   </Text>
                 </View>
                 <View style={styles.confirmRow}>
@@ -1358,8 +1560,14 @@ export default function PlayerBookingWizard({
           {selectedSlot && !isJoining && availableCourts.length > 0 ? (
             <View style={styles.courtSelectionSection}>
               <View style={styles.aiFocusHeader}>
-                <Ionicons name="tennisball" size={15} color={Colors.dark.primary} />
-                <Text style={[styles.aiFocusLabel, { color: Colors.dark.primary }]}>Court Selection</Text>
+                <Ionicons
+                  name={presetCourtId ? "lock-closed" : "tennisball"}
+                  size={15}
+                  color={Colors.dark.primary}
+                />
+                <Text style={[styles.aiFocusLabel, { color: Colors.dark.primary }]}>
+                  {presetCourtId ? "Court (Locked In)" : "Court Selection"}
+                </Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.aiFocusChips}>
@@ -1383,7 +1591,12 @@ export default function PlayerBookingWizard({
                           styles.aiFocusChipText,
                           isSelected && styles.aiFocusChipTextSelected,
                         ]}>
-                          {court.name}{isPreassigned ? " (suggested)" : ""}
+                          {court.name}
+                          {presetCourtId === court.id
+                            ? " (your pick)"
+                            : isPreassigned && !presetCourtId
+                              ? " (suggested)"
+                              : ""}
                         </Text>
                       </Pressable>
                     );
@@ -1552,6 +1765,14 @@ export default function PlayerBookingWizard({
                     {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
                     {" · "}
                     {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
+                    {(() => {
+                      const cid = selectedCourtId ?? ("courtId" in sessionInfo ? sessionInfo.courtId : null);
+                      const surface =
+                        (presetCourt && presetCourt.id === cid && presetCourt.surface) ||
+                        (cid ? availableCourts.find(c => c.id === cid)?.surface : null) ||
+                        (cid ? academyCourts.find(c => c.id === cid)?.surface : null);
+                      return surface ? ` · ${surface}` : "";
+                    })()}
                   </Text>
                 </View>
                 {(() => {
@@ -1617,6 +1838,17 @@ export default function PlayerBookingWizard({
         case 0: return renderSessionTypeSlide();
         case 1: return renderBrowseModeSlide();
         case 2: return renderSelectCoachSlide();
+        case 3: return renderFindSessionSlide();
+        case 4: return renderDetailsSlide();
+        case 5: return renderConfirmSlide();
+        default: return null;
+      }
+    } else if (browseMode === "by_court") {
+      // 6 slides: Mode -> Browse -> Court -> Session -> Details -> Confirm
+      switch (currentSlide) {
+        case 0: return renderSessionTypeSlide();
+        case 1: return renderBrowseModeSlide();
+        case 2: return renderSelectCourtSlide();
         case 3: return renderFindSessionSlide();
         case 4: return renderDetailsSlide();
         case 5: return renderConfirmSlide();

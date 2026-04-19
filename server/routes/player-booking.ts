@@ -337,6 +337,42 @@ function toDubaiTime(utcDate: Date): Date {
     }
   });
 
+  // List all bookable courts in player's academy (used by Choose Court browse mode)
+  router.get("/api/player/academy-courts", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      if (!academyId) {
+        return res.json([]);
+      }
+
+      const allCourts = await storage.getAllCourts(academyId);
+      const allLocations = await storage.getAllLocations(academyId);
+      const locationMap = new Map(allLocations.map((l: any) => [l.id, l]));
+
+      const result = allCourts
+        .filter((c: any) => c.isActive !== false)
+        .map((c: any) => {
+          const loc: any = c.locationId ? locationMap.get(c.locationId) : null;
+          return {
+            id: c.id,
+            name: c.name,
+            surface: c.surface ?? null,
+            locationId: c.locationId ?? null,
+            locationName: loc?.name ?? null,
+          };
+        });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Academy courts error:", error);
+      res.status(500).json({ error: "Failed to fetch academy courts" });
+    }
+  });
+
   // Reserve a slot (5-min temporary hold to prevent double-booking race conditions)
   router.post("/api/player/reserve-slot", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
@@ -717,6 +753,7 @@ function toDubaiTime(utcDate: Date): Date {
             duration: s.duration,
             coachId: s.coachId,
             coachName: s.coachName || "Coach",
+            courtId: s.courtId || null,
             courtName: s.courtName || "Court",
             locationName: s.locationName || s.location || "Location",
             maxPlayers,
