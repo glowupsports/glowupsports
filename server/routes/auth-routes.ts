@@ -248,14 +248,22 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // /auth/apple/register, both of which would create false-positive links.
         const isStub = verifiedEmail.endsWith("@appleid.local");
         const isPrivateRelay = verifiedEmail.endsWith("@privaterelay.appleid.com");
-        const candidate = !isStub && !isPrivateRelay
-          ? await storage.getUserByEmail(verifiedEmail)
-          : null;
-        if (candidate && !candidate.appleId && candidate.deleted !== true) {
-          await storage.linkAppleId(candidate.id, appleUser);
-          existingUser = { ...candidate, appleId: appleUser } as typeof candidate;
-          linkedToExisting = true;
-          console.log(`[AppleLogin] Auto-linked Apple ID to existing user ${candidate.id} via verified email match`);
+        if (!isStub && !isPrivateRelay) {
+          // Email is non-unique in this schema (families share emails). Only
+          // auto-link when EXACTLY one eligible (non-deleted, no existing
+          // Apple ID) account matches; otherwise fall through to APPLE_NOT_LINKED
+          // so the user disambiguates by signing in with username first.
+          const matches = await storage.getUsersByEmail(verifiedEmail);
+          const eligible = matches.filter((u) => u.deleted !== true && !u.appleId);
+          if (eligible.length === 1) {
+            const candidate = eligible[0];
+            await storage.linkAppleId(candidate.id, appleUser);
+            existingUser = { ...candidate, appleId: appleUser } as typeof candidate;
+            linkedToExisting = true;
+            console.log(`[AppleLogin] Auto-linked Apple ID to existing user ${candidate.id} via verified email match`);
+          } else if (eligible.length > 1) {
+            console.log(`[AppleLogin] Skipping auto-link: ${eligible.length} accounts share email; require username sign-in first`);
+          }
         }
       }
 
@@ -591,17 +599,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         return res.json({ success: true, message: "If an account matches, a reset code has been sent." });
       }
 
-      // Try username first, fall back to email lookup
+      // Try username first, fall back to email lookup. Email is non-unique in
+      // this schema (families share emails); if the email matches more than
+      // one account we cannot safely pick one, so treat it as a non-match
+      // (opaque success — same response as "no account").
       let user = await storage.getUserByUsername(identifier);
-      if (!user && identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier);
+      const identifierIsEmail = identifier.includes("@");
+      if (!user && identifierIsEmail) {
+        const matches = await storage.getUsersByEmail(identifier);
+        const eligible = matches.filter((u) => u.deleted !== true && !!u.email);
+        if (eligible.length === 1) {
+          user = eligible[0];
+        } else if (eligible.length > 1) {
+          console.log(`[ForgotPassword] Email matches ${eligible.length} accounts; refusing to disambiguate (opaque response)`);
+          user = undefined as any;
+        }
       }
 
       // For username lookups (not email), we can safely surface the
       // "account exists but has no email on file" case so the player knows
       // to contact their coach/admin. We never do this for email lookups —
       // that would leak whether the email is registered.
-      const identifierIsEmail = identifier.includes("@");
       if (user && user.deleted !== true && !identifierIsEmail) {
         const isAppleStub = user.email?.endsWith("@appleid.local") ?? false;
         if (!user.email || isAppleStub) {
@@ -684,9 +702,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         return res.status(400).json({ error: passwordCheck.errors.join(". ") });
       }
 
+      // Same disambiguation as /auth/forgot-password: emails are non-unique
+      // (families share emails) so multiple matches must NOT be reset
+      // — refuse and tell the user to use their username instead.
       let user = await storage.getUserByUsername(identifier);
       if (!user && identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier);
+        const matches = await storage.getUsersByEmail(identifier);
+        const eligible = matches.filter((u) => u.deleted !== true);
+        if (eligible.length === 1) {
+          user = eligible[0];
+        } else if (eligible.length > 1) {
+          return res.status(400).json({
+            error: "This email is shared by multiple accounts. Please sign in with your username and try again.",
+          });
+        }
       }
       if (!user || user.deleted === true) {
         return res.status(400).json({ error: "Invalid or expired code." });

@@ -483,6 +483,13 @@ export const storage = {
     return result[0];
   },
 
+  // Email is intentionally non-unique in this schema (families share emails),
+  // so any auth/recovery flow that resolves a user by email MUST disambiguate
+  // before linking, sending a code, or resetting a password.
+  async getUsersByEmail(email: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.email, email.toLowerCase()));
+  },
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.username, username.toLowerCase()));
     return result[0];
