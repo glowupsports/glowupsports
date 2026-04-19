@@ -22,6 +22,8 @@ import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/c
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { themePresets, defaultAcademyTheme, type AcademyTheme } from "@shared/theme";
 
+const HEX6_RE = /^#[0-9a-fA-F]{6}$/;
+
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
   id: string;
@@ -683,11 +685,53 @@ export default function PlayerSettingsScreen() {
             </View>
 
             {themeMode === "preset" ? (
-              <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm }}>
+              <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md }}>
                 <Text style={styles.languageDescription}>
-                  Pick a preset for your account on this device. Your academy's
-                  branding stays as-is for everyone else.
+                  Pick a preset or enter your own colours. This only affects
+                  your account on this device — your academy's branding stays
+                  as-is for everyone else.
                 </Text>
+
+                {/* Live preview */}
+                <View
+                  style={{
+                    borderRadius: BorderRadius.md,
+                    borderWidth: 1,
+                    borderColor: Colors.dark.borderSubtle,
+                    backgroundColor: playerOverride?.dark?.surface ?? playerOverride?.surface ?? Colors.dark.backgroundSecondary,
+                    padding: Spacing.md,
+                    gap: Spacing.sm,
+                  }}
+                  accessibilityLabel="Theme preview"
+                >
+                  <Text style={{ color: playerOverride?.dark?.text ?? playerOverride?.text ?? Colors.dark.text, fontWeight: "600" }}>
+                    Preview
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
+                    <View
+                      style={{
+                        paddingVertical: Spacing.sm,
+                        paddingHorizontal: Spacing.md,
+                        borderRadius: BorderRadius.md,
+                        backgroundColor: playerOverride?.dark?.primary ?? playerOverride?.primary ?? Colors.dark.primary,
+                      }}
+                    >
+                      <Text style={{ color: "#0B0B0B", fontWeight: "700" }}>Primary</Text>
+                    </View>
+                    <View
+                      style={{
+                        paddingVertical: Spacing.sm,
+                        paddingHorizontal: Spacing.md,
+                        borderRadius: BorderRadius.md,
+                        backgroundColor: playerOverride?.dark?.secondary ?? playerOverride?.secondary ?? Colors.dark.gold,
+                      }}
+                    >
+                      <Text style={{ color: "#0B0B0B", fontWeight: "700" }}>Accent</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Preset chips */}
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
                   {themePresets.map((p) => {
                     const selected = matchedPresetId === p.id;
@@ -717,19 +761,92 @@ export default function PlayerSettingsScreen() {
                         accessibilityRole="button"
                         accessibilityState={{ selected }}
                       >
-                        <View
-                          style={{
-                            width: 16,
-                            height: 16,
-                            borderRadius: 8,
-                            backgroundColor: swatch,
-                          }}
-                        />
+                        <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: swatch }} />
                         <Text style={{ color: Colors.dark.text, fontWeight: "500" }}>{p.name}</Text>
                       </Pressable>
                     );
                   })}
                 </View>
+
+                {/* Custom hex inputs */}
+                <View style={{ gap: Spacing.sm }}>
+                  <Text style={{ color: Colors.dark.textMuted, fontWeight: "600" }}>Custom colours</Text>
+                  {(["primary", "secondary"] as const).map((field) => {
+                    const current =
+                      playerOverride?.dark?.[field] ?? playerOverride?.[field] ?? "";
+                    const valid = !current || HEX6_RE.test(current);
+                    return (
+                      <View key={field} style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                        <View
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: Colors.dark.borderSubtle,
+                            backgroundColor: valid && current ? current : "transparent",
+                          }}
+                        />
+                        <Text style={{ color: Colors.dark.text, width: 80, textTransform: "capitalize" }}>{field}</Text>
+                        <TextInput
+                          value={current}
+                          onChangeText={(raw) => {
+                            const trimmed = raw.startsWith("#") ? raw : `#${raw}`;
+                            const next: AcademyTheme = {
+                              ...(playerOverride ?? defaultAcademyTheme),
+                              [field]: trimmed,
+                              dark: {
+                                ...((playerOverride?.dark ?? defaultAcademyTheme.dark) ?? {}),
+                                [field]: trimmed,
+                              },
+                            };
+                            setPlayerOverride(next);
+                          }}
+                          placeholder="#RRGGBB"
+                          placeholderTextColor={Colors.dark.textMuted}
+                          autoCapitalize="characters"
+                          autoCorrect={false}
+                          maxLength={7}
+                          accessibilityLabel={`${field} colour hex value`}
+                          style={{
+                            flex: 1,
+                            color: valid ? Colors.dark.text : "#FF6B6B",
+                            backgroundColor: Colors.dark.backgroundSecondary,
+                            borderWidth: 1,
+                            borderColor: valid ? Colors.dark.borderSubtle : "#FF6B6B",
+                            borderRadius: BorderRadius.sm,
+                            paddingHorizontal: Spacing.sm,
+                            paddingVertical: Spacing.xs,
+                            fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+                          }}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Explicit reset CTA */}
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setPlayerOverride(null);
+                  }}
+                  style={{
+                    alignSelf: "flex-start",
+                    paddingVertical: Spacing.sm,
+                    paddingHorizontal: Spacing.md,
+                    borderRadius: BorderRadius.md,
+                    borderWidth: 1,
+                    borderColor: Colors.dark.borderSubtle,
+                    backgroundColor: "transparent",
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset to academy default theme"
+                >
+                  <Text style={{ color: Colors.dark.text, fontWeight: "600" }}>
+                    Reset to academy default
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
           </View>

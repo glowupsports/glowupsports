@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +29,7 @@ interface AcademyData {
 
 export default function AcademyProfileScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const queryClient = useQueryClient();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -349,7 +351,7 @@ export default function AcademyProfileScreen() {
             style={[styles.fieldCard, CardStyles.elevated, styles.brandingButton]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              (navigation as any).navigate("Branding");
+              navigation.navigate("Branding");
             }}
             accessibilityRole="button"
             accessibilityLabel="Open branding and theme editor"
