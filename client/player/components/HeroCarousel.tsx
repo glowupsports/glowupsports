@@ -712,7 +712,6 @@ interface FriendSpotlightConnection {
 
 function FriendSpotlightLensCard() {
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
 
   const { data: connectionsData } = useQuery<{ friends: FriendSpotlightConnection[] }>({
     queryKey: ["/api/player/connections"],
