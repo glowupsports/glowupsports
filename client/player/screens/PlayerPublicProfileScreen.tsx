@@ -245,6 +245,61 @@ export default function PlayerPublicProfileScreen() {
     sendFriendRequestMutation.mutate();
   };
 
+  // Match FriendsListScreen: invalidate the connections list AND every
+  // per-profile status query, so any other open profile reflects the new
+  // state without going stale.
+  const invalidateAllConnectionStatusCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey?.[0];
+        return typeof key === "string" && key.startsWith("/api/player/connections/status/");
+      },
+    });
+  };
+
+  // Accept / decline an incoming friend request directly from the profile,
+  // so players don't have to detour through the Friends list (Task #724).
+  const respondToRequestMutation = useMutation({
+    mutationFn: async ({ connectionId, action }: { connectionId: string; action: "accept" | "decline" }) => {
+      return apiRequest("POST", `/api/player/connections/${connectionId}/respond`, { action });
+    },
+    onSuccess: () => {
+      invalidateAllConnectionStatusCaches();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const raw = err?.message || "";
+      let message = raw;
+      const match = raw.match(/^\d+:\s*(.*)$/s);
+      if (match) {
+        const body = match[1].trim();
+        try {
+          const parsed = JSON.parse(body);
+          message = parsed?.error || parsed?.message || body;
+        } catch {
+          message = body;
+        }
+      }
+      // Re-sync from server in case the request actually changed state.
+      invalidateAllConnectionStatusCaches();
+      Alert.alert("Couldn't respond to request", message || "Please try again.");
+    },
+  });
+
+  const handleAcceptRequest = () => {
+    if (!connectionStatus?.connectionId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    respondToRequestMutation.mutate({ connectionId: connectionStatus.connectionId, action: "accept" });
+  };
+
+  const handleDeclineRequest = () => {
+    if (!connectionStatus?.connectionId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    respondToRequestMutation.mutate({ connectionId: connectionStatus.connectionId, action: "decline" });
+  };
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -527,12 +582,42 @@ export default function PlayerPublicProfileScreen() {
                     )}
                   </Pressable>
                 ) : connectionStatus?.status === "pending" ? (
-                  <View style={styles.pendingBtn} testID="status-pending-friend">
-                    <Ionicons name="time" size={18} color={Colors.dark.gold} />
-                    <Text style={styles.pendingBtnText}>
-                      {connectionStatus.isRequester ? "Request Sent" : "Respond to Request"}
-                    </Text>
-                  </View>
+                  connectionStatus.isRequester ? (
+                    <View style={styles.pendingBtn} testID="status-pending-friend">
+                      <Ionicons name="time" size={18} color={Colors.dark.gold} />
+                      <Text style={styles.pendingBtnText}>Request Sent</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.respondActions} testID="status-pending-friend">
+                      <Pressable
+                        style={[styles.acceptBtn, respondToRequestMutation.isPending && { opacity: 0.6 }]}
+                        onPress={handleAcceptRequest}
+                        disabled={respondToRequestMutation.isPending}
+                        testID="button-accept-request"
+                      >
+                        {respondToRequestMutation.isPending && respondToRequestMutation.variables?.action === "accept" ? (
+                          <ActivityIndicator size="small" color={Colors.dark.text} />
+                        ) : (
+                          <>
+                            <Ionicons name="checkmark" size={18} color={Colors.dark.text} />
+                            <Text style={styles.acceptBtnText}>Accept</Text>
+                          </>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        style={[styles.declineBtn, respondToRequestMutation.isPending && { opacity: 0.6 }]}
+                        onPress={handleDeclineRequest}
+                        disabled={respondToRequestMutation.isPending}
+                        testID="button-decline-request"
+                      >
+                        {respondToRequestMutation.isPending && respondToRequestMutation.variables?.action === "decline" ? (
+                          <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+                        ) : (
+                          <Text style={styles.declineBtnText}>Decline</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  )
                 ) : connectionStatus?.status === "accepted" ? (
                   <View style={styles.friendsBtn} testID="status-friends">
                     <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
@@ -1226,6 +1311,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.gold,
+  },
+  respondActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  acceptBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.xpCyan,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    minWidth: 110,
+    justifyContent: "center",
+  },
+  acceptBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  declineBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: "transparent",
+    minWidth: 90,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  declineBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
   },
   friendsBtn: {
     flexDirection: "row",
