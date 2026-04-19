@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -235,6 +235,11 @@ export function CoachCreditV2Panel({ playerId }: Props) {
     },
   });
 
+  // Tracks the credit type for which the price field was last auto-filled.
+  // Lets us preserve manual edits within the same type, while still
+  // overwriting the price when the coach switches to a different type.
+  const lastAutoFilledTypeRef = useRef<CreditType | null>(null);
+
   const openAddModal = () => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -244,18 +249,26 @@ export function CoachCreditV2Panel({ playerId }: Props) {
     setAddPrice("");
     setAddPayment("cash");
     setAddType("group");
+    lastAutoFilledTypeRef.current = null;
     setShowAddModal(true);
   };
 
   // Auto-fill price when type changes (or pricing loads).
+  // - On type change: always overwrite with the academy price for the new
+  //   type (or clear if not configured) — auto-fill wins on type switches.
+  // - Within the same type: preserve any manual edit the coach has made.
   React.useEffect(() => {
     if (!showAddModal) return;
-    if (addPrice.trim()) return;
+    const sameType = lastAutoFilledTypeRef.current === addType;
+    if (sameType && addPrice.trim()) return;
     const lookup = addType === "semi_private" ? "semi" : addType;
     const row = pricingQuery.data?.find((p) => p.sessionType === lookup);
     if (row && parseFloat(row.pricePerSession) > 0) {
       setAddPrice(parseFloat(row.pricePerSession).toFixed(2));
+    } else if (!sameType) {
+      setAddPrice("");
     }
+    lastAutoFilledTypeRef.current = addType;
   }, [addType, pricingQuery.data, showAddModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enabled = walletQuery.data?.v2Enabled === true;
