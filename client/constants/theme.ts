@@ -156,7 +156,8 @@ export const Colors = {
     primary: GlowColors.primary,
     gold: RoleColors.owner,
     orange: RoleColors.admin,
-    xpCyan: FunctionColors.info,
+    /** @deprecated Player palette policy: use primary. Aliased to primary so legacy references render with the brand accent. */
+    xpCyan: GlowColors.primary,
     diamondSilver: "#E0E0E0",
     bronzeCoin: "#CD7F32",
     successNeon: FunctionColors.success,
@@ -234,7 +235,8 @@ export const Colors = {
     primary: GlowColors.primary,
     gold: RoleColors.owner,
     orange: RoleColors.admin,
-    xpCyan: FunctionColors.info,
+    /** @deprecated Player palette policy: use primary. Aliased to primary so legacy references render with the brand accent. */
+    xpCyan: GlowColors.primary,
     diamondSilver: "#E0E0E0",
     bronzeCoin: "#CD7F32",
     successNeon: FunctionColors.success,

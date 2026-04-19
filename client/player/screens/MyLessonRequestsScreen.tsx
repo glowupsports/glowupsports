@@ -54,7 +54,7 @@ const DECLINE_REASON_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   pending: { label: "Pending", color: Colors.dark.orange || "#F97316", icon: "time" },
-  awaiting_player_reply: { label: "Reply needed", color: Colors.dark.primary ?? Colors.dark.primary, icon: "chatbubble-ellipses" },
+  awaiting_player_reply: { label: "Reply needed", color: Colors.dark.primary, icon: "chatbubble-ellipses" },
   approved: { label: "Approved", color: Colors.dark.primary, icon: "checkmark-circle" },
   declined: { label: "Declined", color: Colors.dark.error || "#EF4444", icon: "close-circle" },
   cancelled: { label: "Cancelled", color: Colors.dark.textMuted || "#6B7280", icon: "ban" },
@@ -439,10 +439,10 @@ export default function MyLessonRequestsScreen() {
 
         {/* Coach pre-confirm message */}
         {item.coachPreConfirmMessage ? (
-          <View style={[styles.noteContainer, { backgroundColor: (Colors.dark.primary ?? Colors.dark.primary) + "10", borderWidth: 1, borderColor: (Colors.dark.primary ?? Colors.dark.primary) + "30" }]}>
+          <View style={[styles.noteContainer, { backgroundColor: (Colors.dark.primary) + "10", borderWidth: 1, borderColor: (Colors.dark.primary) + "30" }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
-              <Ionicons name="chatbubble-ellipses" size={13} color={Colors.dark.primary ?? Colors.dark.primary} />
-              <Text style={[styles.noteLabel, { color: Colors.dark.primary ?? Colors.dark.primary }]}>Message from your coach:</Text>
+              <Ionicons name="chatbubble-ellipses" size={13} color={Colors.dark.primary} />
+              <Text style={[styles.noteLabel, { color: Colors.dark.primary }]}>Message from your coach:</Text>
             </View>
             <Text style={styles.noteText}>{item.coachPreConfirmMessage}</Text>
           </View>

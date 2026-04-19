@@ -366,7 +366,7 @@ export default function OpponentProfileScreen() {
                 selected={weakerSide ? [weakerSide] : []}
                 onToggle={(v) => setWeakerSide(weakerSide === v ? "" : v)}
                 single
-                color={Colors.dark?.xpCyan || "#00D4FF"}
+                color={Colors.dark?.primary || Colors.dark.primary}
               />
 
               <Text style={[styles.fieldLabel, { marginTop: Spacing.md }]}>Playstyle tags</Text>
@@ -442,9 +442,9 @@ export default function OpponentProfileScreen() {
                     </View>
                   ) : null}
                   {opponent?.weakerSide ? (
-                    <View style={[styles.sideChip, { borderColor: Colors.dark?.xpCyan + "60" || "#00D4FF60" }]}>
-                      <Ionicons name="leaf" size={12} color={Colors.dark?.xpCyan || "#00D4FF"} />
-                      <Text style={[styles.sideChipText, { color: Colors.dark?.xpCyan || "#00D4FF" }]}>
+                    <View style={[styles.sideChip, { borderColor: Colors.dark?.primary + "60" || Colors.dark.primary + "60" }]}>
+                      <Ionicons name="leaf" size={12} color={Colors.dark?.primary || Colors.dark.primary} />
+                      <Text style={[styles.sideChipText, { color: Colors.dark?.primary || Colors.dark.primary }]}>
                         Weak: {opponent.weakerSide}
                       </Text>
                     </View>

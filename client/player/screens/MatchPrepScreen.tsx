@@ -272,8 +272,8 @@ export default function MatchPrepScreen() {
         {/* === SECTION A: Opponent Intel === */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={[styles.cardIcon, { backgroundColor: Colors.dark?.xpCyan + "20" || "#00D4FF20" }]}>
-              <Ionicons name="person-outline" size={18} color={Colors.dark?.xpCyan || "#00D4FF"} />
+            <View style={[styles.cardIcon, { backgroundColor: Colors.dark?.primary + "20" || Colors.dark.primary + "20" }]}>
+              <Ionicons name="person-outline" size={18} color={Colors.dark?.primary || Colors.dark.primary} />
             </View>
             <Text style={styles.cardTitle}>Opponent Intel</Text>
           </View>
@@ -306,8 +306,8 @@ export default function MatchPrepScreen() {
                   ) : null}
                   {selectedOpponent.weakerSide ? (
                     <View style={styles.sideChip}>
-                      <Ionicons name="leaf" size={12} color={Colors.dark?.xpCyan || "#00D4FF"} />
-                      <Text style={[styles.sideChipText, { color: Colors.dark?.xpCyan || "#00D4FF" }]}>
+                      <Ionicons name="leaf" size={12} color={Colors.dark?.primary || Colors.dark.primary} />
+                      <Text style={[styles.sideChipText, { color: Colors.dark?.primary || Colors.dark.primary }]}>
                         Weak: {selectedOpponent.weakerSide}
                       </Text>
                     </View>
@@ -498,7 +498,7 @@ export default function MatchPrepScreen() {
             options={PHYSICAL_OPTIONS}
             selected={physicalReadiness}
             onSelect={(v) => setPhysicalReadiness(physicalReadiness === v ? "" : v)}
-            color={Colors.dark?.xpCyan || "#00D4FF"}
+            color={Colors.dark?.primary || Colors.dark.primary}
           />
         </View>
 
