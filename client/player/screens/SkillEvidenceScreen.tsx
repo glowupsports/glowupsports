@@ -427,7 +427,7 @@ export default function SkillEvidenceScreen() {
               >
                 <LinearGradient
                   colors={selectedSkill 
-                    ? [Colors.dark.primary, Colors.dark.primary]
+                    ? [GlowColors.primary, GlowColors.dark]
                     : [Colors.dark.backgroundTertiary, Colors.dark.backgroundTertiary]
                   }
                   start={{ x: 0, y: 0 }}

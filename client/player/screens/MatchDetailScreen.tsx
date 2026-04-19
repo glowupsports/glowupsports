@@ -147,7 +147,7 @@ const PILLAR_ICONS: Record<string, string> = {
 };
 
 const PILLAR_COLORS: Record<string, string> = {
-  technical: Colors.dark?.primary || Colors.dark.primary,
+  technical: Colors.dark.primary,
   tactical: Colors.dark?.gold || "#FFD700",
   physical: Colors.dark?.successNeon || "#39FF14",
   mental: Colors.dark?.ballGlow || "#A78BFA",
@@ -339,7 +339,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
           <Text style={mirrorStyles.sectionLabel}>After the match</Text>
           {reflection.postMatchEnergy ? (
             <View style={mirrorStyles.dataRow}>
-              <Ionicons name="flash-outline" size={14} color={Colors.dark?.primary || Colors.dark.primary} />
+              <Ionicons name="flash-outline" size={14} color={Colors.dark.primary} />
               <Text style={mirrorStyles.dataLabel}>Energy:</Text>
               <Text style={mirrorStyles.dataValue}>{reflection.postMatchEnergy}</Text>
             </View>
@@ -477,7 +477,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
         selected={postMatchEnergy ? [postMatchEnergy] : []}
         onToggle={(v) => setPostMatchEnergy(postMatchEnergy === v ? "" : v)}
         single
-        color={Colors.dark?.primary || Colors.dark.primary}
+        color={Colors.dark.primary}
       />
 
       <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>Post-match mood</Text>
@@ -1072,12 +1072,12 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
       <View style={debriefStyles.card}>
         <View style={debriefStyles.header}>
           <View style={[debriefStyles.icon, { backgroundColor: Colors.dark?.primary + "20" || Colors.dark.primary + "20" }]}>
-            <Ionicons name="sparkles-outline" size={18} color={Colors.dark?.primary || Colors.dark.primary} />
+            <Ionicons name="sparkles-outline" size={18} color={Colors.dark.primary} />
           </View>
           <Text style={debriefStyles.title}>Coach AI Debrief</Text>
         </View>
         <View style={debriefStyles.skeleton}>
-          <ActivityIndicator size="small" color={Colors.dark?.primary || Colors.dark.primary} />
+          <ActivityIndicator size="small" color={Colors.dark.primary} />
           <Text style={debriefStyles.skeletonText}>Generating debrief...</Text>
         </View>
       </View>
@@ -1088,7 +1088,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
     <View style={debriefStyles.card}>
       <View style={debriefStyles.header}>
         <View style={[debriefStyles.icon, { backgroundColor: Colors.dark?.primary + "20" || Colors.dark.primary + "20" }]}>
-          <Ionicons name="sparkles-outline" size={18} color={Colors.dark?.primary || Colors.dark.primary} />
+          <Ionicons name="sparkles-outline" size={18} color={Colors.dark.primary} />
         </View>
         <Text style={debriefStyles.title}>Coach AI Debrief</Text>
       </View>

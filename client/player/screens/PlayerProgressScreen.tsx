@@ -1961,7 +1961,7 @@ export default function PlayerProgressScreen() {
           </View>
           <View style={styles.xpBarTrack}>
             <LinearGradient
-              colors={[GlowColors.primary, Colors.dark.primary]}
+              colors={[GlowColors.primary, GlowColors.dark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.xpBarFill, { width: `${(currentLevelXp / 500) * 100}%` }]}

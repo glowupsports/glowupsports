@@ -492,7 +492,7 @@ export default function PlayerPublicProfileScreen() {
           <View style={styles.xpBarContainer}>
             <View style={styles.xpBarBg}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.primary]}
+                colors={[GlowColors.primary, GlowColors.dark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.xpBarFill, { width: `${profile.xpProgress * 100}%` }]}

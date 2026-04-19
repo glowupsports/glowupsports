@@ -311,7 +311,7 @@ function ClaimCelebrationModal({
           >
             <Animated.View style={pulseStyle}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.primary]}
+                colors={[GlowColors.primary, GlowColors.dark]}
                 style={styles.xpBurst}
               >
                 <Ionicons name="flash" size={36} color={Colors.dark.buttonText} />
@@ -341,7 +341,7 @@ function ClaimCelebrationModal({
 
             <Pressable style={styles.claimModalClose} onPress={onClose}>
               <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.primary]}
+                colors={[GlowColors.primary, GlowColors.dark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.claimModalCloseGradient}
@@ -569,7 +569,7 @@ function QuestCard({
                 disabled={isClaiming}
               >
                 <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.primary]}
+                  colors={[GlowColors.primary, GlowColors.dark]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.claimBtnGradient}
@@ -858,7 +858,7 @@ export default function QuestsScreen() {
                   <LinearGradient
                     colors={allDone
                       ? ["#FFD700", "#FF8C00"]
-                      : [Colors.dark.primary, Colors.dark.primary]}
+                      : [GlowColors.primary, GlowColors.dark]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.tabActiveGradient}
