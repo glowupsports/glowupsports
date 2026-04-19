@@ -18,7 +18,7 @@ import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { PlayersNearYouRow, GroupLessonsRow, OpenMatchesRow, TrainingSessionsRow, TournamentsDiscoveryRow } from "@/player/components/DiscoveryRows";
+import { PlayersNearYouRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
@@ -978,9 +978,6 @@ function PlayerHomeContent() {
         </View>
 
         <TrainingSessionsRow />
-        <GroupLessonsRow />
-        <OpenMatchesRow />
-        <TournamentsDiscoveryRow />
         <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── shown only when player has real content: feedback received OR skill progress data (ball level assigned) */}
