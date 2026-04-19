@@ -2503,7 +2503,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                 onCommentPress={() => setCommentPostId(item.id)}
               />
             )}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 110 }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.primary} />
@@ -2552,7 +2552,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           keyExtractor={(item) => item.id}
           numColumns={4}
           renderItem={({ item }) => <MemberGridCell member={item} typeColor={typeColor} />}
-          contentContainerStyle={styles.memberGrid}
+          contentContainerStyle={[styles.memberGrid, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.primary} />
@@ -2645,7 +2645,7 @@ const styles = StyleSheet.create({
   tabAddBtn: { paddingHorizontal: 16, paddingVertical: 13, justifyContent: "center", alignItems: "center" },
 
   // Feed list
-  listContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 110 },
+  listContent: { paddingHorizontal: 16, paddingTop: 14 },
 
   // Post card
   postCard: { backgroundColor: "#0F141B", borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
@@ -2669,7 +2669,7 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 13, fontWeight: "500", color: "#445566" },
 
   // Members grid
-  memberGrid: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 100 },
+  memberGrid: { paddingHorizontal: 12, paddingTop: 16 },
   memberCell: { flex: 1, alignItems: "center", paddingVertical: 14, maxWidth: "25%" },
   memberCellAvatarWrap: { position: "relative", marginBottom: 7 },
   memberCellAvatar: { width: 58, height: 58, borderRadius: 29, justifyContent: "center", alignItems: "center" },

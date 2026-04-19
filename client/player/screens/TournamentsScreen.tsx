@@ -843,7 +843,7 @@ export default function TournamentsScreen() {
                 isRegistering={registeringId === item.id}
               />
             )}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -870,7 +870,7 @@ export default function TournamentsScreen() {
                 isRegistering={registeringId === item.id}
               />
             )}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -933,7 +933,7 @@ export default function TournamentsScreen() {
                     onPress={() => handlePublicTournamentPress(item)}
                   />
                 )}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                   <RefreshControl
@@ -962,7 +962,7 @@ export default function TournamentsScreen() {
                 isJoining={joiningId === item.id}
               />
             )}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -1098,7 +1098,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: Spacing.md,
-    paddingBottom: 100,
     gap: 10,
   },
   loadingContainer: {

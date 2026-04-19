@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -291,6 +292,7 @@ function ChallengeInviteCard({
 }
 
 export default function BookingInvitesScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -505,7 +507,7 @@ export default function BookingInvitesScreen() {
           keyExtractor={(item, index) =>
             item.type === "challenge" ? `challenge-${item.data.id}` : `invite-${item.data.booking_invite_guests.id}`
           }
-          contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

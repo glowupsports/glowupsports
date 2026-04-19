@@ -151,7 +151,7 @@ const PILLAR_COLORS: Record<string, string> = {
   tactical: Colors.dark?.gold || "#FFD700",
   physical: Colors.dark?.successNeon || "#39FF14",
   mental: Colors.dark?.ballGlow || "#A78BFA",
-  social: Colors.dark?.primary || "#C8FF3D",
+  social: Colors.dark.primary,
   match: Colors.dark?.orange || "#FF6B00",
 };
 

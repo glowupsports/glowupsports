@@ -416,7 +416,7 @@ export default function ChatInboxScreen() {
               keyExtractor={(item) => item.id}
               renderItem={renderMessage}
               style={styles.messageList}
-              contentContainerStyle={[styles.messageListContent, { paddingBottom: 100 }]}
+              contentContainerStyle={[styles.messageListContent, { paddingBottom: insets.bottom + 100 }]}
               onContentSizeChange={stick.onContentSizeChange}
               onLayout={stick.onLayout}
               onScroll={stick.onScroll}

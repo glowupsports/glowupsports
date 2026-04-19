@@ -22,7 +22,7 @@ import { apiRequest } from "@/lib/query-client";
 import type { PlayerStackParamList, ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 
 const MIRROR_ACCENT = "#A78BFA";
-const PRIMARY = "#C8FF3D";
+const PRIMARY = Colors.dark.primary;
 
 interface Opponent {
   id: string;
@@ -655,12 +655,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "#C8FF3D60",
+    borderColor: PRIMARY + "60",
     marginTop: Spacing.xs,
   },
   editScoutText: {
     ...Typography.caption,
-    color: "#C8FF3D",
+    color: PRIMARY,
     fontWeight: "600",
   },
   fieldLabel: {

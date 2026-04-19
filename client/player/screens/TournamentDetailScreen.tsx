@@ -287,7 +287,7 @@ function DrawBracket({ matches }: { matches: DrawMatch[][] }) {
     <ScrollView 
       horizontal 
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.bracketScroll}
+      contentContainerStyle={[styles.bracketScroll, { paddingBottom: insets.bottom + 100 }]}
     >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.bracketVertical}>
         <View style={styles.bracketContainer}>
@@ -680,7 +680,7 @@ export default function TournamentDetailScreen() {
     const standings = americanoData?.standings || [];
     if (standings.length === 0) return <ErrorView message="Standings not available yet" />;
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.contentPadding, { paddingBottom: insets.bottom + 100 }]}>
         <View style={styles.americanoStandingsHeader}>
           <Text style={styles.americanoStandingsCol}>#</Text>
           <Text style={[styles.americanoStandingsCol, { flex: 1 }]}>Player</Text>
@@ -719,7 +719,7 @@ export default function TournamentDetailScreen() {
     }
 
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.contentPadding, { paddingBottom: insets.bottom + 100 }]}>
         {Object.entries(byRound).map(([round, roundMatches]) => (
           <View key={round} style={styles.americanoRound}>
             <View style={styles.americanoRoundHeader}>
@@ -772,7 +772,7 @@ export default function TournamentDetailScreen() {
         return groupsLoading ? (
           <LoadingView />
         ) : groups.length > 0 ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.contentPadding, { paddingBottom: insets.bottom + 100 }]}>
             {groups.map((group) => <GroupTable key={group.name} group={group} />)}
           </ScrollView>
         ) : (
@@ -783,7 +783,7 @@ export default function TournamentDetailScreen() {
         return scheduleLoading ? (
           <LoadingView />
         ) : scheduleData && scheduleData.length > 0 ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.contentPadding, { paddingBottom: insets.bottom + 100 }]}>
             <ScheduleList schedule={scheduleData} />
           </ScrollView>
         ) : (
@@ -793,7 +793,7 @@ export default function TournamentDetailScreen() {
         return participantsLoading ? (
           <LoadingView />
         ) : participantsData && participantsData.length > 0 ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.contentPadding, { paddingBottom: insets.bottom + 100 }]}>
             <ParticipantsList participants={participantsData} />
           </ScrollView>
         ) : (
@@ -1221,11 +1221,9 @@ const styles = StyleSheet.create({
   },
   contentPadding: {
     padding: Spacing.md,
-    paddingBottom: 100,
   },
   bracketScroll: {
     paddingHorizontal: Spacing.md,
-    paddingBottom: 100,
   },
   bracketVertical: {
     paddingVertical: Spacing.sm,

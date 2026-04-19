@@ -18,7 +18,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
 
-const PRIMARY = "#C8FF3D";
+const PRIMARY = Colors.dark.primary;
 const MIRROR_ACCENT = "#A78BFA";
 
 interface OpponentDetail {

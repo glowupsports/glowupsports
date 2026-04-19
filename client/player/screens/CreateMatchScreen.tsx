@@ -550,7 +550,7 @@ export default function CreateMatchScreen() {
           </Animated.View>
         )}
 
-        <View style={styles.bottomActions}>
+        <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 100 }]}>
           <Pressable style={styles.backButton} onPress={handleBack}>
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
@@ -636,7 +636,7 @@ export default function CreateMatchScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomActions}>
+      <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 100 }]}>
         <Pressable style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
@@ -738,7 +738,7 @@ export default function CreateMatchScreen() {
         </View>
       )}
 
-      <View style={styles.bottomActions}>
+      <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 100 }]}>
         <Pressable style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
@@ -808,7 +808,7 @@ export default function CreateMatchScreen() {
         </View>
       </View>
 
-      <View style={styles.bottomActions}>
+      <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 100 }]}>
         <Pressable style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
@@ -1159,7 +1159,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginTop: "auto",
     paddingTop: Spacing.xl,
-    paddingBottom: 100,
   },
   backButton: {
     width: 56,

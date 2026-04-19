@@ -213,7 +213,7 @@ export default function CoachEarningsScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {loadingSummary ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   headerTitle: { ...Typography.h3, color: Colors.dark.text, letterSpacing: 2, textTransform: "uppercase" },
   headerRight: { width: 40 },
   content: { flex: 1 },
-  contentContainer: { padding: Spacing.lg, paddingBottom: 100 },
+  contentContainer: { padding: Spacing.lg },
   loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 60 },
   glassCard: { backgroundColor: "rgba(18,18,22,0.9)", borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: `${Colors.dark.primary}20`, overflow: "hidden" },
   cardGradientOverlay: { position: "absolute", top: 0, left: 0, right: 0, height: 100 },
