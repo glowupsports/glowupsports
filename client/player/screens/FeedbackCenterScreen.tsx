@@ -36,7 +36,7 @@ const PILLAR_CONFIG: Record<string, { color: string; icon: string }> = {
 };
 
 function getPillarConfig(pillar: string) {
-  return PILLAR_CONFIG[pillar.toUpperCase()] || { color: GlowColors.primary, icon: "star" };
+  return PILLAR_CONFIG[pillar.toUpperCase()] || { color: Colors.dark.accentText, icon: "star" };
 }
 
 function formatScore(score: string | null): string {
@@ -117,7 +117,7 @@ export default function FeedbackCenterScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
         <Pressable onPress={handleGoBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={GlowColors.primary} />
+          <Ionicons name="chevron-back" size={24} color={Colors.dark.accentText} />
         </Pressable>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Skill Assessments</Text>
@@ -132,7 +132,7 @@ export default function FeedbackCenterScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <ActivityIndicator size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading assessments...</Text>
           </View>
         ) : sortedSummaries.length > 0 ? (
@@ -186,7 +186,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   backButton: {
     width: 40,
@@ -281,7 +281,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: Colors.dark.chipBackground,
   },
   pillarHeader: {
     flexDirection: "row",
@@ -339,7 +339,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 3,
     overflow: "hidden",
   },

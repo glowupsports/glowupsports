@@ -349,7 +349,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   impactChange: {
     ...Typography.small,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
     marginRight: Spacing.md,
   },

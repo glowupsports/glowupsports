@@ -36,7 +36,7 @@ const NOTIFICATION_CONFIG: Record<string, { icon: string; color: string; iconSet
   general: { icon: "notifications", color: "#78909C", iconSet: "ionicons" },
   welcome: { icon: "heart", color: "#FF4081", iconSet: "ionicons" },
   friend_request: { icon: "person-add", color: "#00E5FF", iconSet: "ionicons" },
-  friend_request_accepted: { icon: "people", color: GlowColors.primary, iconSet: "ionicons" },
+  friend_request_accepted: { icon: "people", color: Colors.dark.accentText, iconSet: "ionicons" },
 };
 
 function getNotificationConfig(type: string) {
@@ -158,7 +158,7 @@ export default function PlayerNotificationsScreen() {
         <Text style={styles.headerTitle}>Notifications</Text>
         {unreadCount > 0 ? (
           <Pressable style={styles.markAllButton} onPress={handleMarkAllRead}>
-            <Feather name="check-circle" size={18} color={GlowColors.primary} />
+            <Feather name="check-circle" size={18} color={Colors.dark.accentText} />
           </Pressable>
         ) : (
           <View style={{ width: 40 }} />
@@ -179,7 +179,7 @@ export default function PlayerNotificationsScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={GlowColors.primary}
+            tintColor={Colors.dark.accentText}
             colors={[GlowColors.primary]}
           />
         }
@@ -201,7 +201,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   backButton: {
     width: 40,
@@ -235,10 +235,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.04)",
+    borderColor: Colors.dark.chipBackground,
   },
   unreadItem: {
-    borderColor: GlowColors.primary + "30",
+    borderColor: Colors.dark.accentTextBorder,
     backgroundColor: GlowColors.primary + "08",
   },
   iconCircle: {

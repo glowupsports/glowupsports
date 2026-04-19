@@ -66,7 +66,7 @@ export function RecentFeedbackCard() {
         <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigateToTab("Growth", { screen: "CoachFeedbackHistory" }); }} style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.headerIconWrap}>
-              <Ionicons name="chatbubbles" size={13} color={GlowColors.primary} />
+              <Ionicons name="chatbubbles" size={13} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.sectionTitle}>COACH FEEDBACK</Text>
           </View>
@@ -102,7 +102,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -122,7 +122,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.sm,
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.05)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   headerLeft: {
     flexDirection: "row",
@@ -133,7 +133,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -145,7 +145,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 2,
   },
   viewAll: {
@@ -160,7 +160,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   itemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   iconCircle: {
     width: 32,

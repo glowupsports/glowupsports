@@ -97,7 +97,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       id: "classes",
       label: "Classes",
       icon: "people-outline",
-      color: GlowColors.primary,
+      color: Colors.dark.accentText,
       onPress: () => {
         track("action:classes");
         navigation.navigate("ClassesDiscovery");

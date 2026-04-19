@@ -165,7 +165,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     minHeight: 120,
   },
   tileLocked: {

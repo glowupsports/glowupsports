@@ -549,7 +549,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   sectionDivider: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   sectionTitle: {
     fontSize: 13,
@@ -650,7 +650,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -713,7 +713,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.lg,

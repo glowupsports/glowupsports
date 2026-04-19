@@ -67,7 +67,7 @@ const BALL_LEVELS = [
   { value: "blue", label: "Blue", color: "#4FC3F7" },
   { value: "red", label: "Red", color: "#FF4D4D" },
   { value: "orange", label: "Orange", color: "#FF851B" },
-  { value: "green", label: "Green", color: GlowColors.primary },
+  { value: "green", label: "Green", color: Colors.dark.accentText },
   { value: "yellow", label: "Yellow", color: "#FFD700" },
   { value: "glow", label: "Glow", color: "#00E5FF" },
 ];
@@ -1040,7 +1040,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.full ?? 999,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   pillText: {
     ...Typography.caption,
@@ -1115,7 +1115,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderWidth: 2,
     borderColor: Colors.dark.border,
     alignItems: "center",

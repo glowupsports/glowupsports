@@ -162,6 +162,14 @@ export const ProTennisColors = {
   gradientGlow: ["rgba(200, 255, 61, 0.15)", "rgba(200, 255, 61, 0.02)"],
 };
 
+// Frosted Daylight accent — darker moss-green variant of the brand neon, used
+// only in light mode for any text/icon/border that would otherwise put neon
+// directly on a white surface (where #C8FF3D fails contrast). Picked to clear
+// WCAG AA (≥4.5:1) on the LightBackgrounds.card / .root surfaces.
+const LightAccentMoss = "#3F6B0F";
+const LightAccentMossSoft = "rgba(63, 107, 15, 0.10)";
+const LightAccentMossBorder = "rgba(63, 107, 15, 0.28)";
+
 export const Colors = {
   light: {
     text: LightTextColors.primary,
@@ -171,13 +179,17 @@ export const Colors = {
     buttonText: "#000000",
     border: "rgba(11, 13, 16, 0.12)",
     tabIconDefault: LightTextColors.muted,
-    tabIconSelected: GlowColors.dark,
-    link: GlowColors.dark,
+    tabIconSelected: LightAccentMoss,
+    link: LightAccentMoss,
     backgroundRoot: LightBackgrounds.root,
     backgroundDefault: LightBackgrounds.card,
     backgroundSecondary: LightBackgrounds.elevated,
     backgroundTertiary: LightBackgrounds.surface,
-    primary: GlowColors.dark,
+    // Light-mode `primary` resolves to the moss accent so legacy code
+    // that uses `Colors.dark.primary` for text/icons/borders stays
+    // readable on white surfaces. Neon (#C8FF3D) is reserved for
+    // FILLS only — use `accentText` directly when in doubt.
+    primary: LightAccentMoss,
     gold: RoleColors.owner,
     orange: RoleColors.admin,
     /** @deprecated Player palette policy: new Player code must use primary. Kept as cyan-info for backwards-compatibility in non-Player apps; all Player references have been migrated. */
@@ -230,6 +242,26 @@ export const Colors = {
     warning: FunctionColors.social,
     // Subtle border for cards (replaces decorative gradients)
     borderSubtle: "rgba(11, 13, 16, 0.06)",
+    // Frosted Daylight tokens — themed equivalents of the dark hardcoded
+    // rgba(255,255,255,...) overlays so consumers wrapped in
+    // makeReactiveStyles flip cleanly when the player switches schemes.
+    accentText: LightAccentMoss,            // Use instead of GlowColors.primary for any TEXT/ICON/BORDER on light surfaces.
+    accentTextSoft: LightAccentMossSoft,    // Soft moss fill (e.g. selected row tint).
+    accentTextBorder: LightAccentMossBorder,
+    onAccent: "#000000",                    // Text/icon colour to place on top of a neon-filled button or pill.
+    chipBackground: "rgba(11, 13, 16, 0.05)",
+    chipBackgroundStrong: "rgba(11, 13, 16, 0.08)",
+    chipBorder: "rgba(11, 13, 16, 0.10)",
+    divider: "rgba(11, 13, 16, 0.08)",
+    iconMuted: LightTextColors.muted,
+    glassTintMode: "light",
+    glassHighlight: "rgba(11, 13, 16, 0.04)",
+    glassGradientStart: "rgba(255, 255, 255, 0.78)",
+    glassGradientEnd: "rgba(245, 246, 248, 0.92)",
+    glassGradientStartWeb: "rgba(255, 255, 255, 0.92)",
+    glassGradientEndWeb: "rgba(245, 246, 248, 0.96)",
+    heroGradientStart: "rgba(200, 255, 61, 0.18)",
+    heroGradientEnd: "rgba(245, 246, 248, 0.0)",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,
@@ -309,6 +341,25 @@ export const Colors = {
     warning: FunctionColors.social,
     // Subtle border for cards (replaces decorative gradients)
     borderSubtle: "rgba(255, 255, 255, 0.06)",
+    // Frosted Daylight tokens — in dark mode these resolve to the existing
+    // neon/white-overlay values so nothing visibly changes for dark consumers.
+    accentText: GlowColors.primary,
+    accentTextSoft: "rgba(200, 255, 61, 0.10)",
+    accentTextBorder: "rgba(200, 255, 61, 0.25)",
+    onAccent: "#000000",
+    chipBackground: "rgba(255, 255, 255, 0.04)",
+    chipBackgroundStrong: "rgba(255, 255, 255, 0.08)",
+    chipBorder: "rgba(255, 255, 255, 0.08)",
+    divider: "rgba(255, 255, 255, 0.08)",
+    iconMuted: "rgba(255, 255, 255, 0.5)",
+    glassTintMode: "dark",
+    glassHighlight: "rgba(255, 255, 255, 0.15)",
+    glassGradientStart: "rgba(26, 34, 53, 0.6)",
+    glassGradientEnd: "rgba(21, 27, 41, 0.8)",
+    glassGradientStartWeb: "rgba(26, 34, 53, 0.85)",
+    glassGradientEndWeb: "rgba(21, 27, 41, 0.95)",
+    heroGradientStart: "rgba(200, 255, 61, 0.20)",
+    heroGradientEnd: "rgba(11, 13, 16, 0.0)",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,

@@ -18,8 +18,7 @@ import {
   GlowColors,
   FunctionColors,
   Backgrounds,
-  TextColors,
-} from "@/constants/theme";
+  TextColors, Colors } from "@/constants/theme";
 import { buildPhotoUrl } from "@/lib/query-client";
 import {
   getSportLabel,
@@ -220,7 +219,7 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
     ctaLabel = "Match full";
     ctaIcon = "close-circle";
     ctaDisabled = true;
-    ctaBg = "rgba(255,255,255,0.1)";
+    ctaBg = Colors.dark.chipBackgroundStrong;
   } else if (joining) {
     ctaLabel = "Joining...";
     ctaDisabled = true;
@@ -274,7 +273,7 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
               styles.chip,
               {
                 borderColor: "rgba(255,255,255,0.25)",
-                backgroundColor: "rgba(255,255,255,0.08)",
+                backgroundColor: Colors.dark.chipBackgroundStrong,
               },
             ]}
           >
@@ -413,7 +412,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   avatarImage: {
     width: "100%",

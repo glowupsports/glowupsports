@@ -288,7 +288,7 @@ function GlowMirrorCard({
           <Text style={mirrorStyles.title}>Your Reflection</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <View style={mirrorStyles.savedBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
+              <Ionicons name="checkmark-circle" size={14} color={Colors.dark.accentText} />
               <Text style={mirrorStyles.savedText}>Saved</Text>
             </View>
             <Pressable
@@ -354,7 +354,7 @@ function GlowMirrorCard({
           ) : null}
           {existingReflection.nextFocus ? (
             <View style={[mirrorStyles.savedRow, mirrorStyles.savedRowBordered, { borderLeftColor: GlowColors.primary }]}>
-              <Ionicons name="flag-outline" size={14} color={GlowColors.primary} />
+              <Ionicons name="flag-outline" size={14} color={Colors.dark.accentText} />
               <Text style={mirrorStyles.savedRowLabel}>Next</Text>
               <Text style={mirrorStyles.savedRowValue}>{existingReflection.nextFocus}</Text>
             </View>
@@ -500,7 +500,7 @@ const mirrorStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   savedText: {
     ...Typography.caption,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   aiSummaryBlock: {
@@ -534,7 +534,7 @@ const mirrorStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingLeft: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   savedRowLabel: {
     ...Typography.caption,
@@ -578,7 +578,7 @@ const mirrorStyles = makeReactiveStyles(() => StyleSheet.create({
     minHeight: 60,
     textAlignVertical: "top",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.dark.chipBorder,
   },
   saveButton: {
     flexDirection: "row",

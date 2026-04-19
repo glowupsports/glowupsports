@@ -15,7 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 
-import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds } from "@/constants/theme";
+import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds, Colors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -23,7 +23,7 @@ const TEXT_PRIMARY = TextColors.primary;
 const TEXT_SECONDARY = "#8A95A8";
 const TEXT_MUTED = "#5C6678";
 const ACCENT = GlowColors.primary;
-const CARD_BORDER = "rgba(255,255,255,0.08)";
+const CARD_BORDER = Colors.dark.chipBackgroundStrong;
 
 interface Participant {
   id: string;
@@ -511,7 +511,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   avatarWrap: { width: 56, height: 56 },
   avatar: { width: 56, height: 56, borderRadius: 28 },
   avatarPlaceholder: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
@@ -551,7 +551,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderColor: CARD_BORDER,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -579,7 +579,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   participantAvatar: { width: 24, height: 24, borderRadius: 12 },
   participantPlaceholder: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
   },

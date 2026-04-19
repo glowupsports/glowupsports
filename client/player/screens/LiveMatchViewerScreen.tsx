@@ -250,7 +250,7 @@ export default function LiveMatchViewerScreen() {
           {/* Completed result */}
           {isComplete && data.match.winnerId ? (
             <View style={styles.resultCard}>
-              <Feather name="award" size={28} color={GlowColors.primary} />
+              <Feather name="award" size={28} color={Colors.dark.accentText} />
               <Text style={styles.resultWinner}>
                 {data.match.winnerId === data.creator?.id ? creatorName : opponentName} wins!
               </Text>
@@ -289,7 +289,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -351,7 +351,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textTransform: "capitalize",
   },
   scoreboard: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -408,14 +408,14 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   scoreDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     marginVertical: 4,
   },
   setsWonRow: {
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
     alignItems: "center",
   },
   setsWonText: {
@@ -435,7 +435,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   resultWinner: {
     fontSize: 22,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   resultScore: {
     fontSize: 18,

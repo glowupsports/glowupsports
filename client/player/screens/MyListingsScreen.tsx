@@ -344,7 +344,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   soldCard: {
     opacity: 0.7,

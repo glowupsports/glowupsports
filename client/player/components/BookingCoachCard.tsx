@@ -101,7 +101,7 @@ export default function BookingCoachCard({
           style={[
             styles.card, 
             isSelected && styles.cardSelected,
-            { borderColor: isSelected ? GlowColors.primary : "rgba(255,255,255,0.1)" }
+            { borderColor: isSelected ? GlowColors.primary : Colors.dark.chipBackgroundStrong }
           ]}
         >
           <View style={styles.cardContent}>

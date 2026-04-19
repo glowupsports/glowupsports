@@ -341,7 +341,7 @@ const introStyles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -374,10 +374,10 @@ const introStyles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: Colors.dark.chipBackground,
     padding: Spacing.md,
   },
   costNoteText: {
@@ -440,10 +440,10 @@ const introStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   glowMirrorCard: {
     width: "100%",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
@@ -479,9 +479,9 @@ const introStyles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: Colors.dark.primary + "40",
   },
   glowMirrorBadgeInactive: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   glowMirrorBadgeText: {
     fontSize: 11,
@@ -508,7 +508,7 @@ const introStyles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.primary + "18",
   },
   glowMirrorLayerIconInactive: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   glowMirrorLayerText: {
     flex: 1,
@@ -752,7 +752,7 @@ function MyMirrorTab({
                   onPress={() => handleSessionPress(session.id)}
                 >
                   <View style={mirrorTabStyles.sessionLeft}>
-                    <View style={[mirrorTabStyles.sessionDot, { backgroundColor: hasReflection ? MIRROR_ACCENT + "30" : "rgba(255,255,255,0.06)" }]}>
+                    <View style={[mirrorTabStyles.sessionDot, { backgroundColor: hasReflection ? MIRROR_ACCENT + "30" : Colors.dark.chipBackground }]}>
                       <Ionicons
                         name={hasReflection ? "mic" : "mic-outline"}
                         size={14}
@@ -853,9 +853,9 @@ const mirrorTabStyles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: MIRROR_ACCENT + "40",
   },
   layersBadgeInactive: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   layersBadgeText: {
     fontSize: 11,
@@ -879,7 +879,7 @@ const mirrorTabStyles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: MIRROR_ACCENT + "18",
   },
   layerIconInactive: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   layerText: {
     flex: 1,
@@ -944,10 +944,10 @@ const mirrorTabStyles = makeReactiveStyles(() => StyleSheet.create({
   emptyCard: {
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
     padding: Spacing.xl,
   },
   emptyText: {
@@ -962,7 +962,7 @@ const mirrorTabStyles = makeReactiveStyles(() => StyleSheet.create({
     lineHeight: 17,
   },
   sessionsList: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -975,7 +975,7 @@ const mirrorTabStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.05)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   sessionLeft: {
     flex: 1,
@@ -1350,11 +1350,11 @@ const planTabStyles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "rgba(139,92,246,0.25)",
   },
   cardEmpty: {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackground,
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   cardComingSoon: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderColor: "rgba(255,255,255,0.07)",
   },
   cardHeader: {
@@ -1938,7 +1938,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   backBtn: {
     width: 40,
@@ -1976,7 +1976,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.full ?? 999,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.dark.chipBorder,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -1995,7 +1995,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
     backgroundColor: Colors.dark.backgroundRoot,
   },
   tabItem: {
@@ -2070,7 +2070,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   milestoneRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   milestoneDot: {
     width: 32,
@@ -2238,10 +2238,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.xs,
   },
   quickChip: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.sm + 2,
     paddingHorizontal: Spacing.md,
   },
@@ -2330,7 +2330,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     color: Colors.dark.text,
     fontSize: 15,
     paddingHorizontal: Spacing.md,
@@ -2360,7 +2360,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.md,
   },
   lockedBarText: {

@@ -974,7 +974,7 @@ export default function PlayerBookingWizard({
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         {academyCourtsLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <ActivityIndicator size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading courts...</Text>
           </View>
         ) : academyCourts.length === 0 ? (
@@ -1075,7 +1075,7 @@ export default function PlayerBookingWizard({
         
         {academyCoachesLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <ActivityIndicator size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading coaches...</Text>
           </View>
         ) : directoryCoaches.length === 0 ? (
@@ -1732,7 +1732,7 @@ export default function PlayerBookingWizard({
                     navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
                   }}
                 >
-                  <Ionicons name="people-outline" size={16} color={GlowColors.primary} />
+                  <Ionicons name="people-outline" size={16} color={Colors.dark.accentText} />
                   <Text style={styles.browseFriendsText}>Browse Friends on Glow</Text>
                 </Pressable>
               </View>
@@ -2834,7 +2834,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   browseFriendsText: {
     fontSize: 14,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   confirmCard: {
     borderRadius: BorderRadius.lg,

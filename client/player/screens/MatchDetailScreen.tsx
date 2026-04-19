@@ -795,7 +795,7 @@ function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
     <View style={[deepStyles.pillarRatingCard, { borderLeftColor: GlowColors.primary, borderLeftWidth: 3 }]}>
       <View style={deepStyles.sectionHeader}>
         <View style={[deepStyles.sectionIcon, { backgroundColor: GlowColors.primary + "20" }]}>
-          <Ionicons name="flag-outline" size={16} color={GlowColors.primary} />
+          <Ionicons name="flag-outline" size={16} color={Colors.dark.accentText} />
         </View>
         <Text style={deepStyles.sectionTitle}>Goal vs Outcome</Text>
       </View>
@@ -1096,7 +1096,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
 
       {preMatchGoal ? (
         <View style={debriefStyles.insightBox}>
-          <Ionicons name="flag" size={14} color={GlowColors.primary} />
+          <Ionicons name="flag" size={14} color={Colors.dark.accentText} />
           <Text style={debriefStyles.insightText}>
             Goal: "{preMatchGoal}" — you {result === "win" ? "won" : "lost"} this match.
             {result === "win"
@@ -1196,7 +1196,7 @@ const deepStyles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: GlowColors.primary + "30",
+    borderColor: Colors.dark.accentTextBorder,
     marginBottom: Spacing.xs,
   },
   goalLabel: {
@@ -1206,7 +1206,7 @@ const deepStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   goalText: {
     ...Typography.body,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   goalChipRow: {
@@ -1386,7 +1386,7 @@ const debriefStyles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     alignItems: "flex-start",
     borderWidth: 1,
-    borderColor: GlowColors.primary + "30",
+    borderColor: Colors.dark.accentTextBorder,
   },
   insightText: {
     ...Typography.small,
@@ -1843,7 +1843,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   tacticalCue: {
     ...Typography.body,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontStyle: "italic",
     marginTop: Spacing.xs,
   },
@@ -1965,7 +1965,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   improvementNumber: {
     ...Typography.body,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
     width: 20,
   },

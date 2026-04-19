@@ -148,7 +148,7 @@ const RARITY_COLORS: Record<string, string> = {
 type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
 
 const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: string }> = {
-  baseline_warrior: { name: "Baseline Warrior", color: GlowColors.primary, icon: "tennisball" },
+  baseline_warrior: { name: "Baseline Warrior", color: Colors.dark.accentText, icon: "tennisball" },
   net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
   serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
   all_court_ace: { name: "All-Court Ace", color: TextColors.primary, icon: "star" },
@@ -988,7 +988,7 @@ export default function PlayerProfileScreen() {
               value={player.openToPlay}
               onValueChange={(value) => toggleOpenToPlay.mutate(value)}
               trackColor={{ 
-                false: "rgba(255, 255, 255, 0.06)", 
+                false: Colors.dark.chipBackground, 
                 true: "#22C55E80" 
               }}
               thumbColor={player.openToPlay ? "#22C55E" : Colors.dark.textMuted}
@@ -1041,7 +1041,7 @@ export default function PlayerProfileScreen() {
               navigation.navigate("MatchHistory");
             }}
           >
-            <Ionicons name="trophy-outline" size={20} color={GlowColors.primary} />
+            <Ionicons name="trophy-outline" size={20} color={Colors.dark.accentText} />
             <Text style={styles.actionCardLabel}>{t("player.profile.matchHistory")}</Text>
             <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} style={{ alignSelf: "flex-end", marginTop: "auto" }} />
           </Pressable>
@@ -1603,7 +1603,7 @@ export default function PlayerProfileScreen() {
                     key={key}
                     style={[
                       styles.playStylePickerCard,
-                      { borderColor: isSelected ? meta.color : "rgba(255,255,255,0.08)" },
+                      { borderColor: isSelected ? meta.color : Colors.dark.chipBackgroundStrong },
                       isSelected ? { backgroundColor: meta.color + "18" } : null,
                     ]}
                     onPress={() => {
@@ -1785,7 +1785,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2070,7 +2070,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2120,7 +2120,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2157,7 +2157,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   settingsIcon: {
     width: 36,
@@ -2176,7 +2176,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   aiCoachCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.3)",
@@ -2358,7 +2358,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2450,7 +2450,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   equippedText: {
     ...Typography.small,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   equipButton: {
@@ -2487,7 +2487,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     marginTop: 4,
   },
   playStyleBadgeText: {
@@ -2541,7 +2541,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     gap: 6,
     alignItems: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     position: "relative",
     minHeight: 80,
   },

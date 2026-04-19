@@ -153,10 +153,10 @@ const _unusedAiCardStyles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -350,7 +350,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
   } else if (stateB) {
     footer = (
       <View style={miniTileStyles.votedRow}>
-        <Ionicons name="checkmark-circle" size={12} color={GlowColors.primary} />
+        <Ionicons name="checkmark-circle" size={12} color={Colors.dark.accentText} />
         <Text style={miniTileStyles.votedFooterText} numberOfLines={1}>You voted</Text>
       </View>
     );
@@ -727,7 +727,7 @@ function UnifiedImproveCard({
   return (
     <View style={u.wrapper}>
       <LinearGradient
-        colors={["rgba(200,255,61,0.12)", "rgba(167,139,250,0.08)", "rgba(0,229,255,0.06)"]}
+        colors={[Colors.dark.accentTextSoft, "rgba(167,139,250,0.08)", "rgba(0,229,255,0.06)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={u.gradientBorder}
@@ -937,7 +937,7 @@ function UnifiedImproveCard({
                   size={12}
                   color={stateB ? GlowColors.primary : Colors.dark.buttonText}
                 />
-                <Text style={[u.spotCTAText, stateB && { color: GlowColors.primary }]}>
+                <Text style={[u.spotCTAText, stateB && { color: Colors.dark.accentText }]}>
                   {ctaLabel}
                 </Text>
               </Pressable>
@@ -979,7 +979,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
   },
   hDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     marginHorizontal: Spacing.md,
   },
   // AI section
@@ -1022,10 +1022,10 @@ const u = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -1050,7 +1050,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
   },
   vDivider: {
     width: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     marginVertical: Spacing.sm,
   },
   col: {
@@ -1099,7 +1099,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -1146,7 +1146,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: "rgba(255,215,0,0.4)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1164,9 +1164,9 @@ const u = makeReactiveStyles(() => StyleSheet.create({
     flexShrink: 0,
   },
   spotCTAGhost: {
-    backgroundColor: "rgba(200,255,61,0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   spotCTAText: {
     fontSize: 12,
@@ -1521,7 +1521,7 @@ function PlayerHomeContent() {
   if (!isGuest && (isLoading || !effectiveData)) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: Colors.dark.backgroundRoot }]}>
-        <ActivityIndicator size="large" color={GlowColors.primary} />
+        <ActivityIndicator size="large" color={Colors.dark.accentText} />
       </View>
     );
   }
@@ -1580,7 +1580,7 @@ function PlayerHomeContent() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={GlowColors.primary}
+            tintColor={Colors.dark.accentText}
             colors={[GlowColors.primary]}
           />
         }
@@ -1656,7 +1656,7 @@ function PlayerHomeContent() {
             }}
           >
             <View style={styles.freePlayerCtaIcon}>
-              <Ionicons name="tennisball" size={28} color={GlowColors.primary} />
+              <Ionicons name="tennisball" size={28} color={Colors.dark.accentText} />
             </View>
             <View style={styles.freePlayerCtaContent}>
               <Text style={styles.freePlayerCtaTitle}>Find & Book Courts</Text>
@@ -1675,7 +1675,7 @@ function PlayerHomeContent() {
         <View style={styles.playDivider}>
           <View style={styles.playDividerLeft}>
             <View style={styles.playIconGlow}>
-              <Ionicons name="tennisball" size={14} color={GlowColors.primary} />
+              <Ionicons name="tennisball" size={14} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.playDividerText}>PLAY</Text>
           </View>
@@ -1688,8 +1688,8 @@ function PlayerHomeContent() {
         {secondaryReady && !isGuest ? (
           <>
             <View style={styles.sectionDivider}>
-              <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
-              <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>IMPROVE</Text>
+              <Ionicons name="trending-up" size={12} color={Colors.dark.accentText} />
+              <Text style={[styles.sectionDividerText, { color: Colors.dark.accentText }]}>IMPROVE</Text>
             </View>
 
             <UnifiedImproveCard
@@ -1749,7 +1749,7 @@ function PlayerHomeContent() {
               return (
                 <Pressable
                   key={sportDef.key}
-                  style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: 12, borderWidth: 1.5, borderColor: isSelected ? getSportColor(sportDef.key) : "rgba(255,255,255,0.08)", marginBottom: Spacing.sm, backgroundColor: isSelected ? getSportColor(sportDef.key) + "15" : "transparent" }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: 12, borderWidth: 1.5, borderColor: isSelected ? getSportColor(sportDef.key) : Colors.dark.chipBackgroundStrong, marginBottom: Spacing.sm, backgroundColor: isSelected ? getSportColor(sportDef.key) + "15" : "transparent" }}
                   onPress={() => {
                     setBookingWizardSport(sportDef.key);
                     setShowBookingSportPicker(false);
@@ -2037,7 +2037,7 @@ const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
   scoreRow: { flexDirection: "row", gap: 6, paddingTop: 2 },
   scoreDot: { width: 8, height: 8, borderRadius: 4 },
   scoreDotFilled: { backgroundColor: "#FFD700" },
-  scoreDotEmpty: { backgroundColor: "rgba(255,255,255,0.12)" },
+  scoreDotEmpty: { backgroundColor: Colors.dark.chipBorder },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
   modalSheet: {
     backgroundColor: "#1a1a1a", borderTopLeftRadius: 20, borderTopRightRadius: 20,
@@ -2068,8 +2068,8 @@ const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
   questionNum: { fontSize: 11, color: Colors.dark.textMuted, textTransform: "uppercase", letterSpacing: 1 },
   question: { fontSize: 16, fontWeight: "700", color: Colors.dark.text, lineHeight: 22 },
   optionBtn: {
-    backgroundColor: "rgba(255,255,255,0.06)", borderRadius: BorderRadius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackground, borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong,
   },
   optionCorrect: {
     backgroundColor: "rgba(34,197,94,0.12)", borderRadius: BorderRadius.md,
@@ -2080,13 +2080,13 @@ const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md, borderWidth: 1, borderColor: "#f87171",
   },
   optionLocked: {
-    backgroundColor: "rgba(255,255,255,0.03)", borderRadius: BorderRadius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground, borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.dark.chipBackground,
   },
   optionText: { fontSize: 14, color: Colors.dark.text, fontWeight: "500" },
   explanation: {
     fontSize: 13, color: Colors.dark.textMuted, lineHeight: 19,
-    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.chipBackground, borderRadius: BorderRadius.md,
     padding: Spacing.md,
   },
   nextBtn: {
@@ -2142,13 +2142,13 @@ function PlayerDNABanner({ playerId }: { playerId: string }) {
     >
       <View style={dnaBannerStyles.row}>
         <View style={dnaBannerStyles.iconWrap}>
-          <Ionicons name="analytics-outline" size={20} color={GlowColors.primary} />
+          <Ionicons name="analytics-outline" size={20} color={Colors.dark.accentText} />
         </View>
         <View style={dnaBannerStyles.textWrap}>
           <Text style={dnaBannerStyles.title}>Complete Your Player DNA</Text>
           <Text style={dnaBannerStyles.sub}>{filled}/{total} fields complete — {pct}%</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.accentText} />
       </View>
       <View style={dnaBannerStyles.progressTrack}>
         <View style={[dnaBannerStyles.progressFill, { width: fillWidth }]} />
@@ -2162,10 +2162,10 @@ const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
-    backgroundColor: "rgba(200,255,61,0.06)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(200,255,61,0.2)",
+    borderColor: Colors.dark.accentTextSoft,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
@@ -2178,7 +2178,7 @@ const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(200,255,61,0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2197,7 +2197,7 @@ const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   progressTrack: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -2209,7 +2209,7 @@ const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
   cta: {
     fontSize: 12,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
 }));
 
@@ -2262,7 +2262,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2270,13 +2270,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: 3,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     textTransform: "uppercase" as const,
   },
   playDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   sectionDivider: {
     flexDirection: "row",
@@ -2295,7 +2295,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   freePlayerCta: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.2)",
     borderRadius: BorderRadius.lg,
@@ -2307,7 +2307,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2422,7 +2422,7 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -2467,7 +2467,7 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1.5,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   spotName: {
     fontSize: 12,
@@ -2507,6 +2507,6 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
   votedFooterText: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
 }));

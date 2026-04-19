@@ -114,7 +114,7 @@ const BALL_LEVEL_UI: Record<BallLevelId, { level: string; color: string; descrip
   orange: { level: "Orange", color: BallLevelColors.orange, description: "3/4 court - building your skills!" },
   green: { level: "Green", color: BallLevelColors.green, description: "Full court, slower ball - almost there!" },
   yellow: { level: "Yellow", color: BallLevelColors.yellow, description: "Standard ball - you're ready for the real deal!" },
-  glow: { level: "Adult DSS", color: GlowColors.primary, description: "You'll get your Glow Rating after your first assessment session!", isGlowLevel: true },
+  glow: { level: "Adult DSS", color: Colors.dark.accentText, description: "You'll get your Glow Rating after your first assessment session!", isGlowLevel: true },
 };
 
 function getBallLevel(age: number): { level: string; color: string; description: string; isGlowLevel?: boolean } {
@@ -297,12 +297,12 @@ function WelcomeStep({ onNext }: StepProps) {
   return (
     <View style={styles.welcomeContainer}>
       <LinearGradient
-        colors={["rgba(200, 255, 61, 0.15)", "transparent"]}
+        colors={[Colors.dark.accentTextSoft, "transparent"]}
         style={styles.welcomeGradient}
       />
       
       <Animated.View entering={ZoomIn.delay(200).springify()} style={[styles.logoContainer, logoStyle]}>
-        <Ionicons name="tennisball" size={80} color={GlowColors.primary} />
+        <Ionicons name="tennisball" size={80} color={Colors.dark.accentText} />
       </Animated.View>
 
       <Animated.Text entering={FadeInDown.delay(400).duration(600)} style={styles.welcomeTitle}>
@@ -410,7 +410,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
           <Animated.View entering={FadeIn.delay(100)} style={styles.ageGroupCard}>
             <Ionicons
               name={ageGroup === "kid" ? "happy-outline" : ageGroup === "teen" ? "flash-outline" : "person-outline"}
-              size={20} color={GlowColors.primary}
+              size={20} color={Colors.dark.accentText}
             />
             <Text style={styles.ageGroupText}>
               {age < 4 ? "Little Champion" : ageGroup === "kid" ? "Junior Player" : ageGroup === "teen" ? "Rising Star" : "Adult Player"}
@@ -438,7 +438,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
                 <Text style={[styles.genderText, data.gender === opt.id ? styles.genderTextActive : null]}>
                   {opt.label}
                 </Text>
-                {data.gender === opt.id ? <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} /> : null}
+                {data.gender === opt.id ? <Ionicons name="checkmark-circle" size={20} color={Colors.dark.accentText} /> : null}
               </Pressable>
             ))}
           </View>
@@ -683,7 +683,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
             <Ionicons
               name={ageGroup === "kid" ? "happy-outline" : ageGroup === "teen" ? "flash-outline" : "person-outline"}
               size={24}
-              color={GlowColors.primary}
+              color={Colors.dark.accentText}
             />
             <Text style={styles.ageGroupText}>
               {age < 4 ? "Little Champion" : ageGroup === "kid" ? "Junior Player" : ageGroup === "teen" ? "Rising Star" : "Adult Player"}
@@ -846,12 +846,12 @@ function PhotoUploadStep({ data, setData, onNext, playerName }: StepProps) {
 
         <View style={styles.photoButtons}>
           <Pressable style={styles.photoButton} onPress={() => pickImage(true)}>
-            <Ionicons name="camera-outline" size={24} color={GlowColors.primary} />
+            <Ionicons name="camera-outline" size={24} color={Colors.dark.accentText} />
             <Text style={styles.photoButtonText}>Take Photo</Text>
           </Pressable>
 
           <Pressable style={styles.photoButton} onPress={() => pickImage(false)}>
-            <Ionicons name="images-outline" size={24} color={GlowColors.primary} />
+            <Ionicons name="images-outline" size={24} color={Colors.dark.accentText} />
             <Text style={styles.photoButtonText}>Choose from Gallery</Text>
           </Pressable>
         </View>
@@ -912,7 +912,7 @@ function GenderStep({ data, setData, onNext, playerName }: StepProps) {
               {option.label}
             </Text>
             {data.gender === option.id ? (
-              <Ionicons name="checkmark-circle" size={24} color={GlowColors.primary} />
+              <Ionicons name="checkmark-circle" size={24} color={Colors.dark.accentText} />
             ) : null}
           </Pressable>
         ))}
@@ -1070,7 +1070,7 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
               colors={[`${GlowColors.primary}30`, `${GlowColors.secondary}30`]}
               style={styles.videoPlaceholder}
             >
-              <Ionicons name="play-circle" size={64} color={GlowColors.primary} />
+              <Ionicons name="play-circle" size={64} color={Colors.dark.accentText} />
               <Text style={styles.videoPlaceholderText}>Platform Welcome Video</Text>
               <Text style={styles.videoUrlHint}>{videoData.url}</Text>
             </LinearGradient>
@@ -1081,7 +1081,7 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
               colors={[`${GlowColors.primary}30`, `${GlowColors.secondary}30`]}
               style={styles.videoPlaceholder}
             >
-              <Ionicons name="tennisball" size={64} color={GlowColors.primary} />
+              <Ionicons name="tennisball" size={64} color={Colors.dark.accentText} />
               <Text style={styles.videoPlaceholderText}>Your Glow Journey Awaits</Text>
               <Text style={styles.videoPlaceholderSubtext}>Level up your game with personalized coaching</Text>
             </LinearGradient>
@@ -1092,7 +1092,7 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
       <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.videoFeatures}>
         <View style={styles.videoFeatureItem}>
           <View style={[styles.videoFeatureIcon, { backgroundColor: `${GlowColors.primary}20` }]}>
-            <Ionicons name="trending-up" size={20} color={GlowColors.primary} />
+            <Ionicons name="trending-up" size={20} color={Colors.dark.accentText} />
           </View>
           <Text style={styles.videoFeatureText}>Track your progress</Text>
         </View>
@@ -1495,8 +1495,8 @@ const PLAY_STYLE_ARCHETYPES: Array<{
     name: "Baseline Warrior",
     tagline: "Grind from the back, outlast everyone",
     icon: "tennisball",
-    color: GlowColors.primary,
-    bgColor: "rgba(200, 255, 61, 0.12)",
+    color: Colors.dark.accentText,
+    bgColor: Colors.dark.accentTextSoft,
   },
   {
     key: "net_ninja",
@@ -1520,7 +1520,7 @@ const PLAY_STYLE_ARCHETYPES: Array<{
     tagline: "Adapt to any court, any opponent",
     icon: "star",
     color: TextColors.primary,
-    bgColor: "rgba(255, 255, 255, 0.10)",
+    bgColor: Colors.dark.chipBackgroundStrong,
   },
   {
     key: "counter_puncher",
@@ -1559,7 +1559,7 @@ function PlayStyleStep({ data, setData, onNext }: StepProps) {
                 key={archetype.key}
                 style={[
                   styles.archetypeCard,
-                  { borderColor: isSelected ? archetype.color : "rgba(255,255,255,0.08)" },
+                  { borderColor: isSelected ? archetype.color : Colors.dark.chipBackgroundStrong },
                   isSelected ? { backgroundColor: archetype.bgColor } : null,
                 ]}
                 onPress={() => {
@@ -2022,7 +2022,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
             </>
           ) : selectedCountry && !showingAll ? (
             <>
-              <Ionicons name="location" size={16} color={GlowColors.primary} />
+              <Ionicons name="location" size={16} color={Colors.dark.accentText} />
               <Text style={styles.locationLabel}>Academies in {selectedCountry}</Text>
             </>
           ) : (
@@ -2039,7 +2039,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
             setShowCountryModal(true);
           }}
         >
-          <Ionicons name="swap-horizontal" size={13} color={GlowColors.primary} />
+          <Ionicons name="swap-horizontal" size={13} color={Colors.dark.accentText} />
           <Text style={styles.changeCountryButtonText}>
             {selectedCountry && !showingAll ? `Not in ${selectedCountry}?` : "Choose country"}
           </Text>
@@ -2179,7 +2179,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
                   {country}
                 </Text>
                 {selectedCountry === country ? (
-                  <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.accentText} />
                 ) : null}
               </Pressable>
             )) : null}
@@ -2197,7 +2197,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
                 Show all countries
               </Text>
               {(!selectedCountry || showingAll) ? (
-                <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                <Ionicons name="checkmark-circle" size={20} color={Colors.dark.accentText} />
               ) : null}
             </Pressable>
           </ScrollView>
@@ -2417,7 +2417,7 @@ function TennisQuizStep({ data, setData, onNext }: StepProps) {
 
       {quizLoading ? (
         <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.quizLoadingWrap}>
-          <ActivityIndicator color={GlowColors.primary} size="small" />
+          <ActivityIndicator color={Colors.dark.accentText} size="small" />
         </Animated.View>
       ) : quizComplete ? (
         <Animated.View entering={ZoomIn} style={styles.quizResultContainer}>
@@ -2550,7 +2550,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
       {showConfetti ? <Confetti /> : null}
 
       <Animated.View entering={ZoomIn.delay(200).springify()} style={styles.completionIcon}>
-        <Ionicons name="checkmark-circle" size={100} color={GlowColors.primary} />
+        <Ionicons name="checkmark-circle" size={100} color={Colors.dark.accentText} />
       </Animated.View>
 
       <Animated.Text entering={FadeInDown.delay(400).duration(600)} style={styles.completionTitle}>
@@ -2564,7 +2564,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
       <Animated.View entering={FadeInDown.delay(800).duration(600)} style={styles.profileSummary}>
         {data.experienceLevel ? (
           <View style={styles.summaryItem}>
-            <Ionicons name="time-outline" size={20} color={GlowColors.primary} />
+            <Ionicons name="time-outline" size={20} color={Colors.dark.accentText} />
             <Text style={styles.summaryText}>
               Experience: {formatExperience(data.experienceLevel)}
             </Text>
@@ -2572,13 +2572,13 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
         ) : null}
         {data.enjoymentTags.length > 0 ? (
           <View style={styles.summaryItem}>
-            <Ionicons name="heart-outline" size={20} color={GlowColors.primary} />
+            <Ionicons name="heart-outline" size={20} color={Colors.dark.accentText} />
             <Text style={styles.summaryText}>Enjoys: {data.enjoymentTags.join(", ")}</Text>
           </View>
         ) : null}
         {data.academyName ? (
           <View style={styles.summaryItem}>
-            <Ionicons name="business-outline" size={20} color={GlowColors.primary} />
+            <Ionicons name="business-outline" size={20} color={Colors.dark.accentText} />
             <Text style={styles.summaryText}>Academy: {data.academyName}</Text>
           </View>
         ) : null}
@@ -2586,7 +2586,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
 
       {!data.academyId ? (
         <Animated.View entering={FadeInDown.delay(900).duration(600)} style={styles.inviteNudgeCard}>
-          <Ionicons name="people" size={24} color={GlowColors.primary} />
+          <Ionicons name="people" size={24} color={Colors.dark.accentText} />
           <Text style={styles.inviteNudgeTitle}>Invite your first tennis buddy</Text>
           <Text style={styles.inviteNudgeSubtitle}>Play and grow together with friends</Text>
           <Pressable
@@ -2902,7 +2902,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
       <LinearGradient
-        colors={["rgba(200, 255, 61, 0.08)", "transparent"]}
+        colors={[Colors.dark.accentTextSoft, "transparent"]}
         style={styles.gradient}
       />
 
@@ -3062,7 +3062,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   archetypeCard: {
     width: (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.sm * 2) / 2 - 2,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1.5,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
@@ -3120,8 +3120,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "transparent",
   },
   datePickerButtonActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   datePickerText: {
     ...Typography.body,
@@ -3155,7 +3155,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   ageGroupText: {
     ...Typography.body,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -3204,14 +3204,14 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
   },
   datePickerItemActive: {
-    backgroundColor: `${GlowColors.primary}20`,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   datePickerItemText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   datePickerItemTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   datePickerActions: {
@@ -3258,10 +3258,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: Colors.dark.chipBackground,
   },
   avatarContainerActive: {
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   avatarImage: {
     width: 144,
@@ -3281,7 +3281,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: Colors.dark.chipBackground,
   },
   photoButtonText: {
     ...Typography.small,
@@ -3346,8 +3346,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "transparent",
   },
   selectableCardActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   selectableCardText: {
     ...Typography.body,
@@ -3355,7 +3355,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
   },
   selectableCardTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   checkIcon: {
     width: 24,
@@ -3383,15 +3383,15 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   chipActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   chipText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   chipTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   sectionContainer: {
     marginBottom: Spacing.xl,
@@ -3411,7 +3411,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.text,
     ...Typography.body,
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: Colors.dark.chipBackground,
   },
   textInputMultiline: {
     minHeight: 100,
@@ -3438,15 +3438,15 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "transparent",
   },
   handButtonActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   handButtonText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
   },
   handButtonTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   idolGrid: {
     flexDirection: "row",
@@ -3465,8 +3465,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "transparent",
   },
   idolCardActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   idolCardText: {
     ...Typography.small,
@@ -3474,7 +3474,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textAlign: "center",
   },
   idolCardTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   enjoymentGrid: {
     flexDirection: "row",
@@ -3493,8 +3493,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "transparent",
   },
   enjoymentCardActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   enjoymentCardDisabled: {
     opacity: 0.4,
@@ -3505,7 +3505,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textAlign: "center",
   },
   enjoymentCardTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   selectionCount: {
     ...Typography.small,
@@ -3524,8 +3524,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
   },
   academyCardActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   academyLogoContainer: {
     flexShrink: 0,
@@ -3544,7 +3544,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
   },
   academyLogoPlaceholderActive: {
-    backgroundColor: `${GlowColors.primary}20`,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   academyInfo: {
     flex: 1,
@@ -3556,7 +3556,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.text,
   },
   academyNameActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   academySportRow: {
     flexDirection: "row",
@@ -3657,7 +3657,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   locationLabel: {
     ...Typography.small,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   changeCountryLink: {
@@ -3673,12 +3673,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 5,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     backgroundColor: `${GlowColors.primary}12`,
   },
   changeCountryButtonText: {
     ...Typography.small,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   cityChipsRow: {
@@ -3691,18 +3691,18 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   cityChipActive: {
-    backgroundColor: `${GlowColors.primary}20`,
-    borderColor: GlowColors.primary,
+    backgroundColor: Colors.dark.accentTextSoft,
+    borderColor: Colors.dark.accentText,
   },
   cityChipText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
   cityChipTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   noLocalNote: {
@@ -3710,7 +3710,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "flex-start",
     gap: Spacing.xs,
     padding: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
   },
@@ -3732,7 +3732,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomColor: Colors.dark.chipBackgroundStrong,
   },
   countryModalTitle: {
     ...Typography.h3,
@@ -3745,17 +3745,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.05)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   countryOptionActive: {
-    backgroundColor: `${GlowColors.primary}10`,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   countryOptionText: {
     ...Typography.body,
     color: Colors.dark.text,
   },
   countryOptionTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   quizQuestion: {
@@ -3776,12 +3776,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 4,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     ...Shadows.glow,
   },
   quizScoreText: {
     ...Typography.numberLarge,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   quizResultText: {
     ...Typography.h2,
@@ -3809,18 +3809,18 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "#f87171",
   },
   quizOptionLocked: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 12,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: Colors.dark.chipBackground,
   },
   quizExplanation: {
     fontSize: 13,
     color: Colors.dark.textMuted,
     lineHeight: 19,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 12,
     padding: Spacing.md,
     marginTop: Spacing.sm,
@@ -3913,8 +3913,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: GlowColors.primary,
-    backgroundColor: "rgba(200, 255, 61, 0.06)",
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   cinematicGlowCore: {
     width: 24,
@@ -3930,7 +3930,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   cinematicSaveMessage: {
     fontSize: 16,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 2,
     textAlign: "center",
     textTransform: "uppercase",
@@ -3985,10 +3985,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   sportCard: {
     width: (SCREEN_WIDTH - Spacing.xl * 2 - Spacing.md) / 2 - 12,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.lg,
     alignItems: "center",
     gap: Spacing.sm,
@@ -4089,7 +4089,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   adjustCancelText: {
     ...Typography.body,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   genderContainer: {
     gap: Spacing.md,
@@ -4105,8 +4105,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "transparent",
   },
   genderCardActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: `${GlowColors.primary}10`,
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   genderIcon: {
     width: 48,
@@ -4125,7 +4125,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
   },
   genderTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   videoContainer: {
@@ -4226,7 +4226,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: `${GlowColors.primary}30`,
+    borderColor: Colors.dark.accentTextBorder,
     marginBottom: Spacing.lg,
     width: "100%",
   },

@@ -155,7 +155,7 @@ export default function ChooseUsernameModal() {
         >
           <View style={styles.card}>
             <View style={styles.iconCircle}>
-              <Ionicons name="at" size={28} color={GlowColors.primary} />
+              <Ionicons name="at" size={28} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.title}>Pick your username</Text>
             <Text style={styles.subtitle}>

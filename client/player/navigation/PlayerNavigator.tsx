@@ -556,7 +556,7 @@ function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: Growt
           <Pressable
             key={tab}
             onPress={() => { setActiveSubTab(tab); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-            style={{ flex: 1, paddingVertical: 9, borderRadius: 24, backgroundColor: activeSubTab === tab ? GlowColors.primary : "rgba(255,255,255,0.08)", alignItems: "center" }}
+            style={{ flex: 1, paddingVertical: 9, borderRadius: 24, backgroundColor: activeSubTab === tab ? GlowColors.primary : Colors.dark.chipBackgroundStrong, alignItems: "center" }}
           >
             <Text style={{ color: activeSubTab === tab ? "#000" : Colors.dark.text, fontWeight: "700", fontSize: 13 }}>{tab}</Text>
           </Pressable>
@@ -1710,7 +1710,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     right: 0,
     bottom: 0,
     borderTopWidth: 1,
-    borderTopColor: "rgba(200, 255, 61, 0.15)",
+    borderTopColor: Colors.dark.accentTextSoft,
     elevation: 10,
     zIndex: 999,
     backgroundColor: Platform.OS === "web" ? "rgba(11, 13, 16, 0.95)" : "transparent",

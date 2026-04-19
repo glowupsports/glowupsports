@@ -253,7 +253,7 @@ function PremiumMatchCard({
       style={styles.premiumCardWrapper}
     >
       <LinearGradient
-        colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+        colors={[Colors.dark.chipBackgroundStrong, "rgba(255,255,255,0.02)"]}
         style={styles.premiumCard}
       >
         <View style={[styles.cardGlowBorder, { borderColor: getMatchGlowColor() + "60" }]} />

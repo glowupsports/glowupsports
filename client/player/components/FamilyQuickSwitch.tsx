@@ -199,7 +199,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   avatarPlaceholder: {
     backgroundColor: Backgrounds.elevated,
@@ -214,7 +214,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   modalOverlay: {
     flex: 1,
@@ -226,7 +226,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   dropdownHeader: {
     flexDirection: "row",

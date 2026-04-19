@@ -1689,8 +1689,8 @@ export default function PlayScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.findMatchGradient}
                 >
-                  <Ionicons name="school-outline" size={18} color={GlowColors.primary} />
-                  <Text style={[styles.findMatchText, { color: GlowColors.primary }]} numberOfLines={1}>Lessons</Text>
+                  <Ionicons name="school-outline" size={18} color={Colors.dark.accentText} />
+                  <Text style={[styles.findMatchText, { color: Colors.dark.accentText }]} numberOfLines={1}>Lessons</Text>
                 </LinearGradient>
               </Pressable>
 
@@ -2848,7 +2848,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
   },
   findMatchGradient: {
     flexDirection: "row",
@@ -3355,7 +3355,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
   },
   epicDeclineButton: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -3460,7 +3460,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "700",
   },
   spotsChip: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
@@ -3477,7 +3477,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
+    borderTopColor: Colors.dark.chipBackgroundStrong,
   },
   creditCostText: {
     ...Typography.caption,
@@ -3511,7 +3511,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
+    borderTopColor: Colors.dark.chipBackgroundStrong,
   },
   epicSquadName: {
     ...Typography.body,
@@ -3684,7 +3684,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 6,
@@ -3697,7 +3697,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 6,

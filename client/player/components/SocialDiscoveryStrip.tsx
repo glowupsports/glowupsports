@@ -139,12 +139,12 @@ export function SocialDiscoveryStrip() {
 
         <Animated.View entering={FadeInRight.delay(160).duration(400)}>
           <Pressable onPress={handleSessionsPress}>
-            <NeonEdgeCard color={GlowColors.primary} glowIntensity="medium" style={styles.sessionCard}>
+            <NeonEdgeCard color={Colors.dark.accentText} glowIntensity="medium" style={styles.sessionCard}>
               <View style={styles.sessionContent}>
                 <View style={styles.sessionHeader}>
                   <Text style={styles.sessionTitle}>Open Sessions</Text>
                   <View style={[styles.countBadge, { backgroundColor: `${GlowColors.primary}30` }]}>
-                    <Text style={[styles.countText, { color: GlowColors.primary }]}>
+                    <Text style={[styles.countText, { color: Colors.dark.accentText }]}>
                       {state.openSessions.length}
                     </Text>
                   </View>
@@ -225,7 +225,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   badgeText: {
     fontSize: 9,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1,
   },
   scrollContent: {
@@ -378,7 +378,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   sessionTime: {
     fontSize: 22,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontVariant: ["tabular-nums"],
   },
   sessionSpots: {

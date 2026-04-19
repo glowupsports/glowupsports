@@ -35,7 +35,7 @@ type PlayStyleKey =
   | "tactical_mastermind";
 
 const ARCHETYPE_META: Record<PlayStyleKey, { name: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  baseline_warrior: { name: "Baseline Warrior", color: GlowColors.primary, icon: "tennisball" },
+  baseline_warrior: { name: "Baseline Warrior", color: Colors.dark.accentText, icon: "tennisball" },
   net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
   serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
   all_court_ace: { name: "All-Court Ace", color: TextColors.primary, icon: "star" },
@@ -446,7 +446,7 @@ function PlayerStatusContent({
       {/* 2×2 Stats Grid */}
       <View style={s1.statsGrid}>
         <View style={s1.statTile}>
-          <Text style={[s1.statValue, { color: GlowColors.primary }]}>{player?.level ?? 1}</Text>
+          <Text style={[s1.statValue, { color: Colors.dark.accentText }]}>{player?.level ?? 1}</Text>
           <Text style={s1.statLabel}>LEVEL</Text>
         </View>
         <View style={s1.statTile}>
@@ -582,7 +582,7 @@ function CoachNotesContent({
               <Text style={s2.sessionCoach}>with {nextSession.coachName}</Text>
             ) : null}
           </View>
-          <Ionicons name="tennisball" size={16} color={GlowColors.primary} />
+          <Ionicons name="tennisball" size={16} color={Colors.dark.accentText} />
         </View>
       ) : null}
 
@@ -609,7 +609,7 @@ function CoachNotesContent({
                 </Text>
                 {Number(fb.xpAwarded) > 0 ? (
                   <View style={s2.xpChip}>
-                    <Ionicons name="flash" size={10} color={GlowColors.primary} />
+                    <Ionicons name="flash" size={10} color={Colors.dark.accentText} />
                     <Text style={s2.xpChipText}>{`+${fb.xpAwarded} XP`}</Text>
                   </View>
                 ) : null}
@@ -931,7 +931,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   skipText: {
     color: "rgba(255,255,255,0.45)",
@@ -1034,7 +1034,7 @@ const s1 = makeReactiveStyles(() => StyleSheet.create({
     height: 84,
     borderRadius: 42,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -1066,7 +1066,7 @@ const s1 = makeReactiveStyles(() => StyleSheet.create({
   },
   xpBar: {
     height: 5,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -1185,7 +1185,7 @@ const s2 = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 2.5,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     textTransform: "uppercase",
   },
   headline: {
@@ -1199,10 +1199,10 @@ const s2 = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "rgba(200,255,61,0.06)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(200,255,61,0.2)",
+    borderColor: Colors.dark.accentTextSoft,
     padding: 14,
   },
   sessionDot: {
@@ -1214,7 +1214,7 @@ const s2 = makeReactiveStyles(() => StyleSheet.create({
   sessionTime: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   sessionCoach: {
     fontSize: 11,
@@ -1270,12 +1270,12 @@ const s2 = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(200,255,61,0.1)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   xpChipText: {
     fontSize: 11,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   questFallback: {
     backgroundColor: "rgba(255,215,0,0.05)",
@@ -1304,7 +1304,7 @@ const s2 = makeReactiveStyles(() => StyleSheet.create({
   },
   questBar: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -1362,7 +1362,7 @@ const s3 = makeReactiveStyles(() => StyleSheet.create({
   sessionTime: {
     fontSize: 14,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     minWidth: 60,
   },
   sessionCourt: {
@@ -1423,27 +1423,27 @@ const s3 = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    backgroundColor: "rgba(200,255,61,0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
     borderColor: "rgba(200,255,61,0.25)",
   },
   levelBadgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   viewPill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(200,255,61,0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
     borderColor: "rgba(200,255,61,0.3)",
   },
   viewPillText: {
     fontSize: 11,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   playersRow: {
     flexDirection: "row",
@@ -1458,9 +1458,9 @@ const s3 = makeReactiveStyles(() => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",

@@ -70,7 +70,7 @@ function VideoFeedbackCard({
         <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
         {item.annotations && item.annotations.length > 0 ? (
           <View style={styles.cardAnnotationsBadge}>
-            <Ionicons name="bookmark" size={11} color={GlowColors.primary} />
+            <Ionicons name="bookmark" size={11} color={Colors.dark.accentText} />
             <Text style={styles.cardAnnotationsText}>
               {item.annotations.length} note{item.annotations.length !== 1 ? "s" : ""}
             </Text>
@@ -127,7 +127,7 @@ function VideoPlayerView({ feedback }: { feedback: VideoFeedback }) {
         {activeAnnotation ? (
           <View style={styles.annotationOverlay}>
             <View style={styles.annotationOverlayBubble}>
-              <Ionicons name="bookmark" size={12} color={GlowColors.primary} />
+              <Ionicons name="bookmark" size={12} color={Colors.dark.accentText} />
               <Text style={styles.annotationOverlayText}>{activeAnnotation.text}</Text>
             </View>
           </View>
@@ -150,7 +150,7 @@ function VideoPlayerView({ feedback }: { feedback: VideoFeedback }) {
                 onPress={() => seekTo(ann.timestamp)}
               >
                 <View style={styles.annotationTimestampBtn}>
-                  <Ionicons name="play-circle" size={14} color={GlowColors.primary} />
+                  <Ionicons name="play-circle" size={14} color={Colors.dark.accentText} />
                   <Text style={styles.annotationTimestampText}>{formatTimestamp(ann.timestamp)}</Text>
                 </View>
                 <Text style={styles.annotationNoteText}>{ann.text}</Text>
@@ -210,7 +210,7 @@ export default function VideoFeedbackPlayerScreen() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="large" color={GlowColors.primary} style={{ marginTop: 60 }} />
+        <ActivityIndicator size="large" color={Colors.dark.accentText} style={{ marginTop: 60 }} />
       ) : allFeedback.length === 0 ? (
         <EmptyStateCard
           icon="videocam-outline"
@@ -302,7 +302,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   cardAnnotationsText: {
     fontSize: 11,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   // Player view
@@ -379,7 +379,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   annotationTimestampText: {
     fontSize: 12,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontFamily: "monospace",
   },
   annotationNoteText: {

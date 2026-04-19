@@ -317,7 +317,7 @@ export function MiniFeed() {
     return (
       <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedStyles.pill}>
         <View style={[collapsedStyles.iconWrap, { backgroundColor: "rgba(200, 255, 61, 0.1)" }]}>
-          <Ionicons name="people-outline" size={18} color={GlowColors.primary} />
+          <Ionicons name="people-outline" size={18} color={Colors.dark.accentText} />
         </View>
         <View style={collapsedStyles.textGroup}>
           <Text style={collapsedStyles.label}>Community</Text>
@@ -345,7 +345,7 @@ export function MiniFeed() {
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <View style={styles.headerIconWrap}>
-              <Ionicons name="people" size={13} color={GlowColors.primary} />
+              <Ionicons name="people" size={13} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.titleGaming}>COMMUNITY</Text>
           </View>
@@ -368,7 +368,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   outerCard: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -398,7 +398,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -430,7 +430,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     shadowOffset: { width: 0, height: 0 },
     shadowRadius: 10,
     elevation: 4,
@@ -474,7 +474,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   latestPostGradient: {
     padding: Spacing.md,
@@ -489,7 +489,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -597,10 +597,10 @@ const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     marginHorizontal: Spacing.lg,
@@ -633,7 +633,7 @@ const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   ctaText: {
     fontSize: 12,

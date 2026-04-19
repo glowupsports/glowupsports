@@ -467,7 +467,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: Backgrounds.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   suggestionChipActive: {
     backgroundColor: "rgba(255, 215, 0, 0.15)",
@@ -486,7 +486,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   reasonInput: {
     fontSize: 15,

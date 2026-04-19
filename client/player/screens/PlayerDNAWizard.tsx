@@ -411,7 +411,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
                   <Text style={[styles.styleLabel, dna.playStyle === style.id && styles.styleLabelActive]}>{style.label}</Text>
                   <Text style={styles.styleDesc}>{style.desc}</Text>
                 </View>
-                {dna.playStyle === style.id ? <Ionicons name="checkmark-circle" size={22} color={GlowColors.primary} /> : null}
+                {dna.playStyle === style.id ? <Ionicons name="checkmark-circle" size={22} color={Colors.dark.accentText} /> : null}
               </Pressable>
             ))}
           </Animated.View>
@@ -541,17 +541,17 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
               )}
               {photoUploading ? (
                 <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator size="small" color={GlowColors.primary} />
+                  <ActivityIndicator size="small" color={Colors.dark.accentText} />
                 </View>
               ) : null}
             </View>
             <View style={styles.photoButtons}>
               <Pressable style={styles.photoBtn} onPress={() => pickPhoto(true)}>
-                <Ionicons name="camera-outline" size={22} color={GlowColors.primary} />
+                <Ionicons name="camera-outline" size={22} color={Colors.dark.accentText} />
                 <Text style={styles.photoBtnText}>Take Photo</Text>
               </Pressable>
               <Pressable style={styles.photoBtn} onPress={() => pickPhoto(false)}>
-                <Ionicons name="images-outline" size={22} color={GlowColors.primary} />
+                <Ionicons name="images-outline" size={22} color={Colors.dark.accentText} />
                 <Text style={styles.photoBtnText}>Choose from Gallery</Text>
               </Pressable>
             </View>
@@ -566,7 +566,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
   if (profileLoading) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={GlowColors.primary} style={{ flex: 1 }} />
+        <ActivityIndicator size="large" color={Colors.dark.accentText} style={{ flex: 1 }} />
       </View>
     );
   }
@@ -585,7 +585,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
           <Text style={styles.headerSub}>{currentCard + 1} of {DNA_CARDS.length}</Text>
         </View>
         <Pressable style={styles.saveTextBtn} onPress={handleSaveAndClose} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={GlowColors.primary} /> : <Text style={styles.saveText}>Save</Text>}
+          {saving ? <ActivityIndicator size="small" color={Colors.dark.accentText} /> : <Text style={styles.saveText}>Save</Text>}
         </Pressable>
       </View>
 
@@ -602,7 +602,7 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
         >
           <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.cardHeader}>
             <View style={styles.cardIconWrap}>
-              <Ionicons name={card.icon} size={28} color={GlowColors.primary} />
+              <Ionicons name={card.icon} size={28} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.cardTitle}>{card.title}</Text>
             <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
@@ -650,7 +650,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -676,12 +676,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   saveText: {
     fontSize: FontSizes.sm,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   progressBar: {
     height: 3,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     marginHorizontal: Spacing.lg,
     borderRadius: 2,
     marginBottom: Spacing.md,
@@ -705,7 +705,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(200,255,61,0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,
@@ -731,17 +731,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   choiceCard: {
     flex: 1,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.lg,
     alignItems: "center",
     gap: Spacing.sm,
   },
   choiceCardActive: {
     backgroundColor: GlowColors.primary,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   choiceLabel: {
     fontSize: FontSizes.sm,
@@ -772,17 +772,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     justifyContent: "center",
     alignItems: "center",
   },
   heightInput: {
     flex: 1,
     height: 52,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     color: Colors.dark.text,
     fontSize: 24,
     fontWeight: "700",
@@ -797,16 +797,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   chipWide: {
     paddingHorizontal: Spacing.lg,
   },
   chipActive: {
     backgroundColor: GlowColors.primary,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   chipDisabled: {
     opacity: 0.4,
@@ -828,22 +828,22 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   styleCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.md,
     gap: Spacing.md,
   },
   styleCardActive: {
-    borderColor: GlowColors.primary,
-    backgroundColor: "rgba(200,255,61,0.08)",
+    borderColor: Colors.dark.accentText,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   styleIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -859,7 +859,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.text,
   },
   styleLabelActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   styleDesc: {
     fontSize: FontSizes.xs,
@@ -867,10 +867,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: 2,
   },
   textInput: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     color: Colors.dark.text,
     fontSize: FontSizes.md,
     padding: Spacing.md,
@@ -889,13 +889,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   avatarPlaceholder: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
@@ -915,15 +915,15 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.lg,
   },
   photoBtnText: {
     fontSize: FontSizes.md,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   footer: {
@@ -932,7 +932,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
     gap: Spacing.md,
   },
   backBtn: {

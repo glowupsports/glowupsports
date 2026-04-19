@@ -527,7 +527,7 @@ export default function PlayerSettingsScreen() {
             <View style={styles.sectionCard}>
               <View style={[styles.settingItem, { flexDirection: "column", alignItems: "flex-start", gap: Spacing.sm, paddingVertical: Spacing.md }]}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, width: "100%" }}>
-                  <View style={[styles.settingIcon, { backgroundColor: aiProStatus.isPro ? Colors.dark.primary + "25" : "rgba(255,255,255,0.06)" }]}>
+                  <View style={[styles.settingIcon, { backgroundColor: aiProStatus.isPro ? Colors.dark.primary + "25" : Colors.dark.chipBackground }]}>
                     <Ionicons name="flash" size={20} color={aiProStatus.isPro ? Colors.dark.primary : Colors.dark.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -1188,7 +1188,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     padding: 0,
     overflow: "hidden",
   },
@@ -1197,7 +1197,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   appearanceRow: {
     flexDirection: "row",
@@ -1263,7 +1263,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
   },
   radioOuterSelected: {
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   radioInner: {
     width: 12,
@@ -1286,7 +1286,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   settingItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   sportCheckbox: {
     width: 24,
@@ -1410,9 +1410,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.dark.chipBorder,
   },
   aiProBadgeActive: {
     backgroundColor: Colors.dark.primary + "25",
@@ -1430,7 +1430,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   quotaBar: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     marginTop: 2,
     overflow: "hidden",
   },
@@ -1446,7 +1446,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     alignSelf: "flex-start",
   },
   manageButtonText: {

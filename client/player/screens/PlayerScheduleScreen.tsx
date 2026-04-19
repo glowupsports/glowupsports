@@ -2563,7 +2563,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     marginBottom: Spacing.sm,
   },
   sportPickerDot: {

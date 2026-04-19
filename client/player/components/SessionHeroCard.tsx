@@ -133,7 +133,7 @@ function NeonBorderGlow({ color, children, style }: { color: string; children: R
       style={[
         gamingStyles.neonBorderContainer,
         {
-          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderColor: Colors.dark.chipBackgroundStrong,
         },
         style,
       ]}
@@ -161,7 +161,7 @@ const gamingStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   countdownShimmer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   countdownDigitValue: {
     fontSize: 28,
@@ -183,7 +183,7 @@ const gamingStyles = makeReactiveStyles(() => StyleSheet.create({
   countdownSeparatorText: {
     fontSize: 24,
     fontWeight: "300",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     alignSelf: "center",
     marginBottom: 12,
     opacity: 0.7,
@@ -200,7 +200,7 @@ const gamingStyles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.xs,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   stakeIconGlow: {
     width: 24,
@@ -785,7 +785,7 @@ export function SessionHeroCard({
     const lifecycleColors: Record<ChallengeLifecycle, { accent: string; bg: string; gradient: string }> = {
       incoming: { accent: "#FF9500", bg: "rgba(255, 149, 0, 0.12)", gradient: "rgba(255, 149, 0, 0.08)" },
       confirmed: { accent: "#4DA3FF", bg: "rgba(77, 163, 255, 0.12)", gradient: "rgba(77, 163, 255, 0.08)" },
-      sent: { accent: GlowColors.primary, bg: "rgba(200, 255, 61, 0.12)", gradient: "rgba(200, 255, 61, 0.06)" },
+      sent: { accent: GlowColors.primary, bg: Colors.dark.accentTextSoft, gradient: Colors.dark.accentTextSoft },
       match_live: { accent: "#FF4444", bg: "rgba(255, 68, 68, 0.12)", gradient: "rgba(255, 68, 68, 0.08)" },
       post_match: { accent: "#A855F7", bg: "rgba(168, 85, 247, 0.12)", gradient: "rgba(168, 85, 247, 0.08)" },
     };
@@ -939,7 +939,7 @@ export function SessionHeroCard({
           </View>
 
           {c.message && challengeLifecycle !== "post_match" && challengeLifecycle !== "match_live" ? (
-            <View style={{ backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 2, borderLeftColor: accentColor + "40" }}>
+            <View style={{ backgroundColor: Colors.dark.chipBackground, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 2, borderLeftColor: accentColor + "40" }}>
               <Text style={{ fontSize: 12, color: ProTennisColors.textSecondary, fontStyle: "italic", lineHeight: 18 }}>"{c.message}"</Text>
             </View>
           ) : null}
@@ -951,7 +951,7 @@ export function SessionHeroCard({
                   <Pressable
                     style={({ pressed }) => [
                       styles.commandOutlineButton,
-                      { borderColor: "rgba(255,255,255,0.1)" },
+                      { borderColor: Colors.dark.chipBackgroundStrong },
                       pressed && styles.buttonPressed,
                     ]}
                     onPress={() => {
@@ -1153,7 +1153,7 @@ export function SessionHeroCard({
                   <Pressable
                     style={({ pressed }) => [
                       styles.commandOutlineButton,
-                      { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                      { flex: 1, borderColor: Colors.dark.chipBackgroundStrong },
                       pressed && styles.buttonPressed,
                     ]}
                     onPress={() => setShowCancelMatchModal(false)}
@@ -1211,8 +1211,8 @@ export function SessionHeroCard({
                           paddingVertical: 8,
                           borderRadius: 8,
                           borderWidth: 1,
-                          borderColor: matchLateMinutes === min ? ProTennisColors.warning : "rgba(255,255,255,0.08)",
-                          backgroundColor: matchLateMinutes === min ? "rgba(255, 165, 0, 0.12)" : "rgba(255,255,255,0.04)",
+                          borderColor: matchLateMinutes === min ? ProTennisColors.warning : Colors.dark.chipBackgroundStrong,
+                          backgroundColor: matchLateMinutes === min ? "rgba(255, 165, 0, 0.12)" : Colors.dark.chipBackground,
                         }, pressed && { opacity: 0.7 }]}
                         onPress={() => setMatchLateMinutes(min)}
                       >
@@ -1235,7 +1235,7 @@ export function SessionHeroCard({
                     <Pressable
                       style={({ pressed }) => [
                         styles.commandOutlineButton,
-                        { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                        { flex: 1, borderColor: Colors.dark.chipBackgroundStrong },
                         pressed && styles.buttonPressed,
                       ]}
                       onPress={() => setShowLateMatchModal(false)}
@@ -1305,8 +1305,8 @@ export function SessionHeroCard({
                           style={({ pressed }) => [{
                             flex: 1, paddingVertical: 20, borderRadius: 12, alignItems: "center", justifyContent: "center",
                             borderWidth: 2,
-                            borderColor: scoreResult === "win" ? "#4ADE80" : "rgba(255,255,255,0.08)",
-                            backgroundColor: scoreResult === "win" ? "rgba(74, 222, 128, 0.12)" : "rgba(255,255,255,0.03)",
+                            borderColor: scoreResult === "win" ? "#4ADE80" : Colors.dark.chipBackgroundStrong,
+                            backgroundColor: scoreResult === "win" ? "rgba(74, 222, 128, 0.12)" : Colors.dark.chipBackground,
                           }, pressed && { opacity: 0.8 }]}
                           onPress={() => setScoreResult("win")}
                         >
@@ -1317,8 +1317,8 @@ export function SessionHeroCard({
                           style={({ pressed }) => [{
                             flex: 1, paddingVertical: 20, borderRadius: 12, alignItems: "center", justifyContent: "center",
                             borderWidth: 2,
-                            borderColor: scoreResult === "loss" ? "#FF6B6B" : "rgba(255,255,255,0.08)",
-                            backgroundColor: scoreResult === "loss" ? "rgba(255, 107, 107, 0.12)" : "rgba(255,255,255,0.03)",
+                            borderColor: scoreResult === "loss" ? "#FF6B6B" : Colors.dark.chipBackgroundStrong,
+                            backgroundColor: scoreResult === "loss" ? "rgba(255, 107, 107, 0.12)" : Colors.dark.chipBackground,
                           }, pressed && { opacity: 0.8 }]}
                           onPress={() => setScoreResult("loss")}
                         >
@@ -1347,8 +1347,8 @@ export function SessionHeroCard({
                               key={item}
                               style={[{
                                 paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                                borderColor: scoreWhatWorked.includes(item.toLowerCase()) ? "#4ADE80" : "rgba(255,255,255,0.08)",
-                                backgroundColor: scoreWhatWorked.includes(item.toLowerCase()) ? "rgba(74, 222, 128, 0.12)" : "rgba(255,255,255,0.03)",
+                                borderColor: scoreWhatWorked.includes(item.toLowerCase()) ? "#4ADE80" : Colors.dark.chipBackgroundStrong,
+                                backgroundColor: scoreWhatWorked.includes(item.toLowerCase()) ? "rgba(74, 222, 128, 0.12)" : Colors.dark.chipBackground,
                               }]}
                               onPress={() => toggleScoreChip(item.toLowerCase(), scoreWhatWorked, setScoreWhatWorked)}
                             >
@@ -1367,8 +1367,8 @@ export function SessionHeroCard({
                               key={item}
                               style={[{
                                 paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                                borderColor: scoreWhatDidnt.includes(item.toLowerCase()) ? "#FF6B6B" : "rgba(255,255,255,0.08)",
-                                backgroundColor: scoreWhatDidnt.includes(item.toLowerCase()) ? "rgba(255, 107, 107, 0.12)" : "rgba(255,255,255,0.03)",
+                                borderColor: scoreWhatDidnt.includes(item.toLowerCase()) ? "#FF6B6B" : Colors.dark.chipBackgroundStrong,
+                                backgroundColor: scoreWhatDidnt.includes(item.toLowerCase()) ? "rgba(255, 107, 107, 0.12)" : Colors.dark.chipBackground,
                               }]}
                               onPress={() => toggleScoreChip(item.toLowerCase(), scoreWhatDidnt, setScoreWhatDidnt)}
                             >
@@ -1390,8 +1390,8 @@ export function SessionHeroCard({
                               key={item}
                               style={[{
                                 paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                                borderColor: scoreBiggestChallenge === item.toLowerCase() ? "#A855F7" : "rgba(255,255,255,0.08)",
-                                backgroundColor: scoreBiggestChallenge === item.toLowerCase() ? "rgba(168, 85, 247, 0.12)" : "rgba(255,255,255,0.03)",
+                                borderColor: scoreBiggestChallenge === item.toLowerCase() ? "#A855F7" : Colors.dark.chipBackgroundStrong,
+                                backgroundColor: scoreBiggestChallenge === item.toLowerCase() ? "rgba(168, 85, 247, 0.12)" : Colors.dark.chipBackground,
                               }]}
                               onPress={() => setScoreBiggestChallenge(scoreBiggestChallenge === item.toLowerCase() ? null : item.toLowerCase())}
                             >
@@ -1414,8 +1414,8 @@ export function SessionHeroCard({
                               key={item.id}
                               style={[{
                                 flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1,
-                                borderColor: scoreEnergy === item.id ? "#4DA3FF" : "rgba(255,255,255,0.08)",
-                                backgroundColor: scoreEnergy === item.id ? "rgba(77, 163, 255, 0.12)" : "rgba(255,255,255,0.03)",
+                                borderColor: scoreEnergy === item.id ? "#4DA3FF" : Colors.dark.chipBackgroundStrong,
+                                backgroundColor: scoreEnergy === item.id ? "rgba(77, 163, 255, 0.12)" : Colors.dark.chipBackground,
                               }]}
                               onPress={() => setScoreEnergy(scoreEnergy === item.id ? null : item.id)}
                             >
@@ -1439,8 +1439,8 @@ export function SessionHeroCard({
                               key={item.id}
                               style={[{
                                 flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1,
-                                borderColor: scoreMood === item.id ? "#FFD700" : "rgba(255,255,255,0.08)",
-                                backgroundColor: scoreMood === item.id ? "rgba(255, 215, 0, 0.12)" : "rgba(255,255,255,0.03)",
+                                borderColor: scoreMood === item.id ? "#FFD700" : Colors.dark.chipBackgroundStrong,
+                                backgroundColor: scoreMood === item.id ? "rgba(255, 215, 0, 0.12)" : Colors.dark.chipBackground,
                               }]}
                               onPress={() => setScoreMood(scoreMood === item.id ? null : item.id)}
                             >
@@ -1471,7 +1471,7 @@ export function SessionHeroCard({
                       <Pressable
                         style={({ pressed }) => [
                           styles.commandOutlineButton,
-                          { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                          { flex: 1, borderColor: Colors.dark.chipBackgroundStrong },
                           pressed && styles.buttonPressed,
                         ]}
                         onPress={() => setScoreStep(scoreStep - 1)}
@@ -1482,7 +1482,7 @@ export function SessionHeroCard({
                       <Pressable
                         style={({ pressed }) => [
                           styles.commandOutlineButton,
-                          { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                          { flex: 1, borderColor: Colors.dark.chipBackgroundStrong },
                           pressed && styles.buttonPressed,
                         ]}
                         onPress={resetScoreModal}
@@ -1533,7 +1533,7 @@ export function SessionHeroCard({
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
-                <Feather name="calendar" size={14} color={GlowColors.primary} />
+                <Feather name="calendar" size={14} color={Colors.dark.accentText} />
               </View>
               <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
             </View>
@@ -1559,7 +1559,7 @@ export function SessionHeroCard({
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
-                <Feather name="calendar" size={14} color={GlowColors.primary} />
+                <Feather name="calendar" size={14} color={Colors.dark.accentText} />
               </View>
               <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
             </View>
@@ -1610,7 +1610,7 @@ export function SessionHeroCard({
                 ]}
                 onPress={handleBookSession}
               >
-                <Feather name="calendar" size={16} color={GlowColors.primary} />
+                <Feather name="calendar" size={16} color={Colors.dark.accentText} />
                 <Text style={styles.commandOutlineButtonText}>{t("player.home.bookLesson")}</Text>
               </Pressable>
             </SwipeBlocker>
@@ -1654,9 +1654,9 @@ export function SessionHeroCard({
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
-                <Feather name="calendar" size={14} color={GlowColors.primary} />
+                <Feather name="calendar" size={14} color={Colors.dark.accentText} />
               </View>
-              <Text style={[styles.commandLabel, { color: GlowColors.primary }]}>
+              <Text style={[styles.commandLabel, { color: Colors.dark.accentText }]}>
                 {t("player.home.nextSession")}
               </Text>
             </View>
@@ -1693,7 +1693,7 @@ export function SessionHeroCard({
                 style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]}
                 onPress={handleBookSession}
               >
-                <Feather name="calendar" size={16} color={GlowColors.primary} />
+                <Feather name="calendar" size={16} color={Colors.dark.accentText} />
                 <Text style={styles.commandOutlineButtonText}>{t("player.home.bookLesson")}</Text>
               </Pressable>
             </SwipeBlocker>
@@ -1711,7 +1711,7 @@ export function SessionHeroCard({
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={styles.commandIconWrap}>
-                <Feather name="calendar" size={14} color={GlowColors.primary} />
+                <Feather name="calendar" size={14} color={Colors.dark.accentText} />
               </View>
               <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
             </View>
@@ -1733,7 +1733,7 @@ export function SessionHeroCard({
               <View style={{ flex: 1 }}>
                 <SwipeBlocker>
                   <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleBookCourt}>
-                    <Feather name="grid" size={14} color={GlowColors.primary} />
+                    <Feather name="grid" size={14} color={Colors.dark.accentText} />
                     <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
                   </Pressable>
                 </SwipeBlocker>
@@ -1741,7 +1741,7 @@ export function SessionHeroCard({
               <View style={{ flex: 1 }}>
                 <SwipeBlocker>
                   <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleFindMatch}>
-                    <Feather name="users" size={14} color={GlowColors.primary} />
+                    <Feather name="users" size={14} color={Colors.dark.accentText} />
                     <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
                   </Pressable>
                 </SwipeBlocker>
@@ -1788,7 +1788,7 @@ export function SessionHeroCard({
                 ]}
                 onPress={handleFindMatch}
               >
-                <Feather name="users" size={16} color={GlowColors.primary} />
+                <Feather name="users" size={16} color={Colors.dark.accentText} />
                 <Text style={styles.openDaySmallButtonText}>{t("player.home.findPlayers").toUpperCase()}</Text>
               </Pressable>
 
@@ -2561,7 +2561,7 @@ export function SessionHeroCard({
         <View style={styles.commandHeader}>
           <View style={styles.commandTitleSection}>
             <View style={styles.commandIconWrap}>
-              <Feather name="calendar" size={14} color={GlowColors.primary} />
+              <Feather name="calendar" size={14} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
           </View>
@@ -2603,7 +2603,7 @@ export function SessionHeroCard({
                   ]}
                   onPress={handleBookCourt}
                 >
-                  <Feather name="grid" size={14} color={GlowColors.primary} />
+                  <Feather name="grid" size={14} color={Colors.dark.accentText} />
                   <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
                 </Pressable>
               </SwipeBlocker>
@@ -2617,7 +2617,7 @@ export function SessionHeroCard({
                   ]}
                   onPress={handleFindMatch}
                 >
-                  <Feather name="users" size={14} color={GlowColors.primary} />
+                  <Feather name="users" size={14} color={Colors.dark.accentText} />
                   <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
                 </Pressable>
               </SwipeBlocker>
@@ -2704,8 +2704,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
-    borderColor: `${GlowColors.primary}50`,
-    backgroundColor: "rgba(200, 255, 61, 0.05)",
+    borderColor: Colors.dark.accentTextBorder,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   gamingSecondaryButtonText: {
     fontWeight: "700",
@@ -2807,10 +2807,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   secondaryButton: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   secondaryButtonText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.5,
@@ -2870,7 +2870,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   courtLabel: {
     ...Typography.caption,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     marginTop: 2,
   },
   courtInfo: {
@@ -2893,7 +2893,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   endButton: {
     backgroundColor: ProTennisColors.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   liveButtonText: {
     color: ProTennisColors.white,
@@ -3152,10 +3152,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.sm,
     backgroundColor: `${ProTennisColors.surfaceElevated}80`,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   openDaySmallButtonText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
     fontSize: 12,
     letterSpacing: 0.5,
@@ -3185,9 +3185,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
   },
   extendButton: {
-    backgroundColor: `${GlowColors.primary}15`,
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
-    borderColor: `${GlowColors.primary}40`,
+    borderColor: Colors.dark.accentTextBorder,
   },
   liveCancelRow: {
     marginTop: Spacing.md,
@@ -3223,7 +3223,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   nextSessionText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
     fontSize: 12,
     letterSpacing: 0.5,
@@ -3295,7 +3295,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   actionDivider: {
     width: 1,
     height: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     marginHorizontal: Spacing.md,
   },
   lateCancelNotice: {
@@ -3313,7 +3313,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   policySectionTitle: {
     ...Typography.small,
@@ -3416,7 +3416,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: `${ProTennisColors.surfaceElevated}80`,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   lateMinutesOptionSelected: {
     backgroundColor: `${ProTennisColors.warning}20`,
@@ -3442,7 +3442,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     backgroundColor: Backgrounds.root,
   },
   coachCardAccentLine: {
@@ -3459,9 +3459,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.15)",
+    borderColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3470,9 +3470,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(200, 255, 61, 0.04)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -3486,8 +3486,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 12,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.15)",
-    backgroundColor: "rgba(200, 255, 61, 0.04)",
+    borderColor: Colors.dark.accentTextSoft,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   commandHeader: {
     flexDirection: "row",
@@ -3504,14 +3504,14 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   commandLabel: {
     fontSize: 12,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 2,
   },
   commandDisplay: {
@@ -3543,13 +3543,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 14,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.15)",
-    backgroundColor: "rgba(200, 255, 61, 0.04)",
+    borderColor: Colors.dark.accentTextSoft,
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   commandOutlineButtonText: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1,
   },
   commandLinkRow: {
@@ -3582,7 +3582,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3607,7 +3607,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -3664,11 +3664,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 12,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: Colors.dark.chipBorder,
+    backgroundColor: Colors.dark.chipBackground,
   },
   cleanSecondaryButtonText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
     fontSize: 14,
     letterSpacing: 0.2,
@@ -3753,7 +3753,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
   },
   cleanMutedButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
   },
   cleanMutedButtonText: {
@@ -3768,7 +3768,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   cleanBadgeText: {
     fontWeight: "600",

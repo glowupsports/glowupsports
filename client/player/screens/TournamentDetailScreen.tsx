@@ -25,7 +25,7 @@ import {
   BorderRadius,
   GlowColors,
   TextColors,
- Backgrounds, } from "@/constants/theme";
+ Backgrounds, Colors } from "@/constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
@@ -157,7 +157,7 @@ function ScoreRing({ score }: { score: number }) {
 
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <View style={{ position: "absolute", width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: "rgba(255,255,255,0.1)" }} />
+      <View style={{ position: "absolute", width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: Colors.dark.chipBackgroundStrong }} />
       <View style={{
         position: "absolute",
         width: size,
@@ -204,7 +204,7 @@ function MatchReadinessCard({
     <View style={readinessStyles.card}>
       <View style={readinessStyles.cardHeader}>
         <View style={readinessStyles.headerLeft}>
-          <Ionicons name="flash" size={14} color={GlowColors.primary} />
+          <Ionicons name="flash" size={14} color={Colors.dark.accentText} />
           <Text style={readinessStyles.headerTitle}>Match Readiness</Text>
         </View>
         {matchPrep ? (
@@ -377,7 +377,7 @@ function GroupTable({ group }: { group: { name: string; standings: GroupStanding
   return (
     <View style={styles.groupContainer}>
       <View style={styles.groupHeader}>
-        <Ionicons name="grid" size={14} color={GlowColors.primary} />
+        <Ionicons name="grid" size={14} color={Colors.dark.accentText} />
         <Text style={styles.groupName}>{group.name}</Text>
       </View>
       <View style={styles.tableWrapper}>
@@ -488,7 +488,7 @@ function ParticipantsList({ participants }: { participants: ParticipantEntry[] }
 function LoadingView() {
   return (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={GlowColors.primary} />
+      <ActivityIndicator size="large" color={Colors.dark.accentText} />
     </View>
   );
 }
@@ -638,7 +638,7 @@ export default function TournamentDetailScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
+            <Ionicons name="chevron-back" size={22} color={Colors.dark.accentText} />
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{t("player.tournaments.title")}</Text>
@@ -724,7 +724,7 @@ export default function TournamentDetailScreen() {
         {Object.entries(byRound).map(([round, roundMatches]) => (
           <View key={round} style={styles.americanoRound}>
             <View style={styles.americanoRoundHeader}>
-              <Ionicons name="sync-outline" size={14} color={GlowColors.primary} />
+              <Ionicons name="sync-outline" size={14} color={Colors.dark.accentText} />
               <Text style={styles.americanoRoundTitle}>{round}</Text>
             </View>
             {roundMatches.map((match: any) => {
@@ -815,7 +815,7 @@ export default function TournamentDetailScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
+          <Ionicons name="chevron-back" size={22} color={Colors.dark.accentText} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{tournament.name}</Text>
@@ -828,7 +828,7 @@ export default function TournamentDetailScreen() {
 
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
-          <Ionicons name="trophy" size={16} color={GlowColors.primary} />
+          <Ionicons name="trophy" size={16} color={Colors.dark.accentText} />
           <Text style={styles.statLabel}>{t("player.tournaments.format")}</Text>
           <Text style={styles.statValue}>{formatLabel}</Text>
         </View>
@@ -861,7 +861,7 @@ export default function TournamentDetailScreen() {
           >
             <View style={styles.nextMatchLeft}>
               <View style={styles.nextMatchLabel}>
-                <Ionicons name="flash" size={12} color={GlowColors.primary} />
+                <Ionicons name="flash" size={12} color={Colors.dark.accentText} />
                 <Text style={styles.nextMatchLabelText}>{t("player.tournaments.nextMatch")}</Text>
               </View>
               <Text style={styles.nextMatchOpponent}>
@@ -1082,7 +1082,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   headerCenter: {
     flex: 1,
@@ -1109,7 +1109,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 10,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   statItem: {
     flex: 1,
@@ -1129,7 +1129,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     marginVertical: 4,
   },
   nextMatchCard: {
@@ -1138,7 +1138,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: GlowColors.primary + "30",
+    borderColor: Colors.dark.accentTextBorder,
   },
   nextMatchGradient: {
     flexDirection: "row",
@@ -1158,7 +1158,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   nextMatchLabelText: {
     fontSize: 9,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1,
   },
   nextMatchOpponent: {
@@ -1185,7 +1185,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   nextMatchRoundText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: Colors.dark.onAccent,
   },
   tabBar: {
     flexDirection: "row",
@@ -1203,11 +1203,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 8,
     backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   tabActive: {
     backgroundColor: GlowColors.primary + "20",
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
   },
   tabText: {
     fontSize: 11,
@@ -1215,7 +1215,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.muted,
   },
   tabTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   content: {
     flex: 1,
@@ -1254,11 +1254,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
     overflow: "hidden",
   },
   myMatchCard: {
-    borderColor: GlowColors.primary + "50",
+    borderColor: Colors.dark.accentTextBorder,
     backgroundColor: GlowColors.primary + "10",
   },
   playerSlot: {
@@ -1278,7 +1278,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
   },
   seedBadge: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 3,
     paddingHorizontal: 4,
     paddingVertical: 1,
@@ -1298,7 +1298,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "600",
   },
   myName: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   scoreText: {
@@ -1311,7 +1311,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   matchDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   liveIndicator: {
     flexDirection: "row",
@@ -1330,7 +1330,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   liveText: {
     fontSize: 9,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   groupContainer: {
     marginBottom: Spacing.lg,
@@ -1351,7 +1351,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   tableHeader: {
     flexDirection: "row",
@@ -1370,7 +1370,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
+    borderBottomColor: Colors.dark.chipBackground,
     alignItems: "center",
   },
   myRow: {
@@ -1405,7 +1405,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
   },
   myNameCell: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   statCol: {
@@ -1432,10 +1432,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 10,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   myScheduleCard: {
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
     backgroundColor: GlowColors.primary + "10",
   },
   scheduleTimeBlock: {
@@ -1447,10 +1447,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   scheduleTime: {
     fontSize: 20,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   scheduleBadge: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -1470,7 +1470,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.primary,
   },
   myScheduleName: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   vsContainer: {
@@ -1510,10 +1510,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   myParticipantCard: {
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
   },
   participantGradient: {
     padding: Spacing.md,
@@ -1530,7 +1530,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   myAvatar: {
     borderWidth: 2,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   participantInitial: {
     fontSize: 18,
@@ -1544,7 +1544,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textAlign: "center",
   },
   myParticipantName: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   participantSeedBadge: {
     backgroundColor: GlowColors.primary + "20",
@@ -1555,7 +1555,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   participantSeedText: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   loadingContainer: {
     flex: 1,
@@ -1574,7 +1574,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 8,
     marginBottom: 4,
     gap: 8,
@@ -1617,7 +1617,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textAlign: "center",
   },
   americanoPoints: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
     fontSize: 15,
   },
@@ -1645,7 +1645,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   americanoRoundTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -1653,11 +1653,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
     marginBottom: 6,
   },
   americanoCourtDone: {
@@ -1673,7 +1673,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   americanoCourtText: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   americanoScore: {
     fontSize: 13,
@@ -1693,7 +1693,7 @@ const readinessStyles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: GlowColors.primary + "25",
+    borderColor: Colors.dark.accentTextBorder,
     overflow: "hidden",
   },
   cardHeader: {
@@ -1704,7 +1704,7 @@ const readinessStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   headerLeft: {
     flexDirection: "row",
@@ -1834,7 +1834,7 @@ const readinessStyles = makeReactiveStyles(() => StyleSheet.create({
   tipNumberText: {
     fontSize: 10,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   tipText: {
     flex: 1,
@@ -1898,7 +1898,7 @@ const detailRegStyles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     paddingTop: Spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
     gap: 10,
   },
   formModalTitle: {
@@ -1944,17 +1944,17 @@ const detailRegStyles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.07)",
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
     color: TextColors.primary,
   },
   fieldReadOnly: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -1973,11 +1973,11 @@ const detailRegStyles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   categoryChipActive: {
     backgroundColor: GlowColors.primary + "33",
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   categoryChipText: {
     fontSize: 13,
@@ -1985,7 +1985,7 @@ const detailRegStyles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "500",
   },
   categoryChipTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   submitBtn: {

@@ -502,7 +502,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   backButton: {
     width: 40,
@@ -684,7 +684,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    borderTopColor: Colors.dark.chipBackground,
   },
   actionButton: {
     flex: 1,

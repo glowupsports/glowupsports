@@ -238,7 +238,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   backButton: {
     width: 40,
@@ -287,7 +287,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   unreadCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   avatarContainer: {
     position: "relative",
@@ -394,7 +394,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   retryButton: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: BorderRadius.md,
   },
   retryText: {

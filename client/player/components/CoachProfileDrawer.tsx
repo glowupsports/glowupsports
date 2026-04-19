@@ -169,7 +169,7 @@ export default function CoachProfileDrawer({
               )}
               {coach.totalSessions && coach.totalSessions > 0 && (
                 <View style={styles.quickStatCard}>
-                  <Ionicons name="calendar-outline" size={20} color={GlowColors.primary} />
+                  <Ionicons name="calendar-outline" size={20} color={Colors.dark.accentText} />
                   <Text style={styles.quickStatValue}>{coach.totalSessions} sessions</Text>
                 </View>
               )}
@@ -226,7 +226,7 @@ export default function CoachProfileDrawer({
                 <View style={styles.tagsGrid}>
                   {coach.specializations.map((spec, index) => (
                     <View key={index} style={styles.specTag}>
-                      <Ionicons name="tennisball-outline" size={12} color={GlowColors.primary} />
+                      <Ionicons name="tennisball-outline" size={12} color={Colors.dark.accentText} />
                       <Text style={styles.specTagText}>{spec}</Text>
                     </View>
                   ))}
@@ -462,7 +462,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   specTagText: {
     fontSize: 12,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "500",
   },
   bioText: {

@@ -42,7 +42,7 @@ export function WalkthroughOverlay() {
         
         <Animated.View entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))} style={styles.tooltipCard}>
           <View style={styles.iconContainer}>
-            <Ionicons name="bulb" size={28} color={GlowColors.primary} />
+            <Ionicons name="bulb" size={28} color={Colors.dark.accentText} />
           </View>
 
           <View style={styles.content}>
@@ -102,7 +102,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: width - Spacing.lg * 2,
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: `${GlowColors.primary}30`,
+    borderColor: Colors.dark.accentTextBorder,
     shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -113,7 +113,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: `${GlowColors.primary}20`,
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,

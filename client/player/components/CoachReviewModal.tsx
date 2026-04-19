@@ -343,7 +343,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     minHeight: "60%",
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   handle: {
     width: 36,
@@ -483,7 +483,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.sm,
     backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   cancelButtonText: {
     fontSize: 16,

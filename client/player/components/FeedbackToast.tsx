@@ -102,7 +102,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: GlowColors.primary + "30",
+    borderColor: Colors.dark.accentTextBorder,
     gap: Spacing.sm,
     shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 4 },

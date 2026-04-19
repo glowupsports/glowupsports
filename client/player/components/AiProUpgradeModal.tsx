@@ -224,7 +224,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.xl,
     paddingBottom: 40,
     borderTopWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   handle: {
     width: 36,
@@ -285,7 +285,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     lineHeight: 20,
   },
   retryButton: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
@@ -302,10 +302,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   planCard: {
     flex: 1,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     padding: Spacing.md,
     alignItems: "center",
     minHeight: 90,

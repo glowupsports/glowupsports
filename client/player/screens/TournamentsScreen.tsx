@@ -418,12 +418,12 @@ function LadderCard({
       onPress={onPress}
     >
       <LinearGradient
-        colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.08)"]}
+        colors={[Colors.dark.chipBackground, Colors.dark.chipBackgroundStrong]}
         style={styles.ladderGradient}
       >
         <View style={styles.ladderTop}>
           <View style={styles.ladderIcon}>
-            <Ionicons name="podium" size={20} color={GlowColors.primary} />
+            <Ionicons name="podium" size={20} color={Colors.dark.accentText} />
           </View>
           <View style={styles.ladderInfo}>
             <Text style={styles.ladderName} numberOfLines={1}>{ladder.name}</Text>
@@ -440,7 +440,7 @@ function LadderCard({
           </View>
           {ladder.myPosition ? (
             <View style={styles.ladderStat}>
-              <Text style={[styles.ladderStatValue, { color: GlowColors.primary }]}>#{ladder.myPosition}</Text>
+              <Text style={[styles.ladderStatValue, { color: Colors.dark.accentText }]}>#{ladder.myPosition}</Text>
               <Text style={styles.ladderStatLabel}>Rank</Text>
             </View>
           ) : null}
@@ -801,7 +801,7 @@ export default function TournamentsScreen() {
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GlowColors.primary} />
+          <ActivityIndicator size="large" color={Colors.dark.accentText} />
         </View>
       );
     }
@@ -850,7 +850,7 @@ export default function TournamentsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={handleRefresh}
-                tintColor={GlowColors.primary}
+                tintColor={Colors.dark.accentText}
               />
             }
             ListEmptyComponent={
@@ -877,7 +877,7 @@ export default function TournamentsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={handleRefresh}
-                tintColor={GlowColors.primary}
+                tintColor={Colors.dark.accentText}
               />
             }
             ListEmptyComponent={
@@ -922,7 +922,7 @@ export default function TournamentsScreen() {
 
             {publicTournamentsLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={GlowColors.primary} />
+                <ActivityIndicator size="large" color={Colors.dark.accentText} />
               </View>
             ) : (
               <FlatList
@@ -940,7 +940,7 @@ export default function TournamentsScreen() {
                   <RefreshControl
                     refreshing={publicTournamentsRefetching}
                     onRefresh={() => refetchPublicTournaments()}
-                    tintColor={GlowColors.primary}
+                    tintColor={Colors.dark.accentText}
                   />
                 }
                 ListEmptyComponent={
@@ -969,7 +969,7 @@ export default function TournamentsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={handleRefresh}
-                tintColor={GlowColors.primary}
+                tintColor={Colors.dark.accentText}
               />
             }
             ListEmptyComponent={
@@ -984,7 +984,7 @@ export default function TournamentsScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
+          <Ionicons name="chevron-back" size={22} color={Colors.dark.accentText} />
         </Pressable>
         <Text style={styles.headerTitle}>{t("player.tournaments.title")}</Text>
         <View style={styles.headerRight} />
@@ -1033,11 +1033,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   headerTitle: {
     fontSize: 18,
@@ -1061,13 +1061,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   tabActive: {
     backgroundColor: GlowColors.primary + "20",
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
   },
   tabText: {
     fontSize: 12,
@@ -1075,10 +1075,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.muted,
   },
   tabTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   tabCount: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1092,7 +1092,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.muted,
   },
   tabCountTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   content: {
     flex: 1,
@@ -1126,11 +1126,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: "#fff",
   },
   card: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     flexDirection: "row",
   },
   cardPressed: {
@@ -1190,7 +1190,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 5,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   formatBadgeText: {
     fontSize: 9,
@@ -1275,12 +1275,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   distanceText: {
     fontSize: 11,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   divider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     marginVertical: 10,
   },
   cardFooter: {
@@ -1333,12 +1333,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.dark.chipBorder,
   },
   registeredText: {
     fontSize: 11,
@@ -1354,7 +1354,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
   },
   registerBtnDisabled: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   registerBtnText: {
     fontSize: 12,
@@ -1368,7 +1368,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   ladderGradient: {
     padding: Spacing.md,
@@ -1403,7 +1403,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 5,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   ladderTypeBadgeText: {
     fontSize: 9,
@@ -1416,7 +1416,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
     marginBottom: 10,
   },
   ladderStat: {
@@ -1504,13 +1504,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   sportChipActive: {
     backgroundColor: GlowColors.primary + "20",
-    borderColor: GlowColors.primary + "50",
+    borderColor: Colors.dark.accentTextBorder,
   },
   sportChipText: {
     fontSize: 12,
@@ -1518,18 +1518,18 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.muted,
   },
   sportChipTextActive: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   citySearchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   cityInput: {
     flex: 1,
@@ -1569,7 +1569,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 6,
     backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   publicFormatChipText: {
     fontSize: 10,

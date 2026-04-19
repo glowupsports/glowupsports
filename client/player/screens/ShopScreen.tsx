@@ -396,7 +396,7 @@ function ServiceHCard({ service, onPress }: { service: ShopService; onPress: (s:
   return (
     <Pressable onPress={() => onPress(service)} style={[styles.serviceHCard, { width: cardWidth }]}>
       <View style={styles.serviceHIcon}>
-        <Ionicons name={(service.iconName as any) || "build"} size={22} color={GlowColors.primary} />
+        <Ionicons name={(service.iconName as any) || "build"} size={22} color={Colors.dark.accentText} />
       </View>
       <Text style={styles.serviceHName} numberOfLines={2}>{service.name}</Text>
       {service.shortDescription ? (
@@ -1013,7 +1013,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   newBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1,
   },
   saleBadge: {
@@ -1184,7 +1184,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   serviceHPrice: {
     fontSize: 14,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   serviceHBookBtn: {
     backgroundColor: GlowColors.primary + "20",
@@ -1195,7 +1195,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   serviceHBookText: {
     fontSize: 11,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
 
   subsectionLabel: {

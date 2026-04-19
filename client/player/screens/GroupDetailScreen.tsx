@@ -2634,7 +2634,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   // Stats
   statsScroll: { backgroundColor: Backgrounds.root },
   statsContent: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  statPill: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginRight: 8 },
+  statPill: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.chipBackground, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong, marginRight: 8 },
   statPillText: { fontSize: 13, fontWeight: "500", color: "#7A8EA0" },
 
   // Tabs
@@ -2649,7 +2649,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingTop: 14 },
 
   // Post card
-  postCard: { backgroundColor: Backgrounds.root, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  postCard: { backgroundColor: Backgrounds.root, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: Colors.dark.chipBackground },
   postHeader: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   postAvatar: { width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center" },
   postAvatarInitial: { fontSize: 15, fontWeight: "700" },
@@ -2665,7 +2665,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   mediaImageSingle: { width: "100%", height: 240 },
 
   // Post actions
-  postActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 2, gap: 20 },
+  postActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: Colors.dark.chipBackground, paddingTop: 10, marginTop: 2, gap: 20 },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 2, paddingHorizontal: 4 },
   actionBtnText: { fontSize: 13, fontWeight: "500", color: "#445566" },
 
@@ -2694,7 +2694,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
 
   // Compose modal
-  composeSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, minHeight: 300, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  composeSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, minHeight: 300, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   composeHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginTop: 10, marginBottom: 4 },
   composeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
   composeCancelBtn: { paddingVertical: 4, paddingHorizontal: 4, minWidth: 60 },
@@ -2714,7 +2714,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   composeCounter: { fontSize: 12, color: "#445566" },
 
   // Comments sheet
-  commentsSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "85%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  commentsSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "85%", borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   commentsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
   commentsTitle: { fontSize: 17, fontWeight: "700", color: TextColors.primary },
   commentsLoading: { paddingVertical: 40, alignItems: "center" },
@@ -2725,21 +2725,21 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   commentAvatarWrap: {},
   commentAvatar: { width: 36, height: 36, borderRadius: 18 },
   commentAvatarInitial: { fontSize: 14, fontWeight: "700" },
-  commentBubble: { flex: 1, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 14, padding: 10 },
+  commentBubble: { flex: 1, backgroundColor: Colors.dark.chipBackground, borderRadius: 14, padding: 10 },
   commentBubbleHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   commentAuthor: { fontSize: 13, fontWeight: "600", color: TextColors.primary },
   commentTime: { fontSize: 11, color: "#445566" },
   commentText: { fontSize: 14, color: "#8899AA", lineHeight: 20 },
   commentInputRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", gap: 10 },
-  commentInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: TextColors.primary, fontSize: 14, maxHeight: 100, minHeight: 42 },
+  commentInput: { flex: 1, backgroundColor: Colors.dark.chipBackground, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: TextColors.primary, fontSize: 14, maxHeight: 100, minHeight: 42 },
   commentSendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
 
   // Add members sheet
-  addMembersSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  addMembersSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   addMembersHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
   addMembersTitle: { fontSize: 17, fontWeight: "700", color: TextColors.primary },
   addMembersCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.07)", justifyContent: "center", alignItems: "center" },
-  searchWrap: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, marginHorizontal: 16, marginTop: 14, marginBottom: 4, paddingHorizontal: 12, gap: 8 },
+  searchWrap: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.chipBackground, borderRadius: 12, marginHorizontal: 16, marginTop: 14, marginBottom: 4, paddingHorizontal: 12, gap: 8 },
   searchIcon: { marginRight: 2 },
   searchInput: { flex: 1, height: 42, color: TextColors.primary, fontSize: 15 },
   addMembersScroll: { flex: 1, paddingTop: 6 },
@@ -2755,12 +2755,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   suggestionInitial: { fontSize: 17, fontWeight: "700" },
   suggestionName: { flex: 1, fontSize: 15, fontWeight: "600", color: TextColors.primary },
   addBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, minWidth: 56, alignItems: "center", justifyContent: "center" },
-  addBtnDone: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  addBtnDone: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   addBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.buttonText },
 }));
 
 const evtStyles = makeReactiveStyles(() => StyleSheet.create({
-  card: { backgroundColor: Backgrounds.root, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  card: { backgroundColor: Backgrounds.root, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: Colors.dark.chipBackground },
   cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   eventTypeBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   eventTypeTxt: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
@@ -2775,7 +2775,7 @@ const evtStyles = makeReactiveStyles(() => StyleSheet.create({
   miniAvatarInit: { fontSize: 10, fontWeight: "700" },
   goingTxt: { fontSize: 12, color: "#7A8EA0", marginLeft: 10 },
   rsvpRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  rsvpBtn: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)" },
+  rsvpBtn: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong, backgroundColor: Colors.dark.chipBackground },
   rsvpBtnTxt: { fontSize: 13, fontWeight: "600", color: "#7A8EA0" },
 
   // Wizard header
@@ -2785,61 +2785,61 @@ const evtStyles = makeReactiveStyles(() => StyleSheet.create({
   wizardNext: { fontSize: 15, fontWeight: "700" },
 
   // Wizard
-  wizardSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "96%", minHeight: "75%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  wizardSheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "96%", minHeight: "75%", borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   stepRow: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 12 },
   stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.15)" },
   wizardSection: { paddingHorizontal: 20, paddingTop: 4 },
   wizardLabel: { fontSize: 13, fontWeight: "700", color: "#7A8EA0", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 },
-  wizardInput: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: TextColors.primary, fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  wizardInput: { backgroundColor: Colors.dark.chipBackground, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: TextColors.primary, fontSize: 15, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  typeChip: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)", minWidth: "45%" },
+  typeChip: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.dark.chipBackgroundStrong, backgroundColor: Colors.dark.chipBackground, minWidth: "45%" },
   typeChipTxt: { fontSize: 14, fontWeight: "600", color: "#7A8EA0" },
-  opponentChip: { alignItems: "center", padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)", minWidth: 70 },
+  opponentChip: { alignItems: "center", padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.dark.chipBackgroundStrong, backgroundColor: Colors.dark.chipBackground, minWidth: 70 },
   opponentAvatar: { width: 46, height: 46, borderRadius: 23, justifyContent: "center", alignItems: "center", marginBottom: 6 },
   opponentAvatarImg: { width: 46, height: 46, borderRadius: 23 },
   opponentAvatarInit: { fontSize: 17, fontWeight: "700" },
   opponentName: { fontSize: 12, fontWeight: "600", color: "#7A8EA0", textAlign: "center" },
-  dateBtn: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  dateBtn: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.dark.chipBackground, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   dateBtnTxt: { fontSize: 15, fontWeight: "600" },
   wizardSummary: { marginTop: 20, borderRadius: 14, padding: 16, borderWidth: 1 },
   wizardSummaryTitle: { fontSize: 16, fontWeight: "700", color: TextColors.primary, marginBottom: 4 },
   wizardSummaryMeta: { fontSize: 13, color: "#7A8EA0", marginTop: 2 },
-  courtRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)" },
+  courtRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.dark.chipBackground, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: Colors.dark.chipBackgroundStrong },
   courtRowTxt: { flex: 1, fontSize: 14, fontWeight: "600", color: "#7A8EA0" },
   courtSurface: { fontSize: 11, color: "#445566", textTransform: "capitalize" },
   wagerRow: { flexDirection: "row", alignItems: "center" },
-  wagerCurrency: { fontSize: 14, fontWeight: "700", color: TextColors.primary, backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRightWidth: 0 },
-  pickerDoneBtn: { alignSelf: "flex-end", marginTop: 8, marginRight: 16, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.1)" },
+  wagerCurrency: { fontSize: 14, fontWeight: "700", color: TextColors.primary, backgroundColor: Colors.dark.chipBackgroundStrong, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong, borderRightWidth: 0 },
+  pickerDoneBtn: { alignSelf: "flex-end", marginTop: 8, marginRight: 16, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.dark.chipBackgroundStrong },
   pickerDoneTxt: { fontSize: 15, fontWeight: "700", color: TextColors.primary },
 }));
 
 const chatStyles = makeReactiveStyles(() => StyleSheet.create({
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", backgroundColor: Backgrounds.root },
-  chatInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: TextColors.primary, fontSize: 14, maxHeight: 100, minHeight: 42, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  chatInput: { flex: 1, backgroundColor: Colors.dark.chipBackground, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: TextColors.primary, fontSize: 14, maxHeight: 100, minHeight: 42, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   sendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
   bubbleWrap: { marginBottom: 10, maxWidth: "80%" },
   bubbleWrapMe: { alignSelf: "flex-end" },
   bubbleWrapOther: { alignSelf: "flex-start" },
   bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1 },
   bubbleMe: { borderColor: "transparent" },
-  bubbleOther: { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.08)" },
+  bubbleOther: { backgroundColor: Colors.dark.chipBackground, borderColor: Colors.dark.chipBackgroundStrong },
   bubbleTxt: { fontSize: 14, color: "#CCDDEE", lineHeight: 20 },
   bubbleFooter: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 4 },
   bubbleTime: { fontSize: 10, color: "#445566" },
   reactionRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
   reactionRowMe: { justifyContent: "flex-end" },
   reactionRowOther: { justifyContent: "flex-start" },
-  reactionChip: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, gap: 3, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  reactionChip: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.chipBackgroundStrong, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, gap: 3, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   reactionEmoji: { fontSize: 14 },
   reactionCount: { fontSize: 11, color: "#7A8EA0", fontWeight: "600" },
   reactionPickerBackdrop: { position: "absolute", top: -48, left: -10, right: -10, zIndex: 99 },
-  reactionPicker: { flexDirection: "row", position: "absolute", backgroundColor: "#1A2535", borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", top: 0 },
+  reactionPicker: { flexDirection: "row", position: "absolute", backgroundColor: "#1A2535", borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: Colors.dark.chipBorder, top: 0 },
   reactionPickerBtn: { padding: 4 },
   seenLabel: { fontSize: 10, color: "#445566", marginTop: 2 },
 }));
 
 const detailStyles = makeReactiveStyles(() => StyleSheet.create({
-  sheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", paddingTop: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  sheet: { backgroundColor: Backgrounds.root, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", paddingTop: 8, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong },
   header: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 12 },
   title: { fontSize: 20, fontWeight: "700", color: TextColors.primary, flexShrink: 1 },
   desc: { fontSize: 14, color: "#7A8EA0", lineHeight: 22, paddingHorizontal: 16, marginBottom: 12 },

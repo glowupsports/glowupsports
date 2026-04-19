@@ -228,7 +228,7 @@ export default function CoachDirectoryScreen() {
             </Pressable>
             <Text style={styles.title}>Find Coaches</Text>
             <View style={styles.coachCount}>
-              <Ionicons name="people" size={14} color={GlowColors.primary} />
+              <Ionicons name="people" size={14} color={Colors.dark.accentText} />
               <Text style={styles.coachCountText}>{filteredCoaches.length}</Text>
             </View>
           </View>
@@ -280,7 +280,7 @@ export default function CoachDirectoryScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={GlowColors.primary} />
+          <ActivityIndicator size="large" color={Colors.dark.accentText} />
           <Text style={styles.loadingText}>Finding coaches...</Text>
         </View>
       ) : filteredCoaches.length === 0 ? (
@@ -289,7 +289,7 @@ export default function CoachDirectoryScreen() {
             colors={[GlowColors.primary + "30", GlowColors.primary + "10"]}
             style={styles.emptyIcon}
           >
-            <Ionicons name="people-outline" size={40} color={GlowColors.primary} />
+            <Ionicons name="people-outline" size={40} color={Colors.dark.accentText} />
           </LinearGradient>
           <Text style={styles.emptyTitle}>No Coaches Found</Text>
           <Text style={styles.emptyText}>
@@ -352,7 +352,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   coachCountText: {
     fontSize: 14,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   subtitle: {
     fontSize: 14,
@@ -372,7 +372,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   searchInput: {
     flex: 1,

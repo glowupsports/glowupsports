@@ -13,7 +13,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
+import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
@@ -247,7 +247,7 @@ export function ProPlayerCard({
                     resizeMode="contain"
                   />
                 ) : (
-                  <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
+                  <Ionicons name="tennisball" size={12} color={Colors.dark.accentText} />
                 )}
                 <Text style={styles.academyText} numberOfLines={1}>
                   {academyName || "Free Player"}
@@ -288,7 +288,7 @@ export function ProPlayerCard({
               <Ionicons 
                 name="wallet-outline" 
                 size={14} 
-                color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : GlowColors.primary} 
+                color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : Colors.dark.accentText} 
               />
               <Text style={[
                 styles.walletText,
@@ -298,8 +298,8 @@ export function ProPlayerCard({
 
             {player.streak > 0 ? (
               <Pressable style={styles.streakChip} onPress={() => track("home:streak")}>
-                <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
-                <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
+                <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : Colors.dark.accentText} />
+                <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : Colors.dark.accentText }]}>
                   {player.streak}
                 </Text>
               </Pressable>
@@ -320,7 +320,7 @@ export function ProPlayerCard({
               accessibilityLabel={`Appearance: ${appearanceLabels[appearancePref]}, double-tap to change`}
               accessibilityHint="Cycles between system, light, and dark. Long-press to choose."
             >
-              <Ionicons name={currentAppearanceIcon} size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name={currentAppearanceIcon} size={18} color={Colors.dark.iconMuted} />
             </Pressable>
             <Pressable
               style={styles.bottomActionBtn}
@@ -329,14 +329,14 @@ export function ProPlayerCard({
                 setShowHelp(true);
               }}
             >
-              <Ionicons name="help-circle-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="help-circle-outline" size={18} color={Colors.dark.iconMuted} />
             </Pressable>
             {onNotificationPress ? (
               <Pressable
                 style={styles.bottomActionBtn}
                 onPress={onNotificationPress}
               >
-                <Ionicons name="notifications" size={18} color="rgba(255,255,255,0.5)" />
+                <Ionicons name="notifications" size={18} color={Colors.dark.iconMuted} />
                 {unreadNotificationCount > 0 ? (
                   <View style={styles.notifBadge}>
                     <Text style={styles.notifBadgeText}>
@@ -349,7 +349,7 @@ export function ProPlayerCard({
 
             {showSquadSwitch ? (
               <Pressable style={styles.familyChip} onPress={handleSquadPress}>
-                <Ionicons name="people" size={14} color={GlowColors.primary} />
+                <Ionicons name="people" size={14} color={Colors.dark.accentText} />
                 <Text style={styles.familyChipText}>{t("player.home.family")}</Text>
               </Pressable>
             ) : null}
@@ -379,13 +379,13 @@ export function ProPlayerCard({
                   <Ionicons
                     name={appearanceIcons[opt]}
                     size={18}
-                    color={selected ? GlowColors.primary : "rgba(255,255,255,0.7)"}
+                    color={selected ? Colors.dark.accentText : Colors.dark.textSecondary}
                   />
                   <Text style={[styles.appearanceOptionText, selected && styles.appearanceOptionTextSelected]}>
                     {appearanceLabels[opt]}
                   </Text>
                   {selected ? (
-                    <Ionicons name="checkmark" size={18} color={GlowColors.primary} />
+                    <Ionicons name="checkmark" size={18} color={Colors.dark.accentText} />
                   ) : (
                     <View style={{ width: 18 }} />
                   )}
@@ -425,13 +425,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     bottom: -2,
     borderRadius: BorderRadius.lg + 2,
     borderWidth: 2,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     opacity: 0.5,
   },
   cardGradient: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
     overflow: "hidden",
   },
   topAccentLine: {
@@ -491,7 +491,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   levelBadge: {
     position: "absolute",
@@ -510,7 +510,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   levelBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: Backgrounds.root,
+    color: Colors.dark.onAccent,
   },
   identitySection: {
     flex: 1,
@@ -519,7 +519,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   roleLabel: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1.5,
   },
   playerName: {
@@ -548,7 +548,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   xpBarTrack: {
     height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -563,7 +563,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   xpCurrent: {
     fontSize: 12,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   xpRequired: {
     fontSize: 11,
@@ -574,7 +574,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -599,7 +599,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   cardDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.divider,
     marginHorizontal: Spacing.md,
   },
   cardBottomRow: {
@@ -612,7 +612,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   walletChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: BorderRadius.sm,
@@ -624,7 +624,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   walletText: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   walletTextDanger: {
     color: "#FF4D4D",
@@ -632,7 +632,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   streakChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: BorderRadius.sm,
@@ -645,18 +645,18 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   familyChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(200, 255, 61, 0.10)",
+    backgroundColor: Colors.dark.accentTextSoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.20)",
+    borderColor: Colors.dark.accentTextBorder,
     gap: 6,
   },
   familyChipText: {
     fontSize: 12,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 0.5,
   },
   appearanceBackdrop: {
@@ -672,7 +672,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBorder,
     gap: 4,
   },
   appearanceOption: {
@@ -684,7 +684,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: 10,
   },
   appearanceOptionSelected: {
-    backgroundColor: "rgba(200, 255, 61, 0.10)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   appearanceOptionText: {
     flex: 1,
@@ -693,6 +693,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.primary,
   },
   appearanceOptionTextSelected: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
 }));

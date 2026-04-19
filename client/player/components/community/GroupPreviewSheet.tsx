@@ -403,7 +403,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   privateBadge: {
     padding: 10,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   description: {
     fontSize: 14,
@@ -420,7 +420,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   statChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
@@ -465,7 +465,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "700",
   },
   extraAvatar: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   extraAvatarText: {
     fontSize: 11,
@@ -522,7 +522,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   joinButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   feedbackBanner: {
     flexDirection: "row",
@@ -559,7 +559,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignSelf: "stretch",
     maxWidth: 360,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   confirmTitle: {
     fontSize: 16,
@@ -588,7 +588,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   confirmCancel: {
     backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   confirmCancelText: {
     fontSize: 14,

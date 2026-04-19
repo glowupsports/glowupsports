@@ -110,7 +110,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
   }, [mode]);
 
   const lineOpacity = mode === "on_air" ? 0.35 : mode === "pre_game" ? 0.2 : 0.1;
-  const courtColor = mode === "rest_day" ? "rgba(255, 255, 255, 0.06)" : ProTennisColors.midnightBlue;
+  const courtColor = mode === "rest_day" ? Colors.dark.chipBackground : ProTennisColors.midnightBlue;
 
   return (
     <Svg 
@@ -122,7 +122,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
       
       <Rect 
         x="10" y="15" width="80" height="70" 
-        stroke={GlowColors.primary}
+        stroke={Colors.dark.accentText}
         strokeWidth="0.5"
         fill="none"
         opacity={lineOpacity}
@@ -130,28 +130,28 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
       
       <Line 
         x1="10" y1="50" x2="90" y2="50" 
-        stroke={GlowColors.primary}
+        stroke={Colors.dark.accentText}
         strokeWidth="0.4"
         opacity={lineOpacity * 0.8}
       />
       
       <Line 
         x1="50" y1="15" x2="50" y2="85" 
-        stroke={GlowColors.primary}
+        stroke={Colors.dark.accentText}
         strokeWidth="0.4"
         opacity={lineOpacity * 0.8}
       />
       
       <Rect 
         x="20" y="25" width="25" height="50" 
-        stroke={GlowColors.primary}
+        stroke={Colors.dark.accentText}
         strokeWidth="0.3"
         fill="none"
         opacity={lineOpacity * 0.6}
       />
       <Rect 
         x="55" y="25" width="25" height="50" 
-        stroke={GlowColors.primary}
+        stroke={Colors.dark.accentText}
         strokeWidth="0.3"
         fill="none"
         opacity={lineOpacity * 0.6}
@@ -358,7 +358,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: GlowColors.primary + "20",
+    borderColor: Colors.dark.accentTextBorder,
   },
   gradient: {
     ...StyleSheet.absoluteFillObject,
@@ -420,7 +420,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   commentatorNote: {
     fontSize: 10,
     fontWeight: "500",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     opacity: 0.7,
     marginTop: 6,
     letterSpacing: 0.3,
@@ -443,7 +443,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   countdownNumber: {
     fontSize: 22,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: -1,
   },
   countdownLabel: {
@@ -455,7 +455,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   countdownSeparator: {
     fontSize: 20,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     opacity: 0.6,
   },
   actionsRow: {

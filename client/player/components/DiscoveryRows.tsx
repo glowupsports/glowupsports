@@ -1174,7 +1174,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.xs,
@@ -1199,12 +1199,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
   },
   moreNumber: {
     fontSize: 18,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   moreLabel: {
     fontSize: 12,
@@ -1685,7 +1685,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   premiumMatchDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     marginVertical: Spacing.sm,
   },
   premiumMatchFooter: {
@@ -1712,9 +1712,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: Colors.dark.primary + "60",
   },
   premiumMatchSlotEmpty: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     borderStyle: "dashed",
   },
   premiumMatchSlotImage: {
@@ -2073,7 +2073,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: "#FF6B6B",
   },
   playCardWaitlistButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: BorderRadius.md,
@@ -2157,7 +2157,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   tournamentMiniCardInner: {
     padding: Spacing.md,
@@ -2261,7 +2261,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: 3,
   },
   premiumEmptySubtitle: {
-    color: "#FFFFFF80",
+    color: TextColors.muted,
     fontSize: 12,
     lineHeight: 16,
   },

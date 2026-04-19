@@ -163,7 +163,7 @@ export function BirthdayCelebrationModal({
             <View style={styles.bonusSection}>
               <View style={styles.bonusRow}>
                 <View style={styles.bonusIcon}>
-                  <Ionicons name="flash" size={24} color={GlowColors.primary} />
+                  <Ionicons name="flash" size={24} color={Colors.dark.accentText} />
                 </View>
                 <View style={styles.bonusInfo}>
                   <Text style={styles.bonusLabel}>Birthday Bonus</Text>
@@ -304,7 +304,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   bonusRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,

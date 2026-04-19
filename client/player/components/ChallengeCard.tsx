@@ -118,7 +118,7 @@ function IncomingChallengeCard({
     <Animated.View entering={FadeInDown.duration(400)} style={styles.challengeCard}>
       <View style={styles.cardHeader}>
         <View style={styles.iconWrap}>
-          <Ionicons name="flash" size={16} color={GlowColors.primary} />
+          <Ionicons name="flash" size={16} color={Colors.dark.accentText} />
         </View>
         <Text style={styles.challengeLabel}>Challenge</Text>
       </View>
@@ -214,7 +214,7 @@ function UpcomingMatchCard({ challenge, playerId }: { challenge: Challenge; play
         </View>
         <Text style={styles.challengeLabel}>Upcoming Match</Text>
         <View style={styles.countdownBadge}>
-          <Ionicons name="timer-outline" size={12} color={GlowColors.primary} />
+          <Ionicons name="timer-outline" size={12} color={Colors.dark.accentText} />
           <Text style={styles.countdownText}>{countdownText}</Text>
         </View>
       </View>
@@ -354,7 +354,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -367,7 +367,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
@@ -375,7 +375,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   countdownText: {
     fontSize: FontSizes.xs,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   challengerRow: {
     flexDirection: "row",
@@ -383,12 +383,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.md,
   },
   avatar: {
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   challengerInfo: {
@@ -419,7 +419,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.secondary,
   },
   messageBox: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -435,13 +435,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   declineButton: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.md,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   declineButtonText: {
     fontSize: FontSizes.sm,
@@ -471,7 +471,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.sm,
   },
@@ -486,10 +486,10 @@ const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     marginHorizontal: Spacing.lg,
@@ -522,7 +522,7 @@ const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   ctaText: {
     fontSize: 12,

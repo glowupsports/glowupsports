@@ -547,7 +547,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   bookingHeader: {
     flexDirection: "row",
@@ -649,7 +649,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   partnerSection: {
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    borderTopColor: Colors.dark.chipBackground,
     paddingTop: Spacing.sm,
     marginTop: Spacing.xs,
   },

@@ -107,7 +107,7 @@ const podiumStyles = makeReactiveStyles(() => StyleSheet.create({
   podiumSecond: { height: 60, backgroundColor: "rgba(192, 192, 192, 0.1)", borderWidth: 1, borderColor: "rgba(192, 192, 192, 0.2)" },
   podiumThird: { height: 45, backgroundColor: "rgba(205, 127, 50, 0.1)", borderWidth: 1, borderColor: "rgba(205, 127, 50, 0.2)" },
   podiumRank: { fontSize: 18, fontWeight: "800", color: TextColors.primary },
-  voteBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.06)" },
+  voteBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: Colors.dark.chipBackground },
   voteText: { fontSize: 11, fontWeight: "700" },
 }));
 
@@ -170,10 +170,10 @@ function HistorySection({ weeklyWinners, monthlyWinners }: { weeklyWinners: any[
           {monthlyWinners.map((w: any, i: number) => (
             <Animated.View key={w.id || i} entering={FadeInDown.delay(i * 80).duration(300)}>
               <LinearGradient
-                colors={["rgba(200, 255, 61, 0.08)", "rgba(200, 255, 61, 0.02)"]}
+                colors={[Colors.dark.accentTextSoft, "rgba(200, 255, 61, 0.02)"]}
                 style={histStyles.monthRow}
               >
-                <Ionicons name="medal" size={22} color={GlowColors.primary} />
+                <Ionicons name="medal" size={22} color={Colors.dark.accentText} />
                 <PlayerAvatar photoUrl={w.profilePhotoUrl} size={42} borderColor={GlowColors.primary} />
                 <View style={histStyles.info}>
                   <Text style={histStyles.winnerName} numberOfLines={1}>{w.playerName}</Text>
@@ -221,7 +221,7 @@ const histStyles = makeReactiveStyles(() => StyleSheet.create({
   winnerName: { fontSize: 15, fontWeight: "700", color: TextColors.primary },
   winnerMeta: { fontSize: 12, color: TextColors.muted },
   monthStats: { alignItems: "center" },
-  monthStatValue: { fontSize: 18, fontWeight: "800", color: GlowColors.primary },
+  monthStatValue: { fontSize: 18, fontWeight: "800", color: Colors.dark.accentText },
   monthStatLabel: { fontSize: 9, fontWeight: "600", color: TextColors.muted },
   weekRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md, padding: Spacing.md, backgroundColor: Backgrounds.card, borderRadius: BorderRadius.lg },
   weekName: { fontSize: 14, fontWeight: "700", color: TextColors.primary },
@@ -473,7 +473,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   winnerStatDivider: {
     width: 1,
     height: 30,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   brandText: {
     fontSize: 9,

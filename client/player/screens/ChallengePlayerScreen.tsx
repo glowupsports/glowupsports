@@ -253,7 +253,7 @@ export default function ChallengePlayerScreen() {
   const renderOpponentBanner = () => (
     <View style={styles.bannerContainer}>
       <LinearGradient
-        colors={["rgba(200, 255, 61, 0.08)", "rgba(200, 255, 61, 0.02)", "transparent"]}
+        colors={[Colors.dark.accentTextSoft, "rgba(200, 255, 61, 0.02)", "transparent"]}
         style={styles.bannerGradient}
       >
         <View style={styles.bannerContent}>
@@ -840,7 +840,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   progressDotActive: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   progressDotCompleted: {
     backgroundColor: Colors.dark.primary,
@@ -879,7 +879,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.15)",
+    borderColor: Colors.dark.accentTextSoft,
   },
   bannerGradient: {
     padding: Spacing.lg,
@@ -1007,7 +1007,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   typeCardSelected: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(200, 255, 61, 0.06)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   typeLabel: {
     fontSize: FontSizes.lg,
@@ -1038,7 +1038,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   formatCardSelected: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(200, 255, 61, 0.06)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   formatLabel: {
     fontSize: FontSizes.sm,
@@ -1069,7 +1069,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   courtCardSelected: {
     borderColor: Colors.dark.primary,
-    backgroundColor: "rgba(200, 255, 61, 0.06)",
+    backgroundColor: Colors.dark.accentTextSoft,
   },
   courtCardSuggested: {
     borderColor: "rgba(200, 255, 61, 0.35)",
@@ -1112,7 +1112,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -1136,7 +1136,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.3)",
     borderRadius: BorderRadius.md,
@@ -1231,7 +1231,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
@@ -1284,8 +1284,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   timeChipDisabled: {
     opacity: 0.45,
-    borderColor: "rgba(255,255,255,0.05)",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: Colors.dark.chipBackground,
+    backgroundColor: Colors.dark.chipBackground,
   },
   timeChipText: {
     fontSize: FontSizes.sm,

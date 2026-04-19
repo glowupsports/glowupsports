@@ -788,7 +788,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   challengeMessage: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,

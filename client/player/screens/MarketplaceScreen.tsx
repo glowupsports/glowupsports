@@ -707,7 +707,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   listingImage: {
     width: "100%",

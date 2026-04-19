@@ -133,11 +133,11 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
       <View style={[styles.gradient, { backgroundColor: Backgrounds.root }]}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <View style={[styles.trophyContainer, { backgroundColor: "rgba(200, 255, 61, 0.12)" }]}>
-              <Ionicons name="people" size={14} color={GlowColors.primary} />
+            <View style={[styles.trophyContainer, { backgroundColor: Colors.dark.accentTextSoft }]}>
+              <Ionicons name="people" size={14} color={Colors.dark.accentText} />
             </View>
             <View>
-              <Text style={[styles.headerTitle, { color: GlowColors.primary }]}>FRIEND SPOTLIGHT</Text>
+              <Text style={[styles.headerTitle, { color: Colors.dark.accentText }]}>FRIEND SPOTLIGHT</Text>
               <Text style={styles.headerSubtitle}>Most active this week</Text>
             </View>
           </View>
@@ -150,7 +150,7 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
               <Text style={friendSpotStyles.friendLabel}>TOP FRIEND THIS WEEK</Text>
               <Text style={friendSpotStyles.friendName} numberOfLines={1}>{topFriend.playerName}</Text>
               <View style={friendSpotStyles.xpBadge}>
-                <Ionicons name="flash" size={12} color={GlowColors.primary} />
+                <Ionicons name="flash" size={12} color={Colors.dark.accentText} />
                 <Text style={friendSpotStyles.xpText}>{topFriend.weeklyXp} XP this week</Text>
               </View>
             </View>
@@ -161,7 +161,7 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
             <Text style={friendSpotStyles.emptyText}>Add friends to see their progress</Text>
             <Pressable style={friendSpotStyles.addBtn} onPress={onAddFriends}>
               <Text style={friendSpotStyles.addBtnText}>Add friends</Text>
-              <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+              <Ionicons name="chevron-forward" size={14} color={Colors.dark.accentText} />
             </Pressable>
           </View>
         )}
@@ -257,12 +257,12 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
         {monthWinner ? (
           <Pressable onPress={onViewDetails} style={styles.monthSection}>
             <LinearGradient
-              colors={["rgba(200, 255, 61, 0.08)", "rgba(200, 255, 61, 0.02)"]}
+              colors={[Colors.dark.accentTextSoft, "rgba(200, 255, 61, 0.02)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.monthBanner}
             >
-              <Ionicons name="medal" size={20} color={GlowColors.primary} />
+              <Ionicons name="medal" size={20} color={Colors.dark.accentText} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.monthLabel}>PLAYER OF THE MONTH</Text>
                 <Text style={styles.monthName} numberOfLines={1}>{monthWinner.playerName}</Text>
@@ -291,7 +291,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
           <View style={styles.actionRow}>
             {hasVoted ? (
               <Pressable onPress={onViewDetails} style={styles.votedButton}>
-                <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={Colors.dark.accentText} />
                 <Text style={styles.votedText}>You voted! View results</Text>
                 <Ionicons name="chevron-forward" size={16} color={TextColors.muted} />
               </Pressable>
@@ -322,7 +322,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   outerContainer: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     backgroundColor: Backgrounds.root,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -454,7 +454,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   monthLabel: {
     fontSize: 9,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1.5,
   },
   monthName: {
@@ -468,7 +468,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   monthStatValue: {
     fontSize: 18,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   monthStatLabel: {
     fontSize: 9,
@@ -532,7 +532,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: BorderRadius.lg,
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
@@ -542,7 +542,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   votedText: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     flex: 1,
   },
   leaderboardBtn: {
@@ -563,10 +563,10 @@ const friendSpotStyles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: "rgba(200, 255, 61, 0.06)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.15)",
+    borderColor: Colors.dark.accentTextSoft,
   },
   friendInfo: {
     flex: 1,
@@ -575,7 +575,7 @@ const friendSpotStyles = makeReactiveStyles(() => StyleSheet.create({
   friendLabel: {
     fontSize: 9,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1.5,
   },
   friendName: {
@@ -591,7 +591,7 @@ const friendSpotStyles = makeReactiveStyles(() => StyleSheet.create({
   xpText: {
     fontSize: 12,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   emptyState: {
     alignItems: "center",
@@ -618,6 +618,6 @@ const friendSpotStyles = makeReactiveStyles(() => StyleSheet.create({
   addBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
 }));

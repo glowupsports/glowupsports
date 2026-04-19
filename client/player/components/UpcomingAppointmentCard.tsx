@@ -262,12 +262,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     letterSpacing: 0.8,
   },
   othersBadge: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: BorderRadius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.dark.chipBorder,
   },
   othersBadgeText: {
     fontSize: 11,
@@ -342,7 +342,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
     gap: Spacing.sm,
   },
   footerHint: {

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
-import { GlowColors } from "@/constants/theme";
+import { GlowColors, Colors } from "@/constants/theme";
 export type Sport = "tennis" | "padel" | "pickleball";
 
 export const SPORT_DEFINITIONS: {
@@ -13,7 +13,7 @@ export const SPORT_DEFINITIONS: {
   color: string;
   description: string;
 }[] = [
-  { key: "tennis", label: "Tennis", icon: "tennisball", color: GlowColors.primary, description: "Classic racquet sport" },
+  { key: "tennis", label: "Tennis", icon: "tennisball", color: Colors.dark.accentText, description: "Classic racquet sport" },
   { key: "padel", label: "Padel", icon: "golf", color: "#00E5FF", description: "Enclosed court with walls" },
   { key: "pickleball", label: "Pickleball", icon: "baseball", color: "#A855F7", description: "Fast-growing paddle sport" },
 ];

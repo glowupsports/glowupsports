@@ -25,7 +25,7 @@ const PRIVACY_OPTIONS: PrivacyOption[] = [
     icon: "globe-outline",
     title: "Visible to Everyone",
     description: "Other players can find you for Open Matches and see your profile",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   {
     id: "academy",
@@ -113,7 +113,7 @@ export default function PrivacySettingsScreen({
         )}
         <View style={styles.headerContent}>
           <View style={styles.iconContainer}>
-            <Ionicons name="shield-checkmark" size={32} color={GlowColors.primary} />
+            <Ionicons name="shield-checkmark" size={32} color={Colors.dark.accentText} />
           </View>
           <Text style={styles.title}>Privacy Settings</Text>
           <Text style={styles.subtitle}>
@@ -228,7 +228,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    backgroundColor: Colors.dark.accentTextSoft,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,

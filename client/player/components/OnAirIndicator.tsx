@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
   Easing,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors, Colors } from "@/constants/theme";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -50,14 +50,14 @@ const BROADCAST_CONFIG: Record<BroadcastMode, {
   rest_day: {
     label: "REST",
     color: TextColors.muted,
-    bgColor: "rgba(255, 255, 255, 0.04)",
+    bgColor: Colors.dark.chipBackground,
     pulse: false,
     intensity: 0.2,
   },
   off_air: {
     label: "OFF AIR",
     color: TextColors.muted,
-    bgColor: "rgba(255, 255, 255, 0.08)",
+    bgColor: Colors.dark.chipBackgroundStrong,
     pulse: false,
     intensity: 0.3,
   },

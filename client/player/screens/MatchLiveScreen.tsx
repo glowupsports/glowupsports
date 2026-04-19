@@ -529,7 +529,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -567,7 +567,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   scoreboard: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -625,7 +625,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   scoreDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     marginVertical: 4,
   },
   setsWonRow: {
@@ -635,7 +635,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
   },
   setsWonLabel: {
     fontSize: 12,

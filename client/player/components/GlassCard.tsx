@@ -60,35 +60,37 @@ export function GlassCard({
       case "hero":
         return {
           borderWidth: 1,
-          borderColor: "rgba(200, 255, 61, 0.2)",
+          borderColor: Colors.dark.accentTextBorder,
         };
       case "premium":
         return {
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: Colors.dark.chipBorder,
         };
       case "subtle":
         return {
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderColor: Colors.dark.borderSubtle,
         };
       default:
         return {
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderColor: Colors.dark.borderSubtle,
         };
     }
   };
 
   const variantStyles = getVariantStyles();
+  const tint: "light" | "dark" = Colors.dark.glassTintMode === "light" ? "light" : "dark";
+  const highlightStyle = { backgroundColor: Colors.dark.glassHighlight } as ViewStyle;
 
   if (Platform.OS === "web") {
     return (
       <Animated.View style={[styles.container, animatedStyle]}>
         <LinearGradient
           colors={[
-            "rgba(26, 34, 53, 0.85)",
-            "rgba(21, 27, 41, 0.95)",
+            Colors.dark.glassGradientStartWeb,
+            Colors.dark.glassGradientEndWeb,
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -98,7 +100,7 @@ export function GlassCard({
             style,
           ]}
         >
-          <View style={styles.glassHighlight} />
+          <View style={[styles.glassHighlight, highlightStyle]} />
           {children}
         </LinearGradient>
       </Animated.View>
@@ -107,17 +109,17 @@ export function GlassCard({
 
   return (
     <Animated.View style={[styles.container, animatedStyle]}>
-      <BlurView intensity={intensity} tint="dark" style={[styles.blurBase, variantStyles, style]}>
+      <BlurView intensity={intensity} tint={tint} style={[styles.blurBase, variantStyles, style]}>
         <LinearGradient
           colors={[
-            "rgba(26, 34, 53, 0.6)",
-            "rgba(21, 27, 41, 0.8)",
+            Colors.dark.glassGradientStart,
+            Colors.dark.glassGradientEnd,
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.innerGradient}
         >
-          <View style={styles.glassHighlight} />
+          <View style={[styles.glassHighlight, highlightStyle]} />
           {children}
         </LinearGradient>
       </BlurView>
@@ -280,6 +282,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     shadowColor: Colors.dark.backgroundRoot,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
 }));

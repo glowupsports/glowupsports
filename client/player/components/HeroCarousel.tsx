@@ -41,6 +41,7 @@ import {
   RoleColors,
   Backgrounds,
   TextColors,
+  Colors,
 } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -864,7 +865,7 @@ const friendSpotlightStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.xs,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   rank: {
     width: 22,
@@ -882,7 +883,7 @@ const friendSpotlightStyles = makeReactiveStyles(() => StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   avatarImg: {
     width: "100%",
@@ -1371,7 +1372,7 @@ export function HeroCarousel({
 
       {sessionSoon ? (
         <View style={styles.lockBadge}>
-          <Ionicons name="lock-closed" size={11} color={GlowColors.primary} />
+          <Ionicons name="lock-closed" size={11} color={Colors.dark.accentText} />
           <Text style={styles.lockText}>SESSION SOON</Text>
         </View>
       ) : null}
@@ -1387,7 +1388,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   progressTrack: {
     marginHorizontal: Spacing.lg,
     height: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 2,
     overflow: "hidden",
     marginBottom: 6,
@@ -1418,7 +1419,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   lockBadge: {
     alignSelf: "center",
@@ -1427,14 +1428,14 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: "rgba(200,255,61,0.1)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderRadius: BorderRadius.full,
     marginBottom: Spacing.sm,
   },
   lockText: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 0.5,
   },
   // Lens shell
@@ -1548,7 +1549,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   ctaSecondaryText: {
     fontSize: FontSizes.sm,
@@ -1597,7 +1598,7 @@ const openMatchHeroStyles = makeReactiveStyles(() => StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   avatarImage: {
     width: "100%",

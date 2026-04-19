@@ -207,11 +207,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     marginBottom: Spacing.xs,
   },
   opponentAvatar: {
@@ -227,7 +227,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   opponentInitial: {
     fontSize: 24,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   opponentInfo: {
     flex: 1,
@@ -264,13 +264,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chipBackgroundStrong,
   },
   chipSelected: {
     backgroundColor: "rgba(204,255,0,0.12)",
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
   },
   chipText: {
     ...Typography.small,
@@ -278,17 +278,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "600",
   },
   chipTextSelected: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   noteCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   noteText: {
     flex: 1,

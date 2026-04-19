@@ -403,7 +403,7 @@ function SingleProviderCard({
           {state === "rating" && ratingSubmitted && (
             <Animated.View entering={FadeIn.duration(300)} style={cardStyles.ratingSection}>
               <View style={cardStyles.ratingThanks}>
-                <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={Colors.dark.accentText} />
                 <Text style={cardStyles.ratingThanksText}>Thanks for your feedback!</Text>
               </View>
             </Animated.View>
@@ -438,7 +438,7 @@ function SingleProviderCard({
                     <Text style={[cardStyles.warmBadgeText, { color: stateColor }]}>Starting soon</Text>
                   </View>
                 ) : othersCount > 0 ? (
-                  <View style={[cardStyles.warmBadge, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                  <View style={[cardStyles.warmBadge, { backgroundColor: Colors.dark.chipBackground, borderColor: Colors.dark.chipBackgroundStrong }]}>
                     <Text style={[cardStyles.warmBadgeText, { color: Colors.dark.textSubtle }]}>+{othersCount} more</Text>
                   </View>
                 ) : null}
@@ -631,7 +631,7 @@ const cardStyles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
   },
   ratingPrompt: {
     fontSize: 14,
@@ -649,7 +649,7 @@ const cardStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   ratingThanksText: {
     fontSize: 14,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   rebookSection: {
@@ -658,7 +658,7 @@ const cardStyles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
     gap: Spacing.sm,
   },
   rebookPrompt: {
@@ -700,7 +700,7 @@ const cardStyles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
     gap: Spacing.sm,
   },
   chatBtn: {

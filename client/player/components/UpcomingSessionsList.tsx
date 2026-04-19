@@ -146,7 +146,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
     overflow: "hidden",
   },
   row: {
@@ -155,10 +155,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
     paddingRight: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   rowPressed: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   accent: {
     width: 3,

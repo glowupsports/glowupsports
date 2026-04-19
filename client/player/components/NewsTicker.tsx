@@ -200,7 +200,7 @@ export function NewsTicker({
   return (
     <View style={[styles.container, style]}>
       <LinearGradient
-        colors={["rgba(255, 255, 255, 0.06)" + "F2", "rgba(255, 255, 255, 0.06)" + "E6", "rgba(255, 255, 255, 0.06)" + "F2"]}
+        colors={[Colors.dark.chipBackground + "F2", Colors.dark.chipBackground + "E6", Colors.dark.chipBackground + "F2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.gradientBg}
@@ -231,7 +231,7 @@ export function NewsTicker({
       </View>
 
       <LinearGradient
-        colors={["transparent", "rgba(255, 255, 255, 0.06)" + "F2"]}
+        colors={["transparent", Colors.dark.chipBackground + "F2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.fadeRight}
@@ -280,7 +280,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
     >
       <View style={styles.newsCardHeader}>
         <View style={styles.newsSourceBadge}>
-          <Feather name="globe" size={10} color={GlowColors.primary} />
+          <Feather name="globe" size={10} color={Colors.dark.accentText} />
           <Text style={styles.newsSourceText}>{article.source}</Text>
         </View>
         <Text style={styles.newsTimeText}>{formatTimeAgo(article.publishedAt)}</Text>
@@ -290,7 +290,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
       </Text>
       <View style={styles.readMoreRow}>
         <Text style={styles.readMoreText}>{t("news.readMore")}</Text>
-        <Feather name="arrow-right" size={12} color={GlowColors.primary} />
+        <Feather name="arrow-right" size={12} color={Colors.dark.accentText} />
       </View>
     </Pressable>
   );
@@ -355,10 +355,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
   },
   labelText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "900",
     fontSize: 11,
     letterSpacing: 1.5,
@@ -388,13 +388,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     opacity: 0.7,
   },
   sourceTag: {
-    backgroundColor: `${GlowColors.primary}20`,
+    backgroundColor: Colors.dark.accentTextSoft,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.xs,
   },
   sourceText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -441,7 +441,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   newsCardPressed: {
     opacity: 0.8,
@@ -459,7 +459,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.xs,
   },
   newsSourceText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontSize: 10,
     fontWeight: "600",
   },
@@ -480,7 +480,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.xs,
   },
   readMoreText: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontSize: 11,
     fontWeight: "600",
   },

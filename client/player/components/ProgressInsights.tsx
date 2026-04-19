@@ -10,7 +10,7 @@ import { GlassCard } from "./GlassCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const trendConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  up: { icon: "arrow-up", color: GlowColors.primary },
+  up: { icon: "arrow-up", color: Colors.dark.accentText },
   down: { icon: "arrow-down", color: FunctionColors.error },
   stable: { icon: "remove", color: ProTennisColors.textMuted },
 };
@@ -71,7 +71,7 @@ export function ProgressInsights() {
           <Pressable onPress={handlePromotionPress}>
             <Animated.View style={[styles.promotionRow, state.isNearLevelUp && promotionStyle]}>
               <View style={styles.promotionIcon}>
-                <Ionicons name="medal-outline" size={16} color={GlowColors.primary} />
+                <Ionicons name="medal-outline" size={16} color={Colors.dark.accentText} />
               </View>
               <View style={styles.promotionContent}>
                 <Text style={styles.promotionLabel}>Level progress</Text>
@@ -118,7 +118,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   content: {
     padding: Spacing.md,
@@ -177,7 +177,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   promotionValue: {
     fontSize: 12,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   hotBadge: {
     backgroundColor: GlowColors.primary,

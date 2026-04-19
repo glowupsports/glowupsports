@@ -130,7 +130,7 @@ function ChallengeModal({
             </View>
 
             <View style={modalStyles.challengeInfo}>
-              <Ionicons name="information-circle-outline" size={20} color={GlowColors.primary} />
+              <Ionicons name="information-circle-outline" size={20} color={Colors.dark.accentText} />
               <Text style={modalStyles.challengeInfoText}>
                 If you win, you will take position #{player.position} and {player.name} will move
                 to position #{player.position + 1}.
@@ -153,7 +153,7 @@ function ChallengeModal({
               }}
             >
               {isLoading ? (
-                <ActivityIndicator color="rgba(255, 255, 255, 0.06)" />
+                <ActivityIndicator color={Colors.dark.onAccent} />
               ) : (
                 <Text style={modalStyles.confirmButtonText}>{t("player.tournaments.challenge")}</Text>
               )}
@@ -214,7 +214,7 @@ export default function LadderDetailScreen() {
   if (isLoading || !data) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator size="large" color={GlowColors.primary} />
+        <ActivityIndicator size="large" color={Colors.dark.accentText} />
       </View>
     );
   }
@@ -265,7 +265,7 @@ export default function LadderDetailScreen() {
           style={styles.challengeButton}
           onPress={() => handleChallenge(item)}
         >
-          <Ionicons name="flash" size={16} color={"rgba(255, 255, 255, 0.06)"} />
+          <Ionicons name="flash" size={16} color={Colors.dark.onAccent} />
           <Text style={styles.challengeButtonText}>{t("player.tournaments.challenge")}</Text>
         </Pressable>
       ) : null}
@@ -276,7 +276,7 @@ export default function LadderDetailScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={GlowColors.primary} />
+          <Ionicons name="arrow-back" size={24} color={Colors.dark.accentText} />
         </Pressable>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -304,7 +304,7 @@ export default function LadderDetailScreen() {
       {myPosition ? (
         <View style={styles.myPositionCard}>
           <View style={styles.myPositionLeft}>
-            <Ionicons name="podium" size={32} color={GlowColors.primary} />
+            <Ionicons name="podium" size={32} color={Colors.dark.accentText} />
             <View>
               <Text style={styles.myPositionLabel}>{t("player.tournaments.position")}</Text>
               <Text style={styles.myPositionValue}>#{myPosition}</Text>
@@ -357,7 +357,7 @@ export default function LadderDetailScreen() {
                   <Text style={styles.challengePosition}>#{challenge.challengerPosition}</Text>
                 </View>
                 <View style={styles.vsContainer}>
-                  <Ionicons name="flash" size={18} color={GlowColors.primary} />
+                  <Ionicons name="flash" size={18} color={Colors.dark.accentText} />
                 </View>
                 <View style={styles.challengePlayer}>
                   <Text
@@ -384,7 +384,7 @@ export default function LadderDetailScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={GlowColors.primary}
+            tintColor={Colors.dark.accentText}
           />
         }
       >
@@ -479,7 +479,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   rulesTitle: {
     ...Typography.h4,
@@ -514,7 +514,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: GlowColors.primary + "15",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: GlowColors.primary + "30",
+    borderColor: Colors.dark.accentTextBorder,
   },
   myPositionLeft: {
     flexDirection: "row",
@@ -527,7 +527,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   myPositionValue: {
     ...Typography.h1,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   myPositionRight: {
     alignItems: "flex-end",
@@ -555,7 +555,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   challengeHeader: {
     flexDirection: "row",
@@ -609,7 +609,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "500",
   },
   myChallengeName: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   challengePosition: {
     ...Typography.caption,
@@ -637,11 +637,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     gap: Spacing.md,
   },
   myPlayerCard: {
-    borderColor: GlowColors.primary + "40",
+    borderColor: Colors.dark.accentTextBorder,
     backgroundColor: GlowColors.primary + "10",
   },
   positionBadge: {
@@ -684,7 +684,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "500",
   },
   myName: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   recordRow: {
@@ -719,7 +719,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   meBadgeText: {
     fontSize: 11,
-    color: "rgba(255, 255, 255, 0.06)",
+    color: Colors.dark.onAccent,
     fontWeight: "700",
   },
   challengeButton: {
@@ -733,7 +733,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   challengeButtonText: {
     ...Typography.caption,
-    color: "rgba(255, 255, 255, 0.06)",
+    color: Colors.dark.onAccent,
     fontWeight: "700",
   },
   resultCard: {
@@ -742,7 +742,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   resultMatch: {
     flexDirection: "row",
@@ -764,7 +764,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.secondary,
   },
   myResultName: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   resultDetails: {
     flexDirection: "row",
@@ -786,7 +786,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    borderTopColor: Colors.dark.chipBackground,
   },
   positionChangeText: {
     ...Typography.caption,
@@ -851,7 +851,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   playerPosition: {
     ...Typography.small,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     marginTop: 2,
   },
   playerRecord: {
@@ -890,7 +890,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   confirmButtonText: {
     ...Typography.body,
-    color: "rgba(255, 255, 255, 0.06)",
+    color: Colors.dark.onAccent,
     fontWeight: "700",
   },
   cancelButton: {

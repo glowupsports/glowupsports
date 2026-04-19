@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -51,7 +51,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     gap: 6,
   },
   stat: {

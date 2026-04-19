@@ -234,7 +234,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: "100%",
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   header: {
     flexDirection: "row",
@@ -260,7 +260,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -309,7 +309,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     minHeight: 72,
     textAlignVertical: "top",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     marginBottom: Spacing.xs,
   },
   charCount: {
@@ -336,7 +336,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.primary,
   },
   submitButtonDisabled: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   submitText: {
     fontSize: FontSizes.md,

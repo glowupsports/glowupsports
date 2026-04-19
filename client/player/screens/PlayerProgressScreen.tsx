@@ -199,7 +199,7 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
               key={level}
               points={levelPoints.map((p) => `${p.x},${p.y}`).join(" ")}
               fill="none"
-              stroke={level === 5 ? "rgba(200, 255, 61, 0.3)" : "rgba(255,255,255,0.08)"}
+              stroke={level === 5 ? "rgba(200, 255, 61, 0.3)" : Colors.dark.chipBackgroundStrong}
               strokeWidth={level === 5 ? 2 : 1}
               strokeDasharray={level === 5 ? undefined : "4,4"}
             />
@@ -472,7 +472,7 @@ function LevelExplanationModal({
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>How to Level Up</Text>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="calendar" size={18} color={GlowColors.primary} />
+                <Ionicons name="calendar" size={18} color={Colors.dark.accentText} />
                 <Text style={modalStyles.howToText}>Attend training sessions</Text>
               </View>
               <View style={modalStyles.howToItem}>
@@ -515,7 +515,7 @@ function LevelExplanationModal({
                     <Text style={modalStyles.milestoneUnlocks}>{milestone.unlocks}</Text>
                   </View>
                   {currentLevel >= milestone.level ? (
-                    <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.accentText} />
                   ) : (
                     <Ionicons name="lock-closed" size={16} color={Colors.dark.textMuted} />
                   )}
@@ -554,7 +554,7 @@ function GlowScoreModal({
     { name: "Platinum", min: 500, max: 999, color: "#00E5FF", icon: "diamond" as const },
     { name: "Diamond", min: 1000, max: 1999, color: "#E040FB", icon: "diamond" as const },
     { name: "Master", min: 2000, max: 4999, color: "#FF4444", icon: "star" as const },
-    { name: "Grandmaster", min: 5000, max: 9999, color: GlowColors.primary, icon: "star" as const },
+    { name: "Grandmaster", min: 5000, max: 9999, color: Colors.dark.accentText, icon: "star" as const },
     { name: "Legend", min: 10000, max: Infinity, color: "#FFD700", icon: "trophy" as const },
   ];
   
@@ -597,7 +597,7 @@ function GlowScoreModal({
                   <Text style={modalStyles.descriptionText}>Progress to {nextRank.name}</Text>
                   <Text style={[modalStyles.descriptionText, { color: nextRank.color }]}>{nextRank.min - glowScore} to go</Text>
                 </View>
-                <View style={{ height: 8, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 4 }}>
+                <View style={{ height: 8, backgroundColor: Colors.dark.chipBackgroundStrong, borderRadius: 4 }}>
                   <View style={{ 
                     height: "100%", 
                     width: `${Math.min(progressToNext, 100)}%`, 
@@ -664,7 +664,7 @@ function GlowScoreModal({
                       </Text>
                     </View>
                     {isPassed ? (
-                      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.accentText} />
                     ) : isCurrentRank ? (
                       <Ionicons name="radio-button-on" size={20} color={rank.color} />
                     ) : null}
@@ -723,7 +723,7 @@ function XpExplanationModal({
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>How to Earn XP</Text>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="calendar-outline" size={18} color={GlowColors.primary} />
+                <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentText} />
                 <Text style={modalStyles.howToText}>Attend sessions (+25-50 XP)</Text>
               </View>
               <View style={modalStyles.howToItem}>
@@ -877,7 +877,7 @@ function AdultGlowLevelModal({
                       </Text>
                     </View>
                     {isPassed ? (
-                      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.accentText} />
                     ) : isCurrentLevel ? (
                       <Ionicons name="radio-button-on" size={20} color={level.color} />
                     ) : null}
@@ -957,7 +957,7 @@ function BallLevelModal({
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>How to Level Up</Text>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
+                <Ionicons name="checkmark-circle" size={18} color={Colors.dark.accentText} />
                 <Text style={modalStyles.howToText}>Master skills at your current level</Text>
               </View>
               <View style={modalStyles.howToItem}>
@@ -996,7 +996,7 @@ function BallLevelModal({
                       <Text style={[modalStyles.milestoneUnlocks, { color: level.color }]}>{level.ages}</Text>
                     </View>
                     {isPassed ? (
-                      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.accentText} />
                     ) : isCurrentLevel ? (
                       <Ionicons name="radio-button-on" size={20} color={level.color} />
                     ) : null}
@@ -1061,7 +1061,7 @@ const skillBarStyles = makeReactiveStyles(() => StyleSheet.create({
   track: {
     flex: 1,
     height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -1260,11 +1260,11 @@ function PillarDetailModal({
 
 const skillCategoryStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     overflow: "hidden",
   },
   header: {
@@ -1820,7 +1820,7 @@ export default function PlayerProgressScreen() {
             <Text style={styles.title}>My Progress</Text>
             {isNewPlayer && (
               <View style={styles.newPlayerBadge}>
-                <Ionicons name="sparkles" size={12} color={GlowColors.primary} />
+                <Ionicons name="sparkles" size={12} color={Colors.dark.accentText} />
                 <Text style={styles.newPlayerBadgeText}>NEW</Text>
               </View>
             )}
@@ -1905,7 +1905,7 @@ export default function PlayerProgressScreen() {
                         cx={arcSize / 2}
                         cy={arcSize / 2}
                         r={arcRadius}
-                        stroke="rgba(255,255,255,0.08)"
+                        stroke={Colors.dark.chipBackgroundStrong}
                         strokeWidth={3}
                         fill="none"
                       />
@@ -1913,7 +1913,7 @@ export default function PlayerProgressScreen() {
                         cx={arcSize / 2}
                         cy={arcSize / 2}
                         r={arcRadius}
-                        stroke={GlowColors.primary}
+                        stroke={Colors.dark.accentText}
                         strokeWidth={3}
                         fill="none"
                         strokeLinecap="round"
@@ -1959,10 +1959,10 @@ export default function PlayerProgressScreen() {
               <Text style={styles.statTileLabel}>GLOW SCORE</Text>
               <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
             </View>
-            <Text style={[styles.statTileValue, { color: GlowColors.primary }]}>{data.glowScore}</Text>
+            <Text style={[styles.statTileValue, { color: Colors.dark.accentText }]}>{data.glowScore}</Text>
           </Pressable>
           <Pressable
-            style={[styles.statTile, { borderColor: "rgba(255, 255, 255, 0.12)" }]}
+            style={[styles.statTile, { borderColor: Colors.dark.chipBorder }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowLevelModal(true);
@@ -2012,7 +2012,7 @@ export default function PlayerProgressScreen() {
         {!isGuest && (
           <View style={styles.aiCoachHeroSection}>
             <LinearGradient
-              colors={["rgba(200,255,61,0.06)", "rgba(167,139,250,0.08)", "rgba(0,229,255,0.04)"]}
+              colors={[Colors.dark.accentTextSoft, "rgba(167,139,250,0.08)", "rgba(0,229,255,0.04)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.aiCoachHeroCard}
@@ -2124,7 +2124,7 @@ export default function PlayerProgressScreen() {
               }}
             >
               <View style={styles.glowPlanIconWrap}>
-                <Ionicons name="flash" size={18} color={GlowColors.primary} />
+                <Ionicons name="flash" size={18} color={Colors.dark.accentText} />
               </View>
               <View style={styles.glowPlanHeaderContent}>
                 <Text style={styles.glowPlanTitle}>This Week's Focus</Text>
@@ -2286,7 +2286,7 @@ export default function PlayerProgressScreen() {
             }}
           >
             <View style={styles.feedbackCenterIcon}>
-              <Ionicons name="school" size={18} color={GlowColors.primary} />
+              <Ionicons name="school" size={18} color={Colors.dark.accentText} />
             </View>
             <View style={styles.feedbackCenterInfo}>
               <Text style={styles.feedbackCenterTitle}>Skill Assessments</Text>
@@ -2339,7 +2339,7 @@ export default function PlayerProgressScreen() {
             <View style={styles.insightsList}>
               {(data.overallInsights?.strengths ?? []).map((strength, i) => (
                 <View key={i} style={styles.insightItem}>
-                  <Ionicons name="checkmark-circle" size={16} color={GlowColors.primary} />
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.dark.accentText} />
                   <Text style={styles.insightText}>{strength}</Text>
                 </View>
               ))}
@@ -2446,7 +2446,7 @@ export default function PlayerProgressScreen() {
               {glowRatings.length > 10 && !journalExpanded ? (
                 <Pressable onPress={() => setJournalExpanded(true)} style={styles.seeAllButton}>
                   <Text style={styles.seeAllText}>See all</Text>
-                  <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+                  <Ionicons name="chevron-forward" size={14} color={Colors.dark.accentText} />
                 </Pressable>
               ) : null}
             </View>
@@ -2488,7 +2488,7 @@ export default function PlayerProgressScreen() {
                 }}
               >
                 <Text style={styles.seeAllText}>See all</Text>
-                <Ionicons name="chevron-forward" size={14} color={GlowColors.primary} />
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.accentText} />
               </Pressable>
             </>
           ) : (
@@ -2810,7 +2810,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -2820,7 +2820,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   newPlayerBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1,
   },
   subtitle: {
@@ -2833,7 +2833,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomColor: Colors.dark.chipBackgroundStrong,
   },
   sportTab: {
     flexDirection: "row",
@@ -2916,7 +2916,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   statTile: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius["2xl"],
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
@@ -2984,7 +2984,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 26,
     backgroundColor: "rgba(200, 255, 61, 0.2)",
     borderWidth: 2.5,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: GlowColors.primary,
@@ -2996,7 +2996,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   xpValue: {
     fontSize: 14,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   levelValue: {
     ...Typography.numberMedium,
@@ -3006,15 +3006,15 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 2,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     justifyContent: "center",
     alignItems: "center",
   },
   sessionsValue: {
     ...Typography.numberMedium,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   statLabel: {
     ...Typography.caption,
@@ -3037,7 +3037,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   xpWeeklyDelta: {
     fontSize: 11,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   xpSegmentRow: {
     position: "absolute",
@@ -3153,7 +3153,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   radarOverlayText: {
     fontSize: 12,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   sectionTitle: {
     fontSize: 11,
@@ -3284,7 +3284,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   feedbackBadgeText: {
     fontSize: 12,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   sectionTitleRow: {
     flexDirection: "row",
@@ -3304,12 +3304,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   feedbackCenterLink: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginTop: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBackgroundStrong,
     gap: Spacing.sm,
   },
   feedbackCenterIcon: {
@@ -3379,7 +3379,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   feedbackXpText: {
     fontSize: 10,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   feedbackEmpty: {
     ...Typography.body,
@@ -3398,7 +3398,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: Colors.dark.chipBackground,
     gap: Spacing.xs,
   },
   noteCardHeader: {
@@ -3442,7 +3442,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   seeAllText: {
     ...Typography.small,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
   },
   emptyFeedbackCard: {
@@ -3553,7 +3553,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   strokeLabelCol: {
     flex: 1,
@@ -3591,7 +3591,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: Colors.dark.chipBackground,
   },
   strokeLegendItem: {
     flexDirection: "row",
@@ -3812,7 +3812,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   attendanceRateText: {
     ...Typography.caption,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     textAlign: "right",
   },
   // AI Coach Hero Section (Progress screen)
@@ -3823,7 +3823,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   aiCoachHeroCard: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1.5,
-    borderColor: "rgba(200,255,61,0.2)",
+    borderColor: Colors.dark.accentTextSoft,
     padding: Spacing.lg,
     gap: Spacing.md,
     overflow: "hidden",
@@ -3850,7 +3850,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   aiCoachHeroSubtitle: {
     fontSize: 13,
@@ -3865,7 +3865,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -3999,13 +3999,13 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: 32,
     backgroundColor: "rgba(200, 255, 61, 0.2)",
     borderWidth: 3,
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     justifyContent: "center",
     alignItems: "center",
   },
   currentLevelNumber: {
     ...Typography.h1,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontSize: 28,
   },
   currentLevelInfo: {
@@ -4148,7 +4148,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   glowPlanCard: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
-    backgroundColor: "rgba(200, 255, 61, 0.05)",
+    backgroundColor: Colors.dark.accentTextSoft,
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.25)",
     borderRadius: BorderRadius.lg,
@@ -4164,7 +4164,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: Colors.dark.accentTextSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -4278,7 +4278,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
   aiCoachHeroCard: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1.5,
-    borderColor: "rgba(200,255,61,0.2)",
+    borderColor: Colors.dark.accentTextSoft,
     padding: Spacing.lg,
     gap: Spacing.md,
     overflow: "hidden",
@@ -4305,7 +4305,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   aiCoachHeroSubtitle: {
     fontSize: 13,
@@ -4320,7 +4320,7 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",

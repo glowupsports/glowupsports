@@ -990,7 +990,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: 6,
   },
   providerChipSelected: {
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     backgroundColor: "#C8FF3D15",
   },
   providerAvatar: {
@@ -1019,7 +1019,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textAlign: "center",
   },
   providerChipNameSelected: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   providerRatingRow: {
@@ -1063,7 +1063,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
   },
   timeSlotChipSelected: {
-    borderColor: GlowColors.primary,
+    borderColor: Colors.dark.accentText,
     backgroundColor: "#C8FF3D20",
   },
   timeSlotChipDisabled: {
@@ -1077,7 +1077,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   timeSlotTextSelected: {
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "700",
   },
   timeSlotTextDisabled: {
@@ -1094,7 +1094,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   selectedTimeHint: {
     fontSize: 13,
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     fontWeight: "600",
     marginTop: Spacing.xs,
   },

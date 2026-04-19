@@ -140,19 +140,19 @@ export function GlowMarketSpotlight() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.iconContainer}>
-              <Ionicons name="storefront" size={18} color={GlowColors.primary} />
+              <Ionicons name="storefront" size={18} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.headerTitle}>GLOW MARKET</Text>
           </View>
           <Pressable onPress={handleViewAll} style={styles.viewAllButton}>
             <Text style={styles.viewAllText}>Shop Now</Text>
-            <Ionicons name="arrow-forward" size={14} color={GlowColors.primary} />
+            <Ionicons name="arrow-forward" size={14} color={Colors.dark.accentText} />
           </Pressable>
         </View>
 
         {xpDiscount && xpDiscount.discountPercent > 0 ? (
           <View style={styles.discountBadge}>
-            <Ionicons name="diamond" size={12} color={GlowColors.primary} />
+            <Ionicons name="diamond" size={12} color={Colors.dark.accentText} />
             <Text style={styles.discountText}>
               {xpDiscount.tierName} Member — {xpDiscount.discountPercent}% OFF
             </Text>
@@ -217,7 +217,7 @@ export function GlowMarketSpotlight() {
         ) : (
           <Pressable onPress={handleViewAll} style={styles.fallbackRow}>
             <Text style={styles.fallbackText}>Gear, services & exclusive deals</Text>
-            <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
+            <Ionicons name="chevron-forward" size={16} color={Colors.dark.accentText} />
           </Pressable>
         )}
       </View>
@@ -233,7 +233,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
     overflow: "hidden",
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
@@ -261,7 +261,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   headerTitle: {
     fontSize: 13,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1.5,
   },
   viewAllButton: {
@@ -272,7 +272,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   viewAllText: {
     fontSize: 13,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   discountBadge: {
     flexDirection: "row",
@@ -289,7 +289,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   discountText: {
     fontSize: 11,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 0.3,
   },
   productsScroll: {
@@ -353,7 +353,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   productPrice: {
     fontSize: 13,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   comparePrice: {
     fontSize: 11,

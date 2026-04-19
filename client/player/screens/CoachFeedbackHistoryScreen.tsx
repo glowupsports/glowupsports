@@ -25,14 +25,14 @@ interface SessionFeedback {
 }
 
 const SESSION_TYPE_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
-  private: { color: GlowColors.primary, icon: "person", label: "Private" },
+  private: { color: Colors.dark.accentText, icon: "person", label: "Private" },
   semi_private: { color: Colors.dark.primary, icon: "people", label: "Semi-Private" },
   group: { color: Colors.dark.orange, icon: "people-circle", label: "Group" },
   camp: { color: "#9B59B6", icon: "school", label: "Camp" },
 };
 
 const FEEDBACK_TYPE_CONFIG: Record<string, { color: string; icon: string }> = {
-  praise: { color: GlowColors.primary, icon: "star" },
+  praise: { color: Colors.dark.accentText, icon: "star" },
   technique: { color: Colors.dark.primary, icon: "build" },
   effort: { color: "#FF6B6B", icon: "flame" },
   focus: { color: "#AA96DA", icon: "eye" },
@@ -101,7 +101,7 @@ function DateGroupSection({ date, feedbacks }: { date: string; feedbacks: Sessio
   return (
     <View style={styles.dateSection}>
       <View style={styles.dateBadge}>
-        <Ionicons name="calendar-outline" size={14} color={GlowColors.primary} />
+        <Ionicons name="calendar-outline" size={14} color={Colors.dark.accentText} />
         <Text style={styles.dateText}>{date}</Text>
       </View>
       <View style={styles.feedbacksList}>
@@ -156,7 +156,7 @@ export default function CoachFeedbackHistoryScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
         <Pressable onPress={handleGoBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={GlowColors.primary} />
+          <Ionicons name="chevron-back" size={24} color={Colors.dark.accentText} />
         </Pressable>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Coach Feedback</Text>
@@ -182,7 +182,7 @@ export default function CoachFeedbackHistoryScreen() {
       {!isLoading && feedbacks && feedbacks.length > 0 ? (
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Ionicons name="chatbubbles" size={20} color={GlowColors.primary} />
+            <Ionicons name="chatbubbles" size={20} color={Colors.dark.accentText} />
             <Text style={styles.statValue}>{feedbacks.length}</Text>
             <Text style={styles.statLabel}>Feedbacks</Text>
           </View>
@@ -202,7 +202,7 @@ export default function CoachFeedbackHistoryScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <ActivityIndicator size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading feedback...</Text>
           </View>
         ) : error ? (
@@ -242,7 +242,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   backButton: {
     width: 40,
@@ -273,7 +273,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: Colors.dark.chipBackground,
   },
   statItem: {
     alignItems: "center",
@@ -370,7 +370,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   dateText: {
     ...Typography.caption,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
   },
   feedbacksList: {
     gap: Spacing.md,
@@ -380,7 +380,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: Colors.dark.chipBackground,
   },
   feedbackHeader: {
     flexDirection: "row",

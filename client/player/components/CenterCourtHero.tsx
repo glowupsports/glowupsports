@@ -90,7 +90,7 @@ const countdownStyles = makeReactiveStyles(() => StyleSheet.create({
   number: {
     fontSize: 28,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: -1,
   },
   label: {
@@ -102,7 +102,7 @@ const countdownStyles = makeReactiveStyles(() => StyleSheet.create({
   separator: {
     fontSize: 24,
     fontWeight: "700",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     opacity: 0.6,
   },
 }));
@@ -213,8 +213,8 @@ function NoSessionScheduled({ onBookSession, onFindMatch }: { onBookSession?: ()
             <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceCard }]} />
           )}
           <View style={styles.actionCardContent}>
-            <View style={[styles.actionIconWrapper, { borderColor: GlowColors.primary }]}>
-              <Ionicons name="calendar-outline" size={28} color={GlowColors.primary} />
+            <View style={[styles.actionIconWrapper, { borderColor: Colors.dark.accentTextBorder }]}>
+              <Ionicons name="calendar-outline" size={28} color={Colors.dark.accentText} />
             </View>
             <Text style={styles.actionTitle}>HIT THE COURT</Text>
             <Text style={styles.actionSubtitle}>Book a training session</Text>
@@ -373,7 +373,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   actionCardContent: {
     padding: Spacing.lg,

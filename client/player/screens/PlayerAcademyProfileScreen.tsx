@@ -787,7 +787,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   sportTagText: {
     fontSize: 11,

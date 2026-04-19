@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown, FadeIn, LinearTransition } from "react-native-reanimated";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors, TextColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -34,8 +34,8 @@ export function TodayAtAGlance() {
   if (isEmpty) {
     return (
       <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedStyles.pill}>
-        <View style={[collapsedStyles.iconWrap, { backgroundColor: "rgba(200, 255, 61, 0.08)" }]}>
-          <Ionicons name="calendar-outline" size={18} color={GlowColors.primary} />
+        <View style={[collapsedStyles.iconWrap, { backgroundColor: Colors.dark.accentTextSoft }]}>
+          <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentText} />
         </View>
         <View style={collapsedStyles.textGroup}>
           <Text style={collapsedStyles.label}>Today</Text>
@@ -146,7 +146,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.5)",
+    color: Colors.dark.iconMuted,
     letterSpacing: 2.5,
     textTransform: "uppercase",
   },
@@ -159,19 +159,19 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: GlowColors.primary,
+    backgroundColor: Colors.dark.accentText,
   },
   liveText: {
     fontSize: 10,
     fontWeight: "600",
-    color: GlowColors.primary,
+    color: Colors.dark.accentText,
     letterSpacing: 1,
   },
   card: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.borderSubtle,
   },
   itemsGrid: {
     padding: Spacing.md,
@@ -197,7 +197,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   itemLabel: {
     fontSize: 11,
-    color: "rgba(255, 255, 255, 0.5)",
+    color: Colors.dark.iconMuted,
   },
   itemValue: {
     fontSize: 13,
@@ -209,10 +209,10 @@ const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Colors.dark.chipBackground,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBorder,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     marginHorizontal: Spacing.lg,
@@ -245,7 +245,7 @@ const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
   },
   ctaText: {
     fontSize: 12,

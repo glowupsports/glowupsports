@@ -66,7 +66,7 @@ export function ReactionButton({
           { 
             width: containerSize, 
             height: containerSize,
-            backgroundColor: isSelected ? reaction.color + "30" : "rgba(255, 255, 255, 0.06)",
+            backgroundColor: isSelected ? reaction.color + "30" : Colors.dark.chipBackground,
             borderColor: isSelected ? reaction.color : "transparent",
             borderWidth: isSelected ? 2 : 0,
           },
@@ -250,7 +250,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     overflow: "hidden",
     backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   modalInner: {
     padding: Spacing.lg,
@@ -278,7 +278,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.chipBackground,
   },
   summaryCount: {
     fontSize: 13,

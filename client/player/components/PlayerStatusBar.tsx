@@ -461,7 +461,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: Colors.dark.borderSubtle,
   },
   mainRow: {
     flexDirection: "row",
@@ -484,7 +484,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 2,
-    borderColor: "rgba(200, 255, 61, 0.4)",
+    borderColor: Colors.dark.accentTextBorder,
     backgroundColor: "transparent",
   },
   avatarGradient: {
@@ -598,7 +598,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   xpBarTrackGaming: {
     height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Colors.dark.chipBackgroundStrong,
     borderRadius: 3,
     overflow: "hidden",
     position: "relative",
@@ -787,7 +787,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.md,
   },
   philosophyTag: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -855,7 +855,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: Colors.dark.chipBorder,
   },
   playerModalHeader: {
     alignItems: "center",
@@ -896,7 +896,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Colors.dark.chipBackground,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
