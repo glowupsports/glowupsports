@@ -28,8 +28,8 @@ interface BookingCoachCardProps {
     availableForGroup?: boolean;
   };
   isSelected: boolean;
-  onSelect: () => void;
-  onInfoPress: () => void;
+  onSelect?: () => void;
+  onInfoPress?: () => void;
   index: number;
 }
 
@@ -72,16 +72,17 @@ export default function BookingCoachCard({
   index,
 }: BookingCoachCardProps) {
   const specialtyColor = SPECIALTY_COLORS[coach.specialty || ""] || GlowColors.primary;
-  
+  const safeName = coach?.name ?? "";
+
   const handleSelect = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onSelect();
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+    if (typeof onSelect === "function") onSelect();
   };
 
   const handleInfoPress = (e: any) => {
-    e.stopPropagation();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onInfoPress();
+    if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+    if (typeof onInfoPress === "function") onInfoPress();
   };
 
   return (
@@ -116,7 +117,7 @@ export default function BookingCoachCard({
                   style={styles.photoPlaceholder}
                 >
                   <Text style={[styles.photoInitial, { color: specialtyColor }]}>
-                    {coach.name.charAt(0).toUpperCase()}
+                    {(safeName.charAt(0) || "?").toUpperCase()}
                   </Text>
                 </LinearGradient>
               )}
@@ -130,7 +131,7 @@ export default function BookingCoachCard({
 
             <View style={styles.infoSection}>
               <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>{coach.name}</Text>
+                <Text style={styles.name} numberOfLines={1}>{safeName}</Text>
                 <Pressable onPress={handleInfoPress} style={styles.infoButton}>
                   <Ionicons name="information-circle-outline" size={22} color={Colors.dark.textSecondary} />
                 </Pressable>
@@ -165,7 +166,7 @@ export default function BookingCoachCard({
                 )}
               </View>
 
-              {coach.ballLevels && coach.ballLevels.length > 0 && (
+              {Array.isArray(coach.ballLevels) && coach.ballLevels.length > 0 && (
                 <View style={styles.ballLevelsRow}>
                   {coach.ballLevels.slice(0, 4).map((level) => (
                     <View 

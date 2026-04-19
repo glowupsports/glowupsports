@@ -100,10 +100,10 @@ interface AcademyPublicProfile {
   coaches: CoachInfo[];
   publicGroups: PublicGroup[];
   upcomingTournaments: UpcomingTournament[];
-  trustSignals: {
-    totalSessions: number;
-    activePlayers: number;
-  };
+  trustSignals?: {
+    totalSessions?: number;
+    activePlayers?: number;
+  } | null;
 }
 
 function formatSchedule(dayOfWeek: number, startTime: string, duration: number): string {
@@ -266,7 +266,10 @@ export default function PlayerAcademyProfileScreen() {
   }
 
   const logoUri = buildPhotoUrl(profile.logoUrl);
-  const trustSignals = profile.trustSignals;
+  const trustSignals = {
+    activePlayers: profile.trustSignals?.activePlayers ?? 0,
+    totalSessions: profile.trustSignals?.totalSessions ?? 0,
+  };
   const sports = profile.sports ?? [];
 
   return (
@@ -290,7 +293,7 @@ export default function PlayerAcademyProfileScreen() {
               <Image source={{ uri: logoUri }} style={styles.logo} contentFit="cover" />
             ) : (
               <View style={[styles.logo, styles.logoPlaceholder]}>
-                <Text style={styles.logoInitial}>{profile.name.charAt(0)}</Text>
+                <Text style={styles.logoInitial}>{(profile.name ?? "?").charAt(0)}</Text>
               </View>
             )}
           </View>
