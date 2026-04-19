@@ -751,7 +751,7 @@ function FriendSpotlightLensCard() {
   const goFindPlayers = () => {
     Haptics.selectionAsync().catch(() => {});
     try {
-      navigation.navigate("PlayerFinder");
+      navigation.navigate("FriendsList");
     } catch {}
   };
 
