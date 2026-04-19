@@ -393,15 +393,16 @@ export default function AdminCourtsScreen() {
       setShowEditModal(false);
       setSelectedCourt(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (data?.archived) {
-        const msg =
-          data?.message ||
-          "Court has past sessions or bookings, so it was archived instead of deleted. It will no longer appear in active lists.";
-        if (Platform.OS === "web") {
-          window.alert(msg);
-        } else {
-          Alert.alert("Court archived", msg);
-        }
+      const archived = !!data?.archived;
+      const title = archived ? "Court archived" : "Court deleted";
+      const msg = archived
+        ? data?.message ||
+          "Court has past sessions or bookings, so it was archived instead of deleted. It will no longer appear in active lists."
+        : "Court was deleted successfully.";
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert(title, msg);
       }
     },
     onError: (error) => {
