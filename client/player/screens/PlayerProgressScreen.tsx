@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -10,6 +11,7 @@ import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, Glo
 import Svg, { Polygon, Circle, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
+import { XPProgressBar } from "@/components/XPProgressBar";
 import PillarProgressRings from "@/components/PillarProgressRings";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStageFromLevel, type BallStage } from "@shared/language-switch";
@@ -1798,6 +1800,8 @@ export default function PlayerProgressScreen() {
   })();
 
   const currentLevelXp = data.xp % 500;
+  let tabBarHeight = 80;
+  try { tabBarHeight = useBottomTabBarHeight(); } catch { tabBarHeight = 80; }
 
   const totalObservations = (data.skillRadar ?? []).reduce((sum, s) => sum + s.observationCount, 0);
   const isNewPlayer = totalObservations === 0;
@@ -1806,7 +1810,8 @@ export default function PlayerProgressScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xxl }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         {/* Premium Header with Gradient Border */}
@@ -1872,7 +1877,7 @@ export default function PlayerProgressScreen() {
         {/* Progression Level Badge - Sport-Aware */}
         <View style={styles.ballLevelSection}>
           <LinearGradient
-            colors={["rgba(200, 255, 61, 0.3)", "rgba(0, 229, 255, 0.3)", "rgba(224, 64, 251, 0.3)"]}
+            colors={["rgba(200, 255, 61, 0.22)", "rgba(0, 229, 255, 0.18)", "rgba(224, 64, 251, 0.18)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.ballLevelGradientBorder}
@@ -1881,93 +1886,85 @@ export default function PlayerProgressScreen() {
               style={styles.ballLevelInner}
               onPress={handleBallLevelPress}
             >
-              <BallLevelBadge 
-                levelId={data.ballLevel || "red1"} 
-                size="large" 
-                showLabel={true}
-                labelOverride={data.displayName ?? undefined}
-              />
-              <View style={styles.levelLabelRow}>
-                <Text style={styles.ballLevelHint}>
-                  {isNewPlayer
-                    ? "Your starting level"
-                    : activeSport === "padel"
-                    ? "Padel level"
-                    : activeSport === "pickleball"
-                    ? "Pickleball rating"
-                    : "Tap to learn more"}
-                </Text>
-                <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
+              <View style={styles.ballLevelHeroRow}>
+                <BallLevelBadge 
+                  levelId={data.ballLevel || "red1"} 
+                  size="large" 
+                  showLabel={true}
+                  labelOverride={data.displayName ?? undefined}
+                />
+                <View style={styles.ballLevelMetaCol}>
+                  <Text style={styles.ballLevelMetaLabel}>Level</Text>
+                  <Text style={styles.ballLevelMetaValue}>{data.level}</Text>
+                  <View style={styles.ballLevelMetaInfoRow}>
+                    <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
+                    <Text style={styles.ballLevelMetaHint}>Tap for details</Text>
+                  </View>
+                </View>
               </View>
+
+              <View style={styles.ballLevelXpWrap}>
+                <XPProgressBar
+                  currentXP={currentLevelXp}
+                  xpToNextLevel={500}
+                  level={data.level}
+                />
+              </View>
+
+              <Text style={styles.ballLevelFooter}>
+                {isNewPlayer
+                  ? "Your starting level"
+                  : activeSport === "padel"
+                  ? "Padel level"
+                  : activeSport === "pickleball"
+                  ? "Pickleball rating"
+                  : "Coach-validated skill level"}
+              </Text>
             </Pressable>
           </LinearGradient>
         </View>
 
-        {/* Stats Row - Premium Gaming Cards */}
+        {/* Stats Row - polished tiles aligned to player palette */}
         <View style={styles.statsRow}>
-          <Pressable 
-            style={[styles.statCard, styles.statCardGlow]}
+          <Pressable
+            style={[styles.statTile, { borderColor: "rgba(200, 255, 61, 0.25)" }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowGlowScoreModal(true);
             }}
           >
-            <View style={styles.glowCircle}>
-              <Text style={styles.glowValue}>{data.glowScore}</Text>
+            <View style={styles.statTileHeader}>
+              <Text style={styles.statTileLabel}>GLOW SCORE</Text>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
             </View>
-            <View style={styles.levelLabelRow}>
-              <Text style={styles.statLabel}>GLOW SCORE</Text>
-              <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
-            </View>
-            {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
+            <Text style={[styles.statTileValue, { color: GlowColors.primary }]}>{data.glowScore}</Text>
           </Pressable>
-          <Pressable 
-            style={[styles.statCard, styles.statCardLevel]}
+          <Pressable
+            style={[styles.statTile, { borderColor: "rgba(255, 255, 255, 0.12)" }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowLevelModal(true);
             }}
           >
-            <View style={styles.levelCircle}>
-              <Text style={styles.levelValue}>{data.level}</Text>
+            <View style={styles.statTileHeader}>
+              <Text style={styles.statTileLabel}>LEVEL</Text>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
             </View>
-            <View style={styles.levelLabelRow}>
-              <Text style={styles.statLabel}>LEVEL</Text>
-              <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
-            </View>
-            {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
+            <Text style={[styles.statTileValue, { color: Colors.dark.text }]}>{data.level}</Text>
           </Pressable>
-          <Pressable 
-            style={[styles.statCard, styles.statCardXp]}
+          <Pressable
+            style={[styles.statTile, { borderColor: "rgba(255, 215, 0, 0.28)" }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowXpModal(true);
             }}
           >
-            <View style={styles.xpCircle}>
-              <Text style={styles.xpValue}>{data.xp}</Text>
+            <View style={styles.statTileHeader}>
+              <Text style={styles.statTileLabel}>TOTAL XP</Text>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
             </View>
-            <View style={styles.levelLabelRow}>
-              <Text style={styles.statLabel}>TOTAL XP</Text>
-              <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
-            </View>
-            {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
+            <Text style={[styles.statTileValue, { color: Colors.dark.gold }]}>{data.xp}</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.xpSection}>
-          <View style={styles.xpHeader}>
-            <Text style={styles.xpLabel}>XP to Level {data.level + 1}</Text>
-            <Text style={styles.xpAmount}>{currentLevelXp} / 500</Text>
-          </View>
-          <View style={styles.xpBarTrack}>
-            <LinearGradient
-              colors={[GlowColors.primary, GlowColors.dark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.xpBarFill, { width: `${(currentLevelXp / 500) * 100}%` }]}
-            />
-          </View>
         </View>
 
         {/* AI COACH HERO SECTION */}
@@ -2843,9 +2840,51 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   ballLevelInner: {
     backgroundColor: "rgba(11, 13, 16, 0.95)",
     borderRadius: BorderRadius.xl - 2,
-    paddingVertical: Spacing.xl + 8,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  ballLevelHeroRow: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    justifyContent: "space-between",
+    gap: Spacing.lg,
+  },
+  ballLevelMetaCol: {
+    flex: 1,
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  ballLevelMetaLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+  },
+  ballLevelMetaValue: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    lineHeight: 40,
+  },
+  ballLevelMetaInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  ballLevelMetaHint: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
+  ballLevelXpWrap: {
+    width: "100%",
+  },
+  ballLevelFooter: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
   },
   ballLevelHint: {
     fontSize: 11,
@@ -2858,45 +2897,31 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.xl,
     gap: Spacing.sm,
   },
-  statCard: {
+  statTile: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     gap: Spacing.xs,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
   },
-  statCardGlow: {
-    borderColor: "rgba(0, 229, 255, 0.4)",
-    shadowColor: "#00E5FF",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
+  statTileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
   },
-  statCardLevel: {
-    borderColor: "rgba(255, 215, 0, 0.4)",
-    shadowColor: "#FFD700",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  statCardXp: {
-    borderColor: "rgba(200, 255, 61, 0.4)",
-    shadowColor: GlowColors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  statHint: {
-    fontSize: 9,
+  statTileLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.6,
     color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  },
+  statTileValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 2,
   },
   glowCircle: {
     width: 52,
