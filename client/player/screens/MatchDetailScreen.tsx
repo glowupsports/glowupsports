@@ -1071,7 +1071,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
     return (
       <View style={debriefStyles.card}>
         <View style={debriefStyles.header}>
-          <View style={[debriefStyles.icon, { backgroundColor: Colors.dark?.primary + "20" || Colors.dark.primary + "20" }]}>
+          <View style={[debriefStyles.icon, { backgroundColor: Colors.dark.primary + "20" }]}>
             <Ionicons name="sparkles-outline" size={18} color={Colors.dark.primary} />
           </View>
           <Text style={debriefStyles.title}>Coach AI Debrief</Text>
@@ -1087,7 +1087,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
   return (
     <View style={debriefStyles.card}>
       <View style={debriefStyles.header}>
-        <View style={[debriefStyles.icon, { backgroundColor: Colors.dark?.primary + "20" || Colors.dark.primary + "20" }]}>
+        <View style={[debriefStyles.icon, { backgroundColor: Colors.dark.primary + "20" }]}>
           <Ionicons name="sparkles-outline" size={18} color={Colors.dark.primary} />
         </View>
         <Text style={debriefStyles.title}>Coach AI Debrief</Text>
@@ -1357,7 +1357,7 @@ const debriefStyles = StyleSheet.create({
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.dark?.primary + "30" || Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary + "30",
   },
   header: {
     flexDirection: "row",

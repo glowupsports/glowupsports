@@ -272,7 +272,7 @@ export default function MatchPrepScreen() {
         {/* === SECTION A: Opponent Intel === */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={[styles.cardIcon, { backgroundColor: Colors.dark?.primary + "20" || Colors.dark.primary + "20" }]}>
+            <View style={[styles.cardIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
               <Ionicons name="person-outline" size={18} color={Colors.dark.primary} />
             </View>
             <Text style={styles.cardTitle}>Opponent Intel</Text>
