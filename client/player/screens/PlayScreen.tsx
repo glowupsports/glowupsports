@@ -32,7 +32,7 @@ import { useSport, getSportLabel, getSportColor, getSportIcon, SPORT_DEFINITIONS
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import * as WebBrowser from "expo-web-browser";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -197,6 +197,7 @@ function getCleanSessionTitle(session: PlaySession): string {
 }
 
 export default function PlayScreen() {
+  useThemeReactivity();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -798,7 +799,9 @@ export default function PlayScreen() {
           imageStyle={styles.cardBackgroundImage}
         >
           <LinearGradient
-            colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.75)", "rgba(0,0,0,0.9)"]}
+            colors={Colors.dark.text === "#FFFFFF"
+              ? ["rgba(0,0,0,0.3)", "rgba(0,0,0,0.75)", "rgba(0,0,0,0.9)"]
+              : ["rgba(255,255,255,0.05)", "rgba(255,255,255,0.55)", "rgba(255,255,255,0.85)"]}
             style={styles.cardOverlay}
           >
             <View style={styles.cardContent}>

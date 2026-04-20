@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { useGlassTint } from "@/hooks/useGlassTint";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

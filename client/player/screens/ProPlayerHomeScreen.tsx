@@ -50,7 +50,7 @@ import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 interface DashboardData {
   player: {
     id: string;
@@ -1191,6 +1191,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
 }));
 
 function PlayerHomeContent() {
+  useThemeReactivity();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();

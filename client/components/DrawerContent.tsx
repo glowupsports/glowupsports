@@ -12,9 +12,10 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
+  useThemeReactivity();
   const insets = useSafeAreaInsets();
   const { player } = usePlayer();
   const { logout } = useAuth();

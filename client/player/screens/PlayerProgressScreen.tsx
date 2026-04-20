@@ -23,7 +23,7 @@ import { CoachReviewModal } from "@/player/components/CoachReviewModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 interface DomainInsights {
   recentHighlights: string[];
   focusAreas: string[];
@@ -1442,6 +1442,7 @@ function formatShortDate(dateStr: string): string {
 }
 
 export default function PlayerProgressScreen() {
+  useThemeReactivity();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const track = useTrackFeature();

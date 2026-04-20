@@ -59,8 +59,9 @@ import {
   CreateMomentModal,
 } from "../components/community/CommunityModals";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 export default function CommunityScreen() {
+  useThemeReactivity();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
@@ -225,7 +226,7 @@ export default function CommunityScreen() {
     <LockedScreen featureKey="community_feed">
       <ThemedView style={styles.container}>
         <LinearGradient
-          colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
+          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
           style={StyleSheet.absoluteFill}
         />
 

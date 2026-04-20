@@ -10,8 +10,9 @@ import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
 import { buildPhotoUrl } from "@/lib/query-client";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 export function SocialDiscoveryStrip() {
+  useThemeReactivity();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 

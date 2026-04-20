@@ -18,12 +18,11 @@ import * as Haptics from "expo-haptics";
 import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds, Colors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const TEXT_PRIMARY = TextColors.primary;
-const TEXT_SECONDARY = "#8A95A8";
-const TEXT_MUTED = "#5C6678";
-const ACCENT = GlowColors.primary;
-const CARD_BORDER = Colors.dark.chipBackgroundStrong;
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+// Theme tokens are read at render time (or inside `makeReactiveStyles`) so
+// they flip when the player toggles Light/Dark. Do NOT capture them into
+// module-level `const` values — that freezes them at import.
+const ACCENT = GlowColors.primary; // brand accent — same in both modes
 
 interface Participant {
   id: string;
@@ -190,7 +189,7 @@ function LessonCard({
               <Text style={styles.coach} numberOfLines={1}>with {session.coachName}</Text>
             ) : null}
             <View style={styles.metaRow}>
-              <Ionicons name="time-outline" size={11} color={TEXT_SECONDARY} />
+              <Ionicons name="time-outline" size={11} color={Colors.dark.textSecondary} />
               <Text style={styles.metaText}>{dayLabel ? `${dayLabel} · ` : ""}{timeLabel}</Text>
               {countdown ? (
                 <>
@@ -201,7 +200,7 @@ function LessonCard({
             </View>
             {session.locationName ? (
               <View style={styles.metaRow}>
-                <Ionicons name="location-outline" size={11} color={TEXT_SECONDARY} />
+                <Ionicons name="location-outline" size={11} color={Colors.dark.textSecondary} />
                 <Text style={styles.metaText} numberOfLines={1}>
                   {session.distanceKm != null ? `${session.distanceKm}km · ` : ""}
                   {session.locationName}
@@ -260,7 +259,7 @@ function LessonCard({
               onPress={() => onTap(session)}
             >
               <Text style={styles.viewBtnText}>View</Text>
-              <Ionicons name="chevron-forward" size={14} color={TEXT_PRIMARY} />
+              <Ionicons name="chevron-forward" size={14} color={Colors.dark.text} />
             </Pressable>
           ) : isFull ? (
             <Pressable
@@ -300,6 +299,7 @@ interface GlowLessonsStackProps {
 }
 
 export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLessonsStackProps) {
+  useThemeReactivity();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const [width, setWidth] = useState(0);
@@ -516,13 +516,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarInitial: { color: TEXT_PRIMARY, fontSize: 22, fontWeight: "800" },
+  avatarInitial: { color: Colors.dark.text, fontSize: 22, fontWeight: "800" },
   info: { flex: 1, minWidth: 0 },
-  title: { fontSize: 15, fontWeight: "700", color: TEXT_PRIMARY },
-  coach: { fontSize: 12, color: TEXT_SECONDARY, marginTop: 1 },
+  title: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
+  coach: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 1 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  metaText: { fontSize: 11, color: TEXT_SECONDARY, flexShrink: 1 },
-  metaDot: { color: TEXT_MUTED, fontSize: 11 },
+  metaText: { fontSize: 11, color: Colors.dark.textSecondary, flexShrink: 1 },
+  metaDot: { color: Colors.dark.textMuted, fontSize: 11 },
 
   bottomRow: {
     flexDirection: "row",
@@ -552,13 +552,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     gap: 3,
     backgroundColor: Colors.dark.chipBackgroundStrong,
-    borderColor: CARD_BORDER,
+    borderColor: Colors.dark.chipBackgroundStrong,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
   },
-  viewBtnText: { fontSize: 13, fontWeight: "700", color: TEXT_PRIMARY },
+  viewBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.text },
 
   participantsRow: {
     flexDirection: "row",
@@ -583,7 +583,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  participantInitial: { color: TEXT_PRIMARY, fontSize: 10, fontWeight: "800" },
+  participantInitial: { color: Colors.dark.text, fontSize: 10, fontWeight: "800" },
   participantEmpty: {
     backgroundColor: "transparent",
     borderStyle: "dashed",
@@ -610,13 +610,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: TEXT_PRIMARY,
+    color: Colors.dark.text,
     marginBottom: 4,
     textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 12,
-    color: TEXT_SECONDARY,
+    color: Colors.dark.textSecondary,
     textAlign: "center",
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.sm,

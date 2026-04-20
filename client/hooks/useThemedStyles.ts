@@ -1,4 +1,23 @@
-import { getThemeRevision } from "@/constants/theme";
+import { useSyncExternalStore } from "react";
+import { getThemeRevision, subscribeTheme } from "@/constants/theme";
+
+/**
+ * Subscribes the calling component to the global theme revision so it
+ * re-renders whenever `applyPlayerScheme` or `setActiveAcademyTheme` bumps
+ * the revision counter. Returns the current revision number (rarely useful;
+ * the side effect is the re-render).
+ *
+ * Why: `makeReactiveStyles` returns a Proxy that re-evaluates its factory
+ * after a revision bump, but a component only reads the proxy during render.
+ * Without a subscription, the component never re-renders on scheme toggle,
+ * so the new style values never reach the host platform. Call this hook
+ * once near the top of any screen/component that uses reactive styles AND
+ * is not already a subscriber to the AcademyTheme / PlayerAppearance
+ * contexts (those already re-render via React's normal flow).
+ */
+export function useThemeReactivity(): number {
+  return useSyncExternalStore(subscribeTheme, getThemeRevision, getThemeRevision);
+}
 
 /**
  * Wraps a `StyleSheet.create({ ... })` call in a Proxy that re-runs the
