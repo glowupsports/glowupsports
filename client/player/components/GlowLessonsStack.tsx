@@ -296,9 +296,14 @@ interface GlowLessonsStackProps {
   enrolledSessionId?: string | null;
   fallback?: React.ReactNode;
   accent?: string;
+  // When rendered inside the HeroCarousel, disable inner horizontal paging so
+  // the outer carousel pan-gesture wins for any horizontal swipe. Inner taps
+  // (Join, tap-to-open) still work; users can browse the full list via the
+  // "View All" jump pill on the lens header.
+  inCarousel?: boolean;
 }
 
-export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLessonsStackProps) {
+export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarousel }: GlowLessonsStackProps) {
   useThemeReactivity();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -406,30 +411,46 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLe
       }}
     >
       {width > 0 ? (
-        <FlatList
-          ref={listRef}
-          data={groupSessions}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(s) => s.id}
-          renderItem={({ item }) => (
+        inCarousel ? (
+          // Inside the HeroCarousel we surface only the first/enrolled lesson
+          // and let the outer pan-gesture own all horizontal swipes. Taps on
+          // Join / the card still work; the lens header's "View All" pill
+          // navigates to the full Classes Discovery screen.
+          <View style={{ width }}>
             <LessonCard
-              session={item}
+              session={groupSessions[0]}
               width={width}
               onJoin={handleJoin}
-              isJoining={joiningId === item.id}
+              isJoining={joiningId === groupSessions[0].id}
               onTap={handleTap}
             />
-          )}
-          onMomentumScrollEnd={handleMomentumEnd}
-          getItemLayout={(_, idx) => ({ length: width, offset: width * idx, index: idx })}
-          decelerationRate="fast"
-          snapToInterval={width}
-        />
+          </View>
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={groupSessions}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(s) => s.id}
+            renderItem={({ item }) => (
+              <LessonCard
+                session={item}
+                width={width}
+                onJoin={handleJoin}
+                isJoining={joiningId === item.id}
+                onTap={handleTap}
+              />
+            )}
+            onMomentumScrollEnd={handleMomentumEnd}
+            getItemLayout={(_, idx) => ({ length: width, offset: width * idx, index: idx })}
+            decelerationRate="fast"
+            snapToInterval={width}
+          />
+        )
       ) : null}
 
-      {groupSessions.length > 1 ? (
+      {!inCarousel && groupSessions.length > 1 ? (
         <View style={styles.dotsRow}>
           {groupSessions.map((s, i) => {
             const active = i === activeIndex;

@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -22,10 +22,13 @@ import { apiRequest } from "@/lib/query-client";
 import Animated, {
   Easing,
   cancelAnimation,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 
 import { SessionHeroCard } from "./SessionHeroCard";
@@ -1064,7 +1067,6 @@ export function HeroCarousel({
   const [containerWidth, setContainerWidth] = useState<number>(
     Dimensions.get("window").width
   );
-  const listRef = useRef<FlatList<SlotMeta>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
@@ -1072,17 +1074,29 @@ export function HeroCarousel({
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const dragging = useSharedValue(false);
+  const activeIndexShared = useSharedValue(0);
+  const containerWidthShared = useSharedValue(0);
 
   const sessionSoon =
     state.minutesToNextSession != null &&
     state.minutesToNextSession >= 0 &&
     state.minutesToNextSession <= PRIORITY_LOCK_MIN;
 
-  const scrollTo = useCallback((idx: number) => {
-    try {
-      listRef.current?.scrollToIndex({ index: idx, animated: true });
-    } catch {}
-  }, []);
+  const scrollTo = useCallback(
+    (idx: number) => {
+      const w = containerWidthShared.value;
+      if (w > 0) {
+        translateX.value = withSpring(-idx * w, {
+          damping: 22,
+          stiffness: 180,
+          mass: 0.6,
+        });
+      }
+    },
+    [translateX, containerWidthShared],
+  );
 
   const startProgress = useCallback(() => {
     cancelAnimation(progress);
@@ -1186,16 +1200,127 @@ export function HeroCarousel({
     resumeTimerRef.current = setTimeout(() => setPaused(false), PAUSE_RESUME_MS);
   }, []);
 
-  const handleMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (containerWidth <= 0) return;
-    const idx = Math.round(e.nativeEvent.contentOffset.x / containerWidth);
-    if (idx !== activeIndex) {
-      setActiveIndex(idx);
-      Haptics.selectionAsync().catch(() => {});
+  const onSwipeStart = useCallback(() => {
+    pauseNow();
+    if (rotateTimerRef.current) {
+      clearTimeout(rotateTimerRef.current);
+      rotateTimerRef.current = null;
     }
-    scheduleResume();
-    enableParentScroll();
-  };
+    cancelAnimation(progress);
+    progress.value = 0;
+    disableParentScroll();
+  }, [pauseNow, disableParentScroll, progress]);
+
+  const onSwipeSettle = useCallback(
+    (newIndex: number) => {
+      if (newIndex !== activeIndex) {
+        setActiveIndex(newIndex);
+        Haptics.selectionAsync().catch(() => {});
+      }
+      scheduleResume();
+      enableParentScroll();
+    },
+    [activeIndex, scheduleResume, enableParentScroll],
+  );
+
+  // Keep shared values in sync so the worklet always sees the current index/width.
+  useEffect(() => {
+    activeIndexShared.value = activeIndex;
+  }, [activeIndex, activeIndexShared]);
+  useEffect(() => {
+    containerWidthShared.value = containerWidth;
+    // When the layout width changes (e.g. on first measure or rotation),
+    // snap to the current page so the offset stays correct.
+    if (containerWidth > 0 && !dragging.value) {
+      translateX.value = -activeIndex * containerWidth;
+    }
+  }, [containerWidth, activeIndex, containerWidthShared, dragging, translateX]);
+
+  // When auto-rotate (or a dot tap) advances activeIndex, animate the strip.
+  useEffect(() => {
+    if (containerWidth > 0 && !dragging.value) {
+      translateX.value = withSpring(-activeIndex * containerWidth, {
+        damping: 22,
+        stiffness: 180,
+        mass: 0.6,
+      });
+    }
+  }, [activeIndex, containerWidth, dragging, translateX]);
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-12, 12])
+        .onStart(() => {
+          dragging.value = true;
+          runOnJS(onSwipeStart)();
+        })
+        .onUpdate((e) => {
+          const w = containerWidthShared.value;
+          if (w <= 0) return;
+          const base = -activeIndexShared.value * w;
+          let next = base + e.translationX;
+          // Mild rubber-band at the edges
+          const minX = -(SLOTS.length - 1) * w;
+          const maxX = 0;
+          if (next > maxX) next = maxX + (next - maxX) * 0.3;
+          if (next < minX) next = minX + (next - minX) * 0.3;
+          translateX.value = next;
+        })
+        .onEnd((e) => {
+          const w = containerWidthShared.value;
+          if (w <= 0) {
+            dragging.value = false;
+            return;
+          }
+          const threshold = w * 0.2;
+          let next = activeIndexShared.value;
+          if (e.translationX < -threshold || e.velocityX < -500) {
+            next = Math.min(SLOTS.length - 1, activeIndexShared.value + 1);
+          } else if (e.translationX > threshold || e.velocityX > 500) {
+            next = Math.max(0, activeIndexShared.value - 1);
+          }
+          translateX.value = withSpring(-next * w, {
+            damping: 22,
+            stiffness: 180,
+            mass: 0.6,
+            velocity: e.velocityX,
+          });
+          dragging.value = false;
+          runOnJS(onSwipeSettle)(next);
+        })
+        .onFinalize((_e, success) => {
+          // Defensive recovery: if the gesture was cancelled or interrupted
+          // (no onEnd fires), snap back to the current page and make sure
+          // the parent ScrollView gets re-enabled so the page isn't stuck
+          // with vertical scroll disabled.
+          dragging.value = false;
+          if (!success) {
+            const w = containerWidthShared.value;
+            if (w > 0) {
+              translateX.value = withSpring(-activeIndexShared.value * w, {
+                damping: 22,
+                stiffness: 180,
+                mass: 0.6,
+              });
+            }
+            runOnJS(onSwipeSettle)(activeIndexShared.value);
+          }
+        }),
+    [
+      activeIndexShared,
+      containerWidthShared,
+      dragging,
+      onSwipeSettle,
+      onSwipeStart,
+      translateX,
+    ],
+  );
+
+  const stripStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -1217,49 +1342,45 @@ export function HeroCarousel({
     } catch {}
   };
 
-  const renderItem = ({ item }: { item: SlotMeta }) => {
+  const renderSlot = (item: SlotMeta) => {
     if (item.id === "train") {
       return (
-        <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
-          <LensShell
-            accent={item.accent}
-            label={item.label}
-            icon="tennisball"
-            actionLabel="View Schedule"
-            onAction={goSchedule}
-          >
-            <SessionHeroCard
-              onBookSession={onBookSession}
-              onCheckIn={onCheckIn}
-              onCancel={onCancel}
-              onExtend={onExtend}
-              onFindMatch={onFindMatch}
-            />
-          </LensShell>
-        </View>
+        <LensShell
+          accent={item.accent}
+          label={item.label}
+          icon="tennisball"
+          actionLabel="View Schedule"
+          onAction={goSchedule}
+        >
+          <SessionHeroCard
+            onBookSession={onBookSession}
+            onCheckIn={onCheckIn}
+            onCancel={onCancel}
+            onExtend={onExtend}
+            onFindMatch={onFindMatch}
+          />
+        </LensShell>
       );
     }
     if (item.id === "glow_lessons") {
       return (
-        <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
-          <LensShell
-            accent={item.accent}
-            label={item.label}
-            icon="people"
-            actionLabel="View All"
-            onAction={goClassesDiscovery}
-          >
-            <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} />
-          </LensShell>
-        </View>
+        <LensShell
+          accent={item.accent}
+          label={item.label}
+          icon="people"
+          actionLabel="View All"
+          onAction={goClassesDiscovery}
+        >
+          <GlowLessonsStack accent={GLOW_LESSONS_ACCENT} inCarousel />
+        </LensShell>
       );
     }
     return (
-      <View style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}>
+      <>
         {item.id === "compete" && <CompeteCard />}
         {item.id === "events" && <EventsCard />}
         {item.id === "friend_spotlight" && <FriendSpotlightLensCard />}
-      </View>
+      </>
     );
   };
 
@@ -1298,36 +1419,31 @@ export function HeroCarousel({
         }}
         onTouchEnd={scheduleResume}
         onTouchCancel={scheduleResume}
+        style={{ width: "100%", height: HERO_SLOT_HEIGHT, overflow: "hidden" }}
       >
-        <FlatList
-          ref={listRef}
-          data={SLOTS}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(it) => it.id}
-          renderItem={renderItem}
-          onMomentumScrollEnd={handleMomentumEnd}
-          onScrollBeginDrag={() => {
-            pauseNow();
-            if (rotateTimerRef.current) {
-              clearTimeout(rotateTimerRef.current);
-              rotateTimerRef.current = null;
-            }
-            cancelAnimation(progress);
-            progress.value = 0;
-            disableParentScroll();
-          }}
-          onScrollEndDrag={enableParentScroll}
-          getItemLayout={(_, idx) => ({
-            length: containerWidth,
-            offset: containerWidth * idx,
-            index: idx,
-          })}
-          decelerationRate="fast"
-          snapToInterval={containerWidth}
-          extraData={containerWidth}
-        />
+        {containerWidth > 0 ? (
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                {
+                  flexDirection: "row",
+                  width: containerWidth * SLOTS.length,
+                  height: HERO_SLOT_HEIGHT,
+                },
+                stripStyle,
+              ]}
+            >
+              {SLOTS.map((s) => (
+                <View
+                  key={s.id}
+                  style={{ width: containerWidth, height: HERO_SLOT_HEIGHT }}
+                >
+                  {renderSlot(s)}
+                </View>
+              ))}
+            </Animated.View>
+          </GestureDetector>
+        ) : null}
       </View>
 
       {/* Dots + Pause/Play */}
