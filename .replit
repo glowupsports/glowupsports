@@ -67,8 +67,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "sh -c \"fuser -k 8081/tcp 2>/dev/null || true; npm run server:dev & npm run expo:dev\""
-waitForPort = 5000
+args = "sh -c \"(lsof -ti:8081 2>/dev/null | xargs -r kill -9) || true; npm run server:dev & npm run expo:dev\""
 
 [[workflows.workflow]]
 name = "OTA Push"
