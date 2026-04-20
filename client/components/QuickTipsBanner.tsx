@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { getApiUrl } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Spacing,
@@ -30,13 +31,19 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
 
   const storageKey = `@glow_dismissed_tips_${role}`;
+  const serverStateKey = `dismissed_tips_${role}`;
 
   const activeTips = tips.filter((tip) => !dismissedIds.has(tip.id));
 
   useEffect(() => {
+    cancelledRef.current = false;
     loadDismissed();
+    return () => {
+      cancelledRef.current = true;
+    };
   }, [role]);
 
   useEffect(() => {
@@ -51,16 +58,68 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
     };
   }, [activeTips.length]);
 
+  const persistToServer = async (ids: string[]) => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) return;
+      const apiUrl = getApiUrl();
+      await fetch(new URL("/api/user/onboarding-state", apiUrl).toString(), {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ key: serverStateKey, value: ids }),
+      });
+    } catch (error) {
+      console.warn("Failed to save dismissed tips to server:", error);
+    }
+  };
+
   const loadDismissed = async () => {
+    let localIds: string[] = [];
     try {
       const stored = await AsyncStorage.getItem(storageKey);
       if (stored) {
-        setDismissedIds(new Set(JSON.parse(stored)));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          localIds = parsed;
+          if (!cancelledRef.current && localIds.length > 0) {
+            setDismissedIds(new Set(localIds));
+          }
+        }
       }
     } catch (error) {
       console.warn("Failed to load dismissed tips:", error);
     } finally {
-      setIsLoading(false);
+      if (!cancelledRef.current) setIsLoading(false);
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token || cancelledRef.current) return;
+      const apiUrl = getApiUrl();
+      const response = await fetch(
+        new URL("/api/user/onboarding-state", apiUrl).toString(),
+        { headers: { "Authorization": `Bearer ${token}` } },
+      );
+      if (!response.ok || cancelledRef.current) return;
+      const data = await response.json();
+      if (cancelledRef.current) return;
+      const serverIds: string[] = Array.isArray(data?.state?.[serverStateKey])
+        ? data.state[serverStateKey]
+        : [];
+      const merged = new Set<string>([...serverIds, ...localIds]);
+      setDismissedIds(merged);
+      const mergedArr = [...merged];
+      try {
+        await AsyncStorage.setItem(storageKey, JSON.stringify(mergedArr));
+      } catch {}
+      if (mergedArr.length !== serverIds.length) {
+        persistToServer(mergedArr);
+      }
+    } catch (error) {
+      console.warn("Failed to load dismissed tips from server:", error);
     }
   };
 
@@ -70,14 +129,13 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
       const newDismissed = new Set(dismissedIds);
       newDismissed.add(tipId);
       setDismissedIds(newDismissed);
+      const arr = [...newDismissed];
       try {
-        await AsyncStorage.setItem(
-          storageKey,
-          JSON.stringify([...newDismissed])
-        );
+        await AsyncStorage.setItem(storageKey, JSON.stringify(arr));
       } catch (error) {
         console.warn("Failed to save dismissed tips:", error);
       }
+      persistToServer(arr);
       setCurrentIndex((prev) => {
         const remaining = tips.filter((t) => !newDismissed.has(t.id));
         if (remaining.length === 0) return 0;

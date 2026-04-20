@@ -16,6 +16,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
+import { getApiUrl } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Spacing,
@@ -103,22 +104,71 @@ export function PlatformUsageProgress({
   const percentage = totalCount > 0 ? (usedCount / totalCount) * 100 : 0;
   const unusedFeatures = features.filter((f) => !f.isUsed);
 
+  const localStorageKey = `${STORAGE_KEY}_${role}`;
+  const serverStateKey = `platform_usage_dismissed_${role}`;
+
+  const persistDismissedToServer = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) return;
+      const apiUrl = getApiUrl();
+      await fetch(new URL("/api/user/onboarding-state", apiUrl).toString(), {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ key: serverStateKey, value: true }),
+      });
+    } catch (error) {
+      console.warn("Failed to save platform usage dismissal to server:", error);
+    }
+  }, [serverStateKey]);
+
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      let localDismissed = false;
       try {
-        const dismissed = await AsyncStorage.getItem(`${STORAGE_KEY}_${role}`);
+        const dismissed = await AsyncStorage.getItem(localStorageKey);
         if (dismissed === "true") {
-          setIsDismissed(true);
+          localDismissed = true;
+          if (!cancelled) setIsDismissed(true);
         }
       } catch {}
+
+      try {
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) return;
+        const apiUrl = getApiUrl();
+        const response = await fetch(
+          new URL("/api/user/onboarding-state", apiUrl).toString(),
+          { headers: { "Authorization": `Bearer ${token}` } },
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const serverDismissed = data?.state?.[serverStateKey] === true;
+        if (serverDismissed) {
+          if (!cancelled) setIsDismissed(true);
+          AsyncStorage.setItem(localStorageKey, "true").catch(() => {});
+        } else if (localDismissed) {
+          persistDismissedToServer();
+        }
+      } catch (error) {
+        console.warn("Failed to load platform usage dismissal from server:", error);
+      }
     })();
-  }, [role]);
+    return () => {
+      cancelled = true;
+    };
+  }, [role, localStorageKey, serverStateKey, persistDismissedToServer]);
 
   const handleDismiss = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    AsyncStorage.setItem(`${STORAGE_KEY}_${role}`, "true").catch(() => {});
+    AsyncStorage.setItem(localStorageKey, "true").catch(() => {});
     setIsDismissed(true);
-  }, [role]);
+    persistDismissedToServer();
+  }, [localStorageKey, persistDismissedToServer]);
 
   const toggleExpand = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
