@@ -89,6 +89,29 @@ export NODE_OPTIONS="--max-old-space-size=4096"
 export EAS_NO_VCS=1
 
 # ---------------------------------------------------------------------------
+# Force production EXPO_PUBLIC_* into the OTA bundle.
+#
+# `eas update --channel production` does NOT automatically apply the
+# `build.production.env` from eas.json — it uses the shell env at the
+# time of bundling. The Replit workflow shell has EXPO_PUBLIC_ENV set
+# to "development" (.replit userenv.development) and does not have
+# EXPO_PUBLIC_API_URL / EXPO_PUBLIC_DOMAIN exported, which produced
+# Android bundles missing the API URL and crashing on login.
+#
+# We mirror the values from `eas.json` build.production.env here so
+# the bundle is always built with production env regardless of the
+# host shell. Keep these in sync with eas.json.
+# ---------------------------------------------------------------------------
+export EXPO_PUBLIC_API_URL="https://glow-up-sports--ltvjeugd.replit.app"
+export EXPO_PUBLIC_DOMAIN="glow-up-sports--ltvjeugd.replit.app"
+export EXPO_PUBLIC_ENV="production"
+
+echo "  Injected env for OTA bundle:"
+echo "    EXPO_PUBLIC_API_URL = $EXPO_PUBLIC_API_URL"
+echo "    EXPO_PUBLIC_DOMAIN  = $EXPO_PUBLIC_DOMAIN"
+echo "    EXPO_PUBLIC_ENV     = $EXPO_PUBLIC_ENV"
+
+# ---------------------------------------------------------------------------
 # Helper: run eas update for a single platform
 # ---------------------------------------------------------------------------
 push_platform() {
@@ -101,8 +124,13 @@ push_platform() {
   echo "  Time    : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
   echo "============================================================"
 
+  # --environment production tells EAS CLI (>= 13.2) to also load the
+  # `build.production.env` block from eas.json into the bundling
+  # environment. We already export the same vars above as a fallback in
+  # case the flag is silently ignored on older CLI versions.
   npx eas update \
     --channel production \
+    --environment production \
     --message "$MESSAGE" \
     --platform "$platform" \
     --non-interactive \

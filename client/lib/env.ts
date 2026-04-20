@@ -8,13 +8,16 @@ type EnvConfig = {
 const PRODUCTION_FALLBACK_DOMAIN = "glow-up-sports--ltvjeugd.replit.app";
 
 function isBuiltApp(): boolean {
-  // Strict spec: only treat as a built app when __DEV__ is false AND
-  // EXPO_PUBLIC_ENV is not "development". This keeps dev runs loud
-  // (validateEnv throws) even if a stale EXPO_PUBLIC_ENV=preview is
-  // hanging around locally.
+  // In an EAS release build `__DEV__` is always false. That alone is
+  // enough to consider this a built app — we should NOT additionally
+  // require EXPO_PUBLIC_ENV !== "development", because a misbuilt OTA
+  // bundle may have "development" baked in (e.g. when the OTA push
+  // forgot to inject the production env). In that case we still want
+  // the runtime fallback to kick in instead of crashing the login
+  // screen. In Expo Go / `npm run dev`, __DEV__ is true, so the
+  // strict throw in validateEnv() still fires for local misconfig.
   const dev = (typeof __DEV__ !== "undefined" ? __DEV__ : true) as boolean;
-  if (dev) return false;
-  return process.env.EXPO_PUBLIC_ENV !== "development";
+  return !dev;
 }
 
 function getEnvVar(key: string): string {
@@ -47,14 +50,17 @@ export function validateEnv(): EnvConfig {
         `[ENV] EXPO_PUBLIC_API_URL and EXPO_PUBLIC_DOMAIN both missing in a built app — ` +
         `falling back to ${PRODUCTION_FALLBACK_DOMAIN}. Check your eas.json env section.`
       );
+      const rawEnv = process.env.EXPO_PUBLIC_ENV;
+      // If the bundle was misbuilt and EXPO_PUBLIC_ENV is missing OR
+      // accidentally "development" inside a real release build, treat it
+      // as "production" — we already know we're on the production fallback
+      // domain so anything else would mislead analytics/feature flags.
+      const safeEnv: EnvConfig["EXPO_PUBLIC_ENV"] =
+        rawEnv === "preview" || rawEnv === "production" ? rawEnv : "production";
       return {
         EXPO_PUBLIC_API_URL: `https://${PRODUCTION_FALLBACK_DOMAIN}`,
         EXPO_PUBLIC_DOMAIN: PRODUCTION_FALLBACK_DOMAIN,
-        // Use the raw env value (not the dev-defaulted `env`) so a missing
-        // EXPO_PUBLIC_ENV in a built app is treated as "production" — matching
-        // getEnv()'s behavior and keeping the two paths deterministic.
-        EXPO_PUBLIC_ENV:
-          (process.env.EXPO_PUBLIC_ENV as EnvConfig["EXPO_PUBLIC_ENV"]) ?? "production",
+        EXPO_PUBLIC_ENV: safeEnv,
       };
     }
 
@@ -83,11 +89,13 @@ export function getEnv(): EnvConfig {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (!apiUrl && !domain && isBuiltApp()) {
+    const rawEnv = process.env.EXPO_PUBLIC_ENV;
+    const safeEnv: EnvConfig["EXPO_PUBLIC_ENV"] =
+      rawEnv === "preview" || rawEnv === "production" ? rawEnv : "production";
     return {
       EXPO_PUBLIC_API_URL: `https://${PRODUCTION_FALLBACK_DOMAIN}`,
       EXPO_PUBLIC_DOMAIN: PRODUCTION_FALLBACK_DOMAIN,
-      EXPO_PUBLIC_ENV:
-        (process.env.EXPO_PUBLIC_ENV as EnvConfig["EXPO_PUBLIC_ENV"]) || "production",
+      EXPO_PUBLIC_ENV: safeEnv,
     };
   }
   return {
