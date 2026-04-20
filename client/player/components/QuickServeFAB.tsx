@@ -19,6 +19,7 @@ import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useGlassTint } from "@/hooks/useGlassTint";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface QuickAction {
@@ -217,7 +218,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
             ]}
           >
             {Platform.OS === "ios" ? (
-              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+              <BlurView intensity={40} tint={glassTint} style={StyleSheet.absoluteFill}>
                 <LinearGradient
                   colors={[ProTennisColors.surfaceCard + "F0", ProTennisColors.surfaceDark + "F5"]}
                   style={StyleSheet.absoluteFill}

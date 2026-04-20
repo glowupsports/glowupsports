@@ -262,6 +262,16 @@ export const Colors = {
     glassGradientEndWeb: "rgba(245, 246, 248, 0.96)",
     heroGradientStart: "rgba(200, 255, 61, 0.18)",
     heroGradientEnd: "rgba(245, 246, 248, 0.0)",
+    // Modal scrim — used behind modals/sheets/walkthrough overlays.
+    // Lighter on light mode so backdrops don't crush the new clean palette.
+    modalScrim: "rgba(15, 18, 24, 0.45)",
+    // Chrome surface tokens — translucent backdrop + border used by floating
+    // chrome (FAB pill labels, header on Android, custom toasts) so they stay
+    // legible on either palette without hardcoded rgba(10,15,30,*) literals.
+    chromeBackground: "rgba(255, 255, 255, 0.92)",
+    chromeBackgroundStrong: "rgba(255, 255, 255, 0.96)",
+    chromeBorder: "rgba(11, 13, 16, 0.10)",
+    chromeText: "#0B0D10",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,
@@ -360,6 +370,14 @@ export const Colors = {
     glassGradientEndWeb: "rgba(21, 27, 41, 0.95)",
     heroGradientStart: "rgba(200, 255, 61, 0.20)",
     heroGradientEnd: "rgba(11, 13, 16, 0.0)",
+    // Modal scrim — heavier on dark mode for premium contrast.
+    modalScrim: "rgba(0, 0, 0, 0.7)",
+    // Chrome surface tokens — translucent dark backdrop + faint white border
+    // for floating chrome (FAB pill labels, header on Android, custom toasts).
+    chromeBackground: "rgba(10, 15, 30, 0.88)",
+    chromeBackgroundStrong: "rgba(26, 26, 26, 0.95)",
+    chromeBorder: "rgba(255, 255, 255, 0.10)",
+    chromeText: "#FFFFFF",
     // Legacy compatibility
     green: FunctionColors.success,
     red: FunctionColors.error,

@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useGlassTint } from "@/hooks/useGlassTint";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export type TickerItemType = "chat" | "goal" | "streak" | "news" | "achievement" | "notification";
@@ -122,7 +123,7 @@ export function SocialTickerFooter({
       style={[styles.container, { paddingBottom: insets.bottom || Spacing.sm }]}
     >
       {Platform.OS === "ios" ? (
-        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill}>
+        <BlurView intensity={60} tint={glassTint} style={StyleSheet.absoluteFill}>
           <LinearGradient
             colors={[ProTennisColors.midnightBlue + "F0", ProTennisColors.surfaceDark + "F8"]}
             style={StyleSheet.absoluteFill}

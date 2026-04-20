@@ -14,12 +14,14 @@ import { GlowScoreModal } from "@/components/GlowScoreModal";
 import { Colors, Spacing } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useGlassTint } from "@/hooks/useGlassTint";
 
 export function CustomHeader() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { player } = usePlayer();
   const [showGlowModal, setShowGlowModal] = useState(false);
+  const glassTint = useGlassTint();
 
   const openDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
@@ -74,7 +76,7 @@ export function CustomHeader() {
 
   if (Platform.OS === "ios") {
     return (
-      <BlurView intensity={80} tint="dark" style={[styles.container, { paddingTop: insets.top }]}>
+      <BlurView intensity={80} tint={glassTint} style={[styles.container, { paddingTop: insets.top }]}>
         {content}
       </BlurView>
     );
@@ -100,7 +102,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderBottomColor: Colors.dark.headerBorder,
   },
   androidContainer: {
-    backgroundColor: "rgba(26, 26, 26, 0.95)",
+    backgroundColor: Colors.dark.chromeBackgroundStrong,
   },
   topRow: {
     flexDirection: "row",

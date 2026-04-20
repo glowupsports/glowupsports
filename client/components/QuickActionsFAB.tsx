@@ -226,14 +226,14 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   actionLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.dark.text,
-    backgroundColor: "rgba(10, 15, 30, 0.88)",
+    color: Colors.dark.chromeText,
+    backgroundColor: Colors.dark.chromeBackground,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.dark.chromeBorder,
   },
   actionIconContainer: {
     width: ACTION_ITEM_SIZE,

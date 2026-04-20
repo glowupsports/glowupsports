@@ -92,7 +92,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   overlayBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: Colors.dark.modalScrim,
   },
   tooltipCard: {
     backgroundColor: Backgrounds.card,

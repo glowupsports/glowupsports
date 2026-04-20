@@ -152,7 +152,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   header: {
     paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: Colors.dark.divider,
   },
   headerInfo: {
     flex: 1,
@@ -193,7 +193,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   footer: {
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.04)",
+    borderTopColor: Colors.dark.divider,
     paddingTop: Spacing.lg,
   },
   logoutButton: {

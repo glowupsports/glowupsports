@@ -103,6 +103,7 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 
 ### Conventions
 - **Modal Stacking**: If a modal is opened from inside another modal, render its `<Modal>` JSX as a child of the parent modal's JSX, not as a sibling on the screen to prevent it from appearing behind the parent.
+- **Player-app theming (Light/Dark)**: Chrome and surface colours in `client/player/**` and shared player chrome (CustomHeader, QuickActionsFAB, DrawerContent, etc.) MUST come from theme tokens — never hardcode `rgba(255,255,255,*)` or `rgba(0,0,0,*)` literals for borders, panel fills, modal scrims, or chrome backdrops. Use the relevant `Colors.dark.*` token (it auto-flips to the light palette via `applyPlayerScheme`'s mutation trick): `borderSubtle`, `divider`, `chipBackground`, `glass`, `overlay`, `modalScrim`, `chromeBackground`, `chromeBackgroundStrong`, `chromeBorder`, `chromeText`. Wrap any `StyleSheet.create({...})` consuming these tokens in `makeReactiveStyles(() => ...)` from `client/hooks/useThemedStyles.ts` so the cached styles re-evaluate when the player toggles Light/Dark. For `BlurView tint`, use the `useGlassTint()` hook from `client/hooks/useGlassTint.ts` instead of hardcoding `tint="dark"`.
 
 ## External Dependencies
 
