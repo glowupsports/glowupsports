@@ -358,6 +358,24 @@ export default function PlayerBookingWizard({
     }
   }, [availableCourts]);
 
+  // Auto-select for the "Choose Court" browse step when only one bookable
+  // court exists in the academy — keeps Next enabled/full color instead of
+  // forcing the player to tap the only option.
+  useEffect(() => {
+    if (
+      browseMode === "by_court" &&
+      academyCourts.length === 1 &&
+      !presetCourtId
+    ) {
+      const only = academyCourts[0];
+      setPresetCourtId(only.id);
+      setPresetCourt(only);
+      setSelectedCourtId(only.id);
+      setSelectedCourtName(only.name);
+      setSelectedLocationId(only.locationId ?? null);
+    }
+  }, [browseMode, academyCourts, presetCourtId]);
+
   // Fetch coaches for "browse by coach" mode
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
@@ -847,13 +865,9 @@ export default function PlayerBookingWizard({
   // SLIDE 1: How to Browse (by time or by coach)
   const renderBrowseModeSlide = () => (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={slideScrollPadding}
-      >
       <Text style={styles.slideSubtitle}>How would you like to find a session?</Text>
-      
-      <View style={styles.browseModeGrid}>
+
+      <View style={[styles.browseModeGrid, { flex: 1 }]}>
         {/* Browse by Time option */}
         <Pressable
           onPress={() => {
@@ -866,6 +880,7 @@ export default function PlayerBookingWizard({
           }}
           style={[
             styles.browseModeCard,
+            { flex: 1 },
             browseMode === "by_time" && { borderColor: Colors.dark.primary, borderWidth: 2 },
           ]}
         >
@@ -874,7 +889,7 @@ export default function PlayerBookingWizard({
             style={styles.browseModeCardGradient}
           >
             <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="calendar" size={36} color={Colors.dark.primary} />
+              <Ionicons name="calendar" size={28} color={Colors.dark.primary} />
             </View>
             <Text style={[styles.browseModeLabel, browseMode === "by_time" && { color: Colors.dark.primary }]}>
               Browse by Time
@@ -894,6 +909,7 @@ export default function PlayerBookingWizard({
           }}
           style={[
             styles.browseModeCard,
+            { flex: 1 },
             browseMode === "by_coach" && { borderColor: Colors.dark.primary, borderWidth: 2 },
           ]}
         >
@@ -902,7 +918,7 @@ export default function PlayerBookingWizard({
             style={styles.browseModeCardGradient}
           >
             <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="person" size={36} color={Colors.dark.primary} />
+              <Ionicons name="person" size={28} color={Colors.dark.primary} />
             </View>
             <Text style={[styles.browseModeLabel, browseMode === "by_coach" && { color: Colors.dark.primary }]}>
               Choose Coach
@@ -920,6 +936,7 @@ export default function PlayerBookingWizard({
           }}
           style={[
             styles.browseModeCard,
+            { flex: 1 },
             browseMode === "by_court" && { borderColor: Colors.dark.primary, borderWidth: 2 },
           ]}
         >
@@ -928,7 +945,7 @@ export default function PlayerBookingWizard({
             style={styles.browseModeCardGradient}
           >
             <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="tennisball" size={36} color={Colors.dark.primary} />
+              <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
             </View>
             <Text style={[styles.browseModeLabel, browseMode === "by_court" && { color: Colors.dark.primary }]}>
               Choose Court
@@ -937,7 +954,6 @@ export default function PlayerBookingWizard({
           </LinearGradient>
         </Pressable>
       </View>
-      </ScrollView>
     </Animated.View>
   );
 
@@ -1744,7 +1760,7 @@ export default function PlayerBookingWizard({
 
     if (Platform.OS === "web") return inner;
     return (
-      <Pressable onPress={Keyboard.dismiss} accessible={false}>
+      <Pressable onPress={Keyboard.dismiss} accessible={false} style={{ flex: 1 }}>
         {inner}
       </Pressable>
     );
@@ -1958,7 +1974,7 @@ export default function PlayerBookingWizard({
 
         {/* Footer Navigation */}
         {!showSuccess && (
-          <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + Spacing.md }]}>
             {currentSlide > 0 && (
               <Pressable style={styles.backButton} onPress={goBack}>
                 <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
@@ -2213,29 +2229,31 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     left: 88,
   },
   browseModeGrid: {
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   browseModeCard: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    marginBottom: Spacing.sm,
   },
   browseModeCardGradient: {
-    padding: Spacing.xl,
+    flex: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     alignItems: "center",
-    gap: Spacing.md,
+    justifyContent: "center",
+    gap: Spacing.sm,
   },
   browseModeIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
   },
   browseModeLabel: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 700,
     color: Colors.dark.text,
   },
@@ -2947,11 +2965,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.text,
   },
   nextButton: {
-    flex: 1,
+    alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
+    minHeight: 52,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
     backgroundColor: Colors.dark.primary,
