@@ -182,7 +182,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemActive: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
   },
   menuItemText: {
     fontSize: 16,

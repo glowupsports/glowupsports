@@ -9,7 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 interface SpotlightNominee {
   playerId: string;
   playerName: string;
@@ -118,6 +118,7 @@ const countdownStyles = makeReactiveStyles(() => StyleSheet.create({
 }));
 
 export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void }) {
+  useThemeReactivity();
   const { user } = useAuth();
 
   const { data: friendSpotlight } = useQuery<FriendSpotlightData>({
@@ -171,6 +172,7 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
 }
 
 export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode = "academy" }: SpotlightCardProps) {
+  useThemeReactivity();
   const { user } = useAuth();
   const glowStyle = {};
 

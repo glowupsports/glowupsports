@@ -182,7 +182,7 @@ export function NeonEdgeCard({
       <LinearGradient
         colors={[
           `${color}08`,
-          "rgba(21, 27, 41, 0.95)",
+          Colors.dark.backgroundDefault,
         ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}

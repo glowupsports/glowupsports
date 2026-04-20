@@ -17,6 +17,7 @@ import AdultRanksListScreen from "@/screens/AdultRanksListScreen";
 import RecordAdultMatchScreen from "@/screens/RecordAdultMatchScreen";
 import { DrawerContent } from "@/components/DrawerContent";
 import { Colors } from "@/constants/theme";
+import { useThemeReactivity } from "@/hooks/useThemedStyles";
 
 export type DrawerParamList = {
   Home: undefined;
@@ -37,6 +38,7 @@ const Drawer = createDrawerNavigator<DrawerParamList>();
 const { width } = Dimensions.get("window");
 
 export default function DrawerNavigator() {
+  useThemeReactivity();
   const { t } = useTranslation();
   return (
     <Drawer.Navigator

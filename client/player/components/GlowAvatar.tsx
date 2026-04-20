@@ -10,7 +10,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, BorderRadius } from "@/constants/theme";
+import { ProTennisColors, BorderRadius, Colors } from "@/constants/theme";
 import { getPlayerLevelColor } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -190,7 +190,7 @@ export function GlowAvatar({
                 styles.initials,
                 {
                   fontSize: sizeValue * 0.35,
-                  color: resolvedGlowColor,
+                  color: Colors.dark.text,
                 },
               ]}
             >
@@ -295,13 +295,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   avatarContainer: {
     borderWidth: 2,
-    borderColor: ProTennisColors.surfaceDark,
+    borderColor: Colors.dark.borderSubtle,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ProTennisColors.surfaceCard,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   avatarImage: {
-    backgroundColor: ProTennisColors.surfaceCard,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   initialsContainer: {
     alignItems: "center",

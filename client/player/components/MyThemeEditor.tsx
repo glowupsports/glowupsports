@@ -21,6 +21,7 @@ import {
 } from "@shared/theme";
 import ColorPickerModal from "./ColorPickerModal";
 import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 
 const HEX6_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -99,6 +100,7 @@ export default function MyThemeEditor({
   setOverride,
   initialMode = "dark",
 }: Props) {
+  useThemeReactivity();
   const appearance = usePlayerAppearanceOptional();
   const [mode, setMode] = useState<Mode>(
     appearance?.resolvedScheme ?? initialMode,
@@ -235,7 +237,7 @@ export default function MyThemeEditor({
                     ? Colors.dark.primary
                     : Colors.dark.borderSubtle,
                   backgroundColor: selected
-                    ? "rgba(200,255,61,0.08)"
+                    ? Colors.dark.accentTextSoft
                     : Colors.dark.backgroundSecondary,
                 },
               ]}
@@ -617,7 +619,7 @@ function PreviewCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   help: {
     color: Colors.dark.textMuted,
     fontSize: 13,
@@ -725,4 +727,4 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.borderSubtle,
     backgroundColor: "transparent",
   },
-});
+}));

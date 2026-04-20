@@ -299,9 +299,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   productCard: {
     width: PRODUCT_CARD_WIDTH,
-    backgroundColor: "#151920",
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: 12,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
   },
   productImageContainer: {
     width: "100%",
