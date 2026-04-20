@@ -25,6 +25,10 @@ interface AttendanceHistoryRecord {
   seriesId?: string | null;
   seriesDayOfWeek?: number | null;
   seriesTitle?: string | null;
+  // Task #817: per-lesson credit charge from the V2/V1 ledger.
+  creditsCharged?: number;
+  creditChargeCount?: number;
+  creditChargeType?: string | null;
 }
 
 interface SeriesAttendanceSummary {
@@ -304,6 +308,40 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 4 }}>
               <Feather name="star" size={12} color="#FFD700" />
               <Text style={{ color: "#FFD700", fontSize: 11, fontWeight: "600" }}>{sessionRating.rating}/5</Text>
+            </View>
+          ) : null}
+          {/* Task #817: per-lesson credit charge pill so the user can see exactly
+              how many credits were debited for this session. Flags duplicates. */}
+          {(record.creditsCharged ?? 0) > 0 ? (
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 2,
+              marginLeft: 4,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+              backgroundColor: (record.creditChargeCount ?? 1) > 1
+                ? "rgba(255, 80, 80, 0.18)"
+                : "rgba(200, 255, 61, 0.15)",
+              borderWidth: 1,
+              borderColor: (record.creditChargeCount ?? 1) > 1
+                ? Colors.dark.error
+                : Colors.dark.primary,
+            }}>
+              <Ionicons
+                name="ticket-outline"
+                size={11}
+                color={(record.creditChargeCount ?? 1) > 1 ? Colors.dark.error : Colors.dark.primary}
+              />
+              <Text style={{
+                color: (record.creditChargeCount ?? 1) > 1 ? Colors.dark.error : Colors.dark.primary,
+                fontSize: 10,
+                fontWeight: "700",
+              }}>
+                −{record.creditsCharged}
+                {(record.creditChargeCount ?? 1) > 1 ? `×${record.creditChargeCount}!` : ""}
+              </Text>
             </View>
           ) : null}
           <Pressable

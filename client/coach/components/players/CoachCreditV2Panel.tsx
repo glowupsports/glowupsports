@@ -362,31 +362,58 @@ export function CoachCreditV2Panel({ playerId }: Props) {
           marginBottom: Spacing.sm,
         }}
       >
-        {(["group", "semi_private", "private"] as CreditType[]).map((t) => (
-          <View
-            key={t}
-            style={{
-              flex: 1,
-              padding: Spacing.sm,
-              borderRadius: 10,
-              backgroundColor: `${TYPE_COLOR[t]}15`,
-              alignItems: "center",
-            }}
-          >
-            <Text
+        {(["group", "semi_private", "private"] as CreditType[]).map((t) => {
+          // Task #817: surface debt clearly. Negative balances were previously
+          // rendered in the same colour as positives, so users assumed nothing
+          // was charged. Show negative values in red and add a "Debt" pill.
+          const value = Number(wallet.balance[t] ?? 0);
+          const inDebt = value < 0;
+          const valueColor = inDebt ? Colors.dark.error : TYPE_COLOR[t];
+          return (
+            <View
+              key={t}
               style={{
-                fontSize: 18,
-                fontWeight: "800",
-                color: TYPE_COLOR[t],
+                flex: 1,
+                padding: Spacing.sm,
+                borderRadius: 10,
+                backgroundColor: inDebt
+                  ? "rgba(255, 80, 80, 0.12)"
+                  : `${TYPE_COLOR[t]}15`,
+                borderWidth: inDebt ? 1 : 0,
+                borderColor: inDebt ? Colors.dark.error : "transparent",
+                alignItems: "center",
               }}
             >
-              {fmtNumber(wallet.balance[t])}
-            </Text>
-            <Text style={{ fontSize: 10, color: Colors.dark.textMuted }}>
-              {TYPE_LABEL[t]}
-            </Text>
-          </View>
-        ))}
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "800",
+                  color: valueColor,
+                }}
+              >
+                {fmtNumber(wallet.balance[t])}
+              </Text>
+              <Text style={{ fontSize: 10, color: Colors.dark.textMuted }}>
+                {TYPE_LABEL[t]}
+              </Text>
+              {inDebt ? (
+                <View
+                  style={{
+                    marginTop: 4,
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    borderRadius: 8,
+                    backgroundColor: Colors.dark.error,
+                  }}
+                >
+                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff" }}>
+                    DEBT
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
       </View>
 
       {wallet.moneyWallet ? (

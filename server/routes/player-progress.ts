@@ -1263,11 +1263,74 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return dateB.getTime() - dateA.getTime();
         });
 
+        // Task #817: Per-lesson credit charge map. Source of truth is the
+        // V2 ledger (credit_ledger_v2) for V2 academies; we also union the
+        // legacy credit_transactions table so legacy/historical sessions still
+        // show their charge. We sum non-cancelled debit deltas keyed by
+        // session_id and report `{ amount, count }` so the UI can flag
+        // duplicates ("Duplicate charge detected") if any slipped through.
+        const sessionIdsForCredits = sortedRecords
+          .map((r) => r.sessionId)
+          .filter((s): s is string => !!s);
+        type ChargeAgg = { amount: number; count: number; type: string | null };
+        const chargesBySession = new Map<string, ChargeAgg>();
+        if (sessionIdsForCredits.length > 0) {
+          // V2 ledger
+          try {
+            const v2Rows = await db.execute(sql`
+              SELECT session_id, type, delta
+              FROM credit_ledger_v2
+              WHERE player_id = ${playerId}
+                AND session_id = ANY(${sessionIdsForCredits as any}::text[])
+                AND reason = 'consume'
+                AND delta < 0
+            `);
+            for (const row of v2Rows.rows as any[]) {
+              const sid = row.session_id as string;
+              const delta = Number(row.delta);
+              const cur = chargesBySession.get(sid) ?? { amount: 0, count: 0, type: null };
+              cur.amount += Math.abs(delta);
+              cur.count += 1;
+              cur.type = cur.type ?? (row.type as string | null);
+              chargesBySession.set(sid, cur);
+            }
+          } catch (creditErr) {
+            console.warn("[AttendanceHistory] V2 credit join skipped:", creditErr);
+          }
+          // Legacy V1 ledger (only for sessions without V2 rows)
+          try {
+            const v1Rows = await db.execute(sql`
+              SELECT session_id, credit_type, amount
+              FROM credit_transactions
+              WHERE player_id = ${playerId}
+                AND session_id = ANY(${sessionIdsForCredits as any}::text[])
+                AND type = 'debit'
+                AND reason IN ('session_debt','session_consumed','session_booking')
+                AND COALESCE(metadata->>'cancelled','false') != 'true'
+            `);
+            for (const row of v1Rows.rows as any[]) {
+              const sid = row.session_id as string;
+              if (chargesBySession.has(sid)) continue; // V2 wins
+              const amt = Math.abs(Number(row.amount));
+              const cur = chargesBySession.get(sid) ?? { amount: 0, count: 0, type: null };
+              cur.amount += amt;
+              cur.count += 1;
+              cur.type = cur.type ?? (row.credit_type as string | null);
+              chargesBySession.set(sid, cur);
+            }
+          } catch (creditErr) {
+            console.warn("[AttendanceHistory] V1 credit join skipped:", creditErr);
+          }
+        }
+
         // Format for frontend - include records even if session details are missing
         const history = sortedRecords.map((record) => {
           const seriesInfo = record.seriesId
             ? seriesMap[record.seriesId]
             : null;
+          const charge = record.sessionId
+            ? chargesBySession.get(record.sessionId)
+            : undefined;
           return {
             sessionId: record.sessionId,
             date: record.sessionStartTime
@@ -1286,6 +1349,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             seriesId: record.seriesId,
             seriesDayOfWeek: seriesInfo?.dayOfWeek ?? null,
             seriesTitle: seriesInfo?.title || null,
+            // Task #817: per-lesson credit charge surfaced from the ledger.
+            creditsCharged: charge ? charge.amount : 0,
+            creditChargeCount: charge ? charge.count : 0,
+            creditChargeType: charge?.type ?? null,
           };
         });
 
