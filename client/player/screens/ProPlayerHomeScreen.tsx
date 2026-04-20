@@ -231,7 +231,7 @@ function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; que
       onPress={onPress}
       footer={
         <View style={miniTileStyles.footerRow}>
-          <Ionicons name="flash" size={10} color="#FFD700" />
+          <Ionicons name="flash" size={10} color=GlowColors.yellow />
           <Text style={miniTileStyles.xpFooterText} numberOfLines={1}>+{quest.xpReward ?? 0} XP</Text>
         </View>
       }
@@ -272,7 +272,7 @@ interface SpotlightWeeklyWinnerMini {
   profilePhotoUrl: string | null;
 }
 
-function SpotlightTileAvatar({ photoUrl, borderColor = "#FFD700" }: { photoUrl?: string | null; borderColor?: string }) {
+function SpotlightTileAvatar({ photoUrl, borderColor = GlowColors.yellow }: { photoUrl?: string | null; borderColor?: string }) {
   const baseUrl = getStaticAssetsUrl();
   const fullUrl = photoUrl ? (photoUrl.startsWith("http") ? photoUrl : `${baseUrl}${photoUrl}`) : null;
   return (
@@ -357,7 +357,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
   } else if (stateC && lastWinner) {
     footer = (
       <View style={miniTileStyles.footerRow}>
-        <Ionicons name="ribbon" size={10} color="#FFD700" />
+        <Ionicons name="ribbon" size={10} color=GlowColors.yellow />
         <Text style={miniTileStyles.footerText} numberOfLines={1}>Winner</Text>
       </View>
     );
@@ -372,7 +372,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
           {topNominee.playerName.split(" ")[0]}
         </Text>
         <View style={miniTileStyles.starRow}>
-          <Ionicons name="star" size={10} color="#FFD700" />
+          <Ionicons name="star" size={10} color=GlowColors.yellow />
           <Text style={miniTileStyles.starCountText}>{topNominee.totalVotes}</Text>
         </View>
       </>
@@ -397,7 +397,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
     <MiniTile
       label="SPOTLIGHT"
       icon="trophy"
-      iconColor="#FFD700"
+      iconColor=GlowColors.yellow
       accentBg="rgba(255,215,0,0.08)"
       accentBorder="rgba(255,215,0,0.25)"
       accessibilityLabel="Player spotlight"
@@ -549,7 +549,7 @@ function IQQuizModal({
 
           {quizLoading ? (
             <View style={iqCardStyles.loadingWrap}>
-              <ActivityIndicator color="#FFD700" size="small" />
+              <ActivityIndicator color=GlowColors.yellow size="small" />
               <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
             </View>
           ) : quizComplete ? (
@@ -801,8 +801,8 @@ function UnifiedImproveCard({
               }}
             >
               <View style={u.colHeader}>
-                <Ionicons name="bulb-outline" size={11} color="#FFD700" />
-                <Text style={[u.colLabel, { color: "#FFD700" }]} numberOfLines={1}>
+                <Ionicons name="bulb-outline" size={11} color=GlowColors.yellow />
+                <Text style={[u.colLabel, { color: GlowColors.yellow }]} numberOfLines={1}>
                   TENNIS IQ
                 </Text>
               </View>
@@ -862,7 +862,7 @@ function UnifiedImproveCard({
                       {quest.currentProgress}/{quest.targetProgress}
                     </Text>
                     <View style={u.xpRow}>
-                      <Ionicons name="flash" size={10} color="#FFD700" />
+                      <Ionicons name="flash" size={10} color=GlowColors.yellow />
                       <Text style={u.xpText} numberOfLines={1}>
                         +{quest.xpReward ?? 0} XP
                       </Text>
@@ -887,8 +887,8 @@ function UnifiedImproveCard({
           {/* SPOTLIGHT FULL-WIDTH ROW — main row + CTA are SIBLING Pressables */}
           <View style={u.spotWrap}>
             <View style={u.spotHeaderRow}>
-              <Ionicons name="trophy" size={11} color="#FFD700" />
-              <Text style={[u.colLabel, { color: "#FFD700" }]} numberOfLines={1}>
+              <Ionicons name="trophy" size={11} color=GlowColors.yellow />
+              <Text style={[u.colLabel, { color: GlowColors.yellow }]} numberOfLines={1}>
                 PLAYER OF THE WEEK
               </Text>
               {chipText ? (
@@ -1116,7 +1116,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
     gap: 4,
   },
   xpRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  xpText: { fontSize: 10, color: "#FFD700", fontWeight: "700" },
+  xpText: { fontSize: 10, color: GlowColors.yellow, fontWeight: "700" },
   // Spotlight
   spotWrap: {
     paddingHorizontal: Spacing.md,
@@ -1185,7 +1185,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
   urgencyChipText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#FFD700",
+    color: GlowColors.yellow,
     letterSpacing: 0.3,
   },
 }));
@@ -1738,10 +1738,10 @@ function PlayerHomeContent() {
         onRequestClose={() => setShowBookingSportPicker(false)}
       >
         <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+          style={{ flex: 1, backgroundColor: Colors.dark.modalScrim }}
           onPress={() => setShowBookingSportPicker(false)}
         >
-          <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#1A1F2E", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: Spacing.xl }}>
+          <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: Backgrounds.elevated, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: Spacing.xl }}>
             <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: Spacing.md }}>
               Book Lesson In
             </Text>
@@ -1916,7 +1916,7 @@ function TennisIQMiniTile() {
       <MiniTile
         label="TENNIS IQ"
         icon="bulb-outline"
-        iconColor="#FFD700"
+        iconColor=GlowColors.yellow
         accentBg="rgba(255,215,0,0.06)"
         accentBorder="rgba(255,215,0,0.2)"
         accessibilityLabel="Test your tennis IQ"
@@ -1960,7 +1960,7 @@ function TennisIQMiniTile() {
 
             {quizLoading ? (
               <View style={iqCardStyles.loadingWrap}>
-                <ActivityIndicator color="#FFD700" size="small" />
+                <ActivityIndicator color=GlowColors.yellow size="small" />
                 <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
               </View>
             ) : quizComplete ? (
@@ -2039,14 +2039,14 @@ const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
   scoreDot: { width: 8, height: 8, borderRadius: 4 },
   scoreDotFilled: { backgroundColor: GlowColors.yellow },
   scoreDotEmpty: { backgroundColor: Colors.dark.chipBorder },
-  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: Colors.dark.modalScrim },
   modalSheet: {
-    backgroundColor: "#1a1a1a", borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: Backgrounds.elevated, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: Spacing.xl, paddingBottom: 48, gap: Spacing.lg,
   },
   modalHandle: {
     width: 36, height: 4, borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "center",
+    backgroundColor: Colors.dark.chipBackgroundStrong, alignSelf: "center",
   },
   modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.dark.text, textAlign: "center" },
   loadingWrap: { alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.xl },
@@ -2055,10 +2055,10 @@ const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
   resultCircle: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: "rgba(255,215,0,0.15)",
-    borderWidth: 2, borderColor: "#FFD700",
+    borderWidth: 2, borderColor: GlowColors.yellow,
     justifyContent: "center", alignItems: "center",
   },
-  resultScore: { fontSize: 22, fontWeight: "800", color: "#FFD700" },
+  resultScore: { fontSize: 22, fontWeight: "800", color: GlowColors.yellow },
   resultLabel: { fontSize: 16, fontWeight: "700", color: Colors.dark.text },
   doneBtn: {
     backgroundColor: GlowColors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
@@ -2443,7 +2443,7 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   xpFooterText: {
     fontSize: 10,
-    color: "#FFD700",
+    color: GlowColors.yellow,
     fontWeight: "700",
   },
   // Spotlight
@@ -2459,7 +2459,7 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
   urgencyChipText: {
     fontSize: 8,
     fontWeight: "800",
-    color: "#FFD700",
+    color: GlowColors.yellow,
     letterSpacing: 0.3,
   },
   spotAvatar: {
@@ -2483,7 +2483,7 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
   starCountText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#FFD700",
+    color: GlowColors.yellow,
   },
   votePill: {
     flexDirection: "row",

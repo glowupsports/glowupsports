@@ -957,7 +957,7 @@ function LensShell({
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
-          colors={[`${accent}26`, "rgba(17, 20, 26, 0.55)", "rgba(17, 20, 26, 0.85)"]}
+          colors={[`${accent}26`, Backgrounds.glass, Backgrounds.glass]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
