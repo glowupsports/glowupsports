@@ -1,22 +1,21 @@
-import { useSyncExternalStore } from "react";
-import { getThemeRevision, subscribeTheme } from "@/constants/theme";
+import { useTheme } from "@/contexts/ThemeContext";
+import { _getThemeRevisionInternal } from "@/contexts/ThemeContext";
 
 /**
- * Subscribes the calling component to the global theme revision so it
- * re-renders whenever `applyPlayerScheme` or `setActiveAcademyTheme` bumps
- * the revision counter. Returns the current revision number (rarely useful;
- * the side effect is the re-render).
+ * Subscribes the calling component to the active theme so it re-renders
+ * whenever the scheme or academy theme changes.
  *
- * Why: `makeReactiveStyles` returns a Proxy that re-evaluates its factory
- * after a revision bump, but a component only reads the proxy during render.
- * Without a subscription, the component never re-renders on scheme toggle,
- * so the new style values never reach the host platform. Call this hook
- * once near the top of any screen/component that uses reactive styles AND
- * is not already a subscriber to the AcademyTheme / PlayerAppearance
- * contexts (those already re-render via React's normal flow).
+ * @deprecated Task #823 — read colours via `useTheme()` instead. This hook
+ * exists only for legacy screens that still rely on `makeReactiveStyles`
+ * + module-level `Colors.dark.*` snapshots; migrating those screens lets
+ * us delete this hook entirely.
  */
 export function useThemeReactivity(): number {
-  return useSyncExternalStore(subscribeTheme, getThemeRevision, getThemeRevision);
+  // useTheme() consumes ThemeContext, so the calling component re-renders
+  // on every scheme / academy theme change just like before. We return
+  // the internal revision number for parity with the old API.
+  useTheme();
+  return _getThemeRevisionInternal();
 }
 
 /**
@@ -24,25 +23,13 @@ export function useThemeReactivity(): number {
  * factory whenever the active theme revision changes (player scheme or
  * academy overlay).
  *
- * Why: `StyleSheet.create` evaluates its argument once at module-load time,
- * which freezes any color tokens (e.g. `Colors.dark.backgroundRoot`) into
- * the resulting style sheet. Wrapping with `makeReactiveStyles` defers the
- * evaluation: each property access (`styles.container`) checks the current
- * `themeRevision`, re-runs the factory if it changed, and returns the fresh
- * style object.
- *
- * Combined with the player root re-rendering on scheme toggle and the
- * academy theme provider re-rendering on overlay change, this gives us
- * full app-wide repaint without per-component refactors.
- *
- * Usage:
- *   const styles = makeReactiveStyles(() => StyleSheet.create({
- *     container: { backgroundColor: Colors.dark.backgroundRoot },
- *   }));
- *
- * Outside the player app the revision rarely changes, so the factory is
- * effectively computed once and the proxy behaves like a regular static
- * stylesheet.
+ * @deprecated Task #823 — new code should call `useTheme()` and build
+ * styles inside the component (e.g. via `useMemo`). This wrapper is kept
+ * only so the ~240 legacy call-sites continue to flip on light/dark
+ * without an immediate file-by-file migration. The proxy is purely a
+ * read-time helper now: the underlying revision counter is bumped only
+ * by `<ThemeProvider>`'s `useLayoutEffect`, so render-time mutation
+ * (the Task #822 footgun) is no longer possible.
  */
 export function makeReactiveStyles<T extends Record<string, unknown>>(
   factory: () => T,
@@ -51,7 +38,7 @@ export function makeReactiveStyles<T extends Record<string, unknown>>(
   let cachedRev: number | undefined;
 
   const ensure = (): T => {
-    const rev = getThemeRevision();
+    const rev = _getThemeRevisionInternal();
     if (rev !== cachedRev || cached === undefined) {
       cached = factory();
       cachedRev = rev;

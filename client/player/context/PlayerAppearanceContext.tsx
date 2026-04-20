@@ -2,7 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { Appearance, ColorSchemeName } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { applyPlayerScheme, ResolvedScheme } from "@/constants/theme";
+import { type ResolvedScheme } from "@/constants/theme";
+import { useTheme as useThemeContext } from "@/contexts/ThemeContext";
 
 export type PlayerAppearancePreference = "light" | "dark" | "system";
 
@@ -23,6 +24,7 @@ function resolveScheme(pref: PlayerAppearancePreference, osScheme: ColorSchemeNa
 }
 
 export function PlayerAppearanceProvider({ children }: { children: ReactNode }) {
+  const { setScheme } = useThemeContext();
   const [preference, setPreferenceState] = useState<PlayerAppearancePreference>("dark");
   const [osScheme, setOsScheme] = useState<ColorSchemeName>(Appearance.getColorScheme());
 
@@ -57,23 +59,21 @@ export function PlayerAppearanceProvider({ children }: { children: ReactNode }) 
     [preference, osScheme],
   );
 
-  // Apply the resolved scheme in a layout effect so the mutation + subscriber
-  // notification happens AFTER the render phase completes. Calling it during
-  // render mutates the global theme module and notifies `useSyncExternalStore`
-  // subscribers (e.g. AcademyThemeProvider) while a different component is
-  // still rendering — React aborts that update and the splash hangs (Task #822).
-  // useLayoutEffect runs synchronously after commit but before paint, so the
-  // brief stale-colour pass is invisible.
+  // Push the resolved scheme into the central ThemeContext (Task #823).
+  // ThemeContext owns the active scheme and triggers the back-compat
+  // mutation of the legacy `Colors.*` globals from its own
+  // `useLayoutEffect`, so the call here is a plain state update — no
+  // render-time mutation, no external store, no Task #822 footgun.
   useLayoutEffect(() => {
-    applyPlayerScheme(resolvedScheme);
-  }, [resolvedScheme]);
+    setScheme(resolvedScheme);
+  }, [resolvedScheme, setScheme]);
 
   // Restore dark when this provider unmounts (e.g. switching to coach mode).
   useEffect(() => {
     return () => {
-      applyPlayerScheme("dark");
+      setScheme("dark");
     };
-  }, []);
+  }, [setScheme]);
 
   const setPreference = useCallback(async (next: PlayerAppearancePreference) => {
     setPreferenceState(next);

@@ -509,69 +509,28 @@ function rebuild(): void {
   applyAcademyOverlay(resolved);
 }
 
-/**
- * Mutates the exported `Backgrounds`, `TextColors` and `Colors.*` objects so
- * any inline reference reflects the new player-app scheme + active academy
- * theme on the next render.
- *
- * Note: values captured at module-import time inside `StyleSheet.create({...})`
- * are frozen to whatever the value was at import. Components that want full
- * theme reactivity should read colors from `useTheme()` at render time.
- */
-export function applyPlayerScheme(scheme: ResolvedScheme): void {
-  if (scheme === activeScheme) return;
-  activeScheme = scheme;
-  rebuild();
-  themeRevision++;
-  notifyThemeListeners();
-}
+// =====================================================================
+// THEME MUTATION — internal-only API (Task #823)
+// ---------------------------------------------------------------------
+// Source of truth for the active scheme + academy theme is the React
+// `ThemeContext` (`client/contexts/ThemeContext.tsx`). The mutators below
+// are intentionally NOT exported via the public surface — they are
+// invoked exclusively by the ThemeProvider's `useLayoutEffect` as a
+// back-compat shim so the ~470 legacy screens that still read
+// `Colors.dark.*` inside `StyleSheet.create({...})` keep flipping with
+// the active scheme/academy.
+//
+// Because no render-time code path can call these mutators anymore, the
+// "Cannot update a component while rendering a different component"
+// hang fixed in Task #822 is now structurally impossible.
+// =====================================================================
 
-export function getActivePlayerScheme(): ResolvedScheme {
-  return activeScheme;
-}
-
-// Monotonic counter bumped whenever the active scheme or academy theme changes.
-// `makeReactiveStyles` reads it to decide whether to re-run its style factory,
-// so any consumer of mutable theme tokens repaints on the next render after a
-// scheme toggle, academy switch, or per-player theme override change.
-let themeRevision = 0;
-export function getThemeRevision(): number {
-  return themeRevision;
-}
-
-// External-store subscription so React contexts (AcademyThemeProvider) and
-// any other consumer can re-render whenever the active scheme or academy
-// theme changes — `useSyncExternalStore(subscribeTheme, getThemeRevision)`.
-const themeListeners = new Set<() => void>();
-export function subscribeTheme(listener: () => void): () => void {
-  themeListeners.add(listener);
-  return () => {
-    themeListeners.delete(listener);
-  };
-}
-function notifyThemeListeners(): void {
-  themeListeners.forEach((l) => {
-    try {
-      l();
-    } catch {
-      // listeners must not break the bump loop
-    }
-  });
-}
-
-/**
- * Apply (or clear with `null`) the active academy theme overlay. Combines with
- * the current player scheme so light/dark logic keeps working — academy
- * colours overrule the neutral tokens, not the mode itself.
- */
 function academyThemesEqual(
   a: AcademyTheme | null,
   b: AcademyTheme | null,
 ): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  // Cheap deep-equality via JSON.stringify — AcademyTheme is a small flat
-  // object with one nested `dark` block, so the cost is negligible.
   try {
     return JSON.stringify(a) === JSON.stringify(b);
   } catch {
@@ -580,23 +539,83 @@ function academyThemesEqual(
 }
 
 /**
- * Apply (or clear with `null`) the active academy theme. Pass the RAW
- * `AcademyTheme` (with both base and optional `dark` overlay) — `rebuild()`
- * re-resolves it for the active scheme on every change so toggling
- * Light/Dark always paints the correct neutrals.
+ * Internal: apply scheme + academy theme by mutating the exported
+ * `Colors.*`, `Backgrounds`, `TextColors` objects. Only ever called from
+ * the ThemeProvider's `useLayoutEffect`. Bumps `_themeRevision` so the
+ * legacy `makeReactiveStyles` proxy re-runs its factory.
  */
-export function setActiveAcademyTheme(theme: AcademyTheme | null): void {
-  if (academyThemesEqual(activeAcademyTheme, theme)) return;
-  activeAcademyTheme = theme;
+export function _applyThemeMutation(
+  scheme: ResolvedScheme,
+  academyTheme: AcademyTheme | null,
+): void {
+  const sameScheme = scheme === activeScheme;
+  const sameAcademy = academyThemesEqual(activeAcademyTheme, academyTheme);
+  if (sameScheme && sameAcademy) return;
+  activeScheme = scheme;
+  activeAcademyTheme = academyTheme;
   rebuild();
-  themeRevision++;
-  notifyThemeListeners();
+  _themeRevision++;
 }
 
-export function getActiveAcademyTheme(): AcademyThemeResolved | null {
-  return activeAcademyTheme
-    ? resolveAcademyTheme(activeAcademyTheme, activeScheme)
-    : null;
+/**
+ * Internal: pure resolver used by `useTheme()` to produce a fresh colors
+ * object for the given scheme + academy overlay WITHOUT mutating any
+ * shared state. New consumers should always read colors via `useTheme()`
+ * — `Colors.dark.*` / `Colors.light.*` references in `StyleSheet.create`
+ * are legacy and should be migrated incrementally.
+ */
+export function _resolveActiveColors(
+  scheme: ResolvedScheme,
+  academyTheme: AcademyTheme | null,
+): Record<string, string> {
+  const base =
+    scheme === "light"
+      ? { ...LightColorsSnapshot }
+      : { ...DarkColorsSnapshot };
+  if (!academyTheme) return base;
+  const t = resolveAcademyTheme(academyTheme, scheme);
+  if (t.surface) base.backgroundRoot = t.surface;
+  if (t.panel) base.backgroundDefault = t.panel;
+  if (t.panelElevated) base.backgroundSecondary = t.panelElevated;
+  if (t.panelBorder) {
+    base.borderSubtle = t.panelBorder;
+    base.headerBorder = t.panelBorder;
+  }
+  if (t.text) base.text = t.text;
+  if (t.textMuted) {
+    base.textMuted = t.textMuted;
+    base.textSecondary = t.textMuted;
+  }
+  if (t.primary) {
+    base.primary = t.primary;
+    base.primaryGlow = t.primary;
+    base.glowSoft = t.primary;
+    base.glowDark = t.primary;
+    base.tabIconSelected = t.primary;
+    base.link = t.primary;
+  }
+  if (t.secondary) base.primaryGlowLight = t.secondary;
+  if (t.accent) {
+    base.accent = t.accent;
+    base.accentInfo = t.accent;
+  }
+  return base;
+}
+
+// Monotonic counter bumped whenever `_applyThemeMutation` runs. Internal
+// to the legacy `makeReactiveStyles` proxy — new code must NOT read this
+// directly. Public `useSyncExternalStore`/`subscribeTheme`/`getThemeRevision`
+// API has been removed (Task #823).
+export let _themeRevision = 0;
+
+/**
+ * Internal: synchronous read of the last-applied scheme for the few
+ * legacy `makeReactiveStyles(() => ...)` factories that need to branch
+ * on light vs dark inside a module-scope StyleSheet (e.g. DrawerContent).
+ * New code must use `useTheme().scheme` from the React ThemeContext.
+ */
+export function _getActiveSchemeInternal(): ResolvedScheme {
+  return activeScheme;
 }
 
 // Get avatar color based on player ball level

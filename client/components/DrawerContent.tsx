@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, getActivePlayerScheme } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, _getActiveSchemeInternal } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
@@ -145,7 +145,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 }
 
 const styles = makeReactiveStyles(() => {
-  const isDark = getActivePlayerScheme() === "dark";
+  const isDark = _getActiveSchemeInternal() === "dark";
   return StyleSheet.create({
   container: {
     flex: 1,

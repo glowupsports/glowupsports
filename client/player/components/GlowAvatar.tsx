@@ -10,7 +10,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, BorderRadius, Colors, getActivePlayerScheme } from "@/constants/theme";
+import { ProTennisColors, BorderRadius, Colors, _getActiveSchemeInternal } from "@/constants/theme";
 import { getPlayerLevelColor } from "@/constants/theme";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
@@ -192,7 +192,7 @@ export function GlowAvatar({
                 {
                   fontSize: sizeValue * 0.35,
                   color:
-                    getActivePlayerScheme() === "dark"
+                    _getActiveSchemeInternal() === "dark"
                       ? resolvedGlowColor
                       : Colors.dark.text,
                 },
@@ -287,7 +287,7 @@ export function AvatarStack({
 }
 
 const styles = makeReactiveStyles(() => {
-  const isDark = getActivePlayerScheme() === "dark";
+  const isDark = _getActiveSchemeInternal() === "dark";
   return StyleSheet.create({
   container: {
     alignItems: "center",

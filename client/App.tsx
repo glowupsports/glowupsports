@@ -63,6 +63,7 @@ import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigat
 import { CoachMarksProvider } from "@/components/CoachMarks";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
 import { AcademyThemeProvider } from "@/contexts/AcademyThemeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
 
@@ -238,6 +239,7 @@ export default function App() {
                                 <TabNavigationProvider>
                                   <CoachMarksProvider>
                                     <CelebrationProvider>
+                                      <ThemeProvider>
                                       <AcademyThemeProvider>
                                       <WebAlertProvider>
                                         <WebContainer>
@@ -248,6 +250,7 @@ export default function App() {
                                         </WebContainer>
                                       </WebAlertProvider>
                                       </AcademyThemeProvider>
+                                      </ThemeProvider>
                                     </CelebrationProvider>
                                   </CoachMarksProvider>
                                 </TabNavigationProvider>

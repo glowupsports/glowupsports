@@ -1,16 +1,16 @@
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { useTheme as useThemeFromContext } from "@/contexts/ThemeContext";
 
+/**
+ * Read the active resolved theme palette + scheme from the React
+ * ThemeContext (Task #823). This replaced the previous module-snapshot
+ * approach (which read the mutated `Colors.dark` / `Colors.light` globals)
+ * so light/dark/academy changes propagate via React's normal data flow.
+ *
+ * New code should always use this hook; reading `Colors.dark.*` /
+ * `Colors.light.*` directly inside `StyleSheet.create({...})` is a legacy
+ * pattern that is being migrated out.
+ */
 export function useTheme() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  // Player code historically reads from Colors.dark; we mirror that contract.
-  // When the player switches to light, applyPlayerScheme() copies Colors.light
-  // into Colors.dark so existing references still produce correct values.
-  const theme = isDark ? Colors.dark : Colors.light;
-
-  return {
-    theme,
-    isDark,
-  };
+  const { theme, isDark, scheme } = useThemeFromContext();
+  return { theme, isDark, scheme };
 }

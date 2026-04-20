@@ -13,13 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
 
 import { getQueryFn } from "@/lib/query-client";
-import { useSyncExternalStore } from "react";
-import {
-  getActivePlayerScheme,
-  getThemeRevision,
-  setActiveAcademyTheme,
-  subscribeTheme,
-} from "@/constants/theme";
+import { useTheme as useThemeContext } from "@/contexts/ThemeContext";
 import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
@@ -72,8 +66,9 @@ interface ProviderProps {
  */
 export function AcademyThemeProvider({ children, scheme, override }: ProviderProps) {
   const player = usePlayerAppearanceOptional();
+  const themeCtx = useThemeContext();
   const effectiveScheme: "light" | "dark" =
-    scheme ?? player?.resolvedScheme ?? getActivePlayerScheme();
+    scheme ?? player?.resolvedScheme ?? themeCtx.scheme;
   const { user } = useAuth();
   const { mode } = useAppMode();
   const userId = user?.id ?? null;
@@ -190,35 +185,24 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
     ?? apiTheme
     ?? cached
     ?? null;
-  // Subscribe to the global theme revision so this provider re-renders
-  // whenever `applyPlayerScheme` flips the active scheme — without this,
-  // `effectiveScheme` falls back to a stale `getActivePlayerScheme()`
-  // snapshot (Task #811 Phase G).
-  const themeRevision = useSyncExternalStore(
-    subscribeTheme,
-    getThemeRevision,
-    getThemeRevision,
-  );
   const resolved = useMemo(
     () => resolveTheme(effective, effectiveScheme),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [effective, effectiveScheme, themeRevision],
+    [effective, effectiveScheme],
   );
 
-  // Apply in a layout effect — calling `setActiveAcademyTheme` during render
-  // mutates the global theme module and notifies `useSyncExternalStore`
-  // subscribers, which can trigger a "Cannot update a component while
-  // rendering a different component" warning and an aborted update that
-  // hangs the app on the splash (Task #822). useLayoutEffect runs before
-  // paint so there is no visible flash.
+  // Push the active academy theme into ThemeContext (Task #823). The
+  // central provider re-renders consumers and runs the legacy back-compat
+  // mutation of the global Colors.* tokens from its own useLayoutEffect,
+  // so we no longer need an external store subscription here.
+  const { setAcademyTheme } = themeCtx;
   useLayoutEffect(() => {
-    setActiveAcademyTheme(effective);
-  }, [effective]);
+    setAcademyTheme(effective);
+  }, [effective, setAcademyTheme]);
 
   // Clear on unmount so other contexts revert to defaults.
   useEffect(() => {
-    return () => setActiveAcademyTheme(null);
-  }, []);
+    return () => setAcademyTheme(null);
+  }, [setAcademyTheme]);
 
   const value = useMemo<AcademyThemeContextValue>(
     () => ({
