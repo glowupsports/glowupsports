@@ -82,6 +82,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
   const progress = useSharedValue(0);
   const fabScale = useSharedValue(1);
   const track = useTrackFeature();
+  const glassTint = useGlassTint();
 
   const actions: QuickAction[] = [
     {
