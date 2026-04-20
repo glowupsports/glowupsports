@@ -298,7 +298,11 @@ export default function AdminCourtsScreen() {
       const key = query.queryKey[0];
       return typeof key === 'string' && (
         key.startsWith('/api/admin/courts') ||
-        key.startsWith('/api/admin/locations')
+        key.startsWith('/api/admin/locations') ||
+        key.startsWith('/api/courts') ||
+        key.startsWith('/api/coach/courts') ||
+        key.startsWith('/api/player/academy-courts') ||
+        key.startsWith('/api/player/courts')
       );
     }});
   };
@@ -464,9 +468,9 @@ export default function AdminCourtsScreen() {
   };
 
   const handleDelete = async (court: Court) => {
-    setShowEditModal(false);
-
-    // Fetch a preview so we can tell the user whether this is a hard delete or an archive
+    // Fetch the preview BEFORE touching modal state so the confirm dialog
+    // never races a modal-dismiss animation. The edit modal stays open
+    // until the mutation actually succeeds (handled in deleteMutation).
     let willArchive = false;
     let totalRefs = 0;
     try {
@@ -475,7 +479,7 @@ export default function AdminCourtsScreen() {
       willArchive = !!preview?.willArchive;
       totalRefs = Number(preview?.totalReferences ?? 0);
     } catch {
-      // If preview fails we still allow the user to try deleting
+      // Preview is best-effort; fall back to a plain confirm
     }
 
     const title = willArchive ? "Archive Court" : "Delete Court";
@@ -484,23 +488,14 @@ export default function AdminCourtsScreen() {
       : `Delete court "${court.name}"? This action cannot be undone.`;
     const action = willArchive ? "Archive" : "Delete";
 
-    // Defer one frame so the modal finishes closing before the confirm dialog appears
-    setTimeout(() => {
-      if (Platform.OS === "web") {
-        if (window.confirm(body)) {
-          deleteMutation.mutate(court.id);
-        }
-      } else {
-        Alert.alert(
-          title,
-          body,
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: action, style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
-          ]
-        );
-      }
-    }, 16);
+    Alert.alert(
+      title,
+      body,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: action, style: "destructive", onPress: () => deleteMutation.mutate(court.id) },
+      ]
+    );
   };
 
   const openEditModal = (court: Court) => {
@@ -632,6 +627,21 @@ export default function AdminCourtsScreen() {
                       ) : null}
                     </View>
                   </View>
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDelete(court);
+                    }}
+                    hitSlop={10}
+                    disabled={deleteMutation.isPending}
+                    style={({ pressed }) => [
+                      styles.rowDeleteButton,
+                      pressed && styles.rowDeleteButtonPressed,
+                    ]}
+                    accessibilityLabel={`Delete ${court.name}`}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                  </Pressable>
                   <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
                 </Pressable>
               ))}
@@ -1212,6 +1222,20 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
   inactiveCard: {
+    opacity: 0.7,
+  },
+  rowDeleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(239,68,68,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.22)",
+    marginRight: Spacing.xs,
+  },
+  rowDeleteButtonPressed: {
     opacity: 0.7,
   },
   courtColorDot: {
