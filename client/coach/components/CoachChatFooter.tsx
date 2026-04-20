@@ -2612,13 +2612,14 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       ) : (
         // ── EXPANDED / FULLSCREEN: original header ──
         <>
-          <BlurView
-            intensity={40}
-            tint="dark"
-            experimentalBlurMethod="dimezisBlurView"
-            pointerEvents="none"
-            style={[StyleSheet.absoluteFill, styles.expandedBlur]}
-          />
+          {Platform.OS === 'ios' ? (
+            <BlurView
+              intensity={40}
+              tint="dark"
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, styles.expandedBlur]}
+            />
+          ) : null}
           <View style={styles.header}>
             <Pressable
               onPress={() => {
@@ -3595,21 +3596,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     backgroundColor: Backgrounds.card,
-    zIndex: 1,
-    ...Platform.select({
-      android: { elevation: 9 },
-      default: {},
-    }),
   },
   expandedBlur: {
-    zIndex: 0,
-    ...Platform.select({
-      android: {
-        elevation: 0,
-        backgroundColor: "rgba(17, 20, 26, 0.85)",
-      },
-      default: {},
-    }),
   },
   verticalTabPanel: {
     width: LEFT_PANEL_WIDTH,
