@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { glowLevelsStyles } from "./glowLevelsStyles";
 import type { TabProps, BallLevel, LevelSkill } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 const STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
 const PILLARS = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"] as const;
@@ -41,6 +42,7 @@ const PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export function GlowLevelsTab({ insets: _insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const [selectedStage, setSelectedStage] = useState<typeof STAGES[number]>("RED");
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
   const [expandedPillar, setExpandedPillar] = useState<string | null>(null);
@@ -105,6 +107,8 @@ export function GlowLevelsTab({ insets: _insets, tabBarHeight }: TabProps) {
       }}
       showsVerticalScrollIndicator={false}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={glowLevelsStyles.header}>
         <Text style={glowLevelsStyles.title}>Glow Level Cards</Text>

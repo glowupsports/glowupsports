@@ -18,8 +18,10 @@ import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 import type { TabProps, PlayerSkillState, PlayerXpData, ObservationTrend, SkillDomain } from "./types";
 import { styles } from "./coachingStyles";
 import { getDomainIcon, getTrendIcon, getTrendColor, getMomentumColor, getProgressColor, getAssessmentBadge, getLevelColor, formatSessionTime, formatSessionDate, getSessionTypeLabel } from "./progressUtils";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithProgress | null>(null);
   const [assessmentMode, setAssessmentMode] = useState(false);
   const [pendingAssessments, setPendingAssessments] = useState<Record<string, AssessmentStatus>>({});
@@ -115,6 +117,8 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
         style={styles.content}
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         <Pressable
           style={styles.backRow}
@@ -422,6 +426,8 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
         style={styles.content}
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackSectionTitle}>Session Feedback</Text>
@@ -443,6 +449,8 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
       style={styles.content}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={styles.feedbackHeader}>
         <Text style={styles.feedbackSectionTitle}>Session Feedback</Text>

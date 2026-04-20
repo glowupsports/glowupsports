@@ -11,9 +11,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function LevelCardsTab({ insets: _insets, tabBarHeight }: TabProps) {
   const navigation = useNavigation<any>();
+  const onScroll = useCoachingScroll();
   const [selectedLevel, setSelectedLevel] = useState<string>("red");
 
   const { data: levelData = [], isLoading } = useQuery<any[]>({
@@ -31,6 +33,8 @@ export function LevelCardsTab({ insets: _insets, tabBarHeight }: TabProps) {
     <ScrollView
       style={levelCardsStyles.container}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={levelCardsStyles.header}>
         <Text style={levelCardsStyles.title}>Level Cards</Text>

@@ -14,6 +14,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { getApiUrl } from "@/lib/query-client";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
+import { useCoachingScroll } from "../CoachingScrollContext";
 
 interface Player {
   id: string;
@@ -147,6 +148,7 @@ function PlayerRateCard({
 
 
 export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: FeedbackCommandCenterProps) {
+  const onScroll = useCoachingScroll();
   const { coach } = useCoach();
   const queryClient = useQueryClient();
 
@@ -401,6 +403,8 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
         style={ccStyles.scroll}
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         {allRated ? (
           <View style={ccStyles.allRatedBanner}>

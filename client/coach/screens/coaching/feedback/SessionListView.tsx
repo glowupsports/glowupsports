@@ -8,10 +8,12 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionDetailDrawer";
 import { styles } from "../coachingStyles";
 import type { FeedbackTabState } from "./useFeedbackTab";
+import { useCoachingScroll } from "../CoachingScrollContext";
 
 type ViewPeriod = "week" | "month";
 
 export function SessionListView(props: FeedbackTabState) {
+  const onScroll = useCoachingScroll();
   const navigation = useNavigation<any>();
   const {
     viewPeriod, setViewPeriod,
@@ -97,6 +99,8 @@ export function SessionListView(props: FeedbackTabState) {
       style={styles.content}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       {/* E2: My Reviews Compact Card */}
       {hasReviews ? (

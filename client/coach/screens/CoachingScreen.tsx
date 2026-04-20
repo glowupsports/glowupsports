@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Pressable,
   ScrollView,
   type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
@@ -40,6 +42,7 @@ import { LevelCardsTab } from "./coaching/LevelCardsTab";
 import { MatchLogTab } from "./coaching/MatchLogTab";
 import { SessionPlanTab } from "./coaching/SessionPlanTab";
 import { DrillBankTab } from "./coaching/DrillBankTab";
+import { CoachingScrollProvider } from "./coaching/CoachingScrollContext";
 
 const TAB_BAR_HEIGHT = 80;
 
@@ -214,14 +217,83 @@ export default function CoachingScreen() {
 
   const toggleToolsCollapsed = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // If the strip is only auto-hidden (manual pref still expanded),
+    // a header tap should just reveal it again — without persisting a
+    // new collapsed preference.
+    if (autoHiddenRef.current && !toolsCollapsed) {
+      autoHiddenRef.current = false;
+      setAutoHidden(false);
+      lastScrollDirRef.current = null;
+      lastScrollYRef.current = 0;
+      stripProgress.value = withTiming(1, { duration: 220 });
+      return;
+    }
     const next = !toolsCollapsed;
     setToolsCollapsed(next);
     stripProgress.value = withTiming(next ? 0 : 1, { duration: 220 });
+    autoHiddenRef.current = false;
+    setAutoHidden(false);
+    lastScrollDirRef.current = null;
+    lastScrollYRef.current = 0;
     AsyncStorage.setItem(COACH_HQ_TOOLS_STORAGE_KEY, String(next)).catch(
       () => {},
     );
     persistToolsCollapsed(next);
   };
+
+  // Auto-hide on scroll (does not overwrite persisted preference)
+  const lastScrollYRef = useRef(0);
+  const lastScrollDirRef = useRef<"up" | "down" | null>(null);
+  const autoHiddenRef = useRef(false);
+  const [autoHidden, setAutoHidden] = useState(false);
+
+  const handleTabScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      // Manual collapse takes precedence — leave the strip closed.
+      if (toolsCollapsed) return;
+
+      const y = e.nativeEvent.contentOffset.y;
+      const dy = y - lastScrollYRef.current;
+      lastScrollYRef.current = y;
+
+      // Ignore tiny jitters and overscroll bounces.
+      if (Math.abs(dy) < 4) return;
+
+      if (dy > 0 && y > 16) {
+        if (lastScrollDirRef.current !== "down") {
+          lastScrollDirRef.current = "down";
+          if (!autoHiddenRef.current) {
+            autoHiddenRef.current = true;
+            setAutoHidden(true);
+            stripProgress.value = withTiming(0, { duration: 220 });
+          }
+        }
+      } else if (dy < 0) {
+        if (lastScrollDirRef.current !== "up") {
+          lastScrollDirRef.current = "up";
+          if (autoHiddenRef.current) {
+            autoHiddenRef.current = false;
+            setAutoHidden(false);
+            stripProgress.value = withTiming(1, { duration: 220 });
+          }
+        }
+      }
+    },
+    [toolsCollapsed, stripProgress],
+  );
+
+  // Reset auto-hide state when switching tabs so the new tab opens
+  // with the strip visible (unless the user manually collapsed it).
+  useEffect(() => {
+    lastScrollYRef.current = 0;
+    lastScrollDirRef.current = null;
+    if (autoHiddenRef.current && !toolsCollapsed) {
+      autoHiddenRef.current = false;
+      setAutoHidden(false);
+      stripProgress.value = withTiming(1, { duration: 220 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const onStripLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -283,9 +355,11 @@ export default function CoachingScreen() {
         style={styles.compactHeader}
         accessibilityRole="button"
         accessibilityLabel={
-          toolsCollapsed ? "Expand coaching tools" : "Collapse coaching tools"
+          toolsCollapsed || autoHidden
+            ? "Expand coaching tools"
+            : "Collapse coaching tools"
         }
-        accessibilityState={{ expanded: !toolsCollapsed }}
+        accessibilityState={{ expanded: !toolsCollapsed && !autoHidden }}
       >
         <View style={styles.compactHeaderLeft}>
           <View style={styles.compactLevelBadge}>
@@ -438,35 +512,37 @@ export default function CoachingScreen() {
         </View>
       </Animated.View>
 
-      {activeTab === "series" ? (
-        <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "weekPlanner" ? (
-        <WeekPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "roster" ? (
-        <RosterPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "feedback" ? (
-        <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "today" ? (
-        <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "progress" ? (
-        <ProgressTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "plans" ? (
-        <PlansTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "levels" ? (
-        <GlowLevelsTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "templates" ? (
-        <TemplatesTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "levelCards" ? (
-        <LevelCardsTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "matchLog" ? (
-        <MatchLogTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "sessionPlan" ? (
-        <SessionPlanTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : activeTab === "drillBank" ? (
-        <DrillBankTab insets={insets} tabBarHeight={tabBarHeight} />
-      ) : (
-        <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
-      )}
+      <CoachingScrollProvider value={handleTabScroll}>
+        {activeTab === "series" ? (
+          <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "weekPlanner" ? (
+          <WeekPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "roster" ? (
+          <RosterPlannerTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "feedback" ? (
+          <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "today" ? (
+          <TodayFeedbackTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "progress" ? (
+          <ProgressTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "plans" ? (
+          <PlansTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "levels" ? (
+          <GlowLevelsTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "templates" ? (
+          <TemplatesTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "levelCards" ? (
+          <LevelCardsTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "matchLog" ? (
+          <MatchLogTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "sessionPlan" ? (
+          <SessionPlanTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : activeTab === "drillBank" ? (
+          <DrillBankTab insets={insets} tabBarHeight={tabBarHeight} />
+        ) : (
+          <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
+        )}
+      </CoachingScrollProvider>
     </View>
   );
 }

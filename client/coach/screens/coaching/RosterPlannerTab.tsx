@@ -18,6 +18,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { apiRequest } from "@/lib/query-client";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -68,6 +69,7 @@ function getSessionTypeColor(type: string | null | undefined): string {
 }
 
 export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const { academy } = useCoach();
   const queryClient = useQueryClient();
   const tz = academy?.timezone || "Asia/Dubai";
@@ -278,6 +280,8 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
             { paddingBottom: tabBarHeight + insets.bottom + Spacing.xl },
           ]}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         />
       )}
 

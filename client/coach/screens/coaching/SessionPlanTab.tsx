@@ -4,14 +4,18 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function SessionPlanTab({ insets: _insets, tabBarHeight }: TabProps) {
   const navigation = useNavigation<any>();
+  const onScroll = useCoachingScroll();
 
   return (
     <ScrollView
       style={sessionPlanStyles.container}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={sessionPlanStyles.header}>
         <Text style={sessionPlanStyles.title}>Session Plans</Text>

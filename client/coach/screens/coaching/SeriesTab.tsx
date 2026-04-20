@@ -6,8 +6,10 @@ import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection"
 import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function SeriesTab({ insets: _insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showSeriesDetail, setShowSeriesDetail] = useState(false);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
@@ -37,6 +39,8 @@ export function SeriesTab({ insets: _insets, tabBarHeight }: TabProps) {
           { paddingBottom: tabBarHeight + Spacing.xl },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         <CoachingSeriesSection
           onSeriesPress={handleSeriesPress}

@@ -14,6 +14,7 @@ import * as Clipboard from "expo-clipboard";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -48,6 +49,7 @@ const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export function DrillBankTab({ insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const [searchText, setSearchText] = useState("");
   const [activeSkillArea, setActiveSkillArea] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<string | null>(null);
@@ -201,6 +203,8 @@ export function DrillBankTab({ insets, tabBarHeight }: TabProps) {
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         {isLoading ? (
           <View style={styles.center}>

@@ -8,8 +8,10 @@ import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionD
 import { styles } from "../coachingStyles";
 import type { FeedbackTabState } from "./useFeedbackTab";
 import type { QuickSignal, SocialIssue } from "../types";
+import { useCoachingScroll } from "../CoachingScrollContext";
 
 export function FeedbackDetailView(props: FeedbackTabState) {
+  const onScroll = useCoachingScroll();
   const {
     selectedSession, setSelectedSession,
     detailSession, setDetailSession,
@@ -74,6 +76,8 @@ export function FeedbackDetailView(props: FeedbackTabState) {
           style={styles.feedbackForm}
           contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         >
           <Pressable style={styles.backRow} onPress={() => setSelectedSession(null)}>
             <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />

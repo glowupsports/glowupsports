@@ -11,9 +11,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function TemplatesTab({ insets: _insets, tabBarHeight }: TabProps) {
   const navigation = useNavigation<any>();
+  const onScroll = useCoachingScroll();
   
   const { data: templates = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/lesson-templates"],
@@ -52,6 +54,8 @@ export function TemplatesTab({ insets: _insets, tabBarHeight }: TabProps) {
     <ScrollView 
       style={templatesStyles.container}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={templatesStyles.header}>
         <Text style={templatesStyles.title}>Lesson Templates</Text>

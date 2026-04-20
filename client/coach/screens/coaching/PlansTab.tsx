@@ -18,8 +18,10 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { TabProps } from "./types";
 import { styles } from "./coachingStyles";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const { coach, calendarData } = useCoach();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -155,6 +157,8 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
       style={styles.content}
       contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight + Spacing.xl }}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={styles.plansHeader}>
         <Text style={styles.sectionTitle}>Session Templates</Text>

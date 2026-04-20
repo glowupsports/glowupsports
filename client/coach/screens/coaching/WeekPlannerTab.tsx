@@ -18,6 +18,7 @@ import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
 import { SportBadge } from "@/components/SportBadge";
 import { formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -46,6 +47,7 @@ function getSessionTypeBadge(type: string | null | undefined) {
 }
 
 export function WeekPlannerTab({ insets: _insets, tabBarHeight }: TabProps) {
+  const onScroll = useCoachingScroll();
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showSeriesDetail, setShowSeriesDetail] = useState(false);
   const { academy } = useCoach();
@@ -150,6 +152,8 @@ export function WeekPlannerTab({ insets: _insets, tabBarHeight }: TabProps) {
           { paddingBottom: tabBarHeight + Spacing.xl },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         <View style={wpStyles.summaryRow}>
           <View style={wpStyles.summaryCard}>

@@ -15,14 +15,18 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { TabProps } from "./types";
+import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function MatchLogTab({ insets: _insets, tabBarHeight }: TabProps) {
   const navigation = useNavigation<any>();
+  const onScroll = useCoachingScroll();
 
   return (
     <ScrollView
       style={matchLogStyles.container}
       contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
       <View style={matchLogStyles.header}>
         <Text style={matchLogStyles.title}>Match Logs</Text>
