@@ -1439,12 +1439,12 @@ export function SessionHeroCard({
                               key={item.id}
                               style={[{
                                 flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1,
-                                borderColor: scoreMood === item.id ? GlowColors.yellow : Colors.dark.chipBackgroundStrong,
+                                borderColor: scoreMood === item.id ? Colors.dark.gold : Colors.dark.chipBackgroundStrong,
                                 backgroundColor: scoreMood === item.id ? "rgba(255, 215, 0, 0.12)" : Colors.dark.chipBackground,
                               }]}
                               onPress={() => setScoreMood(scoreMood === item.id ? null : item.id)}
                             >
-                              <Text style={{ fontSize: 12, fontWeight: "600", color: scoreMood === item.id ? GlowColors.yellow : ProTennisColors.textSecondary }}>
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: scoreMood === item.id ? Colors.dark.gold : ProTennisColors.textSecondary }}>
                                 {item.label}
                               </Text>
                             </Pressable>
