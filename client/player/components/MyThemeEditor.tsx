@@ -408,7 +408,17 @@ export default function MyThemeEditor({
                     color="#FFB020"
                   />
                   <Text style={styles.warningText}>
-                    Low contrast (text vs {key === "surface" ? "surface" : "panel"}).
+                    Low contrast (text vs{" "}
+                    {key === "surface"
+                      ? "surface"
+                      : key === "panel"
+                        ? "panel"
+                        : textPanelBad && textSurfaceBad
+                          ? "panel & surface"
+                          : textPanelBad
+                            ? "panel"
+                            : "surface"}
+                    ).
                   </Text>
                   <Pressable
                     onPress={() => {
