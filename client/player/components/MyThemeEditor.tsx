@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import {
   themePresets,
@@ -101,6 +102,7 @@ export default function MyThemeEditor({
   initialMode = "dark",
 }: Props) {
   useThemeReactivity();
+  const navigation = useNavigation<any>();
   const appearance = usePlayerAppearanceOptional();
   const [mode, setMode] = useState<Mode>(
     appearance?.resolvedScheme ?? initialMode,
@@ -210,6 +212,31 @@ export default function MyThemeEditor({
         account on this device — your academy's branding stays as-is for everyone
         else.
       </Text>
+
+      {/* Browse all themes */}
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("ThemePreview");
+        }}
+        style={styles.browseBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Browse all themes in a gallery"
+      >
+        <Ionicons
+          name="grid-outline"
+          size={16}
+          color={Colors.dark.text}
+        />
+        <Text style={{ color: Colors.dark.text, fontWeight: "600", flex: 1 }}>
+          Browse all {themePresets.length} themes
+        </Text>
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={Colors.dark.textMuted}
+        />
+      </Pressable>
 
       {/* Preset chips */}
       <ScrollView
@@ -633,6 +660,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
+  },
+  browseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   tabs: {
     flexDirection: "row",

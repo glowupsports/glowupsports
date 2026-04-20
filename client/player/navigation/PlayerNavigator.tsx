@@ -25,6 +25,7 @@ import PlayerProfileScreen from "@/player/screens/PlayerProfileScreen";
 import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
+import ThemePreviewScreen from "@/player/screens/ThemePreviewScreen";
 import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
 import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
 import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
@@ -281,6 +282,7 @@ export type PlayerStackParamList = {
   SkillDetail: { domain: string };
   Journey: undefined;
   Settings: undefined;
+  ThemePreview: undefined;
   EditProfile: undefined;
   AcademyBrowser: undefined;
   AcademyProfile: { academyId: string };
@@ -969,6 +971,19 @@ function PlayerStackNavigator() {
         component={PlayerSettingsScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="ThemePreview"
+        component={ThemePreviewScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Theme Gallery",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+          headerBackVisible: true,
         }}
       />
       <Stack.Screen
