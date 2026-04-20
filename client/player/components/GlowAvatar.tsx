@@ -13,7 +13,7 @@ import Animated, {
 import { ProTennisColors, BorderRadius, Colors, getActivePlayerScheme } from "@/constants/theme";
 import { getPlayerLevelColor } from "@/constants/theme";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "hero";
 
 interface GlowAvatarProps {
@@ -72,6 +72,7 @@ export function GlowAvatar({
   status,
   style,
 }: GlowAvatarProps) {
+  useThemeReactivity();
   const [imageError, setImageError] = useState(false);
   const pulseValue = useSharedValue(0);
   const sizeValue = getSizeValue(size);

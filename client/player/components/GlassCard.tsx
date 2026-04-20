@@ -11,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ProTennisColors, Backgrounds, BorderRadius, Spacing, GlowColors, FunctionColors, Colors, getActivePlayerScheme } from "@/constants/theme";
 
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 type GlassCardVariant = "default" | "neon" | "hero" | "subtle" | "premium";
 
 interface GlassCardProps {
@@ -142,6 +142,7 @@ export function NeonEdgeCard({
   glowIntensity = "medium",
   pulsing = false,
 }: NeonEdgeCardProps) {
+  useThemeReactivity();
   const glowOpacity = useSharedValue(0.2);
 
   React.useEffect(() => {
