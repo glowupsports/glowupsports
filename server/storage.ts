@@ -13149,17 +13149,25 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       // This runs BEFORE the credit_deducted_at check because old-style session_booking
       // transactions never set credit_deducted_at/credit_transaction_id on session_players.
       // Detecting them here prevents double-charging and normalizes session_player state.
+      //
+      // Task #817 — keyed on (session_id, player_id) (NOT session_player_id) so that
+      // repairOrphanedSessionPlayers / Series Auto-Heal — which create a fresh
+      // session_player UUID — cannot create a second debit row for a session+player
+      // that already has a live `session_debt` or `session_consumed` row keyed to the
+      // *previous* session_player UUID. Filter by the canonical chargeable reasons so
+      // we don't accidentally short-circuit on unrelated rows (refunds, settlements).
       const existingDebitResult = await tx.execute(sql`
         SELECT id FROM credit_transactions
         WHERE player_id = ${sp.player_id}
           AND session_id = ${sp.session_id}
+          AND reason IN ('session_debt', 'session_consumed', 'session_booking')
           AND amount < 0
-          AND (metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+          AND COALESCE(metadata->>'cancelled', 'false') != 'true'
         LIMIT 1
       `);
       if (existingDebitResult.rows.length > 0) {
         const existingTxId = (existingDebitResult.rows[0] as any).id;
-        console.log(`[EnsureCredit] Session player ${sessionPlayerId} already has debit tx ${existingTxId} — marking processed`);
+        console.log(`[EnsureCredit][Task#817] Session player ${sessionPlayerId} already has live debit tx ${existingTxId} for (session=${sp.session_id}, player=${sp.player_id}) — refusing to charge again`);
         await tx.execute(sql`
           UPDATE session_players 
           SET credit_deducted_at = COALESCE(credit_deducted_at, NOW()),

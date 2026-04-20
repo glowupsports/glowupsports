@@ -366,9 +366,8 @@ export function CoachCreditV2Panel({ playerId }: Props) {
           // Task #817: surface debt clearly. Negative balances were previously
           // rendered in the same colour as positives, so users assumed nothing
           // was charged. Show negative values in red and add a "Debt" pill.
-          const value = Number(wallet.balance[t] ?? 0);
-          const inDebt = value < 0;
-          const valueColor = inDebt ? Colors.dark.error : TYPE_COLOR[t];
+          const rawBal = Number(wallet.balance[t] ?? 0);
+          const inDebt = rawBal < 0;
           return (
             <View
               key={t}
@@ -377,21 +376,27 @@ export function CoachCreditV2Panel({ playerId }: Props) {
                 padding: Spacing.sm,
                 borderRadius: 10,
                 backgroundColor: inDebt
-                  ? "rgba(255, 80, 80, 0.12)"
+                  ? `${Colors.dark.error}18`
                   : `${TYPE_COLOR[t]}15`,
                 borderWidth: inDebt ? 1 : 0,
                 borderColor: inDebt ? Colors.dark.error : "transparent",
                 alignItems: "center",
               }}
+              accessible
+              accessibilityLabel={
+                inDebt
+                  ? `${TYPE_LABEL[t]}: ${Math.abs(rawBal)} credits in debt`
+                  : `${TYPE_LABEL[t]}: ${rawBal} credits available`
+              }
             >
               <Text
                 style={{
                   fontSize: 18,
                   fontWeight: "800",
-                  color: valueColor,
+                  color: inDebt ? Colors.dark.error : TYPE_COLOR[t],
                 }}
               >
-                {fmtNumber(wallet.balance[t])}
+                {fmtNumber(rawBal)}
               </Text>
               <Text style={{ fontSize: 10, color: Colors.dark.textMuted }}>
                 {TYPE_LABEL[t]}
@@ -402,11 +407,18 @@ export function CoachCreditV2Panel({ playerId }: Props) {
                     marginTop: 4,
                     paddingHorizontal: 6,
                     paddingVertical: 1,
-                    borderRadius: 8,
+                    borderRadius: 4,
                     backgroundColor: Colors.dark.error,
                   }}
                 >
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff" }}>
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      fontWeight: "800",
+                      color: "#fff",
+                      letterSpacing: 0.4,
+                    }}
+                  >
                     DEBT
                   </Text>
                 </View>

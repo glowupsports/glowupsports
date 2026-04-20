@@ -282,31 +282,65 @@ export function AdminCreditV2Panel({ playerId }: Props) {
               marginBottom: Spacing.sm,
             }}
           >
-            {(["group", "semi_private", "private"] as CreditType[]).map((t) => (
+            {(["group", "semi_private", "private"] as CreditType[]).map((t) => {
+              const rawBal = Number(wallet.balance[t] ?? 0);
+              const inDebt = rawBal < 0;
+              return (
               <View
                 key={t}
                 style={{
                   flex: 1,
                   padding: Spacing.sm,
                   borderRadius: 10,
-                  backgroundColor: `${TYPE_COLOR[t]}15`,
+                  backgroundColor: inDebt
+                    ? `${Colors.dark.error}18`
+                    : `${TYPE_COLOR[t]}15`,
                   alignItems: "center",
                 }}
+                accessible
+                accessibilityLabel={
+                  inDebt
+                    ? `${TYPE_LABEL[t]}: ${Math.abs(rawBal)} credits in debt`
+                    : `${TYPE_LABEL[t]}: ${rawBal} credits available`
+                }
               >
                 <Text
                   style={{
                     fontSize: 18,
                     fontWeight: "800",
-                    color: TYPE_COLOR[t],
+                    color: inDebt ? Colors.dark.error : TYPE_COLOR[t],
                   }}
                 >
-                  {fmtNumber(wallet.balance[t])}
+                  {fmtNumber(rawBal)}
                 </Text>
                 <Text style={{ fontSize: 10, color: Colors.dark.textMuted }}>
                   {TYPE_LABEL[t]}
                 </Text>
+                {inDebt ? (
+                  <View
+                    style={{
+                      marginTop: 4,
+                      paddingHorizontal: 6,
+                      paddingVertical: 1,
+                      borderRadius: 4,
+                      backgroundColor: Colors.dark.error,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: "800",
+                        color: "#fff",
+                        letterSpacing: 0.4,
+                      }}
+                    >
+                      DEBT
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-            ))}
+              );
+            })}
           </View>
           {wallet.moneyWallet ? (
             <Text

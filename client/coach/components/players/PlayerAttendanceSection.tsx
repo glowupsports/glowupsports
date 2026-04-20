@@ -304,6 +304,59 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
               {showTime && record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
             </Text>
           </View>
+          {(() => {
+            // Task #817 — show "−1 group credit" / "No charge" / "Duplicate charge"
+            // sub-line directly under the row so the ledger truth is visible.
+            const status = (record.status || "").toLowerCase();
+            const showCharge =
+              status === "present" || status === "late" || status === "absent";
+            if (!showCharge) return null;
+            const charged = Number(record.creditsCharged ?? 0);
+            // creditsCharged is reported as a positive magnitude by the API.
+            const amt = charged > 0 ? -charged : charged;
+            const typeLabel = record.creditChargeType === "semi_private"
+              ? "semi"
+              : record.creditChargeType === "private"
+                ? "private"
+                : "group";
+            const duplicate = (record.creditChargeCount ?? 0) > 1;
+            if (duplicate) {
+              return (
+                <View
+                  style={{
+                    marginLeft: 6,
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                    backgroundColor: Colors.dark.error,
+                  }}
+                  accessibilityLabel="Duplicate charge detected"
+                >
+                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff" }}>
+                    DUP CHARGE
+                  </Text>
+                </View>
+              );
+            }
+            if (amt === 0) {
+              return (
+                <Text
+                  style={{ marginLeft: 6, fontSize: 10, color: Colors.dark.textMuted }}
+                >
+                  No charge
+                </Text>
+              );
+            }
+            return (
+              <Text
+                style={{ marginLeft: 6, fontSize: 10, color: Colors.dark.textSecondary, fontWeight: "600" }}
+                accessibilityLabel={`${Math.abs(amt)} ${typeLabel} credit charged`}
+              >
+                {amt < 0 ? "−" : "+"}
+                {Math.abs(amt)} {typeLabel}
+              </Text>
+            );
+          })()}
           {sessionRating ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 4 }}>
               <Feather name="star" size={12} color="#FFD700" />

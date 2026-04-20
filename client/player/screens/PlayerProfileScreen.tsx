@@ -1057,9 +1057,35 @@ export default function PlayerProfileScreen() {
           >
             <Ionicons name="ticket-outline" size={20} color={Colors.dark.gold} />
             <Text style={styles.actionCardLabel}>{t("player.profile.myCredits")}</Text>
-            <Text style={styles.actionCardSub}>
+            <Text
+              style={[
+                styles.actionCardSub,
+                v2Enabled && v2Total < 0 ? { color: Colors.dark.error, fontWeight: "800" } : null,
+              ]}
+              accessibilityLabel={
+                v2Enabled && v2Total < 0
+                  ? `${Math.abs(v2Total)} credits in debt`
+                  : undefined
+              }
+            >
               {v2Enabled ? v2Total : (dashboardData?.credits?.total ?? 0)} {t("player.profile.creditsAvailable")}
             </Text>
+            {v2Enabled && v2Total < 0 ? (
+              <View
+                style={{
+                  marginTop: 4,
+                  alignSelf: "flex-start",
+                  paddingHorizontal: 6,
+                  paddingVertical: 1,
+                  borderRadius: 4,
+                  backgroundColor: Colors.dark.error,
+                }}
+              >
+                <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.4 }}>
+                  DEBT
+                </Text>
+              </View>
+            ) : null}
             {v2Enabled && v2NextExpiry?.expires_at ? (
               <Text style={[styles.actionCardSub, { fontSize: 10, color: Colors.dark.textMuted }]}>
                 Next expiry {new Date(v2NextExpiry.expires_at).toLocaleDateString()}
