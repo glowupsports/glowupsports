@@ -771,7 +771,7 @@ function ProgressStackNavigator() {
   );
 }
 
-const HIDE_CHAT_TABS = ["PlayStack", "Community"];
+const SHOW_CHAT_TABS = ["Home"];
 
 const TAB_FEATURE_KEYS: Record<string, string> = {
   Home: "tab:home",
@@ -804,7 +804,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
     pagerIndex: 2,
   }), []);
   
-  const hideChat = HIDE_CHAT_TABS.includes(currentTabKey);
+  const hideChat = !SHOW_CHAT_TABS.includes(currentTabKey);
 
   const handleChallenge = useCallback(
     (opponentId: string, opponentName: string, opponentPhoto?: string) => {
@@ -827,8 +827,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
   
   const renderOverlay = useCallback((tabKey: string) => {
     if (drawerOpen) return null;
-    const shouldHide = HIDE_CHAT_TABS.includes(tabKey);
-    if (shouldHide) return null;
+    if (!SHOW_CHAT_TABS.includes(tabKey)) return null;
     
     return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
   }, [handleChallenge, drawerOpen]);
