@@ -523,6 +523,7 @@ export function applyPlayerScheme(scheme: ResolvedScheme): void {
   activeScheme = scheme;
   rebuild();
   themeRevision++;
+  notifyThemeListeners();
 }
 
 export function getActivePlayerScheme(): ResolvedScheme {
@@ -536,6 +537,26 @@ export function getActivePlayerScheme(): ResolvedScheme {
 let themeRevision = 0;
 export function getThemeRevision(): number {
   return themeRevision;
+}
+
+// External-store subscription so React contexts (AcademyThemeProvider) and
+// any other consumer can re-render whenever the active scheme or academy
+// theme changes — `useSyncExternalStore(subscribeTheme, getThemeRevision)`.
+const themeListeners = new Set<() => void>();
+export function subscribeTheme(listener: () => void): () => void {
+  themeListeners.add(listener);
+  return () => {
+    themeListeners.delete(listener);
+  };
+}
+function notifyThemeListeners(): void {
+  themeListeners.forEach((l) => {
+    try {
+      l();
+    } catch {
+      // listeners must not break the bump loop
+    }
+  });
 }
 
 /**
@@ -569,6 +590,7 @@ export function setActiveAcademyTheme(theme: AcademyTheme | null): void {
   activeAcademyTheme = theme;
   rebuild();
   themeRevision++;
+  notifyThemeListeners();
 }
 
 export function getActiveAcademyTheme(): AcademyThemeResolved | null {

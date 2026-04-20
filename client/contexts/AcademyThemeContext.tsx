@@ -12,9 +12,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
 
 import { getQueryFn } from "@/lib/query-client";
+import { useSyncExternalStore } from "react";
 import {
   getActivePlayerScheme,
+  getThemeRevision,
   setActiveAcademyTheme,
+  subscribeTheme,
 } from "@/constants/theme";
 import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -186,9 +189,19 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
     ?? apiTheme
     ?? cached
     ?? null;
+  // Subscribe to the global theme revision so this provider re-renders
+  // whenever `applyPlayerScheme` flips the active scheme — without this,
+  // `effectiveScheme` falls back to a stale `getActivePlayerScheme()`
+  // snapshot (Task #811 Phase G).
+  const themeRevision = useSyncExternalStore(
+    subscribeTheme,
+    getThemeRevision,
+    getThemeRevision,
+  );
   const resolved = useMemo(
     () => resolveTheme(effective, effectiveScheme),
-    [effective, effectiveScheme],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [effective, effectiveScheme, themeRevision],
   );
 
   // Apply during render so descendants see the post-mutation tokens

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   type AcademyThemeColors,
 } from "@shared/theme";
 import ColorPickerModal from "./ColorPickerModal";
+import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
 
 const HEX6_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -98,7 +99,21 @@ export default function MyThemeEditor({
   setOverride,
   initialMode = "dark",
 }: Props) {
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const appearance = usePlayerAppearanceOptional();
+  const [mode, setMode] = useState<Mode>(
+    appearance?.resolvedScheme ?? initialMode,
+  );
+
+  // Phase H (Task #811): keep the editor's local LIGHT/DARK sub-toggle
+  // in sync with the actual app appearance, so the two controls feel
+  // like one. If the user flips Appearance higher up, the editor tab
+  // follows along (and vice-versa via the onPress handler).
+  useEffect(() => {
+    if (appearance && appearance.resolvedScheme !== mode) {
+      setMode(appearance.resolvedScheme);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appearance?.resolvedScheme]);
   const [pickerField, setPickerField] = useState<
     keyof AcademyThemeColors | null
   >(null);
@@ -253,6 +268,10 @@ export default function MyThemeEditor({
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setMode(m);
+                // Phase H (Task #811): also flip the actual app appearance
+                // so tapping LIGHT/DARK in the editor visibly changes the
+                // whole app, not just which palette block we're editing.
+                appearance?.setPreference(m);
               }}
               style={[
                 styles.tab,
