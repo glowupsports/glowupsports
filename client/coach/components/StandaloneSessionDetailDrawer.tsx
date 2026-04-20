@@ -7,6 +7,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -443,11 +444,27 @@ export default function StandaloneSessionDetailDrawer({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.md }]}>
-          <View style={styles.handleContainer}>
-            <View style={styles.handle} />
-          </View>
+        {Platform.OS !== "android" ? (
+          <Pressable style={styles.backdrop} onPress={onClose} />
+        ) : null}
+        <View
+          style={[
+            styles.drawer,
+            { paddingBottom: insets.bottom + Spacing.md },
+            Platform.OS === "android" && {
+              maxHeight: "100%",
+              minHeight: "100%",
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
+              paddingTop: insets.top,
+            },
+          ]}
+        >
+          {Platform.OS !== "android" ? (
+            <View style={styles.handleContainer}>
+              <View style={styles.handle} />
+            </View>
+          ) : null}
 
           <View style={styles.header}>
             <LinearGradient
