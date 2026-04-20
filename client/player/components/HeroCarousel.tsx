@@ -55,7 +55,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const ROTATE_MS = 6000;
-const PAUSE_RESUME_MS = 3000;
+const PAUSE_RESUME_MS = 8000;
 const PRIORITY_LOCK_MIN = 120;
 const HERO_SLOT_HEIGHT = 380;
 const USER_PAUSED_STORAGE_KEY = "hero-carousel-paused-v2";
@@ -1292,7 +1292,13 @@ export function HeroCarousel({
         ) : null}
       </View>
 
-      <Pressable onPressIn={pauseNow} onPressOut={scheduleResume}>
+      <View
+        onTouchStart={() => {
+          pauseNow();
+        }}
+        onTouchEnd={scheduleResume}
+        onTouchCancel={scheduleResume}
+      >
         <FlatList
           ref={listRef}
           data={SLOTS}
@@ -1304,6 +1310,12 @@ export function HeroCarousel({
           onMomentumScrollEnd={handleMomentumEnd}
           onScrollBeginDrag={() => {
             pauseNow();
+            if (rotateTimerRef.current) {
+              clearTimeout(rotateTimerRef.current);
+              rotateTimerRef.current = null;
+            }
+            cancelAnimation(progress);
+            progress.value = 0;
             disableParentScroll();
           }}
           onScrollEndDrag={enableParentScroll}
@@ -1316,7 +1328,7 @@ export function HeroCarousel({
           snapToInterval={containerWidth}
           extraData={containerWidth}
         />
-      </Pressable>
+      </View>
 
       {/* Dots + Pause/Play */}
       <View style={styles.dotsRow}>
