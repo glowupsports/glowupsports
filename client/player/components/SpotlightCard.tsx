@@ -131,7 +131,7 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
   return (
     <Animated.View entering={FadeInDown.delay(250).duration(600)} style={[styles.outerContainer]}>
       <View style={[styles.accentLine, { backgroundColor: GlowColors.primary }]} />
-      <View style={[styles.gradient, { backgroundColor: Backgrounds.root }]}>
+      <View style={[styles.gradient, { backgroundColor: Colors.dark.backgroundDefault }]}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={[styles.trophyContainer, { backgroundColor: Colors.dark.accentTextSoft }]}>
@@ -200,7 +200,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
       <View style={styles.accentLine} />
       <View
-        style={[styles.gradient, { backgroundColor: Backgrounds.root }]}
+        style={[styles.gradient, { backgroundColor: Colors.dark.backgroundDefault }]}
       >
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -325,7 +325,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.dark.chipBackground,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },

@@ -225,9 +225,8 @@ export default function CommunityScreen() {
   return (
     <LockedScreen featureKey="community_feed">
       <ThemedView style={styles.container}>
-        <LinearGradient
-          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
-          style={StyleSheet.absoluteFill}
+        <View
+          style={[StyleSheet.absoluteFill, { backgroundColor: Colors.dark.backgroundRoot }]}
         />
 
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>

@@ -10,7 +10,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, BorderRadius, Colors } from "@/constants/theme";
+import { ProTennisColors, BorderRadius, Colors, getActivePlayerScheme } from "@/constants/theme";
 import { getPlayerLevelColor } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -190,7 +190,10 @@ export function GlowAvatar({
                 styles.initials,
                 {
                   fontSize: sizeValue * 0.35,
-                  color: Colors.dark.text,
+                  color:
+                    getActivePlayerScheme() === "dark"
+                      ? resolvedGlowColor
+                      : Colors.dark.text,
                 },
               ]}
             >
