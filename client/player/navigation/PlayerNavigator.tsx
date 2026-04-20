@@ -781,7 +781,7 @@ const TAB_FEATURE_KEYS: Record<string, string> = {
   Profile: "tab:me",
 };
 
-function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }) {
+function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwipeLeft?: () => void; drawerOpen?: boolean }) {
   const { t } = useTranslation();
   const [currentTabKey, setCurrentTabKey] = useState("Home");
   const navigation = useNavigation<any>();
@@ -826,11 +826,12 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   }, [track]);
   
   const renderOverlay = useCallback((tabKey: string) => {
+    if (drawerOpen) return null;
     const shouldHide = HIDE_CHAT_TABS.includes(tabKey);
     if (shouldHide) return null;
     
     return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
-  }, [handleChallenge]);
+  }, [handleChallenge, drawerOpen]);
 
   const { isChatExpanded } = useChatState();
 
@@ -842,7 +843,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
       onEdgeSwipeLeft={onEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
-      centerButtonConfig={playCenterButton}
+      centerButtonConfig={drawerOpen ? undefined : playCenterButton}
       hideTabBar={isChatExpanded}
     />
   );
@@ -882,7 +883,7 @@ function PlayerTabsWithDrawer() {
   
   return (
     <View style={{ flex: 1 }}>
-      <PlayerTabsContent onEdgeSwipeLeft={handleEdgeSwipeLeft} />
+      <PlayerTabsContent onEdgeSwipeLeft={handleEdgeSwipeLeft} drawerOpen={drawerVisible} />
       <PlayerIdentityDrawer 
         visible={drawerVisible} 
         onClose={() => setDrawerVisible(false)}
