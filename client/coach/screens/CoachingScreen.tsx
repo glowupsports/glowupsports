@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
@@ -12,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +22,7 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
+import { getApiUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { styles } from "./coaching/coachingStyles";
@@ -139,6 +142,134 @@ export default function CoachingScreen() {
       (pendingActions?.trialReady ?? 0) > 0 ||
       (pendingActions?.newReviews ?? 0) > 0);
 
+  // Collapsible tools strip state (persisted per coach)
+  const [toolsCollapsed, setToolsCollapsed] = useState(false);
+  const [stripNaturalHeight, setStripNaturalHeight] = useState(0);
+  const stripProgress = useSharedValue(1);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let local: boolean | null = null;
+      try {
+        const v = await AsyncStorage.getItem(COACH_HQ_TOOLS_STORAGE_KEY);
+        if (v !== null) {
+          local = v === "true";
+          if (!cancelled) {
+            setToolsCollapsed(local);
+            stripProgress.value = local ? 0 : 1;
+          }
+        }
+      } catch {}
+
+      try {
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token || cancelled) return;
+        const res = await fetch(
+          new URL("/api/user/onboarding-state", getApiUrl()).toString(),
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const server = data?.state?.[COACH_HQ_TOOLS_SERVER_KEY];
+        if (typeof server === "boolean") {
+          if (cancelled) return;
+          setToolsCollapsed(server);
+          stripProgress.value = withTiming(server ? 0 : 1, { duration: 220 });
+          AsyncStorage.setItem(
+            COACH_HQ_TOOLS_STORAGE_KEY,
+            String(server),
+          ).catch(() => {});
+        } else if (local !== null) {
+          persistToolsCollapsed(local);
+        }
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const persistToolsCollapsed = async (v: boolean) => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) return;
+      await fetch(
+        new URL("/api/user/onboarding-state", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            key: COACH_HQ_TOOLS_SERVER_KEY,
+            value: v,
+          }),
+        },
+      );
+    } catch {}
+  };
+
+  const toggleToolsCollapsed = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = !toolsCollapsed;
+    setToolsCollapsed(next);
+    stripProgress.value = withTiming(next ? 0 : 1, { duration: 220 });
+    AsyncStorage.setItem(COACH_HQ_TOOLS_STORAGE_KEY, String(next)).catch(
+      () => {},
+    );
+    persistToolsCollapsed(next);
+  };
+
+  const onStripLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0 && stripNaturalHeight === 0) {
+      setStripNaturalHeight(h);
+    }
+  };
+
+  const stripAnimStyle = useAnimatedStyle(() => ({
+    height:
+      stripNaturalHeight === 0
+        ? undefined
+        : stripProgress.value * stripNaturalHeight,
+    opacity:
+      stripNaturalHeight === 0
+        ? toolsCollapsed
+          ? 0
+          : 1
+        : stripProgress.value,
+  }));
+
+  const chevronAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${stripProgress.value * 180}deg` }],
+  }));
+
+  const handleToolPress = (tool: ToolItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (tool.id === "evidence") {
+      navigation.navigate("EvidenceCapture", {});
+      return;
+    }
+    if (!tool.tabId) return;
+    if (tool.togglesToSeries) {
+      const isOn = tool.isActive
+        ? tool.isActive(activeTab)
+        : activeTab === tool.tabId;
+      setActiveTab(isOn ? "series" : tool.tabId);
+    } else {
+      setActiveTab(tool.tabId);
+    }
+  };
+
+  const isToolActive = (tool: ToolItem): boolean => {
+    if (tool.isActive) return tool.isActive(activeTab);
+    if (tool.tabId) return activeTab === tool.tabId;
+    return false;
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
@@ -146,14 +277,31 @@ export default function CoachingScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Compact Header */}
-      <View style={styles.compactHeader}>
+      {/* Compact Header (tap to collapse/expand tools) */}
+      <Pressable
+        onPress={toggleToolsCollapsed}
+        style={styles.compactHeader}
+        accessibilityRole="button"
+        accessibilityLabel={
+          toolsCollapsed ? "Expand coaching tools" : "Collapse coaching tools"
+        }
+        accessibilityState={{ expanded: !toolsCollapsed }}
+      >
         <View style={styles.compactHeaderLeft}>
           <View style={styles.compactLevelBadge}>
             <Text style={styles.compactLevelText}>{xpData?.level ?? coach?.level ?? 1}</Text>
           </View>
           <View>
-            <Text style={styles.compactTitle}>COACHING HQ</Text>
+            <View style={localStyles.titleRow}>
+              <Text style={styles.compactTitle}>COACHING HQ</Text>
+              <Animated.View style={chevronAnimStyle}>
+                <Ionicons
+                  name="chevron-down"
+                  size={14}
+                  color={Colors.dark.textMuted}
+                />
+              </Animated.View>
+            </View>
             <View style={styles.compactXpRow}>
               <View style={styles.compactXpBar}>
                 <View style={[styles.compactXpFill, { width: `${xpData?.xpProgress ?? 65}%` }]} />
@@ -166,7 +314,7 @@ export default function CoachingScreen() {
           <Text style={styles.compactStatValue}>{statsData?.sessionsCount ?? 0}</Text>
           <Text style={styles.compactStatLabel}>SESSIONS</Text>
         </View>
-      </View>
+      </Pressable>
 
       {/* Pending Actions Banner (A4) */}
       {hasPendingActions ? (
@@ -227,197 +375,68 @@ export default function CoachingScreen() {
         </View>
       ) : null}
 
-      {/* Category: PLANNING TOOLS */}
-      <View style={localStyles.categoryHeader}>
-        <Text style={localStyles.categoryLabel}>PLANNING TOOLS</Text>
-      </View>
-
-      {/* Compact Pill Tabs */}
-      <View style={styles.pillTabContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillTabScroll}
+      {/* Unified collapsible tools strip (all 12 tools, grouped) */}
+      <Animated.View
+        style={[styles.pillTabContainer, localStyles.toolsStripWrap, stripAnimStyle]}
+      >
+        <View
+          onLayout={onStripLayout}
+          style={
+            stripNaturalHeight === 0
+              ? undefined
+              : localStyles.toolsStripInnerAbsolute
+          }
         >
-          {([
-            { id: "series", label: "Classes", icon: "layers", color: Colors.dark.xpCyan },
-            { id: "weekPlanner", label: "Week View", icon: "calendar-outline", color: Colors.dark.primary },
-            { id: "roster", label: "Roster", icon: "people-outline", color: "#FF8C00" },
-            { id: "plans", label: "Plans", icon: "bulb", color: Colors.dark.gold },
-          ] as const).map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <Pressable
-                key={tab.id}
-                style={[styles.pillTab, isActive && styles.pillTabActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setActiveTab(tab.id);
-                }}
-              >
-                <View style={[
-                  styles.pillTabIconContainer,
-                  { backgroundColor: isActive ? (tab.color + "30") : Colors.dark.backgroundSecondary }
-                ]}>
-                  <Ionicons
-                    name={tab.icon as keyof typeof Ionicons.glyphMap}
-                    size={14}
-                    color={isActive ? tab.color : Colors.dark.textMuted}
-                  />
-                </View>
-                <Text style={[styles.pillTabText, isActive && styles.pillTabTextActive]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Category: FEEDBACK & ASSESSMENT */}
-      <View style={localStyles.categoryHeader}>
-        <Text style={localStyles.categoryLabel}>FEEDBACK & ASSESSMENT</Text>
-      </View>
-
-      {/* Feedback & Assessment Tools Row */}
-      <View style={styles.glowToolsContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.glowToolsScroll}
-        >
-          <Pressable
-            style={[styles.glowToolButton, (activeTab === "today" || activeTab === "feedback") && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "today" ? "series" : "today");
-            }}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pillTabScroll}
           >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.successNeon + "20" }, (activeTab === "today" || activeTab === "feedback") && { backgroundColor: Colors.dark.successNeon + "40" }]}>
-              <Ionicons name="star-outline" size={18} color={Colors.dark.successNeon} />
-            </View>
-            <Text style={[styles.glowToolLabel, (activeTab === "today" || activeTab === "feedback") && { color: Colors.dark.successNeon }]}>Rate Sessions</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "progress" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "progress" ? "series" : "progress");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.xpCyan + "20" }, activeTab === "progress" && { backgroundColor: Colors.dark.xpCyan + "40" }]}>
-              <Ionicons name="trending-up-outline" size={18} color={Colors.dark.xpCyan} />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "progress" && { color: Colors.dark.xpCyan }]}>Progress</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "levels" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "levels" ? "series" : "levels");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.gold + "20" }, activeTab === "levels" && { backgroundColor: Colors.dark.gold + "40" }]}>
-              <Ionicons name="trophy-outline" size={18} color={Colors.dark.gold} />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "levels" && { color: Colors.dark.gold }]}>Glow Levels</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-
-      {/* Category: CONTENT TOOLS */}
-      <View style={localStyles.categoryHeader}>
-        <Text style={localStyles.categoryLabel}>CONTENT TOOLS</Text>
-      </View>
-
-      {/* Glow Tools Quick Access Row */}
-      <View style={styles.glowToolsContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.glowToolsScroll}
-        >
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "templates" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "templates" ? "series" : "templates");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.xpCyan + "20" }, activeTab === "templates" && { backgroundColor: Colors.dark.xpCyan + "40" }]}>
-              <Ionicons name="book-outline" size={18} color={Colors.dark.xpCyan} />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "templates" && { color: Colors.dark.xpCyan }]}>Templates</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "levelCards" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "levelCards" ? "series" : "levelCards");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.primary + "20" }, activeTab === "levelCards" && { backgroundColor: Colors.dark.primary + "40" }]}>
-              <Ionicons name="layers-outline" size={18} color={Colors.dark.primary} />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "levelCards" && { color: Colors.dark.primary }]}>Level Cards</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.glowToolButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("EvidenceCapture", {});
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.successNeon + "20" }]}>
-              <Ionicons name="videocam-outline" size={18} color={Colors.dark.successNeon} />
-            </View>
-            <Text style={styles.glowToolLabel}>Evidence</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "matchLog" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "matchLog" ? "series" : "matchLog");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.orange + "20" }, activeTab === "matchLog" && { backgroundColor: Colors.dark.orange + "40" }]}>
-              <Ionicons name="tennisball-outline" size={18} color={Colors.dark.orange} />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "matchLog" && { color: Colors.dark.orange }]}>Match Log</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "sessionPlan" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "sessionPlan" ? "series" : "sessionPlan");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: Colors.dark.gold + "20" }, activeTab === "sessionPlan" && { backgroundColor: Colors.dark.gold + "40" }]}>
-              <Ionicons name="clipboard-outline" size={18} color={Colors.dark.gold} />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "sessionPlan" && { color: Colors.dark.gold }]}>Session Plan</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.glowToolButton, activeTab === "drillBank" && styles.glowToolButtonActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab(activeTab === "drillBank" ? "series" : "drillBank");
-            }}
-          >
-            <View style={[styles.glowToolIcon, { backgroundColor: "#A855F720" }, activeTab === "drillBank" && { backgroundColor: "#A855F740" }]}>
-              <Ionicons name="barbell-outline" size={18} color="#A855F7" />
-            </View>
-            <Text style={[styles.glowToolLabel, activeTab === "drillBank" && { color: "#A855F7" }]}>Drill Bank</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
+            {COACH_HQ_TOOLS.map((tool, idx) => {
+              const prev = COACH_HQ_TOOLS[idx - 1];
+              const showDivider = !!prev && prev.group !== tool.group;
+              const active = isToolActive(tool);
+              return (
+                <React.Fragment key={tool.id}>
+                  {showDivider ? (
+                    <View style={localStyles.groupDivider} />
+                  ) : null}
+                  <Pressable
+                    style={[styles.pillTab, active && styles.pillTabActive]}
+                    onPress={() => handleToolPress(tool)}
+                  >
+                    <View
+                      style={[
+                        styles.pillTabIconContainer,
+                        {
+                          backgroundColor: active
+                            ? tool.color + "30"
+                            : Colors.dark.backgroundSecondary,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={tool.icon as keyof typeof Ionicons.glyphMap}
+                        size={14}
+                        color={active ? tool.color : Colors.dark.textMuted}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.pillTabText,
+                        active && styles.pillTabTextActive,
+                        active && { color: tool.color },
+                      ]}
+                    >
+                      {tool.label}
+                    </Text>
+                  </Pressable>
+                </React.Fragment>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Animated.View>
 
       {activeTab === "series" ? (
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />
@@ -452,7 +471,69 @@ export default function CoachingScreen() {
   );
 }
 
+const COACH_HQ_TOOLS_STORAGE_KEY = "@glow_coach_hq_tools_collapsed";
+const COACH_HQ_TOOLS_SERVER_KEY = "coach_hq_tools_collapsed";
+
+type ToolGroup = "planning" | "feedback" | "content";
+
+interface ToolItem {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  group: ToolGroup;
+  tabId?: TabType;
+  togglesToSeries?: boolean;
+  isActive?: (a: TabType) => boolean;
+}
+
+const COACH_HQ_TOOLS: ToolItem[] = [
+  { id: "series", label: "Classes", icon: "layers", color: Colors.dark.xpCyan, group: "planning", tabId: "series" },
+  { id: "weekPlanner", label: "Week View", icon: "calendar-outline", color: Colors.dark.primary, group: "planning", tabId: "weekPlanner" },
+  { id: "roster", label: "Roster", icon: "people-outline", color: "#FF8C00", group: "planning", tabId: "roster" },
+  { id: "plans", label: "Plans", icon: "bulb", color: Colors.dark.gold, group: "planning", tabId: "plans" },
+  {
+    id: "today",
+    label: "Rate Sessions",
+    icon: "star-outline",
+    color: Colors.dark.successNeon,
+    group: "feedback",
+    tabId: "today",
+    togglesToSeries: true,
+    isActive: (a) => a === "today" || a === "feedback",
+  },
+  { id: "progress", label: "Progress", icon: "trending-up-outline", color: Colors.dark.xpCyan, group: "feedback", tabId: "progress", togglesToSeries: true },
+  { id: "levels", label: "Glow Levels", icon: "trophy-outline", color: Colors.dark.gold, group: "feedback", tabId: "levels", togglesToSeries: true },
+  { id: "templates", label: "Templates", icon: "book-outline", color: Colors.dark.xpCyan, group: "content", tabId: "templates", togglesToSeries: true },
+  { id: "levelCards", label: "Level Cards", icon: "layers-outline", color: Colors.dark.primary, group: "content", tabId: "levelCards", togglesToSeries: true },
+  { id: "evidence", label: "Evidence", icon: "videocam-outline", color: Colors.dark.successNeon, group: "content" },
+  { id: "matchLog", label: "Match Log", icon: "tennisball-outline", color: Colors.dark.orange, group: "content", tabId: "matchLog", togglesToSeries: true },
+  { id: "sessionPlan", label: "Session Plan", icon: "clipboard-outline", color: Colors.dark.gold, group: "content", tabId: "sessionPlan", togglesToSeries: true },
+  { id: "drillBank", label: "Drill Bank", icon: "barbell-outline", color: "#A855F7", group: "content", tabId: "drillBank", togglesToSeries: true },
+];
+
 const localStyles = StyleSheet.create({
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  toolsStripWrap: {
+    overflow: "hidden",
+  },
+  toolsStripInnerAbsolute: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+  },
+  groupDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginHorizontal: Spacing.xs,
+    marginVertical: Spacing.xs,
+  },
   pendingBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -489,17 +570,6 @@ const localStyles = StyleSheet.create({
   pendingItemText: {
     fontSize: 11,
     color: Colors.dark.textSecondary,
-  },
-  categoryHeader: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xs,
-    paddingBottom: 2,
-  },
-  categoryLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: Colors.dark.textMuted,
-    letterSpacing: 1,
   },
 });
 
