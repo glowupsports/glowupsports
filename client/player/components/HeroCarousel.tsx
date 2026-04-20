@@ -1298,13 +1298,6 @@ export function HeroCarousel({
         }}
         onTouchEnd={scheduleResume}
         onTouchCancel={scheduleResume}
-        {...(Platform.OS === "web"
-          ? ({
-              onMouseDown: () => pauseNow(),
-              onMouseUp: () => scheduleResume(),
-              onMouseLeave: () => scheduleResume(),
-            } as any)
-          : {})}
       >
         <FlatList
           ref={listRef}
