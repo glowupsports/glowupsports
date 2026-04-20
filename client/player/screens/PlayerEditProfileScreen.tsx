@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as Sentry from "@sentry/react-native";
 import { Image } from "expo-image";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
@@ -235,7 +236,11 @@ export default function PlayerEditProfileScreen() {
       try {
         const { appendImageToFormData } = await import("@/lib/uploads");
         await appendImageToFormData(formData, "photo", photoUri);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { area: "profile_photo_upload", phase: "form_data" },
+          extra: { uri: photoUri },
+        });
         throw new Error("Could not read selected photo");
       }
       const token = getAuthToken();
@@ -409,7 +414,15 @@ export default function PlayerEditProfileScreen() {
     if (photoUri) {
       try {
         await uploadPhoto();
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { area: "profile_photo_upload", phase: "save" },
+          extra: {
+            uri: photoUri,
+            uriScheme: photoUri.split(":")[0] || "unknown",
+            message: err instanceof Error ? err.message : String(err),
+          },
+        });
         Alert.alert("Photo Error", "Failed to upload photo. Your other changes will still be saved.");
       }
     }

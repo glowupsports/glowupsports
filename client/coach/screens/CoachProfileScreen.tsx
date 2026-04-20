@@ -17,7 +17,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as Sentry from "@sentry/react-native";
 import { Image } from "expo-image";
+import { appendImageToFormData } from "@/lib/uploads";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -125,31 +127,9 @@ export default function CoachProfileScreen() {
 
       setIsUploadingPhoto(true);
       const asset = result.assets[0];
-      
+
       const uploadFormData = new FormData();
-      const filename = asset.uri.split("/").pop() || "photo.jpg";
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : "image/jpeg";
-      
-      if (Platform.OS === "web") {
-        if ((asset as any).file) {
-          uploadFormData.append("photo", (asset as any).file);
-        } else if (asset.uri.startsWith("data:")) {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          uploadFormData.append("photo", blob, filename);
-        } else {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          uploadFormData.append("photo", blob, filename);
-        }
-      } else {
-        uploadFormData.append("photo", {
-          uri: asset.uri,
-          name: filename,
-          type,
-        } as any);
-      }
+      await appendImageToFormData(uploadFormData, "photo", asset.uri);
 
       const token = getAuthToken();
       
@@ -170,6 +150,12 @@ export default function CoachProfileScreen() {
       Alert.alert("Success", "Profile photo updated!");
     } catch (error) {
       console.error("Error uploading photo:", error);
+      Sentry.captureException(error, {
+        tags: { area: "coach_profile_photo_upload" },
+        extra: {
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
       Alert.alert("Error", "Failed to upload photo. Please try again.");
     } finally {
       setIsUploadingPhoto(false);

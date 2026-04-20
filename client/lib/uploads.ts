@@ -21,10 +21,13 @@ export function imageMimeFromFilename(filename: string): string {
  * Append a picked image to FormData in the platform-correct way.
  *
  * - Web: builds a standard `File` blob from the URI (data:, blob:, or http:).
- * - Native: uses `expo-file-system` `File` (which implements `Blob`) and the
- *   `FormData.append(name, blob, filename)` overload. Per Replit's Expo
- *   guidelines, native uploads must use `expo-file-system` `File` rather than
- *   the legacy `{ uri, name, type }` object.
+ * - Native (iOS/Android): uses the React Native FormData `{ uri, name, type }`
+ *   shape, as documented in `replit.md` (`<file_uploads_and_rendering>`).
+ *   RN's FormData polyfill only serializes the multipart body correctly when
+ *   the value is this object shape — passing a Blob/EFS `File` instance
+ *   results in an empty body (Android) or `[object Blob]` (iOS), which is
+ *   why the previous EFS-File-as-Blob implementation silently failed on
+ *   Android (see Task #832).
  */
 export async function appendImageToFormData(
   form: FormData,
@@ -45,11 +48,9 @@ export async function appendImageToFormData(
     return;
   }
 
-  // Native: expo-file-system File extends/implements Blob, so it fits the
-  // standard `FormData.append(name, blob, filename)` signature. Its
-  // constructor only accepts URI parts, so name/type are passed via the
-  // FormData call and inferred mime respectively.
-  const { File } = await import("expo-file-system");
-  const efsFile = new File(uri);
-  form.append(field, efsFile as unknown as Blob, filename);
+  const type = imageMimeFromFilename(filename) || fallbackType;
+  // RN FormData typings reject the `{ uri, name, type }` object literal even
+  // though the runtime requires it. Cast through `any` to match the RN
+  // polyfill's expected shape.
+  form.append(field, { uri, name: filename, type } as any);
 }
