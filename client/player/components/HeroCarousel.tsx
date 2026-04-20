@@ -57,6 +57,7 @@ import {
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
 const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 8000;
 const PRIORITY_LOCK_MIN = 120;
@@ -75,6 +76,7 @@ interface SlotMeta {
   accent: string;
 }
 
+// Tonal-system fallbacks (Task #858). Live values come from useCategoryAccents.
 const GLOW_LESSONS_ACCENT = "#E040FB";
 const FRIEND_SPOTLIGHT_ACCENT = GlowColors.primary;
 
@@ -246,6 +248,7 @@ function XpChip({ amount, accent }: { amount: number; accent: string }) {
 const COMPETE_ACCENT = FunctionColors.info;
 
 function CompeteCard() {
+  const COMPETE_ACCENT = useCategoryAccent("openMatches", FunctionColors.info);
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
   const navigation = useNavigation<any>();
@@ -573,6 +576,7 @@ function CompeteCard() {
 const EVENTS_ACCENT = RoleColors.owner;
 
 function EventsCard() {
+  const EVENTS_ACCENT = useCategoryAccent("tournaments", RoleColors.owner);
   const { user } = useAuth();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -716,6 +720,10 @@ interface FriendSpotlightConnection {
 }
 
 function FriendSpotlightLensCard() {
+  const FRIEND_SPOTLIGHT_ACCENT = useCategoryAccent(
+    "friendStrip",
+    GlowColors.primary,
+  );
   const navigation = useNavigation<any>();
 
   const { data: connectionsData } = useQuery<{ friends: FriendSpotlightConnection[] }>({
@@ -1062,6 +1070,29 @@ export function HeroCarousel({
   onFindMatch,
 }: HeroCarouselProps = {}) {
   const { state } = usePlayerState();
+  // Tonal-aware accents for hero slots (Task #858). Each falls back to
+  // its legacy hard-coded color when no playerOverride is active.
+  const TRAIN_ACCENT = useCategoryAccent("training", GlowColors.primary);
+  const GLOW_LESSONS_ACCENT = useCategoryAccent("glowLessons", "#E040FB");
+  const COMPETE_SLOT_ACCENT = useCategoryAccent("openMatches", FunctionColors.info);
+  const EVENTS_SLOT_ACCENT = useCategoryAccent("tournaments", RoleColors.owner);
+  const FRIEND_SPOT_SLOT_ACCENT = useCategoryAccent("friendStrip", GlowColors.primary);
+  const slotAccents = useMemo<Record<string, string>>(
+    () => ({
+      train: TRAIN_ACCENT,
+      glow_lessons: GLOW_LESSONS_ACCENT,
+      compete: COMPETE_SLOT_ACCENT,
+      events: EVENTS_SLOT_ACCENT,
+      friend_spotlight: FRIEND_SPOT_SLOT_ACCENT,
+    }),
+    [
+      TRAIN_ACCENT,
+      GLOW_LESSONS_ACCENT,
+      COMPETE_SLOT_ACCENT,
+      EVENTS_SLOT_ACCENT,
+      FRIEND_SPOT_SLOT_ACCENT,
+    ],
+  );
   const navigation = useNavigation<any>();
   const { navigateToTab, setScrollEnabled } = useTabNavigation();
   const [containerWidth, setContainerWidth] = useState<number>(
@@ -1346,7 +1377,7 @@ export function HeroCarousel({
     if (item.id === "train") {
       return (
         <LensShell
-          accent={item.accent}
+          accent={slotAccents[item.id] ?? item.accent}
           label={item.label}
           icon="tennisball"
           actionLabel="View Schedule"
@@ -1365,7 +1396,7 @@ export function HeroCarousel({
     if (item.id === "glow_lessons") {
       return (
         <LensShell
-          accent={item.accent}
+          accent={GLOW_LESSONS_ACCENT}
           label={item.label}
           icon="people"
           actionLabel="View All"
@@ -1406,7 +1437,7 @@ export function HeroCarousel({
           <Animated.View
             style={[
               styles.progressFill,
-              { backgroundColor: SLOTS[activeIndex].accent },
+              { backgroundColor: slotAccents[SLOTS[activeIndex].id] ?? SLOTS[activeIndex].accent },
               progressStyle,
             ]}
           />
@@ -1466,7 +1497,7 @@ export function HeroCarousel({
                   styles.dot,
                   {
                     width: active ? 18 : 6,
-                    backgroundColor: active ? s.accent : Colors.dark.chipBackgroundStrong,
+                    backgroundColor: active ? (slotAccents[s.id] ?? s.accent) : Colors.dark.chipBackgroundStrong,
                   },
                 ]}
               />

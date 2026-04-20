@@ -20,6 +20,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useGlassTint } from "@/hooks/useGlassTint";
+import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface QuickAction {
@@ -83,13 +84,14 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
   const fabScale = useSharedValue(1);
   const track = useTrackFeature();
   const glassTint = useGlassTint();
+  const tournamentsAccent = useCategoryAccent("tournaments", "#FFD700");
 
   const actions: QuickAction[] = [
     {
       id: "tournaments",
       label: "Tournaments",
       icon: "trophy-outline",
-      color: "#FFD700",
+      color: tournamentsAccent,
       onPress: () => {
         track("action:tournaments");
         navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Play", params: { initialTab: "Tournaments" } } });

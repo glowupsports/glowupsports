@@ -19,6 +19,7 @@ import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds, Colors } fr
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
 // Theme tokens are read at render time (or inside `makeReactiveStyles`) so
 // they flip when the player toggles Light/Dark. Do NOT capture them into
 // module-level `const` values — that freezes them at import.
@@ -125,6 +126,7 @@ function LessonCard({
   onTap: (s: OpenLessonSession) => void;
 }) {
   const tint = getCourtTint(session.ballLevel);
+  const brandAccent = useCategoryAccent("glowLessons", ACCENT);
   const filled = (session.participants || []).slice(0, session.maxPlayers);
   const emptyCount = Math.max(0, session.maxPlayers - filled.length);
   const showAvatars = session.maxPlayers > 0 && session.maxPlayers <= 8;
@@ -161,9 +163,9 @@ function LessonCard({
             </View>
           ) : null}
           {session.isEnrolled ? (
-            <View style={styles.youInBadge}>
-              <Ionicons name="checkmark-circle" size={11} color={ACCENT} />
-              <Text style={styles.youInText}>You're in</Text>
+            <View style={[styles.youInBadge, { backgroundColor: brandAccent + "20", borderColor: brandAccent + "55" }]}>
+              <Ionicons name="checkmark-circle" size={11} color={brandAccent} />
+              <Text style={[styles.youInText, { color: brandAccent }]}>You're in</Text>
             </View>
           ) : null}
         </View>
@@ -270,7 +272,7 @@ function LessonCard({
             </Pressable>
           ) : (
             <Pressable
-              style={({ pressed }) => [styles.joinBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [styles.joinBtn, { backgroundColor: brandAccent }, pressed && { opacity: 0.85 }]}
               onPress={(e) => {
                 onJoin(session);
               }}
@@ -461,7 +463,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
                   styles.dot,
                   {
                     width: active ? 16 : 5,
-                    backgroundColor: active ? ACCENT : Colors.dark.chipBackgroundStrong,
+                    backgroundColor: active ? tint : Colors.dark.chipBackgroundStrong,
                   },
                 ]}
               />

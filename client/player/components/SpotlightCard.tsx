@@ -10,6 +10,8 @@ import { Image } from "expo-image";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
+import { AWARD_GOLD, AWARD_GOLD_WARM } from "@/player/theme/categoryAccent";
 interface SpotlightNominee {
   playerId: string;
   playerName: string;
@@ -174,6 +176,7 @@ export function FriendSpotlightCard({ onAddFriends }: { onAddFriends: () => void
 export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode = "academy" }: SpotlightCardProps) {
   useThemeReactivity();
   const { user } = useAuth();
+  const spotlightTint = useCategoryAccent("spotlight", AWARD_GOLD);
   const glowStyle = {};
 
   const { data: currentWeek } = useQuery<CurrentWeekData>({
@@ -198,7 +201,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
 
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
-      <View style={styles.accentLine} />
+      <View style={[styles.accentLine, { backgroundColor: spotlightTint, opacity: 0.45 }]} />
       <View
         style={[styles.gradient, { backgroundColor: Colors.dark.backgroundDefault }]}
       >
@@ -300,7 +303,11 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
             ) : (
               <Pressable onPress={onNominate} style={styles.nominateButton}>
                 <LinearGradient
-                  colors={["#FFD700", "#FFA500"]}
+                  colors={
+                    spotlightTint === AWARD_GOLD
+                      ? [AWARD_GOLD, AWARD_GOLD_WARM]
+                      : [spotlightTint, spotlightTint]
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.nominateGradient}
