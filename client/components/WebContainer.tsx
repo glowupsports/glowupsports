@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import { Backgrounds } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const WEB_MAX_WIDTH = 480;
 const WEB_PHONE_BREAKPOINT = 768;
@@ -40,7 +41,7 @@ export function WebContainer({ children }: WebContainerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   nativeRoot: {
     flex: 1,
   },
@@ -80,4 +81,4 @@ const styles = StyleSheet.create({
   webContent: {
     flex: 1,
   },
-});
+}));

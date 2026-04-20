@@ -12,6 +12,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import { DRAWER_ITEMS } from "@/constants/playerData";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export function DrawerContent({ navigation, state }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
@@ -142,7 +143,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -220,4 +221,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.orange,
     fontWeight: "600",
   },
-});
+}));

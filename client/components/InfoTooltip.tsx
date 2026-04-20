@@ -10,6 +10,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Spacing,
   BorderRadius,
@@ -112,7 +113,7 @@ export function InfoTooltipInline({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   trigger: {
     marginLeft: Spacing.xs,
     opacity: 0.7,
@@ -180,4 +181,4 @@ const styles = StyleSheet.create({
     ...Typography.bodyBold,
     color: TextColors.primary,
   },
-});
+}));

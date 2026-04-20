@@ -3,6 +3,7 @@ import { View, StyleSheet, Text } from "react-native";
 import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface TrendDataPoint {
   date: string;
@@ -138,7 +139,7 @@ export function ObservationTrendChart({ trend, width = 280, height = 80 }: Obser
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   chartContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.sm,
@@ -193,4 +194,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
   },
-});
+}));

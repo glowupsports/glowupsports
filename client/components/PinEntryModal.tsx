@@ -14,6 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface PinEntryModalProps {
   visible: boolean;
@@ -290,7 +291,7 @@ export default function PinEntryModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -371,4 +372,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.sm,
   },
-});
+}));

@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useQuery } from "@tanstack/react-query";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface DssRatingWidgetProps {
   playerId: string;
@@ -331,7 +332,7 @@ export function DssRatingBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
@@ -564,4 +565,4 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "600",
   },
-});
+}));

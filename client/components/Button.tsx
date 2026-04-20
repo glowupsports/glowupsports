@@ -12,6 +12,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, GlowColors, Backgrounds, FunctionColors, TextColors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -148,7 +149,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
     borderRadius: BorderRadius.full,
@@ -171,4 +172,4 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-});
+}));

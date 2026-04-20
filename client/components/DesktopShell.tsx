@@ -7,6 +7,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const ACCENT = "#C8FF3D";
 const BG_SIDEBAR = "#0F141B";
@@ -198,7 +199,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   root: {
     flex: 1,
     flexDirection: "row",
@@ -373,4 +374,4 @@ const styles = StyleSheet.create({
     backgroundColor: BG_MAIN,
     overflow: "hidden" as any,
   },
-});
+}));

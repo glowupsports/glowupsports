@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface Prediction {
   placeId: string;
@@ -259,7 +260,7 @@ export function AddressAutocomplete({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "relative",
     zIndex: 1,
@@ -346,4 +347,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     flex: 1,
   },
-});
+}));

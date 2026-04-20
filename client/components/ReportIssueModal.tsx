@@ -8,6 +8,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } fr
 import { apiRequest } from "@/lib/query-client";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface ReportIssueModalProps {
   visible: boolean;
@@ -221,7 +222,7 @@ export function ReportIssueModal({ visible, onClose, currentScreen }: ReportIssu
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -318,4 +319,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "600",
   },
-});
+}));

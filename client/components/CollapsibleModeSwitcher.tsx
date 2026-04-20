@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAppMode, AppMode } from "@/context/AppModeContext";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const PANEL_WIDTH = 200;
 
@@ -149,7 +150,7 @@ export default function CollapsibleModeSwitcher() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   backdrop: {
     position: "absolute",
     top: 0,
@@ -219,4 +220,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

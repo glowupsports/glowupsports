@@ -13,6 +13,7 @@ import { GlowScoreDisplay } from "@/components/GlowScoreDisplay";
 import { GlowScoreModal } from "@/components/GlowScoreModal";
 import { Colors, Spacing } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export function CustomHeader() {
   const insets = useSafeAreaInsets();
@@ -86,7 +87,7 @@ export function CustomHeader() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "absolute",
     top: 0,
@@ -132,4 +133,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     alignItems: "center",
   },
-});
+}));

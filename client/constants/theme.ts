@@ -497,10 +497,20 @@ export function applyPlayerScheme(scheme: ResolvedScheme): void {
   if (scheme === activeScheme) return;
   activeScheme = scheme;
   rebuild();
+  themeRevision++;
 }
 
 export function getActivePlayerScheme(): ResolvedScheme {
   return activeScheme;
+}
+
+// Monotonic counter bumped whenever the active scheme or academy theme changes.
+// `makeReactiveStyles` reads it to decide whether to re-run its style factory,
+// so any consumer of mutable theme tokens repaints on the next render after a
+// scheme toggle, academy switch, or per-player theme override change.
+let themeRevision = 0;
+export function getThemeRevision(): number {
+  return themeRevision;
 }
 
 /**
@@ -511,6 +521,7 @@ export function getActivePlayerScheme(): ResolvedScheme {
 export function setActiveAcademyTheme(theme: AcademyThemeResolved | null): void {
   activeAcademyTheme = theme;
   rebuild();
+  themeRevision++;
 }
 
 export function getActiveAcademyTheme(): AcademyThemeResolved | null {

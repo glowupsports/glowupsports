@@ -20,6 +20,7 @@ import {
   FunctionColors,
 Backgrounds, } from "@/constants/theme";
 import { WhatsNewFeed, WhatsNewItem } from "@/components/WhatsNewFeed";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const STORAGE_KEY = "@glow_whats_new_last_seen";
 
@@ -168,7 +169,7 @@ export function WhatsNewBellButton({ style }: WhatsNewBellButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   bellButton: {
     width: 40,
     height: 40,
@@ -199,4 +200,4 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
   },
-});
+}));

@@ -1,4 +1,4 @@
-import { getActivePlayerScheme } from "@/constants/theme";
+import { getActivePlayerScheme, getThemeRevision } from "@/constants/theme";
 
 /**
  * Wraps a `StyleSheet.create({ ... })` call in a Proxy that re-runs the
@@ -27,13 +27,13 @@ export function makeReactiveStyles<T extends Record<string, unknown>>(
   factory: () => T,
 ): T {
   let cached: T | undefined;
-  let cachedScheme: string | undefined;
+  let cachedRev: number | undefined;
 
   const ensure = (): T => {
-    const scheme = getActivePlayerScheme();
-    if (scheme !== cachedScheme || cached === undefined) {
+    const rev = getThemeRevision();
+    if (rev !== cachedRev || cached === undefined) {
       cached = factory();
-      cachedScheme = scheme;
+      cachedRev = rev;
     }
     return cached;
   };

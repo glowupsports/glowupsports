@@ -4,6 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAppMode, AppMode } from "@/context/AppModeContext";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface ModeSwitcherProps {
   compact?: boolean;
@@ -93,7 +94,7 @@ export default function ModeSwitcher({ compact = false }: ModeSwitcherProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -133,4 +134,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

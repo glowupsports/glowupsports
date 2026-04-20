@@ -3,6 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNetwork } from "@/context/NetworkContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const theme = Colors.dark;
 
@@ -26,7 +27,7 @@ export default function OfflineBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "absolute",
     top: 0,
@@ -51,4 +52,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     flex: 1,
   },
-});
+}));

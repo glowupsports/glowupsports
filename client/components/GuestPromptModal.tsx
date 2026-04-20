@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Modal } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface GuestPromptModalProps {
   visible: boolean;
@@ -79,7 +80,7 @@ export function useGuestGuard() {
   return { isGuest, guardAction, showPrompt, setShowPrompt, promptProps };
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -145,4 +146,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "500",
   },
-});
+}));

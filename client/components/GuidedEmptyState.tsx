@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -124,7 +125,7 @@ export function GuidedEmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     alignItems: "center",
     paddingVertical: Spacing["3xl"],
@@ -216,4 +217,4 @@ const styles = StyleSheet.create({
     color: "#000000",
     textAlign: "center",
   },
-});
+}));

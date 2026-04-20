@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles, FontSizes } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface SessionDigest {
   id: string;
@@ -430,7 +431,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     ...CardStyles.elevated,
     marginHorizontal: Spacing.xl,
@@ -683,4 +684,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "700",
   },
-});
+}));

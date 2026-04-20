@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface CurrencyDisplayProps {
   diamonds: number;
@@ -37,7 +38,7 @@ export function CurrencyDisplay({ diamonds, coins, compact = false }: CurrencyDi
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -62,4 +63,4 @@ const styles = StyleSheet.create({
   valueCompact: {
     fontSize: 12,
   },
-});
+}));

@@ -9,6 +9,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { Colors, Backgrounds, BorderRadius, Spacing } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface SkeletonProps {
   width?: number | string;
@@ -136,7 +137,7 @@ export function SkeletonDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   skeleton: {
     backgroundColor: Backgrounds.elevated,
   },
@@ -217,4 +218,4 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: Spacing.lg,
   },
-});
+}));

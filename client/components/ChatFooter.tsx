@@ -21,6 +21,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { ChatMessage, CHAT_CHANNELS, REACTION_EMOJIS, ChatChannel } from "@/constants/playerData";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
@@ -258,7 +259,7 @@ export function ChatFooter() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   jumpUnreadPill: {
     position: "absolute",
     bottom: Spacing.md,
@@ -456,4 +457,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

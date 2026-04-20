@@ -10,6 +10,7 @@ import { LevelUpModal } from "@/components/LevelUpModal";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { SkillCategory } from "@/constants/playerData";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface GlowScoreModalProps {
   visible: boolean;
@@ -146,7 +147,7 @@ export function GlowScoreModal({ visible, onClose }: GlowScoreModalProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -288,4 +289,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
-});
+}));

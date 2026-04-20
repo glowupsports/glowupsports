@@ -10,6 +10,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface XPProgressBarProps {
   currentXP: number;
@@ -57,7 +58,7 @@ export function XPProgressBar({ currentXP, xpToNextLevel, level }: XPProgressBar
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     width: "100%",
     gap: Spacing.xs,
@@ -103,4 +104,4 @@ const styles = StyleSheet.create({
     height: 10,
     opacity: 0.3,
   },
-});
+}));

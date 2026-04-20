@@ -17,6 +17,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Colors,
   Spacing,
@@ -160,7 +161,7 @@ export function ActionNeededCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -226,6 +227,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: GlowColors.primary,
   },
-});
+}));
 
 export default ActionNeededCard;

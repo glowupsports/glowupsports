@@ -16,6 +16,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Spacing,
   BorderRadius,
@@ -202,7 +203,7 @@ export function PlatformUsageProgress({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
@@ -312,6 +313,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 11,
   },
-});
+}));
 
 export default PlatformUsageProgress;

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface GlowScoreDisplayProps {
   score: number;
@@ -41,7 +42,7 @@ export function GlowScoreDisplay({ score, size = "small", onPress }: GlowScoreDi
   return content;
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -73,4 +74,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     marginLeft: 2,
   },
-});
+}));

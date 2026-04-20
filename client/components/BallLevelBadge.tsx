@@ -5,6 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { getStageFromLevel, getStageColor, translateLevelLabel } from "@shared/language-switch";
 import { getSportConfig, formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface BallLevelBadgeProps {
   levelId: string;
@@ -114,7 +115,7 @@ export default function BallLevelBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     alignItems: "center",
     gap: Spacing.xs,
@@ -150,4 +151,4 @@ const styles = StyleSheet.create({
     color: FunctionColors.social,
     marginTop: 2,
   },
-});
+}));

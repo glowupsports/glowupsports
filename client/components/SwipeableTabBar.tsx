@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { useTabNavigation } from "./TabNavigationContext";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface TabConfig {
   key: string;
@@ -429,7 +430,7 @@ export function SwipeableTabBar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -549,4 +550,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     marginTop: 4,
   },
-});
+}));

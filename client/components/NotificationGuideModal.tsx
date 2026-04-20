@@ -11,6 +11,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   FadeInDown,
   FadeIn,
@@ -257,7 +258,7 @@ export function NotificationGuideModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.overlay,
@@ -381,6 +382,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#000000",
   },
-});
+}));
 
 export default NotificationGuideModal;

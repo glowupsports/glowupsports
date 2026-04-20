@@ -12,6 +12,7 @@ import * as Updates from "expo-updates";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface UpdateControllerProps {
   children: React.ReactNode;
@@ -371,7 +372,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
@@ -526,4 +527,4 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontWeight: "500",
   },
-});
+}));

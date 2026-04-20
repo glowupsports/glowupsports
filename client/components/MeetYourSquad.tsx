@@ -35,6 +35,7 @@ import {
   BallLevelColors,
 } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PLAYER_CARD_WIDTH = 100;
@@ -313,7 +314,7 @@ function LoadingDot({ index, color }: { index: number; color: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0a0a0a",
@@ -497,4 +498,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-});
+}));

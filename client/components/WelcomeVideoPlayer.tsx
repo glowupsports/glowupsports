@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -285,7 +286,7 @@ export default function WelcomeVideoPlayer({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
@@ -424,4 +425,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-});
+}));

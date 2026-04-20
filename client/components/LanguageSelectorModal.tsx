@@ -16,6 +16,7 @@ import {
   type LanguageCode,
 } from "@/i18n";
 import { Colors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface LanguageSelectorModalProps {
   visible: boolean;
@@ -104,7 +105,7 @@ export function LanguageHeaderButton() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -175,4 +176,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

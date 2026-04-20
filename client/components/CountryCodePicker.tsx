@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface CountryCode {
   code: string;
@@ -178,7 +179,7 @@ export default function CountryCodePicker({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   picker: {
     flexDirection: "row",
     alignItems: "center",
@@ -258,4 +259,4 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
-});
+}));

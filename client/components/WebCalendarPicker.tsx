@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface WebCalendarPickerProps {
   value: Date;
@@ -148,7 +149,7 @@ export function WebCalendarPicker({ value, onChange, maximumDate, minimumDate }:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
@@ -220,4 +221,4 @@ const styles = StyleSheet.create({
   dayTextDisabled: {
     color: Colors.dark.textMuted,
   },
-});
+}));

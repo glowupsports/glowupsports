@@ -10,6 +10,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -226,7 +227,7 @@ export async function hasCelebrationBeenShown(
   }
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.75)",
@@ -328,6 +329,6 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     color: Colors.dark.buttonText,
   },
-});
+}));
 
 export default FirstActionCelebration;

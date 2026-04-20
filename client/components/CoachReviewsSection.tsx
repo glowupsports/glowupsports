@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface ReviewStats {
   totalReviews: number;
@@ -232,7 +233,7 @@ export function CoachReviewsSection({ coachId, compact = false }: CoachReviewsSe
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.md,
@@ -439,4 +440,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-});
+}));

@@ -33,6 +33,7 @@ import { Colors, ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors
 import { useAuth } from "@/coach/context/AuthContext";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.88;
@@ -579,7 +580,7 @@ function getPlayerTitle(level: number): string {
   return "ROOKIE";
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: Backgrounds.card,
@@ -890,4 +891,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: FunctionColors.error,
   },
-});
+}));

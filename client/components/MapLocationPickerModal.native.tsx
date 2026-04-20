@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import * as Location from "expo-location";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface MapLocationResult {
   address: string;
@@ -328,7 +329,7 @@ export function MapLocationPickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -413,4 +414,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.backgroundDefault,
   },
-});
+}));

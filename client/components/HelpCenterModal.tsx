@@ -15,6 +15,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Colors,
   Spacing,
@@ -447,7 +448,7 @@ export function HelpCenterModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.overlay,
@@ -712,6 +713,6 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     marginTop: 2,
   },
-});
+}));
 
 export default HelpCenterModal;

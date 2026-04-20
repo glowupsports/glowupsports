@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface QuickAction {
   id: string;
@@ -176,7 +177,7 @@ export function QuickActionsFAB({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   fabContainer: {
     position: "absolute",
     right: Spacing.lg,
@@ -259,6 +260,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 12,
   },
-});
+}));
 
 export default QuickActionsFAB;

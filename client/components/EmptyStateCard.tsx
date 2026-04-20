@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -118,7 +119,7 @@ export function EmptyStateCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
@@ -161,6 +162,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "rgba(255, 255, 255, 0.06)",
   },
-});
+}));
 
 export default EmptyStateCard;

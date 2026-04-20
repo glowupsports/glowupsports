@@ -12,6 +12,7 @@ import Animated, {
   withDelay,
 } from "react-native-reanimated";
 import { Colors, BorderRadius, Spacing } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 /**
  * DESIGN HIERARCHY NOTES (20/60/20 Rule):
@@ -405,7 +406,7 @@ export function NeoTabBar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "relative",
     overflow: "visible",
@@ -510,4 +511,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-});
+}));

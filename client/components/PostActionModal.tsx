@@ -18,6 +18,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Colors,
   Spacing,
@@ -200,7 +201,7 @@ export function PostActionModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
@@ -300,6 +301,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: TextColors.muted,
   },
-});
+}));
 
 export default PostActionModal;

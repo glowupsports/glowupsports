@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Backgrounds,
   Spacing,
@@ -205,7 +206,7 @@ export function ActionSheet({ visible, onClose, actions }: ActionSheetProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "flex-end",
@@ -272,6 +273,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-});
+}));
 
 export default ActionSheet;

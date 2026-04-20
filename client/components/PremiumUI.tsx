@@ -23,6 +23,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   TextColors,
   GlowColors,
@@ -221,7 +222,7 @@ export function PremiumButton({
   );
 }
 
-const buttonStyles = StyleSheet.create({
+const buttonStyles = makeReactiveStyles(() => StyleSheet.create({
   base: {
     borderRadius: BorderRadius.md,
     alignItems: "center",
@@ -235,7 +236,7 @@ const buttonStyles = StyleSheet.create({
   text: {
     fontWeight: "500",
   },
-});
+}));
 
 // ============================================
 // PREMIUM CARD COMPONENT
@@ -352,12 +353,12 @@ export function PremiumCard({
   return cardContent;
 }
 
-const cardStyles = StyleSheet.create({
+const cardStyles = makeReactiveStyles(() => StyleSheet.create({
   base: {
     borderRadius: BorderRadius.md,
     overflow: "hidden",
   },
-});
+}));
 
 // ============================================
 // GLASS PANEL COMPONENT
@@ -405,7 +406,7 @@ export function GlassPanel({
   );
 }
 
-const glassPanelStyles = StyleSheet.create({
+const glassPanelStyles = makeReactiveStyles(() => StyleSheet.create({
   base: {
     borderRadius: BorderRadius.md,
     borderWidth: 1,
@@ -423,7 +424,7 @@ const glassPanelStyles = StyleSheet.create({
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
-});
+}));
 
 // ============================================
 // STAT BADGE COMPONENT
@@ -557,7 +558,7 @@ export function StatBadge({
   );
 }
 
-const badgeStyles = StyleSheet.create({
+const badgeStyles = makeReactiveStyles(() => StyleSheet.create({
   base: {
     flexDirection: "row",
     alignItems: "center",
@@ -570,7 +571,7 @@ const badgeStyles = StyleSheet.create({
   label: {
     marginLeft: Spacing.xs,
   },
-});
+}));
 
 // ============================================
 // SECTION HEADER COMPONENT
@@ -618,7 +619,7 @@ export function SectionHeader({
   );
 }
 
-const sectionStyles = StyleSheet.create({
+const sectionStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -652,7 +653,7 @@ const sectionStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-});
+}));
 
 // ============================================
 // SHIMMER LOADER COMPONENT
@@ -698,7 +699,7 @@ export function ShimmerLoader({
   );
 }
 
-const shimmerStyles = StyleSheet.create({
+const shimmerStyles = makeReactiveStyles(() => StyleSheet.create({
   base: {
     backgroundColor: Backgrounds.surface,
     overflow: "hidden",
@@ -711,7 +712,7 @@ const shimmerStyles = StyleSheet.create({
     width: 100,
     backgroundColor: Backgrounds.card,
   },
-});
+}));
 
 // ============================================
 // EMPTY STATE COMPONENT
@@ -755,7 +756,7 @@ export function EmptyState({
   );
 }
 
-const emptyStyles = StyleSheet.create({
+const emptyStyles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
@@ -783,7 +784,7 @@ const emptyStyles = StyleSheet.create({
     marginTop: Spacing.sm,
     maxWidth: 280,
   },
-});
+}));
 
 // ============================================
 // DIVIDER COMPONENT
@@ -806,7 +807,7 @@ export function Divider({ style, withGlow = false }: DividerProps) {
   );
 }
 
-const dividerStyles = StyleSheet.create({
+const dividerStyles = makeReactiveStyles(() => StyleSheet.create({
   base: {
     height: 1,
     backgroundColor: Backgrounds.card,
@@ -819,7 +820,7 @@ const dividerStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-});
+}));
 
 // ============================================
 // GLOW INDICATOR COMPONENT
@@ -911,11 +912,11 @@ export function GlowIndicator({
   );
 }
 
-const indicatorStyles = StyleSheet.create({
+const indicatorStyles = makeReactiveStyles(() => StyleSheet.create({
   dot: {
     position: "absolute",
   },
   pulse: {
     position: "absolute",
   },
-});
+}));

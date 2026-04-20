@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import type { BallStage } from "@shared/language-switch";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface PillarData {
   pillar: string;
@@ -62,7 +63,7 @@ function ProgressBar({
   );
 }
 
-const progressStyles = StyleSheet.create({
+const progressStyles = makeReactiveStyles(() => StyleSheet.create({
   track: {
     height: 6,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -74,7 +75,7 @@ const progressStyles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-});
+}));
 
 function getTrendIcon(trend: string): keyof typeof Ionicons.glyphMap {
   switch (trend) {
@@ -207,7 +208,7 @@ export default function PillarProgressRings({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
@@ -283,4 +284,4 @@ const styles = StyleSheet.create({
     right: Spacing.sm,
     opacity: 0.5,
   },
-});
+}));

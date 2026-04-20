@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Spacing,
   BorderRadius,
@@ -129,7 +130,7 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
@@ -163,6 +164,6 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     marginLeft: Spacing.xs,
   },
-});
+}));
 
 export default QuickTipsBanner;

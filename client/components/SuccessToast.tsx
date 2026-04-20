@@ -13,6 +13,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Colors,
   Spacing,
@@ -181,7 +182,7 @@ export function SuccessToast({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "absolute",
     left: Spacing.lg,
@@ -204,6 +205,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
   },
-});
+}));
 
 export default SuccessToast;

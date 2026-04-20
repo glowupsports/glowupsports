@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import {
   Spacing,
   BorderRadius,
@@ -152,7 +153,7 @@ export function RoleSwitchingGuide({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.overlay,
@@ -258,6 +259,6 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
-});
+}));
 
 export default RoleSwitchingGuide;

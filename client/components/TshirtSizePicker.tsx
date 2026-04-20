@@ -9,6 +9,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { childTshirtSizes, adultTshirtSizes, TshirtSize } from "@shared/schema";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface TshirtSizePickerProps {
   value: TshirtSize | undefined;
@@ -98,7 +99,7 @@ export function TshirtSizePicker({ value, onChange, age }: TshirtSizePickerProps
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   picker: {
     flexDirection: "row",
     alignItems: "center",
@@ -171,4 +172,4 @@ const styles = StyleSheet.create({
   sizeTextSelected: {
     color: Colors.dark.buttonText,
   },
-});
+}));

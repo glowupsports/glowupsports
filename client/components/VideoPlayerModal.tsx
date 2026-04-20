@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface VideoPlayerModalProps {
   visible: boolean;
@@ -137,7 +138,7 @@ export function VideoPlayerModal({ visible, videoUrl, title, onClose }: VideoPla
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -243,4 +244,4 @@ const styles = StyleSheet.create({
   playButtonActive: {
     backgroundColor: Colors.dark.xpCyan,
   },
-});
+}));

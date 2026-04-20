@@ -11,6 +11,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   FadeInDown,
   FadeIn,
@@ -188,7 +189,7 @@ export function WhatsNewFeed({ visible, onClose, items }: WhatsNewFeedProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.overlay,
@@ -321,6 +322,6 @@ const styles = StyleSheet.create({
     color: TextColors.muted,
     marginTop: Spacing.md,
   },
-});
+}));
 
 export default WhatsNewFeed;

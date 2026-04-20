@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface LevelUpModalProps {
   visible: boolean;
@@ -78,7 +79,7 @@ export function LevelUpModal({ visible, level, onClose }: LevelUpModalProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -128,4 +129,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
-});
+}));

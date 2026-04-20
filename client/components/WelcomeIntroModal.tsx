@@ -15,6 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { getApiUrl } from "@/lib/query-client";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -265,7 +266,7 @@ export function WelcomeIntroModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -382,6 +383,6 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     color: Colors.dark.buttonText,
   },
-});
+}));
 
 export default WelcomeIntroModal;

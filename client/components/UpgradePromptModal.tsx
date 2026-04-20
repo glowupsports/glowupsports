@@ -14,6 +14,7 @@ import * as Linking from "expo-linking";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const TIER_COLORS: Record<string, string> = {
   starter: Colors.dark.textMuted,
@@ -175,7 +176,7 @@ export default function UpgradePromptModal({ visible, data, onDismiss }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -266,4 +267,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.sm,
   },
-});
+}));

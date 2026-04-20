@@ -6,6 +6,7 @@ import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface PlayerAvatarProps {
   avatar: string;
@@ -86,7 +87,7 @@ export function PlayerAvatar({
   return content;
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     position: "relative",
   },
@@ -116,4 +117,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));

@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -381,7 +382,7 @@ function StepItem({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
@@ -549,6 +550,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.xpCyan,
   },
-});
+}));
 
 export default GettingStartedChecklist;

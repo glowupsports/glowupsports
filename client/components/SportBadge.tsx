@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { getSportConfig, getSportColor, SPORTS, type Sport, type SportOrMulti } from "@shared/sportConfig";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface SportBadgeProps {
   sport?: string | null;
@@ -111,7 +112,7 @@ export function SportSingleSelector({ selectedSport, onSelect, label, includeMul
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -160,4 +161,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
   },
-});
+}));

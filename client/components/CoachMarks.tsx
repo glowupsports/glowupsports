@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -637,7 +638,7 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 9999,
@@ -764,6 +765,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.buttonText,
   },
-});
+}));
 
 export default CoachMarksProvider;

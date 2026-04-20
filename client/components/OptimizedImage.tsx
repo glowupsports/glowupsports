@@ -2,6 +2,7 @@ import React, { memo } from "react";
 import { StyleSheet, View, ViewStyle, StyleProp, ImageStyle } from "react-native";
 import { Image, ImageProps, ImageContentFit } from "expo-image";
 import { Colors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const blurhash = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
 
@@ -85,7 +86,7 @@ function AvatarComponent({ source, size = 40, name = "?", style }: AvatarProps) 
 
 export const OptimizedAvatar = memo(AvatarComponent);
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   avatarFallback: {
     backgroundColor: Colors.dark.backgroundSecondary,
     overflow: "hidden",
@@ -100,4 +101,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-});
+}));

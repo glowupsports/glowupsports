@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { Alert as RNAlert, Platform, View, Text, Pressable, StyleSheet, Modal, Animated } from "react-native";
 import { Colors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface AlertButton {
   text: string;
@@ -173,7 +174,7 @@ export function useWebAlert() {
   return ctx;
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     alignItems: "center",
@@ -269,4 +270,4 @@ const styles = StyleSheet.create({
   btnTextDestructive: {
     color: "#F87171",
   },
-});
+}));

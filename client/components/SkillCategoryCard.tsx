@@ -11,6 +11,7 @@ import Svg, { Circle } from "react-native-svg";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { SkillCategory } from "@/constants/playerData";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface SkillCategoryCardProps {
   skill: SkillCategory;
@@ -87,7 +88,7 @@ export function SkillCategoryCard({ skill, onPress }: SkillCategoryCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.sm,
@@ -122,4 +123,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-});
+}));

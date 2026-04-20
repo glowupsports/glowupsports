@@ -20,6 +20,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Fonts, Colors } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -278,7 +279,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     width: "100%",
@@ -413,4 +414,4 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     width: "100%",
   },
-});
+}));
