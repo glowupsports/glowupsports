@@ -231,7 +231,7 @@ function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; que
       onPress={onPress}
       footer={
         <View style={miniTileStyles.footerRow}>
-          <Ionicons name="flash" size={10} color=GlowColors.yellow />
+          <Ionicons name="flash" size={10} color={GlowColors.yellow} />
           <Text style={miniTileStyles.xpFooterText} numberOfLines={1}>+{quest.xpReward ?? 0} XP</Text>
         </View>
       }
@@ -357,7 +357,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
   } else if (stateC && lastWinner) {
     footer = (
       <View style={miniTileStyles.footerRow}>
-        <Ionicons name="ribbon" size={10} color=GlowColors.yellow />
+        <Ionicons name="ribbon" size={10} color={GlowColors.yellow} />
         <Text style={miniTileStyles.footerText} numberOfLines={1}>Winner</Text>
       </View>
     );
@@ -372,7 +372,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
           {topNominee.playerName.split(" ")[0]}
         </Text>
         <View style={miniTileStyles.starRow}>
-          <Ionicons name="star" size={10} color=GlowColors.yellow />
+          <Ionicons name="star" size={10} color={GlowColors.yellow} />
           <Text style={miniTileStyles.starCountText}>{topNominee.totalVotes}</Text>
         </View>
       </>
@@ -397,7 +397,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
     <MiniTile
       label="SPOTLIGHT"
       icon="trophy"
-      iconColor=GlowColors.yellow
+      iconColor={GlowColors.yellow}
       accentBg="rgba(255,215,0,0.08)"
       accentBorder="rgba(255,215,0,0.25)"
       accessibilityLabel="Player spotlight"
@@ -549,7 +549,7 @@ function IQQuizModal({
 
           {quizLoading ? (
             <View style={iqCardStyles.loadingWrap}>
-              <ActivityIndicator color=GlowColors.yellow size="small" />
+              <ActivityIndicator color={GlowColors.yellow} size="small" />
               <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
             </View>
           ) : quizComplete ? (
@@ -801,7 +801,7 @@ function UnifiedImproveCard({
               }}
             >
               <View style={u.colHeader}>
-                <Ionicons name="bulb-outline" size={11} color=GlowColors.yellow />
+                <Ionicons name="bulb-outline" size={11} color={GlowColors.yellow} />
                 <Text style={[u.colLabel, { color: GlowColors.yellow }]} numberOfLines={1}>
                   TENNIS IQ
                 </Text>
@@ -862,7 +862,7 @@ function UnifiedImproveCard({
                       {quest.currentProgress}/{quest.targetProgress}
                     </Text>
                     <View style={u.xpRow}>
-                      <Ionicons name="flash" size={10} color=GlowColors.yellow />
+                      <Ionicons name="flash" size={10} color={GlowColors.yellow} />
                       <Text style={u.xpText} numberOfLines={1}>
                         +{quest.xpReward ?? 0} XP
                       </Text>
@@ -887,7 +887,7 @@ function UnifiedImproveCard({
           {/* SPOTLIGHT FULL-WIDTH ROW — main row + CTA are SIBLING Pressables */}
           <View style={u.spotWrap}>
             <View style={u.spotHeaderRow}>
-              <Ionicons name="trophy" size={11} color=GlowColors.yellow />
+              <Ionicons name="trophy" size={11} color={GlowColors.yellow} />
               <Text style={[u.colLabel, { color: GlowColors.yellow }]} numberOfLines={1}>
                 PLAYER OF THE WEEK
               </Text>
@@ -1916,7 +1916,7 @@ function TennisIQMiniTile() {
       <MiniTile
         label="TENNIS IQ"
         icon="bulb-outline"
-        iconColor=GlowColors.yellow
+        iconColor={GlowColors.yellow}
         accentBg="rgba(255,215,0,0.06)"
         accentBorder="rgba(255,215,0,0.2)"
         accessibilityLabel="Test your tennis IQ"
@@ -1960,7 +1960,7 @@ function TennisIQMiniTile() {
 
             {quizLoading ? (
               <View style={iqCardStyles.loadingWrap}>
-                <ActivityIndicator color=GlowColors.yellow size="small" />
+                <ActivityIndicator color={GlowColors.yellow} size="small" />
                 <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
               </View>
             ) : quizComplete ? (
