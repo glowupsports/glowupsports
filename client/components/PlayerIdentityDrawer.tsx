@@ -29,7 +29,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { Colors, ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
+import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
@@ -37,6 +37,15 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.88;
+
+// Non-mutating dark surface constants. The drawer is intentionally locked to
+// its premium dark aesthetic in both colour schemes (matches Coach/Admin),
+// so we cannot use the mutable Backgrounds.* tokens (which flip white in
+// Light) nor their ProTennisColors aliases (surfaceDark / surfaceElevated /
+// midnightBlue all alias the mutable Backgrounds.* values). These literal
+// hexes mirror the original dark Backgrounds values byte-for-byte.
+const DRAWER_DARK_CARD = "#11141A";
+const DRAWER_DARK_ELEVATED = "#171B22";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -583,7 +592,7 @@ function getPlayerTitle(level: number): string {
 const styles = makeReactiveStyles(() => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: DRAWER_DARK_CARD,
   },
   drawer: {
     position: "absolute",
@@ -591,7 +600,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: DRAWER_DARK_CARD,
     borderRightWidth: 1,
     borderRightColor: GlowColors.primary + "20",
   },
@@ -714,7 +723,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   xpBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: DRAWER_DARK_ELEVATED,
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -771,7 +780,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: DRAWER_DARK_CARD,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
@@ -794,7 +803,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: DRAWER_DARK_ELEVATED,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -808,7 +817,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   sectionItems: {
     paddingBottom: Spacing.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: DRAWER_DARK_CARD,
   },
   menuItem: {
     flexDirection: "row",
@@ -819,7 +828,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemPressed: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: DRAWER_DARK_ELEVATED,
   },
   menuItemLocked: {
     opacity: 0.5,
