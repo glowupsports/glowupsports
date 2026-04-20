@@ -8,18 +8,19 @@ import {
   Text,
   Modal,
   TextInput,
-  Platform,
   ActivityIndicator,
 } from "react-native";
-import * as Device from "expo-device";
-import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Fonts, Colors } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
-import { getAuthToken } from "@/lib/auth";
+import {
+  buildDiagnosticsPayload,
+  queueDiagnosticsReport,
+  sendDiagnosticsReport,
+} from "@/lib/diagnostics";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export type ErrorFallbackProps = {
@@ -36,6 +37,8 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [didCopy, setDidCopy] = useState(false);
   const [userComment, setUserComment] = useState("");
   const [errorId] = useState(() => generateErrorId());
 
@@ -56,56 +59,37 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
     return details;
   };
 
-  const collectDiagnostics = () => {
-    return {
-      errorId,
-      message: error.message,
-      stack: error.stack,
-      severity: "error",
-      platform: Platform.OS,
-      appVersion: Constants.expoConfig?.version || "unknown",
-      deviceInfo: Device.modelName || "unknown",
-      context: {
-        platform: Platform.OS,
-        osVersion: Platform.Version,
-        deviceBrand: Device.brand,
-        deviceModel: Device.modelName,
-        isDevice: Device.isDevice,
-        expoVersion: Constants.expoConfig?.sdkVersion,
-        appVersion: Constants.expoConfig?.version,
-        timestamp: new Date().toISOString(),
-      },
-      userComment: userComment.trim() || undefined,
-    };
-  };
-
   const handleSendDiagnostics = async () => {
     if (isSending || isSent) return;
 
     setIsSending(true);
+    setSendError(null);
+    setDidCopy(false);
+
+    const payload = buildDiagnosticsPayload({ error, errorId, userComment });
+    const result = await sendDiagnosticsReport(payload);
+
+    if (result.ok) {
+      setIsSent(true);
+    } else {
+      const message = result.error || "Could not send report";
+      console.error("Failed to send diagnostics:", message);
+      setSendError(message);
+      // Persist for retry on next boot
+      queueDiagnosticsReport(payload).catch(() => {});
+    }
+
+    setIsSending(false);
+  };
+
+  const handleCopyDetails = async () => {
     try {
-      const diagnostics = collectDiagnostics();
-      const apiUrl = getApiUrl();
-      const token = getAuthToken();
-
-      const response = await fetch(new URL("/api/diagnostics/report", apiUrl).toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(diagnostics),
-      });
-
-      if (response.ok) {
-        setIsSent(true);
-      } else {
-        console.error("Failed to send diagnostics:", await response.text());
-      }
-    } catch (sendError) {
-      console.error("Error sending diagnostics:", sendError);
-    } finally {
-      setIsSending(false);
+      const payload = buildDiagnosticsPayload({ error, errorId, userComment });
+      await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
+      setDidCopy(true);
+      setTimeout(() => setDidCopy(false), 2000);
+    } catch (err) {
+      console.warn("Failed to copy diagnostics:", err);
     }
   };
 
@@ -188,6 +172,33 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             </ThemedText>
           </View>
         )}
+
+        {!isSent && sendError ? (
+          <View style={styles.failureBlock}>
+            <View style={styles.failureRow}>
+              <Ionicons name="alert-circle" size={18} color={Colors.dark.orange} />
+              <ThemedText type="caption" style={styles.failureText}>
+                Couldn't send: {sendError}. We saved it and will retry next launch.
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={handleCopyDetails}
+              style={({ pressed }) => [
+                styles.copyButton,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Ionicons
+                name={didCopy ? "checkmark-outline" : "copy-outline"}
+                size={16}
+                color={Colors.dark.text}
+              />
+              <ThemedText type="caption" style={styles.copyText}>
+                {didCopy ? "Copied!" : "Copy details"}
+              </ThemedText>
+            </Pressable>
+          </View>
+        ) : null}
 
         <Pressable
           onPress={handleRestart}
@@ -360,6 +371,37 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   sentText: {
     color: Colors.dark.primary,
     fontWeight: "500",
+  },
+  failureBlock: {
+    width: "100%",
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    alignItems: "center",
+  },
+  failureRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  failureText: {
+    color: Colors.dark.text,
+    opacity: 0.85,
+    flex: 1,
+    flexShrink: 1,
+  },
+  copyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+  },
+  copyText: {
+    color: Colors.dark.text,
   },
   dismissButton: {
     paddingVertical: Spacing.sm,

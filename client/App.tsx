@@ -214,6 +214,16 @@ export default function App() {
     prepare();
   }, []);
 
+  useEffect(() => {
+    // Drain any diagnostics reports that failed to send during a previous
+    // crash session. Runs once per app cold-start; safe to fire-and-forget.
+    import("@/lib/diagnostics")
+      .then(({ drainPendingDiagnostics }) => drainPendingDiagnostics())
+      .catch((err) => {
+        if (__DEV__) console.warn("[Diagnostics] drain skipped:", err);
+      });
+  }, []);
+
   const appIsReady = isReady && (fontsLoaded || fontError != null);
 
   const handleSplashComplete = useCallback(() => {
