@@ -806,12 +806,15 @@ export default function PlayerSettingsScreen() {
                             // complete, valid #RRGGBB (or fully cleared).
                             if (trimmed === "" || HEX6_RE.test(trimmed)) {
                               const base = playerOverride ?? defaultAcademyTheme;
+                              const nextValue = trimmed || base[field];
+                              const nextDarkValue =
+                                trimmed || (base.dark?.[field] ?? base[field]);
                               const next: AcademyTheme = {
                                 ...base,
-                                [field]: trimmed || base[field],
+                                [field]: nextValue,
                                 dark: {
                                   ...((base.dark) ?? {}),
-                                  [field]: trimmed || base.dark?.[field] ?? base[field],
+                                  [field]: nextDarkValue,
                                 },
                               };
                               setPlayerOverride(next);
