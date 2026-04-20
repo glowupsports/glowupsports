@@ -24,6 +24,8 @@ import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { useTranslation } from "react-i18next";
 import { HelpCenterModal } from "@/components/HelpCenterModal";
 import type { FAQItem } from "@/components/HelpCenterModal";
+import MyThemeEditor from "@/player/components/MyThemeEditor";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface PlayerData {
@@ -73,10 +75,11 @@ export function ProPlayerCard({
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl);
-  const { logoUrl: academyLogoFromTheme } = useAcademyTheme();
+  const { logoUrl: academyLogoFromTheme, playerOverride, setPlayerOverride } = useAcademyTheme();
   const academyLogoUrl = buildPhotoUrl(academyLogoFromTheme);
+  const insets = useSafeAreaInsets();
   const [showHelp, setShowHelp] = useState(false);
-  const [showAppearanceSheet, setShowAppearanceSheet] = useState(false);
+  const [showThemeEditor, setShowThemeEditor] = useState(false);
   const { preference: appearancePref, resolvedScheme, setPreference: setAppearancePref } = usePlayerAppearance();
 
   const appearanceLabels: Record<PlayerAppearancePreference, string> = {
@@ -89,25 +92,21 @@ export function ProPlayerCard({
     dark: "moon-outline",
     system: "phone-portrait-outline",
   };
-  const currentAppearanceIcon =
-    appearancePref === "system" ? appearanceIcons.system : appearanceIcons[resolvedScheme];
-
   const didLongPressAppearance = React.useRef(false);
   const cycleAppearance = () => {
-    if (didLongPressAppearance.current) {
-      didLongPressAppearance.current = false;
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const next: PlayerAppearancePreference =
       appearancePref === "system" ? "light" : appearancePref === "light" ? "dark" : "system";
     setAppearancePref(next);
   };
 
-  const pickAppearance = (next: PlayerAppearancePreference) => {
+  const openThemeEditor = () => {
+    if (didLongPressAppearance.current) {
+      didLongPressAppearance.current = false;
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setAppearancePref(next);
-    setShowAppearanceSheet(false);
+    setShowThemeEditor(true);
   };
 
   const playerFAQs: FAQItem[] = [
@@ -310,17 +309,16 @@ export function ProPlayerCard({
             <LanguageHeaderButton />
             <Pressable
               style={styles.bottomActionBtn}
-              onPress={cycleAppearance}
+              onPress={openThemeEditor}
               onLongPress={() => {
                 didLongPressAppearance.current = true;
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowAppearanceSheet(true);
+                cycleAppearance();
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Appearance: ${appearanceLabels[appearancePref]}, double-tap to change`}
-              accessibilityHint="Cycles between system, light, and dark. Long-press to choose."
+              accessibilityLabel="Open theme editor"
+              accessibilityHint="Opens the theme editor. Long-press to cycle system, light, and dark."
             >
-              <Ionicons name={currentAppearanceIcon} size={18} color={Colors.dark.iconMuted} />
+              <Ionicons name="color-palette-outline" size={18} color={Colors.dark.iconMuted} />
             </Pressable>
             <Pressable
               style={styles.bottomActionBtn}
@@ -358,42 +356,71 @@ export function ProPlayerCard({
         </View>
       </View>
       <Modal
-        visible={showAppearanceSheet}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAppearanceSheet(false)}
+        visible={showThemeEditor}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowThemeEditor(false)}
       >
-        <Pressable style={styles.appearanceBackdrop} onPress={() => setShowAppearanceSheet(false)}>
-          <Pressable style={styles.appearanceSheet} onPress={(e) => e.stopPropagation()}>
+        <View style={[styles.themeEditorContainer, { paddingTop: insets.top + Spacing.md }]}>
+          <View style={styles.themeEditorHeader}>
+            <Text style={styles.themeEditorTitle}>Theme</Text>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowThemeEditor(false);
+              }}
+              style={styles.themeEditorCloseBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close theme editor"
+            >
+              <Ionicons name="close" size={22} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.appearanceSegmentRow}>
             {(["light", "dark", "system"] as PlayerAppearancePreference[]).map((opt) => {
               const selected = appearancePref === opt;
               return (
                 <Pressable
                   key={opt}
-                  style={[styles.appearanceOption, selected && styles.appearanceOptionSelected]}
-                  onPress={() => pickAppearance(opt)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setAppearancePref(opt);
+                  }}
+                  style={[
+                    styles.appearanceSegment,
+                    selected && styles.appearanceSegmentSelected,
+                  ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`${appearanceLabels[opt]} appearance`}
                   accessibilityState={{ selected }}
+                  accessibilityLabel={`${appearanceLabels[opt]} appearance`}
                 >
                   <Ionicons
                     name={appearanceIcons[opt]}
                     size={18}
-                    color={selected ? Colors.dark.accentText : Colors.dark.textSecondary}
+                    color={selected ? Colors.dark.buttonText : Colors.dark.textMuted}
                   />
-                  <Text style={[styles.appearanceOptionText, selected && styles.appearanceOptionTextSelected]}>
+                  <Text
+                    style={[
+                      styles.appearanceSegmentLabel,
+                      selected && styles.appearanceSegmentLabelSelected,
+                    ]}
+                  >
                     {appearanceLabels[opt]}
                   </Text>
-                  {selected ? (
-                    <Ionicons name="checkmark" size={18} color={Colors.dark.accentText} />
-                  ) : (
-                    <View style={{ width: 18 }} />
-                  )}
                 </Pressable>
               );
             })}
-          </Pressable>
-        </Pressable>
+          </View>
+
+          <View style={styles.themeEditorBody}>
+            <MyThemeEditor
+              override={playerOverride}
+              setOverride={setPlayerOverride}
+              initialMode={resolvedScheme === "light" ? "light" : "dark"}
+            />
+          </View>
+        </View>
       </Modal>
       <HelpCenterModal
         visible={showHelp}
@@ -659,40 +686,59 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.accentText,
     letterSpacing: 0.5,
   },
-  appearanceBackdrop: {
+  themeEditorContainer: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.lg,
+    backgroundColor: Backgrounds.root,
   },
-  appearanceSheet: {
-    minWidth: 220,
-    backgroundColor: Backgrounds.elevated,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBorder,
-    gap: 4,
-  },
-  appearanceOption: {
+  themeEditorHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: BorderRadius.sm,
-    gap: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
   },
-  appearanceOptionSelected: {
-    backgroundColor: Colors.dark.accentTextSoft,
+  themeEditorTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.dark.text,
   },
-  appearanceOptionText: {
+  themeEditorCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  themeEditorBody: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: TextColors.primary,
+    paddingHorizontal: Spacing.md,
   },
-  appearanceOptionTextSelected: {
-    color: Colors.dark.accentText,
+  appearanceSegmentRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  appearanceSegment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+  },
+  appearanceSegmentSelected: {
+    backgroundColor: Colors.dark.accentText,
+  },
+  appearanceSegmentLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  appearanceSegmentLabelSelected: {
+    color: Colors.dark.buttonText,
   },
 }));
