@@ -1646,6 +1646,12 @@ export default function PlayerProgressScreen() {
   const videoCount = videoFeedbacks?.length ?? 0;
   const assignedCoach = playerProfile?.coach ?? null;
 
+  // Read the bottom-tab height up here (NOT after the early returns below) so
+  // every render path of this component calls hooks in the same order. Putting
+  // it after the `isGuest` / `isLoading` / `error` early returns triggers
+  // React's "change in the order of Hooks" warning (Task #822).
+  const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? insets.bottom;
+
   useEffect(() => {
     if (!hasSeenScreen("Progress")) {
       const timer = setTimeout(() => {
@@ -1802,7 +1808,6 @@ export default function PlayerProgressScreen() {
   })();
 
   const currentLevelXp = data.xp % 500;
-  const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? insets.bottom;
 
   const totalObservations = (data.skillRadar ?? []).reduce((sum, s) => sum + s.observationCount, 0);
   const isNewPlayer = totalObservations === 0;

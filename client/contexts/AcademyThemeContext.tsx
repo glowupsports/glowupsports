@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -204,11 +205,15 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
     [effective, effectiveScheme, themeRevision],
   );
 
-  // Apply during render so descendants see the post-mutation tokens
-  // immediately. We pass the RAW academy theme — `setActiveAcademyTheme`
-  // re-resolves it for the active scheme on every rebuild, which is what
-  // keeps Light/Dark toggling honest (Task #811).
-  setActiveAcademyTheme(effective);
+  // Apply in a layout effect — calling `setActiveAcademyTheme` during render
+  // mutates the global theme module and notifies `useSyncExternalStore`
+  // subscribers, which can trigger a "Cannot update a component while
+  // rendering a different component" warning and an aborted update that
+  // hangs the app on the splash (Task #822). useLayoutEffect runs before
+  // paint so there is no visible flash.
+  useLayoutEffect(() => {
+    setActiveAcademyTheme(effective);
+  }, [effective]);
 
   // Clear on unmount so other contexts revert to defaults.
   useEffect(() => {

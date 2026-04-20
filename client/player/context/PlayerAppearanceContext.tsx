@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, ReactNode } from "react";
 import { Appearance, ColorSchemeName } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -57,10 +57,16 @@ export function PlayerAppearanceProvider({ children }: { children: ReactNode }) 
     [preference, osScheme],
   );
 
-  // Apply the resolved scheme synchronously during render so descendants read
-  // the post-mutation values on the very same render pass (a useEffect would
-  // run too late and cause one frame of stale colors).
-  applyPlayerScheme(resolvedScheme);
+  // Apply the resolved scheme in a layout effect so the mutation + subscriber
+  // notification happens AFTER the render phase completes. Calling it during
+  // render mutates the global theme module and notifies `useSyncExternalStore`
+  // subscribers (e.g. AcademyThemeProvider) while a different component is
+  // still rendering — React aborts that update and the splash hangs (Task #822).
+  // useLayoutEffect runs synchronously after commit but before paint, so the
+  // brief stale-colour pass is invisible.
+  useLayoutEffect(() => {
+    applyPlayerScheme(resolvedScheme);
+  }, [resolvedScheme]);
 
   // Restore dark when this provider unmounts (e.g. switching to coach mode).
   useEffect(() => {
