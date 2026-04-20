@@ -90,6 +90,7 @@ export function SocialTickerFooter({
   isExpanded = false 
 }: SocialTickerFooterProps) {
   const insets = useSafeAreaInsets();
+  const glassTint = useGlassTint();
   const scrollAnim = useRef(new RNAnimated.Value(0)).current;
   const [isPaused, setIsPaused] = useState(false);
   
