@@ -358,6 +358,18 @@ export default function PlayerBookingWizard({
     }
   }, [availableCourts]);
 
+  // Fetch coaches for "browse by coach" mode
+  const { data: coaches = [] } = useQuery<Coach[]>({
+    queryKey: ["/api/coaches"],
+    enabled: visible,
+  });
+
+  // Fetch all bookable courts in player's academy (for "Choose Court" browse mode)
+  const { data: academyCourts = [], isLoading: academyCourtsLoading } = useQuery<AcademyCourt[]>({
+    queryKey: ["/api/player/academy-courts"],
+    enabled: visible,
+  });
+
   // Auto-select for the "Choose Court" browse step when only one bookable
   // court exists in the academy — keeps Next enabled/full color instead of
   // forcing the player to tap the only option.
@@ -375,18 +387,6 @@ export default function PlayerBookingWizard({
       setSelectedLocationId(only.locationId ?? null);
     }
   }, [browseMode, academyCourts, presetCourtId]);
-
-  // Fetch coaches for "browse by coach" mode
-  const { data: coaches = [] } = useQuery<Coach[]>({
-    queryKey: ["/api/coaches"],
-    enabled: visible,
-  });
-
-  // Fetch all bookable courts in player's academy (for "Choose Court" browse mode)
-  const { data: academyCourts = [], isLoading: academyCourtsLoading } = useQuery<AcademyCourt[]>({
-    queryKey: ["/api/player/academy-courts"],
-    enabled: visible,
-  });
 
   // Fetch all coaches from player's academy for coach selection screen
   const { data: academyCoachesData, isLoading: academyCoachesLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
