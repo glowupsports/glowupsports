@@ -518,7 +518,23 @@ export function getThemeRevision(): number {
  * the current player scheme so light/dark logic keeps working — academy
  * colours overrule the neutral tokens, not the mode itself.
  */
+function academyThemesEqual(
+  a: AcademyThemeResolved | null,
+  b: AcademyThemeResolved | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
+    keyof AcademyThemeResolved
+  >;
+  for (const k of keys) {
+    if ((a as any)[k] !== (b as any)[k]) return false;
+  }
+  return true;
+}
+
 export function setActiveAcademyTheme(theme: AcademyThemeResolved | null): void {
+  if (academyThemesEqual(activeAcademyTheme, theme)) return;
   activeAcademyTheme = theme;
   rebuild();
   themeRevision++;
