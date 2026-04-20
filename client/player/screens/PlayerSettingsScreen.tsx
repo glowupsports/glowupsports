@@ -20,9 +20,8 @@ import { FAMILY_SWITCH_KEY } from "@/player/screens/FamilyLobbyScreen";
 import AiProUpgradeModal from "@/player/components/AiProUpgradeModal";
 import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
-import { themePresets, defaultAcademyTheme, type AcademyTheme } from "@shared/theme";
-
-const HEX6_RE = /^#[0-9a-fA-F]{6}$/;
+import { defaultAcademyTheme } from "@shared/theme";
+import MyThemeEditor from "@/player/components/MyThemeEditor";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
@@ -72,18 +71,6 @@ export default function PlayerSettingsScreen() {
   const { preference: appearancePref, setPreference: setAppearancePref } = usePlayerAppearance();
   const { playerOverride, setPlayerOverride } = useAcademyTheme();
   const themeMode: "academy" | "preset" = playerOverride ? "preset" : "academy";
-
-  // Local draft for in-progress hex typing. We only commit a valid #RRGGBB
-  // value to the global theme override so partial input like "#" or "#12"
-  // never reaches AcademyThemeProvider.
-  const [hexDraft, setHexDraft] = useState<{ primary?: string; secondary?: string }>({});
-  const matchedPresetId = React.useMemo(() => {
-    if (!playerOverride) return null;
-    const match = themePresets.find(
-      (p) => (p.theme.primary ?? "") === (playerOverride.primary ?? ""),
-    );
-    return match?.id ?? "custom";
-  }, [playerOverride]);
 
   const toggleSport = async (sport: Sport) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -689,199 +676,11 @@ export default function PlayerSettingsScreen() {
             </View>
 
             {themeMode === "preset" ? (
-              <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md }}>
-                <Text style={styles.languageDescription}>
-                  Pick a preset or enter your own colours. This only affects
-                  your account on this device — your academy's branding stays
-                  as-is for everyone else.
-                </Text>
-
-                {/* Live preview */}
-                <View
-                  style={{
-                    borderRadius: BorderRadius.md,
-                    borderWidth: 1,
-                    borderColor: Colors.dark.borderSubtle,
-                    backgroundColor: playerOverride?.dark?.surface ?? playerOverride?.surface ?? Colors.dark.backgroundSecondary,
-                    padding: Spacing.md,
-                    gap: Spacing.sm,
-                  }}
-                  accessibilityLabel="Theme preview"
-                >
-                  <Text style={{ color: playerOverride?.dark?.text ?? playerOverride?.text ?? Colors.dark.text, fontWeight: "600" }}>
-                    Preview
-                  </Text>
-                  <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-                    <View
-                      style={{
-                        paddingVertical: Spacing.sm,
-                        paddingHorizontal: Spacing.md,
-                        borderRadius: BorderRadius.md,
-                        backgroundColor: playerOverride?.dark?.primary ?? playerOverride?.primary ?? Colors.dark.primary,
-                      }}
-                    >
-                      <Text style={{ color: "#0B0B0B", fontWeight: "700" }}>Primary</Text>
-                    </View>
-                    <View
-                      style={{
-                        paddingVertical: Spacing.sm,
-                        paddingHorizontal: Spacing.md,
-                        borderRadius: BorderRadius.md,
-                        backgroundColor: playerOverride?.dark?.secondary ?? playerOverride?.secondary ?? Colors.dark.gold,
-                      }}
-                    >
-                      <Text style={{ color: "#0B0B0B", fontWeight: "700" }}>Accent</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Preset chips */}
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
-                  {themePresets.map((p) => {
-                    const selected = matchedPresetId === p.id;
-                    const swatch = p.theme.dark?.primary ?? p.theme.primary ?? "#000";
-                    return (
-                      <Pressable
-                        key={p.id}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setPlayerOverride({ ...p.theme, dark: { ...(p.theme.dark ?? {}) } });
-                        }}
-                        style={[
-                          {
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                            paddingVertical: Spacing.sm,
-                            paddingHorizontal: Spacing.md,
-                            borderRadius: BorderRadius.md,
-                            borderWidth: 1,
-                            borderColor: selected ? Colors.dark.primary : Colors.dark.borderSubtle,
-                            backgroundColor: selected
-                              ? "rgba(200,255,61,0.08)"
-                              : Colors.dark.backgroundSecondary,
-                          },
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                      >
-                        <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: swatch }} />
-                        <Text style={{ color: Colors.dark.text, fontWeight: "500" }}>{p.name}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Custom hex inputs */}
-                <View style={{ gap: Spacing.sm }}>
-                  <Text style={{ color: Colors.dark.textMuted, fontWeight: "600" }}>Custom colours</Text>
-                  {(["primary", "secondary"] as const).map((field) => {
-                    const committed =
-                      playerOverride?.dark?.[field] ?? playerOverride?.[field] ?? "";
-                    const draft = hexDraft[field];
-                    const display = draft !== undefined ? draft : committed;
-                    const valid = !display || HEX6_RE.test(display);
-                    return (
-                      <View key={field} style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                        <View
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: Colors.dark.borderSubtle,
-                            backgroundColor: HEX6_RE.test(committed) ? committed : "transparent",
-                          }}
-                        />
-                        <Text style={{ color: Colors.dark.text, width: 80, textTransform: "capitalize" }}>{field}</Text>
-                        <TextInput
-                          value={display}
-                          onChangeText={(raw) => {
-                            const trimmed = raw.length === 0
-                              ? ""
-                              : raw.startsWith("#") ? raw : `#${raw}`;
-                            // Always update local draft so the user can type freely.
-                            setHexDraft((prev) => ({ ...prev, [field]: trimmed }));
-                            // Only commit to the global theme when the value is a
-                            // complete, valid #RRGGBB (or fully cleared).
-                            if (trimmed === "" || HEX6_RE.test(trimmed)) {
-                              const base = playerOverride ?? defaultAcademyTheme;
-                              const nextValue = trimmed || base[field];
-                              const nextDarkValue =
-                                trimmed || (base.dark?.[field] ?? base[field]);
-                              const next: AcademyTheme = {
-                                ...base,
-                                [field]: nextValue,
-                                dark: {
-                                  ...((base.dark) ?? {}),
-                                  [field]: nextDarkValue,
-                                },
-                              };
-                              setPlayerOverride(next);
-                              // Clear the draft entry so we fall back to the
-                              // committed value (keeps state minimal).
-                              setHexDraft((prev) => {
-                                const { [field]: _, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          onBlur={() => {
-                            // Discard invalid drafts on blur so we don't keep
-                            // a stale red error sitting around forever.
-                            setHexDraft((prev) => {
-                              if (prev[field] === undefined) return prev;
-                              if (HEX6_RE.test(prev[field] ?? "")) return prev;
-                              const { [field]: _, ...rest } = prev;
-                              return rest;
-                            });
-                          }}
-                          placeholder="#RRGGBB"
-                          placeholderTextColor={Colors.dark.textMuted}
-                          autoCapitalize="characters"
-                          autoCorrect={false}
-                          maxLength={7}
-                          accessibilityLabel={`${field} colour hex value`}
-                          accessibilityHint="Enter a six-character hex colour like #C8FF3D"
-                          style={{
-                            flex: 1,
-                            color: valid ? Colors.dark.text : "#FF6B6B",
-                            backgroundColor: Colors.dark.backgroundSecondary,
-                            borderWidth: 1,
-                            borderColor: valid ? Colors.dark.borderSubtle : "#FF6B6B",
-                            borderRadius: BorderRadius.sm,
-                            paddingHorizontal: Spacing.sm,
-                            paddingVertical: Spacing.xs,
-                            fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
-                          }}
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {/* Explicit reset CTA */}
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setPlayerOverride(null);
-                  }}
-                  style={{
-                    alignSelf: "flex-start",
-                    paddingVertical: Spacing.sm,
-                    paddingHorizontal: Spacing.md,
-                    borderRadius: BorderRadius.md,
-                    borderWidth: 1,
-                    borderColor: Colors.dark.borderSubtle,
-                    backgroundColor: "transparent",
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Reset to academy default theme"
-                >
-                  <Text style={{ color: Colors.dark.text, fontWeight: "600" }}>
-                    Reset to academy default
-                  </Text>
-                </Pressable>
+              <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md }}>
+                <MyThemeEditor
+                  override={playerOverride}
+                  setOverride={setPlayerOverride}
+                />
               </View>
             ) : null}
           </View>
