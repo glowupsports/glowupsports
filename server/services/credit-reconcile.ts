@@ -31,11 +31,33 @@ export interface DriftRow {
   offendingSessionPlayerIds: string[];
 }
 
+export interface V1OrphanRow {
+  transactionId: string;
+  sessionPlayerId: string | null;
+  playerId: string;
+  playerName: string;
+  academyId: string;
+  academyName: string;
+  amount: number;
+  reason: string;
+  createdAt: Date;
+}
+
 export interface DriftSummary {
   academyId?: string;
   totalDrift: number;
   driftCount: number;
   rows: DriftRow[];
+  /**
+   * Task #825 — V1-in-V2-academy regression guard. Every row here is a debit
+   * row in the legacy `credit_transactions` table whose academy is V2-enabled
+   * AND has no corresponding `credit_ledger_v2` consume row for the same
+   * `session_player_id`. With Task #685 Phase 4 these should be impossible
+   * to write going forward; any row appearing here means the V2 short-circuit
+   * in `ensureCreditProcessed` was bypassed and needs investigation.
+   */
+  v1OrphanRows: V1OrphanRow[];
+  v1OrphanCount: number;
 }
 
 export interface MissingAttendanceRow {
@@ -190,8 +212,17 @@ export async function computeCreditDrift(
     }
   }
 
+  const v1Orphans = await detectV1OrphanDebits(academyId);
+
   if (buckets.size === 0) {
-    return { academyId, totalDrift: 0, driftCount: 0, rows: [] };
+    return {
+      academyId,
+      totalDrift: 0,
+      driftCount: 0,
+      rows: [],
+      v1OrphanRows: v1Orphans,
+      v1OrphanCount: v1Orphans.length,
+    };
   }
 
   const consumes = await db.execute(sql`
@@ -249,7 +280,80 @@ export async function computeCreditDrift(
     totalDrift,
     driftCount: rows.length,
     rows,
+    v1OrphanRows: v1Orphans,
+    v1OrphanCount: v1Orphans.length,
   };
+}
+
+/**
+ * Task #825 — find every legacy `credit_transactions` debit (consume or
+ * session_debt) in a V2-enabled academy that has NO matching
+ * `credit_ledger_v2` consume row by `session_player_id`. Cancelled rows are
+ * ignored. With Task #685 Phase 4 these should never appear; the watchdog
+ * exists so the next bypass is caught the moment it lands.
+ */
+async function detectV1OrphanDebits(
+  academyId?: string,
+): Promise<V1OrphanRow[]> {
+  const academyFilter = academyId
+    ? sql`AND ct.academy_id = ${academyId}`
+    : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      ct.id              AS transaction_id,
+      ct.session_player_id AS session_player_id,
+      ct.player_id       AS player_id,
+      p.name             AS player_name,
+      ct.academy_id      AS academy_id,
+      a.name             AS academy_name,
+      ct.amount          AS amount,
+      ct.reason          AS reason,
+      ct.created_at      AS created_at
+    FROM credit_transactions ct
+    JOIN academies a ON a.id = ct.academy_id
+    LEFT JOIN players p ON p.id = ct.player_id
+    WHERE ct.amount < 0
+      AND COALESCE(a.use_new_credit_system, false) = true
+      AND ct.reason IN ('session_consumed', 'session_debt')
+      AND COALESCE((ct.metadata->>'cancelled')::text, 'false') <> 'true'
+      AND (
+        ct.session_player_id IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM credit_ledger_v2 lv
+          WHERE lv.session_player_id = ct.session_player_id
+            AND lv.reason = 'consume'
+        )
+      )
+      ${academyFilter}
+    ORDER BY ct.created_at DESC
+    LIMIT 200
+  `);
+
+  return result.rows.map((raw) => {
+    const r = raw as {
+      transaction_id: string;
+      session_player_id: string | null;
+      player_id: string;
+      player_name: string | null;
+      academy_id: string;
+      academy_name: string | null;
+      amount: string | number;
+      reason: string;
+      created_at: string | Date;
+    };
+    return {
+      transactionId: r.transaction_id,
+      sessionPlayerId: r.session_player_id,
+      playerId: r.player_id,
+      playerName: r.player_name || "(unknown)",
+      academyId: r.academy_id,
+      academyName: r.academy_name || "(unknown)",
+      amount: num(r.amount),
+      reason: r.reason,
+      createdAt: new Date(r.created_at),
+    };
+  });
 }
 
 /**

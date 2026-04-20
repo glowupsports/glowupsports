@@ -97,7 +97,8 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
 - **Corporate/Business Accounts**: Companies purchase session credit pools for employees. Managed by `corporateStorage` with dedicated API routes and admin/employee dashboards. Booking integration ensures corporate credits are processed first.
 - **Web Container**: `client/components/WebContainer.tsx` wraps the app in a phone-shaped frame on desktop. Cross-platform shadow system and web-compatible `SwipeableTabBar`.
-- **Credit Drift Watchdog**: `server/services/credit-reconcile.ts` exposes `computeCreditDrift(academyId?)` which recomputes expected vs actual V2 consumption per player.
+- **Credit Drift Watchdog**: `server/services/credit-reconcile.ts` exposes `computeCreditDrift(academyId?)` which recomputes expected vs actual V2 consumption per player. The summary also includes `v1OrphanRows` — non-cancelled debits in `credit_transactions` for V2 academies that have no matching `credit_ledger_v2` consume row (Task #825 regression guard). The 5-minute scheduler logs `[Reconcile] V1_ORPHAN_DEBITS` whenever any are found.
+- **V2 Short-Circuit Hint (Task #825)**: `ensureCreditProcessed(sessionPlayerId, { academyIdHint })` accepts an optional academy hint from upstream callers (auto-attendance, repair passes) so a freshly-inserted `session_player` is always V2-routed even if a Supabase pgBouncer read-after-write race causes the in-function `SELECT` to momentarily return zero rows. The function also retries the lookup once on miss and emits `[EnsureCredit][V2-MISS]` warnings whenever the V2 short-circuit cannot fire.
 - **V1 Credit Retirement**: All academies are now V2 only. Legacy V1 calls are converted into V2 ledger operations via storage shims.
 - **V1 Route-Layer Cleanup**: Removed unused V1 imports from several route files.
 

@@ -13019,7 +13019,10 @@ export function shouldChargeCredit(args: {
   return true;
 }
 
-async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
+async function ensureCreditProcessed(
+  sessionPlayerId: string,
+  opts?: { academyIdHint?: string | null },
+): Promise<{
   success: boolean;
   action: "consumed" | "debt_created" | "already_processed" | "not_attended" | "error";
   transactionId?: string;
@@ -13033,19 +13036,65 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
     // the legacy package/credit_transactions write-path entirely. The
     // engine handles attendance + chargeability internally and is
     // idempotent on `consume:<sessionPlayerId>`.
-    const acadLookup = await db.execute(sql`
-      SELECT s.academy_id
-      FROM session_players sp
-      JOIN sessions s ON s.id = sp.session_id
-      WHERE sp.id = ${sessionPlayerId}
-      LIMIT 1
-    `);
-    const acadRow = acadLookup.rows[0] as { academy_id: string | null } | undefined;
-    const academyIdForGate = acadRow?.academy_id ?? null;
+    //
+    // Task #825 — accept an optional `academyIdHint` from upstream callers
+    // (auto-attendance, repair passes, etc.) so we don't have to re-look up
+    // the academy across a fresh `session_players` insert. The Apr 19 16:17
+    // V2-bypass cluster was caused by a 6-row batch where this lookup
+    // momentarily returned 0 rows for newly-inserted session_players,
+    // causing the V2 short-circuit to silently fall through to the legacy
+    // ledger. When no hint is given, we still do the lookup AND retry once
+    // before giving up, then log a structured `[EnsureCredit][V2-MISS]`.
+    let academyIdForGate: string | null = opts?.academyIdHint ?? null;
+    let acadLookupReason: "hint" | "lookup_ok" | "lookup_empty" = "hint";
+    if (!academyIdForGate) {
+      let acadLookup = await db.execute(sql`
+        SELECT s.academy_id
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.id = ${sessionPlayerId}
+        LIMIT 1
+      `);
+      let acadRow = acadLookup.rows[0] as { academy_id: string | null } | undefined;
+      if (!acadRow) {
+        // Read-after-write race (Supabase pgBouncer): retry once after a tiny
+        // delay so a freshly-inserted session_player still gets V2-routed.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        acadLookup = await db.execute(sql`
+          SELECT s.academy_id
+          FROM session_players sp
+          JOIN sessions s ON s.id = sp.session_id
+          WHERE sp.id = ${sessionPlayerId}
+          LIMIT 1
+        `);
+        acadRow = acadLookup.rows[0] as { academy_id: string | null } | undefined;
+      }
+      academyIdForGate = acadRow?.academy_id ?? null;
+      acadLookupReason = academyIdForGate ? "lookup_ok" : "lookup_empty";
+    }
 
+    if (!academyIdForGate) {
+      // P1 alert: lookup never resolved an academy_id, so V2 short-circuit
+      // can't fire and we'd silently fall through to the legacy ledger
+      // (= the Apr 19 bypass shape). Callers should pass `academyIdHint`
+      // wherever possible to avoid this entirely.
+      console.warn(
+        `[EnsureCredit][V2-MISS] sessionPlayerId=${sessionPlayerId} academyId=null reason=lookup_returned_no_rows`,
+      );
+    }
+
+    void acadLookupReason;
     if (academyIdForGate) {
       const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
       const v2 = await isV2EnabledForAcademy(academyIdForGate);
+      if (!v2) {
+        // P1 alert: a V2 academy fell through to legacy. With the flag now
+        // hard-coded to true this should be impossible — log it loudly so it
+        // shows up in deployment log greps.
+        console.warn(
+          `[EnsureCredit][V2-MISS] sessionPlayerId=${sessionPlayerId} academyId=${academyIdForGate} reason=flag_returned_false`,
+        );
+      }
       if (v2) {
         const { consumeCredit } = await import("./services/credit-engine");
         try {

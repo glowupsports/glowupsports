@@ -1092,7 +1092,7 @@ async function processAutoCompleteSession(): Promise<void> {
     // exactly). Auto-mark present + route through ensureCreditProcessed for
     // every age — the engine is idempotent and V2-aware, so re-runs are safe.
     const result = await pool.query(
-      `SELECT id, end_time, start_time, session_type, coach_id
+      `SELECT id, end_time, start_time, session_type, coach_id, academy_id
        FROM sessions
        WHERE end_time <= $1::timestamp
          AND status = 'scheduled'
@@ -1130,7 +1130,9 @@ async function processAutoCompleteSession(): Promise<void> {
             [sp.id]
           );
           try {
-            const creditResult = await ensureCreditProcessed(sp.id);
+            const creditResult = await ensureCreditProcessed(sp.id, {
+              academyIdHint: row.academy_id ?? null,
+            });
             if (creditResult.action === "consumed") {
               console.log(`[AutoComplete]   Consumed credit for player ${sp.player_id}`);
             } else if (creditResult.action === "debt_created") {
@@ -1223,7 +1225,9 @@ async function processAutoAttendance(): Promise<void> {
 
             // REFACTORED: Use ensureCreditProcessed instead of direct deduction
             try {
-              const result = await ensureCreditProcessed(newSessionPlayerId);
+              const result = await ensureCreditProcessed(newSessionPlayerId, {
+                academyIdHint: session.academyId ?? null,
+              });
               if (result.action === "consumed") {
                 console.log(`[AutoAttendance] Consumed credit for player ${sp.playerId} in session ${session.id}`);
               } else if (result.action === "debt_created") {
@@ -1255,7 +1259,9 @@ async function processAutoAttendance(): Promise<void> {
 
           // REFACTORED: Use ensureCreditProcessed instead of direct deduction
           try {
-            const result = await ensureCreditProcessed(player.id);
+            const result = await ensureCreditProcessed(player.id, {
+              academyIdHint: session.academyId ?? null,
+            });
             if (result.action === "consumed") {
               console.log(`[AutoAttendance] Consumed credit for player ${player.playerId} in session ${session.id}`);
             } else if (result.action === "debt_created") {
@@ -1452,7 +1458,9 @@ async function repairMissingSessionPlayers(): Promise<void> {
         sessionIds.add(row.session_id);
 
         try {
-          const creditResult = await ensureCreditProcessed(newId);
+          const creditResult = await ensureCreditProcessed(newId, {
+            academyIdHint: row.academy_id ?? null,
+          });
           if (creditResult.action === "consumed" || creditResult.action === "debt_created") {
             creditProcessed++;
           }
@@ -1500,7 +1508,7 @@ export async function repairNullAttendance(): Promise<void> {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ").substring(0, 19);
     const nullAttendance = await pool.query(`
-      SELECT sp.id, sp.player_id, sp.session_id, s.start_time, s.session_type, p.name as player_name
+      SELECT sp.id, sp.player_id, sp.session_id, s.start_time, s.session_type, s.academy_id, p.name as player_name
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
       JOIN players p ON p.id = sp.player_id
@@ -1531,7 +1539,9 @@ export async function repairNullAttendance(): Promise<void> {
       );
 
       try {
-        const result = await ensureCreditProcessed(row.id);
+        const result = await ensureCreditProcessed(row.id, {
+          academyIdHint: row.academy_id ?? null,
+        });
         if (result.action === "consumed") {
           creditsProcessed++;
           console.log(`[NullAttendanceRepair] ${row.player_name} | session ${row.session_id.substring(0,8)} (${new Date(row.start_time).toISOString().substring(0,10)}) | credit consumed`);
@@ -1991,7 +2001,7 @@ async function processUnchargedAttendance(): Promise<void> {
     // `ensureCreditProcessed` itself short-circuits on V2 academies and uses
     // event_key-based duplicate detection.
     const unchargedResult = await pool.query(`
-      SELECT sp.id, sp.player_id, sp.attendance_status, s.session_type
+      SELECT sp.id, sp.player_id, sp.attendance_status, s.session_type, s.academy_id
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
       JOIN academies a ON a.id = s.academy_id
@@ -2028,7 +2038,9 @@ async function processUnchargedAttendance(): Promise<void> {
 
     for (const row of unchargedResult.rows) {
       try {
-        const result = await ensureCreditProcessed(row.id);
+        const result = await ensureCreditProcessed(row.id, {
+          academyIdHint: row.academy_id ?? null,
+        });
         if (result.action === "consumed") consumed++;
         else if (result.action === "debt_created") debts++;
         else skipped++;
@@ -2107,8 +2119,20 @@ async function processCreditDriftWatchdog(): Promise<void> {
         );
       }
     }
+    if (summary.v1OrphanCount > 0) {
+      // Task #825 — V1-in-V2-academy regression guard. Anything here means
+      // the V2 short-circuit in `ensureCreditProcessed` was bypassed.
+      console.warn(
+        `[Reconcile] V1_ORPHAN_DEBITS total=${summary.v1OrphanCount} (V1 debits in V2 academies with no V2 ledger row)`,
+      );
+      for (const r of summary.v1OrphanRows.slice(0, 25)) {
+        console.warn(
+          `[Reconcile] V1_ORPHAN tx=${r.transactionId} sp=${r.sessionPlayerId} player=${r.playerId} (${r.playerName}) academy=${r.academyId} reason=${r.reason} amount=${r.amount} at=${r.createdAt.toISOString()}`,
+        );
+      }
+    }
     if (summary.driftCount === 0) {
-      if (missing.totalMissing === 0) {
+      if (missing.totalMissing === 0 && summary.v1OrphanCount === 0) {
         console.log("[Reconcile] OK (V2 academies)");
       }
       return;
