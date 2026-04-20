@@ -3507,11 +3507,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderTopWidth: 2,
     borderTopColor: Colors.dark.primary + "50",
-    zIndex: 1,
-    ...Platform.select({
-      android: { elevation: 9 },
-      default: {},
-    }),
   },
   headerTouchable: {
     flex: 1,
