@@ -68,7 +68,11 @@ export default function PlayerSettingsScreen() {
   const [switchedName, setSwitchedName] = useState<string | null>(null);
 
   const { activeSports, updateActiveSports } = useSport();
-  const { preference: appearancePref, setPreference: setAppearancePref } = usePlayerAppearance();
+  const {
+    preference: appearancePref,
+    setPreference: setAppearancePref,
+    resolvedScheme: appearanceResolved,
+  } = usePlayerAppearance();
   const { playerOverride, setPlayerOverride } = useAcademyTheme();
   const themeMode: "academy" | "preset" = playerOverride ? "preset" : "academy";
 
@@ -680,6 +684,7 @@ export default function PlayerSettingsScreen() {
                 <MyThemeEditor
                   override={playerOverride}
                   setOverride={setPlayerOverride}
+                  initialMode={appearanceResolved === "light" ? "light" : "dark"}
                 />
               </View>
             ) : null}

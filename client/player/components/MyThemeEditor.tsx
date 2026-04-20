@@ -40,6 +40,12 @@ const FIELDS: ReadonlyArray<{ key: keyof AcademyThemeColors; label: string }> = 
 interface Props {
   override: AcademyTheme | null;
   setOverride: (next: AcademyTheme | null) => void | Promise<void>;
+  /**
+   * Which Light/Dark tab the editor should default to. Pass the player's
+   * currently active appearance scheme so the tab matches what they see in
+   * the rest of the app.
+   */
+  initialMode?: Mode;
 }
 
 function readField(
@@ -60,15 +66,20 @@ function writeField(
   field: keyof AcademyThemeColors,
   value: string,
 ): AcademyTheme {
-  const base: AcademyTheme = theme
-    ? { ...theme, dark: { ...(theme.dark ?? {}) } }
-    : { ...defaultAcademyTheme, dark: { ...(defaultAcademyTheme.dark ?? {}) } };
+  const source = theme ?? defaultAcademyTheme;
   if (mode === "light") {
-    (base as any)[field] = value;
-  } else {
-    base.dark = { ...(base.dark ?? {}), [field]: value };
+    const lightPatch: Partial<AcademyThemeColors> = { [field]: value };
+    return {
+      ...source,
+      ...lightPatch,
+      dark: { ...(source.dark ?? {}) },
+    };
   }
-  return base;
+  const darkPatch: Partial<AcademyThemeColors> = {
+    ...(source.dark ?? {}),
+    [field]: value,
+  };
+  return { ...source, dark: darkPatch };
 }
 
 // Strict validation. We mirror shared/theme.ts: full #RRGGBB everywhere,
@@ -82,8 +93,12 @@ function isValidColor(field: keyof AcademyThemeColors, v: string): boolean {
   return false;
 }
 
-export default function MyThemeEditor({ override, setOverride }: Props) {
-  const [mode, setMode] = useState<Mode>("dark");
+export default function MyThemeEditor({
+  override,
+  setOverride,
+  initialMode = "dark",
+}: Props) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [pickerField, setPickerField] = useState<
     keyof AcademyThemeColors | null
   >(null);
@@ -135,14 +150,29 @@ export default function MyThemeEditor({ override, setOverride }: Props) {
     commitField(pickerField, hex);
   };
 
-  const panelHex = readField(override, mode, "panel");
-  const surfaceHex = readField(override, mode, "surface");
-  const textHex = readField(override, mode, "text");
-  const textMutedHex = readField(override, mode, "textMuted");
-  const primaryHex = readField(override, mode, "primary");
-  const accentHex = readField(override, mode, "accent");
-  const borderHex = readField(override, mode, "panelBorder");
-  const onPrimary = HEX6_RE.test(primaryHex) ? safeTextOn(primaryHex) : "#000";
+  const buildPreview = (m: Mode) => {
+    const primary = readField(override, m, "primary");
+    return {
+      panel: readField(override, m, "panel"),
+      surface: readField(override, m, "surface"),
+      text: readField(override, m, "text"),
+      textMuted: readField(override, m, "textMuted"),
+      primary,
+      accent: readField(override, m, "accent"),
+      border: readField(override, m, "panelBorder"),
+      onPrimary: HEX6_RE.test(primary) ? safeTextOn(primary) : "#000",
+    };
+  };
+  const lightPreview = buildPreview("light");
+  const darkPreview = buildPreview("dark");
+  const activePreview = mode === "light" ? lightPreview : darkPreview;
+  const panelHex = activePreview.panel;
+  const surfaceHex = activePreview.surface;
+  const textHex = activePreview.text;
+  const primaryHex = activePreview.primary;
+  // Show both previews side-by-side once the player has actually configured a
+  // dark variant. Otherwise just show the active mode's preview.
+  const hasDarkOverride = !!override?.dark && Object.keys(override.dark).length > 0;
 
   const textPanelRatio =
     HEX6_RE.test(textHex) && HEX6_RE.test(panelHex)
@@ -254,17 +284,23 @@ export default function MyThemeEditor({ override, setOverride }: Props) {
         })}
       </View>
 
-      {/* Realistic preview card */}
-      <PreviewCard
-        panel={panelHex}
-        surface={surfaceHex}
-        text={textHex}
-        textMuted={textMutedHex}
-        primary={primaryHex}
-        accent={accentHex}
-        border={borderHex}
-        onPrimary={onPrimary}
-      />
+      {/* Realistic preview card(s). When the player has configured both
+          modes we render them side-by-side so they can compare the two at a
+          glance; otherwise we just render the active mode. */}
+      {hasDarkOverride ? (
+        <View style={styles.previewRow}>
+          <View style={styles.previewCol}>
+            <Text style={styles.previewLabel}>Light</Text>
+            <PreviewCard {...lightPreview} />
+          </View>
+          <View style={styles.previewCol}>
+            <Text style={styles.previewLabel}>Dark</Text>
+            <PreviewCard {...darkPreview} />
+          </View>
+        </View>
+      ) : (
+        <PreviewCard {...activePreview} />
+      )}
 
       {/* Field rows */}
       <View style={{ gap: Spacing.sm }}>
@@ -570,6 +606,21 @@ const styles = StyleSheet.create({
   tabs: {
     flexDirection: "row",
     gap: Spacing.sm,
+  },
+  previewRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  previewCol: {
+    flex: 1,
+    gap: 4,
+  },
+  previewLabel: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   tab: {
     flex: 1,
