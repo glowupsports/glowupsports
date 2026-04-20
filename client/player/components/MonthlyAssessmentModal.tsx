@@ -12,6 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getAuthHeaders, getApiUrl } from "@/lib/query-client";
@@ -127,6 +128,7 @@ export function MonthlyAssessmentModal({
   existingAssessment,
 }: MonthlyAssessmentModalProps) {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({
     strengthsAnswer: existingAssessment?.strengthsAnswer || "",
@@ -208,7 +210,7 @@ export function MonthlyAssessmentModal({
       >
         <View style={styles.container}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <LinearGradient
               colors={[ACCENT2 + "40", "transparent"]}
               style={StyleSheet.absoluteFill}
@@ -221,7 +223,7 @@ export function MonthlyAssessmentModal({
                 <Text style={styles.headerTitle}>Monthly Check-In</Text>
                 <Text style={styles.headerSub}>Glow Mirror — Your Voice</Text>
               </View>
-              <Pressable onPress={handleClose} style={styles.closeBtn}>
+              <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
                 <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
               </Pressable>
             </View>
@@ -344,7 +346,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   header: {
-    paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 16,
     overflow: "hidden",

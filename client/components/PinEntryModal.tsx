@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -29,6 +30,7 @@ export default function PinEntryModal({
   onSuccess,
   title = "Enter PIN",
 }: PinEntryModalProps) {
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState(["", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,8 +235,8 @@ export default function PinEntryModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <Pressable style={styles.closeButton} onPress={onClose}>
+        <View style={[styles.modal, { marginTop: insets.top }]}>
+          <Pressable style={styles.closeButton} hitSlop={12} onPress={onClose}>
             <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
           </Pressable>
 

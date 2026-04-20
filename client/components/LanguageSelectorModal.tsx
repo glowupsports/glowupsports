@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
 import {
@@ -28,6 +29,7 @@ export function LanguageSelectorModal({
   onClose,
 }: LanguageSelectorModalProps) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const handleLanguageChange = async (langCode: LanguageCode) => {
     if (langCode === i18n.language) {
@@ -48,11 +50,14 @@ export function LanguageSelectorModal({
       onRequestClose={onClose}
     >
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={[styles.modalContent, { marginTop: insets.top }]}
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.header}>
             <Ionicons name="globe-outline" size={22} color={Colors.dark.xpCyan} />
             <Text style={styles.title}>{t("player.settings.language")}</Text>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+            <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color="#999" />
             </Pressable>
           </View>

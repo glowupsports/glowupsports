@@ -14,6 +14,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
@@ -71,6 +72,7 @@ function fmtDate(iso: string | null | undefined): string {
 
 export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props) {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [downloading, setDownloading] = useState(false);
 
   const markPaidMutation = useMutation({
@@ -146,7 +148,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
+      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot, paddingTop: insets.top }}>
         <View
           style={{
             flexDirection: "row",
@@ -158,7 +160,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
           }}
         >
           <Text style={{ ...Typography.h2, color: Colors.dark.text }}>Invoice</Text>
-          <Pressable onPress={onClose} hitSlop={10}>
+          <Pressable onPress={onClose} hitSlop={12}>
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
         </View>

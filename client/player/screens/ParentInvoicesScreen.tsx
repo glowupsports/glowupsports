@@ -258,12 +258,13 @@ export default function ParentInvoicesScreen() {
       )}
 
       <Modal visible={!!selectedInvoice} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Invoice Details</Text>
               <Pressable 
                 onPress={() => setSelectedInvoice(null)} 
+                hitSlop={12}
                 style={({ pressed }) => [styles.modalCloseButton, pressed && styles.buttonPressed]}
               >
                 <Ionicons name="close" size={24} color={Colors.dark.text} />
@@ -391,12 +392,13 @@ export default function ParentInvoicesScreen() {
 
       {/* Payment Modal */}
       <Modal visible={showPaymentModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Pay Invoice</Text>
               <Pressable 
                 onPress={() => { setShowPaymentModal(false); setPaymentInvoice(null); }} 
+                hitSlop={12}
                 style={({ pressed }) => [styles.modalCloseButton, pressed && styles.buttonPressed]}
               >
                 <Ionicons name="close" size={24} color={Colors.dark.text} />

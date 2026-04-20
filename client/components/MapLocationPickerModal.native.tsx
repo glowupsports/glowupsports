@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import * as Location from "expo-location";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface MapLocationResult {
@@ -55,6 +56,7 @@ export function MapLocationPickerModal({
   initialLat,
   initialLng,
 }: MapLocationPickerModalProps) {
+  const insets = useSafeAreaInsets();
   const [markerLat, setMarkerLat] = useState(initialLat ?? DEFAULT_LAT);
   const [markerLng, setMarkerLng] = useState(initialLng ?? DEFAULT_LNG);
   const [initialRegion] = useState<Region>(() =>
@@ -226,8 +228,8 @@ export function MapLocationPickerModal({
       statusBarTranslucent={Platform.OS === "android"}
     >
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={onClose} style={styles.headerBtn}>
+        <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+          <Pressable onPress={onClose} hitSlop={12} style={styles.headerBtn}>
             <Ionicons name="close" size={22} color={Colors.dark.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Pick Location</Text>
@@ -338,10 +340,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    paddingTop:
-      Platform.OS === "android"
-        ? Spacing.xl + Spacing.lg
-        : Spacing.xl + Spacing.md,
     paddingBottom: Spacing.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderBottomWidth: StyleSheet.hairlineWidth,

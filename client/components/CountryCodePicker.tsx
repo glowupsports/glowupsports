@@ -9,6 +9,7 @@ import {
   TextInput,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
@@ -92,6 +93,7 @@ export default function CountryCodePicker({
   selectedCountry,
   onSelect,
 }: CountryCodePickerProps) {
+  const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -142,9 +144,9 @@ export default function CountryCodePicker({
         onRequestClose={() => setIsOpen(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + Spacing.md }]}>
             <Text style={styles.modalTitle}>Select Country</Text>
-            <Pressable onPress={() => setIsOpen(false)} style={styles.closeButton}>
+            <Pressable onPress={() => setIsOpen(false)} hitSlop={12} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
           </View>
