@@ -816,8 +816,8 @@ function UnifiedImproveCard({
                     style={[
                       u.dot,
                       iqScore !== null && i < iqScore
-                        ? { backgroundColor: "#FFD700" }
-                        : { backgroundColor: "rgba(255,255,255,0.15)" },
+                        ? { backgroundColor: GlowColors.yellow }
+                        : { backgroundColor: Colors.dark.chipBackgroundStrong },
                     ]}
                   />
                 ))}
@@ -1157,7 +1157,7 @@ const u = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#FFD700",
+    backgroundColor: GlowColors.yellow,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: BorderRadius.full,
@@ -1944,8 +1944,8 @@ function TennisIQMiniTile() {
               style={[
                 miniTileStyles.dot,
                 score !== null && i < score
-                  ? { backgroundColor: "#FFD700" }
-                  : { backgroundColor: "rgba(255,255,255,0.15)" },
+                  ? { backgroundColor: GlowColors.yellow }
+                  : { backgroundColor: Colors.dark.chipBackgroundStrong },
               ]}
             />
           ))}
@@ -2037,7 +2037,7 @@ const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
   sub: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 },
   scoreRow: { flexDirection: "row", gap: 6, paddingTop: 2 },
   scoreDot: { width: 8, height: 8, borderRadius: 4 },
-  scoreDotFilled: { backgroundColor: "#FFD700" },
+  scoreDotFilled: { backgroundColor: GlowColors.yellow },
   scoreDotEmpty: { backgroundColor: Colors.dark.chipBorder },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
   modalSheet: {
@@ -2489,7 +2489,7 @@ const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#FFD700",
+    backgroundColor: GlowColors.yellow,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: BorderRadius.full,

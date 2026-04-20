@@ -440,7 +440,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent }: GlowLe
                   styles.dot,
                   {
                     width: active ? 16 : 5,
-                    backgroundColor: active ? ACCENT : "rgba(255,255,255,0.22)",
+                    backgroundColor: active ? ACCENT : Colors.dark.chipBackgroundStrong,
                   },
                 ]}
               />

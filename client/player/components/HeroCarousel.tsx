@@ -433,7 +433,7 @@ function CompeteCard() {
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.ctaSecondary, { borderColor: "rgba(255,255,255,0.25)", marginTop: 0 }]}
+            style={[styles.ctaSecondary, { borderColor: Colors.dark.chipBorder, marginTop: 0 }]}
             disabled={respondMutation.isPending}
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
@@ -1338,7 +1338,7 @@ export function HeroCarousel({
                   styles.dot,
                   {
                     width: active ? 18 : 6,
-                    backgroundColor: active ? s.accent : "rgba(255,255,255,0.18)",
+                    backgroundColor: active ? s.accent : Colors.dark.chipBackgroundStrong,
                   },
                 ]}
               />
@@ -1449,7 +1449,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    backgroundColor: "rgba(17, 20, 26, 0.55)",
+    backgroundColor: Backgrounds.glass,
     overflow: "hidden",
   },
   lensTopHighlight: {
