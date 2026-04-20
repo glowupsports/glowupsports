@@ -358,6 +358,79 @@ export const themePresets: ThemePreset[] = [
   },
 ];
 
+// ---------- Theme resolution ----------
+
+/**
+ * A flat colour set already resolved for one specific scheme. The client
+ * mutates the design tokens with these values. Mirrors `AcademyThemeColors`
+ * (no nested overlays).
+ */
+export interface AcademyThemeResolved {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  surface?: string;
+  panel?: string;
+  panelElevated?: string;
+  panelBorder?: string;
+  text?: string;
+  textMuted?: string;
+}
+
+/**
+ * Resolve an `AcademyTheme` for a specific scheme. The base of every
+ * built-in preset stores **light** values; an optional `dark` overlay holds
+ * the dark variant. When the saved theme has no light values for a given
+ * key, fall back to `defaultAcademyTheme` so light mode never inherits a
+ * dark surface accidentally.
+ */
+export function resolveTheme(
+  theme: AcademyTheme | null | undefined,
+  scheme: "light" | "dark",
+): AcademyThemeResolved {
+  // Step 1: start from the safe light defaults so neutrals always have a
+  // valid light value before we overlay anything.
+  const out: AcademyThemeResolved = {
+    primary: defaultAcademyTheme.primary,
+    secondary: defaultAcademyTheme.secondary,
+    accent: defaultAcademyTheme.accent,
+    surface: defaultAcademyTheme.surface,
+    panel: defaultAcademyTheme.panel,
+    panelElevated: defaultAcademyTheme.panelElevated,
+    panelBorder: defaultAcademyTheme.panelBorder,
+    text: defaultAcademyTheme.text,
+    textMuted: defaultAcademyTheme.textMuted,
+  };
+
+  // Step 2: in dark mode, swap in the default dark overlay so we don't
+  // start from light defaults.
+  if (scheme === "dark" && defaultAcademyTheme.dark) {
+    Object.assign(out, defaultAcademyTheme.dark);
+  }
+
+  if (!theme) return out;
+
+  // Step 3: overlay the saved theme's base. The base is treated as the
+  // light palette for that academy (matching the convention used in every
+  // built-in preset).
+  for (const k of Object.keys(theme) as (keyof AcademyTheme)[]) {
+    if (k === "dark") continue;
+    const v = theme[k];
+    if (typeof v === "string") (out as any)[k] = v;
+  }
+
+  // Step 4: in dark mode, overlay the saved theme's dark variant on top
+  // of its base so dark wins where it's defined.
+  if (scheme === "dark" && theme.dark) {
+    for (const k of Object.keys(theme.dark) as (keyof typeof theme.dark)[]) {
+      const v = theme.dark[k];
+      if (typeof v === "string") (out as any)[k] = v;
+    }
+  }
+
+  return out;
+}
+
 // ---------- Helpers ----------
 
 /** Parse a hex string to {r,g,b} in 0..255. Returns null when invalid. */

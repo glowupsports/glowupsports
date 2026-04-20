@@ -1,4 +1,9 @@
 import { Platform } from "react-native";
+import {
+  type AcademyTheme,
+  type AcademyThemeResolved as SharedAcademyThemeResolved,
+  resolveTheme as resolveAcademyTheme,
+} from "@shared/theme";
 
 // ============================================
 // GLOW UP SPORTS - MASTER DESIGN TOKENS v2.0
@@ -399,22 +404,16 @@ const LightColorsSnapshot: Record<string, string> = { ...Colors.light };
 
 export type ResolvedScheme = "light" | "dark";
 
-// Academy theme override (Task #791) — flat per-mode color set already
-// resolved for the active scheme.
-export interface AcademyThemeResolved {
-  primary?: string;
-  secondary?: string;
-  accent?: string;
-  surface?: string;
-  panel?: string;
-  panelElevated?: string;
-  panelBorder?: string;
-  text?: string;
-  textMuted?: string;
-}
+// Academy theme override (Task #791) — re-export the shared resolved type so
+// existing callers keep working.
+export type AcademyThemeResolved = SharedAcademyThemeResolved;
 
 let activeScheme: ResolvedScheme = "dark";
-let activeAcademyTheme: AcademyThemeResolved | null = null;
+// Store the RAW academy theme (with both base + dark overlay) so we can
+// re-resolve it for the current scheme on every rebuild. Storing a
+// pre-resolved overlay was the bug that made Light mode keep painting dark
+// surfaces (Task #811).
+let activeAcademyTheme: AcademyTheme | null = null;
 
 function resetSchemeTokens(scheme: ResolvedScheme): void {
   if (scheme === "light") {
@@ -499,7 +498,15 @@ function rebuild(): void {
   if (activeScheme === "light") {
     Object.assign(Colors.dark, LightColorsSnapshot);
   }
-  applyAcademyOverlay(activeAcademyTheme);
+  // Re-resolve the academy theme for the CURRENT scheme on every rebuild.
+  // This is the fix for Task #811: previously a pre-resolved overlay was
+  // cached at the time the user's academy theme last changed, so toggling
+  // Light mode kept stamping the dark `surface`/`panel`/`text` from the
+  // cached overlay over the freshly-reset light tokens.
+  const resolved = activeAcademyTheme
+    ? resolveAcademyTheme(activeAcademyTheme, activeScheme)
+    : null;
+  applyAcademyOverlay(resolved);
 }
 
 /**
@@ -537,21 +544,27 @@ export function getThemeRevision(): number {
  * colours overrule the neutral tokens, not the mode itself.
  */
 function academyThemesEqual(
-  a: AcademyThemeResolved | null,
-  b: AcademyThemeResolved | null,
+  a: AcademyTheme | null,
+  b: AcademyTheme | null,
 ): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
-    keyof AcademyThemeResolved
-  >;
-  for (const k of keys) {
-    if ((a as any)[k] !== (b as any)[k]) return false;
+  // Cheap deep-equality via JSON.stringify — AcademyTheme is a small flat
+  // object with one nested `dark` block, so the cost is negligible.
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
   }
-  return true;
 }
 
-export function setActiveAcademyTheme(theme: AcademyThemeResolved | null): void {
+/**
+ * Apply (or clear with `null`) the active academy theme. Pass the RAW
+ * `AcademyTheme` (with both base and optional `dark` overlay) — `rebuild()`
+ * re-resolves it for the active scheme on every change so toggling
+ * Light/Dark always paints the correct neutrals.
+ */
+export function setActiveAcademyTheme(theme: AcademyTheme | null): void {
   if (academyThemesEqual(activeAcademyTheme, theme)) return;
   activeAcademyTheme = theme;
   rebuild();
@@ -559,7 +572,9 @@ export function setActiveAcademyTheme(theme: AcademyThemeResolved | null): void 
 }
 
 export function getActiveAcademyTheme(): AcademyThemeResolved | null {
-  return activeAcademyTheme;
+  return activeAcademyTheme
+    ? resolveAcademyTheme(activeAcademyTheme, activeScheme)
+    : null;
 }
 
 // Get avatar color based on player ball level

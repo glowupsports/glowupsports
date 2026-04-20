@@ -13,7 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getQueryFn } from "@/lib/query-client";
 import {
-  AcademyThemeResolved,
   getActivePlayerScheme,
   setActiveAcademyTheme,
 } from "@/constants/theme";
@@ -22,7 +21,8 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
 import {
   AcademyTheme,
-  defaultAcademyTheme,
+  AcademyThemeResolved,
+  resolveTheme,
 } from "@shared/theme";
 
 const CACHE_KEY = "@academy_theme_cache_v1";
@@ -31,50 +31,6 @@ const PLAYER_OVERRIDE_KEY_PREFIX = "@player_theme_override_v1";
 function buildOverrideKey(userId: string | null | undefined): string {
   // Scope per-user so switching accounts on one device doesn't bleed themes.
   return userId ? `${PLAYER_OVERRIDE_KEY_PREFIX}:${userId}` : PLAYER_OVERRIDE_KEY_PREFIX;
-}
-
-function resolveTheme(theme: AcademyTheme | null | undefined, scheme: "light" | "dark"): AcademyThemeResolved {
-  const base: AcademyThemeResolved = {
-    primary: defaultAcademyTheme.primary,
-    secondary: defaultAcademyTheme.secondary,
-    accent: defaultAcademyTheme.accent,
-    surface: defaultAcademyTheme.surface,
-    panel: defaultAcademyTheme.panel,
-    panelElevated: defaultAcademyTheme.panelElevated,
-    panelBorder: defaultAcademyTheme.panelBorder,
-    text: defaultAcademyTheme.text,
-    textMuted: defaultAcademyTheme.textMuted,
-    ...(defaultAcademyTheme.dark ?? {}),
-  };
-  if (scheme === "light") {
-    Object.assign(base, {
-      primary: defaultAcademyTheme.primary,
-      secondary: defaultAcademyTheme.secondary,
-      accent: defaultAcademyTheme.accent,
-      surface: defaultAcademyTheme.surface,
-      panel: defaultAcademyTheme.panel,
-      panelElevated: defaultAcademyTheme.panelElevated,
-      panelBorder: defaultAcademyTheme.panelBorder,
-      text: defaultAcademyTheme.text,
-      textMuted: defaultAcademyTheme.textMuted,
-    });
-  }
-  if (!theme) return base;
-  // Apply academy base
-  const out: AcademyThemeResolved = { ...base };
-  for (const k of Object.keys(theme) as (keyof AcademyTheme)[]) {
-    if (k === "dark") continue;
-    const v = theme[k];
-    if (typeof v === "string") (out as any)[k] = v;
-  }
-  // Overlay dark variant when in dark mode
-  if (scheme === "dark" && theme.dark) {
-    for (const k of Object.keys(theme.dark) as (keyof typeof theme.dark)[]) {
-      const v = theme.dark[k];
-      if (typeof v === "string") (out as any)[k] = v;
-    }
-  }
-  return out;
 }
 
 interface AcademyThemeContextValue {
@@ -235,8 +191,11 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
     [effective, effectiveScheme],
   );
 
-  // Apply during render so descendants see the post-mutation tokens immediately.
-  setActiveAcademyTheme(resolved);
+  // Apply during render so descendants see the post-mutation tokens
+  // immediately. We pass the RAW academy theme — `setActiveAcademyTheme`
+  // re-resolves it for the active scheme on every rebuild, which is what
+  // keeps Light/Dark toggling honest (Task #811).
+  setActiveAcademyTheme(effective);
 
   // Clear on unmount so other contexts revert to defaults.
   useEffect(() => {
