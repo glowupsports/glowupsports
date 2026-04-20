@@ -285,7 +285,9 @@ export function AvatarStack({
   );
 }
 
-const styles = makeReactiveStyles(() => StyleSheet.create({
+const styles = makeReactiveStyles(() => {
+  const isDark = getActivePlayerScheme() === "dark";
+  return StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
@@ -298,13 +300,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   avatarContainer: {
     borderWidth: 2,
-    borderColor: Colors.dark.borderSubtle,
+    borderColor: isDark ? ProTennisColors.surfaceDark : Colors.dark.borderSubtle,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: isDark ? ProTennisColors.surfaceCard : Colors.dark.backgroundSecondary,
   },
   avatarImage: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: isDark ? ProTennisColors.surfaceCard : Colors.dark.backgroundSecondary,
   },
   initialsContainer: {
     alignItems: "center",
@@ -334,4 +336,5 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: ProTennisColors.textMuted,
     fontWeight: "600",
   },
-}));
+});
+});

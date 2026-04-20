@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, getActivePlayerScheme } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
@@ -144,7 +144,9 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
   );
 }
 
-const styles = makeReactiveStyles(() => StyleSheet.create({
+const styles = makeReactiveStyles(() => {
+  const isDark = getActivePlayerScheme() === "dark";
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
@@ -182,7 +184,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemActive: {
-    backgroundColor: Colors.dark.chipBackgroundStrong,
+    backgroundColor: isDark ? Backgrounds.card : Colors.dark.chipBackgroundStrong,
   },
   menuItemText: {
     fontSize: 16,
@@ -222,4 +224,5 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.orange,
     fontWeight: "600",
   },
-}));
+});
+});

@@ -9,7 +9,7 @@ import Animated, {
   useSharedValue,
   withSequence,
 } from "react-native-reanimated";
-import { ProTennisColors, Backgrounds, BorderRadius, Spacing, GlowColors, FunctionColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, BorderRadius, Spacing, GlowColors, FunctionColors, Colors, getActivePlayerScheme } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type GlassCardVariant = "default" | "neon" | "hero" | "subtle" | "premium";
@@ -182,7 +182,9 @@ export function NeonEdgeCard({
       <LinearGradient
         colors={[
           `${color}08`,
-          Colors.dark.backgroundDefault,
+          getActivePlayerScheme() === "dark"
+            ? "rgba(21, 27, 41, 0.95)"
+            : Colors.dark.backgroundDefault,
         ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
