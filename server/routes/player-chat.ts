@@ -11,7 +11,7 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions, userQuickReplies } from "../../shared/schema";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions, userQuickReplies, coaches, players } from "../../shared/schema";
 import { broadcastProviderPlayerMessage, broadcastNewMessage, broadcastToUserIds, broadcastNewConversation, broadcastMessageDeleted, broadcastReactionUpdated, getPlayerPresence } from "../websocket";
 import { eq, and, inArray, or, gt, asc, type SQL } from "drizzle-orm";
 
@@ -120,73 +120,183 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       return true;
     });
 
-    const enriched = await Promise.all(
-      conversations.map(async (conv) => {
-        let coachName: string | null = null;
-        let coachPhoto: string | null = null;
-        let playerName: string | null = null;
-        let playerPhoto: string | null = null;
-        let providerName: string | null = null;
-        let providerPhoto: string | null = null;
-        let seriesDayOfWeek: number | null = null;
-        let seriesStartTime: string | null = null;
-        if (conv.coachId) {
-          const coach = await storage.getCoach(conv.coachId, academyId);
-          coachName = coach?.name ?? null;
-          coachPhoto = coach?.profilePhotoUrl ?? null;
+    // ============================================================
+    // Batch all per-conversation lookups in fixed-count queries
+    // (replaces the previous per-conversation N+1 pattern that
+    // triggered Sentry alerts REACT-NATIVE-2A/34/32/2Q/3B).
+    // ============================================================
+
+    // 1) Batch coaches
+    const coachIds = Array.from(new Set(conversations.map(c => c.coachId).filter((x): x is string => !!x)));
+    const coachMap = new Map<string, { name: string | null; profilePhotoUrl: string | null }>();
+    if (coachIds.length > 0) {
+      const coachConditions = academyId
+        ? and(inArray(coaches.id, coachIds), eq(coaches.academyId, academyId))
+        : inArray(coaches.id, coachIds);
+      const coachRows = await db.select({
+        id: coaches.id,
+        name: coaches.name,
+        profilePhotoUrl: coaches.profilePhotoUrl,
+      }).from(coaches).where(coachConditions);
+      for (const c of coachRows) {
+        coachMap.set(c.id, { name: c.name ?? null, profilePhotoUrl: c.profilePhotoUrl ?? null });
+      }
+    }
+
+    // 2) Batch participants for all player_player conversations (one query)
+    const p2pConvIds = conversations.filter(c => c.type === "player_player").map(c => c.id);
+    const otherPlayerIdByConv = new Map<string, string>();
+    if (p2pConvIds.length > 0) {
+      const partRows = await db.select({
+        conversationId: conversationParticipants.conversationId,
+        playerId: conversationParticipants.playerId,
+      }).from(conversationParticipants).where(
+        and(
+          inArray(conversationParticipants.conversationId, p2pConvIds),
+          eq(conversationParticipants.participantType, "player"),
+        )
+      );
+      for (const p of partRows) {
+        if (p.playerId && p.playerId !== playerId && !otherPlayerIdByConv.has(p.conversationId)) {
+          otherPlayerIdByConv.set(p.conversationId, p.playerId);
         }
-        let otherPlayerId: string | null = null;
-        let otherPlayerUserId: string | null = null;
-        let isBlockedByMe = false;
-        if (conv.type === "player_player") {
-          const participants = await storage.getConversationParticipants(conv.id, undefined, academyId);
-          const other = participants.find(p => p.playerId && p.playerId !== playerId);
-          if (other?.playerId) {
-            const otherPlayer = await storage.getPlayer(other.playerId, academyId);
-            playerName = otherPlayer?.name ?? null;
-            playerPhoto = otherPlayer?.profilePhotoUrl ?? null;
-            otherPlayerId = other.playerId;
-            // Get userId for block functionality
-            const [otherUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, other.playerId)).limit(1);
-            otherPlayerUserId = otherUser?.id ?? null;
-            // Check if this player is blocked by the current user
-            if (currentUserId && otherPlayerUserId) {
-              const [block] = await db.select({ id: playerBlocks.id }).from(playerBlocks).where(
-                and(
-                  eq(playerBlocks.blockerUserId, currentUserId),
-                  eq(playerBlocks.blockedUserId, otherPlayerUserId),
-                )
-              ).limit(1);
-              isBlockedByMe = !!block;
-            }
+      }
+    }
+
+    // 3) Batch other players (name + photo)
+    const otherPlayerIds = Array.from(new Set(otherPlayerIdByConv.values()));
+    const playerMap = new Map<string, { name: string | null; profilePhotoUrl: string | null }>();
+    if (otherPlayerIds.length > 0) {
+      const playerConditions = academyId
+        ? and(inArray(players.id, otherPlayerIds), eq(players.academyId, academyId))
+        : inArray(players.id, otherPlayerIds);
+      const playerRows = await db.select({
+        id: players.id,
+        name: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+      }).from(players).where(playerConditions);
+      for (const p of playerRows) {
+        playerMap.set(p.id, { name: p.name ?? null, profilePhotoUrl: p.profilePhotoUrl ?? null });
+      }
+    }
+
+    // 4) Batch userId lookup for those players (for block functionality)
+    const userIdByPlayerId = new Map<string, string>();
+    if (otherPlayerIds.length > 0) {
+      const userRows = await db.select({
+        id: users.id,
+        playerId: users.playerId,
+      }).from(users).where(inArray(users.playerId, otherPlayerIds));
+      for (const u of userRows) {
+        if (u.playerId) userIdByPlayerId.set(u.playerId, u.id);
+      }
+    }
+
+    // 5) Batch block status (one query for all blocked targets)
+    const blockedUserIds = new Set<string>();
+    const otherUserIds = Array.from(new Set(Array.from(userIdByPlayerId.values())));
+    if (currentUserId && otherUserIds.length > 0) {
+      const blockRows = await db.select({
+        blockedUserId: playerBlocks.blockedUserId,
+      }).from(playerBlocks).where(
+        and(
+          eq(playerBlocks.blockerUserId, currentUserId),
+          inArray(playerBlocks.blockedUserId, otherUserIds),
+        )
+      );
+      for (const b of blockRows) {
+        if (b.blockedUserId) blockedUserIds.add(b.blockedUserId);
+      }
+    }
+
+    // 6) Batch service providers
+    const providerIds = Array.from(new Set(
+      conversations.filter(c => c.type === "provider_player" && c.providerId)
+                   .map(c => c.providerId!) 
+    ));
+    const providerMap = new Map<string, { displayName: string | null; profilePhotoUrl: string | null }>();
+    if (providerIds.length > 0) {
+      const provRows = await db.select({
+        id: serviceProviders.id,
+        displayName: serviceProviders.displayName,
+        profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      }).from(serviceProviders).where(inArray(serviceProviders.id, providerIds));
+      for (const p of provRows) {
+        providerMap.set(p.id, { displayName: p.displayName ?? null, profilePhotoUrl: p.profilePhotoUrl ?? null });
+      }
+    }
+
+    // 7) Batch community group names
+    const groupTitleIds = Array.from(new Set(
+      conversations.filter(c => c.type === "group" && c.title).map(c => c.title!)
+    ));
+    const groupNameMap = new Map<string, string>();
+    if (groupTitleIds.length > 0) {
+      const groupRows = await db.select({
+        id: communityGroups.id,
+        name: communityGroups.name,
+      }).from(communityGroups).where(inArray(communityGroups.id, groupTitleIds));
+      for (const g of groupRows) {
+        if (g.name) groupNameMap.set(g.id, g.name);
+      }
+    }
+
+    // 8) Pure-JS stitch (no further DB calls)
+    const enriched = conversations.map((conv) => {
+      let coachName: string | null = null;
+      let coachPhoto: string | null = null;
+      let playerName: string | null = null;
+      let playerPhoto: string | null = null;
+      let providerName: string | null = null;
+      let providerPhoto: string | null = null;
+      let seriesDayOfWeek: number | null = null;
+      let seriesStartTime: string | null = null;
+      let otherPlayerId: string | null = null;
+      let otherPlayerUserId: string | null = null;
+      let isBlockedByMe = false;
+
+      if (conv.coachId) {
+        const coach = coachMap.get(conv.coachId);
+        coachName = coach?.name ?? null;
+        coachPhoto = coach?.profilePhotoUrl ?? null;
+      }
+
+      if (conv.type === "player_player") {
+        const otherId = otherPlayerIdByConv.get(conv.id);
+        if (otherId) {
+          otherPlayerId = otherId;
+          const op = playerMap.get(otherId);
+          playerName = op?.name ?? null;
+          playerPhoto = op?.profilePhotoUrl ?? null;
+          otherPlayerUserId = userIdByPlayerId.get(otherId) ?? null;
+          if (otherPlayerUserId && blockedUserIds.has(otherPlayerUserId)) {
+            isBlockedByMe = true;
           }
         }
-        if (conv.type === "provider_player" && conv.providerId) {
-          const [prov] = await db.select({
-            displayName: serviceProviders.displayName,
-            profilePhotoUrl: serviceProviders.profilePhotoUrl,
-          }).from(serviceProviders).where(eq(serviceProviders.id, conv.providerId)).limit(1);
-          providerName = prov?.displayName ?? null;
-          providerPhoto = prov?.profilePhotoUrl ?? null;
+      }
+
+      if (conv.type === "provider_player" && conv.providerId) {
+        const prov = providerMap.get(conv.providerId);
+        providerName = prov?.displayName ?? null;
+        providerPhoto = prov?.profilePhotoUrl ?? null;
+      }
+
+      let resolvedTitle = conv.title;
+      if (conv.type === "group" && conv.title) {
+        const name = groupNameMap.get(conv.title);
+        if (name) resolvedTitle = name;
+      }
+      if ((conv.type === "series_group" || conv.type === "squad" || conv.type === "lesson_group") && conv.title) {
+        const series = seriesById.get(conv.title);
+        if (series) {
+          resolvedTitle = series.title;
+          seriesDayOfWeek = series.dayOfWeek;
+          seriesStartTime = series.startTime;
         }
-        let resolvedTitle = conv.title;
-        if (conv.type === "group" && conv.title) {
-          const [group] = await db.select({ name: communityGroups.name }).from(communityGroups).where(eq(communityGroups.id, conv.title)).limit(1);
-          if (group?.name) {
-            resolvedTitle = group.name;
-          }
-        }
-        if ((conv.type === "series_group" || conv.type === "squad" || conv.type === "lesson_group") && conv.title) {
-          const series = seriesById.get(conv.title);
-          if (series) {
-            resolvedTitle = series.title;
-            seriesDayOfWeek = series.dayOfWeek;
-            seriesStartTime = series.startTime;
-          }
-        }
-        return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime };
-      })
-    );
+      }
+
+      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime };
+    });
 
     // Filter out conversations where the other player is blocked
     const visible = enriched.filter(conv => !conv.isBlockedByMe);
