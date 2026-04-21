@@ -36,6 +36,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { getBallLevelColor } from "./series-detail/utils";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useNavigation } from "@react-navigation/native";
@@ -673,6 +674,9 @@ export default function SessionDetailDrawer({
           );
         }
       });
+      // Task #930 — cancelling a session may refund consumed credits;
+      // refresh the coach Players list so the pill updates instantly.
+      invalidatePlayersList(queryClient);
       setShowCancelConfirm(false);
       onClose();
       setTimeout(() => {
@@ -704,6 +708,9 @@ export default function SessionDetailDrawer({
           return typeof key === 'string' && key.startsWith('/api/coach/calendar');
         }
       });
+      // Task #930 — removing a player can refund a credit; refresh the
+      // coach Players list pill instantly.
+      invalidatePlayersList(queryClient);
       setShowRemovePlayer(null);
       setRemoveReason("");
       setRemoveFromDate("today");

@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -149,7 +150,10 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
     queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
     queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credits-summary`] });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+    // Task #930 — invalidate every Players list variant (active / past /
+    // pending payment) and bust the AsyncStorage snapshot so the coach
+    // Players list pill reflects the new balance immediately.
+    invalidatePlayersList(queryClient);
     queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
   };
 

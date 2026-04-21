@@ -19,6 +19,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { formatCredits } from "@/lib/dateUtils";
 
 type CreditType = "group" | "private" | "semi_private";
@@ -316,7 +317,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      invalidatePlayersList(queryClient);
       setShowAddModal(false);
       setTotalCredits("10");
       setExpiryMonths("12");
@@ -372,7 +373,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      invalidatePlayersList(queryClient);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -439,7 +440,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      invalidatePlayersList(queryClient);
       setIsRepairing(false);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -886,7 +887,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                       if (result.success) {
                         queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
                         queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
-                        queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                        invalidatePlayersList(queryClient);
                         if (Platform.OS !== "web") {
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         }

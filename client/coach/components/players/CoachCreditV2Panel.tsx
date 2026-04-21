@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { apiRequest } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
@@ -200,6 +201,10 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+      // Task #930 — refresh the coach Players list pill instantly so the
+      // new balance is visible the moment the coach taps back, instead of
+      // waiting for the 60s staleTime to elapse.
+      invalidatePlayersList(queryClient);
       setShowAddModal(false);
       setAddError(null);
       // Surface the auto-generated invoice so coaches can view/share the PDF.
@@ -523,6 +528,9 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         onPaid={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
           queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+          // Task #930 — paying an invoice can flip the player out of
+          // "pending payment" status; refresh the lists so the row moves.
+          invalidatePlayersList(queryClient);
         }}
       />
 

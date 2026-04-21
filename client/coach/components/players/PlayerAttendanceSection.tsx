@@ -11,6 +11,7 @@ import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing } from "@/constants/theme";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { styles } from "./playersStyles";
 
 interface AttendanceHistoryRecord {
@@ -146,6 +147,9 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
       queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${playerId}/attendance-history`] });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${playerId}/attendance-summary`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
+      // Task #930 — attendance edits change credit balances; refresh the
+      // coach Players list pill immediately.
+      invalidatePlayersList(queryClient);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEditingAttendance(null);
       setIsUpdatingAttendance(false);

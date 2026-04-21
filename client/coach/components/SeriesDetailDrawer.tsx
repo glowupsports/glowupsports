@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
@@ -1049,8 +1050,10 @@ export default function SeriesDetailDrawer({
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      // Task #930 — invalidate every players list variant + bust the
+      // AsyncStorage snapshot so the coach Players list pill reflects
+      // post-attendance balances immediately.
+      invalidatePlayersList(queryClient);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/earnings"] });
       
       // Show feedback drawer if there are present players

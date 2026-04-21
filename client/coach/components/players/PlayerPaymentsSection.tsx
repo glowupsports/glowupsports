@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { formatCredits } from "@/lib/dateUtils";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
@@ -226,7 +227,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                               await apiRequest("PATCH", `/api/billing/invoices/${inv.id}`, { status: "paid", paidAt: new Date().toISOString() });
                               queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
                               queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
-                              queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                              invalidatePlayersList(queryClient);
                               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                               Alert.alert("Invoice Paid", `Invoice #${inv.invoiceNumber} has been marked as paid.`);
                             } catch {
@@ -269,7 +270,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
         onClose={() => setViewerInvoice(null)}
         onPaid={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+          invalidatePlayersList(queryClient);
         }}
       />
 
@@ -342,7 +343,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                           try {
                             await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
                             queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
-                            queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                            invalidatePlayersList(queryClient);
                             queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             Alert.alert("Payment Recorded", "Package marked as paid.");

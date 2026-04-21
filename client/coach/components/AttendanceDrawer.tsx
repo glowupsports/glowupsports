@@ -20,6 +20,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { invalidatePlayersList } from "@/lib/credit-cache";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -211,6 +212,9 @@ export default function AttendanceDrawer({
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      // Task #930 — saving attendance consumes credits; refresh the coach
+      // Players list pill so the new balance is visible without a 60s wait.
+      invalidatePlayersList(queryClient);
       if (data?.autoCancelled) {
         Alert.alert(
           "Les automatisch geannuleerd",
