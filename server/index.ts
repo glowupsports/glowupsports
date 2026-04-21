@@ -993,7 +993,16 @@ function setupErrorHandler(app: express.Application) {
     },
     async () => {
       log(`express server serving on port ${port}`);
-      
+
+      // Task #905 — Drift watchdog for the player merge/delete code paths.
+      // Runs once at boot, fully wrapped in try/catch internally; never blocks startup.
+      try {
+        const { auditPlayerForeignKeys } = await import("./startup/audit-player-fks");
+        void auditPlayerForeignKeys();
+      } catch (err) {
+        log(`[PlayerFKAudit] failed to schedule: ${(err as Error)?.message ?? err}`);
+      }
+
       startReminderScheduler();
       startDailyTipScheduler();
       startMatchPrepNotificationScheduler();
