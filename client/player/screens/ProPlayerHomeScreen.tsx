@@ -1620,37 +1620,11 @@ function PlayerHomeContent() {
         {/* PLAYER DNA BANNER - shows profile completion progress, stays close to identity */}
         {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
 
-        {/* PRIMARY ACTIONS — "what do I do right now?" tiles, directly under the player card */}
+        {/* PERSONALIZED GREETING — directly under the player card */}
         <PrimaryActionsRow
           firstName={player.name}
-          playerId={user?.playerId}
-          activeSport={activeSport}
-          playerAcademyId={homePlayerAcademyId}
           nextSessionDate={effectiveData?.nextSession?.date ?? null}
           nextSessionEndTime={effectiveData?.nextSession?.endTime ?? null}
-          onBook={handleBookLesson}
-          onTrain={() =>
-            guardAction(() => {
-              if (isFreePlayer) {
-                navigation.navigate("AcademyBrowser");
-              } else {
-                navigateToTab("Growth", { screen: "Schedule" });
-              }
-            })
-          }
-          onCompete={() =>
-            guardAction(() => {
-              navigateToTab("PlayStack", { screen: "OpenMatches" });
-            })
-          }
-          onFindMatch={() =>
-            guardAction(() => {
-              navigateToTab("PlayStack", {
-                screen: "Play",
-                params: { initialTab: "Players" },
-              });
-            })
-          }
         />
 
         {/* BIRTHDAY BANNER - Festive celebration on birthday */}
