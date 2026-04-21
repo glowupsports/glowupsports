@@ -2515,9 +2515,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   return (
     <Animated.View
       pointerEvents={(!isExpanded && !isFullscreen) ? "box-none" : "auto"}
+      collapsable={false}
       style={[
         styles.container,
-        (!isExpanded && !isFullscreen) && styles.containerCollapsed,
         {
           bottom: isExpanded || isFullscreen
             ? insets.bottom
@@ -2528,6 +2528,14 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         animatedStyle,
       ]}
     >
+      <View
+        pointerEvents="box-none"
+        collapsable={false}
+        style={[
+          styles.containerInner,
+          (!isExpanded && !isFullscreen) && styles.containerInnerCollapsed,
+        ]}
+      >
       {(!isExpanded && !isFullscreen) ? (
         // ── COLLAPSED: player mode → neon ticker pill; coach mode → existing ticker ──
         <>
@@ -2711,6 +2719,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </View>
         </View>
       ) : null}
+      </View>
 
       <Modal
         visible={selectedSender !== null}
@@ -3187,11 +3196,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    backgroundColor: "rgba(17, 20, 26, 0.90)",
+    backgroundColor: "transparent",
+    zIndex: 100,
+  },
+  containerInner: {
+    flex: 1,
+    backgroundColor: Platform.OS === "android" ? "#11141A" : "rgba(17, 20, 26, 0.90)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     overflow: "hidden",
-    zIndex: 100,
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
@@ -3204,12 +3217,16 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  containerCollapsed: {
-    borderTopWidth: 0,
-    overflow: "visible",
+  containerInnerCollapsed: {
     backgroundColor: "transparent",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
+    overflow: "visible",
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   pillRow: {
     flexDirection: "row",
