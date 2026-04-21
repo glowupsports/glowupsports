@@ -889,6 +889,18 @@ export default function PlayerScheduleScreen() {
               address: it.locationAddress,
             })
           }
+          onPressEvent={(it) => {
+            Haptics.selectionAsync();
+            if (it.type === "match") {
+              const matchId = it.id.startsWith("match-") ? it.id.slice("match-".length) : it.id;
+              navigation.navigate("MatchDetail", { matchId });
+            } else if (it.type === "court") {
+              navigation.navigate("MyCourtBookings");
+            } else {
+              const sessionId = it.sessionId || it.id;
+              navigation.navigate("TrainingDetail", { sessionId });
+            }
+          }}
           getTypeLabel={getTypeLabel}
         />
       </ScrollView>
@@ -1248,6 +1260,7 @@ function DayHero({
   onFindMatch,
   onAddToCalendar,
   onOpenDirections,
+  onPressEvent,
   getTypeLabel,
 }: {
   selectedDate: Date;
@@ -1258,6 +1271,7 @@ function DayHero({
   onFindMatch: () => void;
   onAddToCalendar: (it: ScheduledItem) => void;
   onOpenDirections: (it: ScheduledItem) => void;
+  onPressEvent: (it: ScheduledItem) => void;
   getTypeLabel: (type: string) => string;
 }) {
   const { t } = useTranslation();
@@ -1423,9 +1437,14 @@ function DayHero({
           {rest.map((it) => {
             const c = getEventColor(it.type);
             return (
-              <View
+              <Pressable
                 key={it.id}
-                style={[styles.secondaryRow, { borderLeftColor: c }]}
+                style={({ pressed }) => [
+                  styles.secondaryRow,
+                  { borderLeftColor: c },
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => onPressEvent(it)}
               >
                 <Text style={styles.secondaryTime}>{it.startTime}</Text>
                 <View style={{ flex: 1 }}>
@@ -1442,7 +1461,13 @@ function DayHero({
                 ) : it.status === "completed" ? (
                   <Feather name="check" size={14} color={EVENT_COLORS.lesson} />
                 ) : null}
-              </View>
+                <Feather
+                  name="chevron-right"
+                  size={16}
+                  color={TextColors.muted}
+                  style={{ marginLeft: 4 }}
+                />
+              </Pressable>
             );
           })}
         </View>
