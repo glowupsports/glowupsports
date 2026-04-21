@@ -4,10 +4,10 @@ export const modules: ModuleMap = {
   "./components/mockups/coach-dashboard/CleanCommand.tsx": () => import("../components/mockups/coach-dashboard/CleanCommand.tsx"),
   "./components/mockups/coach-dashboard/CoachCockpit.tsx": () => import("../components/mockups/coach-dashboard/CoachCockpit.tsx"),
   "./components/mockups/coach-dashboard/LiveCourt.tsx": () => import("../components/mockups/coach-dashboard/LiveCourt.tsx"),
-  "./components/mockups/proplayer-collapse/VariantA.tsx": () => import("../components/mockups/proplayer-collapse/VariantA.tsx"),
-  "./components/mockups/proplayer-collapse/VariantB.tsx": () => import("../components/mockups/proplayer-collapse/VariantB.tsx"),
-  "./components/mockups/proplayer-collapse/VariantC.tsx": () => import("../components/mockups/proplayer-collapse/VariantC.tsx"),
   "./components/mockups/landing/LandingBoldAthletic.tsx": () => import("../components/mockups/landing/LandingBoldAthletic.tsx"),
   "./components/mockups/landing/LandingBrightAcademy.tsx": () => import("../components/mockups/landing/LandingBrightAcademy.tsx"),
-  "./components/mockups/landing/LandingDarkElite.tsx": () => import("../components/mockups/landing/LandingDarkElite.tsx")
+  "./components/mockups/landing/LandingDarkElite.tsx": () => import("../components/mockups/landing/LandingDarkElite.tsx"),
+  "./components/mockups/proplayer-collapse/VariantA.tsx": () => import("../components/mockups/proplayer-collapse/VariantA.tsx"),
+  "./components/mockups/proplayer-collapse/VariantB.tsx": () => import("../components/mockups/proplayer-collapse/VariantB.tsx"),
+  "./components/mockups/proplayer-collapse/VariantC.tsx": () => import("../components/mockups/proplayer-collapse/VariantC.tsx")
 };
