@@ -78,7 +78,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Tasks #847-#851: Slim Coach HQ header + auto-hide on scroll, hide chat & Play FAB when player drawer open, chat footer Home-only, free-swipeable hero carousel\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Tasks #856-#861: Android chat blur fix, theme editor on player card, tonal theme system + 8 presets, theme gallery preview\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"
