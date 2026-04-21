@@ -498,17 +498,109 @@ export default function FamilyLobbyScreen() {
 
   if (!familyData) {
     return (
-      <View style={[styles.container, styles.loading, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.loading, { paddingTop: insets.top, paddingHorizontal: Spacing.xl }]}>
         <Ionicons name="people-outline" size={64} color={Colors.dark.textMuted} />
-        <Text style={styles.loadingText}>No family account found</Text>
-        <Pressable 
-          style={{ marginTop: Spacing.lg, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.dark.primary, borderRadius: BorderRadius.medium }}
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
+        <Text style={[styles.loadingText, { marginTop: Spacing.lg, fontSize: FontSizes.lg, fontWeight: "700", color: Colors.dark.textPrimary }]}>
+          Family Lobby is empty
+        </Text>
+        <Text
+          style={{
+            marginTop: Spacing.sm,
+            fontSize: FontSizes.sm,
+            color: Colors.dark.textMuted,
+            textAlign: "center",
+            maxWidth: 320,
+            lineHeight: 20,
+          }}
         >
-          <Text style={{ color: Colors.dark.textPrimary, fontSize: FontSizes.md, fontWeight: "600" }}>Go Back</Text>
-        </Pressable>
+          {isParent
+            ? "We couldn\u2019t find any other players linked to your account yet. Add a family member to get started, or try again if you just made a change."
+            : "We couldn\u2019t find a family linked to your account yet. Ask a parent in your family to invite you, or try again if you just made a change."}
+        </Text>
+
+        <View style={{ marginTop: Spacing.xl, width: "100%", maxWidth: 320, gap: Spacing.sm }}>
+          {isParent ? (
+            <Pressable
+              style={{
+                paddingHorizontal: Spacing.xl,
+                paddingVertical: Spacing.md,
+                backgroundColor: Colors.dark.primary,
+                borderRadius: BorderRadius.medium,
+                alignItems: "center",
+                flexDirection: "row",
+                justifyContent: "center",
+                gap: Spacing.sm,
+              }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowCreateMember(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add a family member"
+            >
+              <Ionicons name="person-add" size={18} color={Colors.dark.buttonText} />
+              <Text style={{ color: Colors.dark.buttonText, fontSize: FontSizes.md, fontWeight: "600" }}>
+                Add Family Member
+              </Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            style={{
+              paddingHorizontal: Spacing.xl,
+              paddingVertical: Spacing.md,
+              backgroundColor: "transparent",
+              borderRadius: BorderRadius.medium,
+              borderWidth: 1,
+              borderColor: Colors.dark.panelBorder,
+              alignItems: "center",
+              flexDirection: "row",
+              justifyContent: "center",
+              gap: Spacing.sm,
+            }}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              refreshFamily();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Try again"
+          >
+            <Ionicons name="refresh" size={18} color={Colors.dark.textPrimary} />
+            <Text style={{ color: Colors.dark.textPrimary, fontSize: FontSizes.md, fontWeight: "600" }}>
+              Try Again
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={{
+              paddingHorizontal: Spacing.xl,
+              paddingVertical: Spacing.md,
+              alignItems: "center",
+            }}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Text style={{ color: Colors.dark.textMuted, fontSize: FontSizes.md, fontWeight: "500" }}>
+              Back
+            </Text>
+          </Pressable>
+        </View>
+
+        <CreateFamilyMemberFlow
+          visible={showCreateMember}
+          onClose={() => setShowCreateMember(false)}
+          onComplete={(_newPlayerId, newPlayerName) => {
+            setShowCreateMember(false);
+            refreshFamily();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+              "Profile created!",
+              `${newPlayerName} has been added to the Family Lobby.`,
+              [{ text: "OK" }]
+            );
+          }}
+        />
       </View>
     );
   }

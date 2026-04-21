@@ -237,13 +237,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Get the users player record
         const freshUser = await storage.getUserById(tokenUser.userId);
         if (!freshUser || !freshUser.playerId) {
-          return res.json({ isFamily: false });
+          console.log("[family/status] no playerId on user", { userId: tokenUser.userId });
+          return res.json({ isFamily: false, isCallerParent: false });
         }
 
         const player = await storage.getPlayer(freshUser.playerId);
-        if (!player || !player.email) {
+        if (!player) {
+          console.log("[family/status] player record not found", { playerId: freshUser.playerId });
+          return res.json({ isFamily: false, isCallerParent: false });
+        }
+
+        // Normalize caller emails (case-insensitive, trimmed) so data inconsistencies
+        // (mixed casing, leading/trailing whitespace) don't cause an empty family lobby.
+        // Fallback to the linked user's email when the player row's email is missing —
+        // a missing player.email should never demote a real parent account to "no family".
+        const rawCallerEmail = (player.email && player.email.trim()) || (freshUser.email && freshUser.email.trim()) || "";
+        if (!rawCallerEmail) {
+          console.log("[family/status] no usable email for caller", { playerId: player.id, userId: freshUser.id });
           return res.json({ isFamily: false });
         }
+        const callerEmail = rawCallerEmail.toLowerCase();
+        const callerParentEmail = player.parentEmail?.trim().toLowerCase() || null;
 
         // Find all players in the same family:
         // 1) Players sharing the same email address (original behaviour)
@@ -251,30 +265,54 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const byEmail = await db
           .select()
           .from(players)
-          .where(eq(players.email, player.email));
+          .where(sql`LOWER(TRIM(${players.email})) = ${callerEmail}`);
 
         const byParentEmail = await db
           .select()
           .from(players)
-          .where(eq(players.parentEmail, player.email));
+          .where(sql`LOWER(TRIM(${players.parentEmail})) = ${callerEmail}`);
+
+        // Also find all users that share this email and pull in their linked
+        // player profiles. This catches family members whose `players.email`
+        // field doesn't match (e.g. the player row has a different email but
+        // the user account they sign in with shares the family email).
+        const usersByEmail = await db
+          .select()
+          .from(users)
+          .where(sql`LOWER(TRIM(${users.email})) = ${callerEmail}`);
+
+        const linkedPlayerIds = usersByEmail
+          .map((u) => u.playerId)
+          .filter((id): id is string => !!id);
+
+        const playersFromUsers = linkedPlayerIds.length
+          ? await db
+              .select()
+              .from(players)
+              .where(inArray(players.id, linkedPlayerIds))
+          : [];
 
         // Merge and deduplicate
         const seen = new Set<string>();
         const familyMembers: typeof players.$inferSelect[] = [];
-        for (const m of [...byEmail, ...byParentEmail]) {
+        for (const m of [...byEmail, ...byParentEmail, ...playersFromUsers]) {
           if (!seen.has(m.id)) {
             seen.add(m.id);
             familyMembers.push(m);
           }
         }
 
+        let siblingsCount = 0;
+        let parentPlayersCount = 0;
+
         // Also include players whose parentEmail is the email of any member we already have
         // (i.e. this player is a child, and siblings share the same parent)
-        if (player.parentEmail) {
+        if (callerParentEmail) {
           const siblings = await db
             .select()
             .from(players)
-            .where(eq(players.parentEmail, player.parentEmail));
+            .where(sql`LOWER(TRIM(${players.parentEmail})) = ${callerParentEmail}`);
+          siblingsCount = siblings.length;
           for (const m of siblings) {
             if (!seen.has(m.id)) {
               seen.add(m.id);
@@ -285,7 +323,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           const parentPlayers = await db
             .select()
             .from(players)
-            .where(eq(players.email, player.parentEmail));
+            .where(sql`LOWER(TRIM(${players.email})) = ${callerParentEmail}`);
+          parentPlayersCount = parentPlayers.length;
           for (const m of parentPlayers) {
             if (!seen.has(m.id)) {
               seen.add(m.id);
@@ -294,13 +333,38 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // For an unlinked child (no parentEmail, no linked members), return no family
-        // For a parent account (no parentEmail), always return family data so they can add children
-        if (familyMembers.length <= 1 && player.parentEmail) {
-          return res.json({ isFamily: false });
+        const isCallerParent = !callerParentEmail;
+
+        console.log("[family/status] resolved", {
+          callerEmail,
+          callerParentEmail,
+          isCallerParent,
+          byEmailCount: byEmail.length,
+          byParentEmailCount: byParentEmail.length,
+          usersSharingEmail: usersByEmail.length,
+          playersFromUsersCount: playersFromUsers.length,
+          siblingsCount,
+          parentPlayersCount,
+          totalMembers: familyMembers.length,
+        });
+
+        // Ensure the caller is always present in the result set (defensive — should
+        // already be in byEmail, but covers any edge case where the caller's own
+        // email row didn't match due to upstream data weirdness).
+        if (!seen.has(player.id)) {
+          seen.add(player.id);
+          familyMembers.push(player);
         }
-        // If caller is a parent with no children yet, still expose family (single-member)
-        // so the Family Lobby Add Child flow is accessible
+
+        // For an unlinked child (has parentEmail but no siblings/parent linked), return no family.
+        // For a parent account (no parentEmail), always return family data so they can add children
+        // via the Family Lobby — even when no children are linked yet.
+        if (!isCallerParent && familyMembers.length <= 1) {
+          console.log("[family/status] returning isFamily:false — child with no linked family", {
+            callerEmail,
+          });
+          return res.json({ isFamily: false, isCallerParent: false });
+        }
 
         // Task #736 — batch outstanding-balance lookup for all family members
         // in a single grouped query (was N+1: one query per member).
@@ -339,18 +403,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           0,
         );
 
-        // Determine the canonical parent email for this family
-        // If caller is a child (has parentEmail set), use that; otherwise use their own email
-        const familyParentEmail = player.parentEmail || player.email;
+        // Determine the canonical parent email for this family.
+        // If caller is a child (has parentEmail set), use that; otherwise use the
+        // resolved caller email (which falls back to user.email when player.email
+        // is missing) so the UI never receives null/undefined family metadata.
+        const familyParentEmail = callerParentEmail || rawCallerEmail;
 
         res.json({
           isFamily: true,
+          isCallerParent,
           family: {
             email: familyParentEmail,
             parentEmail: familyParentEmail,
             members: memberData,
             outstandingTotal,
-            isCallerParent: !player.parentEmail,
+            isCallerParent,
           },
         });
       } catch (error) {

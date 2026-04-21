@@ -39,6 +39,15 @@ interface FamilyContextType {
   clearFamily: () => void;
 }
 
+// Top-level shape returned by /api/family/status. The endpoint always reports
+// whether the caller is a parent — even when isFamily is false — so the UI can
+// gate parent-only actions independently of having a populated family.
+interface FamilyStatusResponse {
+  isFamily: boolean;
+  isCallerParent?: boolean;
+  family?: FamilyData;
+}
+
 const FamilyContext = createContext<FamilyContextType | undefined>(undefined);
 
 interface FamilyProviderProps {
@@ -48,13 +57,16 @@ interface FamilyProviderProps {
 
 export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
   const [familyData, setFamilyData] = useState<FamilyData | null>(null);
+  const [callerIsParent, setCallerIsParent] = useState<boolean>(false);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
   const queryClient = useQueryClient();
   const mountedRef = useRef(true);
 
-  const isParent = familyData?.isCallerParent === true;
+  // Parent status survives an empty `familyData` so the empty state can
+  // still gate parent-only actions correctly.
+  const isParent = callerIsParent || familyData?.isCallerParent === true;
   // isFamily is true when there are multiple members OR when the caller is a parent
   // who can manage a family (even before any children are linked)
   const isFamily = familyData !== null && (familyData.members.length > 1 || isParent);
@@ -89,25 +101,30 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
       if (!response.ok) {
         logger.log("[FamilyContext] Request failed:", response.status);
         setFamilyData(null);
+        setCallerIsParent(false);
         setHasFetched(true);
         return true;
       }
       
-      const data = await response.json();
+      const data: FamilyStatusResponse = await response.json();
       
       if (!mountedRef.current) return false;
       
       setHasFetched(true);
+      setCallerIsParent(
+        data.isCallerParent === true || data.family?.isCallerParent === true,
+      );
       
       if (data.isFamily && data.family) {
-        setFamilyData(data.family);
+        const family = data.family;
+        setFamilyData(family);
         setActivePlayerId((prev) => {
-          if (prev && data.family.members.some((m: FamilyMember) => m.id === prev)) {
+          if (prev && family.members.some((m: FamilyMember) => m.id === prev)) {
             return prev;
           }
-          const currentMember = data.family.members.find((m: FamilyMember) => m.id === playerId);
+          const currentMember = family.members.find((m: FamilyMember) => m.id === playerId);
           if (currentMember) return currentMember.id;
-          if (data.family.members.length > 0) return data.family.members[0].id;
+          if (family.members.length > 0) return family.members[0].id;
           return prev;
         });
       } else {
@@ -122,6 +139,7 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
       console.error("[FamilyContext] Failed to refresh family:", error);
       if (mountedRef.current) {
         setFamilyData(null);
+        setCallerIsParent(false);
         if (playerId) {
           setActivePlayerId(playerId);
         }
@@ -170,6 +188,7 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
 
   const clearFamily = useCallback(() => {
     setFamilyData(null);
+    setCallerIsParent(false);
     setActivePlayerId(null);
     setHasFetched(false);
   }, []);
