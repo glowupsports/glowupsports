@@ -1382,9 +1382,33 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // MAINTENANCE: When new player_* tables are added to the schema, mirror them in
         // Part A (reassign) or Part B (delete) below, following the same FK ordering used
         // in storage.deletePlayer to avoid FK violations on the final DELETE FROM players.
+        // Use the `ifTable(...)` helper for newly-added tables so older databases that
+        // haven't run db:push for the latest migrations stay safe (no-op).
+        // To audit drift, run this query in psql and diff against the tables touched here:
+        //   SELECT DISTINCT tc.table_name
+        //   FROM information_schema.table_constraints tc
+        //   JOIN information_schema.constraint_column_usage ccu
+        //     ON ccu.constraint_name = tc.constraint_name
+        //   WHERE tc.constraint_type='FOREIGN KEY'
+        //     AND ccu.table_name='players' AND ccu.column_name='id';
         const client = await pool.connect();
         try {
           await client.query("BEGIN");
+
+          // Pre-fetch the set of tables that actually exist in this database so
+          // we can safely no-op operations against tables that haven't been
+          // migrated yet (e.g. a dev DB that hasn't run db:push since the
+          // schema added a new player_* table). This keeps the merge endpoint
+          // robust as new player-referencing tables roll out across envs.
+          const existingTablesRes = await client.query(
+            `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`
+          );
+          const existingTables = new Set<string>(
+            (existingTablesRes.rows as { table_name: string }[]).map(r => r.table_name)
+          );
+          const ifTable = async (name: string, sql: string, params: unknown[]) => {
+            if (existingTables.has(name)) await client.query(sql, params);
+          };
 
           // ================================================================
           // PART A — Transfer historical/coaching data from source to target
@@ -1554,6 +1578,125 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await client.query(`UPDATE level_up_events SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE level_trials SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 
+          // ----------------------------------------------------------------
+          // Task #900: additional player_* / player-referencing tables that
+          // accumulated since the merge endpoint was last audited. Each entry
+          // is gated on `existingTables` so older databases that haven't run
+          // db:push for the newest schema migrations stay safe (no-op).
+          // ----------------------------------------------------------------
+
+          // Legacy V1 billing — immutable history, transfer to target
+          await ifTable("packages",
+            `UPDATE packages SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("credit_transactions",
+            `UPDATE credit_transactions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Provider marketplace coaching artifacts (no unique on player_id alone in current schema)
+          await ifTable("provider_client_notes",
+            `UPDATE provider_client_notes SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // provider_client_preferences: UNIQUE(provider_id, player_id) — dedup first.
+          await ifTable("provider_client_preferences",
+            `DELETE FROM provider_client_preferences WHERE player_id = $1 AND provider_id IN (
+               SELECT provider_id FROM provider_client_preferences WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("provider_client_preferences",
+            `UPDATE provider_client_preferences SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Corporate membership & ledger — historical, transfer
+          await ifTable("corporate_members",
+            `UPDATE corporate_members SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("corporate_credit_transactions",
+            `UPDATE corporate_credit_transactions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Equipment rentals, video & beta feedback — historical
+          await ifTable("equipment_rentals",
+            `UPDATE equipment_rentals SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("video_feedback",
+            `UPDATE video_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("beta_feedback",
+            `UPDATE beta_feedback SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // AI tables — transfer; dedup the ones with composite uniques first.
+          // session_ai_summaries: UNIQUE(session_id, player_id)
+          await ifTable("session_ai_summaries",
+            `DELETE FROM session_ai_summaries WHERE player_id = $1 AND session_id IN (
+               SELECT session_id FROM session_ai_summaries WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("session_ai_summaries",
+            `UPDATE session_ai_summaries SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("player_ai_insights",
+            `UPDATE player_ai_insights SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("session_ai_chats",
+            `UPDATE session_ai_chats SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("ai_coach_conversations",
+            `UPDATE ai_coach_conversations SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("player_session_reflections",
+            `UPDATE player_session_reflections SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // player_monthly_assessments: UNIQUE(player_id, month_year)
+          await ifTable("player_monthly_assessments",
+            `DELETE FROM player_monthly_assessments WHERE player_id = $1 AND month_year IN (
+               SELECT month_year FROM player_monthly_assessments WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("player_monthly_assessments",
+            `UPDATE player_monthly_assessments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // player_match_readiness: UNIQUE(player_id, match_date) — dedup first.
+          await ifTable("player_match_readiness",
+            `DELETE FROM player_match_readiness WHERE player_id = $1 AND match_date IN (
+               SELECT match_date FROM player_match_readiness WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("player_match_readiness",
+            `UPDATE player_match_readiness SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // player_ai_training_plans: UNIQUE(player_id, week_start_date) — original bug from Task #900
+          await ifTable("player_ai_training_plans",
+            `DELETE FROM player_ai_training_plans WHERE player_id = $1 AND week_start_date IN (
+               SELECT week_start_date FROM player_ai_training_plans WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("player_ai_training_plans",
+            `UPDATE player_ai_training_plans SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // player_monthly_reports: UNIQUE(player_id, month_year)
+          await ifTable("player_monthly_reports",
+            `DELETE FROM player_monthly_reports WHERE player_id = $1 AND month_year IN (
+               SELECT month_year FROM player_monthly_reports WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("player_monthly_reports",
+            `UPDATE player_monthly_reports SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // session_ratings: UNIQUE(session_id, player_id)
+          await ifTable("session_ratings",
+            `DELETE FROM session_ratings WHERE player_id = $1 AND session_id IN (
+               SELECT session_id FROM session_ratings WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("session_ratings",
+            `UPDATE session_ratings SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("session_intake_data",
+            `UPDATE session_intake_data SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Spotlight winners — historical recognition records.
+          // UNIQUE(academy_id, week_start) and UNIQUE(academy_id, month, year):
+          // if both source and target won the same period, target wins; drop source.
+          await ifTable("spotlight_weekly_winners",
+            `DELETE FROM spotlight_weekly_winners WHERE player_id = $1
+               AND (academy_id, week_start) IN (
+                 SELECT academy_id, week_start FROM spotlight_weekly_winners WHERE player_id = $2
+               )`, [sourceId, targetId]);
+          await ifTable("spotlight_weekly_winners",
+            `UPDATE spotlight_weekly_winners SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("spotlight_monthly_winners",
+            `DELETE FROM spotlight_monthly_winners WHERE player_id = $1
+               AND (academy_id, month, year) IN (
+                 SELECT academy_id, month, year FROM spotlight_monthly_winners WHERE player_id = $2
+               )`, [sourceId, targetId]);
+          await ifTable("spotlight_monthly_winners",
+            `UPDATE spotlight_monthly_winners SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // Family invite codes — transfer both parent + used-by sides
+          // (`code` is globally unique, no per-player constraint to dedup).
+          await ifTable("family_invite_codes",
+            `UPDATE family_invite_codes SET parent_player_id = $1 WHERE parent_player_id = $2`, [targetId, sourceId]);
+          await ifTable("family_invite_codes",
+            `UPDATE family_invite_codes SET used_by_player_id = $1 WHERE used_by_player_id = $2`, [targetId, sourceId]);
+
+          // ---------- end Task #900 transfers ----------
+
           // Player connections: delete both sides to avoid self/duplicate links
           await client.query(`DELETE FROM player_connections WHERE player1_id = $1 OR player2_id = $1`, [sourceId]);
 
@@ -1626,7 +1769,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await client.query(`DELETE FROM matches WHERE player_id = $1`, [sourceId]);
           await client.query(`DELETE FROM match_opponents WHERE player_id = $1`, [sourceId]);
 
-          // Marketplace
+          // Marketplace — must clean ALL inbound rows on source's listings
+          // (messages + favourites from any user, and source's own messages
+          // / favourites pointing at other people's listings) BEFORE deleting
+          // the listings themselves, because both child tables FK to
+          // marketplace_listings.id with no ON DELETE CASCADE.
+          await ifTable("marketplace_messages",
+            `DELETE FROM marketplace_messages
+             WHERE sender_id = $1 OR recipient_id = $1
+                OR listing_id IN (SELECT id FROM marketplace_listings WHERE seller_id = $1)`,
+            [sourceId]);
+          await ifTable("marketplace_favorites",
+            `DELETE FROM marketplace_favorites
+             WHERE player_id = $1
+                OR listing_id IN (SELECT id FROM marketplace_listings WHERE seller_id = $1)`,
+            [sourceId]);
           await client.query(`DELETE FROM marketplace_listings WHERE seller_id = $1`, [sourceId]);
           await client.query(`DELETE FROM seller_profiles WHERE player_id = $1`, [sourceId]);
 
@@ -1691,6 +1848,31 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             [sourceId]
           );
           await client.query(`DELETE FROM shop_orders WHERE player_id = $1`, [sourceId]);
+
+          // ----------------------------------------------------------------
+          // Task #900: ephemeral / device-bound rows that should NOT transfer.
+          // All gated on `existingTables` so missing tables stay no-op safe.
+          // ----------------------------------------------------------------
+
+          // Push tokens are bound to the source's device + user account.
+          await ifTable("push_device_tokens",
+            `DELETE FROM push_device_tokens WHERE player_id = $1`, [sourceId]);
+
+          // (marketplace_messages + marketplace_favorites are cleaned up
+          // earlier, before marketplace_listings is deleted, to satisfy the
+          // listings.id FK on those tables.)
+
+          // Quest chain bonus claims are gamification artifacts; drop source's.
+          await ifTable("quest_chain_bonus_claims",
+            `DELETE FROM quest_chain_bonus_claims WHERE player_id = $1`, [sourceId]);
+
+          // Spotlight nominations: drop both sides
+          // (UNIQUE(nominator, week_start) means transfer would conflict).
+          await ifTable("spotlight_nominations",
+            `DELETE FROM spotlight_nominations WHERE nominator_player_id = $1 OR nominated_player_id = $1`,
+            [sourceId]);
+
+          // ---------- end Task #900 deletes ----------
 
           // ================================================================
           // PART C — User link & source player deletion
