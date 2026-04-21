@@ -21,6 +21,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
   import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
+  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle";
   import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
   import {
@@ -1319,8 +1320,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const coachId = req.user!.coachId;
         const academyId = req.user!.academyId!;
 
-        const deleted = await storage.deletePlayer(id, academyId);
-        if (!deleted) {
+        const result = await deletePlayerWithUserWipe(id, academyId);
+        if (!result.deleted) {
           return res.status(404).json({ error: "Player not found" });
         }
 
@@ -1332,10 +1333,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           metadata: JSON.stringify({
             academyId,
             deletedAt: new Date().toISOString(),
+            wipedUserIds: result.wipedUserIds,
+            keptUserIds: result.keptUserIds,
+            userCleanupError: result.userCleanupError,
           }),
         });
 
-        res.json({ success: true, message: "Player deleted" });
+        res.json({
+          success: true,
+          message: "Player deleted",
+          userCleanupError: result.userCleanupError,
+        });
       } catch (error) {
         console.error("Error deleting player:", error);
         res.status(500).json({ error: "Failed to delete player" });
@@ -1908,15 +1916,60 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           client.release();
         }
 
+        // Task #909: wipe the orphaned source user row. When both source
+        // and target had user accounts, the transaction above set
+        // users.player_id = NULL on the source user — that row is now a
+        // dangling auth ghost. Hard-delete it if and only if the account is
+        // player-only (no coach/academy role) and not a family-lobby parent
+        // managing other children. Best-effort; never rolls back the merge.
+        let mergeUserCleanup: Awaited<ReturnType<typeof wipeLinkedUserAfterMerge>> | null = null;
+        if (sourceUser && targetUser) {
+          try {
+            // The transaction nulled users.player_id for the source user,
+            // so wipeLinkedUserAfterMerge() can't find them via player_id.
+            // Re-link transiently so the shared helper picks them up, then
+            // wipe. If anything throws, log and move on.
+            await db
+              .update(users)
+              .set({ playerId: sourceId })
+              .where(eq(users.id, sourceUser.id));
+            // sourceId's players row is already gone, so player_id points
+            // at a non-existent row. That's OK — we only use player_id to
+            // discover the user; the FK is checked on INSERT/UPDATE of
+            // users.player_id but no FK exists in the other direction.
+            mergeUserCleanup = await wipeLinkedUserAfterMerge(sourceId);
+          } catch (err) {
+            console.error("[MergePlayers] source user wipe failed:", err);
+            mergeUserCleanup = {
+              userCleanupError:
+                err instanceof Error ? err.message : String(err),
+              wipedUserIds: [],
+              keptUserIds: [],
+            };
+          }
+        }
+
         await storage.createAuditLog({
           entityType: "player",
           entityId: sourceId,
           action: "merge",
           performedBy: coachId!,
-          metadata: JSON.stringify({ mergedIntoPlayerId: targetId, academyId, userWarning }),
+          metadata: JSON.stringify({
+            mergedIntoPlayerId: targetId,
+            academyId,
+            userWarning,
+            wipedUserIds: mergeUserCleanup?.wipedUserIds ?? [],
+            keptUserIds: mergeUserCleanup?.keptUserIds ?? [],
+            userCleanupError: mergeUserCleanup?.userCleanupError ?? null,
+          }),
         });
 
-        res.json({ success: true, targetId, userWarning });
+        res.json({
+          success: true,
+          targetId,
+          userWarning,
+          userCleanupError: mergeUserCleanup?.userCleanupError ?? null,
+        });
       } catch (error) {
         console.error("Error merging players:", error);
         res.status(500).json({ error: "Failed to merge players" });

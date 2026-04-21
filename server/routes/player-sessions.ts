@@ -5425,9 +5425,9 @@ import fs from "fs";
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        // Permanent delete - completely remove player and all related data
-        const deleted = await storage.deletePlayer(playerId, academyId);
-        if (!deleted) {
+        // Permanent delete - completely remove player, related data, and the linked user account.
+        const result = await deletePlayerWithUserWipe(playerId, academyId);
+        if (!result.deleted) {
           return res
             .status(404)
             .json({ error: "Player not found in this academy" });
@@ -5440,10 +5440,19 @@ import fs from "fs";
           action: "delete",
           performedBy: userId || null,
           performedByRole: req.user?.role || null,
-          metadata: JSON.stringify({ deletedAt: new Date().toISOString() }),
+          metadata: JSON.stringify({
+            deletedAt: new Date().toISOString(),
+            wipedUserIds: result.wipedUserIds,
+            keptUserIds: result.keptUserIds,
+            userCleanupError: result.userCleanupError,
+          }),
         });
 
-        res.json({ success: true, message: "Player permanently deleted" });
+        res.json({
+          success: true,
+          message: "Player permanently deleted",
+          userCleanupError: result.userCleanupError,
+        });
       } catch (error) {
         console.error("Delete player error:", error);
         res.status(500).json({ error: "Failed to delete player" });
@@ -5702,8 +5711,8 @@ import fs from "fs";
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const deleted = await storage.deletePlayer(id, academyId);
-        if (!deleted) {
+        const result = await deletePlayerWithUserWipe(id, academyId);
+        if (!result.deleted) {
           return res
             .status(404)
             .json({ error: "Player not found in this academy" });
@@ -5716,10 +5725,19 @@ import fs from "fs";
           action: "delete",
           performedBy: userId || null,
           performedByRole: req.user?.role || null,
-          metadata: JSON.stringify({ deletedAt: new Date().toISOString() }),
+          metadata: JSON.stringify({
+            deletedAt: new Date().toISOString(),
+            wipedUserIds: result.wipedUserIds,
+            keptUserIds: result.keptUserIds,
+            userCleanupError: result.userCleanupError,
+          }),
         });
 
-        res.json({ success: true, message: "Player deleted" });
+        res.json({
+          success: true,
+          message: "Player deleted",
+          userCleanupError: result.userCleanupError,
+        });
       } catch (error) {
         console.error("Admin delete player error:", error);
         res.status(500).json({ error: "Failed to delete player" });

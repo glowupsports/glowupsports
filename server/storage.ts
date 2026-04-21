@@ -315,6 +315,7 @@ import {
   creditLots,
   creditLedgerV2,
   playerCreditBalance,
+  playerMoneyWallet,
   // In-Session Feedback
   inSessionFeedback,
   // Player Baselines
