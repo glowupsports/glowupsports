@@ -968,12 +968,32 @@ const socialPostUpload = multer({
           eq(communityGroupsTable.type, "academy")
         ));
       
-      const allGroups = [
-        ...userGroups.map(g => ({ ...g.group, role: g.membership.role, isJoined: true })),
+      const baseGroups = [
+        ...userGroups.map(g => ({ ...g.group, role: g.membership.role as string | null, isJoined: true })),
         ...academyGroups.filter(ag => !userGroups.some(ug => ug.group.id === ag.id))
-          .map(ag => ({ ...ag, role: null, isJoined: false })),
+          .map(ag => ({ ...ag, role: null as string | null, isJoined: false })),
       ];
-      
+
+      // Compute live member counts so this endpoint matches the group detail view.
+      const groupIdsForCount = baseGroups.map(g => g.id);
+      const liveCounts = groupIdsForCount.length > 0
+        ? await db
+            .select({
+              groupId: groupMembersTable.groupId,
+              count: sql<number>`count(*)`,
+            })
+            .from(groupMembersTable)
+            .where(inArray(groupMembersTable.groupId, groupIdsForCount))
+            .groupBy(groupMembersTable.groupId)
+        : [];
+      const countByGroup = new Map<string, number>(
+        liveCounts.map(c => [c.groupId, Number(c.count) || 0]),
+      );
+      const allGroups = baseGroups.map(g => ({
+        ...g,
+        memberCount: countByGroup.get(g.id) ?? 0,
+      }));
+
       res.json(allGroups);
     } catch (error) {
       console.error("Error fetching groups:", error);

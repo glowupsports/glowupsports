@@ -2622,8 +2622,25 @@ import fs from "fs";
             )
           : academyGroupRows;
 
+        // Compute live member counts so the list always matches the detail view.
+        const groupIdsForCount = filteredGroupRows.map((r) => r.group.id);
+        const liveCounts = groupIdsForCount.length > 0
+          ? await db
+              .select({
+                groupId: groupMembersTable.groupId,
+                count: sql<number>`count(*)`,
+              })
+              .from(groupMembersTable)
+              .where(inArray(groupMembersTable.groupId, groupIdsForCount))
+              .groupBy(groupMembersTable.groupId)
+          : [];
+        const countByGroup = new Map<string, number>(
+          liveCounts.map((c) => [c.groupId, Number(c.count) || 0]),
+        );
+
         const groups = filteredGroupRows.map((row) => ({
           ...row.group,
+          memberCount: countByGroup.get(row.group.id) ?? 0,
           isMember: myGroupIds.includes(row.group.id),
           role: memberRows.find((m) => m.groupId === row.group.id)?.role || null,
         }));
@@ -2713,7 +2730,7 @@ import fs from "fs";
         }));
 
         res.json({
-          group,
+          group: { ...group, memberCount: members.length },
           isMember: !!membership,
           myRole: membership?.role || null,
           members,

@@ -1347,6 +1347,40 @@ function setupErrorHandler(app: express.Application) {
       } catch (err) {
         console.error("[CancelledSessionGhostDebtFix] Failed:", err);
       }
+
+      // ── CommunityGroupMemberCountBackfill ─────────────────────────────────
+      // One-time backfill: recompute community_groups.member_count from the
+      // actual rows in group_members. The list endpoint now reads counts live,
+      // but the stored column is still kept in sync by join/leave handlers and
+      // is used as a fallback in some clients — keep it consistent here.
+      try {
+        const { db: dbCounts } = await import("./db");
+        const { sql: sqlCounts } = await import("drizzle-orm");
+        const result: { rowCount?: number | null } = await dbCounts.execute(sqlCounts`
+          UPDATE community_groups cg
+          SET member_count = sub.cnt
+          FROM (
+            SELECT cg2.id AS group_id,
+                   COALESCE(gm_counts.cnt, 0)::int AS cnt
+            FROM community_groups cg2
+            LEFT JOIN (
+              SELECT group_id, COUNT(*)::int AS cnt
+              FROM group_members
+              GROUP BY group_id
+            ) gm_counts ON gm_counts.group_id = cg2.id
+          ) sub
+          WHERE cg.id = sub.group_id
+            AND COALESCE(cg.member_count, -1) <> sub.cnt
+        `);
+        const fixed = result.rowCount ?? 0;
+        if (fixed > 0) {
+          log(`[CommunityGroupMemberCountBackfill] Synced member_count on ${fixed} group(s)`);
+        } else {
+          log(`[CommunityGroupMemberCountBackfill] All groups already in sync`);
+        }
+      } catch (err) {
+        console.error("[CommunityGroupMemberCountBackfill] Failed:", err);
+      }
     },
   );
 })();
