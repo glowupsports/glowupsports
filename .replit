@@ -78,7 +78,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Task #866: Fix chat bubble width collapse — text now visible & wraps properly (Android + iOS)\" bash scripts/ota-push.sh"
+args = "OTA_MESSAGE=\"Task #884 v2: ProPlayerCard tap-to-collapse — remove any-cast, gate render on hydration\" bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"

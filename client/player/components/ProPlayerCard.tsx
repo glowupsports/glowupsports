@@ -10,12 +10,17 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  withSequence,
+  withSpring,
   interpolate,
   Extrapolation,
+  LinearTransition,
 } from "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { isRTL } from "@/i18n";
 import { formatCredits } from "@/lib/dateUtils";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
@@ -70,11 +75,82 @@ export function ProPlayerCard({
   onNotificationPress,
   unreadNotificationCount = 0,
 }: ProPlayerCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n: i18nInstance } = useTranslation();
   const track = useTrackFeature();
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
+  const bounceY = useSharedValue(0);
+  const rtl = isRTL(i18nInstance.language);
   const profilePhotoUri = buildPhotoUrl(player.profilePhotoUrl);
+
+  const collapsedKey = `proPlayerCard.collapsed.${player.id}`;
+  const openCountKey = `proPlayerCard.openCount.${player.id}`;
+  const everTappedKey = `proPlayerCard.everTapped.${player.id}`;
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const everTappedRef = React.useRef(false);
+  const cleanupRef = React.useRef<null | (() => void)>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [[, collapsedRaw], [, openCountRaw], [, everTappedRaw]] =
+          await AsyncStorage.multiGet([collapsedKey, openCountKey, everTappedKey]);
+        if (cancelled) return;
+        const collapsed = collapsedRaw === "1";
+        const everTapped = everTappedRaw === "1";
+        const openCount = Math.max(0, parseInt(openCountRaw ?? "0", 10) || 0);
+        everTappedRef.current = everTapped;
+        setIsCollapsed(collapsed);
+        setHydrated(true);
+
+        const nextCount = openCount + 1;
+        if (openCount < 3) {
+          AsyncStorage.setItem(openCountKey, String(Math.min(nextCount, 3))).catch(() => {});
+        }
+        if (!collapsed && !everTapped && openCount < 3) {
+          const timeout = setTimeout(() => {
+            bounceY.value = withSequence(
+              withTiming(-6, { duration: 180 }),
+              withSpring(0, { damping: 6, stiffness: 180 }),
+              withTiming(-4, { duration: 160 }),
+              withSpring(0, { damping: 6, stiffness: 180 }),
+            );
+          }, 2000);
+          cleanupRef.current = () => clearTimeout(timeout);
+        }
+      } catch {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player.id]);
+
+  const handleToggleCollapse = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bounceY.value = withTiming(0, { duration: 120 });
+    if (!everTappedRef.current) {
+      everTappedRef.current = true;
+      AsyncStorage.setItem(everTappedKey, "1").catch(() => {});
+    }
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem(collapsedKey, next ? "1" : "0").catch(() => {});
+      return next;
+    });
+  };
+
+  const bounceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bounceY.value }],
+  }));
   const { logoUrl: academyLogoFromTheme, playerOverride, setPlayerOverride } = useAcademyTheme();
   const academyLogoUrl = buildPhotoUrl(academyLogoFromTheme);
   const insets = useSafeAreaInsets();
@@ -168,11 +244,93 @@ export function ProPlayerCard({
     }
   };
 
+  const chevronCornerStyle = [
+    styles.chevronCorner,
+    rtl ? { left: 8 } : { right: 8 },
+  ];
+
+  if (!hydrated) {
+    // Avoid flickering between expanded and collapsed before AsyncStorage
+    // resolves. Render a placeholder of the same horizontal footprint so
+    // the surrounding layout doesn't jump once we know the persisted state.
+    return (
+      <View>
+        <View style={[styles.cardContainer, { height: 1, opacity: 0 }]} />
+      </View>
+    );
+  }
+
+  if (isCollapsed) {
+    return (
+      <View>
+        <View style={styles.cardContainer}>
+          <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
+          <Animated.View style={styles.container} layout={LinearTransition.springify().damping(18)}>
+            <View style={[styles.cardGradient, { backgroundColor: Backgrounds.root }]}>
+              <LinearGradient
+                colors={[GlowColors.primary, GlowColors.soft, GlowColors.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.topAccentLine}
+              />
+              <View style={styles.collapsedRow}>
+                <Pressable onPress={handleAvatarPress} hitSlop={6}>
+                  <View style={styles.collapsedAvatarFrame}>
+                    <LinearGradient
+                      colors={[GlowColors.primary, GlowColors.soft]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.collapsedAvatarBorder}
+                    >
+                      {profilePhotoUri ? (
+                        Platform.OS === "web" ? (
+                          <RNImage source={{ uri: profilePhotoUri }} style={styles.collapsedAvatarPhoto} resizeMode="cover" />
+                        ) : (
+                          <Image source={{ uri: profilePhotoUri }} style={styles.collapsedAvatarPhoto} contentFit="cover" />
+                        )
+                      ) : (
+                        <View style={styles.collapsedAvatarInner}>
+                          <Text style={styles.avatarText}>{(player.name || "P").charAt(0).toUpperCase()}</Text>
+                        </View>
+                      )}
+                    </LinearGradient>
+                  </View>
+                </Pressable>
+                <View style={styles.collapsedIdentity}>
+                  <Text style={styles.collapsedName} numberOfLines={1}>{player.name || "Player"}</Text>
+                  <View style={styles.collapsedXpTrack}>
+                    <LinearGradient
+                      colors={[GlowColors.primary, GlowColors.soft]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.xpBarFill, { width: `${Math.max(xpProgress * 100, 2)}%` }]}
+                    />
+                  </View>
+                </View>
+                <Animated.View style={bounceStyle}>
+                  <Pressable
+                    onPress={handleToggleCollapse}
+                    hitSlop={10}
+                    style={styles.chevronBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("player.home.expandCard", { defaultValue: "Expand player card" })}
+                  >
+                    <Ionicons name="chevron-down" size={14} color={Colors.dark.accentText} />
+                  </Pressable>
+                </Animated.View>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View>
       <View style={styles.cardContainer}>
         <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
-        <View style={styles.container}>
+        <Animated.View style={styles.container} layout={LinearTransition.springify().damping(18)}>
           <View
             style={[styles.cardGradient, { backgroundColor: Backgrounds.root }]}
           >
@@ -182,6 +340,18 @@ export function ProPlayerCard({
             end={{ x: 1, y: 0 }}
             style={styles.topAccentLine}
           />
+
+          <Animated.View style={[chevronCornerStyle, bounceStyle]} pointerEvents="box-none">
+            <Pressable
+              onPress={handleToggleCollapse}
+              hitSlop={10}
+              style={styles.chevronBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t("player.home.collapseCard", { defaultValue: "Collapse player card" })}
+            >
+              <Ionicons name="chevron-up" size={14} color={Colors.dark.accentText} />
+            </Pressable>
+          </Animated.View>
 
           <View style={styles.cardContent}>
             <Pressable style={styles.avatarContainer} onPress={handleAvatarPress}>
@@ -356,7 +526,7 @@ export function ProPlayerCard({
             ) : null}
           </View>
         </View>
-        </View>
+        </Animated.View>
       </View>
       <Modal
         visible={showThemeEditor}
@@ -600,6 +770,68 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 10,
     color: TextColors.muted,
     fontWeight: "500",
+  },
+  chevronCorner: {
+    position: "absolute",
+    top: 8,
+    zIndex: 2,
+  },
+  chevronBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  collapsedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: 10,
+  },
+  collapsedAvatarFrame: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  collapsedAvatarBorder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  collapsedAvatarPhoto: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  collapsedAvatarInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Backgrounds.root,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  collapsedIdentity: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  collapsedName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: TextColors.primary,
+  },
+  collapsedXpTrack: {
+    height: 3,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    borderRadius: 1.5,
+    overflow: "hidden",
   },
   bottomActionBtn: {
     width: 30,
