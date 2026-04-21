@@ -54,6 +54,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 
 // -----------------------------------------------------------------------------
 // Theme color helper (legacy palette accessor used elsewhere in this file)
