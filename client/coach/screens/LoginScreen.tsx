@@ -632,6 +632,7 @@ export default function LoginScreen() {
   const usernameCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInviteRegisteringRef = useRef(false);
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+  const [brokenAvatars, setBrokenAvatars] = useState<Record<string, boolean>>({});
   const [biometryType, setBiometryType] = useState<string | null>(null);
 
   const glowRingScale = useSharedValue(1);
@@ -1446,10 +1447,15 @@ export default function LoginScreen() {
                 onPress={() => handleQuickLogin(account)}
               >
                 <View style={[styles.savedAccountAvatar, { borderColor: getRoleColor(account.role) }]}>
-                  {account.avatarUrl ? (
-                    <Image 
-                      source={{ uri: account.avatarUrl }} 
+                  {account.avatarUrl && !brokenAvatars[account.username] ? (
+                    <Image
+                      source={{ uri: account.avatarUrl }}
                       style={styles.savedAccountPhoto}
+                      onError={() =>
+                        setBrokenAvatars((prev) =>
+                          prev[account.username] ? prev : { ...prev, [account.username]: true }
+                        )
+                      }
                     />
                   ) : (
                     <Ionicons 

@@ -13,6 +13,14 @@ export interface SavedAccount {
 
 const SAVED_ACCOUNTS_KEY = "gus_saved_accounts_v2";
 
+function sanitizeAvatarUrl(avatarUrl?: string | null): string | undefined {
+  if (!avatarUrl || typeof avatarUrl !== "string") return undefined;
+  const trimmed = avatarUrl.trim();
+  if (!trimmed) return undefined;
+  if (!/^https?:\/\//i.test(trimmed)) return undefined;
+  return trimmed;
+}
+
 async function getStorageItem(key: string): Promise<string | null> {
   if (Platform.OS === "web") {
     return AsyncStorage.getItem(key);
@@ -32,7 +40,22 @@ export async function getSavedAccounts(): Promise<SavedAccount[]> {
   try {
     const data = await getStorageItem(SAVED_ACCOUNTS_KEY);
     if (!data) return [];
-    const accounts = JSON.parse(data) as SavedAccount[];
+    const parsed = JSON.parse(data) as SavedAccount[];
+    let needsRewrite = false;
+    const accounts = parsed.map((account) => {
+      const cleanAvatar = sanitizeAvatarUrl(account.avatarUrl);
+      if (cleanAvatar !== account.avatarUrl) {
+        needsRewrite = true;
+        return { ...account, avatarUrl: cleanAvatar };
+      }
+      return account;
+    });
+    if (needsRewrite) {
+      try {
+        await setStorageItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+      } catch {
+      }
+    }
     return accounts.sort((a, b) => b.lastLogin - a.lastLogin);
   } catch {
     return [];
@@ -55,7 +78,7 @@ export async function saveAccount(
       username: username.toLowerCase(),
       displayName,
       role,
-      avatarUrl,
+      avatarUrl: sanitizeAvatarUrl(avatarUrl),
       lastLogin: Date.now(),
     };
 
