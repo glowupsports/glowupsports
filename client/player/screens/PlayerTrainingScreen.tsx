@@ -189,15 +189,7 @@ export default function PlayerTrainingScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              // Fallback when this screen is the root (deep-link entry):
-              // send the user to the player home tab so they always have an exit.
-              (navigation as any).navigate("PlayerTabs", { screen: "Home" });
-            }
-          }}
+          onPress={() => navigation.goBack()}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Close"
