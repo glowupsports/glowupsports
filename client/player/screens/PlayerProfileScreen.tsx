@@ -502,6 +502,28 @@ export default function PlayerProfileScreen() {
   const earnedBadges = badgesData || [];
   const unlockedTitles = titlesData || [];
 
+  const { data: vacationData } = useQuery<{
+    activeVacation?: { id: string; startDate: string; endDate: string };
+    upcomingVacation?: { id: string; startDate: string; endDate: string };
+  }>({
+    queryKey: ["/api/player/me/vacation"],
+    enabled: !isGuest,
+  });
+
+  const holidaysSubtitle = useMemo(() => {
+    const fmt = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    if (vacationData?.activeVacation) {
+      return t("player.profile.holidays.subtitleActive", { date: fmt(vacationData.activeVacation.endDate) });
+    }
+    if (vacationData?.upcomingVacation) {
+      return t("player.profile.holidays.subtitleUpcoming", {
+        start: fmt(vacationData.upcomingVacation.startDate),
+        end: fmt(vacationData.upcomingVacation.endDate),
+      });
+    }
+    return t("player.profile.holidays.subtitleNone");
+  }, [vacationData, t]);
+
   useEffect(() => {
     if (!hasSeenScreen("Profile")) {
       const timer = setTimeout(() => {
@@ -1432,6 +1454,25 @@ export default function PlayerProfileScreen() {
               <Ionicons name="help-circle-outline" size={20} color={Colors.dark.text} />
             </View>
             <Text style={styles.settingsLabel}>{t("player.profile.helpSupport")}</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+
+          <Pressable
+            style={styles.settingsItem}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("PlayerHolidays");
+            }}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: "rgba(77, 163, 255, 0.15)" }]}>
+              <Ionicons name="calendar-outline" size={20} color="#4DA3FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingsLabel}>{t("player.profile.holidays.title")}</Text>
+              <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, marginTop: 2 }}>
+                {holidaysSubtitle}
+              </Text>
+            </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
 

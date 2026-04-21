@@ -30,6 +30,7 @@ import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
 import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
 import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
 import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
+import PlayerHolidaysScreen from "@/player/screens/PlayerHolidaysScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
 import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
@@ -289,6 +290,7 @@ export type PlayerStackParamList = {
   AcademyPublicProfile: { academyId: string };
   CoachDirectory: undefined;
   TransferRequest: { academyId?: string; academyName?: string } | undefined;
+  PlayerHolidays: undefined;
   ManageMatch: { matchId: string };
   ParentDashboard: undefined;
   ParentLessons: { playerId: string };
@@ -1025,6 +1027,13 @@ function PlayerStackNavigator() {
       <Stack.Screen 
         name="TransferRequest" 
         component={TransferRequestScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="PlayerHolidays"
+        component={PlayerHolidaysScreen}
         options={{
           presentation: "card",
         }}

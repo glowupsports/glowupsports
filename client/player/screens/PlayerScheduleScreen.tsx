@@ -5,7 +5,7 @@ import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useScheduleFocus } from "@/player/context/ScheduleFocusContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -13,9 +13,8 @@ import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate } from "react-native-reanimated";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon, type Sport } from "@/player/context/SportContext";
@@ -203,7 +202,6 @@ export default function PlayerScheduleScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const track = useTrackFeature();
-  const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
   const { playerId: profilePlayerId } = usePlayer();
@@ -216,11 +214,6 @@ export default function PlayerScheduleScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [attendanceFilterMonth, setAttendanceFilterMonth] = useState(new Date());
-  const [showVacationModal, setShowVacationModal] = useState(false);
-  const [vacationStartDate, setVacationStartDate] = useState<Date | null>(null);
-  const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
@@ -341,29 +334,6 @@ export default function PlayerScheduleScreen() {
     fetchTravelTimes();
     return () => controller.abort();
   }, [playerLat, playerLng, rawSessions]);
-
-  const createVacationMutation = useMutation({
-    mutationFn: async (data: { startDate: string; endDate: string }) => {
-      return apiRequest("/api/player/me/vacation", "POST", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
-      setShowVacationModal(false);
-      setVacationStartDate(null);
-      setVacationEndDate(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
-  });
-
-  const cancelVacationMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest(`/api/player/me/vacation/${id}`, "DELETE");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
-  });
 
   const attendanceStreak = profileData?.player?.attendanceStreak || 0;
 
@@ -718,36 +688,9 @@ export default function PlayerScheduleScreen() {
     }
   };
 
-  const handleSetVacation = () => {
-    track("schedule:vacation_mode");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowVacationModal(true);
-  };
-
-  const handleSaveVacation = () => {
-    if (!vacationStartDate || !vacationEndDate) {
-      Alert.alert("Missing Dates", "Please select both start and end dates.");
-      return;
-    }
-    if (vacationEndDate < vacationStartDate) {
-      Alert.alert("Invalid Dates", "End date must be after start date.");
-      return;
-    }
-    createVacationMutation.mutate({
-      startDate: vacationStartDate.toISOString(),
-      endDate: vacationEndDate.toISOString(),
-    });
-  };
-
-  const handleCancelVacation = (id: string) => {
-    Alert.alert(
-      "Cancel Vacation",
-      "Are you sure you want to cancel this vacation period?",
-      [
-        { text: "Keep", style: "cancel" },
-        { text: "Cancel Vacation", style: "destructive", onPress: () => cancelVacationMutation.mutate(id) },
-      ]
-    );
+  const handleOpenHolidays = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("PlayerHolidays");
   };
 
   const formatSelectedDate = () => {
@@ -965,7 +908,6 @@ export default function PlayerScheduleScreen() {
               <QuickActionButton icon="book" label={t("player.schedule.bookLesson")} color={ProTennisColors.neonGreen} onPress={handleBookLesson} />
               <QuickActionButton icon="grid" label={t("player.schedule.bookCourt")} color={ProTennisColors.neonCyan} onPress={handleBookCourt} />
               <QuickActionButton icon="users" label={t("player.schedule.findMatch")} color={ProTennisColors.neonPurple} onPress={handleFindMatch} />
-              <QuickActionButton icon="sun" label={t("player.schedule.vacation")} color={ProTennisColors.vacationBlue} onPress={handleSetVacation} />
             </View>
         </Animated.View>
 
@@ -981,33 +923,49 @@ export default function PlayerScheduleScreen() {
           </ScrollView>
         </Animated.View>
 
-        {(vacationData?.activeVacation || vacationData?.upcomingVacation) ? (
-          <Animated.View entering={FadeInDown.delay(250).duration(400)}>
-            <NeonBorderCard accentColor={ProTennisColors.vacationBlue}>
-              <View style={styles.vacationCard}>
-                <View style={styles.vacationHeader}>
-                  <View style={styles.vacationIconContainer}>
-                    <Feather name="sun" size={20} color={ProTennisColors.vacationBlue} />
+        {(() => {
+          const active = vacationData?.activeVacation;
+          const upcoming = vacationData?.upcomingVacation;
+          const fmt = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+          let banner: { title: string; subtitle: string } | null = null;
+          if (active) {
+            banner = {
+              title: t("player.schedule.vacationBanner.active", { date: fmt(active.endDate) }),
+              subtitle: t("player.schedule.vacationBanner.subtitle"),
+            };
+          } else if (upcoming) {
+            const startMs = new Date(upcoming.startDate).getTime();
+            const days = (startMs - Date.now()) / (1000 * 60 * 60 * 24);
+            if (days <= 14) {
+              banner = {
+                title: t("player.schedule.vacationBanner.upcoming", {
+                  start: fmt(upcoming.startDate),
+                  end: fmt(upcoming.endDate),
+                }),
+                subtitle: t("player.schedule.vacationBanner.subtitle"),
+              };
+            }
+          }
+          if (!banner) return null;
+          return (
+            <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+              <NeonBorderCard accentColor={ProTennisColors.vacationBlue} onPress={handleOpenHolidays}>
+                <View style={styles.vacationCard}>
+                  <View style={styles.vacationHeader}>
+                    <View style={styles.vacationIconContainer}>
+                      <Feather name="sun" size={20} color={ProTennisColors.vacationBlue} />
+                    </View>
+                    <View style={styles.vacationInfo}>
+                      <Text style={styles.vacationTitle}>{banner.title}</Text>
+                      <Text style={styles.vacationDates}>{banner.subtitle}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color={ProTennisColors.textMuted} />
                   </View>
-                  <View style={styles.vacationInfo}>
-                    <Text style={styles.vacationTitle}>
-                      {vacationData.activeVacation ? t("player.schedule.onVacation") : t("player.schedule.upcomingVacation")}
-                    </Text>
-                    <Text style={styles.vacationDates}>
-                      {formatVacationDate(vacationData.activeVacation?.startDate || vacationData.upcomingVacation!.startDate)} - {formatVacationDate(vacationData.activeVacation?.endDate || vacationData.upcomingVacation!.endDate)}
-                    </Text>
-                  </View>
-                  <Pressable 
-                    style={styles.vacationCancelButton}
-                    onPress={() => handleCancelVacation(vacationData.activeVacation?.id || vacationData.upcomingVacation!.id)}
-                  >
-                    <Feather name="x" size={18} color={ProTennisColors.error} />
-                  </Pressable>
                 </View>
-              </View>
-            </NeonBorderCard>
-          </Animated.View>
-        ) : null}
+              </NeonBorderCard>
+            </Animated.View>
+          );
+        })()}
 
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
           <NeonBorderCard accentColor={ProTennisColors.neonPurple} style={styles.calendarCard}>
@@ -1283,92 +1241,6 @@ export default function PlayerScheduleScreen() {
           </NeonBorderCard>
         </Animated.View>
       </ScrollView>
-
-      <Modal
-        visible={showVacationModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowVacationModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t("player.schedule.setVacation")}</Text>
-              <Pressable onPress={() => setShowVacationModal(false)}>
-                <Feather name="x" size={24} color={ProTennisColors.white} />
-              </Pressable>
-            </View>
-            
-            <Text style={styles.modalSubtitle}>{t("player.schedule.lessonsWillBePaused")}</Text>
-
-            <Pressable style={styles.datePickerButton} onPress={() => setShowStartPicker(true)}>
-              <Feather name="calendar" size={18} color={ProTennisColors.neonCyan} />
-              <Text style={styles.datePickerLabel}>{t("player.schedule.startDate")}</Text>
-              <Text style={styles.datePickerValue}>
-                {vacationStartDate ? vacationStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : t("player.schedule.selectDate")}
-              </Text>
-            </Pressable>
-
-            {showStartPicker ? (
-              <DateTimePicker
-                value={vacationStartDate || new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                minimumDate={new Date()}
-                onChange={(event, date) => {
-                  setShowStartPicker(Platform.OS === "ios");
-                  if (date) setVacationStartDate(date);
-                }}
-                themeVariant="dark"
-              />
-            ) : null}
-
-            <Pressable style={styles.datePickerButton} onPress={() => setShowEndPicker(true)}>
-              <Feather name="calendar" size={18} color={ProTennisColors.neonCyan} />
-              <Text style={styles.datePickerLabel}>{t("player.schedule.endDate")}</Text>
-              <Text style={styles.datePickerValue}>
-                {vacationEndDate ? vacationEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : t("player.schedule.selectDate")}
-              </Text>
-            </Pressable>
-
-            {showEndPicker ? (
-              <DateTimePicker
-                value={vacationEndDate || vacationStartDate || new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                minimumDate={vacationStartDate || new Date()}
-                onChange={(event, date) => {
-                  setShowEndPicker(Platform.OS === "ios");
-                  if (date) setVacationEndDate(date);
-                }}
-                themeVariant="dark"
-              />
-            ) : null}
-
-            <Pressable 
-              style={[styles.saveVacationButton, (!vacationStartDate || !vacationEndDate) && styles.saveVacationButtonDisabled]}
-              onPress={handleSaveVacation}
-              disabled={!vacationStartDate || !vacationEndDate || createVacationMutation.isPending}
-            >
-              <LinearGradient
-                colors={[ProTennisColors.vacationBlue, "#2196F3"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.saveVacationButtonGradient}
-              >
-                {createVacationMutation.isPending ? (
-                  <ActivityIndicator color={ProTennisColors.white} />
-                ) : (
-                  <>
-                    <Feather name="sun" size={18} color={ProTennisColors.white} />
-                    <Text style={styles.saveVacationButtonText}>{t("player.schedule.setVacation")}</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showAttendanceModal}
