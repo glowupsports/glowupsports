@@ -1460,6 +1460,7 @@ export default function PlayerProgressScreen() {
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [showGlowPlanExpanded, setShowGlowPlanExpanded] = useState(false);
   const [journalExpanded, setJournalExpanded] = useState(false);
+  const [layerInfoKey, setLayerInfoKey] = useState<"sessionCheckins" | "monthlyVoice" | "perceptionGaps" | null>(null);
 
   const { data: weeklyPlanData } = useQuery<{
     id: string;
@@ -2015,7 +2016,36 @@ export default function PlayerProgressScreen() {
         </View>
 
         {/* AI COACH HERO SECTION */}
-        {!isGuest && (
+        {!isGuest && (() => {
+          const layers = aiCoachContext?.glowMirrorLayers ?? null;
+          const anyLayerActive = !!(layers && (layers.sessionCheckins || layers.monthlyVoice || layers.perceptionGaps));
+          const hasFocus = !!weeklyDigest?.data?.focusArea;
+          const hasMonthly = !!monthlyAssessmentData;
+          const isEmpty = !anyLayerActive && !hasFocus && !hasMonthly;
+          const layerDefs = [
+            {
+              key: "sessionCheckins" as const,
+              label: "Sessions",
+              icon: "journal-outline" as const,
+              about: "After each training, you can log how it felt. The AI Coach uses these check-ins to learn what's clicking and what's draining you.",
+              activate: "Add a quick reflection right after your next session.",
+            },
+            {
+              key: "monthlyVoice" as const,
+              label: "Monthly",
+              icon: "mic-outline" as const,
+              about: "Once a month, you share a short voice or written check-in about your form, mood and goals — so the AI can spot bigger trends.",
+              activate: "Tap the Monthly Check-In below to record this month's reflection.",
+            },
+            {
+              key: "perceptionGaps" as const,
+              label: "Perception",
+              icon: "eye-outline" as const,
+              about: "Compares how you rate your game vs. how your coach rates it. The AI flags blind spots and reinforces what you both agree on.",
+              activate: "Complete a self-rating and ask your coach to log feedback.",
+            },
+          ];
+          return (
           <View style={styles.aiCoachHeroSection}>
             <LinearGradient
               colors={[Colors.dark.accentTextSoft, "rgba(167,139,250,0.08)", "rgba(0,229,255,0.04)"]}
@@ -2034,41 +2064,78 @@ export default function PlayerProgressScreen() {
                 </View>
               </View>
 
-              {/* Glow Mirror Layer Indicators */}
+              {/* Glow Mirror Layer Chips */}
               <View style={styles.aiCoachLayersRow}>
-                {[
-                  { key: "sessionCheckins" as const, label: "Sessions", icon: "journal-outline" as const },
-                  { key: "monthlyVoice" as const, label: "Monthly", icon: "mic-outline" as const },
-                  { key: "perceptionGaps" as const, label: "Perception", icon: "eye-outline" as const },
-                ].map((l) => {
-                  const active = aiCoachContext?.glowMirrorLayers ? aiCoachContext.glowMirrorLayers[l.key] : false;
+                {layerDefs.map((l) => {
+                  const active = layers ? layers[l.key] : false;
                   return (
-                    <View key={l.key} style={styles.aiCoachLayerItem}>
-                      <View style={[styles.aiCoachLayerDot, { backgroundColor: active ? GlowColors.primary : "rgba(255,255,255,0.15)" }]} />
-                      <Text style={[styles.aiCoachLayerLabel, !active && { color: Colors.dark.textMuted }]}>
+                    <Pressable
+                      key={l.key}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setLayerInfoKey(l.key);
+                      }}
+                      style={[
+                        styles.aiCoachLayerChip,
+                        active ? styles.aiCoachLayerChipActive : styles.aiCoachLayerChipInactive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={l.icon}
+                        size={13}
+                        color={active ? Colors.dark.accentText : Colors.dark.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.aiCoachLayerChipLabel,
+                          { color: active ? Colors.dark.text : Colors.dark.textMuted },
+                        ]}
+                      >
                         {l.label}
                       </Text>
-                    </View>
+                      <View
+                        style={[
+                          styles.aiCoachLayerChipStatus,
+                          { backgroundColor: active ? GlowColors.primary : "rgba(255,255,255,0.18)" },
+                        ]}
+                      />
+                    </Pressable>
                   );
                 })}
               </View>
 
-              {/* Weekly Focus Preview */}
-              {weeklyDigest?.data?.focusArea ? (
-                <View style={styles.aiCoachFocusPreview}>
-                  <Ionicons name="flag" size={12} color="#8B5CF6" />
+              {/* Empty state */}
+              {isEmpty ? (
+                <View style={styles.aiCoachEmptyState}>
+                  <Text style={styles.aiCoachEmptyTitle}>Your coach is just getting started</Text>
+                  <Text style={styles.aiCoachEmptyText}>
+                    As you log sessions, complete monthly check-ins and rate your own game,
+                    your AI Coach learns your style and gives sharper, more personal advice.
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Weekly Focus Block */}
+              {hasFocus ? (
+                <View style={styles.aiCoachFocusBlock}>
+                  <View style={styles.aiCoachFocusHeader}>
+                    <View style={styles.aiCoachFocusIconWrap}>
+                      <Ionicons name="flag" size={12} color="#A78BFA" />
+                    </View>
+                    <Text style={styles.aiCoachFocusLabel}>This week's focus</Text>
+                  </View>
                   <Text style={styles.aiCoachFocusText} numberOfLines={2}>
-                    {weeklyDigest.data.focusArea}
+                    {weeklyDigest!.data!.focusArea}
                   </Text>
                 </View>
               ) : null}
 
               {/* Monthly Check-In Card */}
-              {monthlyAssessmentData ? (
+              {hasMonthly ? (
                 <Pressable
                   style={[
                     styles.aiCoachMonthlyCard,
-                    monthlyAssessmentData.assessment?.status === "completed"
+                    monthlyAssessmentData!.assessment?.status === "completed"
                       ? styles.aiCoachMonthlyCardDone
                       : styles.aiCoachMonthlyCardPending,
                   ]}
@@ -2082,20 +2149,20 @@ export default function PlayerProgressScreen() {
                   </View>
                   <View style={styles.aiCoachMonthlyContent}>
                     <Text style={styles.aiCoachMonthlyTitle}>
-                      {monthlyAssessmentData.assessment?.status === "completed"
+                      {monthlyAssessmentData!.assessment?.status === "completed"
                         ? "Monthly Voice Captured"
                         : "Monthly Check-In Ready"}
                     </Text>
-                    <Text style={styles.aiCoachMonthlySub}>
-                      {monthlyAssessmentData.assessment?.status === "completed"
-                        ? monthlyAssessmentData.assessment?.aiSummary
-                          ? monthlyAssessmentData.assessment.aiSummary.slice(0, 70) + "..."
-                          : `${monthlyAssessmentData.monthYear} — captured`
+                    <Text style={styles.aiCoachMonthlySub} numberOfLines={2}>
+                      {monthlyAssessmentData!.assessment?.status === "completed"
+                        ? monthlyAssessmentData!.assessment?.aiSummary
+                          ? monthlyAssessmentData!.assessment.aiSummary.slice(0, 80) + "…"
+                          : `${monthlyAssessmentData!.monthYear} — captured`
                         : "Share how you feel this month"}
                     </Text>
                   </View>
                   <Ionicons
-                    name={monthlyAssessmentData.assessment?.status === "completed" ? "checkmark-circle" : "chevron-forward"}
+                    name={monthlyAssessmentData!.assessment?.status === "completed" ? "checkmark-circle" : "chevron-forward"}
                     size={18}
                     color="#A78BFA"
                   />
@@ -2116,8 +2183,67 @@ export default function PlayerProgressScreen() {
                 <Ionicons name="arrow-forward" size={14} color={Colors.dark.buttonText} />
               </Pressable>
             </LinearGradient>
+
+            {/* Layer Info Sheet */}
+            <Modal
+              visible={layerInfoKey !== null}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setLayerInfoKey(null)}
+            >
+              <Pressable style={styles.layerInfoBackdrop} onPress={() => setLayerInfoKey(null)}>
+                <Pressable style={styles.layerInfoSheet} onPress={() => {}}>
+                  {(() => {
+                    const def = layerDefs.find((x) => x.key === layerInfoKey);
+                    if (!def) return null;
+                    const active = layers ? layers[def.key] : false;
+                    return (
+                      <>
+                        <View style={styles.layerInfoHeader}>
+                          <View
+                            style={[
+                              styles.layerInfoIcon,
+                              {
+                                backgroundColor: active ? "rgba(200,255,61,0.15)" : "rgba(255,255,255,0.06)",
+                                borderColor: active ? "rgba(200,255,61,0.4)" : "rgba(255,255,255,0.1)",
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name={def.icon}
+                              size={20}
+                              color={active ? Colors.dark.accentText : Colors.dark.textMuted}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.layerInfoTitle}>{def.label}</Text>
+                            <Text style={[styles.layerInfoStatus, { color: active ? Colors.dark.accentText : Colors.dark.textMuted }]}>
+                              {active ? "Active" : "Not connected yet"}
+                            </Text>
+                          </View>
+                          <Pressable
+                            onPress={() => setLayerInfoKey(null)}
+                            hitSlop={10}
+                          >
+                            <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+                          </Pressable>
+                        </View>
+                        <Text style={styles.layerInfoBody}>{def.about}</Text>
+                        {!active ? (
+                          <View style={styles.layerInfoActivate}>
+                            <Ionicons name="sparkles" size={13} color={Colors.dark.accentText} />
+                            <Text style={styles.layerInfoActivateText}>{def.activate}</Text>
+                          </View>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </Pressable>
+              </Pressable>
+            </Modal>
           </View>
-        )}
+          );
+        })()}
 
         {/* Glow Plan — This Week's Focus Card */}
         {!isGuest && weeklyPlanData && weeklyPlanData.planJson && weeklyPlanData.planJson.focusAreas?.length > 0 && (
@@ -2130,7 +2256,7 @@ export default function PlayerProgressScreen() {
               }}
             >
               <View style={styles.glowPlanIconWrap}>
-                <Ionicons name="flash" size={18} color={Colors.dark.accentText} />
+                <Ionicons name="flash" size={18} color={Colors.dark.buttonText} />
               </View>
               <View style={styles.glowPlanHeaderContent}>
                 <Text style={styles.glowPlanTitle}>This Week's Focus</Text>
@@ -2141,8 +2267,8 @@ export default function PlayerProgressScreen() {
               </View>
               <Ionicons
                 name={showGlowPlanExpanded ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={Colors.dark.textMuted}
+                size={18}
+                color={Colors.dark.text}
               />
             </Pressable>
 
@@ -3866,45 +3992,86 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.sm,
   },
-  aiCoachLayerItem: {
+  aiCoachLayerChip: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: Colors.dark.chipBackground,
+    gap: 6,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 7,
   },
-  aiCoachLayerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  aiCoachLayerChipActive: {
+    backgroundColor: "rgba(200,255,61,0.10)",
+    borderColor: "rgba(200,255,61,0.35)",
+  },
+  aiCoachLayerChipInactive: {
+    backgroundColor: Colors.dark.chipBackground,
+    borderColor: "rgba(255,255,255,0.07)",
+  },
+  aiCoachLayerChipLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  aiCoachLayerChipStatus: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     flexShrink: 0,
   },
-  aiCoachLayerLabel: {
-    fontSize: 10,
-    fontWeight: "600",
+  aiCoachEmptyState: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    padding: Spacing.md,
+    gap: 4,
+  },
+  aiCoachEmptyTitle: {
+    fontSize: 13,
+    fontWeight: "700",
     color: Colors.dark.text,
   },
-  aiCoachFocusPreview: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.xs,
-    backgroundColor: "rgba(139,92,246,0.1)",
-    borderRadius: BorderRadius.sm,
+  aiCoachEmptyText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: Colors.dark.textMuted,
+  },
+  aiCoachFocusBlock: {
+    backgroundColor: "rgba(139,92,246,0.10)",
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(139,92,246,0.2)",
-    padding: Spacing.sm,
+    borderColor: "rgba(139,92,246,0.22)",
+    padding: Spacing.sm + 2,
+    gap: 4,
+  },
+  aiCoachFocusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  aiCoachFocusIconWrap: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(139,92,246,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  aiCoachFocusLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    color: "#A78BFA",
   },
   aiCoachFocusText: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.dark.textSubtle,
-    lineHeight: 17,
-    fontStyle: "italic",
+    fontSize: 13,
+    color: Colors.dark.text,
+    lineHeight: 18,
+    fontWeight: "500",
   },
   aiCoachMonthlyCard: {
     flexDirection: "row",
@@ -3915,17 +4082,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.sm + 2,
   },
   aiCoachMonthlyCardPending: {
-    backgroundColor: "rgba(167,139,250,0.08)",
+    backgroundColor: "rgba(167,139,250,0.10)",
     borderColor: "rgba(167,139,250,0.35)",
   },
   aiCoachMonthlyCardDone: {
-    backgroundColor: "rgba(167,139,250,0.04)",
-    borderColor: "rgba(167,139,250,0.15)",
+    backgroundColor: "rgba(167,139,250,0.05)",
+    borderColor: "rgba(167,139,250,0.18)",
   },
   aiCoachMonthlyIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(167,139,250,0.2)",
     alignItems: "center",
     justifyContent: "center",
@@ -3942,7 +4109,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   aiCoachMonthlySub: {
     fontSize: 11,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.textSecondary,
     lineHeight: 15,
   },
   aiCoachOpenBtn: {
@@ -3953,11 +4120,76 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: GlowColors.primary,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
+    marginTop: 2,
   },
   aiCoachOpenBtnText: {
     fontSize: 14,
     fontWeight: "700",
     color: Colors.dark.buttonText,
+  },
+  layerInfoBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  layerInfoSheet: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  layerInfoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  layerInfoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  layerInfoTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  layerInfoStatus: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginTop: 2,
+  },
+  layerInfoBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: Colors.dark.textSecondary,
+  },
+  layerInfoActivate: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(200,255,61,0.10)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.25)",
+    padding: Spacing.sm + 2,
+  },
+  layerInfoActivateText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: Colors.dark.text,
+    fontWeight: "500",
   },
 }));
 
@@ -4164,13 +4396,14 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
   },
   glowPlanIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.accentTextSoft,
+    backgroundColor: GlowColors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -4179,14 +4412,16 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     gap: 2,
   },
   glowPlanTitle: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: 0.2,
   },
   glowPlanSubtitle: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    lineHeight: 15,
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    lineHeight: 16,
+    fontWeight: "500",
   },
   glowPlanPreview: {
     paddingHorizontal: Spacing.lg,
@@ -4199,13 +4434,14 @@ const modalStyles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.sm,
   },
   glowPlanPreviewDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   glowPlanPreviewText: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "600",
     flex: 1,
   },
   glowPlanBody: {
