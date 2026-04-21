@@ -25,7 +25,7 @@ import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { HeroCarousel } from "@/player/components/HeroCarousel";
-import { NewsTicker } from "@/player/components/NewsTicker";
+import { TennisNewsStrip } from "@/player/components/TennisNewsStrip";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -1672,9 +1672,6 @@ function PlayerHomeContent() {
         {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
         {isRamadan && !isBirthday && !ramadanDismissed && <RamadanBonusCard onDismiss={handleDismissRamadan} />}
 
-        {/* TENNIS NEWS */}
-        <NewsTicker />
-
         <HeroCarousel onBookSession={handleBookLesson} />
 
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
@@ -1740,6 +1737,9 @@ function PlayerHomeContent() {
             ) : null}
           </>
         ) : null}
+
+        {/* ── TENNIS NEWS ── horizontal strip after IMPROVE, before COMMUNITY */}
+        {secondaryReady && !isGuest ? <TennisNewsStrip /> : null}
 
         {/* ── COMMUNITY ── only show when there are real social posts */}
         {secondaryReady && !isGuest && socialPosts && socialPosts.length > 0 ? <MiniFeed /> : null}
