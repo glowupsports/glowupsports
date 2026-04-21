@@ -51,6 +51,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     submitReviewSchema, familyInviteCodes,
   } from "@shared/schema";
   import { hashPassword, generateToken } from "../auth";
+  import * as Sentry from "@sentry/node";
   const router = Router();
   
     // ==================== PLAYER API ====================
@@ -310,7 +311,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           const balanceRows = await db.execute(sql`
             SELECT player_id, COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
             FROM player_credit_balance
-            WHERE player_id = ANY(${memberIds}::text[])
+            WHERE player_id IN (${sql.join(memberIds.map((id) => sql`${id}`), sql`, `)})
             GROUP BY player_id
           `);
           for (const row of balanceRows.rows as NetNegRow[]) {
@@ -353,7 +354,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           },
         });
       } catch (error) {
-        console.error("Error fetching family status:", error);
+        const code = (error as { code?: string })?.code;
+        if (code === "42846") {
+          console.error("[FamilyStatus] DB_CAST_ERROR", error);
+        } else {
+          console.error("Error fetching family status:", error);
+        }
+        try {
+          Sentry.captureException(error, {
+            tags: { route: "family/status", pgCode: code ?? "unknown" },
+          });
+        } catch {
+          // Sentry must never break the response path
+        }
         res.status(500).json({ error: "Failed to fetch family status" });
       }
     },
@@ -436,7 +449,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const owedRows = await db.execute(sql`
           SELECT COALESCE(SUM(LEAST(credits::numeric, 0)), 0)::numeric AS net_neg
           FROM player_credit_balance
-          WHERE player_id = ANY(${playerIds}::text[])
+          WHERE player_id IN (${sql.join(playerIds.map((id: string) => sql`${id}`), sql`, `)})
         `);
         const owedRow = (owedRows.rows as FamilyNetNegRow[])[0];
         const familyNetNeg = Number(owedRow?.net_neg ?? 0);

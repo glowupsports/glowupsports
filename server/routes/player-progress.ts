@@ -464,7 +464,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             FROM credit_ledger_v2
             WHERE player_id = ${id}
               AND reason = 'consume'
-              AND session_id = ANY(${allSessionIds}::text[])
+              AND session_id IN (${sql.join(allSessionIds.map((id: string) => sql`${id}`), sql`, `)})
             GROUP BY session_id
             HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
           `);

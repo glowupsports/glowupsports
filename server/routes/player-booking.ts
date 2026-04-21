@@ -1519,7 +1519,7 @@ Return only the JSON array, nothing else.`;
             FROM session_players sp1
             INNER JOIN session_players sp2 ON sp1.session_id = sp2.session_id
             WHERE sp1.player_id = ${playerId}
-              AND sp2.player_id = ANY(${playerIds}::text[])
+              AND sp2.player_id IN (${sql.join(playerIds.map((id: string) => sql`${id}`), sql`, `)})
             GROUP BY sp2.player_id
           `);
           for (const row of mutualRows.rows as Array<{ player_id: string; count: number }>) {
@@ -1533,7 +1533,7 @@ Return only the JSON array, nothing else.`;
             SELECT u.player_id AS player_id
             FROM open_to_play o
             INNER JOIN users u ON u.id = o.user_id
-            WHERE u.player_id = ANY(${playerIds}::text[])
+            WHERE u.player_id IN (${sql.join(playerIds.map((id: string) => sql`${id}`), sql`, `)})
               AND o.is_active = true
               AND o.available_until > NOW()
           `);

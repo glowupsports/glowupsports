@@ -1909,7 +1909,7 @@ import fs from "fs";
                 (SELECT COUNT(*)::int FROM session_players sp WHERE sp.session_id = s.id) AS sp_count
               FROM sessions s
               LEFT JOIN coaching_series cs ON cs.id = s.series_id
-              WHERE s.id = ANY(${adjustedSessionIds}::text[])
+              WHERE s.id IN (${sql.join(adjustedSessionIds.map((id) => sql`${id}`), sql`, `)})
             `);
             for (const raw of enriched.rows) {
               const r = raw as {
@@ -7930,7 +7930,7 @@ import fs from "fs";
           FROM credit_ledger_v2
           WHERE player_id = ${player.id}
             AND reason = 'consume'
-            AND session_id = ANY(${allSessionIds}::text[])
+            AND session_id IN (${sql.join(allSessionIds.map((id: string) => sql`${id}`), sql`, `)})
           GROUP BY session_id
           HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
         `);

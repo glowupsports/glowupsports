@@ -540,7 +540,7 @@ router.post(
         SELECT player_id, type, credits
         FROM player_credit_balance
         WHERE academy_id = ${academyId}
-          AND player_id = ANY(${ids}::text[])
+          AND player_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
       `);
       const lotRes = await db.execute(sql`
         SELECT player_id, MIN(expires_at) AS next_expiry,
@@ -551,7 +551,7 @@ router.post(
         FROM credit_lots
         WHERE academy_id = ${academyId}
           AND status = 'active'
-          AND player_id = ANY(${ids}::text[])
+          AND player_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
         GROUP BY player_id
       `);
       const wallets: Record<
