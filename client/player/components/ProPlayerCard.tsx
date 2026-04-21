@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { View, Text, StyleSheet, Pressable, Platform, Image as RNImage, Modal } from "react-native";
 import { usePlayerAppearance, PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,7 +23,6 @@ import { isRTL } from "@/i18n";
 import { formatCredits } from "@/lib/dateUtils";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
-import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { useTranslation } from "react-i18next";
 import { HelpCenterModal } from "@/components/HelpCenterModal";
@@ -76,7 +74,6 @@ export function ProPlayerCard({
   unreadNotificationCount = 0,
 }: ProPlayerCardProps) {
   const { t, i18n: i18nInstance } = useTranslation();
-  const track = useTrackFeature();
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
   const bounceY = useSharedValue(0);
@@ -151,7 +148,9 @@ export function ProPlayerCard({
   const bounceStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: bounceY.value }],
   }));
-  const { logoUrl: academyLogoFromTheme, playerOverride, setPlayerOverride } = useAcademyTheme();
+  const { logoUrl: academyLogoFromTheme, playerOverride, setPlayerOverride, resolved: resolvedTheme } = useAcademyTheme();
+  const themePrimary = resolvedTheme?.primary ?? Colors.dark.accentText;
+  const themePrimarySoft = `${themePrimary}40`;
   const academyLogoUrl = buildPhotoUrl(academyLogoFromTheme);
   const insets = useSafeAreaInsets();
   const [showHelp, setShowHelp] = useState(false);
@@ -264,11 +263,11 @@ export function ProPlayerCard({
     return (
       <View>
         <View style={styles.cardContainer}>
-          <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
+          <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const, borderColor: themePrimary }]} />
           <Animated.View style={styles.container} layout={LinearTransition.springify().damping(18)}>
-            <View style={[styles.cardGradient, { backgroundColor: Backgrounds.root }]}>
+            <View style={[styles.cardGradient, { backgroundColor: Backgrounds.root, borderColor: themePrimary }]}>
               <LinearGradient
-                colors={[GlowColors.primary, GlowColors.soft, GlowColors.primary]}
+                colors={[themePrimary, themePrimarySoft, themePrimary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.topAccentLine}
@@ -329,13 +328,13 @@ export function ProPlayerCard({
   return (
     <View>
       <View style={styles.cardContainer}>
-        <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
+        <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const, borderColor: themePrimary }]} />
         <Animated.View style={styles.container} layout={LinearTransition.springify().damping(18)}>
           <View
-            style={[styles.cardGradient, { backgroundColor: Backgrounds.root }]}
+            style={[styles.cardGradient, { backgroundColor: Backgrounds.root, borderColor: themePrimary }]}
           >
           <LinearGradient
-            colors={[GlowColors.primary, GlowColors.soft, GlowColors.primary]}
+            colors={[themePrimary, themePrimarySoft, themePrimary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.topAccentLine}
@@ -465,18 +464,8 @@ export function ProPlayerCard({
               ]}>{formatCredits(credits?.total ?? 0)} {t("player.home.credits")}</Text>
             </Pressable>
 
-            {player.streak > 0 ? (
-              <Pressable style={styles.streakChip} onPress={() => track("home:streak")}>
-                <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : Colors.dark.accentText} />
-                <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : Colors.dark.accentText }]}>
-                  {player.streak}
-                </Text>
-              </Pressable>
-            ) : null}
-
             <View style={{ flex: 1 }} />
 
-            <LanguageHeaderButton />
             <Pressable
               style={styles.bottomActionBtn}
               hitSlop={6}
@@ -501,23 +490,6 @@ export function ProPlayerCard({
             >
               <Ionicons name="help-circle-outline" size={16} color={Colors.dark.iconMuted} />
             </Pressable>
-            {onNotificationPress ? (
-              <Pressable
-                style={styles.bottomActionBtn}
-                hitSlop={6}
-                onPress={onNotificationPress}
-              >
-                <Ionicons name="notifications" size={16} color={Colors.dark.iconMuted} />
-                {unreadNotificationCount > 0 ? (
-                  <View style={styles.notifBadge}>
-                    <Text style={styles.notifBadgeText}>
-                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ) : null}
-
             {showSquadSwitch ? (
               <Pressable style={styles.familyChip} onPress={handleSquadPress}>
                 <Ionicons name="people" size={14} color={Colors.dark.accentText} />

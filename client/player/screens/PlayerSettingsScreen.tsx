@@ -22,6 +22,7 @@ import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/c
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { defaultAcademyTheme } from "@shared/theme";
 import MyThemeEditor from "@/player/components/MyThemeEditor";
+import { LanguageSelectorModal } from "@/components/LanguageSelectorModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
@@ -54,6 +55,7 @@ export default function PlayerSettingsScreen() {
   const [showJoinFamily, setShowJoinFamily] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   const { data: aiProStatus, refetch: refetchAiPro } = useQuery<{
     isPro: boolean;
@@ -564,6 +566,45 @@ export default function PlayerSettingsScreen() {
         ) : null}
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('player.settings.language')} & {t('player.settings.notifications')}</Text>
+          <View style={styles.sectionCard}>
+            <Pressable
+              style={styles.settingItem}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowLanguageModal(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('player.settings.language')}
+            >
+              <View style={styles.settingIcon}>
+                <Ionicons name="globe-outline" size={20} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.settingLabel}>{t('player.settings.language')}</Text>
+              <Text style={[styles.settingValue, { marginRight: Spacing.xs }]} numberOfLines={1}>
+                {SUPPORTED_LANGUAGES.find(l => l.code === i18n.language)?.nativeLabel ?? i18n.language}
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </Pressable>
+            <Pressable
+              style={[styles.settingItem, { borderBottomWidth: 0 }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                (navigation as any).navigate("PlayerNotifications");
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('player.settings.notifications')}
+            >
+              <View style={styles.settingIcon}>
+                <Ionicons name="notifications-outline" size={20} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.settingLabel}>{t('player.settings.notifications')}</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Appearance</Text>
           <View style={styles.sectionCard}>
             <View style={styles.appearanceRow}>
@@ -942,6 +983,11 @@ export default function PlayerSettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      <LanguageSelectorModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+      />
 
       <AiProUpgradeModal
         visible={showUpgradeModal}
