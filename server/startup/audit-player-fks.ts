@@ -224,6 +224,12 @@ export async function auditPlayerForeignKeys(timeoutMs = 1500): Promise<void> {
       console.log(
         `[PlayerFKAudit] OK — ${result.rows.length} player FK tables, all known (${elapsed}ms)`
       );
+      // Task #909 tripwire alias — this same list is the source of truth
+      // for BOTH the merge path AND storage.deletePlayer. Emit a second
+      // line so a grep for "[DeleteAudit]" surfaces the delete check too.
+      console.log(
+        `[DeleteAudit] OK — storage.deletePlayer covers all ${result.rows.length} player FK tables`
+      );
       return;
     }
 

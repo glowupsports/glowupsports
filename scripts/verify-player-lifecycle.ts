@@ -36,12 +36,15 @@ const PLAYER_TABLES: Array<{ table: string; col?: string }> = [
 ];
 
 async function main() {
+  let leaks = 0;
+
   console.log(`\n--- Player row for ${playerId} ---`);
   const p = await pool.query(
     `SELECT id, name, academy_id, status FROM players WHERE id = $1`,
     [playerId],
   );
   console.log(p.rows);
+  if (p.rows.length > 0) leaks++;
 
   console.log(`\n--- Linked users (via users.player_id) ---`);
   const u = await pool.query(
@@ -50,6 +53,13 @@ async function main() {
     [playerId],
   );
   console.log(u.rows);
+  // Only count as leak if the linked user was a player-only account
+  // (non-player roles are intentionally preserved).
+  for (const row of u.rows) {
+    if ((row.role === "player" || !row.role) && !row.coach_id && !row.academy_id) {
+      leaks++;
+    }
+  }
 
   console.log(`\n--- Residual FK rows pointing at player ${playerId} ---`);
   for (const { table, col = "player_id" } of PLAYER_TABLES) {
@@ -66,10 +76,17 @@ async function main() {
       [playerId],
     );
     const n: number = r.rows[0].n;
+    if (n > 0) leaks++;
     console.log(`  ${table.padEnd(36)} ${n} rows${n > 0 ? " <-- LEAK" : ""}`);
   }
 
   await pool.end();
+
+  if (leaks > 0) {
+    console.error(`\nFAIL: ${leaks} leak(s) detected for player ${playerId}`);
+    process.exit(2);
+  }
+  console.log(`\nOK: player ${playerId} fully wiped (no residual rows, no orphan user).`);
 }
 
 main().catch((err) => {

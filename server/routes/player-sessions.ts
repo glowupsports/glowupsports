@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { deletePlayerWithUserWipe } from "../services/player-lifecycle";
   import { db } from "../db";
   import { storage } from "../storage";
   import {
