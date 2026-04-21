@@ -375,14 +375,24 @@ export function PlayerDetailView({
   onNavigateToPlayer,
   insets,
   onAssessmentComplete,
+  impactedSessionIds,
+  impactedSessions,
 }: {
   player: Player;
   onBack: () => void;
   onNavigateToPlayer?: (playerId: string) => void;
   insets: { top: number; bottom: number };
   onAssessmentComplete?: (result: JuniorAssessmentResult) => void;
+  impactedSessionIds?: string[];
+  impactedSessions?: Array<{
+    id: string;
+    startTime: string;
+    sessionType?: string | null;
+    title?: string | null;
+  }>;
 }) {
   const { coach, academy } = useCoach();
+  const { navigateToTab } = useTabNavigation();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const v2Enabled = useV2Enabled(player.id);
@@ -990,6 +1000,102 @@ export function PlayerDetailView({
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl, paddingTop: Spacing.md }}
         showsVerticalScrollIndicator={false}
       >
+        {impactedSessionIds && impactedSessionIds.length > 0 ? (
+          <View
+            style={{
+              marginHorizontal: Spacing.lg,
+              marginBottom: Spacing.md,
+              padding: Spacing.md,
+              borderRadius: 12,
+              backgroundColor: Colors.dark.xpCyan + "20",
+              borderWidth: 1,
+              borderColor: Colors.dark.xpCyan + "55",
+            }}
+          >
+            <Text
+              style={{
+                color: Colors.dark.text,
+                fontWeight: "700",
+                marginBottom: 4,
+              }}
+            >
+              Vacation impacts {impactedSessionIds.length} session
+              {impactedSessionIds.length === 1 ? "" : "s"}
+            </Text>
+            <Text
+              style={{
+                color: Colors.dark.textSecondary,
+                fontSize: 13,
+                marginBottom: Spacing.sm,
+              }}
+            >
+              Tap a session to open it in the calendar and reschedule.
+            </Text>
+            {(impactedSessions ?? []).map((s) => {
+              const dt = new Date(s.startTime);
+              const dateStr = dt.toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+              const timeStr = dt.toLocaleTimeString(undefined, {
+                hour: "numeric",
+                minute: "2-digit",
+              });
+              const label =
+                s.title || (s.sessionType ? `${s.sessionType} session` : "Session");
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => {
+                    navigateToTab("Calendar", {
+                      screen: "Calendar",
+                      params: { openSessionId: s.id, _ts: Date.now() },
+                    });
+                  }}
+                  style={({ pressed }) => ({
+                    paddingVertical: Spacing.sm,
+                    paddingHorizontal: Spacing.sm,
+                    borderRadius: 8,
+                    backgroundColor: pressed
+                      ? Colors.dark.xpCyan + "15"
+                      : "transparent",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  })}
+                >
+                  <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                    <Text
+                      style={{ color: Colors.dark.text, fontWeight: "600" }}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Text>
+                    <Text
+                      style={{
+                        color: Colors.dark.textSecondary,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      {dateStr} · {timeStr}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: Colors.dark.xpCyan,
+                      fontWeight: "700",
+                      fontSize: 13,
+                    }}
+                  >
+                    Open ›
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         {/* Premium Profile Card */}
         <View style={styles.premiumProfileCard}>
           <View style={styles.premiumAvatarContainer}>

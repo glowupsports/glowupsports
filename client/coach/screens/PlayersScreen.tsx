@@ -174,6 +174,13 @@ export default function PlayersScreen() {
   const hasRestoredRef = useRef(false);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
+  const [impactedSessionIds, setImpactedSessionIds] = useState<string[]>([]);
+  const [impactedSessions, setImpactedSessions] = useState<Array<{
+    id: string;
+    startTime: string;
+    sessionType?: string | null;
+    title?: string | null;
+  }>>([]);
   const [sortBy, setSortBy] = useState<"name" | "nameDesc" | "credits" | "creditsDesc" | "negative" | "nonDebt" | "lastLesson" | "oldestLesson" | "newest" | "oldest" | "notActivated" | "appActive">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -429,6 +436,19 @@ export default function PlayersScreen() {
         setFilterLevel(null);
         setFilterSubLevel(null);
       } else if (params?.playerId) {
+        const ids = Array.isArray(params?.impactedSessionIds)
+          ? (params.impactedSessionIds as string[])
+          : [];
+        const sessionsList = Array.isArray(params?.impactedSessions)
+          ? (params.impactedSessions as Array<{
+              id: string;
+              startTime: string;
+              sessionType?: string | null;
+              title?: string | null;
+            }>)
+          : [];
+        setImpactedSessionIds(ids);
+        setImpactedSessions(sessionsList);
         if (players.length > 0) {
           const player = players.find((p) => p.id === params.playerId || p.id === String(params.playerId));
           if (player) {
@@ -619,9 +639,13 @@ export default function PlayersScreen() {
     return (
       <PlayerDetailView
         player={selectedPlayer}
+        impactedSessionIds={impactedSessionIds}
+        impactedSessions={impactedSessions}
         onBack={() => {
           persistedPlayerId = null;
           setSelectedPlayer(null);
+          setImpactedSessionIds([]);
+          setImpactedSessions([]);
         }}
         onNavigateToPlayer={(targetId) => {
           const target = players.find((p) => p.id === targetId) || pastPlayers.find((p) => p.id === targetId);

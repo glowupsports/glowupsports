@@ -49,12 +49,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     badges as badgesTable, playerBadges as playerBadgesTable,
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
+    coachNotifications,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema, playerSelfUpdateSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
   } from "@shared/schema";
-  import { sendSessionCancelledNotification, sendFeedbackNotification, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
+  import { sendSessionCancelledNotification, sendFeedbackNotification, sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
   import { broadcastSessionUpdate, broadcastFeedbackReceived } from "../websocket";
   import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
@@ -910,6 +911,121 @@ import fs from "fs";
     },
   );
 
+  // Notify a player's primary coach when a vacation is declared or cancelled.
+  // Creates an in-app coach notification and (best-effort) sends a push.
+  async function notifyCoachOfVacationChange(
+    playerId: string,
+    holiday: { id: string; startDate: string; endDate: string },
+    action: "created" | "cancelled",
+  ): Promise<void> {
+    try {
+      const player = await storage.getPlayer(playerId);
+      if (!player || !player.coachId) return;
+
+      // Find sessions for this player that fall within the vacation window so
+      // the coach knows what to reschedule. Already-cancelled sessions are
+      // excluded; the window itself may include past dates if the player
+      // back-dated their vacation, which is intentional.
+      const start = new Date(holiday.startDate);
+      const end = new Date(holiday.endDate);
+      // Make end inclusive to end-of-day in UTC
+      const endInclusive = new Date(end.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+      const impacted = await db
+        .select({
+          id: sessions.id,
+          startTime: sessions.startTime,
+          sessionType: sessions.sessionType,
+          title: sessions.title,
+        })
+        .from(sessions)
+        .innerJoin(sessionPlayers, eq(sessionPlayers.sessionId, sessions.id))
+        .where(
+          and(
+            eq(sessionPlayers.playerId, playerId),
+            gte(sessions.startTime, start),
+            lte(sessions.startTime, endInclusive),
+            ne(sessions.status, "cancelled"),
+          ),
+        )
+        .orderBy(asc(sessions.startTime));
+
+      const formatDate = (d: string) => {
+        const dt = new Date(d);
+        return dt.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+      };
+      const range = `${formatDate(holiday.startDate)} – ${formatDate(holiday.endDate)}`;
+      const sessionCount = impacted.length;
+      const sessionsText =
+        sessionCount === 0
+          ? "No scheduled sessions in that window."
+          : `${sessionCount} scheduled session${sessionCount === 1 ? "" : "s"} affected.`;
+
+      const title =
+        action === "created"
+          ? `${player.name} declared a vacation`
+          : `${player.name} cancelled their vacation`;
+      const message =
+        action === "created"
+          ? `${player.name} is away ${range}. ${sessionsText}`
+          : `${player.name}'s vacation (${range}) was cancelled. ${sessionsText}`;
+
+      try {
+        await db.insert(coachNotifications).values({
+          coachId: player.coachId,
+          type: "holiday",
+          title,
+          message,
+          priority: sessionCount > 0 ? "high" : "medium",
+          actionUrl: `/coach/players/${playerId}`,
+          metadata: {
+            playerId,
+            playerName: player.name,
+            holidayId: holiday.id,
+            startDate: holiday.startDate,
+            endDate: holiday.endDate,
+            action,
+            impactedSessionIds: impacted.map((s) => s.id),
+            impactedSessionCount: sessionCount,
+            impactedSessions: impacted.map((s) => ({
+              id: s.id,
+              startTime:
+                s.startTime instanceof Date
+                  ? s.startTime.toISOString()
+                  : String(s.startTime),
+              sessionType: s.sessionType,
+              title: s.title ?? null,
+            })),
+          },
+        });
+      } catch (err) {
+        console.error(
+          "[VacationNotify] Failed to insert coach notification:",
+          err,
+        );
+      }
+
+      try {
+        const tokens = await getCoachPushTokens(player.coachId);
+        if (tokens.length > 0) {
+          await sendPushNotification(tokens, title, message, {
+            type: "player_vacation",
+            action,
+            playerId,
+            holidayId: holiday.id,
+          });
+        }
+      } catch (err) {
+        console.error("[VacationNotify] Failed to send coach push:", err);
+      }
+    } catch (err) {
+      console.error("[VacationNotify] Unexpected error:", err);
+    }
+  }
+
   // Set player vacation
   router.post(
     "/api/player/me/vacation",
@@ -954,6 +1070,19 @@ import fs from "fs";
           startDate: startDate,
           endDate: endDate,
         });
+
+        // Fire-and-forget coach notification — don't block the response.
+        notifyCoachOfVacationChange(
+          playerId,
+          {
+            id: holiday.id,
+            startDate: holiday.startDate,
+            endDate: holiday.endDate,
+          },
+          "created",
+        ).catch((err) =>
+          console.error("[VacationNotify] create dispatch failed:", err),
+        );
 
         res.json({
           success: true,
@@ -1097,6 +1226,19 @@ import fs from "fs";
 
         // Delete the holiday using direct database operation
         await db.delete(playerHolidays).where(eq(playerHolidays.id, id));
+
+        // Fire-and-forget coach notification — don't block the response.
+        notifyCoachOfVacationChange(
+          playerId,
+          {
+            id: holiday.id,
+            startDate: holiday.startDate,
+            endDate: holiday.endDate,
+          },
+          "cancelled",
+        ).catch((err) =>
+          console.error("[VacationNotify] cancel dispatch failed:", err),
+        );
 
         res.json({
           success: true,

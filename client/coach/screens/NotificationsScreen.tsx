@@ -23,6 +23,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 interface Notification {
   id: string;
@@ -182,6 +183,7 @@ export default function NotificationsScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
+  const { navigateToTab } = useTabNavigation();
 
   // WebSocket for real-time notification updates
   useWebSocket({
@@ -329,6 +331,31 @@ export default function NotificationsScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 if (!notification.isRead) {
                   markReadMutation.mutate(notification.id);
+                }
+                const meta = (notification.metadata ?? {}) as {
+                  playerId?: string;
+                  impactedSessionIds?: string[];
+                  impactedSessions?: Array<{
+                    id: string;
+                    startTime: string;
+                    sessionType?: string | null;
+                    title?: string | null;
+                  }>;
+                };
+                if (meta.playerId) {
+                  // Close the notifications screen so the deep-link target
+                  // is visible immediately rather than hidden behind it.
+                  if (navigation.canGoBack()) {
+                    navigation.goBack();
+                  }
+                  navigateToTab("Players", {
+                    screen: "PlayerProfile",
+                    params: {
+                      playerId: meta.playerId,
+                      impactedSessionIds: meta.impactedSessionIds ?? [],
+                      impactedSessions: meta.impactedSessions ?? [],
+                    },
+                  });
                 }
               }}
               onLongPress={() => {
