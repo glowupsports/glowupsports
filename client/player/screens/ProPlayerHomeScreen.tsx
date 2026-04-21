@@ -1607,7 +1607,11 @@ function PlayerHomeContent() {
           onBook={handleBookLesson}
           onTrain={() =>
             guardAction(() => {
-              navigation.navigate(isFreePlayer ? "AcademyBrowser" : "Training");
+              if (isFreePlayer) {
+                navigation.navigate("AcademyBrowser");
+              } else {
+                navigateToTab("Growth", { screen: "Schedule" });
+              }
             })
           }
           onCompete={() =>

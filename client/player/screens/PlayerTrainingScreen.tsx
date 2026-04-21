@@ -188,6 +188,17 @@ export default function PlayerTrainingScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
+        {navigation.canGoBack() ? (
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={styles.closeBtn}
+          >
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+        ) : null}
         <Text style={styles.title}>Training History</Text>
         <Text style={styles.subtitle}>Your progress is based on coach sessions</Text>
       </View>
@@ -235,6 +246,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   header: {
     padding: Spacing.xl,
     paddingBottom: Spacing.lg,
+  },
+  closeBtn: {
+    alignSelf: "flex-start",
+    marginBottom: Spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.chipBackground,
   },
   title: {
     ...Typography.h1,
