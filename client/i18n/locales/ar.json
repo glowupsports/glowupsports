@@ -1159,6 +1159,9 @@
   },
   "news": {
     "sectionTitle": "أخبار التنس",
+    "sectionTitleTennis": "أخبار التنس",
+    "sectionTitlePadel": "أخبار البادل",
+    "sectionTitlePickleball": "أخبار البيكلبول",
     "tennis": "تنس",
     "loadingNews": "جاري تحميل أخبار التنس...",
     "readMore": "اقرأ المزيد",

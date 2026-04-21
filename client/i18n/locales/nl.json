@@ -1194,6 +1194,9 @@
   },
   "news": {
     "sectionTitle": "TENNIS NIEUWS",
+    "sectionTitleTennis": "TENNIS NIEUWS",
+    "sectionTitlePadel": "PADEL NIEUWS",
+    "sectionTitlePickleball": "PICKLEBALL NIEUWS",
     "tennis": "TENNIS",
     "loadingNews": "Loading tennis news...",
     "readMore": "Read more",

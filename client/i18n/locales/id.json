@@ -1159,6 +1159,9 @@
   },
   "news": {
     "sectionTitle": "BERITA TENIS",
+    "sectionTitleTennis": "BERITA TENIS",
+    "sectionTitlePadel": "BERITA PADEL",
+    "sectionTitlePickleball": "BERITA PICKLEBALL",
     "tennis": "TENIS",
     "loadingNews": "Memuat berita tenis...",
     "readMore": "Baca selengkapnya",
