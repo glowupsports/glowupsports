@@ -309,6 +309,7 @@ export function ProPlayerCard({
             <LanguageHeaderButton />
             <Pressable
               style={styles.bottomActionBtn}
+              hitSlop={6}
               onPress={openThemeEditor}
               onLongPress={() => {
                 didLongPressAppearance.current = true;
@@ -318,23 +319,25 @@ export function ProPlayerCard({
               accessibilityLabel="Open theme editor"
               accessibilityHint="Opens the theme editor. Long-press to cycle system, light, and dark."
             >
-              <Ionicons name="color-palette-outline" size={18} color={Colors.dark.iconMuted} />
+              <Ionicons name="color-palette-outline" size={16} color={Colors.dark.iconMuted} />
             </Pressable>
             <Pressable
               style={styles.bottomActionBtn}
+              hitSlop={6}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowHelp(true);
               }}
             >
-              <Ionicons name="help-circle-outline" size={18} color={Colors.dark.iconMuted} />
+              <Ionicons name="help-circle-outline" size={16} color={Colors.dark.iconMuted} />
             </Pressable>
             {onNotificationPress ? (
               <Pressable
                 style={styles.bottomActionBtn}
+                hitSlop={6}
                 onPress={onNotificationPress}
               >
-                <Ionicons name="notifications" size={18} color={Colors.dark.iconMuted} />
+                <Ionicons name="notifications" size={16} color={Colors.dark.iconMuted} />
                 {unreadNotificationCount > 0 ? (
                   <View style={styles.notifBadge}>
                     <Text style={styles.notifBadgeText}>
@@ -468,21 +471,22 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   cardContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
   },
   avatarContainer: {
     position: "relative",
-    width: 70,
-    height: 70,
+    width: 56,
+    height: 56,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarOuterGlow: {
     position: "absolute",
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: "hidden",
   },
   avatarGlowGradient: {
@@ -490,33 +494,33 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: "100%",
   },
   avatarFrame: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     overflow: "hidden",
   },
   avatarBorder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarPhoto: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 43,
+    height: 43,
+    borderRadius: 21.5,
   },
   avatarInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 43,
+    height: 43,
+    borderRadius: 21.5,
     backgroundColor: Backgrounds.root,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "700",
     color: Colors.dark.accentText,
   },
@@ -524,33 +528,33 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     position: "absolute",
     bottom: 0,
     left: 0,
-    borderRadius: 10,
+    borderRadius: 9,
     overflow: "hidden",
   },
   levelBadgeGradient: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
   },
   levelBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     color: Colors.dark.onAccent,
   },
   identitySection: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
   roleLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
     color: Colors.dark.accentText,
-    letterSpacing: 1.5,
+    letterSpacing: 1.4,
   },
   playerName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     color: TextColors.primary,
   },
@@ -560,47 +564,47 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: 4,
   },
   academyLogo: {
-    width: 14,
-    height: 14,
+    width: 12,
+    height: 12,
     borderRadius: 3,
   },
   academyText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
     color: TextColors.muted,
   },
   xpSection: {
-    marginTop: 4,
-    gap: 2,
+    marginTop: 3,
+    gap: 1,
   },
   xpBarTrack: {
-    height: 4,
+    height: 3,
     backgroundColor: Colors.dark.chipBackgroundStrong,
-    borderRadius: 2,
+    borderRadius: 1.5,
     overflow: "hidden",
   },
   xpBarFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 1.5,
   },
   xpLabels: {
     flexDirection: "row",
     gap: 4,
   },
   xpCurrent: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: Colors.dark.accentText,
   },
   xpRequired: {
-    fontSize: 11,
+    fontSize: 10,
     color: TextColors.muted,
     fontWeight: "500",
   },
   bottomActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: Colors.dark.chipBackgroundStrong,
     alignItems: "center",
     justifyContent: "center",
@@ -632,24 +636,24 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   cardBottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.xs + 2,
   },
   walletChip: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.chipBackground,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: BorderRadius.sm,
-    gap: 5,
+    gap: 4,
   },
   walletChipDanger: {
     backgroundColor: "rgba(255, 77, 77, 0.12)",
   },
   walletText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: Colors.dark.accentText,
   },
@@ -660,28 +664,28 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.chipBackground,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: BorderRadius.sm,
-    gap: 4,
+    gap: 3,
   },
   streakText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
   },
   familyChip: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.dark.accentTextSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: Colors.dark.accentTextBorder,
-    gap: 6,
+    gap: 5,
   },
   familyChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: Colors.dark.accentText,
     letterSpacing: 0.5,
