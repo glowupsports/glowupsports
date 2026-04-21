@@ -32,14 +32,25 @@ set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Parse arguments — OTA_MESSAGE / OTA_PLATFORM env vars are fallbacks
+#
+# Precedence (highest → lowest):
+#   1. --message flag or positional CLI argument
+#   2. `.local/.commit_message` file (written by the agent for the current task)
+#   3. OTA_MESSAGE environment variable (e.g. hardcoded in .replit workflow)
+#
+# Rationale: the .replit workflow's OTA_MESSAGE is hardcoded and the agent
+# cannot edit it, so each task ended up shipping with the *previous* task's
+# release notes. Reading `.local/.commit_message` (which the agent always
+# writes before completing a task) ensures the EAS dashboard shows the
+# correct task summary for every push, with no manual .replit edits needed.
 # ---------------------------------------------------------------------------
-MESSAGE="${OTA_MESSAGE:-}"
+CLI_MESSAGE=""
 PLATFORM="${OTA_PLATFORM:-all}"  # "ios", "android", or "all"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --message)
-      MESSAGE="$2"
+      CLI_MESSAGE="$2"
       shift 2
       ;;
     --platform)
@@ -51,13 +62,43 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
     *)
-      if [[ -z "$MESSAGE" ]]; then
-        MESSAGE="$1"
+      if [[ -z "$CLI_MESSAGE" ]]; then
+        CLI_MESSAGE="$1"
       fi
       shift
       ;;
   esac
 done
+
+MESSAGE=""
+MESSAGE_SOURCE=""
+
+if [[ -n "$CLI_MESSAGE" ]]; then
+  MESSAGE="$CLI_MESSAGE"
+  MESSAGE_SOURCE="CLI argument"
+elif [[ -f ".local/.commit_message" ]]; then
+  # Use the first non-empty line of the agent's commit message for this task.
+  # EAS update messages are capped at 1024 chars; trim defensively.
+  #
+  # Guard against `set -euo pipefail` aborts: if the file is empty or has
+  # only blank lines, grep exits non-zero and SIGPIPE from `head -c` can
+  # also bubble up. `|| true` keeps the script alive so the OTA_MESSAGE
+  # env-var fallback below can still take over.
+  COMMIT_MSG="$( { grep -m 1 -v '^[[:space:]]*$' .local/.commit_message || true; } | head -c 1024 | tr -d '\r' || true)"
+  if [[ -n "$COMMIT_MSG" ]]; then
+    MESSAGE="$COMMIT_MSG"
+    MESSAGE_SOURCE=".local/.commit_message"
+  fi
+fi
+
+if [[ -z "$MESSAGE" && -n "${OTA_MESSAGE:-}" ]]; then
+  MESSAGE="$OTA_MESSAGE"
+  MESSAGE_SOURCE="OTA_MESSAGE env var"
+fi
+
+if [[ -n "$MESSAGE_SOURCE" ]]; then
+  echo "OTA Push — message source: $MESSAGE_SOURCE"
+fi
 
 # ---------------------------------------------------------------------------
 # Guard: no message → print usage and exit cleanly (not a crash)
