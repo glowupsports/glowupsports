@@ -6177,6 +6177,28 @@ import fs from "fs";
           afterState: confirmedPayment as any,
         });
 
+        // Notify the player when their submitted payment is approved
+        try {
+          if (existingPayment.playerId && existingPayment.proofUrl) {
+            const amountDisplay = `${existingPayment.currency || "AED"} ${parseFloat(String(existingPayment.amount)).toLocaleString()}`;
+            const title = "Payment approved";
+            const body = `Your ${amountDisplay} payment has been approved and credited to your account.`;
+            await db.insert(playerNotifications).values({
+              playerId: existingPayment.playerId,
+              title,
+              body,
+              type: "payment_approved",
+              data: { paymentId: id, amount: existingPayment.amount, currency: existingPayment.currency },
+            }).catch(() => {});
+            const tokens = await getPlayerPushTokens(existingPayment.playerId);
+            if (tokens.length > 0) {
+              sendPushNotification(tokens, title, body, { type: "payment_approved", paymentId: id }, existingPayment.playerId).catch(() => {});
+            }
+          }
+        } catch (notifErr) {
+          console.error("[PaymentConfirm] notification error:", notifErr);
+        }
+
         res.json(confirmedPayment);
       } catch (error) {
         console.error("Confirm payment error:", error);
@@ -6276,6 +6298,30 @@ import fs from "fs";
           afterState: rejectedPayment as any,
           metadata: JSON.stringify({ reason }),
         });
+
+        // Notify the player when their submitted payment is rejected
+        try {
+          if (existingPayment.playerId && existingPayment.proofUrl) {
+            const amountDisplay = `${existingPayment.currency || "AED"} ${parseFloat(String(existingPayment.amount)).toLocaleString()}`;
+            const title = "Payment rejected";
+            const body = reason && reason.trim()
+              ? `Your ${amountDisplay} payment was rejected: ${reason}`
+              : `Your ${amountDisplay} payment was rejected. Please contact your academy for details.`;
+            await db.insert(playerNotifications).values({
+              playerId: existingPayment.playerId,
+              title,
+              body,
+              type: "payment_rejected",
+              data: { paymentId: id, amount: existingPayment.amount, currency: existingPayment.currency, reason: reason || null },
+            }).catch(() => {});
+            const tokens = await getPlayerPushTokens(existingPayment.playerId);
+            if (tokens.length > 0) {
+              sendPushNotification(tokens, title, body, { type: "payment_rejected", paymentId: id }, existingPayment.playerId).catch(() => {});
+            }
+          }
+        } catch (notifErr) {
+          console.error("[PaymentReject] notification error:", notifErr);
+        }
 
         res.json(rejectedPayment);
       } catch (error) {

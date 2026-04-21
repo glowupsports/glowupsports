@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  Image,
 } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,7 +20,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 
 interface Payment {
@@ -68,6 +69,10 @@ export default function AdminPaymentsScreen() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [showProofModal, setShowProofModal] = useState(false);
+
+  const isPlayerSubmitted = (p: Payment) =>
+    !!p.proofUrl && !!p.playerId && !p.receivedBy;
 
   const [formData, setFormData] = useState({
     playerId: "",
@@ -404,20 +409,38 @@ export default function AdminPaymentsScreen() {
                 </View>
               ) : desktopPayments.map((payment: Payment) => {
                 const isOverdue = payment.status === "pending" && payment.dueDate != null && new Date(payment.dueDate) < new Date();
-                const displayStatus = isOverdue ? "overdue" : payment.status;
-                const statusColor = isOverdue ? Colors.dark.error : getStatusColor(payment.status);
+                const playerSubmitted = isPlayerSubmitted(payment);
+                const isPendingReview = payment.status === "pending" && playerSubmitted;
+                const displayStatus = isPendingReview ? "needs review" : isOverdue ? "overdue" : payment.status;
+                const statusColor = isPendingReview
+                  ? Colors.dark.orange
+                  : isOverdue
+                  ? Colors.dark.error
+                  : getStatusColor(payment.status);
                 const name = payment.playerName || payment.payerName || "Unknown";
                 return (
                   <Pressable
                     key={payment.id}
-                    style={[payStyles.tableRow, isOverdue && { borderLeftWidth: 2, borderLeftColor: Colors.dark.error }]}
+                    style={[
+                      payStyles.tableRow,
+                      isPendingReview && { borderLeftWidth: 2, borderLeftColor: Colors.dark.orange, backgroundColor: "rgba(255,133,27,0.04)" },
+                      !isPendingReview && isOverdue && { borderLeftWidth: 2, borderLeftColor: Colors.dark.error },
+                    ]}
                     onPress={() => { setSelectedPayment(payment); setShowDetailModal(true); setShowAddModal(false); }}
                   >
                     <View style={[payStyles.tdCell, payStyles.colPlayer]}>
                       <View style={payStyles.playerIcon}>
                         <Text style={payStyles.playerIconText}>{name[0]?.toUpperCase() ?? "?"}</Text>
                       </View>
-                      <Text style={payStyles.playerName} numberOfLines={1}>{name}</Text>
+                      <View style={{ flex: 1, flexDirection: "column" }}>
+                        <Text style={payStyles.playerName} numberOfLines={1}>{name}</Text>
+                        {playerSubmitted ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                            <Ionicons name="image-outline" size={10} color="#FF851B" />
+                            <Text style={{ fontSize: 10, color: "#FF851B", fontWeight: "600" }}>Player submitted</Text>
+                          </View>
+                        ) : null}
+                      </View>
                     </View>
                     <View style={[payStyles.tdCell, payStyles.colPackage]}>
                       <Text style={payStyles.dateText} numberOfLines={1}>{payment.packageName ?? payment.notes ?? "—"}</Text>
@@ -431,12 +454,15 @@ export default function AdminPaymentsScreen() {
                     <View style={[payStyles.tdCell, payStyles.colStatus]}>
                       <View style={[payStyles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
                         <Text style={[payStyles.statusText, { color: statusColor }]}>
-                          {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                          {displayStatus
+                            .split(" ")
+                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                            .join(" ")}
                         </Text>
                       </View>
                     </View>
                     <View style={[payStyles.tdCell, payStyles.colActions]}>
-                      {payment.status === "pending" ? (
+                      {payment.status === "pending" && !playerSubmitted ? (
                         <Pressable
                           style={payStyles.actionBtn}
                           onPress={(e) => { e.stopPropagation(); handleConfirm(payment); }}
@@ -448,7 +474,7 @@ export default function AdminPaymentsScreen() {
                         style={[payStyles.actionBtn, { backgroundColor: "rgba(255,255,255,0.04)" }]}
                         onPress={(e) => { e.stopPropagation(); setSelectedPayment(payment); setShowDetailModal(true); }}
                       >
-                        <Text style={[payStyles.actionBtnText, { color: Colors.dark.textMuted }]}>View</Text>
+                        <Text style={[payStyles.actionBtnText, { color: Colors.dark.textMuted }]}>{playerSubmitted && payment.status === "pending" ? "Review" : "View"}</Text>
                       </Pressable>
                     </View>
                   </Pressable>
@@ -524,6 +550,27 @@ export default function AdminPaymentsScreen() {
                     </Pressable>
                   </View>
                   <ScrollView style={styles.modalBody}>
+                    {selectedPayment.proofUrl ? (
+                      <View style={{ marginBottom: Spacing.md }}>
+                        <Text style={styles.inputLabel}>Proof of Payment</Text>
+                        <Pressable onPress={() => setShowProofModal(true)}>
+                          <Image
+                            source={{ uri: buildPhotoUrl(selectedPayment.proofUrl) || selectedPayment.proofUrl }}
+                            style={{ width: "100%", height: 220, borderRadius: BorderRadius.md, backgroundColor: "#000" }}
+                            resizeMode="contain"
+                          />
+                          <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, textAlign: "center", marginTop: 6 }}>
+                            Tap to enlarge
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                    {isPlayerSubmitted(selectedPayment) ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, backgroundColor: "rgba(255,133,27,0.10)", borderRadius: BorderRadius.sm }}>
+                        <Ionicons name="information-circle" size={14} color="#FF851B" />
+                        <Text style={{ fontSize: 12, color: "#FF851B", fontWeight: "600" }}>Submitted by player — review proof</Text>
+                      </View>
+                    ) : null}
                     {[
                       { label: "Player / Payer", value: selectedPayment.playerName || selectedPayment.payerName || "Unknown" },
                       { label: "Amount", value: `${selectedPayment.currency} ${parseFloat(selectedPayment.amount).toLocaleString()}` },
@@ -595,6 +642,24 @@ export default function AdminPaymentsScreen() {
               </View>
             </View>
           </View>
+        </Modal>
+
+        <Modal visible={showProofModal} animationType="fade" transparent onRequestClose={() => setShowProofModal(false)}>
+          <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" }} onPress={() => setShowProofModal(false)}>
+            {selectedPayment?.proofUrl ? (
+              <Image
+                source={{ uri: buildPhotoUrl(selectedPayment.proofUrl) || selectedPayment.proofUrl }}
+                style={{ width: "92%", height: "85%" }}
+                resizeMode="contain"
+              />
+            ) : null}
+            <Pressable
+              style={{ position: "absolute", top: 40, right: 20, padding: 10, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)" }}
+              onPress={() => setShowProofModal(false)}
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </Pressable>
+          </Pressable>
         </Modal>
       </View>
     );
@@ -676,7 +741,14 @@ export default function AdminPaymentsScreen() {
             payments.map((payment: Payment) => (
               <Pressable
                 key={payment.id}
-                style={styles.paymentCard}
+                style={[
+                  styles.paymentCard,
+                  payment.status === "pending" && isPlayerSubmitted(payment) && {
+                    borderLeftWidth: 3,
+                    borderLeftColor: Colors.dark.orange,
+                    backgroundColor: "rgba(255,133,27,0.06)",
+                  },
+                ]}
                 onPress={() => {
                   setSelectedPayment(payment);
                   setShowDetailModal(true);
@@ -686,6 +758,14 @@ export default function AdminPaymentsScreen() {
                   <View style={styles.paymentInfo}>
                     <Text style={styles.paymentName}>{payment.playerName || payment.payerName || "Unknown"}</Text>
                     <Text style={styles.paymentDate}>{formatDate(payment.paymentDate || payment.createdAt)}</Text>
+                    {isPlayerSubmitted(payment) ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <Ionicons name="image-outline" size={11} color={Colors.dark.orange} />
+                        <Text style={{ ...Typography.caption, color: Colors.dark.orange, fontWeight: "600" }}>
+                          {payment.status === "pending" ? "Player submitted — needs review" : "Player submitted"}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                   <View style={styles.paymentAmount}>
                     <Text style={styles.amountText}>AED {parseFloat(payment.amount).toLocaleString()}</Text>
@@ -856,6 +936,27 @@ export default function AdminPaymentsScreen() {
                 </View>
 
                 <ScrollView style={styles.modalBody}>
+                  {selectedPayment.proofUrl ? (
+                    <View style={{ marginBottom: Spacing.md }}>
+                      <Text style={styles.inputLabel}>Proof of Payment</Text>
+                      <Pressable onPress={() => setShowProofModal(true)}>
+                        <Image
+                          source={{ uri: buildPhotoUrl(selectedPayment.proofUrl) || selectedPayment.proofUrl }}
+                          style={{ width: "100%", height: 260, borderRadius: BorderRadius.md, backgroundColor: "#000" }}
+                          resizeMode="contain"
+                        />
+                        <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, textAlign: "center", marginTop: 6 }}>
+                          Tap to enlarge
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {isPlayerSubmitted(selectedPayment) ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: Spacing.md, paddingHorizontal: Spacing.sm, paddingVertical: 8, backgroundColor: "rgba(255,133,27,0.10)", borderRadius: BorderRadius.sm }}>
+                      <Ionicons name="information-circle" size={16} color="#FF851B" />
+                      <Text style={{ ...Typography.small, color: "#FF851B", fontWeight: "600" }}>Submitted by player — review proof</Text>
+                    </View>
+                  ) : null}
                   <View style={styles.detailAmount}>
                     <Text style={styles.detailAmountValue}>AED {parseFloat(selectedPayment.amount).toLocaleString()}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedPayment.status) + "20" }]}>
@@ -985,6 +1086,24 @@ export default function AdminPaymentsScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      <Modal visible={showProofModal} animationType="fade" transparent onRequestClose={() => setShowProofModal(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" }} onPress={() => setShowProofModal(false)}>
+          {selectedPayment?.proofUrl ? (
+            <Image
+              source={{ uri: buildPhotoUrl(selectedPayment.proofUrl) || selectedPayment.proofUrl }}
+              style={{ width: "92%", height: "85%" }}
+              resizeMode="contain"
+            />
+          ) : null}
+          <Pressable
+            style={{ position: "absolute", top: insets.top + 10, right: 20, padding: 10, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)" }}
+            onPress={() => setShowProofModal(false)}
+          >
+            <Ionicons name="close" size={24} color="#fff" />
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
