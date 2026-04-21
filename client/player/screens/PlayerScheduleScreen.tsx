@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   Pressable,
   ActivityIndicator,
   Alert,
@@ -16,7 +17,7 @@ import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useScheduleFocus } from "@/player/context/ScheduleFocusContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -267,6 +268,21 @@ export default function PlayerScheduleScreen() {
   const [showBookSheet, setShowBookSheet] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/court-bookings"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/matches"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
 
   // Selected day (default = today). Week pager position.
   const today = useMemo(() => {
@@ -799,6 +815,14 @@ export default function PlayerScheduleScreen() {
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + 140 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={EVENT_COLORS.lesson}
+            colors={[EVENT_COLORS.lesson]}
+          />
+        }
       >
         <FamilyChildSwitcher />
         {isMultiSport ? (
