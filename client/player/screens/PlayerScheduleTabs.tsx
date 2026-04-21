@@ -29,7 +29,9 @@ import {
   Typography,
   TextColors,
   GlowColors,
+  Colors,
 } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { appendImageToFormData } from "@/lib/uploads";
 
@@ -59,6 +61,13 @@ export interface AcademyPaymentInfo {
   paymentInstructions?: string | null;
   currency: string;
   defaultLessonPrice?: number;
+  /**
+   * Task #933 — per-(sessionType) pricing matrix. Keys are the
+   * server-normalized session types (`private`, `group`, `semi_private`,
+   * etc.). Used by the debt sheet to price each overdrawing session by
+   * its real type instead of a flat fallback.
+   */
+  pricing?: Record<string, { amount: number; currency: string }>;
 }
 
 export interface HistoryItem {
@@ -149,7 +158,11 @@ export function StatsBand({
   onDebtPress: () => void;
 }) {
   const walletColor =
-    walletBalance <= 0 ? "#FF4D4D" : walletBalance < 5 ? "#FFC107" : "#00E676";
+    walletBalance <= 0
+      ? Colors.dark.error
+      : walletBalance < 5
+        ? Colors.dark.warning
+        : Colors.dark.primary;
   return (
     <View style={statsStyles.row}>
       <View style={statsStyles.cell}>
@@ -175,11 +188,11 @@ export function StatsBand({
         <>
           <View style={statsStyles.divider} />
           <Pressable style={statsStyles.cell} onPress={onDebtPress}>
-            <Text style={[statsStyles.value, { color: "#FF4D4D", fontSize: 14 }]}>
+            <Text style={[statsStyles.value, { color: Colors.dark.error, fontSize: 14 }]}>
               {currency} {amountDue.toFixed(0)}
             </Text>
             <Text style={statsStyles.label}>due</Text>
-            <Text style={[statsStyles.sub, { color: "#FF4D4D" }]}>
+            <Text style={[statsStyles.sub, { color: Colors.dark.error }]}>
               {debt} lesson{debt === 1 ? "" : "s"}
             </Text>
           </Pressable>
@@ -225,7 +238,7 @@ export function PaymentsTab({
         </View>
         <View style={paymentStyles.summaryCard}>
           <Text style={paymentStyles.summaryLabel}>Pending review</Text>
-          <Text style={[paymentStyles.summaryValue, { color: "#FBBF24" }]}>
+          <Text style={[paymentStyles.summaryValue, { color: Colors.dark.warning }]}>
             {totals.currency} {totals.pending.toFixed(2)}
           </Text>
         </View>
@@ -244,7 +257,7 @@ export function PaymentsTab({
 
       {isLoading ? (
         <View style={{ padding: Spacing.xl, alignItems: "center" }}>
-          <ActivityIndicator color="#00E676" />
+          <ActivityIndicator color={Colors.dark.primary} />
         </View>
       ) : payments.length === 0 ? (
         <View style={paymentStyles.empty}>
@@ -273,9 +286,9 @@ export function PaymentsTab({
 }
 
 function paymentStatusColor(status: string): string {
-  if (status === "confirmed") return "#22C55E";
-  if (status === "pending") return "#FBBF24";
-  if (status === "rejected") return "#EF4444";
+  if (status === "confirmed") return Colors.dark.successNeon;
+  if (status === "pending") return Colors.dark.warning;
+  if (status === "rejected") return Colors.dark.error;
   return TextColors.muted;
 }
 
@@ -928,7 +941,7 @@ function BankRow({
           <Feather
             name={copied ? "check" : "copy"}
             size={12}
-            color={copied ? "#00E676" : TextColors.muted}
+            color={copied ? Colors.dark.primary : TextColors.muted}
           />
         ) : null}
       </Pressable>
@@ -944,6 +957,9 @@ export interface OverdrawingSession {
   title: string;
   date: Date;
   price: number;
+  /** Optional per-row currency from the academy_pricing matrix.
+   * Falls back to the sheet's top-level `currency` prop when absent. */
+  currency?: string;
 }
 
 export function DebtExplainerSheet({
@@ -974,7 +990,7 @@ export function DebtExplainerSheet({
           <View style={sheetStyles.handle} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={debtStyles.iconWrap}>
-              <Feather name="alert-circle" size={32} color="#FF4D4D" />
+              <Feather name="alert-circle" size={32} color={Colors.dark.error} />
             </View>
             <Text style={sheetStyles.title}>
               {currency} {amountDue.toFixed(2)} due
@@ -1002,7 +1018,7 @@ export function DebtExplainerSheet({
                         </Text>
                       </View>
                       <Text style={debtStyles.sessionPrice}>
-                        {currency} {s.price.toFixed(2)}
+                        {s.currency || currency} {s.price.toFixed(2)}
                       </Text>
                     </View>
                   ))}
@@ -1056,7 +1072,7 @@ function DebtStep({ n, text }: { n: number; text: string }) {
 // =============================================================================
 // Styles
 // =============================================================================
-const tabStyles = StyleSheet.create({
+const tabStyles = makeReactiveStyles(() => StyleSheet.create({
   bar: {
     flexDirection: "row",
     backgroundColor: Backgrounds.elevated,
@@ -1076,7 +1092,7 @@ const tabStyles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   tabActive: {
-    backgroundColor: "#00E676",
+    backgroundColor: Colors.dark.primary,
   },
   tabText: {
     ...Typography.caption,
@@ -1091,7 +1107,7 @@ const tabStyles = StyleSheet.create({
     height: 18,
     paddingHorizontal: 4,
     borderRadius: 9,
-    backgroundColor: "#FF4D4D",
+    backgroundColor: Colors.dark.error,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 2,
@@ -1101,9 +1117,9 @@ const tabStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-});
+}));
 
-const statsStyles = StyleSheet.create({
+const statsStyles = makeReactiveStyles(() => StyleSheet.create({
   row: {
     flexDirection: "row",
     backgroundColor: Backgrounds.elevated,
@@ -1136,9 +1152,9 @@ const statsStyles = StyleSheet.create({
     color: TextColors.muted,
     marginTop: 1,
   },
-});
+}));
 
-const paymentStyles = StyleSheet.create({
+const paymentStyles = makeReactiveStyles(() => StyleSheet.create({
   summaryRow: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -1166,7 +1182,7 @@ const paymentStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#00E676",
+    backgroundColor: Colors.dark.primary,
     paddingVertical: 12,
     borderRadius: BorderRadius.lg,
   },
@@ -1281,9 +1297,9 @@ const paymentStyles = StyleSheet.create({
     backgroundColor: Backgrounds.surface,
     marginTop: Spacing.xs,
   },
-});
+}));
 
-const historyStyles = StyleSheet.create({
+const historyStyles = makeReactiveStyles(() => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -1324,7 +1340,7 @@ const historyStyles = StyleSheet.create({
     backgroundColor: Backgrounds.elevated,
   },
   chipActive: {
-    backgroundColor: "#00E676",
+    backgroundColor: Colors.dark.primary,
   },
   chipText: {
     ...Typography.caption,
@@ -1334,9 +1350,9 @@ const historyStyles = StyleSheet.create({
   chipTextActive: {
     color: "#0A0A0A",
   },
-});
+}));
 
-const sheetStyles = StyleSheet.create({
+const sheetStyles = makeReactiveStyles(() => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -1470,7 +1486,7 @@ const sheetStyles = StyleSheet.create({
     justifyContent: "center",
   },
   submitBtn: {
-    backgroundColor: "#00E676",
+    backgroundColor: Colors.dark.primary,
     paddingVertical: 14,
     borderRadius: BorderRadius.lg,
     alignItems: "center",
@@ -1490,15 +1506,15 @@ const sheetStyles = StyleSheet.create({
     color: TextColors.muted,
     fontWeight: "600",
   },
-});
+}));
 
-const debtStyles = StyleSheet.create({
+const debtStyles = makeReactiveStyles(() => StyleSheet.create({
   iconWrap: {
     alignSelf: "center",
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#FF4D4D22",
+    backgroundColor: Colors.dark.error + "22",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.md,
@@ -1519,7 +1535,7 @@ const debtStyles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "#00E676",
+    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1560,7 +1576,7 @@ const debtStyles = StyleSheet.create({
   },
   sessionPrice: {
     ...Typography.caption,
-    color: "#FF4D4D",
+    color: Colors.dark.error,
     fontWeight: "700",
   },
   totalRow: {
@@ -1578,7 +1594,7 @@ const debtStyles = StyleSheet.create({
   },
   totalValue: {
     fontSize: 16,
-    color: "#FF4D4D",
+    color: Colors.dark.error,
     fontWeight: "700",
   },
-});
+}));

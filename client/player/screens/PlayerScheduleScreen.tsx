@@ -54,6 +54,8 @@ import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTabNavigation } from "@/components/TabNavigationContext";
+import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   ScheduleTabBar,
@@ -100,9 +102,9 @@ const ProTennisColors = new Proxy({} as Record<string, string>, {
       case "vacationBlue":
         return "#4DA3FF";
       case "error":
-        return "#FF4D4D";
+        return Colors.dark.error;
       case "success":
-        return "#00E676";
+        return Colors.dark.primary;
       case "white":
       case "textPrimary":
         return TextColors.primary;
@@ -119,9 +121,11 @@ const ProTennisColors = new Proxy({} as Record<string, string>, {
 // Event-type colors for the week stripe bars / hero accent.
 // Direction D palette: green = lesson, blue = court, purple = match.
 const EVENT_COLORS = {
-  lesson: "#00E676", // green
   court: "#4DA3FF", // blue
   match: "#E040FB", // purple
+  get lesson(): string {
+    return Colors.dark.primary; // follows academy theme
+  },
 } as const;
 
 function getEventColor(type: string): string {
@@ -265,6 +269,10 @@ export default function PlayerScheduleScreen() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
+  // Subscribe to academy theme revisions so the reactive StyleSheet proxies
+  // (Colors.dark.* tokens) refresh when the academy theme switches.
+  useAcademyTheme();
   const track = useTrackFeature();
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
@@ -615,10 +623,21 @@ export default function PlayerScheduleScreen() {
   const debtLessons = lessonBalance < 0 ? Math.abs(lessonBalance) : 0;
 
   // Overdrawing sessions: most recent N attended lessons where N = debtLessons.
-  // Each is priced at academy default lesson price (settings) for an AED total.
+  // Task #933 — each row priced from the per-(sessionType) pricing matrix
+  // returned by /api/parent/academy-payment-info (academy_pricing rows). Falls
+  // back to defaultLessonPrice (then 100) only if the academy has no pricing
+  // row for that session type.
   const overdrawingSessions = useMemo(() => {
     if (debtLessons <= 0 || !rawSessions) return [];
-    const price = academyPaymentInfo?.defaultLessonPrice ?? 100;
+    const fallbackPrice = academyPaymentInfo?.defaultLessonPrice ?? 100;
+    const pricing = academyPaymentInfo?.pricing || {};
+    const normalizeType = (raw: string): string => {
+      const cleaned = (raw || "private").toLowerCase().replace(/-/g, "_").trim();
+      if (cleaned === "semi" || cleaned === "semi_private" || cleaned === "semi_private_adjusted") return "semi_private";
+      if (cleaned === "private_adjusted") return "private";
+      if (cleaned === "group_adjusted") return "group";
+      return cleaned;
+    };
     const now = new Date();
     const attended = rawSessions
       .filter((s) => {
@@ -631,15 +650,22 @@ export default function PlayerScheduleScreen() {
         ) {
           return false;
         }
-        const type = (s.session.sessionType as string) || "";
-        return ["private", "group", "semi_private"].includes(type);
+        // Normalize first so adjusted variants (private_adjusted, etc.) and
+        // legacy aliases (semi) are still counted.
+        const normalized = normalizeType((s.session.sessionType as string) || "");
+        return ["private", "group", "semi_private"].includes(normalized);
       })
-      .map((s) => ({
-        id: String(s.id),
-        title: s.session?.title || "Lesson",
-        date: new Date(s.session!.startTime!),
-        price,
-      }))
+      .map((s) => {
+        const normalized = normalizeType(s.session?.sessionType as string);
+        const fromMatrix = pricing[normalized];
+        return {
+          id: String(s.id),
+          title: s.session?.title || "Lesson",
+          date: new Date(s.session!.startTime!),
+          price: fromMatrix?.amount ?? fallbackPrice,
+          currency: fromMatrix?.currency,
+        };
+      })
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, debtLessons);
     return attended;
@@ -726,10 +752,10 @@ export default function PlayerScheduleScreen() {
       const date = new Date(p.paymentDate || p.createdAt);
       const accent =
         p.status === "confirmed"
-          ? "#22C55E"
+          ? Colors.dark.successNeon
           : p.status === "pending"
-            ? "#FBBF24"
-            : "#EF4444";
+            ? Colors.dark.warning
+            : Colors.dark.error;
       out.push({
         key: `p-${p.id}`,
         date,
@@ -883,6 +909,15 @@ export default function PlayerScheduleScreen() {
   // ---------------------------------------------------------------------------
   // Sport picker -> destination
   // ---------------------------------------------------------------------------
+  const goToOpenMatches = () => {
+    // Task #933 — schedule lives under Growth → Schedule, so we must hop to
+    // the PlayStack tab and navigate to its OpenMatches screen (matches
+    // HeroCarousel's `goOpenMatches`). The previous
+    // `navigation.navigate("Play", { screen: "OpenMatches" })` was a silent
+    // no-op because "Play" is a leaf screen, not a navigator.
+    navigateToTab("PlayStack", { screen: "OpenMatches" });
+  };
+
   const openWithSportPicker = (
     dest: "LessonBooking" | "CourtBooking" | "OpenMatches",
   ) => {
@@ -890,7 +925,7 @@ export default function PlayerScheduleScreen() {
       setSportPickerDestination(dest);
       setShowSportPickerModal(true);
     } else {
-      if (dest === "OpenMatches") navigation.navigate("Play", { screen: "OpenMatches" });
+      if (dest === "OpenMatches") goToOpenMatches();
       else if (dest === "LessonBooking")
         navigation.navigate("LessonBooking", { sport: activeSport });
       else navigation.navigate(dest);
@@ -916,8 +951,7 @@ export default function PlayerScheduleScreen() {
   const handleSportPicked = (sport: Sport) => {
     setActiveSport(sport);
     setShowSportPickerModal(false);
-    if (sportPickerDestination === "OpenMatches")
-      navigation.navigate("Play", { screen: "OpenMatches" });
+    if (sportPickerDestination === "OpenMatches") goToOpenMatches();
     else if (sportPickerDestination === "LessonBooking")
       navigation.navigate("LessonBooking", { sport });
     else navigation.navigate(sportPickerDestination);
@@ -1628,9 +1662,9 @@ function BalanceChip({
   onPress: () => void;
 }) {
   let color = TextColors.muted;
-  if (balance <= 0) color = "#FF4D4D";
-  else if (balance < 5) color = "#FFC107";
-  else color = "#00E676";
+  if (balance <= 0) color = Colors.dark.error;
+  else if (balance < 5) color = Colors.dark.warning;
+  else color = Colors.dark.primary;
 
   return (
     <Pressable
@@ -1937,9 +1971,9 @@ function DayHero({
                   </Text>
                 </View>
                 {it.status === "cancelled" ? (
-                  <Feather name="x" size={14} color={"#FF4D4D"} />
+                  <Feather name="x" size={14} color={Colors.dark.error} />
                 ) : it.status === "completed" ? (
-                  <Feather name="check" size={14} color={EVENT_COLORS.lesson} />
+                  <Feather name="check" size={14} color={Colors.dark.primary} />
                 ) : null}
                 <Feather
                   name="chevron-right"
@@ -2172,7 +2206,7 @@ const styles = makeReactiveStyles(() =>
     },
     errorText: {
       marginTop: Spacing.md,
-      color: "#FF4D4D",
+      color: Colors.dark.error,
       fontSize: 16,
       fontWeight: "600",
     },
@@ -2372,7 +2406,7 @@ const styles = makeReactiveStyles(() =>
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: "#FF4D4D22",
+      backgroundColor: Colors.dark.error + "22",
       alignItems: "center",
       justifyContent: "center",
     },

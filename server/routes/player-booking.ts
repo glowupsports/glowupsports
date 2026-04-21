@@ -9,6 +9,7 @@ import {
   coachTimeBlocks, courtAvailability, courtAvailabilitySnapshots, courts,
   bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
   matchRequests, playerBookingPreferences, bookingRequests,
+  academyPricing,
   submitReviewSchema,
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
@@ -3937,6 +3938,46 @@ Return only the JSON array, nothing else.`;
         ? parseFloat(settings.defaultLessonPrice)
         : 100;
 
+      // Task #933: return per-(sessionType) pricing matrix from academy_pricing
+      // so the debt sheet can price each session by its real type instead of
+      // the flat defaultLessonPrice fallback. Mirrors the batch query used in
+      // server/routes/coach-earnings.ts.
+      const today = new Date().toISOString().split('T')[0];
+      const pricingRows = await db.select().from(academyPricing)
+        .where(and(
+          eq(academyPricing.academyId, player.academyId),
+          eq(academyPricing.isActive, true),
+          lte(academyPricing.effectiveFrom, today),
+          or(
+            isNull(academyPricing.effectiveUntil),
+            gte(academyPricing.effectiveUntil, today),
+          ),
+        ))
+        .orderBy(desc(academyPricing.effectiveFrom));
+      // Normalize sessionType keys so client lookups by the canonical type
+      // (private/semi_private/group/...) hit even when the academy stores
+      // adjusted variants (e.g. private_adjusted).
+      const normalizePricingType = (raw: string): string => {
+        const cleaned = (raw || "").toLowerCase().replace(/-/g, "_").trim();
+        if (cleaned === "semi" || cleaned === "semi_private_adjusted") return "semi_private";
+        if (cleaned === "private_adjusted") return "private";
+        if (cleaned === "group_adjusted") return "group";
+        return cleaned;
+      };
+      const pricing: Record<string, { amount: number; currency: string }> = {};
+      for (const row of pricingRows) {
+        const key = normalizePricingType(row.sessionType);
+        if (!key) continue;
+        // Most-recent effectiveFrom wins per (normalized) sessionType.
+        if (pricing[key]) continue;
+        const amt = parseFloat(String(row.pricePerSession));
+        if (!Number.isFinite(amt)) continue;
+        pricing[key] = {
+          amount: amt,
+          currency: row.currency || currency,
+        };
+      }
+
       res.json({
         acceptsCash: (academy as any).acceptsCash !== false,
         acceptsBankTransfer: (academy as any).acceptsBankTransfer !== false,
@@ -3948,6 +3989,7 @@ Return only the JSON array, nothing else.`;
         paymentInstructions: (academy as any).paymentInstructions,
         currency,
         defaultLessonPrice,
+        pricing,
       });
     } catch (error) {
       console.error("Get academy payment info error:", error);
