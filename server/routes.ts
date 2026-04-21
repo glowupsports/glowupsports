@@ -284,7 +284,7 @@ const diagnosticsReportSchema = z.object({
   userComment: z.string().max(1000).optional().nullable(),
   platform: z.string().max(32).optional().nullable(),
   appVersion: z.string().max(64).optional().nullable(),
-  deviceInfo: z.record(z.unknown()).optional().nullable(),
+  deviceInfo: z.union([z.string().max(2000), z.record(z.unknown())]).optional().nullable(),
 });
 
 function generateShortInviteCode(): string {
@@ -1085,7 +1085,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userComment: userComment || null,
         platform: platform || context?.platform || null,
         appVersion: appVersion || context?.appVersion || null,
-        deviceInfo: deviceInfo || context?.deviceInfo || null,
+        deviceInfo:
+          (typeof deviceInfo === "string"
+            ? deviceInfo
+            : deviceInfo
+              ? JSON.stringify(deviceInfo)
+              : null) ||
+          (typeof context?.deviceInfo === "string"
+            ? context.deviceInfo
+            : context?.deviceInfo
+              ? JSON.stringify(context.deviceInfo)
+              : null),
       });
 
       console.log(
@@ -1141,7 +1151,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userComment: userComment || null,
           platform: context?.platform || null,
           appVersion: context?.appVersion || "1.0.0",
-          deviceInfo: context?.deviceInfo || null,
+          deviceInfo:
+            typeof context?.deviceInfo === "string"
+              ? context.deviceInfo
+              : context?.deviceInfo
+                ? JSON.stringify(context.deviceInfo)
+                : null,
         });
 
         console.log(
