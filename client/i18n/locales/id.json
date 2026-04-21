@@ -236,6 +236,58 @@
       "welcomeBack": "Selamat datang kembali",
       "greetingWithName": "Saatnya bermain, {{name}}.",
       "greetingNoName": "Saatnya bermain.",
+      "greetings": {
+        "morning": [
+          "Selamat pagi, {{name}}. Siap memukul?",
+          "Pagi, {{name}} — ayo pemanasan.",
+          "Bangun pagi, {{name}}? Lapangan menanti."
+        ],
+        "afternoon": [
+          "Selamat siang, {{name}}. Waktunya bermain.",
+          "Ayo main, {{name}}.",
+          "Lapangan menunggu, {{name}}."
+        ],
+        "evening": [
+          "Selamat sore, {{name}} — lapangan lebih sepi sekarang.",
+          "Tenis senja, {{name}}.",
+          "Tutup hari dengan rally, {{name}}?"
+        ],
+        "late": [
+          "Masih bangun, {{name}}?",
+          "Suasana sesi malam, {{name}}.",
+          "Rencanakan pertandingan besok, {{name}}."
+        ],
+        "weekend_morning": [
+          "Mode pejuang akhir pekan, {{name}}.",
+          "Servis akhir pekan, {{name}}?",
+          "Akhir pekan tetap aktif, {{name}}."
+        ],
+        "weekend_afternoon": [
+          "Rally akhir pekan, {{name}}.",
+          "Akhir pekan sempurna untuk tenis, {{name}}.",
+          "Manfaatkan akhir pekan, {{name}}."
+        ],
+        "weekend_evening": [
+          "Pukul bola sore akhir pekan, {{name}}?",
+          "Tutup akhir pekan dengan pertandingan, {{name}}.",
+          "Rally sore, {{name}}?"
+        ],
+        "sessionToday": [
+          "Kamu jadwal main hari ini, {{name}}. Ayo.",
+          "Hari sesi, {{name}} — siap?",
+          "Fokus, {{name}}."
+        ],
+        "postSession": [
+          "Sesi yang bagus, {{name}}. Apa selanjutnya?",
+          "Kerja bagus, {{name}}. Pulihkan tenagamu.",
+          "Sesi yang seru, {{name}}."
+        ],
+        "welcomeBack": [
+          "Selamat datang kembali, {{name}}. Kami merindukanmu.",
+          "Sudah lama, {{name}} — ayo kembali ke lapangan.",
+          "Senang bertemu lagi, {{name}}."
+        ]
+      },
       "primaryActionBook": "Pesan",
       "primaryActionTrain": "Latihan",
       "primaryActionCompete": "Bertanding",

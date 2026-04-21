@@ -1591,6 +1591,8 @@ function PlayerHomeContent() {
         {/* GREETING + PRIMARY ACTIONS — first visible anchor: "what do I do right now?" */}
         <PrimaryActionsRow
           firstName={player.name}
+          nextSessionDate={effectiveData?.nextSession?.date ?? null}
+          nextSessionEndTime={effectiveData?.nextSession?.endTime ?? null}
           onBook={handleBookLesson}
           onTrain={() =>
             guardAction(() => {

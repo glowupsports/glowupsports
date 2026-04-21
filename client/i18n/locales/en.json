@@ -253,6 +253,58 @@
       "welcomeBack": "Welcome back",
       "greetingWithName": "Game time, {{name}}.",
       "greetingNoName": "Game time.",
+      "greetings": {
+        "morning": [
+          "Good morning, {{name}}. Ready to hit?",
+          "Morning, {{name}} — let's warm up.",
+          "Up early, {{name}}? The courts are calling."
+        ],
+        "afternoon": [
+          "Afternoon, {{name}}. Time to play.",
+          "Game on, {{name}}.",
+          "Court's waiting, {{name}}."
+        ],
+        "evening": [
+          "Evening, {{name}} — courts are quieter now.",
+          "Golden hour tennis, {{name}}.",
+          "Wind down with a hit, {{name}}?"
+        ],
+        "late": [
+          "Burning the midnight oil, {{name}}?",
+          "Late session vibes, {{name}}.",
+          "Still up, {{name}}? Plan tomorrow's match."
+        ],
+        "weekend_morning": [
+          "Weekend warrior mode, {{name}}.",
+          "Weekend serve, {{name}}?",
+          "No lazy weekends for you, {{name}}."
+        ],
+        "weekend_afternoon": [
+          "Weekend rallies, {{name}}.",
+          "Perfect weekend for tennis, {{name}}.",
+          "Make the weekend count, {{name}}."
+        ],
+        "weekend_evening": [
+          "Weekend evening hit, {{name}}?",
+          "Cap the weekend with a match, {{name}}.",
+          "Evening rally, {{name}}?"
+        ],
+        "sessionToday": [
+          "You're on today, {{name}}. Let's go.",
+          "Session day, {{name}} — ready?",
+          "Game face on, {{name}}."
+        ],
+        "postSession": [
+          "Great session, {{name}}. What's next?",
+          "Nice work, {{name}}. Recover well.",
+          "That was a good one, {{name}}."
+        ],
+        "welcomeBack": [
+          "Welcome back, {{name}}. We missed you.",
+          "Long time, {{name}} — let's get back on court.",
+          "Good to see you, {{name}}."
+        ]
+      },
       "primaryActionBook": "Book",
       "primaryActionTrain": "Train",
       "primaryActionCompete": "Compete",
