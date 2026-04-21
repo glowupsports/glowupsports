@@ -159,18 +159,20 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
         />
       }
       ListHeaderComponent={
-        <View style={achievementStyles.header}>
-          <LinearGradient
-            colors={[GlowColors.primary, "#7CFC00"]}
-            style={achievementStyles.headerIconBg}
-          >
-            <Ionicons name="trophy" size={28} color={Colors.dark.buttonText} />
-          </LinearGradient>
-          <ThemedText style={achievementStyles.headerTitle}>{t('player.profile.achievements')}</ThemedText>
-          <ThemedText style={achievementStyles.headerSubtitle}>
-            Share your victories with friends
-          </ThemedText>
-        </View>
+        achievements.length > 0 ? (
+          <View style={achievementStyles.header}>
+            <LinearGradient
+              colors={[GlowColors.primary, "#7CFC00"]}
+              style={achievementStyles.headerIconBg}
+            >
+              <Ionicons name="trophy" size={28} color={Colors.dark.buttonText} />
+            </LinearGradient>
+            <ThemedText style={achievementStyles.headerTitle}>{t('player.profile.achievements')}</ThemedText>
+            <ThemedText style={achievementStyles.headerSubtitle}>
+              Share your victories with friends
+            </ThemedText>
+          </View>
+        ) : null
       }
       ListEmptyComponent={
         <View style={achievementStyles.empty}>
