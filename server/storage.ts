@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, pool } from "./db";
 import { apiCache } from "./cache";
 import { randomUUID } from "node:crypto";
 import { localHHMMToUtc } from "./utils/timezone";
@@ -2426,11 +2426,122 @@ export const storage = {
       // Credit Engine V2 (Task #692 step 2). V2 ledger/lots/balance/wallet
       // cascade on player_id, but we delete them up-front so no V2 rows are
       // left dangling if a later batch fails. Legacy V1 `credit_transactions`
-      // / `packages` are inert and no longer touched here.
+      // / `packages` are inert in live billing, but old rows may still exist
+      // and FK back to players — they are handled in the Task #904 block below.
       await db.delete(creditLedgerV2).where(eq(creditLedgerV2.playerId, id));
       await db.delete(creditLots).where(eq(creditLots.playerId, id));
       await db.delete(playerCreditBalance).where(eq(playerCreditBalance.playerId, id));
       await db.delete(playerMoneyWallet).where(eq(playerMoneyWallet.playerId, id));
+
+      // ---------------------------------------------------------------
+      // Task #904: player_* / player-referencing tables that the merge
+      // endpoint (Task #900) handles but were never mirrored here. Each
+      // delete is guarded with `to_regclass` so older databases that
+      // haven't run db:push for the latest schema migrations stay safe
+      // (no-op). Mirrors the canonical list in
+      // `server/routes/admin-setup.ts` Part A/B.
+      // ---------------------------------------------------------------
+      const tableExistsCache = new Map<string, boolean>();
+      const tableExists = async (name: string): Promise<boolean> => {
+        const cached = tableExistsCache.get(name);
+        if (cached !== undefined) return cached;
+        const res = await pool.query(
+          `SELECT to_regclass($1) IS NOT NULL AS exists`,
+          [`public.${name}`]
+        );
+        const exists = Boolean(res.rows[0]?.exists);
+        tableExistsCache.set(name, exists);
+        return exists;
+      };
+      const ifTable = async (name: string, sql: string, params: unknown[]) => {
+        if (await tableExists(name)) await pool.query(sql, params);
+      };
+
+      // Marketplace child rows must be removed before marketplace_listings
+      // (deleted further down). Clean both sides: rows where the player is
+      // the sender/favoriter, and rows pointing at the player's own listings.
+      await ifTable("marketplace_messages",
+        `DELETE FROM marketplace_messages
+         WHERE sender_id = $1 OR recipient_id = $1
+            OR listing_id IN (SELECT id FROM marketplace_listings WHERE seller_id = $1)`,
+        [id]);
+      await ifTable("marketplace_favorites",
+        `DELETE FROM marketplace_favorites
+         WHERE player_id = $1
+            OR listing_id IN (SELECT id FROM marketplace_listings WHERE seller_id = $1)`,
+        [id]);
+
+      // Legacy V1 billing — inert but rows may still exist on old DBs.
+      await ifTable("packages",
+        `DELETE FROM packages WHERE player_id = $1`, [id]);
+      await ifTable("credit_transactions",
+        `DELETE FROM credit_transactions WHERE player_id = $1`, [id]);
+
+      // Provider marketplace coaching artifacts.
+      await ifTable("provider_client_notes",
+        `DELETE FROM provider_client_notes WHERE player_id = $1`, [id]);
+      await ifTable("provider_client_preferences",
+        `DELETE FROM provider_client_preferences WHERE player_id = $1`, [id]);
+
+      // Corporate membership & ledger.
+      await ifTable("corporate_members",
+        `DELETE FROM corporate_members WHERE player_id = $1`, [id]);
+      await ifTable("corporate_credit_transactions",
+        `DELETE FROM corporate_credit_transactions WHERE player_id = $1`, [id]);
+
+      // Equipment rentals, video & beta feedback.
+      await ifTable("equipment_rentals",
+        `DELETE FROM equipment_rentals WHERE player_id = $1`, [id]);
+      await ifTable("video_feedback",
+        `DELETE FROM video_feedback WHERE player_id = $1`, [id]);
+      await ifTable("beta_feedback",
+        `DELETE FROM beta_feedback WHERE player_id = $1`, [id]);
+
+      // AI tables — coaching insights, reflections, plans, ratings.
+      await ifTable("session_ai_summaries",
+        `DELETE FROM session_ai_summaries WHERE player_id = $1`, [id]);
+      await ifTable("player_ai_insights",
+        `DELETE FROM player_ai_insights WHERE player_id = $1`, [id]);
+      await ifTable("session_ai_chats",
+        `DELETE FROM session_ai_chats WHERE player_id = $1`, [id]);
+      await ifTable("ai_coach_conversations",
+        `DELETE FROM ai_coach_conversations WHERE player_id = $1`, [id]);
+      await ifTable("player_session_reflections",
+        `DELETE FROM player_session_reflections WHERE player_id = $1`, [id]);
+      await ifTable("player_monthly_assessments",
+        `DELETE FROM player_monthly_assessments WHERE player_id = $1`, [id]);
+      await ifTable("player_match_readiness",
+        `DELETE FROM player_match_readiness WHERE player_id = $1`, [id]);
+      await ifTable("player_ai_training_plans",
+        `DELETE FROM player_ai_training_plans WHERE player_id = $1`, [id]);
+      await ifTable("player_monthly_reports",
+        `DELETE FROM player_monthly_reports WHERE player_id = $1`, [id]);
+      await ifTable("session_ratings",
+        `DELETE FROM session_ratings WHERE player_id = $1`, [id]);
+      await ifTable("session_intake_data",
+        `DELETE FROM session_intake_data WHERE player_id = $1`, [id]);
+
+      // Spotlight winners & nominations (both sides for nominations).
+      await ifTable("spotlight_weekly_winners",
+        `DELETE FROM spotlight_weekly_winners WHERE player_id = $1`, [id]);
+      await ifTable("spotlight_monthly_winners",
+        `DELETE FROM spotlight_monthly_winners WHERE player_id = $1`, [id]);
+      await ifTable("spotlight_nominations",
+        `DELETE FROM spotlight_nominations WHERE nominator_player_id = $1 OR nominated_player_id = $1`,
+        [id]);
+
+      // Family invite codes — clear both parent + used-by sides.
+      await ifTable("family_invite_codes",
+        `DELETE FROM family_invite_codes WHERE parent_player_id = $1 OR used_by_player_id = $1`,
+        [id]);
+
+      // Push tokens — bound to the player's device + user account.
+      await ifTable("push_device_tokens",
+        `DELETE FROM push_device_tokens WHERE player_id = $1`, [id]);
+
+      // Quest chain bonus claims — gamification artifacts.
+      await ifTable("quest_chain_bonus_claims",
+        `DELETE FROM quest_chain_bonus_claims WHERE player_id = $1`, [id]);
 
       // ---------------------------------------------------------------
       // Batch A: Pure leaf tables — no other table FKs reference them
@@ -2656,8 +2767,9 @@ export const storage = {
         )
       );
       await db.delete(shopOrders).where(eq(shopOrders.playerId, id));
-      // Legacy V1 `packages` removed (Task #692 step 2). V2 cleanup runs at the
-      // top of this function; the inert V1 table is no longer touched.
+      // Legacy V1 billing (`packages`, `credit_transactions`) is handled in
+      // the existence-guarded Task #904 block near the top of this function;
+      // V2 cleanup runs there too. Nothing to do here.
 
       // Update users table to unlink the player
       await db.update(users).set({ playerId: null }).where(eq(users.playerId, id));
