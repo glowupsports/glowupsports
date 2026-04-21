@@ -265,6 +265,7 @@ export default function PlayerScheduleScreen() {
   // Modals / sheets
   const [sportPickerDestination, setSportPickerDestination] = useState<"LessonBooking" | "CourtBooking" | "OpenMatches">("OpenMatches");
   const [showMonthModal, setShowMonthModal] = useState(false);
+  const [showSportPickerModal, setShowSportPickerModal] = useState(false);
   const [monthCursor, setMonthCursor] = useState(new Date());
   const [showBookSheet, setShowBookSheet] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
