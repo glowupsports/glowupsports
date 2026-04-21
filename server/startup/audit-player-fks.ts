@@ -50,6 +50,7 @@ const KNOWN_PLAYER_FK_TABLES: ReadonlySet<string> = new Set([
   // Credit Engine V2 + legacy V1
   "credit_lots",
   "credit_ledger_v2",
+  "credit_shadow_diff",
   "player_credit_balance",
   "player_money_wallet",
   "packages",
@@ -119,6 +120,7 @@ const KNOWN_PLAYER_FK_TABLES: ReadonlySet<string> = new Set([
   "play_request_participants",
   "match_requests",
   "court_bookings",
+  "slot_reservations",
   "live_matches",
   "matches",
   "match_opponents",

@@ -1513,6 +1513,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await client.query(`UPDATE invoices SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE payments SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 
+          // Task #906: credit_shadow_diff — diagnostic log from the shadow-mode
+          // credit engine runner. Immutable per-player audit trail, no unique
+          // constraint on player_id, so straight UPDATE is safe. Transfer to
+          // keep the target's shadow-diff history consistent after merge.
+          await ifTable("credit_shadow_diff",
+            `UPDATE credit_shadow_diff SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
           // Core coaching records
           await client.query(`UPDATE player_notes SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE player_subscriptions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
@@ -1865,6 +1872,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           // Quest chain bonus claims are gamification artifacts; drop source's.
           await ifTable("quest_chain_bonus_claims",
             `DELETE FROM quest_chain_bonus_claims WHERE player_id = $1`, [sourceId]);
+
+          // Task #906: slot_reservations — ephemeral 5-min TTL holds on court
+          // slots. NEVER transfer (would resurrect a stale hold on the target);
+          // just drop the source's outstanding holds.
+          await ifTable("slot_reservations",
+            `DELETE FROM slot_reservations WHERE player_id = $1`, [sourceId]);
 
           // Spotlight nominations: drop both sides
           // (UNIQUE(nominator, week_start) means transfer would conflict).

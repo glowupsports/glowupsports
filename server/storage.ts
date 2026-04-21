@@ -2543,6 +2543,16 @@ export const storage = {
       await ifTable("quest_chain_bonus_claims",
         `DELETE FROM quest_chain_bonus_claims WHERE player_id = $1`, [id]);
 
+      // Task #906: credit_shadow_diff — diagnostic log from the shadow-mode
+      // credit engine runner. Per-player history, drop on delete.
+      await ifTable("credit_shadow_diff",
+        `DELETE FROM credit_shadow_diff WHERE player_id = $1`, [id]);
+
+      // Task #906: slot_reservations — ephemeral 5-min TTL holds. Drop any
+      // outstanding holds so the player row can be deleted.
+      await ifTable("slot_reservations",
+        `DELETE FROM slot_reservations WHERE player_id = $1`, [id]);
+
       // ---------------------------------------------------------------
       // Batch A: Pure leaf tables — no other table FKs reference them
       // ---------------------------------------------------------------
