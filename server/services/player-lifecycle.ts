@@ -154,57 +154,56 @@ export async function deletePlayerWithUserWipe(
 }
 
 /**
- * Used after a merge: the source player row has already been deleted, so
- * we just need to wipe the source's linked user account(s) with the same
- * safety checks.
+ * Used after a merge: wipes the source user row directly by user id. The
+ * caller captures `sourceUser.id` BEFORE running the merge transaction
+ * (the transaction nulls `users.player_id`, so lookup by player_id is
+ * unreliable afterwards, and the source player row no longer exists).
+ * Applies the same role + family-lobby safety checks. `sourcePlayerId`
+ * is only used to scope the family-lobby check; no re-linking occurs.
  */
 export async function wipeLinkedUserAfterMerge(
+  sourceUserId: string,
   sourcePlayerId: string,
 ): Promise<{ userCleanupError: string | null; wipedUserIds: string[]; keptUserIds: string[] }> {
-  // The source player row is already gone, so users.player_id = sourceId
-  // will no longer find them unless the merge intentionally detached the
-  // link first. Callers should pass the sourceId they captured BEFORE
-  // running the merge.
-  const linkedUsers = await pool.query<{
+  const r = await pool.query<{
     id: string;
     role: string | null;
     coach_id: string | null;
     academy_id: string | null;
-    player_id: string | null;
   }>(
-    `SELECT id, role, coach_id, academy_id, player_id FROM users WHERE player_id = $1`,
-    [sourcePlayerId],
+    `SELECT id, role, coach_id, academy_id FROM users WHERE id = $1`,
+    [sourceUserId],
   );
 
   const wipedUserIds: string[] = [];
   const keptUserIds: string[] = [];
   let userCleanupError: string | null = null;
 
-  for (const u of linkedUsers.rows) {
-    const isPlayerOnly =
-      !u.coach_id && !u.academy_id && (u.role === "player" || !u.role);
-    if (!isPlayerOnly) {
-      keptUserIds.push(u.id);
-      continue;
-    }
-    if (await userHasOtherChildren(u.id, sourcePlayerId)) {
-      keptUserIds.push(u.id);
-      continue;
-    }
-    try {
-      await wipeUserRow(u.id);
-      wipedUserIds.push(u.id);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      userCleanupError = userCleanupError
-        ? `${userCleanupError}; ${u.id}: ${msg}`
-        : `${u.id}: ${msg}`;
-      console.error(
-        `[PlayerLifecycle] could not wipe source user ${u.id} after merge of ${sourcePlayerId}:`,
-        err,
-      );
-    }
+  const u = r.rows[0];
+  if (!u) {
+    return { userCleanupError: null, wipedUserIds, keptUserIds };
   }
 
+  const isPlayerOnly =
+    !u.coach_id && !u.academy_id && (u.role === "player" || !u.role);
+  if (!isPlayerOnly) {
+    keptUserIds.push(u.id);
+    return { userCleanupError: null, wipedUserIds, keptUserIds };
+  }
+  if (await userHasOtherChildren(u.id, sourcePlayerId)) {
+    keptUserIds.push(u.id);
+    return { userCleanupError: null, wipedUserIds, keptUserIds };
+  }
+  try {
+    await wipeUserRow(u.id);
+    wipedUserIds.push(u.id);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    userCleanupError = `${u.id}: ${msg}`;
+    console.error(
+      `[PlayerLifecycle] could not wipe source user ${u.id} after merge of ${sourcePlayerId}:`,
+      err,
+    );
+  }
   return { userCleanupError, wipedUserIds, keptUserIds };
 }

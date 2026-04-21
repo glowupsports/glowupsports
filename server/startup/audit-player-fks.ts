@@ -239,6 +239,12 @@ export async function auditPlayerForeignKeys(timeoutMs = 1500): Promise<void> {
         `  → Update storage.deletePlayer in server/storage.ts (FK-ordered batches)\n` +
         `  → Then add the table name(s) to KNOWN_PLAYER_FK_TABLES in server/startup/audit-player-fks.ts (${elapsed}ms)`
     );
+    // Task #909 — explicit [DeleteAudit] MISSING tripwire so a grep for the
+    // delete path doesn't silently miss the warning emitted under the
+    // [PlayerFKAudit] banner.
+    console.warn(
+      `[DeleteAudit] MISSING — storage.deletePlayer does not handle: ${unknown.join(", ")}`
+    );
   } catch (err) {
     // Swallow — this watchdog must never fail boot.
     console.warn(

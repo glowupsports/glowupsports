@@ -1925,19 +1925,14 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         let mergeUserCleanup: Awaited<ReturnType<typeof wipeLinkedUserAfterMerge>> | null = null;
         if (sourceUser && targetUser) {
           try {
-            // The transaction nulled users.player_id for the source user,
-            // so wipeLinkedUserAfterMerge() can't find them via player_id.
-            // Re-link transiently so the shared helper picks them up, then
-            // wipe. If anything throws, log and move on.
-            await db
-              .update(users)
-              .set({ playerId: sourceId })
-              .where(eq(users.id, sourceUser.id));
-            // sourceId's players row is already gone, so player_id points
-            // at a non-existent row. That's OK — we only use player_id to
-            // discover the user; the FK is checked on INSERT/UPDATE of
-            // users.player_id but no FK exists in the other direction.
-            mergeUserCleanup = await wipeLinkedUserAfterMerge(sourceId);
+            // Call the wipe helper directly by user id. We captured
+            // sourceUser.id before the merge, so we don't need to look it
+            // up via the now-nulled users.player_id. sourcePlayerId is
+            // passed only to scope the family-lobby safety check.
+            mergeUserCleanup = await wipeLinkedUserAfterMerge(
+              sourceUser.id,
+              sourceId,
+            );
           } catch (err) {
             console.error("[MergePlayers] source user wipe failed:", err);
             mergeUserCleanup = {
