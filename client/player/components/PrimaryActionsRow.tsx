@@ -5,12 +5,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery } from "@tanstack/react-query";
 
 import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface PrimaryActionsRowProps {
   firstName?: string | null;
+  playerId?: string | null;
+  activeSport?: string;
+  playerAcademyId?: string | null;
   onBook: () => void;
   onTrain: () => void;
   onCompete: () => void;
@@ -106,10 +110,29 @@ interface Tile {
   icon: FeatherName;
   onPress: () => void;
   accessibilityLabel: string;
+  badge?: string | null;
 }
+
+interface OpenMatchLite {
+  id: string;
+  hostPlayerId?: string;
+  scheduledTime?: string;
+  currentPlayers: number;
+  maxPlayers: number;
+}
+
+interface NearbyPlayerLite {
+  id: string;
+  lastOnlineAt?: string | null;
+}
+
+const RECENT_ACTIVE_WINDOW_MS = 30 * 60 * 1000;
 
 export function PrimaryActionsRow({
   firstName,
+  playerId,
+  activeSport = "tennis",
+  playerAcademyId,
   onBook,
   onTrain,
   onCompete,
@@ -192,6 +215,49 @@ export function PrimaryActionsRow({
     daysSinceLastVisit,
   ]);
 
+  // Reuse the same cache key as OpenMatchesRow so a single fetch powers both.
+  const { data: openMatches } = useQuery<OpenMatchLite[]>({
+    queryKey: ["/api/open-matches"],
+    enabled: !!playerId,
+    staleTime: 60 * 1000,
+  });
+
+  // Mirror the exact key construction used by PlayScreen so the badge shares
+  // the same react-query cache entry — no duplicate network round-trip when
+  // the player navigates between Home and Play.
+  const effectiveScope = playerAcademyId ? "mine" : "all";
+  const nearbyKey = `/api/play/nearby-players?sport=${activeSport}&travelTime=true&scope=${effectiveScope}`;
+  const { data: nearbyPlayers } = useQuery<NearbyPlayerLite[]>({
+    queryKey: [nearbyKey],
+    enabled: !!playerId,
+    staleTime: 60 * 1000,
+  });
+
+  const competeCount = React.useMemo(() => {
+    if (!Array.isArray(openMatches)) return 0;
+    const nowMs = Date.now();
+    return openMatches.filter((m) => {
+      if (m.hostPlayerId && playerId && m.hostPlayerId === playerId) return false;
+      if ((m.currentPlayers ?? 0) >= (m.maxPlayers ?? 0)) return false;
+      if (m.scheduledTime) {
+        const ts = new Date(m.scheduledTime).getTime();
+        if (Number.isFinite(ts) && ts <= nowMs) return false;
+      }
+      return true;
+    }).length;
+  }, [openMatches, playerId]);
+
+  const findCount = React.useMemo(() => {
+    if (!Array.isArray(nearbyPlayers)) return 0;
+    const nowMs = Date.now();
+    return nearbyPlayers.filter((p) => {
+      if (!p.lastOnlineAt) return false;
+      const ts = new Date(p.lastOnlineAt).getTime();
+      if (!Number.isFinite(ts)) return false;
+      return nowMs - ts <= RECENT_ACTIVE_WINDOW_MS;
+    }).length;
+  }, [nearbyPlayers]);
+
   const tiles: Tile[] = [
     {
       key: "book",
@@ -212,14 +278,20 @@ export function PrimaryActionsRow({
       label: t("player.home.primaryActionCompete"),
       icon: "zap",
       onPress: onCompete,
-      accessibilityLabel: t("player.home.primaryActionCompete"),
+      accessibilityLabel: competeCount > 0
+        ? `${t("player.home.primaryActionCompete")}, ${competeCount}`
+        : t("player.home.primaryActionCompete"),
+      badge: competeCount > 0 ? String(competeCount) : null,
     },
     {
       key: "find",
       label: t("player.home.primaryActionFindMatch"),
       icon: "users",
       onPress: onFindMatch,
-      accessibilityLabel: t("player.home.primaryActionFindMatch"),
+      accessibilityLabel: findCount > 0
+        ? `${t("player.home.primaryActionFindMatch")}, ${findCount}`
+        : t("player.home.primaryActionFindMatch"),
+      badge: findCount > 0 ? String(findCount) : null,
     },
   ];
 
@@ -253,6 +325,13 @@ export function PrimaryActionsRow({
             >
               <View style={styles.iconWrap}>
                 <Feather name={tile.icon} size={20} color={GlowColors.primary} />
+                {tile.badge ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText} numberOfLines={1}>
+                      {tile.badge}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 {tile.label}
@@ -311,6 +390,26 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
     borderWidth: 1,
     borderColor: "rgba(200,255,61,0.40)",
+  },
+  badge: {
+    position: "absolute",
+    top: -6,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    backgroundColor: GlowColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#000",
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#000",
+    letterSpacing: 0.2,
   },
   label: {
     fontSize: 11,

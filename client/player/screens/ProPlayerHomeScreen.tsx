@@ -1205,6 +1205,14 @@ function PlayerHomeContent() {
   const { guardAction, promptProps } = useGuestGuard();
   const { isMultiSport, activeSports, activeSport } = useSport();
   const { state: playerState } = usePlayerState();
+  // Shares cache key with PlayScreen so the home tile counts can mirror the
+  // exact scope (mine vs. all) used by the live player feed.
+  const { data: homeProfileData } = useQuery<{ academy?: { id: string; name: string } | null }>({
+    queryKey: ["/api/player/me/profile"],
+    enabled: !!user?.playerId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const homePlayerAcademyId = homeProfileData?.academy?.id ?? null;
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
@@ -1591,6 +1599,9 @@ function PlayerHomeContent() {
         {/* GREETING + PRIMARY ACTIONS — first visible anchor: "what do I do right now?" */}
         <PrimaryActionsRow
           firstName={player.name}
+          playerId={user?.playerId}
+          activeSport={activeSport}
+          playerAcademyId={homePlayerAcademyId}
           nextSessionDate={effectiveData?.nextSession?.date ?? null}
           nextSessionEndTime={effectiveData?.nextSession?.endTime ?? null}
           onBook={handleBookLesson}
