@@ -2349,11 +2349,38 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/player/groups/${groupId}`),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
+      queryClient.removeQueries({ queryKey: [`/api/player/groups/${groupId}`] });
+      queryClient.removeQueries({ queryKey: [`/api/player/groups/${groupId}/feed`] });
+      navigation.goBack();
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to delete group");
+    },
+  });
+
   const handleLeave = () => {
     Alert.alert("Leave Group", `Leave "${groupName}"?`, [
       { text: "Cancel", style: "cancel" },
       { text: "Leave", style: "destructive", onPress: () => leaveMutation.mutate() },
     ]);
+  };
+
+  const handleDelete = () => {
+    const name = data?.group.name || groupName;
+    Alert.alert(
+      "Delete Group",
+      `Permanently delete "${name}"? This removes the group, its posts, events, and chat for everyone. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate() },
+      ],
+    );
   };
 
   const handleInvite = async () => {
@@ -2377,6 +2404,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     const options: Array<{ text: string; style?: "destructive" | "cancel"; onPress?: () => void }> = [];
     if (isMember) options.push({ text: "Invite to Group", onPress: handleInvite });
     if (isMember && !isAdmin) options.push({ text: "Leave Group", style: "destructive", onPress: handleLeave });
+    if (isMember && isAdmin) options.push({ text: "Delete Group", style: "destructive", onPress: handleDelete });
     options.push({ text: "Cancel", style: "cancel" });
     Alert.alert(data?.group.name || groupName, undefined, options);
   };

@@ -44,6 +44,8 @@ import { deletePlayerWithUserWipe } from "../services/player-lifecycle";
     postComments as postCommentsTable, commentLikes as commentLikesTable,
     communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
     groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable,
+    conversations as conversationsTable, conversationParticipants as conversationParticipantsTable,
+    messages as messagesTable, messageReactions as messageReactionsTable,
     openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
     questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
     dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
@@ -2934,6 +2936,118 @@ import fs from "fs";
       } catch (error) {
         console.error("Error leaving group:", error);
         res.status(500).json({ error: "Failed to leave group" });
+      }
+    },
+  );
+
+  // Delete a group (admin only) — hard-deletes the group and all related rows
+  router.delete(
+    "/api/player/groups/:groupId",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId } = req.params;
+        const userId = req.user!.userId!;
+
+        // Verify caller is an admin of the group
+        const [membership] = await db
+          .select()
+          .from(groupMembersTable)
+          .where(
+            and(
+              eq(groupMembersTable.groupId, groupId),
+              eq(groupMembersTable.userId, userId),
+            ),
+          );
+
+        if (!membership) {
+          return res.status(404).json({ error: "Group not found" });
+        }
+        if (membership.role !== "admin") {
+          return res.status(403).json({ error: "Only group admins can delete the group" });
+        }
+
+        // Confirm group exists
+        const [group] = await db
+          .select()
+          .from(communityGroupsTable)
+          .where(eq(communityGroupsTable.id, groupId));
+        if (!group) {
+          return res.status(404).json({ error: "Group not found" });
+        }
+
+        await db.transaction(async (tx) => {
+          // 1. Delete posts (post_reactions, post_comments and comment_likes
+          // cascade via FK onDelete: "cascade").
+          await tx.delete(postsTable).where(eq(postsTable.groupId, groupId));
+
+          // 2. Delete group event RSVPs then events
+          const eventRows = await tx
+            .select({ id: groupEventsTable.id })
+            .from(groupEventsTable)
+            .where(eq(groupEventsTable.groupId, groupId));
+          const eventIds = eventRows.map((e) => e.id);
+          if (eventIds.length > 0) {
+            await tx
+              .delete(groupEventRsvpsTable)
+              .where(inArray(groupEventRsvpsTable.eventId, eventIds));
+            await tx
+              .delete(groupEventsTable)
+              .where(inArray(groupEventsTable.id, eventIds));
+          }
+
+          // 3. Delete group chat conversation(s) — message reactions, messages,
+          // participants, then conversation. Group conversations are linked
+          // by type='group' AND title=groupId.
+          const convRows = await tx
+            .select({ id: conversationsTable.id })
+            .from(conversationsTable)
+            .where(
+              and(
+                eq(conversationsTable.type, "group"),
+                eq(conversationsTable.title, groupId),
+              ),
+            );
+          const convIds = convRows.map((c) => c.id);
+          if (convIds.length > 0) {
+            const msgRows = await tx
+              .select({ id: messagesTable.id })
+              .from(messagesTable)
+              .where(inArray(messagesTable.conversationId, convIds));
+            const msgIds = msgRows.map((m) => m.id);
+            if (msgIds.length > 0) {
+              await tx
+                .delete(messageReactionsTable)
+                .where(inArray(messageReactionsTable.messageId, msgIds));
+              await tx
+                .delete(messagesTable)
+                .where(inArray(messagesTable.id, msgIds));
+            }
+            await tx
+              .delete(conversationParticipantsTable)
+              .where(inArray(conversationParticipantsTable.conversationId, convIds));
+            await tx
+              .delete(conversationsTable)
+              .where(inArray(conversationsTable.id, convIds));
+          }
+
+          // 4. Delete group memberships
+          await tx
+            .delete(groupMembersTable)
+            .where(eq(groupMembersTable.groupId, groupId));
+
+          // 5. Finally, delete the group itself
+          await tx
+            .delete(communityGroupsTable)
+            .where(eq(communityGroupsTable.id, groupId));
+        });
+
+        res.json({ success: true, message: "Group deleted" });
+      } catch (error) {
+        console.error("Error deleting group:", error);
+        res.status(500).json({ error: "Failed to delete group" });
       }
     },
   );
