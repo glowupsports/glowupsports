@@ -686,12 +686,17 @@
         "cancelConfirmTitle": "Batalkan liburan?",
         "cancelConfirmBody": "Apakah Anda yakin ingin membatalkan periode liburan ini? Pelajaran akan dilanjutkan.",
         "modalTitle": "Nyatakan liburan",
+        "modalTitleEdit": "Edit liburan",
         "save": "Simpan",
+        "saveChanges": "Simpan perubahan",
         "saveError": "Tidak dapat menyimpan liburan.",
         "missingDatesTitle": "Tanggal kurang",
         "missingDatesBody": "Silakan pilih tanggal mulai dan tanggal akhir.",
         "invalidDatesTitle": "Tanggal tidak valid",
-        "invalidDatesBody": "Tanggal akhir harus setelah tanggal mulai."
+        "invalidDatesBody": "Tanggal akhir harus setelah tanggal mulai.",
+        "activeShortenError": "Liburan yang sedang berlangsung hanya dapat diperpanjang, tidak dapat dipersingkat.",
+        "activeStartLockedNote": "Liburan ini sudah dimulai, jadi tanggal mulai dikunci. Anda dapat memperpanjang tanggal akhir.",
+        "editAccessibility": "Edit liburan"
       },
       "yourTitles": "Gelar Anda",
       "noTitlesYet": "Belum ada gelar terbuka",

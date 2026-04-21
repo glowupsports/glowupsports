@@ -721,12 +721,17 @@
         "cancelConfirmTitle": "Vakantie annuleren?",
         "cancelConfirmBody": "Weet je zeker dat je deze vakantieperiode wilt annuleren? Lessen worden weer hervat.",
         "modalTitle": "Vakantie opgeven",
+        "modalTitleEdit": "Vakantie bewerken",
         "save": "Opslaan",
+        "saveChanges": "Wijzigingen opslaan",
         "saveError": "Vakantie kon niet worden opgeslagen.",
         "missingDatesTitle": "Datums ontbreken",
         "missingDatesBody": "Selecteer zowel een begin- als een einddatum.",
         "invalidDatesTitle": "Ongeldige datums",
-        "invalidDatesBody": "Einddatum moet na de begindatum liggen."
+        "invalidDatesBody": "Einddatum moet na de begindatum liggen.",
+        "activeShortenError": "Een lopende vakantie kan alleen worden verlengd, niet ingekort.",
+        "activeStartLockedNote": "Deze vakantie is al begonnen, dus de startdatum staat vast. Je kunt de einddatum verlengen.",
+        "editAccessibility": "Vakantie bewerken"
       },
       "yourTitles": "Your Titles",
       "noTitlesYet": "No titles unlocked yet",

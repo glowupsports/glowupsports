@@ -4550,6 +4550,28 @@ export const storage = {
     return result[0];
   },
 
+  async updatePlayerHoliday(
+    id: string,
+    data: { startDate?: string; endDate?: string },
+  ): Promise<PlayerHoliday | undefined> {
+    const updates: Record<string, unknown> = {};
+    if (data.startDate !== undefined) updates.startDate = data.startDate;
+    if (data.endDate !== undefined) updates.endDate = data.endDate;
+    if (Object.keys(updates).length === 0) {
+      const existing = await db
+        .select()
+        .from(playerHolidays)
+        .where(eq(playerHolidays.id, id));
+      return existing[0];
+    }
+    const result = await db
+      .update(playerHolidays)
+      .set(updates)
+      .where(eq(playerHolidays.id, id))
+      .returning();
+    return result[0];
+  },
+
   // ==================== SESSION FEEDBACK ====================
   async getSessionFeedback(sessionId: string): Promise<SessionFeedback | undefined> {
     const result = await db.select().from(sessionFeedback).where(eq(sessionFeedback.sessionId, sessionId));

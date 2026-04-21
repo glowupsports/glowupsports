@@ -686,12 +686,17 @@
         "cancelConfirmTitle": "إلغاء الإجازة؟",
         "cancelConfirmBody": "هل أنت متأكد من إلغاء فترة الإجازة هذه؟ سيتم استئناف الدروس.",
         "modalTitle": "الإعلان عن إجازة",
+        "modalTitleEdit": "تعديل الإجازة",
         "save": "حفظ",
+        "saveChanges": "حفظ التغييرات",
         "saveError": "تعذّر حفظ الإجازة.",
         "missingDatesTitle": "تواريخ مفقودة",
         "missingDatesBody": "يرجى تحديد تاريخي البداية والنهاية.",
         "invalidDatesTitle": "تواريخ غير صالحة",
-        "invalidDatesBody": "يجب أن يكون تاريخ النهاية بعد تاريخ البداية."
+        "invalidDatesBody": "يجب أن يكون تاريخ النهاية بعد تاريخ البداية.",
+        "activeShortenError": "يمكن تمديد الإجازة الجارية فقط، ولا يمكن تقصيرها.",
+        "activeStartLockedNote": "بدأت هذه الإجازة بالفعل، لذا فإن تاريخ البداية ثابت. يمكنك تمديد تاريخ النهاية.",
+        "editAccessibility": "تعديل الإجازة"
       },
       "yourTitles": "ألقابك",
       "noTitlesYet": "لا توجد ألقاب مفتوحة بعد",

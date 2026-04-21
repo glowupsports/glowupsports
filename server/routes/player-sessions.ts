@@ -971,6 +971,108 @@ import fs from "fs";
     },
   );
 
+  // Edit an existing player vacation
+  router.patch(
+    "/api/player/me/vacation/:id",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const { startDate, endDate } = req.body as {
+          startDate?: string;
+          endDate?: string;
+        };
+        const playerId = req.user!.playerId;
+
+        if (!playerId) {
+          return res.status(400).json({ error: "Player profile required" });
+        }
+
+        if (!startDate && !endDate) {
+          return res
+            .status(400)
+            .json({ error: "Provide a startDate and/or endDate to update" });
+        }
+
+        // Verify this vacation belongs to the player
+        const holidays = await storage.getPlayerHolidays(playerId);
+        const holiday = holidays.find((h) => h.id === id);
+
+        if (!holiday) {
+          return res.status(404).json({ error: "Vacation not found" });
+        }
+
+        const now = new Date();
+        const currentStart = new Date(holiday.startDate);
+        const currentEnd = new Date(holiday.endDate);
+        const isActive = now >= currentStart && now <= currentEnd;
+
+        const nextStart = startDate ? new Date(startDate) : currentStart;
+        const nextEnd = endDate ? new Date(endDate) : currentEnd;
+
+        if (isNaN(nextStart.getTime()) || isNaN(nextEnd.getTime())) {
+          return res.status(400).json({ error: "Invalid dates" });
+        }
+
+        if (nextEnd < nextStart) {
+          return res
+            .status(400)
+            .json({ error: "End date must be after start date" });
+        }
+
+        // Active vacations: start date is locked, end date can only be extended
+        if (isActive) {
+          if (
+            startDate &&
+            new Date(startDate).getTime() !== currentStart.getTime()
+          ) {
+            return res.status(400).json({
+              error: "Cannot change the start date of an active vacation",
+            });
+          }
+          if (nextEnd < currentEnd) {
+            return res.status(400).json({
+              error:
+                "An active vacation can only be extended, not shortened",
+            });
+          }
+        }
+
+        // Maximum vacation length (90 days)
+        const daysDiff =
+          (nextEnd.getTime() - nextStart.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysDiff > 90) {
+          return res
+            .status(400)
+            .json({ error: "Vacation cannot exceed 90 days" });
+        }
+
+        const updated = await storage.updatePlayerHoliday(id, {
+          startDate: isActive ? undefined : startDate,
+          endDate,
+        });
+
+        if (!updated) {
+          return res.status(500).json({ error: "Failed to update vacation" });
+        }
+
+        res.json({
+          success: true,
+          message: "Vacation updated.",
+          vacation: {
+            id: updated.id,
+            startDate: updated.startDate,
+            endDate: updated.endDate,
+          },
+        });
+      } catch (error) {
+        console.error("Error updating vacation:", error);
+        res.status(500).json({ error: "Failed to update vacation" });
+      }
+    },
+  );
+
   // Cancel/delete player vacation
   router.delete(
     "/api/player/me/vacation/:id",

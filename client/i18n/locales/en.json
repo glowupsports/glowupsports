@@ -721,12 +721,17 @@
         "cancelConfirmTitle": "Cancel vacation?",
         "cancelConfirmBody": "Are you sure you want to cancel this vacation period? Lessons will resume.",
         "modalTitle": "Declare a vacation",
+        "modalTitleEdit": "Edit vacation",
         "save": "Save",
+        "saveChanges": "Save changes",
         "saveError": "Could not save vacation.",
         "missingDatesTitle": "Missing dates",
         "missingDatesBody": "Please select both start and end dates.",
         "invalidDatesTitle": "Invalid dates",
-        "invalidDatesBody": "End date must be after start date."
+        "invalidDatesBody": "End date must be after start date.",
+        "activeShortenError": "An active vacation can only be extended, not shortened.",
+        "activeStartLockedNote": "This vacation has already started, so the start date is locked. You can extend the end date.",
+        "editAccessibility": "Edit vacation"
       },
       "yourTitles": "Your Titles",
       "noTitlesYet": "No titles unlocked yet",

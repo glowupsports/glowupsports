@@ -25,8 +25,8 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface VacationData {
   active: boolean;
-  activeVacation?: { id: string; startDate: string; endDate: string };
-  upcomingVacation?: { id: string; startDate: string; endDate: string };
+  currentVacation?: { id: string; startDate: string; endDate: string } | null;
+  upcomingVacation?: { id: string; startDate: string; endDate: string } | null;
   holidays: Array<{ id: string; startDate: string; endDate: string }>;
 }
 
@@ -49,6 +49,9 @@ export default function PlayerHolidaysScreen() {
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingIsActive, setEditingIsActive] = useState(false);
+  const [editingOriginalEnd, setEditingOriginalEnd] = useState<Date | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -64,14 +67,37 @@ export default function PlayerHolidaysScreen() {
     queryKey: ["/api/player/me/vacation"],
   });
 
+  const resetForm = () => {
+    setShowModal(false);
+    setStartDate(null);
+    setEndDate(null);
+    setEditingId(null);
+    setEditingIsActive(false);
+    setEditingOriginalEnd(null);
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: { startDate: string; endDate: string }) =>
       apiRequest("POST", "/api/player/me/vacation", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
-      setShowModal(false);
-      setStartDate(null);
-      setEndDate(null);
+      resetForm();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: any) => {
+      Alert.alert(t("common.error"), err?.message || t("player.profile.holidays.saveError"));
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: { id: string; startDate?: string; endDate: string }) =>
+      apiRequest("PATCH", `/api/player/me/vacation/${data.id}`, {
+        startDate: data.startDate,
+        endDate: data.endDate,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      resetForm();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: any) => {
@@ -96,10 +122,38 @@ export default function PlayerHolidaysScreen() {
       Alert.alert(t("player.profile.holidays.invalidDatesTitle"), t("player.profile.holidays.invalidDatesBody"));
       return;
     }
+    if (editingId) {
+      if (editingIsActive && editingOriginalEnd && endDate < editingOriginalEnd) {
+        Alert.alert(
+          t("player.profile.holidays.invalidDatesTitle"),
+          t("player.profile.holidays.activeShortenError"),
+        );
+        return;
+      }
+      updateMutation.mutate({
+        id: editingId,
+        startDate: editingIsActive ? undefined : startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      });
+      return;
+    }
     createMutation.mutate({
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     });
+  };
+
+  const handleEdit = (h: { id: string; startDate: string; endDate: string }) => {
+    const isActive = vacationData?.currentVacation?.id === h.id;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditingId(h.id);
+    setEditingIsActive(isActive);
+    const start = new Date(h.startDate);
+    const end = new Date(h.endDate);
+    setStartDate(start);
+    setEndDate(end);
+    setEditingOriginalEnd(isActive ? end : null);
+    setShowModal(true);
   };
 
   const handleCancel = (id: string) => {
@@ -145,9 +199,15 @@ export default function PlayerHolidaysScreen() {
         ) : (
           <View style={{ gap: Spacing.sm }}>
             {holidays.map((h) => {
-              const isActive = vacationData?.activeVacation?.id === h.id;
+              const isActive = vacationData?.currentVacation?.id === h.id;
               return (
-                <View key={h.id} style={styles.holidayRow}>
+                <Pressable
+                  key={h.id}
+                  style={styles.holidayRow}
+                  onPress={() => handleEdit(h)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("player.profile.holidays.editAccessibility")}
+                >
                   <View
                     style={[
                       styles.holidayIcon,
@@ -166,14 +226,21 @@ export default function PlayerHolidaysScreen() {
                       {formatDate(h.startDate)} – {formatDate(h.endDate)}
                     </Text>
                   </View>
+                  <Feather
+                    name="edit-2"
+                    size={16}
+                    color={TextColors.secondary}
+                    style={{ marginRight: Spacing.xs }}
+                  />
                   <Pressable
                     style={styles.cancelButton}
                     onPress={() => handleCancel(h.id)}
                     disabled={cancelMutation.isPending}
+                    hitSlop={8}
                   >
                     <Feather name="x" size={18} color="#FF4D4D" />
                   </Pressable>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -183,6 +250,11 @@ export default function PlayerHolidaysScreen() {
           style={styles.addButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setEditingId(null);
+            setEditingIsActive(false);
+            setEditingOriginalEnd(null);
+            setStartDate(null);
+            setEndDate(null);
             setShowModal(true);
           }}
         >
@@ -202,13 +274,17 @@ export default function PlayerHolidaysScreen() {
         visible={showModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={resetForm}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t("player.profile.holidays.modalTitle")}</Text>
-              <Pressable onPress={() => setShowModal(false)}>
+              <Text style={styles.modalTitle}>
+                {editingId
+                  ? t("player.profile.holidays.modalTitleEdit")
+                  : t("player.profile.holidays.modalTitle")}
+              </Text>
+              <Pressable onPress={resetForm}>
                 <Feather name="x" size={24} color={TextColors.primary} />
               </Pressable>
             </View>
@@ -220,8 +296,25 @@ export default function PlayerHolidaysScreen() {
               {t("player.schedule.lessonsWillBePaused")}
             </Text>
 
-            <Pressable style={styles.datePickerButton} onPress={() => setShowStartPicker(true)}>
-              <Feather name="calendar" size={18} color="#00E5FF" />
+            {editingIsActive ? (
+              <Text style={styles.activeNote}>
+                {t("player.profile.holidays.activeStartLockedNote")}
+              </Text>
+            ) : null}
+
+            <Pressable
+              style={[styles.datePickerButton, editingIsActive && { opacity: 0.5 }]}
+              onPress={() => {
+                if (editingIsActive) return;
+                setShowStartPicker(true);
+              }}
+              disabled={editingIsActive}
+            >
+              <Feather
+                name={editingIsActive ? "lock" : "calendar"}
+                size={18}
+                color="#00E5FF"
+              />
               <Text style={styles.datePickerLabel}>{t("player.schedule.startDate")}</Text>
               <Text style={styles.datePickerValue}>
                 {startDate
@@ -259,7 +352,11 @@ export default function PlayerHolidaysScreen() {
                 value={endDate || startDate || new Date()}
                 mode="date"
                 display={Platform.OS === "ios" ? "spinner" : "default"}
-                minimumDate={startDate || new Date()}
+                minimumDate={
+                  editingIsActive && editingOriginalEnd
+                    ? editingOriginalEnd
+                    : startDate || new Date()
+                }
                 onChange={(_e, date) => {
                   setShowEndPicker(Platform.OS === "ios");
                   if (date) setEndDate(date);
@@ -271,7 +368,12 @@ export default function PlayerHolidaysScreen() {
             <Pressable
               style={[styles.saveButton, (!startDate || !endDate) && { opacity: 0.5 }]}
               onPress={handleSave}
-              disabled={!startDate || !endDate || createMutation.isPending}
+              disabled={
+                !startDate ||
+                !endDate ||
+                createMutation.isPending ||
+                updateMutation.isPending
+              }
             >
               <LinearGradient
                 colors={[VACATION_BLUE, "#2196F3"]}
@@ -279,12 +381,16 @@ export default function PlayerHolidaysScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.saveButtonGradient}
               >
-                {createMutation.isPending ? (
+                {createMutation.isPending || updateMutation.isPending ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
                     <Feather name="sun" size={18} color="#fff" />
-                    <Text style={styles.saveButtonText}>{t("player.profile.holidays.save")}</Text>
+                    <Text style={styles.saveButtonText}>
+                      {editingId
+                        ? t("player.profile.holidays.saveChanges")
+                        : t("player.profile.holidays.save")}
+                    </Text>
                   </>
                 )}
               </LinearGradient>
@@ -423,6 +529,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
     color: TextColors.secondary,
     marginBottom: Spacing.lg,
+  },
+  activeNote: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: TextColors.primary,
+    backgroundColor: "#FFB347" + "20",
+    borderWidth: 1,
+    borderColor: "#FFB347" + "60",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   datePickerButton: {
     flexDirection: "row",
