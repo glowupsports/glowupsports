@@ -3914,18 +3914,23 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         const seriesLevelMap = new Map<string, string>();
         const seriesPriceMap = new Map<string, number>();
         const seriesSportMap = new Map<string, string>();
-        const seriesIds = [...new Set(academySessions.map(s => (s as any).seriesId).filter(Boolean))];
-        for (const sid of seriesIds) {
+        const seriesIds = [...new Set(academySessions.map(s => (s as any).seriesId).filter(Boolean))] as string[];
+        if (seriesIds.length > 0) {
           try {
-            const series = await storage.getCoachingSeriesById(sid);
-            if (series?.ballLevel) {
-              seriesLevelMap.set(sid, series.ballLevel.toLowerCase());
-            }
-            if ((series as any)?.sessionPrice) {
-              seriesPriceMap.set(sid, Number((series as any).sessionPrice));
-            }
-            if ((series as any)?.sport) {
-              seriesSportMap.set(sid, ((series as any).sport as string).toLowerCase());
+            const seriesRows = await db
+              .select()
+              .from(coachingSeries)
+              .where(inArray(coachingSeries.id, seriesIds));
+            for (const series of seriesRows) {
+              if ((series as any)?.ballLevel) {
+                seriesLevelMap.set(series.id, ((series as any).ballLevel as string).toLowerCase());
+              }
+              if ((series as any)?.sessionPrice) {
+                seriesPriceMap.set(series.id, Number((series as any).sessionPrice));
+              }
+              if ((series as any)?.sport) {
+                seriesSportMap.set(series.id, ((series as any).sport as string).toLowerCase());
+              }
             }
           } catch (e) {}
         }
