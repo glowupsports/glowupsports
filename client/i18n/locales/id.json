@@ -234,6 +234,12 @@
     },
     "home": {
       "welcomeBack": "Selamat datang kembali",
+      "greetingWithName": "Saatnya bermain, {{name}}.",
+      "greetingNoName": "Saatnya bermain.",
+      "primaryActionBook": "Pesan",
+      "primaryActionTrain": "Latihan",
+      "primaryActionCompete": "Bertanding",
+      "primaryActionFindMatch": "Cari lawan",
       "yourSchedule": "Jadwal Anda",
       "upcomingSessions": "Sesi Mendatang",
       "noUpcoming": "Tidak ada sesi mendatang",

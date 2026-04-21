@@ -234,6 +234,12 @@
     },
     "home": {
       "welcomeBack": "مرحبًا بعودتك",
+      "greetingWithName": "حان وقت اللعب يا {{name}}.",
+      "greetingNoName": "حان وقت اللعب.",
+      "primaryActionBook": "احجز",
+      "primaryActionTrain": "تدرّب",
+      "primaryActionCompete": "نافِس",
+      "primaryActionFindMatch": "ابحث عن مباراة",
       "yourSchedule": "جدولك",
       "upcomingSessions": "الجلسات القادمة",
       "noUpcoming": "لا توجد جلسات قادمة",

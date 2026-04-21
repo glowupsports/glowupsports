@@ -251,6 +251,12 @@
     },
     "home": {
       "welcomeBack": "Welcome back",
+      "greetingWithName": "Game time, {{name}}.",
+      "greetingNoName": "Game time.",
+      "primaryActionBook": "Book",
+      "primaryActionTrain": "Train",
+      "primaryActionCompete": "Compete",
+      "primaryActionFindMatch": "Find a match",
       "yourSchedule": "Your Schedule",
       "upcomingSessions": "Upcoming Sessions",
       "noUpcoming": "No upcoming sessions",

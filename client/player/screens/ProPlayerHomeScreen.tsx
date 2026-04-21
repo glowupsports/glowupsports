@@ -19,6 +19,7 @@ import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
+import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
 import { PlayersNearYouRow } from "@/player/components/DiscoveryRows";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
@@ -1586,6 +1587,30 @@ function PlayerHomeContent() {
           />
         }
       >
+        {/* GREETING + PRIMARY ACTIONS — first visible anchor: "what do I do right now?" */}
+        <PrimaryActionsRow
+          firstName={player.name}
+          onBook={handleBookLesson}
+          onTrain={() =>
+            guardAction(() => {
+              navigation.navigate(isFreePlayer ? "AcademyBrowser" : "Training");
+            })
+          }
+          onCompete={() =>
+            guardAction(() => {
+              navigateToTab("PlayStack", { screen: "OpenMatches" });
+            })
+          }
+          onFindMatch={() =>
+            guardAction(() => {
+              navigateToTab("PlayStack", {
+                screen: "Play",
+                params: { initialTab: "Players" },
+              });
+            })
+          }
+        />
+
         {/* BIRTHDAY BANNER - Festive celebration on birthday */}
         {isBirthday && (
           <BirthdayBanner 

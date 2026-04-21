@@ -394,6 +394,10 @@ function PlayScreenWithCallback(props: any) {
   const { registerTabCallback } = useTabNavigation();
   React.useEffect(() => {
     return registerTabCallback("PlayStack", (screen: string, params: any) => {
+      if (screen && screen !== "Play") {
+        navigation.navigate(screen, params);
+        return;
+      }
       if (params?.initialTab) {
         navigation.setParams({ initialTab: params.initialTab });
       }
