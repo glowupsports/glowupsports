@@ -1596,7 +1596,31 @@ function PlayerHomeContent() {
           />
         }
       >
-        {/* GREETING + PRIMARY ACTIONS — first visible anchor: "what do I do right now?" */}
+        {/* PLAYER HEADER - Identity card (compact via #884) sits at the top */}
+        <View style={styles.headerSection}>
+            <ProPlayerCard
+              player={player}
+              credits={credits}
+              academyName={effectiveData?.academy?.name}
+              onAvatarPress={handleAvatarPress}
+              onWalletPress={handleWalletPress}
+              onSquadPress={handleSquadPress}
+              showSquadSwitch={true}
+              onNotificationPress={() => {
+                guardAction(() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("PlayerNotifications");
+                });
+              }}
+              unreadNotificationCount={unreadCount}
+              accessibilityLabel={`Player card for ${player.name}, ${t("player.home.glowLevel")} ${player.level}, ${player.xp} ${t("player.home.xpPoints")}`}
+            />
+          </View>
+
+        {/* PLAYER DNA BANNER - shows profile completion progress, stays close to identity */}
+        {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
+
+        {/* PRIMARY ACTIONS — "what do I do right now?" tiles, directly under the player card */}
         <PrimaryActionsRow
           firstName={player.name}
           playerId={user?.playerId}
@@ -1637,12 +1661,26 @@ function PlayerHomeContent() {
           />
         )}
 
+        {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
+        {isBirthday && <BirthdayXPBonusCard />}
+
         {/* RAMADAN BANNER - Festive celebration during Ramadan */}
         {isRamadan && !isBirthday && !ramadanDismissed && (
           <RamadanBanner playerName={player.name || "Champion"} onDismiss={handleDismissRamadan} />
         )}
 
-        {/* GETTING STARTED CHECKLIST */}
+        {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
+        {isRamadan && !isBirthday && !ramadanDismissed && <RamadanBonusCard onDismiss={handleDismissRamadan} />}
+
+        {/* TENNIS NEWS */}
+        <NewsTicker />
+
+        <HeroCarousel onBookSession={handleBookLesson} />
+
+        {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
+        {!isGuest ? <UpcomingProviderSessionCard /> : null}
+
+        {/* GETTING STARTED CLUSTER - first-week aids, demoted from top */}
         <GettingStartedChecklist
           role="player"
           steps={playerChecklistSteps}
@@ -1654,44 +1692,6 @@ function PlayerHomeContent() {
           role="player"
           features={playerFeatureUsage}
         />
-
-        {/* PLAYER HEADER - Identity card */}
-        <View style={styles.headerSection}>
-            <ProPlayerCard
-              player={player}
-              credits={credits}
-              academyName={effectiveData?.academy?.name}
-              onAvatarPress={handleAvatarPress}
-              onWalletPress={handleWalletPress}
-              onSquadPress={handleSquadPress}
-              showSquadSwitch={true}
-              onNotificationPress={() => {
-                guardAction(() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("PlayerNotifications");
-                });
-              }}
-              unreadNotificationCount={unreadCount}
-              accessibilityLabel={`Player card for ${player.name}, ${t("player.home.glowLevel")} ${player.level}, ${player.xp} ${t("player.home.xpPoints")}`}
-            />
-          </View>
-
-        {/* PLAYER DNA BANNER - shows profile completion progress */}
-        {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
-
-        {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
-        {isBirthday && <BirthdayXPBonusCard />}
-
-        {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
-        {isRamadan && !isBirthday && !ramadanDismissed && <RamadanBonusCard onDismiss={handleDismissRamadan} />}
-
-        {/* TENNIS NEWS - Below header, above Today is Open */}
-        <NewsTicker />
-
-        <HeroCarousel onBookSession={handleBookLesson} />
-
-        {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
-        {!isGuest ? <UpcomingProviderSessionCard /> : null}
 
         {/* ── PLAY SECTION ── Book, find players, join matches */}
         <View style={styles.playDivider}>
