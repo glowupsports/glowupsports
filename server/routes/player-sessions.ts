@@ -1607,6 +1607,30 @@ import fs from "fs";
             ),
           );
 
+        // Batch-fetch all sessions for these series in a single query (avoid N+1)
+        const detailIds = seriesDetails.map((s) => s.id);
+        const allSeriesSessions = detailIds.length > 0
+          ? await db
+              .select({
+                id: sessions.id,
+                startTime: sessions.startTime,
+                seriesId: sessions.seriesId,
+              })
+              .from(sessions)
+              .where(inArray(sessions.seriesId, detailIds))
+          : [];
+
+        const sessionsBySeriesId = new Map<string, { id: string; startTime: Date }[]>();
+        for (const s of allSeriesSessions) {
+          if (!s.seriesId) continue;
+          const bucket = sessionsBySeriesId.get(s.seriesId);
+          if (bucket) {
+            bucket.push({ id: s.id, startTime: s.startTime });
+          } else {
+            sessionsBySeriesId.set(s.seriesId, [{ id: s.id, startTime: s.startTime }]);
+          }
+        }
+
         // Get attendance counts per series
         const classes = await Promise.all(
           seriesDetails.map(async (series) => {
@@ -1614,12 +1638,7 @@ import fs from "fs";
               (r) => r.seriesId === series.id,
             );
 
-            // Get all sessions for this series
-            const seriesSessions = await db
-              .select({ id: sessions.id, startTime: sessions.startTime })
-              .from(sessions)
-              .where(eq(sessions.seriesId, series.id));
-
+            const seriesSessions = sessionsBySeriesId.get(series.id) || [];
             const sessionIds = seriesSessions.map((s) => s.id);
 
             // Count attendance by status

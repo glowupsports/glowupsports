@@ -1976,24 +1976,35 @@ router.get("/api/player/connections", authMiddleware, async (req: AuthRequest, r
       ))
       .orderBy(desc(playerConnections.createdAt));
       
-      // Enrich with player data
-      const enrichedConnections = await Promise.all(allConnections.map(async (conn) => {
+      // Batch-fetch all other players in a single query to avoid N+1
+      const otherIds = Array.from(new Set(
+        allConnections.map((conn) =>
+          conn.player1Id === playerId ? conn.player2Id : conn.player1Id,
+        ),
+      ));
+
+      const otherPlayersList = otherIds.length > 0
+        ? await db.select({
+            id: players.id,
+            name: players.name,
+            profilePhotoUrl: players.profilePhotoUrl,
+            level: players.level,
+            glowScore: players.glowScore,
+            ballLevel: players.ballLevel,
+            academyId: players.academyId,
+            openToPlay: players.openToPlay,
+          })
+          .from(players)
+          .where(inArray(players.id, otherIds))
+        : [];
+
+      const otherPlayersById = new Map(otherPlayersList.map((p) => [p.id, p]));
+
+      const enrichedConnections = allConnections.map((conn) => {
         const otherId = conn.player1Id === playerId ? conn.player2Id : conn.player1Id;
         const isRequester = conn.player1Id === playerId;
-        
-        const [otherPlayer] = await db.select({
-          id: players.id,
-          name: players.name,
-          profilePhotoUrl: players.profilePhotoUrl,
-          level: players.level,
-          glowScore: players.glowScore,
-          ballLevel: players.ballLevel,
-        academyId: players.academyId,
-          openToPlay: players.openToPlay,
-        })
-        .from(players)
-        .where(eq(players.id, otherId));
-        
+        const otherPlayer = otherPlayersById.get(otherId);
+
         return {
           id: conn.id,
           status: conn.status,
@@ -2006,14 +2017,14 @@ router.get("/api/player/connections", authMiddleware, async (req: AuthRequest, r
           player: otherPlayer ? {
             id: otherPlayer.id,
             name: otherPlayer.name,
-            photoUrl: otherPlayer.photoUrl,
+            photoUrl: otherPlayer.profilePhotoUrl,
             level: otherPlayer.level || 1,
             glowScore: otherPlayer.glowScore || 0,
             ballLevel: otherPlayer.ballLevel,
             openToPlay: otherPlayer.openToPlay,
           } : null,
         };
-      }));
+      });
       
       // Separate by status
       const friends = enrichedConnections.filter(c => c.status === "accepted");
