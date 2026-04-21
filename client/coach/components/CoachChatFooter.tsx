@@ -1227,7 +1227,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     // Pending and failed message indicators
     if (isFailed) {
       return (
-        <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage, { borderWidth: 1, borderColor: "#FF4444", opacity: 0.9, flexDirection: "row", alignItems: "center", gap: 8 }]}>
+        <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage, { borderWidth: 1, borderColor: "#FF4444", opacity: 0.9 }]}>
           <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
           <Pressable
             onPress={() => {
@@ -1237,7 +1237,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               queryClient.setQueryData<Message[]>(messagesQueryKey, (prev = []) => prev.filter(m => m.id !== item.id));
               sendMessageMutation.mutate({ body, optimisticId });
             }}
-            style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FF444422", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FF444422", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-end", marginTop: 6 }}
           >
             <Ionicons name="refresh-outline" size={12} color="#FF4444" />
             <ThemedText style={{ fontSize: 10, color: "#FF4444" }}>Retry</ThemedText>
@@ -1303,9 +1303,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             {item.body}
           </ThemedText>
           {isPending ? (
-            <Ionicons name="time-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} style={{ marginLeft: 4 }} />
+            <View style={styles.messageMeta}>
+              <Ionicons name="time-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
+            </View>
           ) : showTimestamp ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+            <View style={styles.messageMeta}>
               <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp, isPlayerMode && { color: isOwn ? "#00000066" : "#FFFFFF66" }]}>
                 {formatTime(item.createdAt)}
               </ThemedText>
@@ -1908,7 +1910,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           )}
           <View style={styles.messageRow}>
             <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
-            <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
+            <View style={styles.messageMeta}>
+              <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
+            </View>
           </View>
           {Object.keys(groupedReactions).length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
@@ -4004,15 +4008,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   messageRow: {
+    flexDirection: "column",
+    alignItems: "stretch",
+  },
+  messageMeta: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: Spacing.sm,
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 2,
+    marginTop: 2,
   },
   messageText: {
     fontSize: 13,
     color: Colors.dark.text,
-    flex: 1,
     lineHeight: 18,
+    flexShrink: 1,
   },
   ownMessageText: {
     color: Colors.dark.buttonText,
