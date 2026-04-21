@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { sessions, players } from "@shared/schema";
-import { eq, and, gte, lte, or, asc, inArray } from "drizzle-orm";
+import { sessions, players, academyPricing } from "@shared/schema";
+import { eq, and, gte, lte, or, asc, desc, inArray, isNull } from "drizzle-orm";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
   JWTPayload 
@@ -211,15 +211,45 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
       }
     }
     
-    const pricingCache = new Map<string, any>();
-    const getAcademyPricingCached = async (academyId: string, sessionType: string) => {
-      const key = `${academyId}_${sessionType}`;
-      if (!pricingCache.has(key)) {
-        pricingCache.set(key, await storage.getAcademyPricingByType(academyId, sessionType));
-      }
-      return pricingCache.get(key);
+    const normalizeSessionTypeLocal = (type: string): string => {
+      const cleaned = (type || "private").toLowerCase().replace(/-/g, "_").trim();
+      if (cleaned === "semi" || cleaned === "semi_private" || cleaned === "semi_private_adjusted") return "semi_private";
+      if (cleaned === "private_adjusted") return "private";
+      if (cleaned === "group_adjusted") return "group";
+      return cleaned;
     };
-    console.log('[Earnings PERF] Batch fetch done:', Date.now() - _perfStart, 'ms, sessions:', allSessionIds.length, 'series:', allSeriesIds.length);
+    const pricingMap = new Map<string, any>();
+    const academyIdSet = new Set<string>();
+    const sessionTypeSet = new Set<string>();
+    for (const s of allSessions) {
+      if (s.academyId) {
+        academyIdSet.add(s.academyId);
+        sessionTypeSet.add(normalizeSessionTypeLocal((s as any).sessionType));
+      }
+    }
+    if (academyIdSet.size > 0 && sessionTypeSet.size > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const pricingRows = await db.select().from(academyPricing)
+        .where(and(
+          inArray(academyPricing.academyId, Array.from(academyIdSet)),
+          inArray(academyPricing.sessionType, Array.from(sessionTypeSet)),
+          eq(academyPricing.isActive, true),
+          lte(academyPricing.effectiveFrom, today),
+          or(
+            isNull(academyPricing.effectiveUntil),
+            gte(academyPricing.effectiveUntil, today)
+          )
+        ))
+        .orderBy(desc(academyPricing.effectiveFrom));
+      for (const row of pricingRows) {
+        const key = `${row.academyId}_${row.sessionType}`;
+        if (!pricingMap.has(key)) pricingMap.set(key, row);
+      }
+    }
+    const getAcademyPricingCached = async (academyId: string, sessionType: string) => {
+      return pricingMap.get(`${academyId}_${sessionType}`) || null;
+    };
+    console.log('[Earnings PERF] Batch fetch done:', Date.now() - _perfStart, 'ms, sessions:', allSessionIds.length, 'series:', allSeriesIds.length, 'pricing:', pricingMap.size);
     
     const realizedByCurrency: Record<string, { amount: number; sessions: number }> = {};
     const projectedByCurrency: Record<string, { amount: number; sessions: number }> = {};
