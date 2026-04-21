@@ -188,17 +188,23 @@ export default function PlayerTrainingScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        {navigation.canGoBack() ? (
-          <Pressable
-            onPress={() => navigation.goBack()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            style={styles.closeBtn}
-          >
-            <Ionicons name="close" size={24} color={Colors.dark.text} />
-          </Pressable>
-        ) : null}
+        <Pressable
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              // Fallback when this screen is the root (deep-link entry):
+              // send the user to the player home tab so they always have an exit.
+              (navigation as any).navigate("PlayerTabs", { screen: "Home" });
+            }
+          }}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={styles.closeBtn}
+        >
+          <Ionicons name="close" size={24} color={Colors.dark.text} />
+        </Pressable>
         <Text style={styles.title}>Training History</Text>
         <Text style={styles.subtitle}>Your progress is based on coach sessions</Text>
       </View>
