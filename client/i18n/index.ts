@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import en from "./locales/en.json";
 import ar from "./locales/ar.json";
 import id from "./locales/id.json";
+import nl from "./locales/nl.json";
 
 const LANGUAGE_STORAGE_KEY = "@glow_app_language";
 
@@ -13,14 +14,16 @@ export const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English", nativeLabel: "English", rtl: false },
   { code: "ar", label: "Arabic", nativeLabel: "العربية", rtl: true },
   { code: "id", label: "Indonesian", nativeLabel: "Bahasa Indonesia", rtl: false },
+  { code: "nl", label: "Dutch", nativeLabel: "Nederlands", rtl: false },
 ] as const;
 
-export type LanguageCode = "en" | "ar" | "id";
+export type LanguageCode = "en" | "ar" | "id" | "nl";
 
 const resources = {
   en: { translation: en },
   ar: { translation: ar },
   id: { translation: id },
+  nl: { translation: nl },
 };
 
 const getDeviceLanguage = (): LanguageCode => {
@@ -28,7 +31,7 @@ const getDeviceLanguage = (): LanguageCode => {
     const locales = Localization.getLocales();
     if (locales && locales.length > 0) {
       const deviceLang = locales[0].languageCode;
-      if (deviceLang === "ar" || deviceLang === "id") {
+      if (deviceLang === "ar" || deviceLang === "id" || deviceLang === "nl") {
         return deviceLang;
       }
     }
@@ -39,7 +42,7 @@ const getDeviceLanguage = (): LanguageCode => {
 export const getStoredLanguage = async (): Promise<LanguageCode | null> => {
   try {
     const lang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (lang === "en" || lang === "ar" || lang === "id") return lang;
+    if (lang === "en" || lang === "ar" || lang === "id" || lang === "nl") return lang;
     return null;
   } catch {
     return null;

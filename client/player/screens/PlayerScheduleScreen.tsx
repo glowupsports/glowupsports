@@ -21,6 +21,10 @@ import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon, type Sport } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import { usePlayer } from "@/player/context/PlayerContext";
+import { useFamily } from "@/player/context/FamilyContext";
+import LessonBalanceCard from "@/player/components/LessonBalanceCard";
+import NextLessonCard from "@/player/components/NextLessonCard";
+import FamilyChildSwitcher from "@/player/components/FamilyChildSwitcher";
 import * as Calendar from "expo-calendar";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
@@ -202,7 +206,9 @@ export default function PlayerScheduleScreen() {
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
-  const { playerId } = usePlayer();
+  const { playerId: profilePlayerId } = usePlayer();
+  const { activePlayerId } = useFamily();
+  const playerId = activePlayerId || profilePlayerId;
   const { logout, isGuest } = useAuth();
   const [showSportPickerModal, setShowSportPickerModal] = useState(false);
   const [sportPickerDestination, setSportPickerDestination] = useState<"LessonBooking" | "CourtBooking" | "OpenMatches">("OpenMatches");
@@ -936,6 +942,24 @@ export default function PlayerScheduleScreen() {
           {isMultiSport ? <SportSwitcherChips style={{ marginTop: Spacing.sm, marginBottom: Spacing.xs }} /> : null}
         </Animated.View>
 
+        <FamilyChildSwitcher />
+
+        <LessonBalanceCard
+          playerId={playerId}
+          onBuyCredits={() => {
+            if (playerId) {
+              navigation.navigate("ParentCreditStore", { playerId });
+            }
+          }}
+        />
+
+        <NextLessonCard
+          nextSession={nextSession}
+          onBookLesson={handleBookLesson}
+          getTypeLabel={getTypeLabel}
+          getTypeColor={getTypeColor}
+        />
+
         <Animated.View entering={FadeInDown.delay(150).duration(400)}>
             <View style={styles.quickActionsRow}>
               <QuickActionButton icon="book" label={t("player.schedule.bookLesson")} color={ProTennisColors.neonGreen} onPress={handleBookLesson} />
@@ -947,20 +971,6 @@ export default function PlayerScheduleScreen() {
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-            <StatCard
-              icon="clock"
-              label={t("player.schedule.nextLesson")}
-              value={getNextSessionCountdown() || "-"}
-              color={ProTennisColors.neonCyan}
-              subtext={nextSession?.type ? `${getSportLabel(activeSport)} · ${getTypeLabel(nextSession.type).split(' ')[0]}` : getSportLabel(activeSport)}
-            />
-            <StatCard
-              icon="calendar"
-              label={t("player.schedule.thisMonth")}
-              value={thisMonthCount}
-              color={ProTennisColors.neonGreen}
-              subtext={`${getSportLabel(activeSport)} ${t("player.schedule.activities")}`}
-            />
             <StatCard
               icon="check-circle"
               label={t("player.schedule.attendance")}
