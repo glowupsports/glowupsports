@@ -50,6 +50,7 @@ import { useQuests, Quest } from "@/player/hooks/useQuests";
 import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
+import { FreePlayerDiscoverySections, JoinAcademySoftCard } from "@/player/components/FreePlayerDiscovery";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 interface DashboardData {
@@ -1670,28 +1671,6 @@ function PlayerHomeContent() {
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
 
-        {/* FREE PLAYER CTA - Court booking for players without academy */}
-        {isFreePlayer && (
-          <Pressable
-            style={styles.freePlayerCta}
-            onPress={() => {
-              guardAction(() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("CourtBooking" as never);
-              });
-            }}
-          >
-            <View style={styles.freePlayerCtaIcon}>
-              <Ionicons name="tennisball" size={28} color={Colors.dark.accentText} />
-            </View>
-            <View style={styles.freePlayerCtaContent}>
-              <Text style={styles.freePlayerCtaTitle}>Find & Book Courts</Text>
-              <Text style={styles.freePlayerCtaSubtitle}>Browse available courts near you</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-          </Pressable>
-        )}
-
         <HeroCarousel onBookSession={handleBookLesson} />
 
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
@@ -1708,7 +1687,12 @@ function PlayerHomeContent() {
           <View style={styles.playDividerLine} />
         </View>
 
-        <PlayersNearYouRow />
+        {/* FREE PLAYER DISCOVERY — Suggested clubs, open matches, players near you */}
+        {isFreePlayer && !isGuest ? (
+          <FreePlayerDiscoverySections />
+        ) : (
+          <PlayersNearYouRow />
+        )}
 
         {/* ── IMPROVE SECTION ── always shown for logged-in players (AI Coach is the entry point) */}
         {secondaryReady && !isGuest ? (
@@ -1730,7 +1714,8 @@ function PlayerHomeContent() {
               onSpotlightDetails={() => navigation.navigate("SpotlightDetail" as never)}
             />
 
-            {(!!effectiveData?.lastFeedback || !!effectiveData?.player?.ballLevel) ? (
+            {/* RecentFeedback & UpcomingAppointment are academy-only — hide for free players */}
+            {!isFreePlayer && (!!effectiveData?.lastFeedback || !!effectiveData?.player?.ballLevel) ? (
               <>
                 <RecentFeedbackCard />
                 <UpcomingAppointmentCard />
@@ -1744,6 +1729,9 @@ function PlayerHomeContent() {
 
         {/* ── SHOP ── only show when there are marketplace products */}
         {secondaryReady && !isGuest && shopData?.featuredProducts && shopData.featuredProducts.length > 0 ? <GlowMarketSpotlight /> : null}
+
+        {/* ── JOIN ACADEMY (free players only) — soft CTA at the very bottom, after universal modules */}
+        {isFreePlayer && !isGuest ? <JoinAcademySoftCard /> : null}
       </ScrollView>
 
       <BetaFeedbackButton

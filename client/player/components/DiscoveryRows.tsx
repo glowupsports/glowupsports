@@ -191,7 +191,33 @@ function SectionHeader({ title, count, actionLabel, onAction, accentColor = Text
   );
 }
 
-export function PlayersNearYouRow() {
+export interface PlayersNearYouRowProps {
+  /** When false, do not filter by ball level (free-player home shows all). Default true. */
+  filterByLevel?: boolean;
+  /** Override the nearby players list (free-player home fetches scope=all). */
+  players?: Array<{
+    id: string;
+    name: string;
+    level: string;
+    status: "available" | "playing" | "offline";
+    profilePhotoUrl?: string;
+    ballLevel?: string;
+    skillLevel?: number | string;
+    distanceKm?: number;
+    driveTimeText?: string;
+  }>;
+  /** Hide the row entirely when there are no players (default true). */
+  hideWhenEmpty?: boolean;
+  /** Override the section title (defaults to "Players near you"). */
+  title?: string;
+}
+
+export function PlayersNearYouRow({
+  filterByLevel = true,
+  players: playersOverride,
+  hideWhenEmpty = true,
+  title,
+}: PlayersNearYouRowProps = {}) {
   const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
@@ -200,11 +226,13 @@ export function PlayersNearYouRow() {
   // Get player's ball level
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
 
-  const nearbyPlayers = state.nearbyPlayers ?? [];
-  const availablePlayers = nearbyPlayers.filter(p => {
-    const playerLevel = (p.ballLevel || p.level || "").toLowerCase();
-    return playerLevel === playerBallLevel;
-  });
+  const nearbyPlayers = (playersOverride ?? state.nearbyPlayers ?? []) as typeof state.nearbyPlayers;
+  const availablePlayers = filterByLevel
+    ? nearbyPlayers.filter(p => {
+        const playerLevel = (p.ballLevel || p.level || "").toLowerCase();
+        return playerLevel === playerBallLevel;
+      })
+    : nearbyPlayers;
 
   const handlePlayerPress = (playerId: string) => {
     logger.log("[DiscoveryRows] handlePlayerPress called for playerId:", playerId);
@@ -231,13 +259,31 @@ export function PlayersNearYouRow() {
   };
 
   if (availablePlayers.length === 0) {
-    return null;
+    if (hideWhenEmpty) return null;
+    return (
+      <View style={styles.section}>
+        <SectionHeader
+          title={title ?? t("player.home.playersNearYou")}
+          actionLabel={t("player.home.findMore")}
+          onAction={handleSeeAll}
+          accentColor={GlowColors.primary}
+        />
+        <PremiumEmptyCard
+          icon="people-outline"
+          accentColor={GlowColors.primary}
+          title="No players nearby yet"
+          subtitle="Be patient — players in your area will appear here."
+          ctaLabel={t("player.home.findMore")}
+          onCta={handleSeeAll}
+        />
+      </View>
+    );
   }
 
   return (
     <View style={styles.section}>
       <SectionHeader
-        title={t("player.home.playersNearYou")}
+        title={title ?? t("player.home.playersNearYou")}
         count={availablePlayers.length}
         actionLabel={t("player.home.findMore")}
         onAction={handleSeeAll}
