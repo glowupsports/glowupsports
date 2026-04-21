@@ -379,6 +379,26 @@ export default function PlayerScheduleScreen() {
   });
   const playerPayments = paymentsData?.payments || [];
 
+  // Player notifications — used to surface payment confirm/reject activity in History.
+  const { data: notificationsData } = useQuery<
+    Array<{
+      id: string;
+      title: string | null;
+      body: string | null;
+      type: string;
+      data: Record<string, unknown> | null;
+      createdAt: string;
+      read: boolean;
+    }>
+  >({
+    queryKey: ["/api/player/me/notifications"],
+    enabled: !!playerId,
+    refetchInterval: () => {
+      const list = paymentsData?.payments || [];
+      return list.some((p) => p.status === "pending") ? 15_000 : false;
+    },
+  });
+
   // Academy payment info (bank details + accepted methods) — drives Log payment sheet.
   const { data: academyPaymentInfo } = useQuery<AcademyPaymentInfo>({
     queryKey: [`/api/parent/academy-payment-info/${playerId ?? ""}`],
@@ -726,9 +746,52 @@ export default function PlayerScheduleScreen() {
         payment: p,
       });
     }
+    if (notificationsData) {
+      for (const n of notificationsData) {
+        if (n.type !== "payment_confirmed" && n.type !== "payment_rejected") {
+          continue;
+        }
+        const isConfirmed = n.type === "payment_confirmed";
+        const data = (n.data || {}) as {
+          paymentId?: string;
+          amount?: string | number;
+          currency?: string;
+          reason?: string;
+        };
+        const linkedPayment = data.paymentId
+          ? playerPayments.find((p) => p.id === data.paymentId)
+          : undefined;
+        const date = new Date(n.createdAt);
+        const accent = isConfirmed ? "#22C55E" : "#EF4444";
+        const amountLabel = data.amount
+          ? `${data.currency || linkedPayment?.currency || "AED"} ${parseFloat(
+              String(data.amount),
+            ).toFixed(2)}`
+          : null;
+        const subtitle = isConfirmed
+          ? amountLabel
+            ? `${amountLabel} confirmed by academy`
+            : "Confirmed by academy"
+          : data.reason
+            ? `Reason: ${data.reason}`
+            : amountLabel
+              ? `${amountLabel} rejected`
+              : "Rejected by academy";
+        out.push({
+          key: `pn-${n.id}`,
+          date,
+          kind: "payment",
+          title: n.title || (isConfirmed ? "Payment confirmed" : "Payment rejected"),
+          subtitle,
+          status: isConfirmed ? "Confirmed" : "Rejected",
+          accentColor: accent,
+          payment: linkedPayment,
+        });
+      }
+    }
     return out.sort((a, b) => b.date.getTime() - a.date.getTime());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawSessions, courtBookings, matches, playerPayments, i18n.language]);
+  }, [rawSessions, courtBookings, matches, playerPayments, notificationsData, i18n.language]);
 
   // Index events by date string for cheap lookup.
   const itemsByDate = useMemo(() => {

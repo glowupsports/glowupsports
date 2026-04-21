@@ -6121,6 +6121,51 @@ import fs from "fs";
 
         const confirmedPayment = await storage.confirmPayment(id, userId || "");
 
+        // Notify the player that their submitted payment was confirmed
+        if (existingPayment.playerId) {
+          try {
+            const amountStr = `${existingPayment.currency || "AED"} ${parseFloat(
+              String(existingPayment.amount || "0"),
+            ).toFixed(2)}`;
+            const title = "Payment confirmed";
+            const body = `Your ${amountStr} payment has been confirmed by the academy.`;
+            await db.insert(playerNotifications).values({
+              playerId: existingPayment.playerId,
+              title,
+              body,
+              type: "payment_confirmed",
+              data: {
+                paymentId: id,
+                amount: existingPayment.amount,
+                currency: existingPayment.currency,
+              },
+            });
+            const tokens = await getPlayerPushTokens(existingPayment.playerId);
+            if (tokens.length > 0) {
+              await sendPushNotification(
+                tokens,
+                title,
+                body,
+                {
+                  type: "payment_confirmed",
+                  paymentId: id,
+                  playerId: existingPayment.playerId,
+                },
+              ).catch((err) =>
+                console.error(
+                  "[Payments] Failed to send confirm push:",
+                  err,
+                ),
+              );
+            }
+          } catch (notifyErr) {
+            console.error(
+              "[Payments] Failed to record confirm notification:",
+              notifyErr,
+            );
+          }
+        }
+
         await storage.createAuditLog({
           academyId,
           entityType: "payment",
@@ -6171,6 +6216,54 @@ import fs from "fs";
           userId || "",
           reason || "No reason provided",
         );
+
+        // Notify the player that their submitted payment was rejected
+        if (existingPayment.playerId) {
+          try {
+            const amountStr = `${existingPayment.currency || "AED"} ${parseFloat(
+              String(existingPayment.amount || "0"),
+            ).toFixed(2)}`;
+            const reasonStr = (reason && String(reason).trim()) || "No reason provided";
+            const title = "Payment rejected";
+            const body = `Your ${amountStr} payment was rejected. Reason: ${reasonStr}`;
+            await db.insert(playerNotifications).values({
+              playerId: existingPayment.playerId,
+              title,
+              body,
+              type: "payment_rejected",
+              data: {
+                paymentId: id,
+                amount: existingPayment.amount,
+                currency: existingPayment.currency,
+                reason: reasonStr,
+              },
+            });
+            const tokens = await getPlayerPushTokens(existingPayment.playerId);
+            if (tokens.length > 0) {
+              await sendPushNotification(
+                tokens,
+                title,
+                body,
+                {
+                  type: "payment_rejected",
+                  paymentId: id,
+                  playerId: existingPayment.playerId,
+                  reason: reasonStr,
+                },
+              ).catch((err) =>
+                console.error(
+                  "[Payments] Failed to send reject push:",
+                  err,
+                ),
+              );
+            }
+          } catch (notifyErr) {
+            console.error(
+              "[Payments] Failed to record reject notification:",
+              notifyErr,
+            );
+          }
+        }
 
         await storage.createAuditLog({
           academyId,
