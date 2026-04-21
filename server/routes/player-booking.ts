@@ -35,6 +35,10 @@ import { enrollPlayerInGroupSession } from "../sessionEnrolment";
 import { broadcastToPlayerIds } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
 import { buildFriendStatusMap } from "../services/friendStatus";
+import { paymentProofUpload } from "../upload-middleware";
+import { uploadToSupabaseWithPath, isSupabaseConfigured } from "../utils/supabaseStorage";
+import * as fsSync from "fs";
+import * as pathLib from "path";
 
 async function getEffectivePlayerCount(sessionId: string): Promise<number> {
   const [enrolledRows, offeredRows] = await Promise.all([
@@ -3455,6 +3459,99 @@ Return only the JSON array, nothing else.`;
     }
   });
 
+  // Player/parent submits a manual payment with optional proof image upload.
+  // Creates a `pending` payment record visible to the academy admin for review.
+  router.post(
+    "/api/parent/payments/:playerId",
+    authMiddleware,
+    paymentProofUpload.single("proof"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user?.userId;
+        const userPlayerId = req.user?.playerId;
+        const { playerId } = req.params;
+
+        if (!userId) {
+          return res.status(401).json({ error: "User not authenticated" });
+        }
+        if (userPlayerId !== playerId) {
+          const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Access denied" });
+          }
+        }
+
+        const player = await storage.getPlayer(playerId);
+        if (!player || !player.academyId) {
+          return res.status(404).json({ error: "Player or academy not found" });
+        }
+
+        const amountRaw = req.body?.amount;
+        const paymentMethod = (req.body?.paymentMethod || "cash") as string;
+        const paymentDate = req.body?.paymentDate ? new Date(req.body.paymentDate) : new Date();
+        const notes = (req.body?.notes || "").toString().slice(0, 1000) || null;
+        const academySettings = await storage.getAcademySettings(player.academyId);
+        const currency = academySettings?.currency || "AED";
+
+        const amountNum = parseFloat(amountRaw);
+        if (!amountRaw || Number.isNaN(amountNum) || amountNum <= 0) {
+          return res.status(400).json({ error: "Valid amount is required" });
+        }
+        if (!["cash", "bank_transfer"].includes(paymentMethod)) {
+          return res.status(400).json({ error: "Invalid payment method" });
+        }
+
+        if (!req.file) {
+          return res
+            .status(400)
+            .json({ error: "Proof of payment is required" });
+        }
+        let proofUrl: string | null = null;
+        {
+          if (!req.file.buffer || req.file.buffer.length === 0) {
+            return res.status(400).json({ error: "Uploaded proof file is empty" });
+          }
+          const mimeType = req.file.mimetype || "image/jpeg";
+          const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+          const storagePath = `payment-proofs/${playerId}-${Date.now()}.${ext}`;
+          try {
+            if (isSupabaseConfigured()) {
+              proofUrl = await uploadToSupabaseWithPath(req.file.buffer, storagePath, mimeType);
+            } else {
+              const dir = pathLib.join(process.cwd(), "uploads", "payment-proofs");
+              fsSync.mkdirSync(dir, { recursive: true });
+              const fileName = `${playerId}-${Date.now()}.${ext}`;
+              fsSync.writeFileSync(pathLib.join(dir, fileName), req.file.buffer);
+              proofUrl = `/uploads/payment-proofs/${fileName}`;
+            }
+          } catch (err) {
+            console.error("[PaymentProof] upload failed:", err);
+            return res.status(502).json({ error: "Failed to upload proof image" });
+          }
+        }
+
+        const payment = await storage.createPayment({
+          academyId: player.academyId,
+          playerId,
+          payerName: player.name || null,
+          amount: String(amountNum),
+          currency,
+          paymentMethod,
+          paymentDate,
+          receivedBy: null,
+          proofUrl,
+          notes,
+          status: "pending",
+        });
+
+        res.status(201).json({ payment });
+      } catch (error) {
+        console.error("Submit player payment error:", error);
+        res.status(500).json({ error: "Failed to submit payment" });
+      }
+    },
+  );
+
   // Get lesson overview for a player (parent view)
   router.get("/api/parent/lessons/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
@@ -3836,6 +3933,9 @@ Return only the JSON array, nothing else.`;
 
       const settings = await storage.getAcademySettings(player.academyId);
       const currency = settings?.currency || "AED";
+      const defaultLessonPrice = settings?.defaultLessonPrice
+        ? parseFloat(settings.defaultLessonPrice)
+        : 100;
 
       res.json({
         acceptsCash: (academy as any).acceptsCash !== false,
@@ -3847,6 +3947,7 @@ Return only the JSON array, nothing else.`;
         bankSwiftCode: (academy as any).bankSwiftCode,
         paymentInstructions: (academy as any).paymentInstructions,
         currency,
+        defaultLessonPrice,
       });
     } catch (error) {
       console.error("Get academy payment info error:", error);

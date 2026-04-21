@@ -41,6 +41,12 @@ export const profilePhotoUpload = multer({
   fileFilter: imageFilter,
 });
 
+export const paymentProofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: imageFilter,
+});
+
 // Academy logo uploader — accepts SVG in addition to raster formats so owners
 // can upload a vector wordmark. Stored in memory and inlined as a data URI on
 // the academy record (see /api/academy/logo).

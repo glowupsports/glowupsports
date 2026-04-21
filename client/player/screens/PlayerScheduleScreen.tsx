@@ -55,6 +55,19 @@ import * as Linking from "expo-linking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
+import {
+  ScheduleTabBar,
+  StatsBand,
+  PaymentsTab,
+  HistoryTab,
+  LogPaymentSheet,
+  DebtExplainerSheet,
+  PaymentDetailModal,
+  type ScheduleTab,
+  type AcademyPaymentInfo,
+  type PlayerPayment,
+  type HistoryItem,
+} from "./PlayerScheduleTabs";
 
 // -----------------------------------------------------------------------------
 // Theme color helper (legacy palette accessor used elsewhere in this file)
@@ -271,6 +284,12 @@ export default function PlayerScheduleScreen() {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<ScheduleTab>("sessions");
+  const [showLogPayment, setShowLogPayment] = useState(false);
+  const [historyPaymentDetail, setHistoryPaymentDetail] =
+    useState<PlayerPayment | null>(null);
+  const [showDebtSheet, setShowDebtSheet] = useState(false);
+  const [showBankSheet, setShowBankSheet] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -280,11 +299,14 @@ export default function PlayerScheduleScreen() {
         queryClient.invalidateQueries({ queryKey: ["/api/player/me/court-bookings"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/player/me/matches"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] }),
+        playerId
+          ? queryClient.invalidateQueries({ queryKey: [`/api/parent/payments/${playerId}`] })
+          : Promise.resolve(),
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient]);
+  }, [queryClient, playerId]);
 
   // Selected day (default = today). Week pager position.
   const today = useMemo(() => {
@@ -344,6 +366,23 @@ export default function PlayerScheduleScreen() {
   }>({
     queryKey: [`/api/players/${playerId}/credits-summary`],
     enabled: !!playerId && !v2Wallet?.v2Enabled,
+  });
+
+  // Player payments (used by Payments + History tabs and pending badge).
+  const { data: paymentsData } = useQuery<{ payments: PlayerPayment[] }>({
+    queryKey: [`/api/parent/payments/${playerId ?? ""}`],
+    enabled: !!playerId,
+    refetchInterval: (query) => {
+      const list = query.state.data?.payments || [];
+      return list.some((p) => p.status === "pending") ? 15_000 : false;
+    },
+  });
+  const playerPayments = paymentsData?.payments || [];
+
+  // Academy payment info (bank details + accepted methods) — drives Log payment sheet.
+  const { data: academyPaymentInfo } = useQuery<AcademyPaymentInfo>({
+    queryKey: [`/api/parent/academy-payment-info/${playerId ?? ""}`],
+    enabled: !!playerId,
   });
 
   const lessonBalance: number = (() => {
@@ -507,6 +546,189 @@ export default function PlayerScheduleScreen() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawSessions, courtBookings, matches, i18n.language]);
+
+  // ---------------------------------------------------------------------------
+  // Derived stats (lessons / hours this month, payment totals, debt count)
+  // ---------------------------------------------------------------------------
+  const monthStats = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let lessons = 0;
+    let hours = 0;
+    if (rawSessions) {
+      for (const s of rawSessions) {
+        if (!s.session?.startTime) continue;
+        const start = new Date(s.session.startTime);
+        if (start < monthStart || start > now) continue;
+        const isLesson = ["private", "group", "semi_private"].includes(
+          (s.session.sessionType as string) || "",
+        );
+        if (!isLesson) continue;
+        if (s.attendanceStatus === "cancelled" || s.attendanceStatus === "missed") continue;
+        const end = s.session.endTime
+          ? new Date(s.session.endTime)
+          : new Date(start.getTime() + 60 * 60 * 1000);
+        lessons += 1;
+        hours += Math.max(0, (end.getTime() - start.getTime()) / 3_600_000);
+      }
+    }
+    return { lessons, hours };
+  }, [rawSessions]);
+
+  const paymentTotals = useMemo(() => {
+    let confirmed = 0;
+    let pending = 0;
+    let pendingCount = 0;
+    let currency = academyPaymentInfo?.currency || "AED";
+    for (const p of playerPayments) {
+      const amt = parseFloat(p.amount) || 0;
+      if (p.currency) currency = p.currency;
+      if (p.status === "confirmed") confirmed += amt;
+      else if (p.status === "pending") {
+        pending += amt;
+        pendingCount += 1;
+      }
+    }
+    return { confirmed, pending, pendingCount, currency };
+  }, [playerPayments, academyPaymentInfo]);
+
+  const debtLessons = lessonBalance < 0 ? Math.abs(lessonBalance) : 0;
+
+  // Overdrawing sessions: most recent N attended lessons where N = debtLessons.
+  // Each is priced at academy default lesson price (settings) for an AED total.
+  const overdrawingSessions = useMemo(() => {
+    if (debtLessons <= 0 || !rawSessions) return [];
+    const price = academyPaymentInfo?.defaultLessonPrice ?? 100;
+    const now = new Date();
+    const attended = rawSessions
+      .filter((s) => {
+        if (!s.session?.startTime) return false;
+        const start = new Date(s.session.startTime);
+        if (start > now) return false;
+        if (
+          s.attendanceStatus === "cancelled" ||
+          s.attendanceStatus === "missed"
+        ) {
+          return false;
+        }
+        const type = (s.session.sessionType as string) || "";
+        return ["private", "group", "semi_private"].includes(type);
+      })
+      .map((s) => ({
+        id: String(s.id),
+        title: s.session?.title || "Lesson",
+        date: new Date(s.session!.startTime!),
+        price,
+      }))
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, debtLessons);
+    return attended;
+  }, [rawSessions, debtLessons, academyPaymentInfo]);
+
+  const amountDue = useMemo(
+    () => overdrawingSessions.reduce((sum, s) => sum + s.price, 0),
+    [overdrawingSessions],
+  );
+
+  const historyItems: HistoryItem[] = useMemo(() => {
+    const out: HistoryItem[] = [];
+    const now = new Date();
+    if (courtBookings) {
+      for (const b of courtBookings) {
+        const start = new Date(`${b.date.split("T")[0]}T${b.startTime || "00:00"}`);
+        if (start >= now) continue;
+        out.push({
+          key: `cb-${b.id}`,
+          date: start,
+          kind: "session",
+          title: t("player.schedule.courtBookingLabel"),
+          subtitle: b.courtName || "",
+          status: b.status === "cancelled" ? "Cancelled" : "Played",
+          accentColor: EVENT_COLORS.court,
+          sessionType: "court",
+          sessionId: `court-${b.id}`,
+        });
+      }
+    }
+    if (matches) {
+      for (const m of matches) {
+        const start = new Date(`${m.matchDate.split("T")[0]}T${m.matchTime || "00:00"}`);
+        if (start >= now) continue;
+        out.push({
+          key: `m-${m.id}`,
+          date: start,
+          kind: "session",
+          title:
+            m.matchType === "open"
+              ? t("player.schedule.openMatchLabel")
+              : t("player.schedule.matchLabel"),
+          subtitle: m.opponentName || m.courtName || "",
+          status: m.status === "cancelled" ? "Cancelled" : "Played",
+          accentColor: EVENT_COLORS.match,
+          sessionType: "match",
+          sessionId: `match-${m.id}`,
+        });
+      }
+    }
+    if (rawSessions) {
+      for (const s of rawSessions) {
+        if (!s.session?.startTime) continue;
+        const start = new Date(s.session.startTime);
+        if (start >= now) continue;
+        const type = (s.session.sessionType as string) || "private";
+        const accent =
+          type === "court"
+            ? EVENT_COLORS.court
+            : type === "match"
+              ? EVENT_COLORS.match
+              : EVENT_COLORS.lesson;
+        const status =
+          s.attendanceStatus === "cancelled"
+            ? "Cancelled"
+            : s.attendanceStatus === "missed"
+              ? "Missed"
+              : "Attended";
+        out.push({
+          key: `s-${s.id}`,
+          date: start,
+          kind: "session",
+          title: s.session.title || getTypeLabel(type),
+          subtitle: s.coachName || s.session.courtName || "",
+          status,
+          accentColor: accent,
+          sessionType:
+            type === "match" ? "match" : type === "court" ? "court" : "training",
+          sessionId: s.session.id,
+        });
+      }
+    }
+    for (const p of playerPayments) {
+      const date = new Date(p.paymentDate || p.createdAt);
+      const accent =
+        p.status === "confirmed"
+          ? "#22C55E"
+          : p.status === "pending"
+            ? "#FBBF24"
+            : "#EF4444";
+      out.push({
+        key: `p-${p.id}`,
+        date,
+        kind: "payment",
+        title: `${p.currency} ${parseFloat(p.amount).toFixed(2)} payment`,
+        subtitle:
+          p.paymentMethod === "bank_transfer"
+            ? "Bank transfer"
+            : p.paymentMethod === "cash"
+              ? "Cash"
+              : "Payment",
+        status: p.status.charAt(0).toUpperCase() + p.status.slice(1),
+        accentColor: accent,
+        payment: p,
+      });
+    }
+    return out.sort((a, b) => b.date.getTime() - a.date.getTime());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawSessions, courtBookings, matches, playerPayments, i18n.language]);
 
   // Index events by date string for cheap lookup.
   const itemsByDate = useMemo(() => {
@@ -790,15 +1012,15 @@ export default function PlayerScheduleScreen() {
           ) : null}
         </Pressable>
 
-        <BalanceChip
-          balance={lessonBalance}
-          onPress={() => {
-            if (playerId) {
+        {lessonBalance >= 0 ? (
+          <BalanceChip
+            balance={lessonBalance}
+            onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("ParentCreditStore", { playerId });
-            }
-          }}
-        />
+              setActiveTab("payments");
+            }}
+          />
+        ) : null}
 
         <Pressable
           style={styles.iconButton}
@@ -865,8 +1087,32 @@ export default function PlayerScheduleScreen() {
           </PagerView>
         </Animated.View>
 
+        {/* Stats band + tab bar */}
+        <StatsBand
+          lessonsThisMonth={monthStats.lessons}
+          hoursThisMonth={monthStats.hours}
+          walletBalance={lessonBalance}
+          currency={paymentTotals.currency}
+          debt={debtLessons}
+          amountDue={amountDue}
+          onWalletPress={() => {
+            Haptics.selectionAsync();
+            if (lessonBalance < 0) setShowDebtSheet(true);
+            else setActiveTab("payments");
+          }}
+          onDebtPress={() => {
+            Haptics.selectionAsync();
+            setShowDebtSheet(true);
+          }}
+        />
+        <ScheduleTabBar
+          active={activeTab}
+          onChange={setActiveTab}
+          paymentsBadge={paymentTotals.pendingCount}
+        />
+
         {/* Active vacation banner (kept) */}
-        {vacationData?.activeVacation || vacationData?.upcomingVacation ? (
+        {activeTab === "sessions" && (vacationData?.activeVacation || vacationData?.upcomingVacation) ? (
           <Animated.View entering={FadeIn.duration(300)} style={styles.vacationBanner}>
             <View style={styles.vacationBannerInner}>
               <View style={styles.vacationIcon}>
@@ -898,7 +1144,8 @@ export default function PlayerScheduleScreen() {
           </Animated.View>
         ) : null}
 
-        {/* Hero card */}
+        {/* Hero card (sessions tab only) */}
+        {activeTab === "sessions" ? (
         <DayHero
           selectedDate={selectedDate}
           items={selectedDayItems}
@@ -929,6 +1176,53 @@ export default function PlayerScheduleScreen() {
           }}
           getTypeLabel={getTypeLabel}
         />
+        ) : null}
+
+        {activeTab === "payments" ? (
+          <PaymentsTab
+            playerId={playerId}
+            onLogPayment={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowLogPayment(true);
+            }}
+            onShowBankDetails={() => {
+              Haptics.selectionAsync();
+              setShowBankSheet(true);
+            }}
+            totals={{
+              confirmed: paymentTotals.confirmed,
+              pending: paymentTotals.pending,
+              currency: paymentTotals.currency,
+            }}
+          />
+        ) : null}
+
+        {activeTab === "history" ? (
+          <HistoryTab
+            items={historyItems}
+            onSelectItem={(item) => {
+              Haptics.selectionAsync();
+              if (item.kind === "payment" && item.payment) {
+                setHistoryPaymentDetail(item.payment);
+                return;
+              }
+              if (item.kind === "session" && item.sessionId) {
+                if (item.sessionType === "match") {
+                  const matchId = item.sessionId.startsWith("match-")
+                    ? item.sessionId.slice("match-".length)
+                    : item.sessionId;
+                  navigation.navigate("MatchDetail", { matchId });
+                } else if (item.sessionType === "court") {
+                  navigation.navigate("MyCourtBookings");
+                } else {
+                  navigation.navigate("TrainingDetail", {
+                    sessionId: item.sessionId,
+                  });
+                }
+              }
+            }}
+          />
+        ) : null}
       </ScrollView>
 
       {/* FAB */}
@@ -1159,6 +1453,103 @@ export default function PlayerScheduleScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Log a payment sheet */}
+      <LogPaymentSheet
+        visible={showLogPayment}
+        onClose={() => setShowLogPayment(false)}
+        playerId={playerId}
+        paymentInfo={academyPaymentInfo || null}
+      />
+
+      {/* Bank details quick view (reuses LogPaymentSheet's bank box via a mini sheet) */}
+      <Modal
+        visible={showBankSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBankSheet(false)}
+      >
+        <Pressable style={styles.sheetOverlay} onPress={() => setShowBankSheet(false)}>
+          <Pressable
+            style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.lg }]}
+            onPress={() => {}}
+          >
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Academy payment details</Text>
+            {academyPaymentInfo ? (
+              <View style={{ paddingTop: Spacing.sm }}>
+                {academyPaymentInfo.acceptsCash ? (
+                  <Text style={{ color: TextColors.secondary, marginBottom: Spacing.sm }}>
+                    Cash accepted in person.
+                  </Text>
+                ) : null}
+                {academyPaymentInfo.acceptsBankTransfer ? (
+                  <View>
+                    {academyPaymentInfo.bankAccountHolder ? (
+                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
+                        Account holder: {academyPaymentInfo.bankAccountHolder}
+                      </Text>
+                    ) : null}
+                    {academyPaymentInfo.bankName ? (
+                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
+                        Bank: {academyPaymentInfo.bankName}
+                      </Text>
+                    ) : null}
+                    {academyPaymentInfo.bankIban ? (
+                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
+                        IBAN: {academyPaymentInfo.bankIban}
+                      </Text>
+                    ) : null}
+                    {academyPaymentInfo.bankAccountNumber ? (
+                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
+                        Account: {academyPaymentInfo.bankAccountNumber}
+                      </Text>
+                    ) : null}
+                    {academyPaymentInfo.bankSwiftCode ? (
+                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
+                        SWIFT: {academyPaymentInfo.bankSwiftCode}
+                      </Text>
+                    ) : null}
+                    {academyPaymentInfo.paymentInstructions ? (
+                      <Text style={{ color: TextColors.muted, marginTop: Spacing.sm, fontStyle: "italic" }}>
+                        {academyPaymentInfo.paymentInstructions}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={{ color: TextColors.muted }}>No payment details available.</Text>
+            )}
+            <Pressable
+              style={styles.sheetCancel}
+              onPress={() => setShowBankSheet(false)}
+            >
+              <Text style={styles.sheetCancelText}>{t("common.close")}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Payment detail (opened from History tab) */}
+      <PaymentDetailModal
+        payment={historyPaymentDetail}
+        onClose={() => setHistoryPaymentDetail(null)}
+      />
+
+      {/* Debt explainer */}
+      <DebtExplainerSheet
+        visible={showDebtSheet}
+        onClose={() => setShowDebtSheet(false)}
+        onLogPayment={() => {
+          setActiveTab("payments");
+          setShowLogPayment(true);
+        }}
+        debt={debtLessons}
+        currency={paymentTotals.currency}
+        overdrawingSessions={overdrawingSessions}
+        amountDue={amountDue}
+      />
     </View>
   );
 }
