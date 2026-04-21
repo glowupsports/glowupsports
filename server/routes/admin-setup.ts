@@ -1387,12 +1387,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Single atomic transaction: transfer all historical data to target, delete all
         // non-transferable source rows in the correct FK order, then delete source player.
-        // MAINTENANCE: When new player_* tables are added to the schema, mirror them in
-        // Part A (reassign) or Part B (delete) below, following the same FK ordering used
-        // in storage.deletePlayer to avoid FK violations on the final DELETE FROM players.
-        // Use the `ifTable(...)` helper for newly-added tables so older databases that
-        // haven't run db:push for the latest migrations stay safe (no-op).
-        // To audit drift, run this query in psql and diff against the tables touched here:
+        // MAINTENANCE: When new player_* tables are added to the schema, update the
+        // canonical list in `server/lib/player-cleanup.ts` first — that file is consumed
+        // by `storage.deletePlayer` and the startup drift watchdog
+        // (`server/startup/audit-player-fks.ts`), and any unknown player FK table will
+        // log a loud `[PlayerFKAudit] WARN` on boot until it is handled.
+        // Then mirror the table here in Part A (reassign) or Part B (delete), following
+        // the same FK ordering used in `storage.deletePlayer` to avoid FK violations on
+        // the final DELETE FROM players. Use the `ifTable(...)` helper for newly-added
+        // tables so older databases that haven't run db:push stay safe (no-op).
+        // To audit drift manually, run this query in psql and diff against the tables
+        // touched here (the startup watchdog runs this same check on every boot):
         //   SELECT DISTINCT tc.table_name
         //   FROM information_schema.table_constraints tc
         //   JOIN information_schema.constraint_column_usage ccu
