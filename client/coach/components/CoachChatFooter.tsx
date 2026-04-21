@@ -1293,30 +1293,28 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </View>
         ) : null}
 
-        <View style={styles.messageRow}>
-          <ThemedText style={[
-            styles.messageText,
-            isOwn && styles.ownMessageText,
-            isPlayerMode && isOwn && { color: "#000000" },
-            isPlayerMode && !isOwn && { color: "#FFFFFF" },
-          ]}>
-            {item.body}
-          </ThemedText>
-          {isPending ? (
-            <View style={styles.messageMeta}>
-              <Ionicons name="time-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
-            </View>
-          ) : showTimestamp ? (
-            <View style={styles.messageMeta}>
-              <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp, isPlayerMode && { color: isOwn ? "#00000066" : "#FFFFFF66" }]}>
-                {formatTime(item.createdAt)}
-              </ThemedText>
-              {isOwn && (
-                <Ionicons name="checkmark-done-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
-              )}
-            </View>
-          ) : null}
-        </View>
+        <ThemedText style={[
+          styles.messageText,
+          isOwn && styles.ownMessageText,
+          isPlayerMode && isOwn && { color: "#000000" },
+          isPlayerMode && !isOwn && { color: "#FFFFFF" },
+        ]}>
+          {item.body}
+        </ThemedText>
+        {isPending ? (
+          <View style={styles.messageMeta}>
+            <Ionicons name="time-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
+          </View>
+        ) : showTimestamp ? (
+          <View style={styles.messageMeta}>
+            <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp, isPlayerMode && { color: isOwn ? "#00000066" : "#FFFFFF66" }]}>
+              {formatTime(item.createdAt)}
+            </ThemedText>
+            {isOwn && (
+              <Ionicons name="checkmark-done-outline" size={11} color={isPlayerMode ? "#00000055" : Colors.dark.textMuted} />
+            )}
+          </View>
+        ) : null}
 
         {Object.keys(reactionGroups).length > 0 ? (
           <View style={styles.reactions}>
@@ -1908,11 +1906,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               </ThemedText>
             </Pressable>
           )}
-          <View style={styles.messageRow}>
-            <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
-            <View style={styles.messageMeta}>
-              <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
-            </View>
+          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
+          <View style={styles.messageMeta}>
+            <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
           </View>
           {Object.keys(groupedReactions).length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
@@ -3967,6 +3963,7 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: "80%",
+    minWidth: 56,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -4007,10 +4004,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.xpCyan,
     letterSpacing: 0.3,
   },
-  messageRow: {
-    flexDirection: "column",
-    alignItems: "stretch",
-  },
   messageMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -4022,7 +4015,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.text,
     lineHeight: 18,
-    flexShrink: 1,
   },
   ownMessageText: {
     color: Colors.dark.buttonText,
