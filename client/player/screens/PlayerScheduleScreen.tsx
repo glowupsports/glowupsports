@@ -35,7 +35,7 @@ import {
   GlowColors,
   TextColors,
 } from "@/constants/theme";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import {
