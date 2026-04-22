@@ -1017,23 +1017,30 @@ function setupErrorHandler(app: express.Application) {
       startBirthdayNotificationScheduler();
       // Onboarding email scheduler DISABLED - was sending duplicate emails on every server restart
       
-      // Run bulk credit repair on startup to fix any missing charges
+      // Task #958 — V1 credit system fully retired. The legacy startup repair
+      // scripts that read/wrote V1 `packages` and `credit_transactions`
+      // (repairAllPlayerCredits, fixHolidayOvercharges, fixAlmaZaleskiCredits,
+      // fixRouzbehGhostCredit, auditAllPlayerCredits, reconcilePackageCredits,
+      // the negative-`remaining_credits` clamp, and the one-time
+      // session_debt cleanup) no longer run on every boot. V2 owns the wallet
+      // (player_credit_balance / credit_ledger_v2 / credit_lots_v2); drift is
+      // detected by `processCreditDriftWatchdog` in the reminder scheduler and
+      // backfilled via scripts/backfill-credit-drift.ts when needed.
       try {
-        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, reconcilePackageCredits, repairOrphanedSessionPlayers } = await import("./storage");
-        
+        const { repairGroupSessionTypes, repairOrphanedSessionPlayers, cleanupGhostSessions } = await import("./storage");
+
         log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
         const groupResult = await repairGroupSessionTypes();
         log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
-        
+
         // Cleanup ghost sessions from ended/deleted series
         try {
-          const { cleanupGhostSessions } = await import("./storage");
           const ghostResult = await cleanupGhostSessions();
           log(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
         } catch (err) {
           console.error("[GhostCleanup] Failed:", err);
         }
-        
+
         log("[SessionMaintenance] Running session maintenance (repair missing players, auto-attendance, cleanup, null attendance)...");
         await processSessionMaintenance();
 
@@ -1041,68 +1048,15 @@ function setupErrorHandler(app: express.Application) {
         log("[OrphanedSPRepair] Checking for missing session_players in series...");
         const orphanResult = await repairOrphanedSessionPlayers();
         log(`[OrphanedSPRepair] Complete: ${orphanResult.created} created, ${orphanResult.failures.length} failures`);
-        
-        log("[StartupRepair] Running bulk credit repair...");
-        const result = await repairAllPlayerCredits();
-        log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
-        
-        log("[HolidayOverchargeFix] Correcting any holiday sessions wrongly charged...");
-        await fixHolidayOvercharges();
-
-        log("[AlmaFix] Applying one-shot credit correction for Alma Zalesski...");
-        await fixAlmaZaleskiCredits();
-
-        // One-time cleanup: remove ghost session_debt with NULL session_id (Erina, Feb 15 2026)
-        try {
-          const { db: dbInst } = await import("./db");
-          const { sql: sqlTag } = await import("drizzle-orm");
-          const ghostResult = await dbInst.execute(sqlTag`
-            DELETE FROM credit_transactions
-            WHERE id = '96adb4db-e661-4ff2-b9aa-82bab3186080'
-              AND session_id IS NULL
-              AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-          `);
-          const deleted = (ghostResult as any).rowCount ?? 0;
-          if (deleted > 0) {
-            log("[GhostDebtCleanup] Removed 1 orphaned session_debt with NULL session_id");
-          } else {
-            log("[GhostDebtCleanup] Orphaned debt already removed — no action needed");
-          }
-        } catch (ghostErr: unknown) {
-          console.error("[GhostDebtCleanup] Error:", ghostErr instanceof Error ? ghostErr.message : String(ghostErr));
-        }
-        
-        log("[CreditAudit] Running ghost credit audit for ALL players...");
-        await auditAllPlayerCredits();
-
-        // Safety clamp: remaining_credits must never be negative (depleted = 0, not -N)
-        try {
-          const { db: dbClamp } = await import("./db");
-          const { sql: sqlClamp } = await import("drizzle-orm");
-          const clamped = await dbClamp.execute(sqlClamp`
-            UPDATE packages SET remaining_credits = 0 WHERE remaining_credits < 0
-          `);
-          const count = (clamped as any).rowCount ?? 0;
-          if (count > 0) log(`[CreditClamp] Clamped ${count} packages with negative remaining_credits to 0`);
-        } catch (e: any) {
-          console.error("[CreditClamp] Failed:", e.message);
-        }
-
-        log("[CreditReconcile] Reconciling package remaining_credits against transaction history...");
-        const reconcileResult = await reconcilePackageCredits();
-        log(`[CreditReconcile] Done: ${reconcileResult.checked} drifted, ${reconcileResult.fixed} fixed, ${reconcileResult.errors.length} errors`);
-
-        // One-time repair: fix ghost private credit for Rouzbeh Fazlinejad (Task #390)
-        // Runs AFTER CreditReconcile because reconcile's formula computes expected=4 for this
-        // package (it counts only 6 settled active debts, not the 7th that was wrongly cancelled).
-        // Running last ensures the ghost credit deduction is not overwritten by reconcile.
-        // See fixRouzbehGhostCredit() in pushNotifications.ts for full context.
-        await fixRouzbehGhostCredit();
 
         // SAFETY: Debts must NEVER be auto-cancelled — they track what players owe until a package is purchased
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }
+      // Silence unused V1 imports retained for backwards-compat with other modules.
+      void fixHolidayOvercharges;
+      void fixAlmaZaleskiCredits;
+      void fixRouzbehGhostCredit;
 
       // Glow Progress Connectivity: fix BALL_LEVEL_ENTRY_MAP, import Blue/Glow skills, backfill player_ball_levels
       try {

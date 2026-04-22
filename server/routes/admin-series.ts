@@ -2292,50 +2292,52 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const xpToNext = xpData.xpToNextLevel || 500;
       
 
-      // Get active packages — single source of truth for credit summary
-      const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
-
-      // Compute credit summary FROM the packages list so it is always consistent with the card display
-      const _normalizeType = (type: string | undefined | null): "group" | "semi_private" | "private" => {
-        if (!type) return "group";
-        const n = type.toLowerCase().replace(/-/g, "_").replace(/ /g, "_");
-        if (n === "semi" || n === "semi_private" || n === "semi_private_adjusted") return "semi_private";
-        if (n === "private" || n === "private_adjusted") return "private";
-        return "group";
-      };
-      const activePlayerPackages = playerPackages.filter((p: any) => p.status === "active");
-      const computedCredits = { group: 0, semi_private: 0, private: 0 };
-      for (const pkg of activePlayerPackages) {
-        const t = _normalizeType(pkg.creditType);
-        computedCredits[t] += Number(pkg.remainingCredits);
-      }
-      const totalCredits = computedCredits.group + computedCredits.semi_private + computedCredits.private;
-
-      // Fetch debt separately (does not affect the credit summary above)
+      // Task #958 — V2-only credit read. The credit summary comes from the V2
+      // `player_credit_balance` table via `getPlayerCreditBalanceByType`; the
+      // legacy V1 packages-based sum was retired. The packages list shown to
+      // admins is sourced from V2 credit lots (one row per purchased lot) so
+      // the panel stays consistent with Home, Schedule, and the Credit Store.
       const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
+      const computedCredits = {
+        group: Math.max(0, creditBalance.group),
+        semi_private: Math.max(0, creditBalance.semi_private),
+        private: Math.max(0, creditBalance.private),
+      };
+      const totalCredits = computedCredits.group + computedCredits.semi_private + computedCredits.private;
+      const playerLotsRes = await db.execute(sql`
+        SELECT id, type, qty_total, qty_remaining, price_per_credit,
+               expires_at, status, created_at, source_package_id
+        FROM credit_lots
+        WHERE player_id = ${playerId}
+        ORDER BY
+          CASE status WHEN 'active' THEN 0 WHEN 'depleted' THEN 1 ELSE 2 END,
+          expires_at NULLS LAST,
+          created_at DESC
+      `);
+      const playerLots = playerLotsRes.rows as Array<{
+        id: string;
+        type: string;
+        qty_total: string | number;
+        qty_remaining: string | number;
+        price_per_credit: string | number | null;
+        expires_at: string | null;
+        status: string;
+        created_at: string;
+        source_package_id: string | null;
+      }>;
+      const activeLotCount = playerLots.filter((l) => l.status === "active" && Number(l.qty_remaining) > 0).length;
 
-      // Calculate payments from packages
-      const unpaidPackages = playerPackages.filter((p: any) => !p.isPaid);
-      const paidPackages = playerPackages.filter((p: any) => p.isPaid);
-      
-      const pkgTotalOwed = unpaidPackages.reduce((sum: number, pkg: any) => {
-        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
-        return sum + pkgPrice;
-      }, 0);
-      
-      const totalPaid = paidPackages.reduce((sum: number, pkg: any) => {
-        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
-        return sum + pkgPrice;
-      }, 0);
-
-      // Get player invoices
+      // Payments are tracked exclusively via invoices (V1 package price totals
+      // were retired alongside V1 credit reads).
       const playerAcademyId = player.academyId || "";
       const allInvoices = playerAcademyId ? await storage.getInvoices(playerAcademyId) : [];
       const playerInvoices = allInvoices.filter((inv: any) => inv.playerId === playerId);
       const pendingInvoices = playerInvoices.filter((inv: any) => inv.status === "pending" || inv.status === "sent");
+      const paidInvoices = playerInvoices.filter((inv: any) => inv.status === "paid");
       const invoiceTotalOwed = pendingInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
+      const totalPaid = paidInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
 
-      const totalOwed = pkgTotalOwed + invoiceTotalOwed;
+      const totalOwed = invoiceTotalOwed;
       
       let paymentStatus: "paid" | "partial" | "overdue" = "paid";
       if (totalOwed > 0) {
@@ -2408,22 +2410,25 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           group: computedCredits.group,
           semiPrivate: computedCredits.semi_private,
           private: computedCredits.private,
-          activePackages: activePlayerPackages.length,
+          activePackages: activeLotCount,
           totalDebt: creditBalance.totalDebt,
           hasDebt: creditBalance.hasDebt,
         },
-        packages: playerPackages.map((pkg: any) => ({
-          // Each package shows its OWN remaining credits
-          id: pkg.id,
-          creditType: pkg.creditType || "group",
-          totalCredits: pkg.totalCredits,
-          remainingCredits: pkg.remainingCredits, // Package's own remaining
-          status: pkg.status,
-          expiryDate: pkg.expiryDate,
-          createdAt: pkg.createdAt,
-          pricePerCredit: pkg.pricePerCredit || 0,
-          isPaid: pkg.isPaid || false,
-          price: pkg.price || 0,
+        // Task #958 — `packages` is now derived from V2 `credit_lots` (one row
+        // per purchased lot). The shape mirrors the legacy V1 response so the
+        // admin player UI keeps working without changes.
+        packages: playerLots.map((lot) => ({
+          id: lot.id,
+          creditType: lot.type,
+          totalCredits: Number(lot.qty_total),
+          remainingCredits: Math.max(0, Number(lot.qty_remaining)),
+          status: lot.status,
+          expiryDate: lot.expires_at,
+          createdAt: lot.created_at,
+          pricePerCredit: Number(lot.price_per_credit ?? 0),
+          isPaid: true,
+          price: Number(lot.price_per_credit ?? 0) * Number(lot.qty_total),
+          sourcePackageId: lot.source_package_id,
         })),
         sessions: await (async () => {
           // Task #736 — batch session_players + coaching_series lookups in 2
@@ -3431,44 +3436,20 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const attendedSessions = pastSessions.filter(s => s.attendanceStatus === "present");
       const streak = attendedSessions.length;
       
-      // Get player credits by type
-      const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
-
-      // Calculate payments from packages
-      const unpaidPackages = playerPackages.filter((p: any) => !p.isPaid);
-      const paidPackages = playerPackages.filter((p: any) => p.isPaid);
-      
-      const totalOwed = unpaidPackages.reduce((sum: number, pkg: any) => {
-        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
-        return sum + pkgPrice;
-      }, 0);
-      
-      const totalPaid = paidPackages.reduce((sum: number, pkg: any) => {
-        const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
-        return sum + pkgPrice;
-      }, 0);
-      
-      let paymentStatus: "paid" | "partial" | "overdue" = "paid";
-      if (totalOwed > 0) {
-        paymentStatus = totalPaid > 0 ? "partial" : "overdue";
-      }
-      // Credits source: V2 wallet (player_credit_balance) — same as
-      // /api/v2/credits/wallet/:id and Credit Store. The legacy V1
-      // packages.remaining_credits sum was producing drift (and a
-      // string-concat "1212" bug because pg numerics deserialize as
-      // strings). All numbers are coerced via Number(...) before any
-      // arithmetic.
-      const v2Balance = player.academyId
-        ? await getBalance(playerId, player.academyId)
-        : { group: 0, private: 0, semi_private: 0 };
+      // Task #958 — V2-only credit read. The legacy V1 `packages.remainingCredits`
+      // sum was retired so Home matches Schedule and the Credit Store; balances
+      // come from `player_credit_balance` via `getPlayerCreditBalanceByType`.
+      // Note: incoming HEAD also computed `totalOwed`/`totalPaid`/`paymentStatus`
+      // from V1 packages here, but those locals were never returned in this
+      // endpoint's response — drop them along with the V1 read. Payment status
+      // is computed elsewhere from invoices.
+      const v2Balance = await storage.getPlayerCreditBalanceByType(playerId);
       const creditsByType = {
-        group: Number(v2Balance.group ?? 0),
-        private: Number(v2Balance.private ?? 0),
-        semi_private: Number(v2Balance.semi_private ?? 0),
-        court: 0,
+        group: Math.max(0, v2Balance.group),
+        private: Math.max(0, v2Balance.private),
+        semi_private: Math.max(0, v2Balance.semi_private),
       };
-      const totalCredits =
-        creditsByType.group + creditsByType.private + creditsByType.semi_private;
+      const totalCredits = creditsByType.group + creditsByType.private + creditsByType.semi_private;
       
       // Get XP and level data
       const xpData = await storage.getPlayerXpTotal(playerId);

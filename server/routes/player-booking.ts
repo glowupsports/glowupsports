@@ -3721,25 +3721,47 @@ Return only the JSON array, nothing else.`;
         }
       }
 
-      const packages = await storage.getPlayerPackages(playerId);
-      const activePackages = packages.filter(pkg => 
-        pkg.status === 'active' && pkg.remainingCredits > 0
-      );
-      
-      const totalCredits = activePackages.reduce((sum, pkg) => sum + pkg.remainingCredits, 0);
-      
+      // Task #958 — V2-only credit read. The legacy V1 packages list (with
+      // `remainingCredits`) has been replaced by V2 credit lots. The summary
+      // total is the V2 wallet balance via `getPlayerCreditBalanceByType` so
+      // it stays consistent with Home, Schedule, and the Credit Store.
+      const balance = await storage.getPlayerCreditBalanceByType(playerId);
+      const lotsRes = await db.execute(sql`
+        SELECT id, type, qty_total, qty_remaining, expires_at, status, created_at
+        FROM credit_lots
+        WHERE player_id = ${playerId}
+        ORDER BY
+          CASE status WHEN 'active' THEN 0 WHEN 'depleted' THEN 1 ELSE 2 END,
+          expires_at NULLS LAST,
+          created_at DESC
+      `);
+      const lots = lotsRes.rows as Array<{
+        id: string;
+        type: string;
+        qty_total: string | number;
+        qty_remaining: string | number;
+        expires_at: string | null;
+        status: string;
+        created_at: string;
+      }>;
+      const totalCredits =
+        Math.max(0, balance.group) +
+        Math.max(0, balance.semi_private) +
+        Math.max(0, balance.private);
+      const activeLotCount = lots.filter((l) => l.status === "active" && Number(l.qty_remaining) > 0).length;
+
       res.json({
-        packages: packages.map(pkg => ({
-          id: pkg.id,
-          name: pkg.name || 'Package',
-          totalCredits: pkg.totalCredits,
-          remainingCredits: pkg.remainingCredits,
-          expiryDate: pkg.expiryDate,
-          status: pkg.status,
-          purchaseDate: pkg.purchaseDate,
+        packages: lots.map((lot) => ({
+          id: lot.id,
+          name: `${lot.type.replace(/_/g, " ")} credits`,
+          totalCredits: Number(lot.qty_total),
+          remainingCredits: Number(lot.qty_remaining),
+          expiryDate: lot.expires_at,
+          status: lot.status,
+          purchaseDate: lot.created_at,
         })),
         summary: {
-          activePackages: activePackages.length,
+          activePackages: activeLotCount,
           totalCreditsRemaining: totalCredits,
         },
       });
@@ -4426,22 +4448,17 @@ Return only the JSON array, nothing else.`;
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const packages = await storage.getPlayerPackages(playerId);
-      const activePackages = packages.filter(p => p.status === "active" && p.remainingCredits > 0);
-
+      // Task #958 — V2-only credit read. Source of truth is
+      // `player_credit_balance` via `getPlayerCreditBalanceByType`. The legacy
+      // V1 reduce over `packages.remainingCredits` was retired so this endpoint
+      // matches Home, Schedule, and the Credit Store.
+      const balance = await storage.getPlayerCreditBalanceByType(playerId);
       const credits: Record<string, number> = {
-        group: 0,
+        group: Math.max(0, balance.group),
         court: 0,
-        private: 0,
-        semi_private: 0,
+        private: Math.max(0, balance.private),
+        semi_private: Math.max(0, balance.semi_private),
       };
-
-      activePackages.forEach(pkg => {
-        const type = pkg.creditType as keyof typeof credits;
-        if (type in credits) {
-          credits[type] += pkg.remainingCredits;
-        }
-      });
 
       res.json({ credits });
     } catch (error) {
