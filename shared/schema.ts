@@ -1536,6 +1536,16 @@ export const playerConnections = pgTable("player_connections", {
   player1Idx: index("player_connections_player1_idx").on(table.player1Id),
   player2Idx: index("player_connections_player2_idx").on(table.player2Id),
   statusIdx: index("player_connections_status_idx").on(table.status),
+  // Unique index on the unordered (player1Id, player2Id) pair, scoped to
+  // friend connections. Prevents duplicate friend requests/connections for
+  // the same pair regardless of who sent the request first.
+  // See migration: server/migrations/20260422_player_connections_friend_unique.sql
+  friendPairUnique: uniqueIndex("player_connections_friend_pair_unique")
+    .on(
+      sql`LEAST(${table.player1Id}, ${table.player2Id})`,
+      sql`GREATEST(${table.player1Id}, ${table.player2Id})`,
+    )
+    .where(sql`${table.connectionType} = 'friend'`),
 }));
 
 export type PlayerConnection = typeof playerConnections.$inferSelect;

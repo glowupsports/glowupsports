@@ -13,9 +13,11 @@ export interface FriendStatusInfo {
  * Build a map of `candidatePlayerId -> { status, connectionId }` describing the
  * viewer's friend connection with each candidate.
  *
- * Conflict resolution (deterministic when duplicate rows exist for the same
- * pair, e.g. legacy data without the unique index):
- *   accepted > pending_received > pending_sent
+ * Since Task #973 a unique index on the unordered (player1Id, player2Id) pair
+ * (scoped to connectionType='friend') guarantees at most one row per pair, so
+ * the conflict resolution below is effectively unreachable for new data. It is
+ * kept as a defensive no-op in case any rows ever slip through (e.g. during a
+ * future migration window): accepted > pending_received > pending_sent.
  *
  * Returns an empty map on any DB failure so the caller can still respond with
  * the players list (with friendStatus defaulting to "none").
