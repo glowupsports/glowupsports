@@ -46,6 +46,10 @@ interface Props {
   onClose: () => void;
   // Called after Mark as Paid succeeds; lets caller invalidate parent queries.
   onPaid?: () => void;
+  // Optional: when provided, renders a destructive Delete button. Caller is
+  // responsible for confirming, performing the delete, refreshing data, and
+  // closing this modal.
+  onDelete?: (invoice: ViewableInvoice) => Promise<void> | void;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -70,10 +74,11 @@ function fmtDate(iso: string | null | undefined): string {
   }
 }
 
-export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props) {
+export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete }: Props) {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [downloading, setDownloading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const markPaidMutation = useMutation({
     mutationFn: async () => {
@@ -338,6 +343,47 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid }: Props)
                       <Ionicons name="checkmark-circle" size={16} color={Colors.dark.successNeon} />
                       <Text style={{ color: Colors.dark.successNeon, fontWeight: "800", fontSize: 13 }}>
                         Mark paid
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : null}
+
+              {onDelete && invoice ? (
+                <Pressable
+                  onPress={async () => {
+                    if (deleting) return;
+                    try {
+                      setDeleting(true);
+                      await onDelete(invoice);
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={deleting}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete invoice ${invoice.invoiceNumber}`}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    paddingVertical: 14,
+                    borderRadius: BorderRadius.md,
+                    backgroundColor: `${Colors.dark.error}20`,
+                    borderWidth: 1,
+                    borderColor: `${Colors.dark.error}50`,
+                    opacity: deleting ? 0.6 : 1,
+                  }}
+                >
+                  {deleting ? (
+                    <ActivityIndicator color={Colors.dark.error} />
+                  ) : (
+                    <>
+                      <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />
+                      <Text style={{ color: Colors.dark.error, fontWeight: "800", fontSize: 13 }}>
+                        Delete
                       </Text>
                     </>
                   )}

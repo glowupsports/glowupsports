@@ -436,7 +436,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                       {inv.currency} {inv.amount.toLocaleString()}
                     </Text>
                   </Pressable>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", marginTop: 6, columnGap: 6, rowGap: 6 }}>
                     <Pressable
                       onPress={openViewer}
                       style={{ backgroundColor: `${statusColor}20`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.xs }}
@@ -454,23 +454,8 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                       <Ionicons name="document-text-outline" size={12} color={Colors.dark.textMuted} />
                       <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" as const }}>View</Text>
                     </Pressable>
-                    <Pressable
-                      onPress={confirmDelete}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Delete invoice ${inv.invoiceNumber}`}
-                      hitSlop={6}
-                      style={{
-                        flexDirection: "row", alignItems: "center", gap: 3,
-                        paddingHorizontal: 8, paddingVertical: 4,
-                        borderRadius: BorderRadius.xs,
-                        marginLeft: isPaid ? "auto" : 0,
-                      }}
-                    >
-                      <Ionicons name="trash-outline" size={12} color={Colors.dark.error} />
-                      <Text style={{ fontSize: 11, color: Colors.dark.error, fontWeight: "600" as const }}>Delete</Text>
-                    </Pressable>
                     {!isPaid ? (
-                      <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
+                      <>
                         <Pressable
                           style={{
                             flexDirection: "row", alignItems: "center", gap: 4,
@@ -512,8 +497,24 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                           <Ionicons name="mail-outline" size={14} color={isOverdue ? Colors.dark.error : "#FFD700"} />
                           <Text style={{ fontSize: 12, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "700" as const }}>Reminder</Text>
                         </Pressable>
-                      </View>
+                      </>
                     ) : null}
+                    <Pressable
+                      onPress={confirmDelete}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete invoice ${inv.invoiceNumber}`}
+                      hitSlop={6}
+                      style={{
+                        flexDirection: "row", alignItems: "center", gap: 4,
+                        paddingHorizontal: 14, paddingVertical: 8,
+                        borderRadius: BorderRadius.sm, borderWidth: 1,
+                        backgroundColor: `${Colors.dark.error}15`,
+                        borderColor: `${Colors.dark.error}30`,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={Colors.dark.error} />
+                      <Text style={{ fontSize: 12, color: Colors.dark.error, fontWeight: "700" as const }}>Delete</Text>
+                    </Pressable>
                   </View>
                 </View>
               );
@@ -529,6 +530,44 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
         onPaid={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
           invalidatePlayersList(queryClient);
+        }}
+        onDelete={(inv) => {
+          const message = `Delete invoice #${inv.invoiceNumber}? This cannot be undone.`;
+          const doDelete = async () => {
+            try {
+              await apiRequest("DELETE", `/api/billing/invoices/${inv.id}`);
+              queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+              invalidatePlayersList(queryClient);
+              setViewerInvoice(null);
+              setDeleteToast({ visible: false, message: "" });
+              setTimeout(() => {
+                setDeleteToast({
+                  visible: true,
+                  message: `Invoice #${inv.invoiceNumber} deleted`,
+                });
+              }, 0);
+            } catch (err: any) {
+              if (Platform.OS !== "web") {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              }
+              const msg = String(err?.message || "");
+              if (msg.includes("404")) {
+                Alert.alert("Invoice not found", "This invoice no longer exists.");
+              } else {
+                Alert.alert("Error", "Failed to delete invoice. Please try again.");
+              }
+            }
+          };
+          if (Platform.OS === "web") {
+            const ok = (globalThis as any).confirm?.(message);
+            if (ok) return doDelete();
+            return;
+          }
+          Alert.alert("Delete invoice?", message, [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: doDelete },
+          ]);
         }}
       />
 
