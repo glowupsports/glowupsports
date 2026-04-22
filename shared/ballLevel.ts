@@ -1,5 +1,17 @@
 export type BallLevelId = "blue" | "red" | "orange" | "green" | "yellow" | "glow";
 
+// Canonical ordering of ball levels from easiest to hardest. Use this any
+// time you need adjacency, sorting, or distribution tables so that callers
+// stay consistent if the order ever changes.
+export const BALL_LEVEL_ORDER: BallLevelId[] = [
+  "blue",
+  "red",
+  "orange",
+  "green",
+  "yellow",
+  "glow",
+];
+
 export function calculateAgeFromDOB(dateOfBirth: string): number {
   // Parse YYYY-MM-DD by components so timezone never shifts the birthday.
   // Falls back to Date parsing for any non-conforming input (e.g. ISO with time).

@@ -24,6 +24,7 @@ import { awardXP } from "../services/xp-service";
 import { getBalance } from "../services/credit-engine";
 import crypto from "crypto";
 import { generateShortInviteCode } from "../utils/inviteCode";
+import { BALL_LEVEL_ORDER } from "@shared/ballLevel";
 
 const router = Router();
 
@@ -3994,6 +3995,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const typeFilterParam = (req.query.type as string | undefined)?.toLowerCase();
       const offsetParam = Math.max(0, parseInt((req.query.offset as string) || "0", 10) || 0);
       const limitParam = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || "20", 10) || 20));
+      const levelFallbackParam = (req.query.levelFallback as string | undefined)?.toLowerCase();
+
+      // Track ball-level fallback metadata so the home screen can show
+      // "No Orange classes — showing nearby levels" when we widen the search.
+      let groupLevelFallback: { used: boolean; originalLevel: string; levels: string[] } = {
+        used: false,
+        originalLevel: playerBallLevel,
+        levels: [playerBallLevel],
+      };
       
       const openSessions: Array<{
         id: string; 
@@ -4043,32 +4053,69 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           } catch (e) {}
         }
 
-        const levelFilteredSessions = academySessions.filter(s => {
-          if (new Date(s.startTime) <= now) return false;
-          
-          const sessionBallLevel = ((s as any).ballLevel || "").toLowerCase();
-          const seriesLevel = (s as any).seriesId ? seriesLevelMap.get((s as any).seriesId) || "" : "";
-          const effectiveLevel = sessionBallLevel || seriesLevel;
-          
-          if (!effectiveLevel) return false;
-          if (effectiveLevel !== playerBallLevel) return false;
-          
-          // Apply type filter
-          if (typeFilterParam && typeFilterParam !== "all") {
-            const sessionType = (s.sessionType || "group").toLowerCase();
-            if (sessionType !== typeFilterParam) return false;
+        const filterByAllowedLevels = (allowedLevels: Set<string>) =>
+          academySessions.filter(s => {
+            if (new Date(s.startTime) <= now) return false;
+
+            const sessionBallLevel = ((s as any).ballLevel || "").toLowerCase();
+            const seriesLevel = (s as any).seriesId ? seriesLevelMap.get((s as any).seriesId) || "" : "";
+            const effectiveLevel = sessionBallLevel || seriesLevel;
+
+            if (!effectiveLevel) return false;
+            if (!allowedLevels.has(effectiveLevel)) return false;
+
+            // Apply type filter
+            if (typeFilterParam && typeFilterParam !== "all") {
+              const sessionType = (s.sessionType || "group").toLowerCase();
+              if (sessionType !== typeFilterParam) return false;
+            }
+
+            // Apply sport filter — exclude sessions with no sport when filter is active
+            if (sportFilterParam && sportFilterParam !== "all") {
+              const rawSessionSport: string = ((s as any).sport as string | undefined) ?? "";
+              const rawSeriesSport: string = ((s as any).seriesId ? (seriesSportMap.get((s as any).seriesId) ?? "") : "");
+              const effectiveSport = (rawSessionSport || rawSeriesSport).toLowerCase();
+              if (!effectiveSport || effectiveSport !== sportFilterParam) return false;
+            }
+
+            return true;
+          });
+
+        let levelFilteredSessions = filterByAllowedLevels(new Set([playerBallLevel]));
+
+        // If "My Level" yields zero *group* sessions and the caller opted into
+        // adjacent-level fallback, widen to one ball level above and below so
+        // kids never see an empty home feed when there are nearby-level
+        // classes they could attend. We evaluate group emptiness specifically
+        // (not all session types) because the home carousel only shows group
+        // lessons — a my-level private lesson should not suppress fallback.
+        if (levelFallbackParam === "adjacent") {
+          const myLevelGroupCount = levelFilteredSessions.filter(
+            (s) => (s.sessionType || "group").toLowerCase() === "group",
+          ).length;
+          if (myLevelGroupCount === 0) {
+            const idx = (BALL_LEVEL_ORDER as readonly string[]).indexOf(playerBallLevel);
+            if (idx >= 0) {
+              const adjacent = [
+                idx - 1 >= 0 ? BALL_LEVEL_ORDER[idx - 1] : null,
+                playerBallLevel,
+                idx + 1 < BALL_LEVEL_ORDER.length ? BALL_LEVEL_ORDER[idx + 1] : null,
+              ].filter((v): v is string => !!v);
+              const fallbackList = filterByAllowedLevels(new Set(adjacent));
+              const fallbackGroupCount = fallbackList.filter(
+                (s) => (s.sessionType || "group").toLowerCase() === "group",
+              ).length;
+              if (fallbackGroupCount > 0) {
+                levelFilteredSessions = fallbackList;
+                groupLevelFallback = {
+                  used: true,
+                  originalLevel: playerBallLevel,
+                  levels: adjacent,
+                };
+              }
+            }
           }
-          
-          // Apply sport filter — exclude sessions with no sport when filter is active
-          if (sportFilterParam && sportFilterParam !== "all") {
-            const rawSessionSport: string = ((s as any).sport as string | undefined) ?? "";
-            const rawSeriesSport: string = ((s as any).seriesId ? (seriesSportMap.get((s as any).seriesId) ?? "") : "");
-            const effectiveSport = (rawSessionSport || rawSeriesSport).toLowerCase();
-            if (!effectiveSport || effectiveSport !== sportFilterParam) return false;
-          }
-          
-          return true;
-        });
+        }
         
         // Sort by start time, then apply pagination
         // Save total count BEFORE slicing so open-match pagination can be computed correctly
@@ -4381,6 +4428,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           privateLessons,
           courtsAvailable,
         },
+        groupLevelFallback,
       });
     } catch (error) {
       console.error("Error fetching player social data:", error);

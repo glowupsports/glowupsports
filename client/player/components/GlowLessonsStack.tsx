@@ -314,9 +314,21 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const listRef = useRef<FlatList<OpenLessonSession>>(null);
 
-  const { data } = useQuery<{ openSessions: OpenLessonSession[] }>({
-    queryKey: ["/api/player/me/social"],
+  // The home GLOW LESSONS carousel opts into the server's adjacent-level
+  // fallback. The query string is kept inside the queryKey's single string
+  // element so the default queryFn (which joins the key into a URL) hits
+  // `/api/player/me/social?levelFallback=adjacent` and we still benefit from
+  // the shared 401/refresh handling. We mirror PlayerStateContext's
+  // refetchInterval so this feed stays in sync with the rest of the home.
+  const { data } = useQuery<{
+    openSessions: OpenLessonSession[];
+    groupLevelFallback?: { used: boolean; originalLevel: string; levels: string[] };
+  }>({
+    queryKey: ["/api/player/me/social?levelFallback=adjacent"],
+    refetchInterval: 30000,
   });
+
+  const groupLevelFallback = data?.groupLevelFallback;
 
   const groupSessions = useMemo<OpenLessonSession[]>(() => {
     const all = (data?.openSessions || []).filter((s) => s.type === "group");
@@ -338,6 +350,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/social?levelFallback=adjacent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
     },
     onError: (e: any) => {
@@ -404,6 +417,10 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
     );
   }
 
+  const fallbackLabel = groupLevelFallback?.used
+    ? `No ${groupLevelFallback.originalLevel.charAt(0).toUpperCase() + groupLevelFallback.originalLevel.slice(1)} classes — showing nearby levels`
+    : null;
+
   return (
     <View
       style={styles.root}
@@ -412,6 +429,12 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
         if (w > 0 && w !== width) setWidth(w);
       }}
     >
+      {fallbackLabel ? (
+        <View style={styles.fallbackLabelRow}>
+          <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textSecondary} />
+          <Text style={styles.fallbackLabelText} numberOfLines={1}>{fallbackLabel}</Text>
+        </View>
+      ) : null}
       {width > 0 ? (
         inCarousel ? (
           // Inside the HeroCarousel we surface only the first/enrolled lesson
@@ -668,5 +691,17 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   dot: {
     height: 5,
     borderRadius: 3,
+  },
+  fallbackLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  fallbackLabelText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    flexShrink: 1,
   },
 }));
