@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 
 import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds, Colors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { BALL_LEVEL_ORDER, type BallLevelId } from "@shared/ballLevel";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
@@ -63,6 +64,21 @@ function getCourtTint(level?: string): string {
   if (l.includes("yellow")) return "#EAB308";
   if (l.includes("glow")) return "#E040FB";
   return ACCENT;
+}
+
+function getRelativeLevelLabel(
+  cardLevel: string | undefined,
+  originalLevel: string | undefined,
+): string | null {
+  if (!cardLevel || !originalLevel) return null;
+  const ci = BALL_LEVEL_ORDER.indexOf(cardLevel.toLowerCase() as BallLevelId);
+  const oi = BALL_LEVEL_ORDER.indexOf(originalLevel.toLowerCase() as BallLevelId);
+  if (ci < 0 || oi < 0) return null;
+  const diff = ci - oi;
+  if (diff === 0) return "Your level";
+  if (diff === 1) return "1 above your level";
+  if (diff === -1) return "1 below your level";
+  return null;
 }
 
 function formatCountdown(dateStr?: string): string | null {
@@ -118,12 +134,14 @@ function LessonCard({
   onJoin,
   isJoining,
   onTap,
+  relativeLevelLabel,
 }: {
   session: OpenLessonSession;
   width: number;
   onJoin: (s: OpenLessonSession) => void;
   isJoining: boolean;
   onTap: (s: OpenLessonSession) => void;
+  relativeLevelLabel?: string | null;
 }) {
   const tint = getCourtTint(session.ballLevel);
   const brandAccent = useCategoryAccent("glowLessons", ACCENT);
@@ -159,6 +177,25 @@ function LessonCard({
               <View style={[styles.levelDot, { backgroundColor: tint }]} />
               <Text style={[styles.levelChipText, { color: tint }]}>
                 {session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1)}
+              </Text>
+            </View>
+          ) : null}
+          {relativeLevelLabel ? (
+            <View
+              style={[
+                styles.relLevelChip,
+                relativeLevelLabel === "Your level"
+                  ? { backgroundColor: brandAccent + "20", borderColor: brandAccent + "55" }
+                  : { backgroundColor: Colors.dark.chipBackgroundStrong, borderColor: Colors.dark.chipBackgroundStrong },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.relLevelChipText,
+                  { color: relativeLevelLabel === "Your level" ? brandAccent : Colors.dark.text },
+                ]}
+              >
+                {relativeLevelLabel}
               </Text>
             </View>
           ) : null}
@@ -448,6 +485,11 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
               onJoin={handleJoin}
               isJoining={joiningId === groupSessions[0].id}
               onTap={handleTap}
+              relativeLevelLabel={
+                groupLevelFallback?.used
+                  ? getRelativeLevelLabel(groupSessions[0].ballLevel, groupLevelFallback.originalLevel)
+                  : null
+              }
             />
           </View>
         ) : (
@@ -465,6 +507,11 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
                 onJoin={handleJoin}
                 isJoining={joiningId === item.id}
                 onTap={handleTap}
+                relativeLevelLabel={
+                  groupLevelFallback?.used
+                    ? getRelativeLevelLabel(item.ballLevel, groupLevelFallback.originalLevel)
+                    : null
+                }
               />
             )}
             onMomentumScrollEnd={handleMomentumEnd}
@@ -535,6 +582,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   levelDot: { width: 5, height: 5, borderRadius: 3 },
   levelChipText: { fontSize: 10, fontWeight: "700" },
+  relLevelChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  relLevelChipText: { fontSize: 10, fontWeight: "700" },
   youInBadge: {
     flexDirection: "row",
     alignItems: "center",
