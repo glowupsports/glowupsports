@@ -5831,7 +5831,13 @@ export const matches = pgTable("matches", {
   glowRankAfter: integer("glow_rank_after"),
   glowRankChange: integer("glow_rank_change").default(0),
   confidenceChange: integer("confidence_change").default(0),
-  
+
+  // External court booking — captured at match creation so the recap can
+  // surface venue arrangements after the match completes.
+  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

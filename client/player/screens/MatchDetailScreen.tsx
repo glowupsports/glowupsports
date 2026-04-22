@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { usePlayer } from "@/player/context/PlayerContext";
+import { CourtBookingPanel } from "@/components/CourtBooking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const MIRROR_ACCENT = "#A78BFA";
@@ -38,6 +39,9 @@ interface MatchDetail {
   matchType: string;
   venue?: string;
   surface?: string;
+  courtBookingStatus?: string | null;
+  courtBookingNote?: string | null;
+  courtBookingUrl?: string | null;
   aces?: number;
   doubleFaults?: number;
   winners?: number;
@@ -1580,6 +1584,16 @@ export default function MatchDetailScreen() {
             </View>
           ) : null}
         </LinearGradient>
+
+        {match.courtBookingStatus && match.courtBookingStatus !== "academy_court" ? (
+          <View style={styles.section}>
+            <CourtBookingPanel
+              status={match.courtBookingStatus}
+              note={match.courtBookingNote}
+              url={match.courtBookingUrl}
+            />
+          </View>
+        ) : null}
 
         {match.plan && (match.plan.primaryTactic || match.plan.mentalCue) ? (
           <View style={styles.section}>

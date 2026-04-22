@@ -352,6 +352,9 @@ router.post("/matches", async (req: Request, res: Response) => {
       doubleFaults,
       winners,
       unforcedErrors,
+      courtBookingStatus,
+      courtBookingNote,
+      courtBookingUrl,
     } = req.body;
 
     if (!playerId || !result || !score || !matchDate) {
@@ -389,6 +392,9 @@ router.post("/matches", async (req: Request, res: Response) => {
         unforcedErrors: unforcedErrors || 0,
         glowRankBefore,
         trustLevel: "self_reported",
+        courtBookingStatus: courtBookingStatus ?? null,
+        courtBookingNote: courtBookingNote ?? null,
+        courtBookingUrl: courtBookingUrl ?? null,
       })
       .returning();
 
