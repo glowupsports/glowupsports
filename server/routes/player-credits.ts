@@ -332,6 +332,43 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           },
         });
 
+        // Task #990 — when a coach grants an already-paid credit package
+        // (i.e. `purchasedAt` was provided so the invoice is marked paid),
+        // also insert a confirmed payments row so the player Payments tab
+        // surfaces what they actually paid for. Without this, coach-given
+        // paid packages silently bypass the payments table and the player
+        // sees zero history. Idempotent against the partial unique index
+        // on (package_id) WHERE source IN ('coach_mark_paid','coach_package_purchase').
+        if (isPaid) {
+          try {
+            await storage.createPayment({
+              academyId: academyId!,
+              playerId,
+              packageId: pkg.id,
+              invoiceId: invoice.id,
+              source: "coach_package_purchase",
+              recordedByUserId: req.user!.userId,
+              amount: totalPrice.toString(),
+              currency,
+              status: "confirmed",
+              paymentMethod: "cash",
+              paymentDate: purchaseDate,
+              notes: `Credit package granted by coach (${totalCredits} ${creditType.replace("_", " ")} credits)`,
+            });
+          } catch (err: unknown) {
+            const code =
+              typeof err === "object" && err !== null && "code" in err
+                ? (err as { code?: unknown }).code
+                : undefined;
+            if (code !== "23505") {
+              console.error(
+                "[player-credits] failed to record coach package-purchase payment:",
+                err,
+              );
+            }
+          }
+        }
+
         // Settle any outstanding debts for this player and credit type.
         // The settlement function is internally guarded so it can never deduct
         // more credits than the package has remaining (hard cap in storage layer).
