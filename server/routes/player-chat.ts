@@ -53,17 +53,17 @@ function requirePlayerOrOwner(req: AuthRequest, res: Response, next: NextFunctio
 router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.playerId) {
-      return res.json({ friends: [], pendingRequests: [] });
+      return res.json([]);
     }
     const playerId = req.user!.playerId!;
     const player = await storage.getPlayer(playerId);
     if (!player) {
-      return res.json({ friends: [], pendingRequests: [] });
+      return res.json([]);
     }
 
     const academyId = player.academyId;
     if (!academyId) {
-      return res.json({ friends: [], pendingRequests: [] });
+      return res.json([]);
     }
 
     const conversationsRaw = await storage.getConversationsForPlayer(playerId, academyId);
@@ -304,7 +304,9 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
     res.json(visible);
   } catch (error) {
     console.error("Error fetching player conversations:", error);
-    res.status(500).json({ error: "Failed to fetch conversations" });
+    // Return empty array rather than 500 so the client renders an empty state
+    // instead of the red "Failed to load messages" panel.
+    res.json([]);
   }
 });
 

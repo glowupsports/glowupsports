@@ -17,6 +17,7 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -302,6 +303,7 @@ export function NewsSection() {
 export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (friend: Friend) => void; onSelectActivity?: (activity: FriendActivity) => void }) {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
@@ -363,15 +365,29 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
 
   const handleChallenge = (friend: Friend) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    navigation.navigate("PlayStack", {
+    // PlayerTabs is a custom SwipeableTabBar pager — NOT a React Navigation
+    // nested navigator — so `navigation.navigate("PlayStack", { screen: ... })`
+    // from inside the Community tab is a no-op. Cross-tab navigation goes
+    // through the TabNavigationContext, which switches the pager to the
+    // requested tab and then forwards `screen`/`params` to that tab's
+    // registered callback (see PlayScreenWithCallback in PlayerNavigator.tsx).
+    navigateToTab("PlayStack", {
       screen: "ChallengePlayer",
-      params: { opponentId: friend.id, opponentName: friend.name, opponentBallLevel: friend.ballLevel, opponentLevel: friend.skillLevel }
+      params: {
+        opponentId: friend.id,
+        opponentName: friend.name,
+        opponentBallLevel: friend.ballLevel,
+        opponentLevel: friend.skillLevel,
+      },
     });
   };
 
-  const handleMessage = (friend: Friend) => {
+  const handleMessage = (_friend: Friend) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerMessages" as never);
+    // PlayerMessages lives on the root PlayerStack (the stack that owns the
+    // PlayerTabs screen), so a plain navigate bubbles up the React Navigation
+    // tree and resolves correctly from any tab.
+    navigation.navigate("PlayerMessages");
   };
 
   const extractServerError = (e: unknown): string | null => {
