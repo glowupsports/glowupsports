@@ -366,17 +366,14 @@ export default function PlayerScheduleScreen() {
     queryKey: ["/api/player/me"],
   });
 
-  // V2 wallet for the balance chip (preferred). Falls back to credits-summary.
+  // V2 wallet for the balance chip — single canonical source so this stat
+  // matches the Credit Store total exactly. Do NOT fall back to the legacy
+  // /credits-summary endpoint here: it reads credit_lots (active lots only),
+  // which silently disagrees with the V2 ledger when lots are depleted,
+  // expired, non-'active', or when there is debt.
   const { data: v2Wallet } = useQuery<V2WalletData>({
     queryKey: [`/api/v2/credits/wallet/${playerId ?? ""}`],
     enabled: !!playerId,
-  });
-
-  const { data: legacyCredits } = useQuery<{
-    credits?: { group?: number; private?: number; semi_private?: number };
-  }>({
-    queryKey: [`/api/players/${playerId}/credits-summary`],
-    enabled: !!playerId && !v2Wallet?.v2Enabled,
   });
 
   // Player payments (used by Payments + History tabs and pending badge).
@@ -417,16 +414,13 @@ export default function PlayerScheduleScreen() {
   });
 
   const lessonBalance: number = (() => {
-    if (v2Wallet?.v2Enabled && v2Wallet.balance) {
-      return (
-        (v2Wallet.balance.group || 0) +
-        (v2Wallet.balance.semi_private || 0) +
-        (v2Wallet.balance.private || 0)
-      );
-    }
-    const c = legacyCredits?.credits;
-    if (c) return (c.group || 0) + (c.semi_private || 0) + (c.private || 0);
-    return 0;
+    const b = v2Wallet?.balance;
+    if (!b) return 0;
+    return (
+      Number(b.private ?? 0) +
+      Number(b.group ?? 0) +
+      Number(b.semi_private ?? 0)
+    );
   })();
 
   // ---------------------------------------------------------------------------
