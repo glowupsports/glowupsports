@@ -70,7 +70,7 @@ const COUNTRY_CODES: CountryCode[] = [
   { code: "PT", name: "Portugal", dial: "+351", flag: "PT" },
   { code: "IE", name: "Ireland", dial: "+353", flag: "IE" },
   { code: "IL", name: "Israel", dial: "+972", flag: "IL" },
-];
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const getFlagEmoji = (countryCode: string): string => {
   const codePoints = countryCode
