@@ -851,7 +851,15 @@ export const openMatches = pgTable("open_matches", {
   
   // XP bonus for joining open matches
   xpBonus: integer("xp_bonus").default(25),
-  
+
+  // Court booking metadata — picker value chosen at create time
+  // (academy_court | external_booked | external_pending). Mirrors the
+  // same fields on match_requests / match_challenges so detail/list views
+  // can render the booking-status pill on open matches too.
+  courtBookingStatus: text("court_booking_status"),
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

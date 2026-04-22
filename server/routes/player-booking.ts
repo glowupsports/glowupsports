@@ -5257,7 +5257,7 @@ Return only the JSON array, nothing else.`;
       }
 
       // Handle create open match if requested
-      const { createOpenMatch } = req.body;
+      const { createOpenMatch, courtBookingStatus: omCourtBookingStatus, courtBookingNote: omCourtBookingNote, courtBookingUrl: omCourtBookingUrl } = req.body;
       if (createOpenMatch && playerId) {
         try {
           const [match] = await db.insert(openMatches).values({
@@ -5279,6 +5279,12 @@ Return only the JSON array, nothing else.`;
             costPerPlayer: price > 0 ? (price / 2).toFixed(2) : null,
             currency: court.currency || "AED",
             xpBonus: 25,
+            // Court was just booked through our system → academy_court by default,
+            // but allow client to override (e.g. external_booked when the picker
+            // was used in a non-academy context).
+            courtBookingStatus: omCourtBookingStatus || "academy_court",
+            courtBookingNote: omCourtBookingNote || null,
+            courtBookingUrl: omCourtBookingUrl || null,
           }).returning();
 
           // Add host as first slot
@@ -5981,6 +5987,9 @@ Return only the JSON array, nothing else.`;
           costPerPlayer: openMatches.costPerPlayer,
           currency: openMatches.currency,
           xpBonus: openMatches.xpBonus,
+          courtBookingStatus: openMatches.courtBookingStatus,
+          courtBookingNote: openMatches.courtBookingNote,
+          courtBookingUrl: openMatches.courtBookingUrl,
           createdAt: openMatches.createdAt,
           hostName: players.name,
           hostAvatar: players.profilePhotoUrl,
@@ -6039,9 +6048,9 @@ Return only the JSON array, nothing else.`;
           scheduledTime: null,
           courtName: null,
           locationName: null,
-          courtBookingStatus: null,
-          courtBookingNote: null,
-          courtBookingUrl: null,
+          courtBookingStatus: openMatch.courtBookingStatus,
+          courtBookingNote: openMatch.courtBookingNote,
+          courtBookingUrl: openMatch.courtBookingUrl,
           host: {
             id: openMatch.hostPlayerId,
             name: openMatch.hostName || "Host",
@@ -6204,6 +6213,9 @@ Return only the JSON array, nothing else.`;
         maxPlayers,
         visibility,
         costPerPlayer,
+        courtBookingStatus,
+        courtBookingNote,
+        courtBookingUrl,
       } = req.body;
 
       if (!bookingId) {
@@ -6229,6 +6241,9 @@ Return only the JSON array, nothing else.`;
         costPerPlayer,
         currency: "AED",
         xpBonus: 25,
+        courtBookingStatus: courtBookingStatus || "academy_court",
+        courtBookingNote: courtBookingNote || null,
+        courtBookingUrl: courtBookingUrl || null,
       }).returning();
 
       // Add host as first slot
@@ -6574,7 +6589,47 @@ Return only the JSON array, nothing else.`;
         courtBookingStatus,
         courtBookingNote,
         courtBookingUrl,
+        bookingId,
       } = req.body;
+
+      // When the picker is attached to a real court booking, persist on the
+      // new openMatches table (which is the canonical source for match
+      // detail/list views) so booking-status context is not lost. Falls
+      // through to the legacy matchRequests insert otherwise.
+      if (bookingId) {
+        const [openMatch] = await db.insert(openMatches).values({
+          bookingId,
+          hostPlayerId: playerId,
+          academyId,
+          matchType: matchType || "singles",
+          title: title || `Looking for ${matchType || "singles"} partner`,
+          description,
+          requiredLevelMin: requiredLevelMin || 1,
+          requiredLevelMax: requiredLevelMax || 20,
+          requiredBallLevel,
+          maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
+          currentPlayers: 1,
+          invitedPlayerId: invitedPlayerId || null,
+          status: invitedPlayerId ? "pending_invite" : "open",
+          matchIntent: matchIntent || "friendly",
+          visibility: "academy",
+          // A bookingId implies a real court booking attached, so default
+          // to academy_court (matches the other openMatches creation paths).
+          courtBookingStatus: courtBookingStatus || "academy_court",
+          courtBookingNote: courtBookingNote || null,
+          courtBookingUrl: courtBookingUrl || null,
+        }).returning();
+
+        await db.insert(openMatchSlots).values({
+          matchId: openMatch.id,
+          playerId,
+          role: "host",
+          status: "confirmed",
+        });
+
+        console.log("[OpenMatch] Created via create-match-request:", openMatch.id, "booking:", bookingId);
+        return res.status(201).json(openMatch);
+      }
 
       const [request] = await db.insert(matchRequests).values({
         playerId,
