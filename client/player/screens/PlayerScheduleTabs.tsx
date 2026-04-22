@@ -331,6 +331,8 @@ function paymentSourceLabel(source?: string | null): string | null {
   if (!source || source === "player") return null;
   if (source === "coach_mark_paid") return "By Coach";
   if (source === "coach_manual_cash") return "By Academy";
+  // Task #993 — coach used "Purchase credits → Already paid" for the player.
+  if (source === "coach_package_purchase") return "By Coach";
   return null;
 }
 

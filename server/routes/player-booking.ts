@@ -4430,15 +4430,35 @@ Return only the JSON array, nothing else.`;
       let finalInvoice = invoice;
       if (alreadyPaid) {
         try {
+          // Task #993 — populate playerId, set status='confirmed' (player UI
+          // filters by player_id and only renders pending/confirmed/rejected),
+          // and stamp source/recordedByUserId/packageId so the row both
+          // shows up in the player Payments tab and is deduplicated by the
+          // partial unique index from migration 0026.
           const paymentInput: InsertPayment = {
             academyId: player.academyId,
+            playerId,
             invoiceId: invoice.id,
+            packageId: pkg.id,
             amount: totalAmount,
             currency: resolvedCurrency,
             paymentMethod: normalizedPaymentMethod,
-            status: "succeeded",
+            status: "confirmed",
+            source: "coach_package_purchase",
+            recordedByUserId: req.user!.userId,
+            paymentDate: now,
           };
-          await storage.createPayment(paymentInput);
+          try {
+            await storage.createPayment(paymentInput);
+          } catch (payErr: unknown) {
+            const code =
+              typeof payErr === "object" && payErr !== null && "code" in payErr
+                ? (payErr as { code?: unknown }).code
+                : undefined;
+            if (code !== "23505") {
+              throw payErr;
+            }
+          }
           const updated = await storage.updateInvoice(invoice.id, { status: "paid", paidAt: now });
           if (updated) finalInvoice = updated;
         } catch (markErr) {
