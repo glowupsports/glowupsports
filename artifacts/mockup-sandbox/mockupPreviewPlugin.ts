@@ -25,7 +25,7 @@ import type { Plugin } from "vite";
  */
 
 const MOCKUPS_DIR = "src/components/mockups";
-const GENERATED_MODULE = "src/.generated/mockup-components.ts";
+const GENERATED_MODULE = "src/_generated/mockup-components.ts";
 
 interface DiscoveredComponent {
   globKey: string;
@@ -36,6 +36,7 @@ export function mockupPreviewPlugin(): Plugin {
   let root = "";
   let currentSource = "";
   let watcher: FSWatcher | null = null;
+  let viteServerRef: import("vite").ViteDevServer | null = null;
 
   function getMockupsAbsDir(): string {
     return path.join(root, MOCKUPS_DIR);
@@ -115,6 +116,15 @@ export function mockupPreviewPlugin(): Plugin {
         mkdirSync(path.dirname(generatedModuleAbsPath), { recursive: true });
         writeFileSync(generatedModuleAbsPath, currentSource);
         changed = true;
+        if (viteServerRef) {
+          const mod = viteServerRef.moduleGraph.getModuleById(
+            generatedModuleAbsPath,
+          );
+          if (mod) {
+            viteServerRef.moduleGraph.invalidateModule(mod);
+            viteServerRef.ws.send({ type: "full-reload" });
+          }
+        }
       }
     } finally {
       refreshInFlight = false;
@@ -146,6 +156,8 @@ export function mockupPreviewPlugin(): Plugin {
     },
 
     async configureServer(viteServer) {
+      viteServerRef = viteServer;
+      currentSource = "";
       await refresh();
 
       const mockupsAbsDir = getMockupsAbsDir();
