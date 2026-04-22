@@ -45,6 +45,7 @@ import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
 import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
+import { CourtBookingPicker } from "./CourtBookingPicker";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -182,12 +183,13 @@ const SESSION_TYPE_CARDS: {
 
 const HOLD_STORAGE_KEY = "glowup:activeSlotReservation";
 
-const TOTAL_SLIDES = 5;
+const TOTAL_SLIDES = 6;
 const SLIDE_TITLES = [
   "Choose Your Mode",
   "How to Browse",
   "Find Your Session",
   "Details",
+  "Court Booking",
   "Confirm & Book",
 ];
 
@@ -258,6 +260,13 @@ export default function PlayerBookingWizard({
   const [aiFocusSuggestions, setAiFocusSuggestions] = useState<string[]>([]);
   const [aiFocusLoading, setAiFocusLoading] = useState(false);
   const [aiFocusFetched, setAiFocusFetched] = useState(false);
+
+  // Slide: Court Booking declaration (Dubai community courts)
+  const [courtBookingStatus, setCourtBookingStatus] = useState<
+    "academy_court" | "external_booked" | "external_pending" | null
+  >(null);
+  const [courtBookingNote, setCourtBookingNote] = useState("");
+  const [courtBookingUrl, setCourtBookingUrl] = useState("");
 
   // Slide 4: Confirm
   const [showSuccess, setShowSuccess] = useState(false);
@@ -491,15 +500,16 @@ export default function PlayerBookingWizard({
   }, [reservationId, reservationExpiresAt, selectedSlot]);
 
   // Dynamic slide count - add extra slide when browsing by coach or by court
+  // +1 for new Court Booking step inserted between Details and Confirm
   const getTotalSlides = () =>
-    browseMode === "by_coach" || browseMode === "by_court" ? 6 : 5;
+    browseMode === "by_coach" || browseMode === "by_court" ? 7 : 6;
   const getSlideTitle = (slide: number) => {
     if (browseMode === "by_coach") {
-      const titles = ["Choose Your Mode", "How to Browse", "Select Coach", "Find Your Session", "Details", "Confirm & Book"];
+      const titles = ["Choose Your Mode", "How to Browse", "Select Coach", "Find Your Session", "Details", "Court Booking", "Confirm & Book"];
       return titles[slide] || "";
     }
     if (browseMode === "by_court") {
-      const titles = ["Choose Your Mode", "How to Browse", "Select Court", "Find Your Session", "Details", "Confirm & Book"];
+      const titles = ["Choose Your Mode", "How to Browse", "Select Court", "Find Your Session", "Details", "Court Booking", "Confirm & Book"];
       return titles[slide] || "";
     }
     return SLIDE_TITLES[slide] || "";
@@ -530,6 +540,9 @@ export default function PlayerBookingWizard({
     setSelectedCourtName(null);
     setPresetCourtId(null);
     setPresetCourt(null);
+    setCourtBookingStatus(null);
+    setCourtBookingNote("");
+    setCourtBookingUrl("");
     setReservationId(null);
     setReservationExpiresAt(null);
     setReservationSecondsLeft(0);
@@ -667,42 +680,60 @@ export default function PlayerBookingWizard({
     }
   }, [currentSlide]);
 
+  // Resolve which court is in play for this booking (for academy-court detection)
+  const isAcademyCourt = useMemo(() => {
+    const cid =
+      selectedCourtId ?? presetCourtId ??
+      (selectedSlot?.courtId ?? null) ??
+      (isJoining && selectedSession ? (selectedSession as any).courtId ?? null : null);
+    return !!cid;
+  }, [selectedCourtId, presetCourtId, selectedSlot, selectedSession, isJoining]);
+
+  // Court Booking step is the second-to-last slide
+  const courtBookingValid = useMemo(() => {
+    if (isAcademyCourt) return true;
+    return !!courtBookingStatus;
+  }, [isAcademyCourt, courtBookingStatus]);
+
   // Can proceed to next slide? (dynamic based on browse mode)
   const canProceed = useMemo(() => {
     if (browseMode === "by_coach") {
-      // 6 slides: Mode -> Browse -> Coach -> Session -> Details -> Confirm
+      // 7 slides: Mode -> Browse -> Coach -> Session -> Details -> CourtBooking -> Confirm
       switch (currentSlide) {
         case 0: return !!sessionType;
         case 1: return true; // Browse mode already selected
         case 2: return !!selectedCoachId; // Must select a coach
         case 3: return !!selectedSlot || !!selectedSession; // Find Session
         case 4: return true; // Details optional
-        case 5: return true; // Confirm
+        case 5: return courtBookingValid; // Court booking declaration
+        case 6: return true; // Confirm
         default: return false;
       }
     } else if (browseMode === "by_court") {
-      // 6 slides: Mode -> Browse -> Court -> Session -> Details -> Confirm
+      // 7 slides: Mode -> Browse -> Court -> Session -> Details -> CourtBooking -> Confirm
       switch (currentSlide) {
         case 0: return !!sessionType;
         case 1: return true;
         case 2: return !!presetCourtId; // Must select a court
         case 3: return !!selectedSlot || !!selectedSession;
         case 4: return true;
-        case 5: return true;
+        case 5: return courtBookingValid;
+        case 6: return true;
         default: return false;
       }
     } else {
-      // 5 slides: Mode -> Browse -> Session -> Details -> Confirm
+      // 6 slides: Mode -> Browse -> Session -> Details -> CourtBooking -> Confirm
       switch (currentSlide) {
         case 0: return !!sessionType;
         case 1: return true; // Browse mode
         case 2: return !!selectedSlot || !!selectedSession; // Find Session
         case 3: return true; // Details optional
-        case 4: return true; // Confirm
+        case 4: return courtBookingValid;
+        case 5: return true; // Confirm
         default: return false;
       }
     }
-  }, [currentSlide, sessionType, browseMode, selectedCoachId, presetCourtId, selectedSlot, selectedSession]);
+  }, [currentSlide, sessionType, browseMode, selectedCoachId, presetCourtId, selectedSlot, selectedSession, courtBookingValid]);
 
   // Create booking request mutation - always uses booking request flow
   // For joining an existing session, we include the sessionId in the request
@@ -758,6 +789,12 @@ export default function PlayerBookingWizard({
   const handleBook = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     
+    const courtBookingPayload = {
+      courtBookingStatus: isAcademyCourt ? "academy_court" : (courtBookingStatus || null),
+      courtBookingNote: !isAcademyCourt && courtBookingNote ? courtBookingNote.trim() : null,
+      courtBookingUrl: !isAcademyCourt && courtBookingUrl ? courtBookingUrl.trim() : null,
+    };
+
     if (isJoining && selectedSession) {
       // Request to join existing session
       const bookingData = {
@@ -769,6 +806,7 @@ export default function PlayerBookingWizard({
         sessionType: selectedSession.sessionType,
         playerNote: playerNote || null,
         isJoinRequest: true,
+        ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
     } else if (selectedSlot) {
@@ -783,10 +821,11 @@ export default function PlayerBookingWizard({
         duration: selectedSlot.duration,
         sessionType,
         playerNote: playerNote || null,
+        ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
     }
-  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation]);
+  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation, isAcademyCourt, courtBookingStatus, courtBookingNote, courtBookingUrl]);
 
   // Progress bar animated style
   const progressStyle = useAnimatedStyle(() => ({
@@ -1766,6 +1805,27 @@ export default function PlayerBookingWizard({
     );
   };
 
+  // SLIDE: Court Booking declaration (Dubai community courts)
+  const renderCourtBookingSlide = () => (
+    <Animated.View entering={FadeIn} style={styles.slideContent}>
+      <KeyboardAwareScrollViewCompat
+        contentContainerStyle={slideScrollPadding}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <CourtBookingPicker
+          isAcademyCourt={isAcademyCourt}
+          status={courtBookingStatus}
+          note={courtBookingNote}
+          url={courtBookingUrl}
+          onStatusChange={setCourtBookingStatus}
+          onNoteChange={setCourtBookingNote}
+          onUrlChange={setCourtBookingUrl}
+        />
+      </KeyboardAwareScrollViewCompat>
+    </Animated.View>
+  );
+
   // SLIDE 4: Confirm & Rewards
   const renderConfirmSlide = () => {
     const sessionInfo = selectedSession || selectedSlot;
@@ -1895,35 +1955,38 @@ export default function PlayerBookingWizard({
   // Render slide content (dynamic based on browse mode)
   const renderSlideContent = () => {
     if (browseMode === "by_coach") {
-      // 6 slides: Mode -> Browse -> Coach -> Session -> Details -> Confirm
+      // 7 slides: Mode -> Browse -> Coach -> Session -> Details -> CourtBooking -> Confirm
       switch (currentSlide) {
         case 0: return renderSessionTypeSlide();
         case 1: return renderBrowseModeSlide();
         case 2: return renderSelectCoachSlide();
         case 3: return renderFindSessionSlide();
         case 4: return renderDetailsSlide();
-        case 5: return renderConfirmSlide();
+        case 5: return renderCourtBookingSlide();
+        case 6: return renderConfirmSlide();
         default: return null;
       }
     } else if (browseMode === "by_court") {
-      // 6 slides: Mode -> Browse -> Court -> Session -> Details -> Confirm
+      // 7 slides: Mode -> Browse -> Court -> Session -> Details -> CourtBooking -> Confirm
       switch (currentSlide) {
         case 0: return renderSessionTypeSlide();
         case 1: return renderBrowseModeSlide();
         case 2: return renderSelectCourtSlide();
         case 3: return renderFindSessionSlide();
         case 4: return renderDetailsSlide();
-        case 5: return renderConfirmSlide();
+        case 5: return renderCourtBookingSlide();
+        case 6: return renderConfirmSlide();
         default: return null;
       }
     } else {
-      // 5 slides: Mode -> Browse -> Session -> Details -> Confirm
+      // 6 slides: Mode -> Browse -> Session -> Details -> CourtBooking -> Confirm
       switch (currentSlide) {
         case 0: return renderSessionTypeSlide();
         case 1: return renderBrowseModeSlide();
         case 2: return renderFindSessionSlide();
         case 3: return renderDetailsSlide();
-        case 4: return renderConfirmSlide();
+        case 4: return renderCourtBookingSlide();
+        case 5: return renderConfirmSlide();
         default: return null;
       }
     }

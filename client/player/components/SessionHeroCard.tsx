@@ -21,6 +21,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
+import { CourtBookingPanel } from "./CourtBookingPicker";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation, TextColors } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
@@ -239,7 +240,7 @@ export function SessionHeroCard({
   const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const { state } = usePlayerState();
-  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId, sessionDuration } = state;
+  const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId, sessionDuration, courtBookingStatus, courtBookingNote, courtBookingUrl } = state;
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
 
@@ -1901,6 +1902,14 @@ export function SessionHeroCard({
             </View>
           </View>
 
+          {courtBookingStatus && courtBookingStatus !== "academy_court" ? (
+            <CourtBookingPanel
+              status={courtBookingStatus}
+              note={courtBookingNote}
+              url={courtBookingUrl}
+            />
+          ) : null}
+
           <View style={styles.liveButtonsRow}>
             <Pressable
               style={({ pressed }) => [
@@ -2346,6 +2355,14 @@ export function SessionHeroCard({
               ) : null}
             </View>
           </View>
+
+          {courtBookingStatus && courtBookingStatus !== "academy_court" ? (
+            <CourtBookingPanel
+              status={courtBookingStatus}
+              note={courtBookingNote}
+              url={courtBookingUrl}
+            />
+          ) : null}
 
           {isSoon ? (
             hasCheckedIn ? (

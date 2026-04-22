@@ -866,7 +866,26 @@
       "available": "Available",
       "booked": "Booked",
       "spotsLeft": "spots left",
-      "spotsFull": "Full"
+      "spotsFull": "Full",
+      "courtBooking": {
+        "stepTitle": "Court Booking",
+        "stepSubtitle": "Who books the court for this lesson?",
+        "academyCourt": "Academy court",
+        "academyCourtHint": "This court is managed by the academy — no separate booking needed.",
+        "externalBooked": "I already booked the court",
+        "externalBookedHint": "Add a note or link so your coach can find it.",
+        "externalPending": "Court still needs to be booked",
+        "externalPendingHint": "Confirm you'll arrange the court before the lesson.",
+        "noteLabel": "Note (optional)",
+        "notePlaceholder": "E.g., Reem Court 3, booked under Ahmed",
+        "urlLabel": "Booking link (optional)",
+        "urlPlaceholder": "https://...",
+        "panelTitle": "Court booking",
+        "panelStatusAcademy": "Academy court",
+        "panelStatusBooked": "Court booked by player",
+        "panelStatusPending": "Player will book the court",
+        "panelOpenLink": "Open booking link"
+      }
     },
     "tournaments": {
       "title": "Tournaments & Ladders",

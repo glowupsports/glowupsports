@@ -866,7 +866,26 @@
       "available": "Available",
       "booked": "Booked",
       "spotsLeft": "spots left",
-      "spotsFull": "Full"
+      "spotsFull": "Full",
+      "courtBooking": {
+        "stepTitle": "Baan reserveren",
+        "stepSubtitle": "Wie reserveert de baan voor deze les?",
+        "academyCourt": "Baan van de academie",
+        "academyCourtHint": "Deze baan wordt door de academie beheerd — geen extra reservering nodig.",
+        "externalBooked": "Ik heb de baan al geboekt",
+        "externalBookedHint": "Voeg een notitie of link toe zodat je coach de baan kan vinden.",
+        "externalPending": "Baan moet nog geboekt worden",
+        "externalPendingHint": "Bevestig dat je de baan vóór de les regelt.",
+        "noteLabel": "Notitie (optioneel)",
+        "notePlaceholder": "Bijv. Reem Court 3, geboekt op naam Ahmed",
+        "urlLabel": "Boekingslink (optioneel)",
+        "urlPlaceholder": "https://...",
+        "panelTitle": "Baanreservering",
+        "panelStatusAcademy": "Baan van de academie",
+        "panelStatusBooked": "Baan geboekt door speler",
+        "panelStatusPending": "Speler reserveert de baan",
+        "panelOpenLink": "Open boekingslink"
+      }
     },
     "tournaments": {
       "title": "Tournaments & Ladders",

@@ -97,6 +97,9 @@ const bookingRequestSchema = z.object({
   playerNote: z.string().max(500).optional().nullable(),
   sessionId: z.string().uuid().optional().nullable(),
   isJoinRequest: z.boolean().optional(),
+  courtBookingStatus: z.enum(["academy_court", "external_booked", "external_pending"]).optional().nullable(),
+  courtBookingNote: z.string().max(500).optional().nullable(),
+  courtBookingUrl: z.string().max(500).optional().nullable(),
 });
 
 const bookingDeclineSchema = z.object({
@@ -465,7 +468,7 @@ function toDubaiTime(utcDate: Date): Date {
       if (!parsedBooking.success) {
         return res.status(400).json({ error: fromZodError(parsedBooking.error).message });
       }
-      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote, sessionId, isJoinRequest } = parsedBooking.data;
+      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote, sessionId, isJoinRequest, courtBookingStatus, courtBookingNote, courtBookingUrl } = parsedBooking.data;
 
       // For join requests, validate the session exists and has spots
       if (isJoinRequest && sessionId) {
@@ -531,6 +534,9 @@ function toDubaiTime(utcDate: Date): Date {
             playerNote: playerNote || null,
             status: "pending",
             expiresAt: expiresAt || undefined,
+            courtBookingStatus: courtBookingStatus || null,
+            courtBookingNote: courtBookingNote || null,
+            courtBookingUrl: courtBookingUrl || null,
           }).returning();
           
           request = newRequests[0];

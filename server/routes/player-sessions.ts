@@ -57,6 +57,7 @@ import { deletePlayerWithUserWipe } from "../services/player-lifecycle";
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema, playerSelfUpdateSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
+    bookingRequests,
   } from "@shared/schema";
   import { sendSessionCancelledNotification, sendFeedbackNotification, sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
@@ -4311,6 +4312,34 @@ import fs from "fs";
         ) {
           trainingType = "semi_private";
         }
+        // External court-booking declaration: latest booking_request for this player + session
+        let courtBookingStatus: string | null = null;
+        let courtBookingNote: string | null = null;
+        let courtBookingUrl: string | null = null;
+        try {
+          const [br] = await db
+            .select({
+              status: bookingRequests.courtBookingStatus,
+              note: bookingRequests.courtBookingNote,
+              url: bookingRequests.courtBookingUrl,
+            })
+            .from(bookingRequests)
+            .where(and(
+              eq(bookingRequests.sessionId, sessionId),
+              eq(bookingRequests.playerId, playerId),
+              isNotNull(bookingRequests.courtBookingStatus),
+            ))
+            .orderBy(desc(bookingRequests.createdAt))
+            .limit(1);
+          if (br) {
+            courtBookingStatus = br.status ?? null;
+            courtBookingNote = br.note ?? null;
+            courtBookingUrl = br.url ?? null;
+          }
+        } catch {
+          // best-effort — leave null
+        }
+
         res.json({
           id: sessionData.id,
           date: sessionData.startTime,
@@ -4321,6 +4350,9 @@ import fs from "fs";
           feedback: { focus: 3, effort: 3 },
           domainImpacts: [],
           focusArea: null,
+          courtBookingStatus,
+          courtBookingNote,
+          courtBookingUrl,
         });
       } catch (error) {
         console.error("Error fetching training detail:", error);

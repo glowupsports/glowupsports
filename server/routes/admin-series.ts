@@ -7,6 +7,7 @@ import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
   sessionRatings, coachReviews, coachReviewStats, seriesPlayers, locations, courts, coachingSeries,
+  bookingRequests,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte, gt } from "drizzle-orm";
@@ -3367,6 +3368,35 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         const playerCheckedIn = sessionPlayerRecord
           ? (!!(sessionPlayerRecord as any).checkedInAt || sessionPlayerRecord.attendanceStatus === "present" || sessionPlayerRecord.attendanceStatus === "late")
           : false;
+
+        // External court-booking declaration: latest booking_request for this player + session
+        let courtBookingStatus: string | null = null;
+        let courtBookingNote: string | null = null;
+        let courtBookingUrl: string | null = null;
+        try {
+          const [br] = await db
+            .select({
+              status: bookingRequests.courtBookingStatus,
+              note: bookingRequests.courtBookingNote,
+              url: bookingRequests.courtBookingUrl,
+            })
+            .from(bookingRequests)
+            .where(and(
+              eq(bookingRequests.sessionId, session.id),
+              eq(bookingRequests.playerId, playerId),
+              isNotNull(bookingRequests.courtBookingStatus),
+            ))
+            .orderBy(desc(bookingRequests.createdAt))
+            .limit(1);
+          if (br) {
+            courtBookingStatus = br.status ?? null;
+            courtBookingNote = br.note ?? null;
+            courtBookingUrl = br.url ?? null;
+          }
+        } catch {
+          // best-effort — leave null
+        }
+
         nextSession = {
           id: session.id,
           date: session.startTime,
@@ -3377,6 +3407,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           isLive: session.isActive,
           duration: durationMinutes,
           playerCheckedIn,
+          courtBookingStatus,
+          courtBookingNote,
+          courtBookingUrl,
         };
       }
       

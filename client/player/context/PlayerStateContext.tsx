@@ -103,6 +103,9 @@ interface PlayerState {
   sessionDuration: number | null;
   nextSessionStartIso: string | null;
   academyTimezone: string | null;
+  courtBookingStatus: string | null;
+  courtBookingNote: string | null;
+  courtBookingUrl: string | null;
 }
 
 interface PlayerStateContextType {
@@ -144,6 +147,9 @@ const defaultState: PlayerState = {
   sessionDuration: null,
   nextSessionStartIso: null,
   academyTimezone: null,
+  courtBookingStatus: null,
+  courtBookingNote: null,
+  courtBookingUrl: null,
 };
 
 const PlayerStateContext = createContext<PlayerStateContextType>({
@@ -317,6 +323,9 @@ interface DashboardData {
     coachName?: string;
     duration?: number | null;
     playerCheckedIn?: boolean;
+    courtBookingStatus?: string | null;
+    courtBookingNote?: string | null;
+    courtBookingUrl?: string | null;
   } | null;
 }
 
@@ -481,6 +490,9 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       sessionDuration: nextSession?.duration ?? null,
       nextSessionStartIso: nextSession?.date || null,
       academyTimezone: dashboardData.academy?.timezone || null,
+      courtBookingStatus: nextSession?.courtBookingStatus || null,
+      courtBookingNote: nextSession?.courtBookingNote || null,
+      courtBookingUrl: nextSession?.courtBookingUrl || null,
     };
   }, [dashboardData, levelStatus, socialData, timeOfDay]);
 

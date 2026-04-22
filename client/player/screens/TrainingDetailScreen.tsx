@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import CoachRemindersCard from "@/player/components/CoachRemindersCard";
+import { CourtBookingPanel } from "@/player/components/CourtBookingPicker";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type RouteParams = {
@@ -46,6 +47,9 @@ interface TrainingDetail {
   };
   domainImpacts: DomainImpact[];
   focusArea?: string;
+  courtBookingStatus?: string | null;
+  courtBookingNote?: string | null;
+  courtBookingUrl?: string | null;
 }
 
 interface SessionReflection {
@@ -688,6 +692,14 @@ export default function TrainingDetailScreen() {
             <Text style={styles.durationText}>{data.duration} min</Text>
           </View>
         </View>
+
+        {data.courtBookingStatus && data.courtBookingStatus !== "academy_court" ? (
+          <CourtBookingPanel
+            status={data.courtBookingStatus}
+            note={data.courtBookingNote ?? null}
+            url={data.courtBookingUrl ?? null}
+          />
+        ) : null}
 
         {data.focusArea ? (
           <View style={styles.focusCard}>

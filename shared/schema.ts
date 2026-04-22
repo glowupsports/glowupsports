@@ -937,7 +937,12 @@ export const matchRequests = pgTable("match_requests", {
   invitedPlayerId: varchar("invited_player_id").references(() => players.id),
   matchedWithPlayerId: varchar("matched_with_player_id").references(() => players.id),
   matchedAt: timestamp("matched_at"),
-  
+
+  // External court booking (Dubai community courts) — manual stop-gap until API integration
+  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -3260,6 +3265,11 @@ export const bookingRequests = pgTable("booking_requests", {
   
   // Deduplication for 24h pre-lesson reminder push
   preLessonReminderSentAt: timestamp("pre_lesson_reminder_sent_at"),
+
+  // External court booking (Dubai community courts) — manual stop-gap until API integration
+  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -5847,6 +5857,10 @@ export const matchChallenges = pgTable("match_challenges", {
   winnerPlayerId: varchar("winner_player_id").references(() => players.id),
   score: text("score"), // e.g., "6-4, 7-5"
   resultStatus: text("result_status"), // played, no_show, cancelled, skipped
+  // External court booking (Dubai community courts) — manual stop-gap until API integration
+  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
