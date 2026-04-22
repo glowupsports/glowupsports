@@ -21,6 +21,7 @@ import {
 } from "../auth";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
 import { awardXP } from "../services/xp-service";
+import { getBalance } from "../services/credit-engine";
 import crypto from "crypto";
 import { generateShortInviteCode } from "../utils/inviteCode";
 
@@ -3451,13 +3452,23 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       if (totalOwed > 0) {
         paymentStatus = totalPaid > 0 ? "partial" : "overdue";
       }
-      const creditsByType = { group: 0, private: 0, semi_private: 0 };
-      let totalCredits = 0;
-      for (const pkg of playerPackages) {
-        const type = (pkg.creditType || "group") as "group" | "private" | "semi_private";
-        creditsByType[type] += pkg.remainingCredits;
-        totalCredits += pkg.remainingCredits;
-      }
+      // Credits source: V2 wallet (player_credit_balance) — same as
+      // /api/v2/credits/wallet/:id and Credit Store. The legacy V1
+      // packages.remaining_credits sum was producing drift (and a
+      // string-concat "1212" bug because pg numerics deserialize as
+      // strings). All numbers are coerced via Number(...) before any
+      // arithmetic.
+      const v2Balance = player.academyId
+        ? await getBalance(playerId, player.academyId)
+        : { group: 0, private: 0, semi_private: 0 };
+      const creditsByType = {
+        group: Number(v2Balance.group ?? 0),
+        private: Number(v2Balance.private ?? 0),
+        semi_private: Number(v2Balance.semi_private ?? 0),
+        court: 0,
+      };
+      const totalCredits =
+        creditsByType.group + creditsByType.private + creditsByType.semi_private;
       
       // Get XP and level data
       const xpData = await storage.getPlayerXpTotal(playerId);
@@ -3549,6 +3560,8 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           private: creditsByType.private,
           semi_private: creditsByType.semi_private,
         },
+        creditsTotal: totalCredits,
+        creditsByType,
       });
     } catch (error) {
       console.error("Error fetching player dashboard:", error);

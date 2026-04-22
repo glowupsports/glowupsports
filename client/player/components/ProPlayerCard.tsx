@@ -442,26 +442,37 @@ export function ProPlayerCard({
 
           <View style={styles.cardDivider} />
 
+          {(() => {
+            // Coerce every credit field via Number(...) — pg numerics
+            // deserialize as strings, and "12" + 12 = "1212" is the
+            // exact bug this avoids. Sum from the per-type breakdown
+            // so we never trust a pre-summed total that may have been
+            // string-concatenated upstream.
+            const cPrivate = Number(credits?.private ?? 0) || 0;
+            const cGroup = Number(credits?.group ?? 0) || 0;
+            const cSemi = Number(credits?.semi_private ?? 0) || 0;
+            const totalNum = cPrivate + cGroup + cSemi;
+            return (
           <View style={styles.cardBottomRow}>
             <Pressable 
               style={[
                 styles.walletChip,
-                (credits?.total ?? 0) <= 0 && styles.walletChipDanger,
+                totalNum <= 0 && styles.walletChipDanger,
               ]} 
               onPress={handleWalletPress}
             >
-              {(credits?.total ?? 0) <= 0 ? (
+              {totalNum <= 0 ? (
                 <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
               ) : null}
               <Ionicons 
                 name="wallet-outline" 
                 size={14} 
-                color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : Colors.dark.accentText} 
+                color={totalNum <= 0 ? "#FF4D4D" : Colors.dark.accentText} 
               />
               <Text style={[
                 styles.walletText,
-                (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
-              ]}>{formatCredits(credits?.total ?? 0)} {t("player.home.credits")}</Text>
+                totalNum <= 0 && styles.walletTextDanger,
+              ]}>{formatCredits(totalNum)} {t("player.home.credits")}</Text>
             </Pressable>
 
             <View style={{ flex: 1 }} />
@@ -497,6 +508,8 @@ export function ProPlayerCard({
               </Pressable>
             ) : null}
           </View>
+            );
+          })()}
         </View>
         </Animated.View>
       </View>
