@@ -371,6 +371,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
       <>
         <SpotlightTileAvatar photoUrl={topNominee.profilePhotoUrl} />
         <Text style={miniTileStyles.spotName} numberOfLines={1}>
+          {/* first-name only is intentional here for chip density */}
           {topNominee.playerName.split(" ")[0]}
         </Text>
         <View style={miniTileStyles.starRow}>
@@ -387,6 +388,7 @@ function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => vo
       <>
         <SpotlightTileAvatar photoUrl={lastWinner.profilePhotoUrl} />
         <Text style={miniTileStyles.spotName} numberOfLines={1}>
+          {/* first-name only is intentional here for chip density */}
           {lastWinner.playerName.split(" ")[0]}
         </Text>
       </>
@@ -703,6 +705,7 @@ function UnifiedImproveCard({
       : stateC && lastWinner
       ? lastWinner
       : null;
+  // first-name only is intentional here for chip density
   const spotName = spotPlayer ? spotPlayer.playerName.split(" ")[0] : null;
   const spotSecondary = stateA && topNominee
     ? `${topNominee.totalVotes} votes`

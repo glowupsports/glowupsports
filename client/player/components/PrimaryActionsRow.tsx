@@ -98,7 +98,7 @@ export function PrimaryActionsRow({
 }: PrimaryActionsRowProps) {
   const { t, i18n } = useTranslation();
 
-  const trimmedName = firstName?.trim().split(/\s+/)[0] || "";
+  const displayName = firstName?.replace(/\s+/g, " ").trim() || "";
 
   const [daysSinceLastVisit, setDaysSinceLastVisit] = useState<number | null>(
     null,
@@ -133,9 +133,9 @@ export function PrimaryActionsRow({
 
   const greeting = useMemo(() => {
     const fallbackWithName = t("player.home.greetingWithName", {
-      name: trimmedName,
+      name: displayName,
     });
-    if (!trimmedName) return t("player.home.greetingNoName");
+    if (!displayName) return t("player.home.greetingNoName");
 
     const now = new Date();
     const bucket = pickBucket({
@@ -147,7 +147,7 @@ export function PrimaryActionsRow({
 
     const variants = t(`player.home.greetings.${bucket}`, {
       returnObjects: true,
-      name: trimmedName,
+      name: displayName,
       defaultValue: "",
     }) as unknown;
 
@@ -165,7 +165,7 @@ export function PrimaryActionsRow({
   }, [
     t,
     i18n.language,
-    trimmedName,
+    displayName,
     nextSessionDate,
     nextSessionEndTime,
     daysSinceLastVisit,
@@ -173,7 +173,7 @@ export function PrimaryActionsRow({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.greeting} numberOfLines={1}>
+      <Text style={styles.greeting} numberOfLines={2}>
         {greeting}
       </Text>
     </View>
