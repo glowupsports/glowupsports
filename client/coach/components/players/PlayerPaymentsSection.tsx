@@ -9,6 +9,7 @@ import { invalidatePlayersList } from "@/lib/credit-cache";
 import { formatCredits } from "@/lib/dateUtils";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
+import { SuccessToast } from "@/components/SuccessToast";
 import { styles } from "./playersStyles";
 
 interface PaymentsInvoice {
@@ -106,6 +107,13 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
   const [editDate, setEditDate] = useState(""); // YYYY-MM-DD
   const [editNotes, setEditNotes] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // Task #1006 — brief confirmation toast after successful invoice delete
+  // so coaches deleting multiple invoices in a row get clear feedback.
+  const [deleteToast, setDeleteToast] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: "",
+  });
 
   if (!playerStats?.payments) return null;
 
@@ -348,9 +356,18 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                     queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
                     queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                     invalidatePlayersList(queryClient);
-                    if (Platform.OS !== "web") {
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    }
+                    // Task #1006 — SuccessToast fires its own success haptic on
+                    // native, so we don't trigger another one here (avoids
+                    // double tactile feedback on iOS/Android).
+                    // Show brief confirmation toast; re-trigger by toggling
+                    // visible so consecutive deletes re-animate.
+                    setDeleteToast({ visible: false, message: "" });
+                    setTimeout(() => {
+                      setDeleteToast({
+                        visible: true,
+                        message: `Invoice #${inv.invoiceNumber} deleted`,
+                      });
+                    }, 0);
                   } catch (err: any) {
                     if (Platform.OS !== "web") {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -810,6 +827,15 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
           </View>
         </View>
       </Modal>
+
+      <SuccessToast
+        visible={deleteToast.visible}
+        message={deleteToast.message}
+        variant="success"
+        duration={2000}
+        icon="trash-outline"
+        onHide={() => setDeleteToast({ visible: false, message: "" })}
+      />
     </>
   );
 }
