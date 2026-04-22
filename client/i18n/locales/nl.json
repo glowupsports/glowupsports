@@ -435,6 +435,7 @@
       "extend": "EXTEND",
       "report": "REPORT",
       "delay": "DELAY",
+      "dismissCard": "Kaart verbergen",
       "startingSoon": "STARTING SOON",
       "whatsAtStake": "WHAT'S AT STAKE",
       "xpAttendance": "+75 XP Attendance",

@@ -367,6 +367,29 @@ export function SessionHeroCard({
   const [cancelReasonText, setCancelReasonText] = useState("");
   const [lateMinutes, setLateMinutes] = useState(10);
   const [lateMessage, setLateMessage] = useState("");
+  const [dismissed, setDismissed] = useState(false);
+  const dismissKey = sessionId ? `dismissed-next-session:${sessionId}` : null;
+
+  useEffect(() => {
+    if (!dismissKey) {
+      setDismissed(false);
+      return;
+    }
+    let cancelled = false;
+    setDismissed(false);
+    AsyncStorage.getItem(dismissKey).then((v) => {
+      if (!cancelled && v === "1") setDismissed(true);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [dismissKey]);
+
+  const handleDismiss = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setDismissed(true);
+    if (dismissKey) {
+      try { await AsyncStorage.setItem(dismissKey, "1"); } catch {}
+    }
+  }, [dismissKey]);
 
   const reportIssueMutation = useMutation({
     mutationFn: async ({ issueType, description }: { issueType: string; description: string }) => {
@@ -1910,6 +1933,19 @@ export function SessionHeroCard({
               <Feather name="clock" size={14} color={ProTennisColors.warning} />
               <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
             </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cleanTextButton,
+                pressed && { opacity: 0.6 },
+              ]}
+              onPress={handleCancel}
+              accessibilityLabel={t("player.home.cancelSession")}
+            >
+              <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>
+                {t("player.home.cancelSession")}
+              </Text>
+            </Pressable>
           </View>
 
           {/* Report Issue Modal */}
@@ -2227,10 +2263,22 @@ export function SessionHeroCard({
 
   if (sessionStatus === "soon" || sessionStatus === "upcoming") {
     const isSoon = sessionStatus === "soon";
-    
+
+    if (dismissed) {
+      return null;
+    }
+
     return (
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, isSoon ? { backgroundColor: ProTennisColors.warning } : undefined]} />
+        <Pressable
+          onPress={handleDismiss}
+          hitSlop={12}
+          style={styles.dismissBtn}
+          accessibilityLabel={t("player.home.dismissCard")}
+        >
+          <Feather name="x" size={16} color={TextColors.secondary} />
+        </Pressable>
         <View
           style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}
         >
@@ -2321,6 +2369,19 @@ export function SessionHeroCard({
             >
               <Feather name="clock" size={14} color={ProTennisColors.warning} />
               <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cleanTextButton,
+                pressed && { opacity: 0.6 },
+              ]}
+              onPress={handleCancel}
+              accessibilityLabel={t("player.home.cancelSession")}
+            >
+              <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>
+                {t("player.home.cancelSession")}
+              </Text>
             </Pressable>
           </View>
 
@@ -3678,6 +3739,15 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xl,
     marginTop: Spacing.xs,
+  },
+  dismissBtn: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    zIndex: 2,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: "transparent",
   },
   cleanTextButton: {
     flexDirection: "row",
