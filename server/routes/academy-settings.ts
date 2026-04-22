@@ -1831,6 +1831,38 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // Task #1005 — hard-delete an invoice. Coach asked for "wipe it" semantics:
+  // the row goes, and any rows referencing it are either deleted (the
+  // payment_reminders FK is NOT NULL) or have their invoice_id cleared so the
+  // player's Owed/Paid totals + the global Billing list reflect reality
+  // immediately.
+  router.delete(
+    "/api/billing/invoices/:id",
+    authMiddleware,
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const { id } = req.params;
+
+        const existing = await storage.getInvoice(id);
+        if (!existing || existing.academyId !== academyId) {
+          return res.status(404).json({ error: "Invoice not found" });
+        }
+
+        const ok = await storage.deleteInvoice(id);
+        if (!ok) {
+          return res.status(404).json({ error: "Invoice not found" });
+        }
+        res.json({ ok: true });
+      } catch (error) {
+        console.error("Error deleting invoice:", error);
+        res.status(500).json({ error: "Failed to delete invoice" });
+      }
+    },
+  );
+
   router.get(
     "/api/billing/invoices/:id/html",
     authMiddleware,

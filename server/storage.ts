@@ -7400,6 +7400,28 @@ export const storage = {
     return result[0];
   },
 
+  // Task #1005 — hard-delete an invoice and unhook every row that points at
+  // it so the player's Owed/Paid totals + global Billing list reflect reality
+  // immediately. Runs in a transaction. Caller is responsible for verifying
+  // the invoice belongs to the requesting academy.
+  async deleteInvoice(id: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      // payment_reminders.invoice_id is NOT NULL with FK → delete the rows.
+      await tx.delete(paymentReminders).where(eq(paymentReminders.invoiceId, id));
+      // payments.invoice_id is nullable FK → null it out so historical
+      // payment records survive the invoice deletion.
+      await tx.update(payments).set({ invoiceId: null }).where(eq(payments.invoiceId, id));
+      // packages.invoice_id (no FK constraint) → null it out.
+      await tx.update(packages).set({ invoiceId: null }).where(eq(packages.invoiceId, id));
+      // credit_lots.source_invoice_id (no FK constraint) → null it out.
+      await tx.update(creditLots).set({ sourceInvoiceId: null }).where(eq(creditLots.sourceInvoiceId, id));
+      // credit_ledger_v2.invoice_id (no FK constraint) → null it out.
+      await tx.update(creditLedgerV2).set({ invoiceId: null }).where(eq(creditLedgerV2.invoiceId, id));
+      const deleted = await tx.delete(invoices).where(eq(invoices.id, id)).returning({ id: invoices.id });
+      return deleted.length > 0;
+    });
+  },
+
   async createPayment(data: InsertPayment): Promise<Payment> {
     const result = await db.insert(payments).values(data).returning();
     return result[0];

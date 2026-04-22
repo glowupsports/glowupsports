@@ -341,6 +341,39 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
               const isPaid = inv.status === "paid";
               const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
               const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
+              const confirmDelete = async () => {
+                const doDelete = async () => {
+                  try {
+                    await apiRequest("DELETE", `/api/billing/invoices/${inv.id}`);
+                    queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+                    invalidatePlayersList(queryClient);
+                    if (Platform.OS !== "web") {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                  } catch (err: any) {
+                    if (Platform.OS !== "web") {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    }
+                    const msg = String(err?.message || "");
+                    if (msg.includes("404")) {
+                      Alert.alert("Invoice not found", "This invoice no longer exists.");
+                    } else {
+                      Alert.alert("Error", "Failed to delete invoice. Please try again.");
+                    }
+                  }
+                };
+                const message = `Delete invoice #${inv.invoiceNumber}? This cannot be undone.`;
+                if (Platform.OS === "web") {
+                  const ok = (globalThis as any).confirm?.(message);
+                  if (ok) await doDelete();
+                  return;
+                }
+                Alert.alert("Delete invoice?", message, [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Delete", style: "destructive", onPress: doDelete },
+                ]);
+              };
               const openViewer = () => {
                 if (Platform.OS !== "web") Haptics.selectionAsync();
                 setViewerInvoice({
@@ -403,6 +436,21 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                     >
                       <Ionicons name="document-text-outline" size={12} color={Colors.dark.textMuted} />
                       <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" as const }}>View</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={confirmDelete}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete invoice ${inv.invoiceNumber}`}
+                      hitSlop={6}
+                      style={{
+                        flexDirection: "row", alignItems: "center", gap: 3,
+                        paddingHorizontal: 8, paddingVertical: 4,
+                        borderRadius: BorderRadius.xs,
+                        marginLeft: isPaid ? "auto" : 0,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={12} color={Colors.dark.error} />
+                      <Text style={{ fontSize: 11, color: Colors.dark.error, fontWeight: "600" as const }}>Delete</Text>
                     </Pressable>
                     {!isPaid ? (
                       <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
