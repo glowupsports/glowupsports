@@ -1137,9 +1137,13 @@ export default function PlayerScheduleScreen() {
         {lessonBalance >= 0 ? (
           <BalanceChip
             balance={lessonBalance}
+            group={Number(v2Wallet?.balance?.group ?? 0)}
+            privateCredits={Number(v2Wallet?.balance?.private ?? 0)}
+            semiPrivate={Number(v2Wallet?.balance?.semi_private ?? 0)}
             onPress={() => {
+              if (!playerId) return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("payments");
+              navigation.navigate("ParentCreditStore", { playerId });
             }}
           />
         ) : null}
@@ -1684,9 +1688,15 @@ export default function PlayerScheduleScreen() {
 // =============================================================================
 function BalanceChip({
   balance,
+  group,
+  privateCredits,
+  semiPrivate,
   onPress,
 }: {
   balance: number;
+  group: number;
+  privateCredits: number;
+  semiPrivate: number;
   onPress: () => void;
 }) {
   let color = TextColors.muted;
@@ -1694,13 +1704,30 @@ function BalanceChip({
   else if (balance < 5) color = Colors.dark.warning;
   else color = Colors.dark.primary;
 
+  // Build compact kind breakdown — only kinds with non-zero balances, joined
+  // by a thin middle dot. Total 0 collapses to a quiet "0" with no suffix.
+  const parts: string[] = [];
+  if (group > 0) parts.push(`${group}G`);
+  if (privateCredits > 0) parts.push(`${privateCredits}P`);
+  if (semiPrivate > 0) parts.push(`${semiPrivate}S`);
+  let label: string;
+  if (balance <= 0 || parts.length === 0) {
+    label = String(balance);
+  } else {
+    label = parts.join(" \u00B7 ");
+    // Truncate if all three kinds overflow legibly.
+    if (parts.length === 3 && label.length > 12) {
+      label = `${balance}\u2026`;
+    }
+  }
+
   return (
     <Pressable
       onPress={onPress}
       style={[styles.balanceChip, { borderColor: color + "55" }]}
     >
       <Feather name="credit-card" size={12} color={color} />
-      <Text style={[styles.balanceChipText, { color }]}>{balance}</Text>
+      <Text style={[styles.balanceChipText, { color }]}>{label}</Text>
     </Pressable>
   );
 }
