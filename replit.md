@@ -34,6 +34,12 @@ These are configured **per-platform** under `expo.ios` and `expo.android` in `ap
 - **ALWAYS use `psql "$SUPABASE_DATABASE_URL" -c "..."` for any real database query or mutation.**
 - Never trust `executeSql` results for debugging production data — they will be wrong/empty.
 
+### CRITICAL: Lint guardrail against missing-import crashes (Task #1016)
+**`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
+- Background: Task #1015 was a one-line missing `import { SectionHeader }` that crashed the new-account onboarding flow on production Android. Static analysis would have caught it but the rules were not enforced in flat-config mode.
+- Always run `npm run lint` (and ideally `npm run check:types` for a full type pass) **before** OTA-pushing or merging. A red lint = do NOT push.
+- Do NOT lower these rules to `warn` or `off`. If a third-party global is needed, declare it via the `globals` config block — don't disable the rule.
+
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**
 
