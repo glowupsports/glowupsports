@@ -2961,12 +2961,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  quickActions: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-    gap: Spacing.sm,
-  },
   // Variant 1 cleanup — hero CTA cards
   heroRow: {
     flexDirection: "row",
@@ -3172,13 +3166,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   sportChipsRow: {
     marginBottom: Spacing.sm,
   },
-  findMatchButton: {
-    flex: 1,
-    borderRadius: BorderRadius.full,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: Colors.dark.primaryGlow + "60",
-  },
   playModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -3245,32 +3232,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
-  openMatchesButton: {
-    flex: 1,
-    borderRadius: BorderRadius.full,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: Colors.dark.primary + "60",
-  },
-  lessonsButton: {
-    flex: 1,
-    borderRadius: BorderRadius.full,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: Colors.dark.accentTextBorder,
-  },
-  findMatchGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: 10,
-  },
-  findMatchText: {
-    fontSize: 13,
-    color: Colors.dark.buttonText,
-    fontWeight: "700",
-  },
   tabs: {
     flexDirection: "row",
     marginHorizontal: Spacing.lg,
@@ -3294,35 +3255,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   tabTextActive: {
     color: Colors.dark.text,
     fontWeight: "600",
-  },
-  filterContainer: {
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
-  },
-  filterMainRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.md,
-  },
-  otherLevelsToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  otherLevelsToggleActive: {
-    backgroundColor: Colors.dark.primary + "20",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-  },
-  otherLevelsToggleText: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
   },
   filterRow: {
     marginTop: Spacing.sm,
@@ -4377,63 +4309,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.primary,
     fontWeight: "600",
-  },
-  bookingToolsScroll: {
-    flexGrow: 0,
-    marginBottom: Spacing.md,
-  },
-  bookingToolsRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-  },
-  bookingToolButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  bookingToolButtonActive: {
-    backgroundColor: Colors.dark.primary + "20",
-    borderColor: Colors.dark.primary,
-  },
-  bookingToolIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.dark.backgroundRoot,
-    position: "relative",
-  },
-  invitesBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: Colors.dark.primary,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  invitesBadgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: Colors.dark.buttonText,
-  },
-  bookingToolText: {
-    ...Typography.caption,
-    fontWeight: "600",
-    color: Colors.dark.text,
   },
   discoverFilterRow: {
     marginBottom: Spacing.sm,
