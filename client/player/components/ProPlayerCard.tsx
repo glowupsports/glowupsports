@@ -16,7 +16,7 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors, Colors, getPlayerLevelColor } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { isRTL } from "@/i18n";
@@ -151,6 +151,10 @@ export function ProPlayerCard({
   const { logoUrl: academyLogoFromTheme, playerOverride, setPlayerOverride, resolved: resolvedTheme } = useAcademyTheme();
   const themePrimary = resolvedTheme?.primary ?? Colors.dark.accentText;
   const themePrimarySoft = `${themePrimary}40`;
+  const ballLevelKey = (player.ballLevel || "").toLowerCase();
+  const isKnownBallLevel = ["blue", "red", "orange", "green", "yellow", "glow"].includes(ballLevelKey);
+  const ringColor = isKnownBallLevel ? getPlayerLevelColor(ballLevelKey) : themePrimary;
+  const ringColorSoft = `${ringColor}CC`;
   const academyLogoUrl = buildPhotoUrl(academyLogoFromTheme);
   const insets = useSafeAreaInsets();
   const [showHelp, setShowHelp] = useState(false);
@@ -276,7 +280,7 @@ export function ProPlayerCard({
                 <Pressable onPress={handleAvatarPress} hitSlop={6}>
                   <View style={styles.collapsedAvatarFrame}>
                     <LinearGradient
-                      colors={[GlowColors.primary, GlowColors.soft]}
+                      colors={[ringColor, ringColorSoft]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.collapsedAvatarBorder}
@@ -365,7 +369,7 @@ export function ProPlayerCard({
 
               <View style={styles.avatarFrame}>
                 <LinearGradient
-                  colors={[GlowColors.primary, GlowColors.soft]}
+                  colors={[ringColor, ringColorSoft]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.avatarBorder}
