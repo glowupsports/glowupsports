@@ -225,6 +225,7 @@ export default function PlayScreen() {
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [selectedBallLevel, setSelectedBallLevel] = useState<string>("my_level");
   const [showOtherLevels, setShowOtherLevels] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("sameLevel");
@@ -1677,61 +1678,56 @@ export default function PlayScreen() {
           <>
             {isMultiSport ? <SportSwitcherChips style={styles.sportChipsRow} /> : null}
 
-            {/* Unified Play Hub */}
-            <View style={styles.quickActions}>
+            {/* Unified Play Hub — Variant 1 cleanup: calmer cards, only the
+                primary "Take a lesson" CTA carries the neon highlight. */}
+            <View style={styles.heroRow}>
               <Pressable
-                style={styles.lessonsButton}
+                style={[styles.heroCard, styles.heroCardHighlighted]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   navigation.navigate("LessonBooking");
                 }}
               >
-                <LinearGradient
-                  colors={["#1E1E30", "#13131F"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.findMatchGradient}
+                <View style={[styles.heroCardIcon, styles.heroCardIconHighlighted]}>
+                  <Ionicons name="school" size={18} color={Colors.dark.primary} />
+                </View>
+                <Text
+                  style={[styles.heroCardLabel, styles.heroCardLabelHighlighted]}
+                  numberOfLines={1}
                 >
-                  <Ionicons name="school-outline" size={18} color={Colors.dark.accentText} />
-                  <Text style={[styles.findMatchText, { color: Colors.dark.accentText }]} numberOfLines={1}>Lessons</Text>
-                </LinearGradient>
+                  Take a lesson
+                </Text>
               </Pressable>
 
-              <Pressable 
-                style={styles.findMatchButton}
+              <Pressable
+                style={styles.heroCard}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   setPlayModalStep(isMultiSport ? "sport" : "type");
                   setShowPlayModal(true);
                 }}
               >
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.findMatchGradient}
-                >
-                  <Ionicons name="flame" size={20} color={Colors.dark.buttonText} />
-                  <Text style={styles.findMatchText} numberOfLines={1}>Find Match</Text>
-                </LinearGradient>
+                <View style={styles.heroCardIcon}>
+                  <Ionicons name="flame" size={18} color={Colors.dark.text} />
+                </View>
+                <Text style={styles.heroCardLabel} numberOfLines={1}>
+                  Find a Match
+                </Text>
               </Pressable>
 
-              <Pressable 
-                style={styles.openMatchesButton}
+              <Pressable
+                style={styles.heroCard}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   navigation.navigate("OpenMatches" as never);
                 }}
               >
-                <LinearGradient
-                  colors={[Colors.dark.primary, "#00A3D9"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.findMatchGradient}
-                >
-                  <Ionicons name="tennisball" size={18} color={Colors.dark.buttonText} />
-                  <Text style={styles.findMatchText} numberOfLines={1}>Open Match</Text>
-                </LinearGradient>
+                <View style={styles.heroCardIcon}>
+                  <Ionicons name="tennisball" size={18} color={Colors.dark.text} />
+                </View>
+                <Text style={styles.heroCardLabel} numberOfLines={1}>
+                  Open Matches
+                </Text>
               </Pressable>
             </View>
 
@@ -1838,52 +1834,76 @@ export default function PlayScreen() {
               </Pressable>
             </Modal>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingToolsScroll} contentContainerStyle={styles.bookingToolsRow}>
+            {/* Variant 1 cleanup: secondary chips collapsed into a compact
+                icon-row (Invites · My Games · Prefs). Reuses existing nav
+                handlers; no functional changes. */}
+            <View style={styles.compactChipsRow}>
               <Pressable
-                style={styles.bookingToolButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("MyGames" as never);
-                }}
-              >
-                <View style={styles.bookingToolIcon}>
-                  <Ionicons name="calendar-number-outline" size={18} color={Colors.dark.gold} />
-                </View>
-                <Text style={styles.bookingToolText}>My Games</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
+                style={[
+                  styles.compactChip,
+                  pendingInvitesCount > 0 && styles.compactChipActive,
+                ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   navigation.navigate("BookingInvites" as never);
                 }}
               >
-                <View style={styles.bookingToolIcon}>
-                  <Ionicons name="mail" size={18} color={pendingInvitesCount > 0 ? Colors.dark.primary : Colors.dark.gold} />
-                  {pendingInvitesCount > 0 ? (
-                    <View style={styles.invitesBadge}>
-                      <Text style={styles.invitesBadgeText}>{pendingInvitesCount}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={[styles.bookingToolText, pendingInvitesCount > 0 && { color: Colors.dark.primary }]}>
-                  {t("player.play.invites")}{pendingInvitesCount > 0 ? ` (${pendingInvitesCount})` : ""}
+                <Ionicons
+                  name="mail"
+                  size={12}
+                  color={
+                    pendingInvitesCount > 0
+                      ? Colors.dark.primary
+                      : Colors.dark.textMuted
+                  }
+                />
+                <Text
+                  style={[
+                    styles.compactChipText,
+                    pendingInvitesCount > 0 && { color: Colors.dark.primary },
+                  ]}
+                >
+                  {t("player.play.invites")}
                 </Text>
+                {pendingInvitesCount > 0 ? (
+                  <View style={styles.compactChipBadge}>
+                    <Text style={styles.compactChipBadgeText}>
+                      {pendingInvitesCount}
+                    </Text>
+                  </View>
+                ) : null}
               </Pressable>
 
-              <Pressable 
-                style={styles.bookingToolButton}
+              <Pressable
+                style={styles.compactChip}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("MyGames" as never);
+                }}
+              >
+                <Ionicons
+                  name="people"
+                  size={12}
+                  color={Colors.dark.textMuted}
+                />
+                <Text style={styles.compactChipText}>My Games</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.compactChip}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   navigation.navigate("BookingPreferences" as never);
                 }}
               >
-                <View style={styles.bookingToolIcon}>
-                  <Ionicons name="options" size={18} color={Colors.dark.primary} />
-                </View>
-                <Text style={styles.bookingToolText}>{t("player.play.preferences")}</Text>
+                <Ionicons
+                  name="options"
+                  size={12}
+                  color={Colors.dark.textMuted}
+                />
+                <Text style={styles.compactChipText}>Prefs</Text>
               </Pressable>
-            </ScrollView>
+            </View>
           </>
         ) : null}
       </Animated.View>
@@ -1943,116 +1963,197 @@ export default function PlayScreen() {
                 </Pressable>
               </View>
             ) : null}
-            <View style={styles.filterContainer}>
-              <View style={styles.filterMainRow}>
-                <Pressable
-                  style={[
-                    styles.filterChip,
-                    selectedBallLevel === "my_level" && { backgroundColor: getBallLevelColor(playerBallLevel) + "30", borderColor: getBallLevelColor(playerBallLevel) },
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedBallLevel("my_level");
-                    setShowOtherLevels(false);
-                  }}
-                >
-                  <View style={[styles.filterDot, { backgroundColor: getBallLevelColor(playerBallLevel) }]} />
-                  <Text style={[styles.filterChipText, selectedBallLevel === "my_level" && { color: getBallLevelColor(playerBallLevel) }]}>
-                    My Level{playerBallLevel !== "glow" ? ` (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})` : ""}
-                  </Text>
-                </Pressable>
-                
-                <Pressable
-                  style={[
-                    styles.otherLevelsToggle,
-                    showOtherLevels && styles.otherLevelsToggleActive,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setShowOtherLevels(!showOtherLevels);
-                    if (!showOtherLevels) {
-                      setSelectedBallLevel("all");
-                    } else {
-                      setSelectedBallLevel("my_level");
-                    }
-                  }}
-                >
-                  <Ionicons 
-                    name={showOtherLevels ? "people" : "people-outline"} 
-                    size={16} 
-                    color={showOtherLevels ? Colors.dark.primary : Colors.dark.textMuted} 
-                  />
-                  <Text style={[styles.otherLevelsToggleText, showOtherLevels && { color: Colors.dark.primary }]}>
-                    {showOtherLevels ? t("player.play.browsingAllLevels") : t("player.play.lookingForSomeoneElse")}
-                  </Text>
-                  <Ionicons 
-                    name={showOtherLevels ? "chevron-up" : "chevron-down"} 
-                    size={14} 
-                    color={showOtherLevels ? Colors.dark.primary : Colors.dark.textMuted} 
-                  />
-                </Pressable>
-              </View>
-              
-              {showOtherLevels && (
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  style={styles.filterRow}
-                  contentContainerStyle={styles.filterRowContent}
-                >
-                  {(["all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
-                    const isSelected = selectedBallLevel === level;
-                    const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
-                    const label = level === "all" ? t("player.play.allLevels") : level.charAt(0).toUpperCase() + level.slice(1);
-                    
-                    return (
-                      <Pressable
-                        key={level}
-                        style={[
-                          styles.filterChip,
-                          isSelected && { backgroundColor: color + "30", borderColor: color },
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setSelectedBallLevel(level);
-                        }}
-                      >
-                        <View style={[styles.filterDot, { backgroundColor: color }]} />
-                        <Text style={[styles.filterChipText, isSelected && { color }]}>{label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              )}
-              
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                style={styles.filterRow}
-                contentContainerStyle={styles.filterRowContent}
+            {/* Variant 1 cleanup: collapse the long ball-level + day chip rows
+                behind a single Filter pill that opens a bottom-sheet. The
+                inline summary keeps the active filters visible without
+                burning two rows of horizontal scrolling. */}
+            <View style={styles.filterPillRow}>
+              <Pressable
+                style={styles.filterPillBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowFilterSheet(true);
+                }}
               >
-                {DAY_LABELS.map((day) => {
-                  const isSelected = selectedDay === day;
-                  const label = day === "all" ? t("player.play.allDays") : day.toUpperCase();
-                  
-                  return (
-                    <Pressable
-                      key={day}
-                      style={[
-                        styles.dayChip,
-                        isSelected && styles.dayChipSelected,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedDay(day);
-                      }}
-                    >
-                      <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>{label}</Text>
-                    </Pressable>
-                  );
-                })}
+                <Ionicons
+                  name="options-outline"
+                  size={12}
+                  color={Colors.dark.primary}
+                />
+                <Text style={styles.filterPillBtnText}>Filter</Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={11}
+                  color={Colors.dark.primary}
+                />
+              </Pressable>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterSummaryContent}
+                style={styles.filterSummaryScroll}
+              >
+                {(() => {
+                  const summary: Array<{ key: string; label: string; color?: string }> = [];
+                  if (selectedBallLevel === "my_level") {
+                    summary.push({
+                      key: "lvl",
+                      label: `My Level${playerBallLevel !== "glow" ? ` (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})` : ""}`,
+                      color: getBallLevelColor(playerBallLevel),
+                    });
+                  } else if (selectedBallLevel === "all") {
+                    summary.push({ key: "lvl", label: t("player.play.allLevels") });
+                  } else {
+                    summary.push({
+                      key: "lvl",
+                      label: selectedBallLevel.charAt(0).toUpperCase() + selectedBallLevel.slice(1),
+                      color: getBallLevelColor(selectedBallLevel),
+                    });
+                  }
+                  if (selectedDay !== "all") {
+                    summary.push({ key: "day", label: selectedDay.toUpperCase() });
+                  }
+                  return summary.map((s) => (
+                    <View key={s.key} style={styles.filterSummaryChip}>
+                      {s.color ? (
+                        <View
+                          style={[
+                            styles.filterSummaryDot,
+                            { backgroundColor: s.color },
+                          ]}
+                        />
+                      ) : null}
+                      <Text style={styles.filterSummaryChipText}>{s.label}</Text>
+                    </View>
+                  ));
+                })()}
               </ScrollView>
             </View>
+
+            {/* Filter bottom-sheet */}
+            <Modal
+              visible={showFilterSheet}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowFilterSheet(false)}
+            >
+              <Pressable
+                style={styles.playModalOverlay}
+                onPress={() => setShowFilterSheet(false)}
+              >
+                <Pressable
+                  style={styles.playModalSheet}
+                  onPress={(e) => e.stopPropagation()}
+                >
+                  <View style={styles.playModalHandle} />
+                  <Text style={styles.playModalTitle}>Filter sessions</Text>
+
+                  <Text style={styles.filterSheetGroupLabel}>Ball level</Text>
+                  <View style={styles.filterSheetWrap}>
+                    {(["my_level", "all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
+                      const isSelected = selectedBallLevel === level;
+                      const color =
+                        level === "my_level"
+                          ? getBallLevelColor(playerBallLevel)
+                          : level === "all"
+                            ? Colors.dark.textMuted
+                            : getBallLevelColor(level);
+                      const label =
+                        level === "my_level"
+                          ? `My Level${playerBallLevel !== "glow" ? ` (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})` : ""}`
+                          : level === "all"
+                            ? t("player.play.allLevels")
+                            : level.charAt(0).toUpperCase() + level.slice(1);
+                      return (
+                        <Pressable
+                          key={level}
+                          style={[
+                            styles.filterChip,
+                            isSelected && {
+                              backgroundColor: color + "30",
+                              borderColor: color,
+                            },
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedBallLevel(level);
+                            setShowOtherLevels(level !== "my_level");
+                          }}
+                        >
+                          <View
+                            style={[styles.filterDot, { backgroundColor: color }]}
+                          />
+                          <Text
+                            style={[
+                              styles.filterChipText,
+                              isSelected && { color },
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.filterSheetGroupLabel}>Day</Text>
+                  <View style={styles.filterSheetWrap}>
+                    {DAY_LABELS.map((day) => {
+                      const isSelected = selectedDay === day;
+                      const label =
+                        day === "all"
+                          ? t("player.play.allDays")
+                          : day.toUpperCase();
+                      return (
+                        <Pressable
+                          key={day}
+                          style={[
+                            styles.dayChip,
+                            isSelected && styles.dayChipSelected,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedDay(day);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dayChipText,
+                              isSelected && styles.dayChipTextSelected,
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <View style={styles.filterSheetFooter}>
+                    <Pressable
+                      style={styles.filterSheetResetBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedBallLevel("my_level");
+                        setShowOtherLevels(false);
+                        setSelectedDay("all");
+                      }}
+                    >
+                      <Text style={styles.filterSheetResetText}>Reset</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.filterSheetApplyBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setShowFilterSheet(false);
+                      }}
+                    >
+                      <Text style={styles.filterSheetApplyText}>Done</Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              </Pressable>
+            </Modal>
             {sessionsLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -2762,6 +2863,195 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
+  },
+  // Variant 1 cleanup — hero CTA cards
+  heroRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  heroCard: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+    alignItems: "center",
+    gap: 6,
+  },
+  heroCardHighlighted: {
+    backgroundColor: Colors.dark.primary + "12",
+    borderColor: Colors.dark.primary + "55",
+  },
+  heroCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.chipBackground,
+  },
+  heroCardIconHighlighted: {
+    backgroundColor: Colors.dark.primary + "22",
+  },
+  heroCardLabel: {
+    ...Typography.caption,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  heroCardLabelHighlighted: {
+    color: Colors.dark.primary,
+  },
+  // Variant 1 cleanup — compact secondary chip row
+  compactChipsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  compactChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.chipBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBorder,
+    position: "relative",
+  },
+  compactChipActive: {
+    backgroundColor: Colors.dark.primary + "18",
+    borderColor: Colors.dark.primary + "55",
+  },
+  compactChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  compactChipBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 14,
+    height: 14,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    backgroundColor: "#E040FB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactChipBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  // Variant 1 cleanup — Filter pill + active summary
+  filterPillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 0,
+    marginBottom: Spacing.md,
+  },
+  filterPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.primary + "18",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "55",
+  },
+  filterPillBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+  },
+  filterSummaryScroll: {
+    flex: 1,
+  },
+  filterSummaryContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingRight: Spacing.sm,
+  },
+  filterSummaryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.chipBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBorder,
+  },
+  filterSummaryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  filterSummaryChipText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  // Variant 1 cleanup — Filter bottom-sheet content
+  filterSheetGroupLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginTop: Spacing.sm,
+    marginBottom: 6,
+  },
+  filterSheetWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  filterSheetFooter: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  filterSheetResetBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.chipBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBorder,
+    alignItems: "center",
+  },
+  filterSheetResetText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  filterSheetApplyBtn: {
+    flex: 2,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+  },
+  filterSheetApplyText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.dark.buttonText,
   },
   sportChipsRow: {
     marginBottom: Spacing.sm,
