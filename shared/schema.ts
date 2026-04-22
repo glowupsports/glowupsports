@@ -7588,3 +7588,17 @@ export const playerMoneyWallet = pgTable("player_money_wallet", {
 ]);
 
 export type PlayerMoneyWallet = typeof playerMoneyWallet.$inferSelect;
+
+// Persistent log of series-group reminders sent by coaches. Used to enforce a
+// per-(coach, series) rate limit (max 3 per trailing 60 minutes) that survives
+// server restarts and is shared across instances.
+export const seriesReminderLog = pgTable("series_reminder_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").notNull(),
+  seriesId: varchar("series_id").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+}, (table) => [
+  index("series_reminder_log_coach_series_sent_idx").on(table.coachId, table.seriesId, table.sentAt),
+]);
+
+export type SeriesReminderLog = typeof seriesReminderLog.$inferSelect;

@@ -51,6 +51,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
+    seriesReminderLog,
   } from "@shared/schema";
   import { broadcastNewMessage } from "../websocket";
   import { sendNewMessageNotification, getPlayerPushTokens, getCoachPushTokens, sendPushNotification } from "../pushNotifications";
@@ -2126,8 +2127,13 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
   );
 
   // ==================== SERIES GROUP REMINDER ====================
-  // In-memory throttle: max 3 reminders per coach+series in trailing 60 min.
-  const seriesReminderThrottle = new Map<string, number[]>();
+  // Persistent throttle: max 3 reminders per coach+series in trailing 60 min.
+  // Backed by the `series_reminder_log` Postgres table (see migration
+  // 0018_series_reminder_log.sql) so the limit survives server restarts and
+  // is shared across instances. Concurrent requests are serialised with a
+  // transaction-scoped advisory lock keyed on (coachId, seriesId), then the
+  // count + insert happen inside the same transaction, so concurrent
+  // requests can never collectively exceed the cap.
   const SERIES_REMINDER_WINDOW_MS = 60 * 60 * 1000;
   const SERIES_REMINDER_MAX = 3;
 
@@ -2175,19 +2181,66 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
             .json({ error: "You do not own this series" });
         }
 
-        // Throttle
-        const throttleKey = `${coachId}:${seriesId}`;
-        const now = Date.now();
-        const recent = (seriesReminderThrottle.get(throttleKey) || []).filter(
-          (t) => now - t < SERIES_REMINDER_WINDOW_MS,
-        );
-        if (recent.length >= SERIES_REMINDER_MAX) {
-          seriesReminderThrottle.set(throttleKey, recent);
+        // Atomic throttle: serialise concurrent requests for the same
+        // (coach, series) using a transaction-scoped Postgres advisory lock,
+        // then count + insert inside the same transaction. The lock makes
+        // the count -> insert sequence race-free even across multiple server
+        // instances; the lock is released automatically at COMMIT/ROLLBACK.
+        // Fail-closed: if the reservation transaction throws, abort with 500
+        // rather than silently allowing the send through.
+        const throttleKey = `series_reminder:${coachId}:${seriesId}`;
+        let reservationId: string | null = null;
+        try {
+          reservationId = await db.transaction(async (tx) => {
+            await tx.execute(
+              sql`SELECT pg_advisory_xact_lock(hashtextextended(${throttleKey}, 0))`,
+            );
+            const countResult = await tx.execute<{ n: number }>(sql`
+              SELECT count(*)::int AS n
+              FROM ${seriesReminderLog}
+              WHERE ${seriesReminderLog.coachId} = ${coachId}
+                AND ${seriesReminderLog.seriesId} = ${seriesId}
+                AND ${seriesReminderLog.sentAt}
+                    >= now() - (${SERIES_REMINDER_WINDOW_MS} || ' milliseconds')::interval
+            `);
+            const recentCount = countResult.rows[0]?.n ?? 0;
+            if (recentCount >= SERIES_REMINDER_MAX) {
+              return null;
+            }
+            const insertResult = await tx.execute<{ id: string }>(sql`
+              INSERT INTO ${seriesReminderLog} (coach_id, series_id)
+              VALUES (${coachId}, ${seriesId})
+              RETURNING id
+            `);
+            return insertResult.rows[0]?.id ?? null;
+          });
+        } catch (err) {
+          console.error("[series-reminder] throttle reservation failed", err);
+          return res.status(500).json({ error: "Failed to send reminder" });
+        }
+        if (!reservationId) {
           return res.status(429).json({
             error: "Too many reminders. Try again in a few minutes.",
           });
         }
 
+        // Helper to roll back the reservation if the rest of the request
+        // cannot complete. Keeps the legacy semantic that a reminder which
+        // never made it out of the server should not consume a throttle slot.
+        const releaseReservation = async () => {
+          try {
+            await db
+              .delete(seriesReminderLog)
+              .where(eq(seriesReminderLog.id, reservationId!));
+          } catch (releaseErr) {
+            console.error(
+              "[series-reminder] failed to release throttle reservation",
+              releaseErr,
+            );
+          }
+        };
+
+        try {
         // Lookup coach name for notification title
         const [coach] = await db
           .select({ name: coaches.name })
@@ -2285,11 +2338,31 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           );
         }
 
-        // Record send for throttle (only after success path)
-        recent.push(now);
-        seriesReminderThrottle.set(throttleKey, recent);
+        // The throttle slot was already reserved atomically above (fail-closed).
+        // Opportunistic cleanup of rows older than 2x the window so the table
+        // doesn't grow unbounded. Best-effort — does not affect the response.
+        try {
+          await db
+            .delete(seriesReminderLog)
+            .where(
+              lte(
+                seriesReminderLog.sentAt,
+                new Date(Date.now() - SERIES_REMINDER_WINDOW_MS * 2),
+              ),
+            );
+        } catch (err) {
+          console.error(
+            "[series-reminder] throttle log cleanup failed (non-fatal)",
+            err,
+          );
+        }
 
         res.json({ sent, failed });
+        } catch (innerErr) {
+          // Roll back the throttle reservation so failed sends don't burn a slot.
+          await releaseReservation();
+          throw innerErr;
+        }
       } catch (error) {
         console.error("Error sending series reminder:", error);
         res.status(500).json({ error: "Failed to send reminder" });
