@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Switch } from "react-native";
+import { useTranslation } from "react-i18next";
 import { openDirections } from "@/lib/maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -47,6 +48,7 @@ interface SeriesOverviewTabProps {
   handleTogglePublic: (value: boolean) => void;
   handleSaveDropInPrice: (price: string) => boolean;
   updatingVisibility: boolean;
+  onSendReminder?: () => void;
 }
 
 export function SeriesOverviewTab({
@@ -87,7 +89,9 @@ export function SeriesOverviewTab({
   handleTogglePublic,
   handleSaveDropInPrice,
   updatingVisibility,
+  onSendReminder,
 }: SeriesOverviewTabProps) {
+  const { t } = useTranslation();
   const [editingDropInPrice, setEditingDropInPrice] = useState(false);
   const [dropInPriceInput, setDropInPriceInput] = useState("");
 
@@ -619,6 +623,18 @@ export function SeriesOverviewTab({
             )}
           </Pressable>
         )}
+
+        {series?.status === "active" && onSendReminder ? (
+          <Pressable
+            onPress={onSendReminder}
+            style={styles.extendSeriesButton}
+          >
+            <Ionicons name="notifications-outline" size={18} color={Colors.dark.accentCyan} />
+            <Text style={[styles.extendSeriesButtonText, { color: Colors.dark.accentCyan }]}>
+              {t("coach.reminder.actionLabel")}
+            </Text>
+          </Pressable>
+        ) : null}
 
         {series?.status === "active" && (
           <Pressable

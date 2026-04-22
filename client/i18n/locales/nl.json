@@ -1096,6 +1096,25 @@
       "wellness": "Wellness",
       "wellnessLog": "Wellness Log",
       "reviews": "My Reviews"
+    },
+    "reminder": {
+      "actionLabel": "Herinnering sturen",
+      "modalTitle": "Herinnering sturen naar {{name}}",
+      "subtitleCard": "Stuur snel een bericht naar alle actieve spelers",
+      "chipCourtBooking": "Baanreservering",
+      "chipRackets": "Rackets meenemen",
+      "chipWeather": "Weer",
+      "chipConfirm": "Bevestig deelname",
+      "templateCourtBooking": "Herinnering: wees op tijd voor onze training. De baan is gereserveerd.",
+      "templateRackets": "Vergeet je racket en bidon niet mee te nemen.",
+      "templateWeather": "Let op: het weer kan invloed hebben op de training. Ik kom er snel op terug.",
+      "templateConfirm": "Bevestig je deelname aan de volgende training.",
+      "placeholder": "Typ een korte boodschap…",
+      "charsLeft": "Nog {{count}} tekens",
+      "sendButton": "Stuur naar {{count}} spelers",
+      "successToast": "Herinnering verzonden naar {{count}} spelers",
+      "throttleError": "Je hebt dit uur al 3 herinneringen gestuurd. Probeer het later opnieuw.",
+      "genericError": "Versturen van herinnering mislukt. Probeer opnieuw."
     }
   },
   "admin": {

@@ -1096,6 +1096,25 @@
       "wellness": "Wellness",
       "wellnessLog": "Wellness Log",
       "reviews": "My Reviews"
+    },
+    "reminder": {
+      "actionLabel": "Send reminder",
+      "modalTitle": "Send reminder to {{name}}",
+      "subtitleCard": "Push a quick message to all active players",
+      "chipCourtBooking": "Court booking",
+      "chipRackets": "Bring rackets",
+      "chipWeather": "Weather",
+      "chipConfirm": "Confirm attendance",
+      "templateCourtBooking": "Reminder: please be on time for our session. Court is reserved.",
+      "templateRackets": "Don't forget to bring your rackets and water bottle.",
+      "templateWeather": "Heads up: weather may affect today's session. I'll confirm shortly.",
+      "templateConfirm": "Please confirm your attendance for the next session.",
+      "placeholder": "Type a short message…",
+      "charsLeft": "{{count}} characters left",
+      "sendButton": "Send to {{count}} players",
+      "successToast": "Reminder sent to {{count}} players",
+      "throttleError": "You've already sent 3 reminders this hour. Please try again later.",
+      "genericError": "Failed to send reminder. Please try again."
     }
   },
   "admin": {

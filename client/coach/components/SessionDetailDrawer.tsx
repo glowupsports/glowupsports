@@ -40,6 +40,7 @@ import { invalidatePlayersList } from "@/lib/credit-cache";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useNavigation } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
@@ -49,6 +50,7 @@ import QuickBaselineDrawer from "./QuickBaselineDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useAIModal } from "@/coach/context/AIModalContext";
 import { AISessionPlanModal } from "./AISessionPlanModal";
+import SendGroupReminderModal from "./SendGroupReminderModal";
 
 interface Player {
   id: string;
@@ -73,6 +75,8 @@ interface Session {
   status: string | null;
   skipReason?: string | null;
   players?: Player[];
+  seriesId?: string | null;
+  title?: string | null;
 }
 
 interface Court {
@@ -111,13 +115,29 @@ export default function SessionDetailDrawer({
   const queryClient = useQueryClient();
   const { isOffline, logOfflineAttempt } = useNetwork();
   const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
+  const { t } = useTranslation();
   const isOfflineRef = useRef(isOffline);
   useEffect(() => { isOfflineRef.current = isOffline; }, [isOffline]);
-  
+  const [showReminderModal, setShowReminderModal] = useState(false);
+
   const [liveSession, setLiveSession] = useState<Session | null>(session);
   useEffect(() => {
     if (session) setLiveSession(session);
   }, [session]);
+
+  const reminderSeriesQuery = useQuery<{
+    title?: string;
+    players?: Array<{ status?: string | null }>;
+  }>({
+    queryKey: ["/api/coach/series", liveSession?.seriesId],
+    enabled: !!liveSession?.seriesId && showReminderModal,
+  });
+  const reminderSeriesName =
+    reminderSeriesQuery.data?.title || liveSession?.title || "Class";
+  const reminderActiveCount =
+    (reminderSeriesQuery.data?.players || []).filter(
+      (p) => ((p?.status as string | undefined) || "active") === "active",
+    ).length || (liveSession?.players?.length ?? 0);
 
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
@@ -1621,6 +1641,31 @@ export default function SessionDetailDrawer({
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
       </Pressable>
 
+      {liveSession?.seriesId ? (
+        <Pressable
+          style={styles.attendanceCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowReminderModal(true);
+          }}
+        >
+          <View style={styles.attendanceCardLeft}>
+            <View style={styles.attendanceIconContainer}>
+              <Ionicons name="notifications-outline" size={24} color={Colors.dark.accentCyan} />
+            </View>
+            <View>
+              <Text style={styles.attendanceCardTitle}>
+                {t("coach.reminder.actionLabel")}
+              </Text>
+              <Text style={styles.attendanceCardSubtitle}>
+                {t("coach.reminder.subtitleCard")}
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.dark.accentCyan} />
+        </Pressable>
+      ) : null}
+
       {/* Feedback Hub — all systems */}
       {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (() => {
         const activePlayers = liveSession.players!.filter(p => !removedPlayerIds.has(p.id));
@@ -2617,6 +2662,17 @@ export default function SessionDetailDrawer({
         );
       })()}
       </Modal>
+
+      {liveSession?.seriesId ? (
+        <SendGroupReminderModal
+          visible={showReminderModal}
+          onClose={() => setShowReminderModal(false)}
+          seriesId={liveSession.seriesId}
+          seriesName={reminderSeriesName}
+          activePlayerCount={reminderActiveCount}
+          lessonSessionId={liveSession.id}
+        />
+      ) : null}
     </>
   );
 }

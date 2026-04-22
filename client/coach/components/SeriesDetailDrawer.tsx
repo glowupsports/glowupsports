@@ -47,6 +47,7 @@ import { SeriesAddPlayerModal } from "./series-detail/SeriesAddPlayerModal";
 import { SeriesAttendanceModal } from "./series-detail/SeriesAttendanceModal";
 import { SeriesExtraLessonModal } from "./series-detail/SeriesExtraLessonModal";
 import { SeriesOverviewTab } from "./series-detail/SeriesOverviewTab";
+import SendGroupReminderModal from "./SendGroupReminderModal";
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -127,6 +128,9 @@ export default function SeriesDetailDrawer({
   // Complete / Delete series confirm modal state
   const [showSeriesCompleteConfirm, setShowSeriesCompleteConfirm] = useState(false);
   const [showSeriesDeleteConfirm, setShowSeriesDeleteConfirm] = useState(false);
+
+  // Send group reminder modal
+  const [showReminderModal, setShowReminderModal] = useState(false);
 
   // Remove modal state
   const [showRemoveModal, setShowRemoveModal] = useState(false);
@@ -1471,6 +1475,7 @@ export default function SeriesDetailDrawer({
         handleTogglePublic={handleTogglePublic}
         handleSaveDropInPrice={handleSaveDropInPrice}
         updatingVisibility={updateVisibilityMutation.isPending}
+        onSendReminder={() => setShowReminderModal(true)}
       />
     );
   };
@@ -2104,6 +2109,18 @@ export default function SeriesDetailDrawer({
         }}
       />
     </Modal>
+
+    {series && seriesId ? (
+      <SendGroupReminderModal
+        visible={showReminderModal}
+        onClose={() => setShowReminderModal(false)}
+        seriesId={seriesId}
+        seriesName={displayTitle || series.title || "Class"}
+        activePlayerCount={(series.players || []).filter(
+          (p) => ((p?.status as string | undefined) || "active") === "active",
+        ).length}
+      />
+    ) : null}
   </>
   );
 }

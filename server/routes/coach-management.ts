@@ -25,6 +25,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
   import {
     users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
+    conversations, conversationParticipants, messages,
     invoices, payments, sessionPlayers, sessionWaitlist,
     locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
     sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
@@ -2120,6 +2121,178 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
       } catch (error) {
         console.error("Error fetching unread count:", error);
         res.status(500).json({ error: "Failed to fetch unread count" });
+      }
+    },
+  );
+
+  // ==================== SERIES GROUP REMINDER ====================
+  // In-memory throttle: max 3 reminders per coach+series in trailing 60 min.
+  const seriesReminderThrottle = new Map<string, number[]>();
+  const SERIES_REMINDER_WINDOW_MS = 60 * 60 * 1000;
+  const SERIES_REMINDER_MAX = 3;
+
+  router.post(
+    "/api/coach/series/:seriesId/reminder",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const coachId = req.user!.coachId;
+        if (!coachId) {
+          return res.status(403).json({ error: "Coach profile required" });
+        }
+        const { seriesId } = req.params;
+        const bodySchema = z.object({
+          message: z.string().trim().min(1).max(280),
+          lessonSessionId: z.string().optional().nullable(),
+        });
+        const parsed = bodySchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({
+            error: fromZodError(parsed.error).toString(),
+          });
+        }
+        const message = parsed.data.message.trim();
+        const lessonSessionId = parsed.data.lessonSessionId || undefined;
+
+        // Verify coach owns the series
+        const [series] = await db
+          .select({
+            id: coachingSeries.id,
+            coachId: coachingSeries.coachId,
+            academyId: coachingSeries.academyId,
+            title: coachingSeries.title,
+          })
+          .from(coachingSeries)
+          .where(eq(coachingSeries.id, seriesId))
+          .limit(1);
+        if (!series) {
+          return res.status(404).json({ error: "Series not found" });
+        }
+        if (series.coachId !== coachId) {
+          return res
+            .status(403)
+            .json({ error: "You do not own this series" });
+        }
+
+        // Throttle
+        const throttleKey = `${coachId}:${seriesId}`;
+        const now = Date.now();
+        const recent = (seriesReminderThrottle.get(throttleKey) || []).filter(
+          (t) => now - t < SERIES_REMINDER_WINDOW_MS,
+        );
+        if (recent.length >= SERIES_REMINDER_MAX) {
+          seriesReminderThrottle.set(throttleKey, recent);
+          return res.status(429).json({
+            error: "Too many reminders. Try again in a few minutes.",
+          });
+        }
+
+        // Lookup coach name for notification title
+        const [coach] = await db
+          .select({ name: coaches.name })
+          .from(coaches)
+          .where(eq(coaches.id, coachId))
+          .limit(1);
+        const coachName = coach?.name || "your coach";
+
+        // Active players in the series
+        const activeMembers = await db
+          .select({ playerId: seriesPlayers.playerId })
+          .from(seriesPlayers)
+          .where(
+            and(
+              eq(seriesPlayers.seriesId, seriesId),
+              eq(seriesPlayers.status, "active"),
+            ),
+          );
+
+        const screen = lessonSessionId ? "TrainingDetail" : "SeriesDetail";
+        const notifData = {
+          type: "series_reminder",
+          seriesId,
+          ...(lessonSessionId ? { lessonSessionId } : {}),
+          screen,
+        };
+
+        let sent = 0;
+        let failed = 0;
+        await Promise.all(
+          activeMembers.map(async (m) => {
+            try {
+              const tokens = await getPlayerPushTokens(m.playerId);
+              if (tokens.length === 0) {
+                failed += 1;
+                return;
+              }
+              await sendPushNotification(
+                tokens,
+                `Reminder from ${coachName}`,
+                message,
+                notifData,
+              );
+              sent += 1;
+            } catch (err) {
+              console.error(
+                "[series-reminder] failed to push player",
+                m.playerId,
+                err,
+              );
+              failed += 1;
+            }
+          }),
+        );
+
+        // Append to existing series group conversation if one exists.
+        try {
+          const convConditions = [
+            eq(conversations.title, seriesId),
+            inArray(conversations.type, [
+              "series_group",
+              "squad",
+              "lesson_group",
+            ]),
+          ];
+          if (series.academyId) {
+            convConditions.push(eq(conversations.academyId, series.academyId));
+          }
+          const [conv] = await db
+            .select()
+            .from(conversations)
+            .where(and(...convConditions))
+            .limit(1);
+          if (conv) {
+            await db.insert(messages).values({
+              conversationId: conv.id,
+              academyId: series.academyId || null,
+              senderType: "coach",
+              senderCoachId: coachId,
+              body: message,
+              messageType: "text",
+            });
+            await db
+              .update(conversations)
+              .set({
+                lastMessageAt: new Date(),
+                lastMessagePreview: message.substring(0, 100),
+              })
+              .where(eq(conversations.id, conv.id));
+          }
+        } catch (err) {
+          console.error(
+            "[series-reminder] failed to mirror to group chat",
+            err,
+          );
+        }
+
+        // Record send for throttle (only after success path)
+        recent.push(now);
+        seriesReminderThrottle.set(throttleKey, recent);
+
+        res.json({ sent, failed });
+      } catch (error) {
+        console.error("Error sending series reminder:", error);
+        res.status(500).json({ error: "Failed to send reminder" });
       }
     },
   );
