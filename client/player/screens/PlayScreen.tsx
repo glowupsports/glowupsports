@@ -410,6 +410,18 @@ export default function PlayScreen() {
   });
   const pendingInvitesCount = invitesData?.filter(i => i.booking_invite_guests?.status === "pending")?.length || 0;
 
+  // Lightweight count of joinable open matches across all levels — surfaced as
+  // a tiny badge on the "Open Matches" hero card (Variant 1 Cleanup).
+  const { data: openMatchesList } = useQuery<Array<{ id: string }>>({
+    queryKey: ["/api/open-matches", { includeAllLevels: true, includeMine: false, sport: activeSport }],
+    queryFn: async () => {
+      const url = new URL(`/api/open-matches?includeAllLevels=true&sport=${activeSport}`, getApiUrl()).toString();
+      const r = await apiRequest("GET", url);
+      return r.json();
+    },
+  });
+  const openMatchesCount = openMatchesList?.length ?? 0;
+
   const { data: corporateData } = useQuery<{ corporateAccount: { companyName: string; creditBalance: number } | null; member: { inviteStatus: string } | null }>({
     queryKey: ["/api/corporate/my-account"],
   });
@@ -479,6 +491,24 @@ export default function PlayScreen() {
   const { data: sessions, isLoading: sessionsLoading } = useQuery<PlaySession[]>({
     queryKey: [sessionsQueryKey],
   });
+
+  // Count of group lessons available in the current ISO week — surfaced on
+  // the highlighted "Take a lesson" hero card (Variant 1 Cleanup).
+  const lessonsThisWeekCount = useMemo(() => {
+    if (!sessions || sessions.length === 0) return 0;
+    const now = new Date();
+    const day = now.getDay(); // 0 Sun..6 Sat
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - diffToMonday);
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + 7);
+    return sessions.filter((s) => {
+      const t = s.startTime ? new Date(s.startTime).getTime() : NaN;
+      return !Number.isNaN(t) && t >= monday.getTime() && t < nextMonday.getTime();
+    }).length;
+  }, [sessions]);
 
   const nearbyPlayersQueryKey = discoverFilter !== "all" 
     ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}&travelTime=true&scope=${effectiveScope}` 
@@ -1697,6 +1727,14 @@ export default function PlayScreen() {
                 >
                   Take a lesson
                 </Text>
+                {lessonsThisWeekCount > 0 ? (
+                  <Text
+                    style={[styles.heroCardCount, { color: Colors.dark.primary }]}
+                    numberOfLines={1}
+                  >
+                    {lessonsThisWeekCount} this week
+                  </Text>
+                ) : null}
               </Pressable>
 
               <Pressable
@@ -1728,6 +1766,11 @@ export default function PlayScreen() {
                 <Text style={styles.heroCardLabel} numberOfLines={1}>
                   Open Matches
                 </Text>
+                {openMatchesCount > 0 ? (
+                  <Text style={styles.heroCardCount} numberOfLines={1}>
+                    {openMatchesCount} open
+                  </Text>
+                ) : null}
               </Pressable>
             </View>
 
@@ -1903,6 +1946,23 @@ export default function PlayScreen() {
                 />
                 <Text style={styles.compactChipText}>Prefs</Text>
               </Pressable>
+
+              <View style={{ flex: 1 }} />
+
+              <Pressable
+                style={styles.compactChip}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("PlayerHelp" as never);
+                }}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={12}
+                  color={Colors.dark.textMuted}
+                />
+                <Text style={styles.compactChipText}>More</Text>
+              </Pressable>
             </View>
           </>
         ) : null}
@@ -1945,47 +2005,48 @@ export default function PlayScreen() {
           </Pressable>
         ) : null}
 
-        {activeTab === "Group Lessons" ? (
-          <>
-            {playerAcademyId ? (
-              <View style={styles.scopeToggleContainer}>
-                <Pressable
-                  style={[styles.scopeToggleBtn, scope === "mine" && styles.scopeToggleBtnActive]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("mine"); }}
-                >
-                  <Text style={[styles.scopeToggleText, scope === "mine" && styles.scopeToggleTextActive]}>My Academy</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.scopeToggleBtn, scope === "all" && styles.scopeToggleBtnActive]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("all"); }}
-                >
-                  <Text style={[styles.scopeToggleText, scope === "all" && styles.scopeToggleTextActive]}>Discover All</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {/* Variant 1 cleanup: collapse the long ball-level + day chip rows
-                behind a single Filter pill that opens a bottom-sheet. The
-                inline summary keeps the active filters visible without
-                burning two rows of horizontal scrolling. */}
+        {/* Variant 1 cleanup: shared Filter pill + bottom-sheet drives both
+            Group Lessons (level / day / scope) and Players (level / scope).
+            Defaults are hidden from the inline summary so chrome stays calm. */}
+        {(activeTab === "Group Lessons" || activeTab === "Players") ? (() => {
+          const summary: Array<{ key: string; label: string; color?: string }> = [];
+          if (activeTab === "Group Lessons") {
+            if (selectedBallLevel !== "my_level") {
+              if (selectedBallLevel === "all") {
+                summary.push({ key: "lvl", label: t("player.play.allLevels") });
+              } else {
+                summary.push({
+                  key: "lvl",
+                  label: selectedBallLevel.charAt(0).toUpperCase() + selectedBallLevel.slice(1),
+                  color: getBallLevelColor(selectedBallLevel),
+                });
+              }
+            }
+            if (selectedDay !== "all") {
+              summary.push({ key: "day", label: selectedDay.toUpperCase() });
+            }
+          } else {
+            if (selectedPlayerLevel !== "all") {
+              summary.push({
+                key: "plvl",
+                label: selectedPlayerLevel.charAt(0).toUpperCase() + selectedPlayerLevel.slice(1),
+                color: getBallLevelColor(selectedPlayerLevel),
+              });
+            }
+          }
+          if (playerAcademyId && scope === "all") {
+            summary.push({ key: "scope", label: "All academies" });
+          }
+          const openSheet = () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowFilterSheet(true);
+          };
+          return (
             <View style={styles.filterPillRow}>
-              <Pressable
-                style={styles.filterPillBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowFilterSheet(true);
-                }}
-              >
-                <Ionicons
-                  name="options-outline"
-                  size={12}
-                  color={Colors.dark.primary}
-                />
+              <Pressable style={styles.filterPillBtn} onPress={openSheet}>
+                <Ionicons name="options-outline" size={12} color={Colors.dark.primary} />
                 <Text style={styles.filterPillBtnText}>Filter</Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={11}
-                  color={Colors.dark.primary}
-                />
+                <Ionicons name="chevron-down" size={11} color={Colors.dark.primary} />
               </Pressable>
               <ScrollView
                 horizontal
@@ -1993,61 +2054,46 @@ export default function PlayScreen() {
                 contentContainerStyle={styles.filterSummaryContent}
                 style={styles.filterSummaryScroll}
               >
-                {(() => {
-                  const summary: Array<{ key: string; label: string; color?: string }> = [];
-                  if (selectedBallLevel === "my_level") {
-                    summary.push({
-                      key: "lvl",
-                      label: `My Level${playerBallLevel !== "glow" ? ` (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})` : ""}`,
-                      color: getBallLevelColor(playerBallLevel),
-                    });
-                  } else if (selectedBallLevel === "all") {
-                    summary.push({ key: "lvl", label: t("player.play.allLevels") });
-                  } else {
-                    summary.push({
-                      key: "lvl",
-                      label: selectedBallLevel.charAt(0).toUpperCase() + selectedBallLevel.slice(1),
-                      color: getBallLevelColor(selectedBallLevel),
-                    });
-                  }
-                  if (selectedDay !== "all") {
-                    summary.push({ key: "day", label: selectedDay.toUpperCase() });
-                  }
-                  return summary.map((s) => (
-                    <View key={s.key} style={styles.filterSummaryChip}>
-                      {s.color ? (
-                        <View
-                          style={[
-                            styles.filterSummaryDot,
-                            { backgroundColor: s.color },
-                          ]}
-                        />
-                      ) : null}
-                      <Text style={styles.filterSummaryChipText}>{s.label}</Text>
-                    </View>
-                  ));
-                })()}
+                {summary.map((s) => (
+                  <Pressable key={s.key} onPress={openSheet} style={styles.filterSummaryChip}>
+                    {s.color ? (
+                      <View style={[styles.filterSummaryDot, { backgroundColor: s.color }]} />
+                    ) : null}
+                    <Text style={styles.filterSummaryChipText}>{s.label}</Text>
+                  </Pressable>
+                ))}
+                {summary.length > 0 ? (
+                  <Text style={styles.filterSummaryActiveCount}>
+                    · {summary.length} active
+                  </Text>
+                ) : null}
               </ScrollView>
             </View>
+          );
+        })() : null}
 
-            {/* Filter bottom-sheet */}
-            <Modal
-              visible={showFilterSheet}
-              transparent
-              animationType="slide"
-              onRequestClose={() => setShowFilterSheet(false)}
+        {/* Shared Filter bottom-sheet — content adapts to active tab */}
+        <Modal
+          visible={showFilterSheet}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowFilterSheet(false)}
+        >
+          <Pressable
+            style={styles.playModalOverlay}
+            onPress={() => setShowFilterSheet(false)}
+          >
+            <Pressable
+              style={styles.playModalSheet}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Pressable
-                style={styles.playModalOverlay}
-                onPress={() => setShowFilterSheet(false)}
-              >
-                <Pressable
-                  style={styles.playModalSheet}
-                  onPress={(e) => e.stopPropagation()}
-                >
-                  <View style={styles.playModalHandle} />
-                  <Text style={styles.playModalTitle}>Filter sessions</Text>
+              <View style={styles.playModalHandle} />
+              <Text style={styles.playModalTitle}>
+                {activeTab === "Players" ? "Filter players" : "Filter sessions"}
+              </Text>
 
+              {activeTab === "Group Lessons" ? (
+                <>
                   <Text style={styles.filterSheetGroupLabel}>Ball level</Text>
                   <View style={styles.filterSheetWrap}>
                     {(["my_level", "all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
@@ -2069,10 +2115,7 @@ export default function PlayScreen() {
                           key={level}
                           style={[
                             styles.filterChip,
-                            isSelected && {
-                              backgroundColor: color + "30",
-                              borderColor: color,
-                            },
+                            isSelected && { backgroundColor: color + "30", borderColor: color },
                           ]}
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -2080,15 +2123,8 @@ export default function PlayScreen() {
                             setShowOtherLevels(level !== "my_level");
                           }}
                         >
-                          <View
-                            style={[styles.filterDot, { backgroundColor: color }]}
-                          />
-                          <Text
-                            style={[
-                              styles.filterChipText,
-                              isSelected && { color },
-                            ]}
-                          >
+                          <View style={[styles.filterDot, { backgroundColor: color }]} />
+                          <Text style={[styles.filterChipText, isSelected && { color }]}>
                             {label}
                           </Text>
                         </Pressable>
@@ -2100,60 +2136,122 @@ export default function PlayScreen() {
                   <View style={styles.filterSheetWrap}>
                     {DAY_LABELS.map((day) => {
                       const isSelected = selectedDay === day;
-                      const label =
-                        day === "all"
-                          ? t("player.play.allDays")
-                          : day.toUpperCase();
+                      const label = day === "all" ? t("player.play.allDays") : day.toUpperCase();
                       return (
                         <Pressable
                           key={day}
-                          style={[
-                            styles.dayChip,
-                            isSelected && styles.dayChipSelected,
-                          ]}
+                          style={[styles.dayChip, isSelected && styles.dayChipSelected]}
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             setSelectedDay(day);
                           }}
                         >
-                          <Text
-                            style={[
-                              styles.dayChipText,
-                              isSelected && styles.dayChipTextSelected,
-                            ]}
-                          >
+                          <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>
                             {label}
                           </Text>
                         </Pressable>
                       );
                     })}
                   </View>
-
-                  <View style={styles.filterSheetFooter}>
-                    <Pressable
-                      style={styles.filterSheetResetBtn}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedBallLevel("my_level");
-                        setShowOtherLevels(false);
-                        setSelectedDay("all");
-                      }}
-                    >
-                      <Text style={styles.filterSheetResetText}>Reset</Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.filterSheetApplyBtn}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setShowFilterSheet(false);
-                      }}
-                    >
-                      <Text style={styles.filterSheetApplyText}>Done</Text>
-                    </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.filterSheetGroupLabel}>Player level</Text>
+                  <View style={styles.filterSheetWrap}>
+                    {(["all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
+                      const isSelected = selectedPlayerLevel === level;
+                      const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
+                      const label = level === "all" ? "ALL" : level.toUpperCase();
+                      return (
+                        <Pressable
+                          key={level}
+                          style={[
+                            styles.filterChip,
+                            isSelected && { backgroundColor: color + "30", borderColor: color },
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedPlayerLevel(level);
+                          }}
+                        >
+                          <View style={[styles.filterDot, { backgroundColor: color }]} />
+                          <Text style={[styles.filterChipText, isSelected && { color }]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
+                </>
+              )}
+
+              {playerAcademyId ? (
+                <>
+                  <Text style={styles.filterSheetGroupLabel}>Scope</Text>
+                  <View style={styles.filterSheetWrap}>
+                    {([
+                      { id: "mine" as const, label: "My Academy" },
+                      { id: "all" as const, label: "Discover All" },
+                    ]).map((s) => {
+                      const isSelected = scope === s.id;
+                      return (
+                        <Pressable
+                          key={s.id}
+                          style={[
+                            styles.filterChip,
+                            isSelected && {
+                              backgroundColor: Colors.dark.primary + "30",
+                              borderColor: Colors.dark.primary,
+                            },
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            handleScopeChange(s.id);
+                          }}
+                        >
+                          <Text style={[styles.filterChipText, isSelected && { color: Colors.dark.primary }]}>
+                            {s.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
+
+              <View style={styles.filterSheetFooter}>
+                <Pressable
+                  style={styles.filterSheetResetBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (activeTab === "Group Lessons") {
+                      setSelectedBallLevel("my_level");
+                      setShowOtherLevels(false);
+                      setSelectedDay("all");
+                    } else {
+                      setSelectedPlayerLevel("all");
+                    }
+                    if (playerAcademyId) handleScopeChange("mine");
+                  }}
+                >
+                  <Text style={styles.filterSheetResetText}>Reset</Text>
                 </Pressable>
-              </Pressable>
-            </Modal>
+                <Pressable
+                  style={styles.filterSheetApplyBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowFilterSheet(false);
+                  }}
+                >
+                  <Text style={styles.filterSheetApplyText}>Done</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {activeTab === "Group Lessons" ? (
+          <>
             {sessionsLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -2223,23 +2321,9 @@ export default function PlayScreen() {
               </View>
             </View>
 
-            {playerAcademyId ? (
-              <View style={styles.scopeToggleContainer}>
-                <Pressable
-                  style={[styles.scopeToggleBtn, scope === "mine" && styles.scopeToggleBtnActive]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("mine"); }}
-                >
-                  <Text style={[styles.scopeToggleText, scope === "mine" && styles.scopeToggleTextActive]}>My Academy</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.scopeToggleBtn, scope === "all" && styles.scopeToggleBtnActive]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleScopeChange("all"); }}
-                >
-                  <Text style={[styles.scopeToggleText, scope === "all" && styles.scopeToggleTextActive]}>Discover All</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            
+            {/* Variant 1 cleanup: Players-tab scope toggle now lives in the
+                shared Filter sheet above. */}
+
             {/* Discovery Filter Chips */}
             <ScrollView 
               horizontal 
@@ -2301,42 +2385,8 @@ export default function PlayScreen() {
               ) : null}
             </View>
             
-            {/* Ball Level Filter */}
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              style={styles.filterRow}
-              contentContainerStyle={styles.filterRowContent}
-            >
-              {(["all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
-                const isSelected = selectedPlayerLevel === level;
-                const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
-                const label = level === "all" ? "ALL" : level.toUpperCase();
-                const playerCount = nearbyPlayers?.filter(p => {
-                  if (level === "all") return true;
-                  const pLevel = p.ballLevel?.toLowerCase() || "";
-                  return pLevel.includes(level);
-                }).length || 0;
-                
-                return (
-                  <Pressable
-                    key={level}
-                    style={[
-                      styles.playerLevelChip,
-                      isSelected && { backgroundColor: color + "30", borderColor: color },
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedPlayerLevel(level);
-                    }}
-                  >
-                    <View style={[styles.filterDot, { backgroundColor: color }]} />
-                    <Text style={[styles.playerLevelChipText, isSelected && { color }]}>{label}</Text>
-                    <Text style={[styles.playerLevelCount, isSelected && { color }]}>{playerCount}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            {/* Variant 1 cleanup: ball-level filter now lives in the shared
+                Filter sheet above. */}
             
             {locationPermission && !locationPermission.granted && (
               <Pressable
@@ -3006,6 +3056,19 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: Colors.dark.textMuted,
+  },
+  filterSummaryActiveCount: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    alignSelf: "center",
+    marginLeft: 2,
+  },
+  heroCardCount: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    textAlign: "center",
   },
   // Variant 1 cleanup — Filter bottom-sheet content
   filterSheetGroupLabel: {
