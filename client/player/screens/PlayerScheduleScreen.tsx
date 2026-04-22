@@ -307,6 +307,28 @@ export default function PlayerScheduleScreen() {
     useState<PlayerPayment | null>(null);
   const [showDebtSheet, setShowDebtSheet] = useState(false);
   const [showBankSheet, setShowBankSheet] = useState(false);
+  const [copiedBankField, setCopiedBankField] = useState<string | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyBankField = useCallback(async (field: string, value: string) => {
+    const trimmed = (value ?? "").trim();
+    if (!trimmed) return;
+    try {
+      await Clipboard.setStringAsync(trimmed);
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {}
+      setCopiedBankField(field);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedBankField(null), 1500);
+    } catch {}
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1614,31 +1636,75 @@ export default function PlayerScheduleScreen() {
                 ) : null}
                 {academyPaymentInfo.acceptsBankTransfer ? (
                   <View>
-                    {academyPaymentInfo.bankAccountHolder ? (
-                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
-                        Account holder: {academyPaymentInfo.bankAccountHolder}
-                      </Text>
-                    ) : null}
-                    {academyPaymentInfo.bankName ? (
-                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
-                        Bank: {academyPaymentInfo.bankName}
-                      </Text>
-                    ) : null}
-                    {academyPaymentInfo.bankIban ? (
-                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
-                        IBAN: {academyPaymentInfo.bankIban}
-                      </Text>
-                    ) : null}
-                    {academyPaymentInfo.bankAccountNumber ? (
-                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
-                        Account: {academyPaymentInfo.bankAccountNumber}
-                      </Text>
-                    ) : null}
-                    {academyPaymentInfo.bankSwiftCode ? (
-                      <Text style={{ color: TextColors.primary, marginBottom: 4 }}>
-                        SWIFT: {academyPaymentInfo.bankSwiftCode}
-                      </Text>
-                    ) : null}
+                    {([
+                      { key: "holder", label: "Account holder", value: academyPaymentInfo.bankAccountHolder },
+                      { key: "bank", label: "Bank", value: academyPaymentInfo.bankName },
+                      { key: "iban", label: "IBAN", value: academyPaymentInfo.bankIban },
+                      { key: "account", label: "Account", value: academyPaymentInfo.bankAccountNumber },
+                      { key: "swift", label: "SWIFT", value: academyPaymentInfo.bankSwiftCode },
+                    ] as const).map((row) => {
+                      const value = row.value?.trim();
+                      if (!value) return null;
+                      return (
+                        <Pressable
+                          key={row.key}
+                          onPress={() => handleCopyBankField(row.key, value)}
+                          onLongPress={() => handleCopyBankField(row.key, value)}
+                          style={({ pressed }) => [
+                            {
+                              flexDirection: "row",
+                              alignItems: "center",
+                              paddingVertical: 8,
+                              paddingHorizontal: 4,
+                              borderRadius: BorderRadius.sm,
+                              opacity: pressed ? 0.7 : 1,
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Copy ${row.label}`}
+                        >
+                          <Text
+                            style={{ color: TextColors.primary, flex: 1 }}
+                            numberOfLines={1}
+                            ellipsizeMode="middle"
+                          >
+                            <Text style={{ color: TextColors.muted }}>{row.label}: </Text>
+                            {row.value}
+                          </Text>
+                          {copiedBankField === row.key ? (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: BorderRadius.sm,
+                                backgroundColor: Backgrounds.surface,
+                              }}
+                            >
+                              <Feather name="check" size={12} color={GlowColors.primary} />
+                              <Text style={{ color: GlowColors.primary, fontSize: 12, fontWeight: "700" }}>
+                                Copied
+                              </Text>
+                            </View>
+                          ) : (
+                            <View
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 16,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                backgroundColor: Backgrounds.surface,
+                              }}
+                            >
+                              <Feather name="copy" size={14} color={TextColors.secondary} />
+                            </View>
+                          )}
+                        </Pressable>
+                      );
+                    })}
                     {academyPaymentInfo.paymentInstructions ? (
                       <Text style={{ color: TextColors.muted, marginTop: Spacing.sm, fontStyle: "italic" }}>
                         {academyPaymentInfo.paymentInstructions}
