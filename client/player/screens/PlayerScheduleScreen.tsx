@@ -1557,6 +1557,7 @@ export default function PlayerScheduleScreen() {
         onClose={() => setShowLogPayment(false)}
         playerId={playerId}
         paymentInfo={academyPaymentInfo || null}
+        suggestedAmount={amountDue > 0 ? amountDue : undefined}
       />
 
       {/* Bank details quick view (reuses LogPaymentSheet's bank box via a mini sheet) */}

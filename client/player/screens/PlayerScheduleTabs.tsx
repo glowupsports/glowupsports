@@ -574,21 +574,68 @@ export function LogPaymentSheet({
   onClose,
   playerId,
   paymentInfo,
+  suggestedAmount,
 }: {
   visible: boolean;
   onClose: () => void;
   playerId: string | null;
   paymentInfo: AcademyPaymentInfo | null;
+  /**
+   * Task #938 — when the player has outstanding debt, pre-fill the amount
+   * with the per-(sessionType)-priced total computed by the parent screen
+   * from the academy pricing matrix. Falls back to an empty input when
+   * absent so the player can still type a custom amount.
+   */
+  suggestedAmount?: number;
 }) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [amount, setAmount] = useState("");
+  const initialAmount =
+    suggestedAmount !== undefined && suggestedAmount > 0
+      ? suggestedAmount.toFixed(2)
+      : "";
+  const [amount, setAmount] = useState(initialAmount);
   const [method, setMethod] = useState<"cash" | "bank_transfer">("cash");
   const [notes, setNotes] = useState("");
   const [proofUri, setProofUri] = useState<string | null>(null);
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Re-seed the amount input every time the sheet (re-)opens so the player
+  // sees the latest debt total without stale state across sessions.
+  React.useEffect(() => {
+    if (!visible) return;
+    setAmount(
+      suggestedAmount !== undefined && suggestedAmount > 0
+        ? suggestedAmount.toFixed(2)
+        : "",
+    );
+  }, [visible, suggestedAmount]);
+
+  // Per-(sessionType) rates from the academy_pricing matrix returned by
+  // /api/parent/academy-payment-info. Drives the "Quick fill" chips below.
+  const pricingChips = React.useMemo(() => {
+    const pricing = paymentInfo?.pricing;
+    if (!pricing) return [];
+    const order: Array<{ key: string; label: string }> = [
+      { key: "private", label: "Private" },
+      { key: "semi_private", label: "Semi-private" },
+      { key: "group", label: "Group" },
+    ];
+    return order
+      .map(({ key, label }) => {
+        const row = pricing[key];
+        if (!row || !Number.isFinite(row.amount) || row.amount <= 0) return null;
+        return {
+          key,
+          label,
+          amount: row.amount,
+          currency: row.currency || paymentInfo?.currency || "AED",
+        };
+      })
+      .filter((x): x is { key: string; label: string; amount: number; currency: string } => x !== null);
+  }, [paymentInfo]);
 
   const reset = () => {
     setAmount("");
@@ -726,6 +773,32 @@ export function LogPaymentSheet({
               onChangeText={setAmount}
               editable={!submitting}
             />
+
+            {pricingChips.length > 0 ? (
+              <View style={sheetStyles.quickFillRow}>
+                <Text style={sheetStyles.quickFillLabel}>Quick fill</Text>
+                <View style={sheetStyles.quickFillChips}>
+                  {pricingChips.map((chip) => (
+                    <Pressable
+                      key={chip.key}
+                      style={sheetStyles.quickFillChip}
+                      onPress={() => {
+                        if (submitting) return;
+                        Haptics.selectionAsync();
+                        setAmount(chip.amount.toFixed(2));
+                      }}
+                    >
+                      <Text style={sheetStyles.quickFillChipLabel}>
+                        1 {chip.label}
+                      </Text>
+                      <Text style={sheetStyles.quickFillChipPrice}>
+                        {chip.currency} {chip.amount.toFixed(2)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
             <Text style={sheetStyles.fieldLabel}>Date paid</Text>
             <Pressable
@@ -1505,6 +1578,40 @@ const sheetStyles = makeReactiveStyles(() => StyleSheet.create({
   cancelText: {
     color: TextColors.muted,
     fontWeight: "600",
+  },
+  quickFillRow: {
+    marginTop: Spacing.sm,
+  },
+  quickFillLabel: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    marginBottom: 6,
+  },
+  quickFillChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  quickFillChip: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Backgrounds.surface,
+    backgroundColor: Backgrounds.elevated,
+  },
+  quickFillChipLabel: {
+    ...Typography.caption,
+    color: TextColors.secondary,
+    fontWeight: "600",
+  },
+  quickFillChipPrice: {
+    ...Typography.caption,
+    color: TextColors.primary,
+    fontWeight: "700",
   },
 }));
 
