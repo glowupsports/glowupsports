@@ -167,6 +167,7 @@ interface CourtBookingData {
   endTime: string;
   courtName: string;
   status: string;
+  durationMinutes?: number | null;
 }
 
 interface MatchData {
@@ -221,6 +222,11 @@ interface ProfileMeData {
     lastLatitude?: number | null;
     lastLongitude?: number | null;
   };
+  academy?: {
+    id?: string;
+    name?: string;
+    timezone?: string | null;
+  } | null;
 }
 
 // -----------------------------------------------------------------------------
@@ -680,6 +686,7 @@ export default function PlayerScheduleScreen() {
       for (const b of courtBookings) {
         const start = new Date(`${b.date.split("T")[0]}T${b.startTime || "00:00"}`);
         if (start >= now) continue;
+        const dur = b.durationMinutes ?? null;
         out.push({
           key: `cb-${b.id}`,
           date: start,
@@ -690,6 +697,10 @@ export default function PlayerScheduleScreen() {
           accentColor: EVENT_COLORS.court,
           sessionType: "court",
           sessionId: `court-${b.id}`,
+          localStartTime: b.startTime || null,
+          localEndTime: b.endTime || null,
+          courtName: b.courtName || null,
+          durationMinutes: dur,
         });
       }
     }
@@ -710,6 +721,10 @@ export default function PlayerScheduleScreen() {
           accentColor: EVENT_COLORS.match,
           sessionType: "match",
           sessionId: `match-${m.id}`,
+          localStartTime: m.matchTime || null,
+          localEndTime: null,
+          courtName: m.courtName || null,
+          coachName: m.opponentName || null,
         });
       }
     }
@@ -731,6 +746,13 @@ export default function PlayerScheduleScreen() {
             : s.attendanceStatus === "missed"
               ? "Missed"
               : "Attended";
+        let durationMinutes: number | null = null;
+        if (s.session.endTime) {
+          const ms = new Date(s.session.endTime).getTime() - start.getTime();
+          if (Number.isFinite(ms) && ms > 0) {
+            durationMinutes = Math.round(ms / 60000);
+          }
+        }
         out.push({
           key: `s-${s.id}`,
           date: start,
@@ -742,6 +764,12 @@ export default function PlayerScheduleScreen() {
           sessionType:
             type === "match" ? "match" : type === "court" ? "court" : "training",
           sessionId: s.session.id,
+          startTimeUtc: s.session.startTime,
+          endTimeUtc: s.session.endTime || null,
+          coachName: s.coachName || null,
+          courtName: s.session.courtName || null,
+          locationName: s.session.locationName || null,
+          durationMinutes,
         });
       }
     }
@@ -1294,6 +1322,8 @@ export default function PlayerScheduleScreen() {
         {activeTab === "history" ? (
           <HistoryTab
             items={historyItems}
+            academyTimezone={profileData?.academy?.timezone || null}
+            locale={i18n.language || "en"}
             onSelectItem={(item) => {
               Haptics.selectionAsync();
               if (item.kind === "payment" && item.payment) {
@@ -1958,14 +1988,22 @@ function DayHero({
                 ]}
                 onPress={() => onPressEvent(it)}
               >
-                <Text style={styles.secondaryTime}>{it.startTime}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.secondaryTitle} numberOfLines={1}>
+                <Text style={styles.secondaryTime}>
+                  {it.startTime}
+                  {it.endTime ? `\n${it.endTime}` : ""}
+                </Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.secondaryTitle} numberOfLines={1} ellipsizeMode="tail">
                     {it.title}
                   </Text>
-                  <Text style={styles.secondarySub} numberOfLines={1}>
-                    {getTypeLabel(it.type)}
-                    {it.subtitle ? ` · ${it.subtitle}` : ""}
+                  <Text style={styles.secondarySub} numberOfLines={1} ellipsizeMode="tail">
+                    {[
+                      getTypeLabel(it.type),
+                      it.coachName,
+                      it.locationName || it.courtName,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </Text>
                 </View>
                 {it.status === "cancelled" ? (
@@ -2598,6 +2636,7 @@ const styles = makeReactiveStyles(() =>
       fontWeight: "700",
       color: TextColors.primary,
       width: 50,
+      lineHeight: 16,
     },
     secondaryTitle: {
       fontSize: 14,

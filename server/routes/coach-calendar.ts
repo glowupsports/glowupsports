@@ -917,6 +917,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             academy = {
               id: academyData.id,
               name: academyData.name,
+              timezone: academyData.timezone || null,
             };
           }
         }

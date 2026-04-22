@@ -36,6 +36,7 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { appendImageToFormData } from "@/lib/uploads";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 
 // =============================================================================
 // Types
@@ -83,6 +84,17 @@ export interface HistoryItem {
   sessionType?: "match" | "court" | "training";
   sessionId?: string;
   payment?: PlayerPayment;
+  // Task #976 — richer row metadata. `startTimeUtc` / `endTimeUtc` are full ISO
+  // UTC strings (sessions). `localStartTime` / `localEndTime` are pre-localized
+  // "HH:mm" strings (court bookings & matches, already in academy time).
+  startTimeUtc?: string | null;
+  endTimeUtc?: string | null;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
+  coachName?: string | null;
+  courtName?: string | null;
+  locationName?: string | null;
+  durationMinutes?: number | null;
 }
 
 // =============================================================================
@@ -456,11 +468,65 @@ type HistoryFilter = "all" | "sessions" | "payments" | "this_month" | "last_3";
 export function HistoryTab({
   items,
   onSelectItem,
+  academyTimezone,
+  locale,
 }: {
   items: HistoryItem[];
   onSelectItem?: (item: HistoryItem) => void;
+  /**
+   * Task #976 — academy timezone (e.g. "Asia/Dubai") for converting session
+   * UTC timestamps to local academy time on the row. When null, falls back
+   * to the device's local timezone, which still renders sensible output.
+   */
+  academyTimezone?: string | null;
+  /** i18n language code; controls weekday + date short formatting locale. */
+  locale?: string;
 }) {
   const [filter, setFilter] = useState<HistoryFilter>("all");
+  const intlLocale = locale === "nl" ? "nl-NL" : "en-GB";
+  const tz = academyTimezone || undefined;
+
+  const formatWeekdayDate = (d: Date | string): string => {
+    try {
+      const date = typeof d === "string" ? new Date(d) : d;
+      if (isNaN(date.getTime())) return "";
+      const parts = new Intl.DateTimeFormat(intlLocale, {
+        timeZone: tz,
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }).formatToParts(date);
+      const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+      const wk = get("weekday").replace(/\.$/, "");
+      const day = get("day");
+      const mo = get("month").replace(/\.$/, "");
+      return `${wk} ${day} ${mo}`;
+    } catch {
+      return "";
+    }
+  };
+
+  // Project-standard UTC→local timezone formatter (see client/lib/dateUtils).
+  // Returns "HH:MM" 24h. When `tz` is undefined it falls back to the device
+  // locale, which still renders sensibly during the brief window before the
+  // /api/player/me response (with academy.timezone) lands.
+  const formatTimeUtc = (iso: string): string => {
+    return tz ? formatTimeInTimezone(iso, tz) : formatTimeInTimezone(iso, "UTC");
+  };
+
+  const buildTimeRange = (item: HistoryItem): string => {
+    if (item.startTimeUtc) {
+      const s = formatTimeUtc(item.startTimeUtc);
+      const e = item.endTimeUtc ? formatTimeUtc(item.endTimeUtc) : "";
+      return e ? `${s}\u2013${e}` : s;
+    }
+    if (item.localStartTime) {
+      const s = item.localStartTime;
+      const e = item.localEndTime || "";
+      return e ? `${s}\u2013${e}` : s;
+    }
+    return "";
+  };
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -538,30 +604,103 @@ export function HistoryTab({
           </Text>
         </View>
       ) : (
-        filtered.map((item) => (
-          <Pressable
-            key={item.key}
-            style={historyStyles.row}
-            onPress={() => onSelectItem?.(item)}
-          >
-            <View style={[historyStyles.dot, { backgroundColor: item.accentColor }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={historyStyles.title}>{item.title}</Text>
-              <Text style={historyStyles.subtitle}>{item.subtitle}</Text>
-            </View>
-            <View style={{ alignItems: "flex-end" }}>
-              <Text style={historyStyles.date}>
-                {item.date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </Text>
-              <Text style={[historyStyles.statusText, { color: item.accentColor }]}>
-                {item.status}
-              </Text>
-            </View>
-          </Pressable>
-        ))
+        filtered.map((item) => {
+          // Payments keep the original compact layout — their secondary line
+          // is meaningful (amount + method) and they have no time/court.
+          if (item.kind === "payment") {
+            return (
+              <Pressable
+                key={item.key}
+                style={historyStyles.row}
+                onPress={() => onSelectItem?.(item)}
+              >
+                <View style={[historyStyles.dot, { backgroundColor: item.accentColor }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={historyStyles.title} numberOfLines={1} ellipsizeMode="tail">
+                    {item.title}
+                  </Text>
+                  <Text style={historyStyles.subtitle} numberOfLines={1} ellipsizeMode="tail">
+                    {item.subtitle}
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={historyStyles.date}>
+                    {formatWeekdayDate(item.date)}
+                  </Text>
+                  <Text style={[historyStyles.statusText, { color: item.accentColor }]}>
+                    {item.status}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }
+
+          // Session rows — Task #976: weekday + date + time range on the
+          // meta line; coach · court on the sub-meta line; status pill +
+          // duration on the right column.
+          const weekdayDate = formatWeekdayDate(
+            item.startTimeUtc || item.date,
+          );
+          const timeRange = buildTimeRange(item);
+          const metaLine = [weekdayDate, timeRange].filter(Boolean).join(" \u00B7 ");
+          const place = item.courtName || item.locationName || "";
+          const subMetaLine = [item.coachName, place].filter(Boolean).join(" \u00B7 ");
+
+          return (
+            <Pressable
+              key={item.key}
+              style={historyStyles.row}
+              onPress={() => onSelectItem?.(item)}
+            >
+              <View style={[historyStyles.dot, { backgroundColor: item.accentColor }]} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={historyStyles.title} numberOfLines={1} ellipsizeMode="tail">
+                  {item.title}
+                </Text>
+                {metaLine ? (
+                  <Text
+                    style={historyStyles.subtitle}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {metaLine}
+                  </Text>
+                ) : null}
+                {subMetaLine ? (
+                  <Text
+                    style={historyStyles.subMeta}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {subMetaLine}
+                  </Text>
+                ) : null}
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <View
+                  style={[
+                    historyStyles.statusPill,
+                    { backgroundColor: item.accentColor + "22" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      historyStyles.statusPillText,
+                      { color: item.accentColor },
+                    ]}
+                  >
+                    {item.status}
+                  </Text>
+                </View>
+                {item.durationMinutes ? (
+                  <Text style={historyStyles.duration}>
+                    {item.durationMinutes} min
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>
+          );
+        })
       )}
     </View>
   );
@@ -1460,6 +1599,27 @@ const historyStyles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.caption,
     color: TextColors.muted,
     marginTop: 2,
+  },
+  subMeta: {
+    ...Typography.caption,
+    color: TextColors.muted,
+    marginTop: 2,
+    opacity: 0.85,
+  },
+  duration: {
+    fontSize: 11,
+    color: TextColors.muted,
+    marginTop: 4,
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   date: {
     ...Typography.caption,
