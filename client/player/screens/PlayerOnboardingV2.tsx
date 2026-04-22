@@ -475,7 +475,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
                   {years.map(year => (
                     <Pressable key={year} style={[styles.datePickerItem, selectedYear === year ? styles.datePickerItemActive : null]}
                       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedYear(year); }}>
-                      <Text style={[styles.datePickerItemText, selectedYear === year ? styles.datePickerItemTextActive : null]}>{year}</Text>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.datePickerItemText, selectedYear === year ? styles.datePickerItemTextActive : null]}>{year}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -486,7 +486,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
                   {months.map((month, index) => (
                     <Pressable key={month} style={[styles.datePickerItem, selectedMonth === index ? styles.datePickerItemActive : null]}
                       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedMonth(index); }}>
-                      <Text style={[styles.datePickerItemText, selectedMonth === index ? styles.datePickerItemTextActive : null]}>{month.substring(0, 3)}</Text>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.datePickerItemText, selectedMonth === index ? styles.datePickerItemTextActive : null]}>{month.substring(0, 3)}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -497,7 +497,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
                   {days.map(day => (
                     <Pressable key={day} style={[styles.datePickerItem, selectedDay === day ? styles.datePickerItemActive : null]}
                       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedDay(day); }}>
-                      <Text style={[styles.datePickerItemText, selectedDay === day ? styles.datePickerItemTextActive : null]}>{day}</Text>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.datePickerItemText, selectedDay === day ? styles.datePickerItemTextActive : null]}>{day}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -725,7 +725,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
                         setSelectedYear(year);
                       }}
                     >
-                      <Text style={[styles.datePickerItemText, selectedYear === year ? styles.datePickerItemTextActive : null]}>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.datePickerItemText, selectedYear === year ? styles.datePickerItemTextActive : null]}>
                         {year}
                       </Text>
                     </Pressable>
@@ -745,7 +745,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
                         setSelectedMonth(index);
                       }}
                     >
-                      <Text style={[styles.datePickerItemText, selectedMonth === index ? styles.datePickerItemTextActive : null]}>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.datePickerItemText, selectedMonth === index ? styles.datePickerItemTextActive : null]}>
                         {month.substring(0, 3)}
                       </Text>
                     </Pressable>
@@ -765,7 +765,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
                         setSelectedDay(day);
                       }}
                     >
-                      <Text style={[styles.datePickerItemText, selectedDay === day ? styles.datePickerItemTextActive : null]}>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.datePickerItemText, selectedDay === day ? styles.datePickerItemTextActive : null]}>
                         {day}
                       </Text>
                     </Pressable>
@@ -3166,10 +3166,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   datePickerModal: {
     width: "90%",
-    maxWidth: 400,
+    maxWidth: 440,
     backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
+    padding: Spacing.md,
   },
   datePickerModalTitle: {
     ...Typography.h3,
@@ -3179,7 +3179,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   datePickerColumns: {
     flexDirection: "row",
-    gap: Spacing.md,
+    gap: Spacing.xs,
     height: 200,
   },
   datePickerColumn: {
@@ -3200,7 +3200,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   datePickerItem: {
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 0,
     alignItems: "center",
   },
   datePickerItemActive: {
@@ -3208,6 +3208,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   datePickerItemText: {
     ...Typography.body,
+    fontSize: 15,
+    letterSpacing: 0,
     color: Colors.dark.text,
   },
   datePickerItemTextActive: {
