@@ -33,6 +33,7 @@ import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import * as WebBrowser from "expo-web-browser";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -564,24 +565,49 @@ export default function PlayScreen() {
     return filtered;
   }, [nearbyPlayers, playerSearchQuery, selectedPlayerLevel]);
 
-  const DAY_LABELS = ["all", "mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-  
-  const getDayOfWeek = (dateString: string): string => {
-    const date = new Date(dateString);
-    const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-    return days[date.getDay()];
-  };
+  // Variant 1 cleanup — day presets replace the Mon-Sun chip list. Maps to
+  // human-friendly buckets (today / tomorrow / weekend) instead of forcing
+  // the player to know which weekday they want.
+  const DAY_PRESETS = [
+    { id: "all", label: "All Days" },
+    { id: "today", label: "Today" },
+    { id: "tomorrow", label: "Tomorrow" },
+    { id: "weekend", label: "Weekend" },
+  ] as const;
+  type DayPresetId = (typeof DAY_PRESETS)[number]["id"];
 
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
-    
+
     // API already handles level filtering; only apply day filter client-side
     let filtered = sessions.filter(s => s.sessionType === "group");
-    
+
     if (selectedDay !== "all") {
-      filtered = filtered.filter(s => getDayOfWeek(s.startTime) === selectedDay);
+      const now = new Date();
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+      const startOfTomorrow = new Date(startOfToday);
+      startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+      const startOfDayAfterTomorrow = new Date(startOfTomorrow);
+      startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 1);
+
+      filtered = filtered.filter(s => {
+        const t = s.startTime ? new Date(s.startTime) : null;
+        if (!t || Number.isNaN(t.getTime())) return false;
+        if (selectedDay === "today") {
+          return t >= startOfToday && t < startOfTomorrow;
+        }
+        if (selectedDay === "tomorrow") {
+          return t >= startOfTomorrow && t < startOfDayAfterTomorrow;
+        }
+        if (selectedDay === "weekend") {
+          const d = t.getDay(); // 0 Sun..6 Sat
+          return (d === 0 || d === 6) && t >= startOfToday;
+        }
+        return true;
+      });
     }
-    
+
     return filtered;
   }, [sessions, selectedDay]);
 
@@ -1687,10 +1713,23 @@ export default function PlayScreen() {
         }}
       >
         <View style={styles.header}>
-          <View style={styles.headerTitleRow}>
-            <View style={styles.headerLine} />
-            <Text style={styles.headerTitle}>{t("player.play.title")}</Text>
-            <View style={styles.headerLine} />
+          {/* Variant 1 cleanup — show academy name on the left and a search
+              shortcut on the right (taps the Players tab to surface the
+              existing search bar). */}
+          <View style={styles.playHeaderRow}>
+            <Text style={styles.playHeaderAcademy} numberOfLines={1}>
+              {profileData?.academy?.name || t("player.play.title")}
+            </Text>
+            <Pressable
+              style={styles.playHeaderSearchBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab("Players");
+              }}
+              accessibilityLabel="Search players"
+            >
+              <Ionicons name="search" size={16} color={Colors.dark.textMuted} />
+            </Pressable>
           </View>
           {isFamily ? (
             <View style={styles.familySwitchRow}>
@@ -2023,7 +2062,8 @@ export default function PlayScreen() {
               }
             }
             if (selectedDay !== "all") {
-              summary.push({ key: "day", label: selectedDay.toUpperCase() });
+              const preset = DAY_PRESETS.find((p) => p.id === selectedDay);
+              if (preset) summary.push({ key: "day", label: preset.label });
             }
           } else {
             if (selectedPlayerLevel !== "all") {
@@ -2073,21 +2113,13 @@ export default function PlayScreen() {
         })() : null}
 
         {/* Shared Filter bottom-sheet — content adapts to active tab */}
-        <Modal
-          visible={showFilterSheet}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowFilterSheet(false)}
-        >
-          <Pressable
-            style={styles.playModalOverlay}
-            onPress={() => setShowFilterSheet(false)}
+        {showFilterSheet ? (
+          <SwipeableBottomSheet
+            visible={showFilterSheet}
+            onClose={() => setShowFilterSheet(false)}
+            bottomInset={insets.bottom + Spacing.lg}
           >
-            <Pressable
-              style={styles.playModalSheet}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.playModalHandle} />
+            <View style={{ paddingHorizontal: Spacing.lg }}>
               <Text style={styles.playModalTitle}>
                 {activeTab === "Players" ? "Filter players" : "Filter sessions"}
               </Text>
@@ -2134,20 +2166,19 @@ export default function PlayScreen() {
 
                   <Text style={styles.filterSheetGroupLabel}>Day</Text>
                   <View style={styles.filterSheetWrap}>
-                    {DAY_LABELS.map((day) => {
-                      const isSelected = selectedDay === day;
-                      const label = day === "all" ? t("player.play.allDays") : day.toUpperCase();
+                    {DAY_PRESETS.map((preset) => {
+                      const isSelected = selectedDay === preset.id;
                       return (
                         <Pressable
-                          key={day}
+                          key={preset.id}
                           style={[styles.dayChip, isSelected && styles.dayChipSelected]}
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setSelectedDay(day);
+                            setSelectedDay(preset.id);
                           }}
                         >
                           <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>
-                            {label}
+                            {preset.label}
                           </Text>
                         </Pressable>
                       );
@@ -2246,9 +2277,9 @@ export default function PlayScreen() {
                   <Text style={styles.filterSheetApplyText}>Done</Text>
                 </Pressable>
               </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
+            </View>
+          </SwipeableBottomSheet>
+        ) : null}
 
         {activeTab === "Group Lessons" ? (
           <>
@@ -2874,6 +2905,28 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.h1,
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  playHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flex: 1,
+    gap: Spacing.sm,
+  },
+  playHeaderAcademy: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  playHeaderSearchBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   familySwitchRow: {
     flexDirection: "row",
