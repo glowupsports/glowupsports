@@ -2170,9 +2170,47 @@ router.post("/api/player/connections/:connectionId/respond", authMiddleware, asy
       }
 
       // Get the connection
-      const [connection] = await db.select()
+      let [connection] = await db.select()
         .from(playerConnections)
         .where(eq(playerConnections.id, connectionId));
+      let resolvedConnectionId = connectionId;
+
+      // Fallback: stale clients (pre-task #945 OTA) sometimes pass the requester's
+      // player ID in :connectionId because the friends payload didn't include the
+      // real connectionId. Try to resolve the param as a player ID and look up
+      // the pending connection where the current player is player2 and the param
+      // matches player1. Use it only when exactly one such row exists.
+      if (!connection) {
+        try {
+          const fallbackRows = await db.select()
+            .from(playerConnections)
+            .where(
+              and(
+                eq(playerConnections.player2Id, playerId),
+                eq(playerConnections.player1Id, connectionId),
+                eq(playerConnections.status, "pending"),
+              ),
+            );
+          if (fallbackRows.length === 1) {
+            connection = fallbackRows[0];
+            resolvedConnectionId = connection.id;
+            console.log("[FriendRespond] resolved via player-id fallback", {
+              playerId,
+              paramConnectionId: connectionId,
+              resolvedConnectionId,
+              action,
+            });
+          } else if (fallbackRows.length > 1) {
+            console.warn("[FriendRespond] player-id fallback ambiguous", {
+              playerId,
+              paramConnectionId: connectionId,
+              matches: fallbackRows.length,
+            });
+          }
+        } catch (fallbackErr) {
+          console.error("[FriendRespond] player-id fallback lookup failed", fallbackErr);
+        }
+      }
 
       if (!connection) {
         // Decline of an already-removed request is a no-op success (idempotent)
@@ -2224,7 +2262,7 @@ router.post("/api/player/connections/:connectionId/respond", authMiddleware, asy
       if (action === "accept") {
         await db.update(playerConnections)
           .set({ status: "accepted", acceptedAt: new Date() })
-          .where(eq(playerConnections.id, connectionId));
+          .where(eq(playerConnections.id, resolvedConnectionId));
 
         // Notify the original requester that their request was accepted
         try {
@@ -2249,7 +2287,7 @@ router.post("/api/player/connections/:connectionId/respond", authMiddleware, asy
               title: "Friend Request Accepted",
               body: `${accepter?.name || "A player"} accepted your friend request`,
               type: "friend_request_accepted",
-              data: { connectionId, otherPlayerId: playerId },
+              data: { connectionId: resolvedConnectionId, otherPlayerId: playerId },
             });
           }
         } catch (notifyErr) {
@@ -2257,7 +2295,7 @@ router.post("/api/player/connections/:connectionId/respond", authMiddleware, asy
         }
       } else {
         await db.delete(playerConnections)
-          .where(eq(playerConnections.id, connectionId));
+          .where(eq(playerConnections.id, resolvedConnectionId));
       }
 
       res.json({ success: true, action });
