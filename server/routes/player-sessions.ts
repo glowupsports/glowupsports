@@ -6567,6 +6567,160 @@ import fs from "fs";
     },
   );
 
+  // Task #980 — Edit a coach-recorded payment (mistakes happen). Coaches can
+  // adjust amount / method / date / notes for rows their academy created via
+  // Mark Paid or the V2 manual cash toggle. Other payment rows (player-
+  // submitted, Stripe) are left alone here.
+  router.patch(
+    "/api/coach/payments/:id",
+    authMiddleware,
+    requireRole("coach", "admin", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user?.academyId;
+        const userId = req.user?.userId || null;
+
+        const existingPayment = await storage.getPayment(id);
+        if (
+          !existingPayment ||
+          (academyId && existingPayment.academyId !== academyId)
+        ) {
+          return res.status(404).json({ error: "Payment not found" });
+        }
+
+        const COACH_SOURCES = ["coach_mark_paid", "coach_manual_cash"];
+        if (!existingPayment.source || !COACH_SOURCES.includes(existingPayment.source)) {
+          return res
+            .status(400)
+            .json({ error: "Only coach-recorded payments can be edited here" });
+        }
+
+        const { amount, paymentMethod, paymentDate, notes } = req.body || {};
+
+        const allowedMethods = ["cash", "bank_transfer", "card"];
+        if (
+          paymentMethod !== undefined &&
+          paymentMethod !== null &&
+          !allowedMethods.includes(String(paymentMethod))
+        ) {
+          return res.status(400).json({ error: "Invalid payment method" });
+        }
+
+        let nextAmount = existingPayment.amount;
+        if (amount !== undefined && amount !== null) {
+          const n = Number(amount);
+          if (!Number.isFinite(n) || n <= 0) {
+            return res.status(400).json({ error: "Amount must be a positive number" });
+          }
+          nextAmount = String(n);
+        }
+
+        let nextDate = existingPayment.paymentDate;
+        if (paymentDate !== undefined && paymentDate !== null) {
+          const d = new Date(paymentDate);
+          if (Number.isNaN(d.getTime())) {
+            return res.status(400).json({ error: "Invalid payment date" });
+          }
+          nextDate = d;
+        }
+
+        const updated = await storage.updatePayment(id, {
+          amount: nextAmount,
+          paymentMethod:
+            paymentMethod !== undefined
+              ? paymentMethod
+              : existingPayment.paymentMethod,
+          paymentDate: nextDate,
+          notes: notes !== undefined ? notes : existingPayment.notes,
+        });
+
+        await storage.createAuditLog({
+          academyId: academyId || existingPayment.academyId,
+          entityType: "payment",
+          entityId: id,
+          action: "update",
+          performedBy: userId,
+          performedByRole: req.user?.role || null,
+          beforeState: existingPayment as any,
+          afterState: updated as any,
+        });
+
+        res.json(updated);
+      } catch (error) {
+        console.error("Coach edit payment error:", error);
+        res.status(500).json({ error: "Failed to update payment" });
+      }
+    },
+  );
+
+  // Task #980 — Void a coach-recorded payment. Deletes the row so the player
+  // Payments tab and academy totals stop counting it. For coach_mark_paid
+  // rows we also flip the linked package back to unpaid so the coach can
+  // re-record once the real method/amount is known.
+  router.post(
+    "/api/coach/payments/:id/void",
+    authMiddleware,
+    requireRole("coach", "admin", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user?.academyId;
+        const userId = req.user?.userId || null;
+
+        const existingPayment = await storage.getPayment(id);
+        if (
+          !existingPayment ||
+          (academyId && existingPayment.academyId !== academyId)
+        ) {
+          return res.status(404).json({ error: "Payment not found" });
+        }
+
+        const COACH_SOURCES = ["coach_mark_paid", "coach_manual_cash"];
+        if (!existingPayment.source || !COACH_SOURCES.includes(existingPayment.source)) {
+          return res
+            .status(400)
+            .json({ error: "Only coach-recorded payments can be voided here" });
+        }
+
+        await storage.deletePayment(id);
+
+        // For Mark Paid rows, also revert the legacy package's isPaid flag
+        // so the coach can re-press Mark Paid against the same package.
+        if (existingPayment.source === "coach_mark_paid" && existingPayment.packageId) {
+          try {
+            await db.execute(sql`
+              UPDATE packages
+              SET is_paid = FALSE, paid_at = NULL
+              WHERE id = ${existingPayment.packageId}
+            `);
+          } catch (revertErr) {
+            console.error(
+              "[player-sessions] failed to revert package isPaid after void:",
+              revertErr,
+            );
+          }
+        }
+
+        await storage.createAuditLog({
+          academyId: academyId || existingPayment.academyId,
+          entityType: "payment",
+          entityId: id,
+          action: "void",
+          performedBy: userId,
+          performedByRole: req.user?.role || null,
+          beforeState: existingPayment as any,
+          metadata: JSON.stringify({ reason: req.body?.reason || null }),
+        });
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Coach void payment error:", error);
+        res.status(500).json({ error: "Failed to void payment" });
+      }
+    },
+  );
+
   // ==================== ADMIN COURTS MANAGEMENT ====================
 
   router.get(

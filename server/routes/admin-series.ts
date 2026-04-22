@@ -7,7 +7,7 @@ import {
   sessions, sessionPlayers, sessionFeedback, creditTransactions, players,
   matchRequests, posts as postsTable, users, coaches, courtBookings, academies,
   sessionRatings, coachReviews, coachReviewStats, seriesPlayers, locations, courts, coachingSeries,
-  bookingRequests,
+  bookingRequests, payments,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import { eq, sql, desc, and, ne, asc, inArray, isNull, isNotNull, or, gte, gt } from "drizzle-orm";
@@ -2338,7 +2338,76 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const totalPaid = paidInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
 
       const totalOwed = invoiceTotalOwed;
-      
+
+      // Task #980 — surface coach-recorded payment rows so coaches can edit
+      // or void mistakes from the player Payments tab. Pull confirmed rows
+      // tagged with one of the coach-originated sources.
+      const coachRecordedPaymentsRows = playerAcademyId
+        ? await db
+            .select({
+              id: payments.id,
+              amount: payments.amount,
+              currency: payments.currency,
+              paymentMethod: payments.paymentMethod,
+              paymentDate: payments.paymentDate,
+              source: payments.source,
+              packageId: payments.packageId,
+              recordedByUserId: payments.recordedByUserId,
+              notes: payments.notes,
+              status: payments.status,
+              createdAt: payments.createdAt,
+            })
+            .from(payments)
+            .where(
+              and(
+                eq(payments.playerId, playerId),
+                eq(payments.academyId, playerAcademyId),
+                inArray(payments.source, ["coach_mark_paid", "coach_manual_cash"]),
+                eq(payments.status, "confirmed"),
+              ),
+            )
+            .orderBy(desc(payments.paymentDate))
+        : [];
+
+      const recorderActorIds = Array.from(
+        new Set(
+          coachRecordedPaymentsRows
+            .map((p) => p.recordedByUserId)
+            .filter((id): id is string => typeof id === "string" && id.length > 0),
+        ),
+      );
+      const recorderNameById: Record<string, string> = {};
+      if (recorderActorIds.length > 0) {
+        const rows = await db
+          .select({
+            userId: users.id,
+            username: users.username,
+            coachName: coaches.name,
+          })
+          .from(users)
+          .leftJoin(coaches, eq(coaches.id, users.coachId))
+          .where(inArray(users.id, recorderActorIds));
+        for (const r of rows) {
+          recorderNameById[r.userId] = r.coachName || r.username || "";
+        }
+      }
+
+      const coachRecordedPayments = coachRecordedPaymentsRows.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount) || 0,
+        currency: p.currency || "AED",
+        paymentMethod: p.paymentMethod,
+        paymentDate: p.paymentDate,
+        source: p.source,
+        packageId: p.packageId,
+        notes: p.notes,
+        status: p.status,
+        createdAt: p.createdAt,
+        recordedByName: p.recordedByUserId
+          ? recorderNameById[p.recordedByUserId] || null
+          : null,
+      }));
+
       let paymentStatus: "paid" | "partial" | "overdue" = "paid";
       if (totalOwed > 0) {
         const hasOverdueInvoice = pendingInvoices.some((inv: any) => inv.dueDate && new Date(inv.dueDate) < new Date());
@@ -2404,6 +2473,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             notes: inv.notes,
             isOverdue: inv.status === "pending" && inv.dueDate && new Date(inv.dueDate) < new Date(),
           })),
+          coachRecordedPayments,
         },
         credits: {
           total: totalCredits,
