@@ -1,7 +1,6 @@
 import React from "react";
-import { View, Text, Modal, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, Text, Modal, Pressable, ActivityIndicator, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing } from "@/constants/theme";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { styles } from "./seriesDetailStyles";
@@ -26,7 +25,7 @@ export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEdi
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.modalContent, { paddingBottom: bottomInset + Spacing.lg, zIndex: 2 }]}>
+        <View style={[styles.modalContent, { paddingBottom: bottomInset + Spacing.lg, zIndex: 2, maxHeight: "90%" }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Edit Join Date</Text>
             <Pressable onPress={onClose} style={styles.closeButton}>
@@ -34,25 +33,20 @@ export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEdi
             </Pressable>
           </View>
 
-          <Text style={styles.modalSubtitle}>
-            Change when this player joined the class. This affects which sessions they appear in for attendance.
-          </Text>
+          <ScrollView
+            style={{ flexShrink: 1 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.modalSubtitle}>
+              Change when this player joined the class. This affects which sessions they appear in for attendance.
+            </Text>
 
-          <View style={styles.dateField}>
-            <Text style={styles.fieldLabel}>Join Date</Text>
-            {Platform.OS === "web" ? (
+            <View style={styles.dateField}>
+              <Text style={styles.fieldLabel}>Join Date</Text>
               <WebCalendarPicker value={editJoinDate} onChange={setEditJoinDate} />
-            ) : (
-              <DateTimePicker
-                value={editJoinDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "inline" : "calendar"}
-                onChange={(_, date) => {
-                  if (date) setEditJoinDate(date);
-                }}
-              />
-            )}
-          </View>
+            </View>
+          </ScrollView>
 
           <View style={styles.modalActions}>
             <Pressable style={styles.cancelButton} onPress={onClose}>

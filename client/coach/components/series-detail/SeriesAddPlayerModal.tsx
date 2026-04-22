@@ -7,11 +7,9 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Platform,
   StyleSheet,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
@@ -436,29 +434,22 @@ export function SeriesAddPlayerModal({
               </Pressable>
             </KeyboardAwareScrollViewCompat>
           ) : selectedPlayerId ? (
-            <View style={styles.addPlayerContent}>
+            <ScrollView
+              style={{ flexShrink: 1 }}
+              contentContainerStyle={[styles.addPlayerContent, { flex: undefined, flexGrow: 1 }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               <Text style={styles.selectedPlayerName}>
                 {allPlayers.find(p => p.id === selectedPlayerId)?.name}
               </Text>
 
               <Text style={styles.dateLabel}>When did they join this class?</Text>
-              {Platform.OS === "web" ? (
-                <WebCalendarPicker
-                  value={joinDate}
-                  onChange={setJoinDate}
-                  maximumDate={new Date()}
-                />
-              ) : (
-                <DateTimePicker
-                  value={joinDate}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "inline" : "calendar"}
-                  onChange={(_, date) => {
-                    if (date) setJoinDate(date);
-                  }}
-                  maximumDate={new Date()}
-                />
-              )}
+              <WebCalendarPicker
+                value={joinDate}
+                onChange={setJoinDate}
+                maximumDate={new Date()}
+              />
 
               <View style={styles.guestToggleContainer}>
                 <View style={styles.guestToggleRow}>
@@ -501,13 +492,9 @@ export function SeriesAddPlayerModal({
                         );
                       })}
                     </View>
-                    <DateTimePicker
+                    <WebCalendarPicker
                       value={guestUntilDate}
-                      mode="date"
-                      display={Platform.OS === "ios" ? "inline" : "calendar"}
-                      onChange={(_, date) => {
-                        if (date) setGuestUntilDate(date);
-                      }}
+                      onChange={setGuestUntilDate}
                       minimumDate={new Date()}
                     />
                   </View>
@@ -517,7 +504,7 @@ export function SeriesAddPlayerModal({
               <Pressable style={[styles.saveButton, { marginTop: Spacing.xl }]} onPress={handleContinueToPackage}>
                 <Text style={styles.saveButtonText}>Continue</Text>
               </Pressable>
-            </View>
+            </ScrollView>
           ) : (
             <View style={styles.addPlayerContent}>
               <View style={styles.searchContainer}>
