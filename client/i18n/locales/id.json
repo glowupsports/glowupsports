@@ -187,6 +187,16 @@
       "glowScoreTitle": "Skor Glow Anda",
       "glowScoreDesc": "Skor Glow mencerminkan perkembangan tenis Anda secara keseluruhan. Menggabungkan kehadiran sesi, penilaian keterampilan dari pelatih, performa pertandingan, dan keterlibatan dengan platform."
     },
+    "payments": {
+      "copied": "{{label}} disalin",
+      "bankRow": {
+        "holder": "Nama pemilik rekening",
+        "bank": "Bank",
+        "iban": "IBAN",
+        "account": "Nomor rekening",
+        "swift": "SWIFT"
+      }
+    },
     "play": {
       "title": "Main",
       "groupLessons": "Pelajaran Grup",

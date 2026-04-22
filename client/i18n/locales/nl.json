@@ -204,6 +204,16 @@
       "glowScoreTitle": "Your Glow Score",
       "glowScoreDesc": "Your Glow Score reflects your overall tennis development. It combines your session attendance, skill assessments from coaches, match performance, and engagement with the platform. Keep attending sessions and getting coach feedback to boost it!"
     },
+    "payments": {
+      "copied": "{{label}} gekopieerd",
+      "bankRow": {
+        "holder": "Rekeninghouder",
+        "bank": "Bank",
+        "iban": "IBAN",
+        "account": "Rekeningnummer",
+        "swift": "SWIFT"
+      }
+    },
     "play": {
       "title": "Play",
       "groupLessons": "Group Lessons",

@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { Image as ExpoImage } from "expo-image";
 import { buildPhotoUrl } from "@/lib/query-client";
+import { useTranslation } from "react-i18next";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 import {
@@ -590,6 +591,7 @@ export function LogPaymentSheet({
 }) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const initialAmount =
     suggestedAmount !== undefined && suggestedAmount > 0
       ? suggestedAmount.toFixed(2)
@@ -601,6 +603,16 @@ export function LogPaymentSheet({
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+  const copyToastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showCopyToast = React.useCallback((label: string) => {
+    if (copyToastTimer.current) clearTimeout(copyToastTimer.current);
+    setCopyToast(t("player.payments.copied", { label }));
+    copyToastTimer.current = setTimeout(() => setCopyToast(null), 1800);
+  }, [t]);
+  React.useEffect(() => () => {
+    if (copyToastTimer.current) clearTimeout(copyToastTimer.current);
+  }, []);
 
   // Re-seed the amount input every time the sheet (re-)opens so the player
   // sees the latest debt total without stale state across sessions.
@@ -752,6 +764,15 @@ export function LogPaymentSheet({
       sheetStyle={sheetStyles.sheet}
     >
       {(scrollProps) => (
+        <>
+          {copyToast ? (
+            <View pointerEvents="none" style={sheetStyles.copyToastWrap}>
+              <View style={sheetStyles.copyToast}>
+                <Feather name="check" size={14} color={Colors.dark.buttonText} />
+                <Text style={sheetStyles.copyToastText}>{copyToast}</Text>
+              </View>
+            </View>
+          ) : null}
           <ScrollView keyboardShouldPersistTaps="handled" {...scrollProps}>
             <Text style={sheetStyles.title}>Log a payment</Text>
             <Text style={sheetStyles.sub}>
@@ -847,23 +868,42 @@ export function LogPaymentSheet({
               <View style={sheetStyles.bankBox}>
                 <Text style={sheetStyles.bankTitle}>Send to</Text>
                 {paymentInfo.bankAccountHolder ? (
-                  <BankRow label="Account holder" value={paymentInfo.bankAccountHolder} />
+                  <BankRow
+                    label={t("player.payments.bankRow.holder")}
+                    value={paymentInfo.bankAccountHolder}
+                    copy
+                    onCopied={showCopyToast}
+                  />
                 ) : null}
                 {paymentInfo.bankName ? (
-                  <BankRow label="Bank" value={paymentInfo.bankName} />
+                  <BankRow
+                    label={t("player.payments.bankRow.bank")}
+                    value={paymentInfo.bankName}
+                  />
                 ) : null}
                 {paymentInfo.bankIban ? (
-                  <BankRow label="IBAN" value={paymentInfo.bankIban} copy />
+                  <BankRow
+                    label={t("player.payments.bankRow.iban")}
+                    value={paymentInfo.bankIban}
+                    copy
+                    onCopied={showCopyToast}
+                  />
                 ) : null}
                 {paymentInfo.bankAccountNumber ? (
                   <BankRow
-                    label="Account #"
+                    label={t("player.payments.bankRow.account")}
                     value={paymentInfo.bankAccountNumber}
                     copy
+                    onCopied={showCopyToast}
                   />
                 ) : null}
                 {paymentInfo.bankSwiftCode ? (
-                  <BankRow label="SWIFT" value={paymentInfo.bankSwiftCode} copy />
+                  <BankRow
+                    label={t("player.payments.bankRow.swift")}
+                    value={paymentInfo.bankSwiftCode}
+                    copy
+                    onCopied={showCopyToast}
+                  />
                 ) : null}
                 {paymentInfo.paymentInstructions ? (
                   <Text style={sheetStyles.bankNote}>
@@ -934,6 +974,7 @@ export function LogPaymentSheet({
               <Text style={sheetStyles.cancelText}>Cancel</Text>
             </Pressable>
           </ScrollView>
+        </>
       )}
     </SwipeableBottomSheet>
   );
@@ -982,37 +1023,67 @@ function BankRow({
   label,
   value,
   copy,
+  onCopied,
 }: {
   label: string;
   value: string;
   copy?: boolean;
+  onCopied?: (label: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const onCopy = async () => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
     await Clipboard.setStringAsync(value);
     setCopied(true);
-    Haptics.selectionAsync();
+    onCopied?.(label);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  if (!copy) {
+    return (
+      <View style={sheetStyles.bankRow}>
+        <Text style={sheetStyles.bankLabel}>{label}</Text>
+        <Text style={sheetStyles.bankValue} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={sheetStyles.bankRow}>
+    <Pressable
+      onPress={onCopy}
+      hitSlop={8}
+      style={({ pressed }) => [
+        sheetStyles.bankRow,
+        sheetStyles.bankRowCopyable,
+        pressed && { opacity: 0.6 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Copy ${label}`}
+    >
       <Text style={sheetStyles.bankLabel}>{label}</Text>
-      <Pressable
-        onPress={copy ? onCopy : undefined}
-        style={{ flex: 1, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 6 }}
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 8,
+        }}
       >
         <Text style={sheetStyles.bankValue} numberOfLines={1}>
           {value}
         </Text>
-        {copy ? (
-          <Feather
-            name={copied ? "check" : "copy"}
-            size={12}
-            color={copied ? Colors.dark.primary : TextColors.muted}
-          />
-        ) : null}
-      </Pressable>
-    </View>
+        <Feather
+          name={copied ? "check" : "copy"}
+          size={16}
+          color={copied ? Colors.dark.primary : TextColors.secondary}
+        />
+      </View>
+    </Pressable>
   );
 }
 
@@ -1498,6 +1569,34 @@ const sheetStyles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 4,
+  },
+  bankRowCopyable: {
+    paddingVertical: Spacing.sm,
+    marginHorizontal: -Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  copyToastWrap: {
+    position: "absolute",
+    top: Spacing.md,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 50,
+  },
+  copyToast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+  },
+  copyToastText: {
+    ...Typography.caption,
+    color: Colors.dark.buttonText,
+    fontWeight: "600",
   },
   bankLabel: {
     ...Typography.caption,
