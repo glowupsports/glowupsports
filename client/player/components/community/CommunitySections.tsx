@@ -374,20 +374,34 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
     navigation.navigate("PlayerMessages" as never);
   };
 
-  const handleAcceptRequest = async (requestId: string) => {
+  const handleAcceptRequest = async (connectionId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
-      await apiRequest("POST", `/api/player/friends/accept/${requestId}`);
-      refetch();
-    } catch (e) { logger.log("Accept error", e); }
+      await apiRequest(
+        "POST",
+        `/api/player/connections/${connectionId}/respond`,
+        { action: "accept" },
+      );
+      await queryClient.invalidateQueries({ queryKey: ["/api/player/me/friends"] });
+    } catch (e) {
+      logger.log("Accept error", e);
+      Alert.alert("Couldn't accept request", "Please check your connection and try again.");
+    }
   };
 
-  const handleRejectRequest = async (requestId: string) => {
+  const handleRejectRequest = async (connectionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await apiRequest("POST", `/api/player/friends/reject/${requestId}`);
-      refetch();
-    } catch (e) { logger.log("Reject error", e); }
+      await apiRequest(
+        "POST",
+        `/api/player/connections/${connectionId}/respond`,
+        { action: "decline" },
+      );
+      await queryClient.invalidateQueries({ queryKey: ["/api/player/me/friends"] });
+    } catch (e) {
+      logger.log("Reject error", e);
+      Alert.alert("Couldn't reject request", "Please check your connection and try again.");
+    }
   };
 
   const handleInviteFriends = async () => {
@@ -489,10 +503,10 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
         </View>
 
         <View style={friendStyles.requestActions}>
-          <Pressable style={friendStyles.rejectBtn} onPress={() => handleRejectRequest(request.id)}>
+          <Pressable style={friendStyles.rejectBtn} onPress={() => handleRejectRequest(request.connectionId ?? request.id)}>
             <Ionicons name="close" size={20} color={Colors.dark.error} />
           </Pressable>
-          <Pressable style={friendStyles.acceptBtn} onPress={() => handleAcceptRequest(request.id)}>
+          <Pressable style={friendStyles.acceptBtn} onPress={() => handleAcceptRequest(request.connectionId ?? request.id)}>
             <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
           </Pressable>
         </View>

@@ -76,6 +76,7 @@ export const CONTEXT_BADGE_STYLES: Record<string, { bg: string; text: string; ic
 
 export interface Friend {
   id: string;
+  connectionId?: string;
   name: string;
   username?: string;
   photoUrl?: string;

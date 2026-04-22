@@ -3706,7 +3706,10 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const friendPlayerIds = acceptedConnections.map((c) =>
         c.player1Id === playerId ? c.player2Id : c.player1Id
       );
-      const pendingPlayerIds = pendingReceived.map((c) => c.player1Id);
+      const pendingItems = pendingReceived.map((c) => ({
+        connectionId: c.id,
+        requesterPlayerId: c.player1Id,
+      }));
 
       const fetchPlayerInfo = async (pid: string) => {
         const p = await storage.getPlayer(pid);
@@ -3722,7 +3725,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       };
 
       const friends = (await Promise.all(friendPlayerIds.map(fetchPlayerInfo))).filter(Boolean);
-      const pendingRequests = (await Promise.all(pendingPlayerIds.map(fetchPlayerInfo))).filter(Boolean);
+      const pendingRequests = (
+        await Promise.all(
+          pendingItems.map(async (item) => {
+            const info = await fetchPlayerInfo(item.requesterPlayerId);
+            if (!info) return null;
+            return { ...info, connectionId: item.connectionId };
+          })
+        )
+      ).filter(Boolean);
 
       res.json({ friends, pendingRequests });
     } catch (error) {
