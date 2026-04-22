@@ -11,14 +11,12 @@ interface Props {
   onClose: () => void;
   editJoinDate: Date;
   setEditJoinDate: (d: Date) => void;
-  showEditJoinDatePicker: boolean;
-  setShowEditJoinDatePicker: (v: boolean) => void;
   onConfirm: () => void;
   savingJoinDate: boolean;
   bottomInset: number;
 }
 
-export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEditJoinDate, showEditJoinDatePicker, setShowEditJoinDatePicker, onConfirm, savingJoinDate, bottomInset }: Props) {
+export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEditJoinDate, onConfirm, savingJoinDate, bottomInset }: Props) {
   return (
     <Modal
       visible={visible}
@@ -45,28 +43,14 @@ export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEdi
             {Platform.OS === "web" ? (
               <WebCalendarPicker value={editJoinDate} onChange={setEditJoinDate} />
             ) : (
-              <>
-                <Pressable
-                  style={styles.dateButton}
-                  onPress={() => setShowEditJoinDatePicker(true)}
-                >
-                  <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentCyan} />
-                  <Text style={styles.dateButtonText}>
-                    {editJoinDate.toLocaleDateString()}
-                  </Text>
-                </Pressable>
-                {showEditJoinDatePicker ? (
-                  <DateTimePicker
-                    value={editJoinDate}
-                    mode="date"
-                    display="default"
-                    onChange={(e, date) => {
-                      setShowEditJoinDatePicker(false);
-                      if (date) setEditJoinDate(date);
-                    }}
-                  />
-                ) : null}
-              </>
+              <DateTimePicker
+                value={editJoinDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "inline" : "calendar"}
+                onChange={(_, date) => {
+                  if (date) setEditJoinDate(date);
+                }}
+              />
             )}
           </View>
 

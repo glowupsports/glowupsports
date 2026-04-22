@@ -52,10 +52,6 @@ interface SeriesAddPlayerModalProps {
   setIsGuestAdd: (v: boolean) => void;
   guestUntilDate: Date;
   setGuestUntilDate: (date: Date) => void;
-  showDatePicker: boolean;
-  setShowDatePicker: (v: boolean) => void;
-  showGuestDatePicker: boolean;
-  setShowGuestDatePicker: (v: boolean) => void;
   selectedAttendance: Record<string, boolean>;
   setSelectedAttendance: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   pastSessions: PastSession[];
@@ -109,10 +105,6 @@ export function SeriesAddPlayerModal({
   setIsGuestAdd,
   guestUntilDate,
   setGuestUntilDate,
-  showDatePicker,
-  setShowDatePicker,
-  showGuestDatePicker,
-  setShowGuestDatePicker,
   selectedAttendance,
   setSelectedAttendance,
   pastSessions,
@@ -457,24 +449,15 @@ export function SeriesAddPlayerModal({
                   maximumDate={new Date()}
                 />
               ) : (
-                <>
-                  <Pressable style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
-                    <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
-                    <Text style={styles.datePickerText}>{joinDate.toLocaleDateString()}</Text>
-                  </Pressable>
-                  {showDatePicker ? (
-                    <DateTimePicker
-                      value={joinDate}
-                      mode="date"
-                      display="default"
-                      onChange={(_, date) => {
-                        setShowDatePicker(false);
-                        if (date) setJoinDate(date);
-                      }}
-                      maximumDate={new Date()}
-                    />
-                  ) : null}
-                </>
+                <DateTimePicker
+                  value={joinDate}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "calendar"}
+                  onChange={(_, date) => {
+                    if (date) setJoinDate(date);
+                  }}
+                  maximumDate={new Date()}
+                />
               )}
 
               <View style={styles.guestToggleContainer}>
@@ -518,24 +501,15 @@ export function SeriesAddPlayerModal({
                         );
                       })}
                     </View>
-                    <Pressable style={styles.datePickerButton} onPress={() => setShowGuestDatePicker(true)}>
-                      <Ionicons name="calendar-outline" size={18} color={Colors.dark.orange} />
-                      <Text style={[styles.datePickerText, { color: Colors.dark.orange }]}>
-                        Until {guestUntilDate.toLocaleDateString()}
-                      </Text>
-                    </Pressable>
-                    {showGuestDatePicker ? (
-                      <DateTimePicker
-                        value={guestUntilDate}
-                        mode="date"
-                        display="default"
-                        onChange={(_, date) => {
-                          setShowGuestDatePicker(false);
-                          if (date) setGuestUntilDate(date);
-                        }}
-                        minimumDate={new Date()}
-                      />
-                    ) : null}
+                    <DateTimePicker
+                      value={guestUntilDate}
+                      mode="date"
+                      display={Platform.OS === "ios" ? "inline" : "calendar"}
+                      onChange={(_, date) => {
+                        if (date) setGuestUntilDate(date);
+                      }}
+                      minimumDate={new Date()}
+                    />
                   </View>
                 ) : null}
               </View>

@@ -66,7 +66,6 @@ export default function SeriesDetailDrawer({
   };
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [joinDate, setJoinDate] = useState<Date>(new Date());
   const [playerSearch, setPlayerSearch] = useState("");
@@ -80,7 +79,6 @@ export default function SeriesDetailDrawer({
     return d;
   };
   const [guestUntilDate, setGuestUntilDate] = useState<Date>(getDefaultGuestUntil());
-  const [showGuestDatePicker, setShowGuestDatePicker] = useState(false);
   const [showSmartFill, setShowSmartFill] = useState(false);
   const [showAttendanceBackfill, setShowAttendanceBackfill] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
@@ -142,7 +140,6 @@ export default function SeriesDetailDrawer({
   const [showEditJoinDateModal, setShowEditJoinDateModal] = useState(false);
   const [editJoinDatePlayerId, setEditJoinDatePlayerId] = useState<string | null>(null);
   const [editJoinDate, setEditJoinDate] = useState<Date>(new Date());
-  const [showEditJoinDatePicker, setShowEditJoinDatePicker] = useState(false);
   const [savingJoinDate, setSavingJoinDate] = useState(false);
   
   // Timeline scroll ref
@@ -1687,8 +1684,6 @@ export default function SeriesDetailDrawer({
             setJoinDate(new Date());
             setIsGuestAdd(false);
             setGuestUntilDate(getDefaultGuestUntil());
-            setShowDatePicker(false);
-            setShowGuestDatePicker(false);
             setShowAttendanceBackfill(false);
             setShowPackageSelection(false);
             setSelectedAttendance({});
@@ -1711,10 +1706,6 @@ export default function SeriesDetailDrawer({
         setIsGuestAdd={setIsGuestAdd}
         guestUntilDate={guestUntilDate}
         setGuestUntilDate={setGuestUntilDate}
-        showDatePicker={showDatePicker}
-        setShowDatePicker={setShowDatePicker}
-        showGuestDatePicker={showGuestDatePicker}
-        setShowGuestDatePicker={setShowGuestDatePicker}
         selectedAttendance={selectedAttendance}
         setSelectedAttendance={setSelectedAttendance}
         pastSessions={getPastSessionsSinceJoinDate()}
@@ -1867,8 +1858,6 @@ export default function SeriesDetailDrawer({
         onClose={() => setShowEditJoinDateModal(false)}
         editJoinDate={editJoinDate}
         setEditJoinDate={setEditJoinDate}
-        showEditJoinDatePicker={showEditJoinDatePicker}
-        setShowEditJoinDatePicker={setShowEditJoinDatePicker}
         onConfirm={handleSaveJoinDate}
         savingJoinDate={savingJoinDate}
         bottomInset={insets.bottom}
