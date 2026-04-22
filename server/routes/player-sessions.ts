@@ -64,6 +64,7 @@ import { deletePlayerWithUserWipe } from "../services/player-lifecycle";
   import { broadcastSessionUpdate, broadcastFeedbackReceived } from "../websocket";
   import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
   import { getCurrencyForCountry } from "@shared/countries";
+  import { getBallLevelFromAge, calculateAgeFromDOB } from "@shared/ballLevel";
   import { profilePhotoUpload, courtPhotoUpload, socialPostUpload } from "../upload-middleware";
 import path from "path";
 import fs from "fs";
@@ -3821,11 +3822,26 @@ import fs from "fs";
             return res.status(404).json({ error: "User not found" });
           }
 
+          // Derive a sensible initial ball level: prefer the client-provided
+          // value, fall back to deriving from DOB, and only then "green"
+          // (Task #1018).
+          let initialBallLevel: string = ballLevel || "green";
+          if (!ballLevel && typeof dateOfBirth === "string" && dateOfBirth) {
+            try {
+              const ageFromDOB = calculateAgeFromDOB(dateOfBirth);
+              if (Number.isFinite(ageFromDOB) && ageFromDOB >= 0) {
+                initialBallLevel = getBallLevelFromAge(ageFromDOB);
+              }
+            } catch {
+              // Ignore — keep default fallback.
+            }
+          }
+
           // Create player with the selected academy (or null if skipped)
           const newPlayer = await storage.createPlayer({
             name: user.email.split("@")[0] || "Player",
             email: user.email,
-            ballLevel: ballLevel || "green",
+            ballLevel: initialBallLevel,
             academyId: selectedAcademyId,
             coachId: null,
           });
@@ -3851,10 +3867,29 @@ import fs from "fs";
           ? (rawBodyProfiles as SportProfilesMap)
           : {};
         const mergedSportProfiles: SportProfilesMap = { ...existingSportProfiles, ...selectedSports };
+
+        // Defensive: if the client didn't pre-compute a ballLevel but we have a
+        // date of birth, derive it from age so kids never end up without a
+        // level (Task #1018).
+        let resolvedBallLevel: string | null = ballLevel ?? null;
+        const effectiveDOB: string | null =
+          (typeof dateOfBirth === "string" && dateOfBirth) ||
+          (existingPlayer && typeof existingPlayer.dateOfBirth === "string" ? existingPlayer.dateOfBirth : null);
+        if ((!resolvedBallLevel || resolvedBallLevel === "blue") && effectiveDOB) {
+          try {
+            const derivedAge = calculateAgeFromDOB(effectiveDOB);
+            if (Number.isFinite(derivedAge) && derivedAge >= 0) {
+              resolvedBallLevel = getBallLevelFromAge(derivedAge);
+            }
+          } catch {
+            // Ignore — leave ballLevel as-is if DOB is malformed.
+          }
+        }
+
         // Only inject ballLevel into tennis profile when tennis is among the user's selected sports
         const userSelectedTennis = "tennis" in mergedSportProfiles;
-        const updatedSportProfiles = (ballLevel && userSelectedTennis)
-          ? { ...mergedSportProfiles, tennis: { ...(mergedSportProfiles.tennis || {}), ballLevel } }
+        const updatedSportProfiles = (resolvedBallLevel && userSelectedTennis)
+          ? { ...mergedSportProfiles, tennis: { ...(mergedSportProfiles.tennis || {}), ballLevel: resolvedBallLevel } }
           : mergedSportProfiles;
 
         const updatedPlayer = await storage.updatePlayer(playerId, {
@@ -3869,7 +3904,7 @@ import fs from "fs";
           experienceLevel,
           enjoymentTags,
           focusGoals,
-          ballLevel,
+          ballLevel: resolvedBallLevel,
           selfConfidenceFlags,
           gender: gender || null,
           parentEmail: parentEmail || null,

@@ -19,6 +19,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "../auth";
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
+  import { getBallLevelFromAge } from "@shared/ballLevel";
   import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
   import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
@@ -792,6 +793,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Always use parent's academyId — never trust client-provided academyId
         const resolvedAcademyId = parentPlayer.academyId || null;
 
+        // Auto-derive ball level from age so kids don't need a manual picker.
+        // Mirrors the behaviour of the standard signup paths (Task #1018).
+        const derivedBallLevel = age !== null ? getBallLevelFromAge(age) : null;
+
         // Create the player record (no user/auth record — under parent account)
         const [newPlayer] = await db.insert(players).values({
           name: memberName,
@@ -800,6 +805,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           academyId: resolvedAcademyId,
           dateOfBirth: dateOfBirth || null,
           age,
+          ballLevel: derivedBallLevel,
           dominantHand: dominantHand || null,
           backhandType: backhandType || null,
           experienceLevel: experienceLevel || null,

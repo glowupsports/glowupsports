@@ -47,6 +47,7 @@ import * as Localization from "expo-localization";
 import * as Location from "expo-location";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const SPORT_LABELS: Record<string, string> = {
@@ -375,7 +376,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
   ];
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>
           {playerName ? `Hey ${playerName}!` : "About You"}
@@ -518,7 +519,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
           </Pressable>
         </Pressable>
       </Modal>
-    </ScrollView>
+    </KeyboardAwareScrollViewCompat>
   );
 }
 
@@ -1387,7 +1388,7 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
   const isExperienced = data.experienceLevel && data.experienceLevel !== "new";
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>About Yourself</Text>
         <Text style={styles.stepSubtitle}>A few details to help coaches understand you better.</Text>
@@ -1478,7 +1479,7 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
           </View>
         </Animated.View>
       ) : null}
-    </ScrollView>
+    </KeyboardAwareScrollViewCompat>
   );
 }
 
@@ -1649,7 +1650,7 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
   const currentOptions = idolOptions[ageGroup || "adult"];
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Tennis Idol</Text>
         <Text style={styles.stepSubtitle}>Who's your favorite tennis player?</Text>
@@ -1698,7 +1699,7 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
       >
         <Text style={styles.skipLinkText}>Skip this step</Text>
       </Pressable>
-    </ScrollView>
+    </KeyboardAwareScrollViewCompat>
   );
 }
 
@@ -2280,7 +2281,7 @@ function GoalSettingStep({ data, setData, onNext }: StepProps) {
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Set Your Goals</Text>
         <Text style={styles.stepSubtitle}>What do you want to achieve? (Select all that apply)</Text>
@@ -2316,7 +2317,7 @@ function GoalSettingStep({ data, setData, onNext }: StepProps) {
           numberOfLines={3}
         />
       </Animated.View>
-    </ScrollView>
+    </KeyboardAwareScrollViewCompat>
   );
 }
 
@@ -2324,7 +2325,7 @@ function ParentConnectStep({ data, setData, onNext }: StepProps) {
   const [email, setEmail] = useState(data.parentEmail || "");
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Connect Your Parent</Text>
         <Text style={styles.stepSubtitle}>Let's keep your parent in the loop!</Text>
@@ -2356,7 +2357,7 @@ function ParentConnectStep({ data, setData, onNext }: StepProps) {
       >
         <Text style={styles.skipLinkText}>Skip for now</Text>
       </Pressable>
-    </ScrollView>
+    </KeyboardAwareScrollViewCompat>
   );
 }
 
