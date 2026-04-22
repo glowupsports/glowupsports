@@ -177,6 +177,7 @@ import {
   type InsertCoachReviewStats,
   // Court Booking Marketplace
   courtAvailability,
+  courtAvailabilitySnapshots,
   courtBookings,
   type CourtAvailability,
   type InsertCourtAvailability,
