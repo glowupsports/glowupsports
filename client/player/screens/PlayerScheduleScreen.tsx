@@ -34,6 +34,9 @@ import {
   Backgrounds,
   GlowColors,
   TextColors,
+  FunctionColors,
+  BallLevelColors,
+  RoleColors,
 } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
@@ -92,15 +95,15 @@ const ProTennisColors = new Proxy({} as Record<string, string>, {
       case "electricGreen":
         return GlowColors.primary;
       case "neonCyan":
-        return "#00E5FF";
+        return FunctionColors.info;
       case "neonPurple":
-        return "#E040FB";
+        return BallLevelColors.glow;
       case "neonOrange":
-        return "#FF8A00";
+        return RoleColors.admin;
       case "gold":
-        return "#FFD700";
+        return RoleColors.owner;
       case "vacationBlue":
-        return "#4DA3FF";
+        return FunctionColors.planning;
       case "error":
         return Colors.dark.error;
       case "success":
@@ -121,8 +124,8 @@ const ProTennisColors = new Proxy({} as Record<string, string>, {
 // Event-type colors for the week stripe bars / hero accent.
 // Direction D palette: green = lesson, blue = court, purple = match.
 const EVENT_COLORS = {
-  court: "#4DA3FF", // blue
-  match: "#E040FB", // purple
+  court: FunctionColors.planning, // blue
+  match: BallLevelColors.glow, // purple
   get lesson(): string {
     return Colors.dark.primary; // follows academy theme
   },
@@ -788,7 +791,7 @@ export default function PlayerScheduleScreen() {
           ? playerPayments.find((p) => p.id === data.paymentId)
           : undefined;
         const date = new Date(n.createdAt);
-        const accent = isConfirmed ? "#22C55E" : "#EF4444";
+        const accent = isConfirmed ? FunctionColors.success : FunctionColors.error;
         const amountLabel = data.amount
           ? `${data.currency || linkedPayment?.currency || "AED"} ${parseFloat(
               String(data.amount),
@@ -1103,7 +1106,7 @@ export default function PlayerScheduleScreen() {
           </Text>
           {streak > 0 ? (
             <View style={styles.streakChip}>
-              <Feather name="zap" size={10} color="#FFD700" />
+              <Feather name="zap" size={10} color={RoleColors.owner} />
               <Text style={styles.streakChipText}>{streak}</Text>
             </View>
           ) : null}
@@ -1331,12 +1334,12 @@ export default function PlayerScheduleScreen() {
         }}
       >
         <LinearGradient
-          colors={[EVENT_COLORS.lesson, "#9AE66E"]}
+          colors={[EVENT_COLORS.lesson, Colors.dark.glowSoft]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
         >
-          <Feather name="plus" size={22} color="#0A0A0A" />
+          <Feather name="plus" size={22} color={Colors.dark.buttonText} />
           <Text style={styles.fabText}>{t("player.schedule.book")}</Text>
         </LinearGradient>
       </Pressable>
@@ -1828,7 +1831,7 @@ function DayHero({
                 style={[styles.heroEmptyCta, { backgroundColor: EVENT_COLORS.lesson }]}
                 onPress={onBookLesson}
               >
-                <Feather name="book" size={14} color="#0A0A0A" />
+                <Feather name="book" size={14} color={Colors.dark.buttonText} />
                 <Text style={styles.heroEmptyCtaText}>
                   {t("player.schedule.bookLesson")}
                 </Text>
@@ -2163,7 +2166,7 @@ function GuestState({ onSignIn }: { onSignIn: () => void }) {
         onPress={onSignIn}
       >
         <LinearGradient
-          colors={[Colors.dark.primary, "#9AE66E"]}
+          colors={[Colors.dark.primary, Colors.dark.glowSoft]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.guestCtaGradient}
@@ -2239,7 +2242,7 @@ const styles = makeReactiveStyles(() =>
       bottom: -2,
       borderRadius: 22,
       borderWidth: 2,
-      borderColor: "#FFD700",
+      borderColor: RoleColors.owner,
     },
     avatarImg: { width: 36, height: 36, borderRadius: 18 },
     avatarFallback: {
@@ -2271,7 +2274,7 @@ const styles = makeReactiveStyles(() =>
       flexDirection: "row",
       alignItems: "center",
       gap: 2,
-      backgroundColor: "#FFD70022",
+      backgroundColor: RoleColors.owner + "22",
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: BorderRadius.full,
@@ -2279,7 +2282,7 @@ const styles = makeReactiveStyles(() =>
     streakChipText: {
       fontSize: 11,
       fontWeight: "700",
-      color: "#FFD700",
+      color: RoleColors.owner,
     },
     balanceChip: {
       flexDirection: "row",
@@ -2572,7 +2575,7 @@ const styles = makeReactiveStyles(() =>
     heroEmptyCtaText: {
       fontSize: 13,
       fontWeight: "700",
-      color: "#0A0A0A",
+      color: Colors.dark.buttonText,
     },
 
     // Secondary list under hero
@@ -2635,7 +2638,7 @@ const styles = makeReactiveStyles(() =>
     fabText: {
       fontSize: 14,
       fontWeight: "800",
-      color: "#0A0A0A",
+      color: Colors.dark.buttonText,
     },
     calendarSubscribeBtn: {
       position: "absolute",
@@ -2785,7 +2788,7 @@ const styles = makeReactiveStyles(() =>
       color: TextColors.primary,
     },
     monthCellTextOther: { color: TextColors.muted },
-    monthCellTextSelected: { color: "#0A0A0A" },
+    monthCellTextSelected: { color: Colors.dark.buttonText },
     monthDots: {
       flexDirection: "row",
       gap: 2,

@@ -118,7 +118,7 @@ export function ScheduleTabBar({
             <Feather
               name={t.icon}
               size={14}
-              color={isActive ? "#0A0A0A" : TextColors.muted}
+              color={isActive ? Colors.dark.buttonText : TextColors.muted}
             />
             <Text style={[tabStyles.tabText, isActive && tabStyles.tabTextActive]}>
               {t.label}
@@ -246,7 +246,7 @@ export function PaymentsTab({
 
       <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.md }}>
         <Pressable style={paymentStyles.primaryBtn} onPress={onLogPayment}>
-          <Feather name="plus-circle" size={16} color="#0A0A0A" />
+          <Feather name="plus-circle" size={16} color={Colors.dark.buttonText} />
           <Text style={paymentStyles.primaryBtnText}>Log a payment</Text>
         </Pressable>
         <Pressable style={paymentStyles.secondaryBtn} onPress={onShowBankDetails}>
@@ -890,7 +890,7 @@ export function LogPaymentSheet({
                   style={sheetStyles.removeImg}
                   onPress={() => setProofUri(null)}
                 >
-                  <Feather name="x" size={14} color="#fff" />
+                  <Feather name="x" size={14} color="#FFFFFF" />
                 </Pressable>
               </View>
             ) : (
@@ -929,7 +929,7 @@ export function LogPaymentSheet({
               disabled={submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="#0A0A0A" />
+                <ActivityIndicator color={Colors.dark.buttonText} />
               ) : (
                 <Text style={sheetStyles.submitText}>Submit for review</Text>
               )}
@@ -1173,7 +1173,7 @@ const tabStyles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.muted,
   },
   tabTextActive: {
-    color: "#0A0A0A",
+    color: Colors.dark.buttonText,
   },
   badge: {
     minWidth: 18,
@@ -1186,7 +1186,7 @@ const tabStyles = makeReactiveStyles(() => StyleSheet.create({
     marginLeft: 2,
   },
   badgeText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 10,
     fontWeight: "700",
   },
@@ -1260,7 +1260,7 @@ const paymentStyles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   primaryBtnText: {
-    color: "#0A0A0A",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
   },
   secondaryBtn: {
@@ -1421,7 +1421,7 @@ const historyStyles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "600",
   },
   chipTextActive: {
-    color: "#0A0A0A",
+    color: Colors.dark.buttonText,
   },
 }));
 
@@ -1566,7 +1566,7 @@ const sheetStyles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.lg,
   },
   submitText: {
-    color: "#0A0A0A",
+    color: Colors.dark.buttonText,
     fontWeight: "700",
     fontSize: 16,
   },
@@ -1647,7 +1647,7 @@ const debtStyles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
   },
   stepNumText: {
-    color: "#0A0A0A",
+    color: Colors.dark.buttonText,
     fontSize: 12,
     fontWeight: "700",
   },
