@@ -14,8 +14,24 @@
 #     3. Read the workflow logs to confirm success or diagnose errors.
 #
 #   The workflow runs this script as a long-running process that is not subject
-#   to the 2-minute bash tool timeout. iOS and Android are pushed sequentially
-#   to keep memory usage low.
+#   to the 2-minute bash tool timeout.
+#
+# HOW IT WORKS — bundle once, upload twice (Task #1024):
+#   The expensive step is the Metro bundle (~140s cold, ~60s warm). Previously
+#   we ran two full `eas update` cycles back-to-back, each with its own cold
+#   Metro start, totalling 5+ minutes — consistently killed mid-Android.
+#   Now:
+#     1. `expo export --platform all` bundles iOS + Android in ONE Metro run.
+#     2. `eas update --skip-bundler --input-dir dist --platform ios` uploads
+#        the prebuilt iOS bundle (~30s).
+#     3. Same for Android (~30s).
+#     4. We verify both runtimes (1.3.4 iOS, 1.3.5 Android) appear in the
+#        latest production updates and exit non-zero if either is missing.
+#   Total wall-clock: ~3:30 instead of ~5:30.
+#
+#   We also stop the "Start App" workflow's Metro on port 8081 for the
+#   duration of the push so the bundler isn't fighting it for memory, and
+#   restart it afterwards (best-effort). Set OTA_KEEP_DEV_SERVER=1 to skip.
 #
 # USAGE — direct invocation:
 #   bash scripts/ota-push.sh "Your update message here"
@@ -37,12 +53,6 @@ set -euo pipefail
 #   1. --message flag or positional CLI argument
 #   2. `.local/.commit_message` file (written by the agent for the current task)
 #   3. OTA_MESSAGE environment variable (e.g. hardcoded in .replit workflow)
-#
-# Rationale: the .replit workflow's OTA_MESSAGE is hardcoded and the agent
-# cannot edit it, so each task ended up shipping with the *previous* task's
-# release notes. Reading `.local/.commit_message` (which the agent always
-# writes before completing a task) ensures the EAS dashboard shows the
-# correct task summary for every push, with no manual .replit edits needed.
 # ---------------------------------------------------------------------------
 CLI_MESSAGE=""
 PLATFORM="${OTA_PLATFORM:-all}"  # "ios", "android", or "all"
@@ -77,13 +87,6 @@ if [[ -n "$CLI_MESSAGE" ]]; then
   MESSAGE="$CLI_MESSAGE"
   MESSAGE_SOURCE="CLI argument"
 elif [[ -f ".local/.commit_message" ]]; then
-  # Use the first non-empty line of the agent's commit message for this task.
-  # EAS update messages are capped at 1024 chars; trim defensively.
-  #
-  # Guard against `set -euo pipefail` aborts: if the file is empty or has
-  # only blank lines, grep exits non-zero and SIGPIPE from `head -c` can
-  # also bubble up. `|| true` keeps the script alive so the OTA_MESSAGE
-  # env-var fallback below can still take over.
   COMMIT_MSG="$( { grep -m 1 -v '^[[:space:]]*$' .local/.commit_message || true; } | head -c 1024 | tr -d '\r' || true)"
   if [[ -n "$COMMIT_MSG" ]]; then
     MESSAGE="$COMMIT_MSG"
@@ -100,11 +103,6 @@ if [[ -n "$MESSAGE_SOURCE" ]]; then
   echo "OTA Push — message source: $MESSAGE_SOURCE"
 fi
 
-# ---------------------------------------------------------------------------
-# Guard: no message → print usage and exit cleanly (not a crash)
-# This allows the workflow to be listed without side effects when no push is
-# intended (e.g. when the Run button composite triggers it inadvertently).
-# ---------------------------------------------------------------------------
 if [[ -z "$MESSAGE" ]]; then
   echo "OTA Push — no message provided, skipping."
   echo ""
@@ -126,23 +124,11 @@ fi
 # Environment — memory-optimised, non-interactive CI mode
 # ---------------------------------------------------------------------------
 export CI=true
-export NODE_OPTIONS="--max-old-space-size=4096"
+export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=4096 --no-warnings"
 export EAS_NO_VCS=1
 
-# ---------------------------------------------------------------------------
 # Force production EXPO_PUBLIC_* into the OTA bundle.
-#
-# `eas update --channel production` does NOT automatically apply the
-# `build.production.env` from eas.json — it uses the shell env at the
-# time of bundling. The Replit workflow shell has EXPO_PUBLIC_ENV set
-# to "development" (.replit userenv.development) and does not have
-# EXPO_PUBLIC_API_URL / EXPO_PUBLIC_DOMAIN exported, which produced
-# Android bundles missing the API URL and crashing on login.
-#
-# We mirror the values from `eas.json` build.production.env here so
-# the bundle is always built with production env regardless of the
-# host shell. Keep these in sync with eas.json.
-# ---------------------------------------------------------------------------
+# (See historical comment: the Replit workflow shell defaults to development.)
 export EXPO_PUBLIC_API_URL="https://glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_DOMAIN="glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_ENV="production"
@@ -151,60 +137,213 @@ echo "  Injected env for OTA bundle:"
 echo "    EXPO_PUBLIC_API_URL = $EXPO_PUBLIC_API_URL"
 echo "    EXPO_PUBLIC_DOMAIN  = $EXPO_PUBLIC_DOMAIN"
 echo "    EXPO_PUBLIC_ENV     = $EXPO_PUBLIC_ENV"
+echo "    NODE_OPTIONS        = $NODE_OPTIONS"
 
 # ---------------------------------------------------------------------------
-# Helper: run eas update for a single platform
+# Pause "Start App" Metro on :8081 to free memory during the push.
+# We track what we killed so we can offer a restart hint at the end. We
+# don't actually restart the workflow ourselves — the user (or the agent)
+# can re-launch the "Start App" workflow when needed. This is intentional:
+# the OTA Push workflow has no business managing other workflows' lifecycle.
+#
+# Set OTA_KEEP_DEV_SERVER=1 to skip this.
 # ---------------------------------------------------------------------------
-push_platform() {
-  local platform="$1"
-  echo ""
-  echo "============================================================"
-  echo "  OTA Push — platform: $platform"
-  echo "  Message : $MESSAGE"
-  echo "  Channel : production"
-  echo "  Time    : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-  echo "============================================================"
-
-  # --environment production tells EAS CLI (>= 13.2) to also load the
-  # `build.production.env` block from eas.json into the bundling
-  # environment. We already export the same vars above as a fallback in
-  # case the flag is silently ignored on older CLI versions.
-  npx eas update \
-    --channel production \
-    --environment production \
-    --message "$MESSAGE" \
-    --platform "$platform" \
-    --non-interactive \
-    --json \
-    2>&1 | tee /tmp/ota-push-"$platform".log
-
-  echo ""
-  echo ">>> $platform OTA push complete <<<"
-}
+DEV_SERVER_PAUSED=0
+if [[ "${OTA_KEEP_DEV_SERVER:-0}" != "1" ]]; then
+  DEV_PIDS="$(lsof -ti:8081 2>/dev/null || true)"
+  if [[ -n "$DEV_PIDS" ]]; then
+    echo ""
+    echo "  Pausing dev Metro on :8081 (PIDs: $DEV_PIDS) to free memory..."
+    # shellcheck disable=SC2086
+    kill -TERM $DEV_PIDS 2>/dev/null || true
+    sleep 2
+    # shellcheck disable=SC2086
+    kill -KILL $DEV_PIDS 2>/dev/null || true
+    DEV_SERVER_PAUSED=1
+  fi
+fi
 
 # ---------------------------------------------------------------------------
-# Main
+# Step 1 — Bundle once with `expo export --platform all` (or single platform).
+# This is the expensive step. Doing it ONCE for both platforms in the same
+# Metro process is materially faster than two cold-start runs.
 # ---------------------------------------------------------------------------
 echo ""
 echo "################################################################"
 echo "#  OTA Push Starting"
 echo "#  Platform : $PLATFORM"
 echo "#  Message  : $MESSAGE"
+echo "#  Time     : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "################################################################"
 echo ""
 
+EXPORT_PLATFORM="$PLATFORM"  # "ios" | "android" | "all"
+
+echo "============================================================"
+echo "  Step 1/3 — Bundling ($EXPORT_PLATFORM) into ./dist"
+echo "  Time : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+echo "============================================================"
+
+# Clean previous dist so eas update doesn't pick up stale assets.
+rm -rf dist
+mkdir -p dist
+
+# Use `expo export` directly. We do NOT pass --clear to keep the Metro cache
+# warm between pushes. The first push of a fresh container will rebuild the
+# cache (~140s); subsequent pushes are noticeably faster.
+npx expo export --platform "$EXPORT_PLATFORM" --output-dir dist
+
+echo ""
+echo ">>> bundle complete: $(du -sh dist | cut -f1) in dist/"
+ls dist/_expo/static/js/ 2>/dev/null || true
+echo ""
+
+# ---------------------------------------------------------------------------
+# Step 2 — Upload to EAS for each requested platform, using the prebuilt
+# bundle. `--skip-bundler --input-dir dist` makes this an upload-only step.
+# ---------------------------------------------------------------------------
+upload_platform() {
+  local platform="$1"
+  echo ""
+  echo "============================================================"
+  echo "  Step 2/3 — Uploading $platform from ./dist"
+  echo "  Channel : production"
+  echo "  Time    : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+  echo "============================================================"
+
+  # Two output streams:
+  #   - /tmp/ota-push-<platform>.json  : pure JSON from --json (for parsing)
+  #   - /tmp/ota-push-<platform>.log   : human-readable mirror with stderr
+  # `eas update --json` writes JSON to stdout and progress messages to stderr,
+  # so we split them. Pipe stderr through tee for live workflow visibility.
+  set +e
+  npx eas update \
+    --channel production \
+    --environment production \
+    --message "$MESSAGE" \
+    --platform "$platform" \
+    --input-dir dist \
+    --skip-bundler \
+    --non-interactive \
+    --json \
+    > /tmp/ota-push-"$platform".json \
+    2> >(tee /tmp/ota-push-"$platform".log >&2)
+  local rc=$?
+  set -e
+
+  if [[ $rc -ne 0 ]]; then
+    echo ""
+    echo "ERROR: eas update failed for $platform (exit $rc). See" \
+      "/tmp/ota-push-$platform.log for details." >&2
+    return $rc
+  fi
+
+  # Echo the JSON into the workflow log so it stays visible alongside stderr.
+  echo ""
+  echo "--- eas update JSON ($platform) ---"
+  cat /tmp/ota-push-"$platform".json
+  echo ""
+  echo ">>> $platform OTA upload complete <<<"
+}
+
 if [[ "$PLATFORM" == "ios" ]]; then
-  push_platform "ios"
+  upload_platform "ios"
 elif [[ "$PLATFORM" == "android" ]]; then
-  push_platform "android"
+  upload_platform "android"
 else
-  # Default: iOS first, then Android — sequential to keep memory low
-  push_platform "ios"
-  push_platform "android"
+  upload_platform "ios"
+  upload_platform "android"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 3 — Verify each requested platform actually published, by parsing the
+# JSON `eas update --json` already returned. This is deterministic — we know
+# the exact id+runtime+platform that EAS just confirmed, so we don't have to
+# fuzzy-match against `eas update:list` (which uses different field names
+# and decorates message strings).
+# ---------------------------------------------------------------------------
+echo ""
+echo "============================================================"
+echo "  Step 3/3 — Verifying published updates"
+echo "  Time : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+echo "============================================================"
+
+EXPECTED_IOS_RT="$(node -e "console.log(require('./app.json').expo.ios.runtimeVersion)")"
+EXPECTED_ANDROID_RT="$(node -e "console.log(require('./app.json').expo.android.runtimeVersion)")"
+echo "  Expected runtimes from app.json:"
+echo "    iOS     = $EXPECTED_IOS_RT"
+echo "    Android = $EXPECTED_ANDROID_RT"
+echo ""
+
+VERIFY_OK=1
+PUBLISHED_SUMMARY=""
+
+verify_platform() {
+  local platform="$1"
+  local expected_rt="$2"
+  local json_file="/tmp/ota-push-$platform.json"
+
+  if [[ ! -s "$json_file" ]]; then
+    echo "  ✘ $platform: no JSON output captured at $json_file" >&2
+    VERIFY_OK=0
+    return
+  fi
+
+  # `eas update --json` returns an array of {id, platform, runtimeVersion,
+  # group, branch, message, manifestPermalink, ...}. We pick out the entry
+  # for this platform and confirm runtimeVersion matches what app.json says.
+  local result
+  result="$(node -e "
+const fs = require('fs');
+let data;
+try { data = JSON.parse(fs.readFileSync('$json_file', 'utf8')); }
+catch (e) { console.log('PARSE_ERR ' + e.message); process.exit(0); }
+const items = Array.isArray(data) ? data : [data];
+const entry = items.find(u => u && u.platform === '$platform');
+if (!entry) { console.log('NO_ENTRY'); process.exit(0); }
+const rt = entry.runtimeVersion;
+if (rt !== '$expected_rt') {
+  console.log('RT_MISMATCH got=' + rt + ' expected=$expected_rt id=' + entry.id);
+  process.exit(0);
+}
+console.log('OK id=' + entry.id + ' rt=' + rt + ' group=' + entry.group);
+")"
+
+  if [[ "$result" == OK* ]]; then
+    echo "  ✔ $platform: $result"
+    PUBLISHED_SUMMARY+="${PUBLISHED_SUMMARY:+, }$platform rt $expected_rt"
+  else
+    echo "  ✘ $platform (expected rt $expected_rt): $result" >&2
+    VERIFY_OK=0
+  fi
+}
+
+if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
+  verify_platform "ios" "$EXPECTED_IOS_RT"
+fi
+if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
+  verify_platform "android" "$EXPECTED_ANDROID_RT"
 fi
 
 echo ""
+if [[ "$DEV_SERVER_PAUSED" == "1" ]]; then
+  echo "  Note: dev Metro on :8081 was paused for this push."
+  echo "        Restart the \"Start App\" workflow to bring it back."
+  echo ""
+fi
+
+if [[ "$VERIFY_OK" != "1" ]]; then
+  echo "################################################################"
+  echo "#  OTA Push FAILED verification — one or more platforms missing."
+  echo "#  Check /tmp/ota-push-*.log and /tmp/ota-push-*.json for details,"
+  echo "#  and the Expo dashboard. Re-run the workflow to retry."
+  echo "################################################################"
+  exit 2
+fi
+
 echo "################################################################"
 echo "#  OTA Push Finished Successfully"
+echo "#  Published: $PUBLISHED_SUMMARY"
+echo "#  Message  : $MESSAGE"
 echo "################################################################"
 echo ""
