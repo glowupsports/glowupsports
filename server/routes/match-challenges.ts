@@ -13,7 +13,7 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "playerId is required" });
     }
 
-    const { opponentId, matchType, matchFormat, matchDate, matchTime, courtId, courtName, customLocation, message } = req.body;
+    const { opponentId, matchType, matchFormat, matchDate, matchTime, courtId, courtName, customLocation, message, courtBookingStatus, courtBookingNote, courtBookingUrl } = req.body;
 
     if (!opponentId || !matchDate || !matchTime) {
       return res.status(400).json({ error: "opponentId, matchDate, and matchTime are required" });
@@ -47,6 +47,9 @@ router.post("/", async (req: Request, res: Response) => {
         customLocation: customLocation || null,
         message: message || null,
         status: "pending",
+        courtBookingStatus: courtBookingStatus || null,
+        courtBookingNote: courtBookingNote || null,
+        courtBookingUrl: courtBookingUrl || null,
       })
       .returning();
 
@@ -121,6 +124,9 @@ router.get("/", async (req: Request, res: Response) => {
       status: row.status,
       respondedAt: row.responded_at,
       createdAt: row.created_at,
+      courtBookingStatus: row.court_booking_status,
+      courtBookingNote: row.court_booking_note,
+      courtBookingUrl: row.court_booking_url,
       challengerName: row.challenger_name,
       challengerPhoto: row.challenger_photo,
       challengerBallLevel: row.challenger_ball_level,

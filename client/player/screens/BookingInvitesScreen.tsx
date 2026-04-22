@@ -18,6 +18,7 @@ import Animated, { FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
+import { CourtBookingPanel } from "@/components/CourtBooking";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
@@ -149,6 +150,9 @@ interface ChallengeData {
   message?: string;
   challengerName?: string;
   opponentName?: string;
+  courtBookingStatus?: string | null;
+  courtBookingNote?: string | null;
+  courtBookingUrl?: string | null;
 }
 
 function ChallengeInviteCard({
@@ -247,6 +251,17 @@ function ChallengeInviteCard({
         {challenge.message ? (
           <View style={styles.challengeMessage}>
             <Text style={styles.challengeMessageText}>"{challenge.message}"</Text>
+          </View>
+        ) : null}
+
+        {challenge.courtBookingStatus && challenge.courtBookingStatus !== "academy_court" ? (
+          <View style={{ marginTop: Spacing.sm }}>
+            <CourtBookingPanel
+              status={challenge.courtBookingStatus}
+              note={challenge.courtBookingNote}
+              url={challenge.courtBookingUrl}
+              compact
+            />
           </View>
         ) : null}
 

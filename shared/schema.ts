@@ -938,8 +938,9 @@ export const matchRequests = pgTable("match_requests", {
   matchedWithPlayerId: varchar("matched_with_player_id").references(() => players.id),
   matchedAt: timestamp("matched_at"),
 
-  // External court booking (Dubai community courts) — manual stop-gap until API integration
-  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  // External court booking (Dubai community courts) — manual stop-gap until API integration.
+  // Status set by player when creating: 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingStatus: text("court_booking_status"),
   courtBookingNote: text("court_booking_note"),
   courtBookingUrl: text("court_booking_url"),
 
@@ -5857,8 +5858,9 @@ export const matchChallenges = pgTable("match_challenges", {
   winnerPlayerId: varchar("winner_player_id").references(() => players.id),
   score: text("score"), // e.g., "6-4, 7-5"
   resultStatus: text("result_status"), // played, no_show, cancelled, skipped
-  // External court booking (Dubai community courts) — manual stop-gap until API integration
-  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  // External court booking (Dubai community courts) — manual stop-gap until API integration.
+  // Status set by challenger when creating: 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingStatus: text("court_booking_status"),
   courtBookingNote: text("court_booking_note"),
   courtBookingUrl: text("court_booking_url"),
   createdAt: timestamp("created_at").defaultNow(),

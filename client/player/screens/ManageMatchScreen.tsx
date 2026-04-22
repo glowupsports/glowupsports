@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { CourtBookingPanel } from "@/components/CourtBooking";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -48,6 +49,9 @@ interface OpenMatch {
   scheduledTime?: string;
   courtName?: string;
   locationName?: string;
+  courtBookingStatus?: string | null;
+  courtBookingNote?: string | null;
+  courtBookingUrl?: string | null;
   host?: {
     id: string;
     name: string;
@@ -307,6 +311,16 @@ export default function ManageMatchScreen() {
             </View>
           </View>
         </LinearGradient>
+
+        {match.courtBookingStatus && match.courtBookingStatus !== "academy_court" ? (
+          <View style={[styles.section, { paddingBottom: 0 }]}>
+            <CourtBookingPanel
+              status={match.courtBookingStatus}
+              note={match.courtBookingNote}
+              url={match.courtBookingUrl}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Players ({match.currentPlayers}/{match.maxPlayers})</Text>

@@ -48,6 +48,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import Slider from "@react-native-community/slider";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { CourtBookingPicker, CourtBookingValue } from "@/components/CourtBooking";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type MatchType = "singles" | "doubles";
@@ -98,6 +99,7 @@ export default function CreateMatchScreen() {
   const [selectedPartner, setSelectedPartner] = useState<any>(preSelectedOpponent);
   const [matchIntent, setMatchIntent] = useState<"friendly" | "competitive" | "ranking">("friendly");
   const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(preSelectedOpponent ? "select" : null);
+  const [courtBooking, setCourtBooking] = useState<CourtBookingValue>({ status: null, note: "", url: "" });
 
   // Fetch friends for partner selection
   const { data: friendsData } = useQuery({
@@ -160,6 +162,9 @@ export default function CreateMatchScreen() {
         maxPlayers: matchType === "doubles" ? 4 : 2,
         matchIntent,
         sport: activeSport,
+        courtBookingStatus: courtBooking.status,
+        courtBookingNote: courtBooking.note || null,
+        courtBookingUrl: courtBooking.url || null,
       };
       
       logger.log("[CreateMatch] Match data:", matchData);
@@ -789,6 +794,14 @@ export default function CreateMatchScreen() {
         />
       </View>
 
+      <View style={{ marginBottom: Spacing.lg }}>
+        <CourtBookingPicker
+          value={courtBooking}
+          onChange={setCourtBooking}
+          isAcademyCourt={false}
+        />
+      </View>
+
       <View style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>Match Summary</Text>
         <View style={styles.summaryRow}>
@@ -814,9 +827,9 @@ export default function CreateMatchScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Pressable 
-          style={styles.publishButton} 
+          style={[styles.publishButton, (!courtBooking.status || createMatchMutation.isPending) && { opacity: 0.5 }]} 
           onPress={handlePublish}
-          disabled={createMatchMutation.isPending}
+          disabled={createMatchMutation.isPending || !courtBooking.status}
         >
           <LinearGradient
             colors={[Colors.dark.successNeon, "#00C853"]}

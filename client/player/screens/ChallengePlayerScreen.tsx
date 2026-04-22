@@ -22,6 +22,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, Typography, getPlayerLevelCol
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { CourtBookingPicker, CourtBookingValue } from "@/components/CourtBooking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type ChallengePlayerParams = {
@@ -62,6 +63,47 @@ export default function ChallengePlayerScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [message, setMessage] = useState("");
+  const [courtBooking, setCourtBooking] = useState<CourtBookingValue>({ status: null, note: "", url: "" });
+  // Track the court context the user last manually edited in. When the
+  // context changes (academy court vs custom location), we re-derive a
+  // sensible default so stale statuses don't carry over (e.g. an
+  // `external_booked` status when the user switches back to an academy
+  // court).
+  const [touchedContext, setTouchedContext] = useState<"academy" | "custom" | "none" | null>(null);
+
+  const currentContext: "academy" | "custom" | "none" = selectedCourt?.id
+    ? "academy"
+    : showCustomCourt && customCourtName.trim().length > 0
+      ? "custom"
+      : "none";
+
+  useEffect(() => {
+    // If the user manually picked a status in this same context, leave it alone.
+    if (touchedContext === currentContext) return;
+
+    // Context changed (or first run): re-derive a sensible default and
+    // clear the touched flag so the picker accepts further edits.
+    if (currentContext === "academy") {
+      setCourtBooking({ status: "academy_court", note: "", url: "" });
+    } else if (currentContext === "custom") {
+      setCourtBooking((prev) => ({
+        status: "external_pending",
+        note: prev.note || customCourtName,
+        url: prev.url || "",
+      }));
+    } else {
+      setCourtBooking({ status: null, note: "", url: "" });
+    }
+    setTouchedContext(null);
+  }, [currentContext, customCourtName, touchedContext]);
+
+  const handleCourtBookingChange = useCallback(
+    (value: CourtBookingValue) => {
+      setTouchedContext(currentContext);
+      setCourtBooking(value);
+    },
+    [currentContext],
+  );
 
   const academyId = (user as any)?.academyId;
   const playerId = getEffectivePlayerId(user?.playerId);
@@ -172,6 +214,9 @@ export default function ChallengePlayerScreen() {
         courtName: selectedCourt?.name || customCourtName || null,
         customLocation: showCustomCourt ? customCourtName : null,
         message: message || null,
+        courtBookingStatus: courtBooking.status,
+        courtBookingNote: courtBooking.note || null,
+        courtBookingUrl: courtBooking.url || null,
       });
     },
     onSuccess: () => {
@@ -477,6 +522,14 @@ export default function ChallengePlayerScreen() {
             autoFocus
           />
         ) : null}
+      </View>
+
+      <View style={[styles.section, { marginTop: Spacing.md }]}>
+        <CourtBookingPicker
+          value={courtBooking}
+          onChange={handleCourtBookingChange}
+          isAcademyCourt={!!selectedCourt?.id}
+        />
       </View>
     </Animated.View>
     );

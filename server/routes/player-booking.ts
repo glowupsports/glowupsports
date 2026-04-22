@@ -6039,6 +6039,9 @@ Return only the JSON array, nothing else.`;
           scheduledTime: null,
           courtName: null,
           locationName: null,
+          courtBookingStatus: null,
+          courtBookingNote: null,
+          courtBookingUrl: null,
           host: {
             id: openMatch.hostPlayerId,
             name: openMatch.hostName || "Host",
@@ -6066,6 +6069,9 @@ Return only the JSON array, nothing else.`;
           requiredBallLevel: matchRequests.requiredBallLevel,
           maxPlayers: matchRequests.maxPlayers,
           status: matchRequests.status,
+          courtBookingStatus: matchRequests.courtBookingStatus,
+          courtBookingNote: matchRequests.courtBookingNote,
+          courtBookingUrl: matchRequests.courtBookingUrl,
           createdAt: matchRequests.createdAt,
           playerName: players.name,
             hostBallLevel: players.ballLevel,
@@ -6116,6 +6122,9 @@ Return only the JSON array, nothing else.`;
         scheduledTime,
         courtName: null,
         locationName: null,
+        courtBookingStatus: matchRequest.courtBookingStatus ?? null,
+        courtBookingNote: matchRequest.courtBookingNote ?? null,
+        courtBookingUrl: matchRequest.courtBookingUrl ?? null,
         host: {
           id: matchRequest.playerId,
           name: matchRequest.playerName || "Unknown Player",
@@ -6562,6 +6571,9 @@ Return only the JSON array, nothing else.`;
         sport,
         invitedPlayerId,
         matchIntent,
+        courtBookingStatus,
+        courtBookingNote,
+        courtBookingUrl,
       } = req.body;
 
       const [request] = await db.insert(matchRequests).values({
@@ -6580,6 +6592,9 @@ Return only the JSON array, nothing else.`;
         status: invitedPlayerId ? "pending_invite" : "open",
         matchIntent: matchIntent || "friendly",
         sport: sport || "tennis",
+        courtBookingStatus: courtBookingStatus || null,
+        courtBookingNote: courtBookingNote || null,
+        courtBookingUrl: courtBookingUrl || null,
       }).returning();
 
       console.log("[MatchRequest] Created:", request.id, "by player:", playerId);

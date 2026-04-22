@@ -10,6 +10,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
+import { CourtBookingPanel } from "@/components/CourtBooking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Challenge {
@@ -27,6 +28,9 @@ interface Challenge {
   opponentName?: string;
   challengerPhotoUrl?: string;
   opponentPhotoUrl?: string;
+  courtBookingStatus?: string | null;
+  courtBookingNote?: string | null;
+  courtBookingUrl?: string | null;
 }
 
 function getInitial(name?: string): string {
@@ -158,6 +162,17 @@ function IncomingChallengeCard({
         </View>
       ) : null}
 
+      {challenge.courtBookingStatus && challenge.courtBookingStatus !== "academy_court" ? (
+        <View style={{ marginTop: Spacing.sm }}>
+          <CourtBookingPanel
+            status={challenge.courtBookingStatus}
+            note={challenge.courtBookingNote}
+            url={challenge.courtBookingUrl}
+            compact
+          />
+        </View>
+      ) : null}
+
       <View style={styles.buttonRow}>
         <Pressable
           style={({ pressed }) => [styles.declineButton, pressed && { opacity: 0.7 }]}
@@ -245,6 +260,17 @@ function UpcomingMatchCard({ challenge, playerId }: { challenge: Challenge; play
           </View>
         ) : null}
       </View>
+
+      {challenge.courtBookingStatus && challenge.courtBookingStatus !== "academy_court" ? (
+        <View style={{ marginTop: Spacing.sm }}>
+          <CourtBookingPanel
+            status={challenge.courtBookingStatus}
+            note={challenge.courtBookingNote}
+            url={challenge.courtBookingUrl}
+            compact
+          />
+        </View>
+      ) : null}
 
       <Pressable style={({ pressed }) => [styles.viewDetailsButton, pressed && { opacity: 0.7 }]}>
         <Text style={styles.viewDetailsText}>View Details</Text>
