@@ -400,6 +400,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Package not found" });
         }
 
+        // Task #975 — capture the previous paid state so we only insert a
+        // payments row on an actual false → true transition. Re-pressing
+        // Mark Paid (or any unrelated PATCH) must not create another row.
+        const prev = await storage.getPackage(id, academyId ?? undefined);
+        const wasPaid = prev?.isPaid === true;
+
         const pkg = await storage.updatePackage(
           id,
           req.body,
@@ -408,6 +414,63 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         if (!pkg) {
           return res.status(404).json({ error: "Package not found" });
         }
+
+        // Task #975 — when a coach/admin marks a package as paid (i.e. the
+        // package transitions unpaid → paid), record a confirmed payments
+        // row so the player Payments tab reflects the cash/transfer they
+        // received. Idempotent via the partial unique index on
+        // (package_id) WHERE source='coach_mark_paid'.
+        const isTransitioningToPaid =
+          !wasPaid &&
+          req.body &&
+          req.body.isPaid === true &&
+          pkg.isPaid === true;
+
+        if (isTransitioningToPaid && pkg.playerId && pkg.academyId) {
+          const allowedMethods = ["cash", "bank_transfer", "card"] as const;
+          const methodRaw = (req.body.paymentMethod || "cash") as string;
+          const paymentMethod = (allowedMethods as readonly string[]).includes(methodRaw)
+            ? methodRaw
+            : "cash";
+          const amount = String(pkg.price ?? "0");
+          const academySettings = await storage.getAcademySettings(pkg.academyId);
+          const currency = pkg.currency || academySettings?.currency || "AED";
+
+          try {
+            await storage.createPayment({
+              academyId: pkg.academyId,
+              playerId: pkg.playerId,
+              packageId: pkg.id,
+              source: "coach_mark_paid",
+              recordedByUserId: req.user!.userId,
+              amount,
+              currency,
+              status: "confirmed",
+              paymentMethod,
+              paymentDate: new Date(),
+              notes: "Marked paid by coach",
+            });
+          } catch (err: unknown) {
+            // 23505 = unique_violation — re-marking the same package is a
+            // no-op. Anything else means the payments row failed to write,
+            // so surface a 500 to keep package-paid state and the
+            // payments table consistent.
+            const code =
+              typeof err === "object" && err !== null && "code" in err
+                ? (err as { code?: unknown }).code
+                : undefined;
+            if (code !== "23505") {
+              console.error(
+                "[player-credits] failed to record coach mark-paid payment:",
+                err,
+              );
+              return res.status(500).json({
+                error: "Failed to record payment",
+              });
+            }
+          }
+        }
+
         res.json(pkg);
       } catch (error) {
         console.error("Error updating package:", error);

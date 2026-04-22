@@ -3459,7 +3459,36 @@ Return only the JSON array, nothing else.`;
       }
 
       const payments = await storage.getPlayerPayments(playerId);
-      res.json({ payments });
+
+      // Task #975 — for coach/academy-recorded rows, resolve the actor's
+      // display name so the player UI can show "Recorded by <name>".
+      const actorIds = Array.from(
+        new Set(
+          payments
+            .map((p) => p.recordedByUserId)
+            .filter((id): id is string => typeof id === "string" && id.length > 0),
+        ),
+      );
+      const nameById: Record<string, string> = {};
+      if (actorIds.length > 0) {
+        const rows = await db
+          .select({
+            userId: users.id,
+            username: users.username,
+            coachName: coaches.name,
+          })
+          .from(users)
+          .leftJoin(coaches, eq(coaches.id, users.coachId))
+          .where(inArray(users.id, actorIds));
+        for (const r of rows) {
+          nameById[r.userId] = r.coachName || r.username || "";
+        }
+      }
+      const enriched = payments.map((p) => ({
+        ...p,
+        recordedByName: p.recordedByUserId ? nameById[p.recordedByUserId] || null : null,
+      }));
+      res.json({ payments: enriched });
     } catch (error) {
       console.error("Get player payments error:", error);
       res.status(500).json({ error: "Failed to get payments" });

@@ -109,6 +109,13 @@ export function AdminCreditV2Panel({ playerId }: Props) {
   const [adjType, setAdjType] = useState<CreditType>("group");
   const [adjDelta, setAdjDelta] = useState<string>("");
   const [adjReason, setAdjReason] = useState<string>("");
+  // Task #975 — for positive credit grants, optionally record a real
+  // money payment so it surfaces on the player Payments tab.
+  const [adjRecordPayment, setAdjRecordPayment] = useState<boolean>(true);
+  const [adjPaymentAmount, setAdjPaymentAmount] = useState<string>("");
+  const [adjPaymentMethod, setAdjPaymentMethod] = useState<
+    "cash" | "bank_transfer" | "card"
+  >("cash");
   const [makeupType, setMakeupType] = useState<CreditType>("group");
   const [makeupQty, setMakeupQty] = useState<string>("1");
   const [makeupReason, setMakeupReason] = useState<string>("");
@@ -150,12 +157,18 @@ export function AdminCreditV2Panel({ playerId }: Props) {
       type: CreditType;
       delta: number;
       reason: string;
+      recordPayment?: boolean;
+      paymentAmount?: number;
+      paymentMethod?: string;
     }) => {
       const res = await apiRequest("POST", "/api/v2/credits/manual-adjustment", {
         playerId,
         type: vars.type,
         delta: vars.delta,
         reason: vars.reason,
+        recordPayment: vars.recordPayment,
+        paymentAmount: vars.paymentAmount,
+        paymentMethod: vars.paymentMethod,
       });
       return res.json();
     },
@@ -163,6 +176,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
       invalidateAll();
       setAdjDelta("");
       setAdjReason("");
+      setAdjPaymentAmount("");
       setActivePanel(null);
       Alert.alert("Adjustment applied", "Player wallet updated.");
     },
@@ -566,21 +580,140 @@ export function AdminCreditV2Panel({ playerId }: Props) {
                   borderColor: `${Colors.dark.primary}30`,
                 }}
               />
+              {/* Task #975 — only show the "Record as paid" toggle for
+                  positive grants, since it represents money received. */}
+              {parseFloat(adjDelta) > 0 ? (
+                <View
+                  style={{
+                    marginBottom: Spacing.sm,
+                    padding: Spacing.sm,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: `${Colors.dark.primary}30`,
+                    backgroundColor: `${Colors.dark.primary}08`,
+                  }}
+                >
+                  <Pressable
+                    onPress={() => setAdjRecordPayment(!adjRecordPayment)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: adjRecordPayment ? Spacing.sm : 0,
+                    }}
+                  >
+                    <Ionicons
+                      name={
+                        adjRecordPayment
+                          ? "checkbox"
+                          : "square-outline"
+                      }
+                      size={20}
+                      color={Colors.dark.primary}
+                    />
+                    <Text
+                      style={{
+                        ...Typography.small,
+                        color: Colors.dark.text,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Record as paid (cash payment received)
+                    </Text>
+                  </Pressable>
+                  {adjRecordPayment ? (
+                    <>
+                      <TextInput
+                        value={adjPaymentAmount}
+                        onChangeText={setAdjPaymentAmount}
+                        keyboardType="numeric"
+                        placeholder="Amount received (e.g. 250)"
+                        placeholderTextColor={Colors.dark.textMuted}
+                        style={{
+                          backgroundColor: Colors.dark.backgroundSecondary,
+                          color: Colors.dark.text,
+                          borderRadius: 6,
+                          paddingHorizontal: Spacing.sm,
+                          paddingVertical: 6,
+                          fontSize: 13,
+                          marginBottom: Spacing.sm,
+                          borderWidth: 1,
+                          borderColor: `${Colors.dark.primary}30`,
+                        }}
+                      />
+                      <View style={{ flexDirection: "row", gap: 6 }}>
+                        {(
+                          [
+                            { key: "cash", label: "Cash" },
+                            { key: "bank_transfer", label: "Transfer" },
+                            { key: "card", label: "Card" },
+                          ] as const
+                        ).map((m) => {
+                          const active = adjPaymentMethod === m.key;
+                          return (
+                            <Pressable
+                              key={m.key}
+                              onPress={() => setAdjPaymentMethod(m.key)}
+                              style={{
+                                flex: 1,
+                                paddingVertical: 6,
+                                borderRadius: 6,
+                                alignItems: "center",
+                                backgroundColor: active
+                                  ? `${Colors.dark.primary}30`
+                                  : `${Colors.dark.primary}10`,
+                                borderWidth: 1,
+                                borderColor: active
+                                  ? Colors.dark.primary
+                                  : `${Colors.dark.primary}30`,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: Colors.dark.primary,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {m.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
               <Pressable
                 disabled={
                   adjustMutation.isPending ||
                   !adjReason.trim() ||
                   !adjDelta.trim() ||
                   parseFloat(adjDelta) === 0 ||
-                  Number.isNaN(parseFloat(adjDelta))
+                  Number.isNaN(parseFloat(adjDelta)) ||
+                  (parseFloat(adjDelta) > 0 &&
+                    adjRecordPayment &&
+                    (!adjPaymentAmount.trim() ||
+                      Number.isNaN(parseFloat(adjPaymentAmount)) ||
+                      parseFloat(adjPaymentAmount) <= 0))
                 }
-                onPress={() =>
+                onPress={() => {
+                  const delta = parseFloat(adjDelta);
+                  const wantPayment = delta > 0 && adjRecordPayment;
                   adjustMutation.mutate({
                     type: adjType,
-                    delta: parseFloat(adjDelta),
+                    delta,
                     reason: adjReason.trim(),
-                  })
-                }
+                    recordPayment: wantPayment,
+                    paymentAmount: wantPayment
+                      ? parseFloat(adjPaymentAmount)
+                      : undefined,
+                    paymentMethod: wantPayment
+                      ? adjPaymentMethod
+                      : undefined,
+                  });
+                }}
                 style={{
                   paddingVertical: Spacing.sm,
                   borderRadius: 8,

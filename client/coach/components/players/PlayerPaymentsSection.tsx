@@ -72,10 +72,15 @@ const getPaymentStatusColor = (status?: string) => {
   }
 };
 
+type CoachPaymentMethod = "cash" | "bank_transfer" | "card";
+
 export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Props) {
   const queryClient = useQueryClient();
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  // Task #975 — let coach pick the method that the player actually used so
+  // the payments row carries something meaningful instead of always "cash".
+  const [markPaidMethod, setMarkPaidMethod] = useState<CoachPaymentMethod>("cash");
   // Task #700: tap-to-open viewer for an existing invoice (PDF download / mark paid).
   const [viewerInvoice, setViewerInvoice] = useState<ViewableInvoice | null>(null);
 
@@ -316,6 +321,53 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
               ) : (
                 <>
                   <Text style={styles.unpaidTitle}>Unpaid Packages</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      gap: 6,
+                      marginBottom: Spacing.sm,
+                    }}
+                  >
+                    {([
+                      { key: "cash", label: "Cash" },
+                      { key: "bank_transfer", label: "Bank transfer" },
+                      { key: "card", label: "Card" },
+                    ] as Array<{ key: CoachPaymentMethod; label: string }>).map((m) => {
+                      const active = markPaidMethod === m.key;
+                      return (
+                        <Pressable
+                          key={m.key}
+                          onPress={() => {
+                            Haptics.selectionAsync();
+                            setMarkPaidMethod(m.key);
+                          }}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            alignItems: "center",
+                            backgroundColor: active
+                              ? `${Colors.dark.primary}30`
+                              : `${Colors.dark.primary}10`,
+                            borderWidth: 1,
+                            borderColor: active
+                              ? Colors.dark.primary
+                              : `${Colors.dark.primary}30`,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: Colors.dark.primary,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {m.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                   {playerStats?.packages?.filter((p: PackageData) => !p.isPaid).map((pkg: PackageData) => (
                     <View key={pkg.id} style={styles.unpaidCard}>
                       <View style={styles.unpaidInfo}>
@@ -341,7 +393,11 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                         onPress={async () => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                           try {
-                            await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
+                            await apiRequest("PATCH", `/api/packages/${pkg.id}`, {
+                              isPaid: true,
+                              paidAt: new Date().toISOString(),
+                              paymentMethod: markPaidMethod,
+                            });
                             queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
                             invalidatePlayersList(queryClient);
                             queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });

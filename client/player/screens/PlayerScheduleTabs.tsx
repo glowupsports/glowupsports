@@ -51,6 +51,10 @@ export interface PlayerPayment {
   notes: string | null;
   proofUrl: string | null;
   createdAt: string;
+  // Task #975 — coach/admin-recorded payments carry a non-null `source`
+  // so the player UI can label the row distinctly.
+  source?: string | null;
+  recordedByName?: string | null;
 }
 
 export interface AcademyPaymentInfo {
@@ -316,7 +320,18 @@ function paymentStatusIcon(status: string): FeatherIconName {
 function paymentMethodLabel(method: string | null): string {
   if (method === "bank_transfer") return "Bank transfer";
   if (method === "cash") return "Cash";
+  if (method === "card") return "Card";
   return method || "—";
+}
+
+// Task #975 — short label distinguishing coach/academy-recorded payments
+// from a player's own "Log a payment" submission. Returns null for the
+// player's own rows so they stay uncluttered.
+function paymentSourceLabel(source?: string | null): string | null {
+  if (!source || source === "player") return null;
+  if (source === "coach_mark_paid") return "By Coach";
+  if (source === "coach_manual_cash") return "By Academy";
+  return null;
 }
 
 function PaymentRow({
@@ -336,6 +351,8 @@ function PaymentRow({
     year: "numeric",
   });
 
+  const sourceLabel = paymentSourceLabel(payment.source);
+
   return (
     <Pressable style={paymentStyles.row} onPress={onPress}>
       <View style={paymentStyles.rowTop}>
@@ -346,6 +363,42 @@ function PaymentRow({
           <Text style={paymentStyles.method}>
             {methodLabel} · {dateStr}
           </Text>
+          {sourceLabel ? (
+            <View
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 6,
+                backgroundColor: `${Colors.dark.primary}1A`,
+                borderWidth: 1,
+                borderColor: `${Colors.dark.primary}40`,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "700",
+                  color: Colors.dark.primary,
+                  letterSpacing: 0.4,
+                }}
+              >
+                {sourceLabel.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
+          {sourceLabel && payment.recordedByName ? (
+            <Text
+              style={{
+                marginTop: 2,
+                fontSize: 11,
+                color: TextColors.muted,
+              }}
+            >
+              Recorded by {payment.recordedByName}
+            </Text>
+          ) : null}
         </View>
         <View style={[paymentStyles.statusPill, { backgroundColor: statusColor + "22" }]}>
           <Feather name={statusIcon} size={12} color={statusColor} />

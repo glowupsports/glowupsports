@@ -24,6 +24,7 @@ import {
   sendRefundNotification,
   sendMakeupNotification,
 } from "../pushNotifications";
+import { storage } from "../storage";
 
 const router = Router();
 
@@ -277,7 +278,18 @@ router.post(
   requireRole("academy_owner", "coach", "admin", "platform_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { playerId, type, delta, reason } = req.body || {};
+      const {
+        playerId,
+        type,
+        delta,
+        reason,
+        // Task #975 — let coach/admin flag a positive credit grant as a real
+        // cash payment so it surfaces on the player Payments tab. Must be
+        // explicit so promo/goodwill grants stay invisible there.
+        recordPayment,
+        paymentAmount,
+        paymentMethod,
+      } = req.body || {};
       if (!playerId || !type || typeof delta !== "number" || !reason?.trim()) {
         return res.status(400).json({
           error: "playerId, type, delta (number, non-zero) and reason are required",
@@ -293,6 +305,47 @@ router.post(
       if (!access.ok || !access.academyId) {
         return res.status(403).json({ error: "Forbidden" });
       }
+
+      // Task #975 — validate payment inputs *before* mutating credits so a
+      // bad request can't leave the wallet adjusted with no payment row to
+      // match. Also resolve method / currency up front.
+      // For positive deltas, `recordPayment` must be explicit: `true` to
+      // log a real cash payment, or `false` for promo/goodwill grants.
+      // Omitting it is rejected so the caller cannot accidentally hide
+      // money from the player Payments tab.
+      if (delta > 0 && typeof recordPayment !== "boolean") {
+        return res.status(400).json({
+          error:
+            "recordPayment must be explicitly true (cash received) or false (promo/goodwill) for positive adjustments",
+        });
+      }
+      const wantPayment = recordPayment === true && delta > 0;
+      let paymentInputs: {
+        amount: string;
+        method: string;
+        currency: string;
+      } | null = null;
+      if (wantPayment) {
+        const amountNum = Number(paymentAmount);
+        if (!Number.isFinite(amountNum) || amountNum <= 0) {
+          return res.status(400).json({
+            error:
+              "paymentAmount must be a positive number when recordPayment is true",
+          });
+        }
+        const allowedMethods = ["cash", "bank_transfer", "card"] as const;
+        const methodRaw = (paymentMethod || "cash") as string;
+        const method = (allowedMethods as readonly string[]).includes(methodRaw)
+          ? methodRaw
+          : "cash";
+        const settings = await storage.getAcademySettings(access.academyId);
+        paymentInputs = {
+          amount: String(amountNum),
+          method,
+          currency: settings?.currency || "AED",
+        };
+      }
+
       const result = await manualAdjustment({
         playerId,
         academyId: access.academyId,
@@ -302,6 +355,33 @@ router.post(
         actorId: req.user!.userId,
         actorRole: req.user!.role === "coach" ? "coach" : "admin",
       });
+
+      // Task #975 — record the money side. We log+continue on insert
+      // failure: the credit grant has already committed so a 5xx here
+      // would mislead the caller into retrying and double-granting.
+      // Follow-up #980 covers manual reconciliation tooling for this rare
+      // case.
+      if (wantPayment && paymentInputs) {
+        try {
+          await storage.createPayment({
+            academyId: access.academyId,
+            playerId,
+            source: "coach_manual_cash",
+            recordedByUserId: req.user!.userId,
+            amount: paymentInputs.amount,
+            currency: paymentInputs.currency,
+            status: "confirmed",
+            paymentMethod: paymentInputs.method,
+            paymentDate: new Date(),
+            notes: `Cash payment for ${delta} ${type} credits`,
+          });
+        } catch (e) {
+          console.error(
+            "[v2-credits] failed to record manual cash payment after credit grant:",
+            e,
+          );
+        }
+      }
 
       // Fire notification (non-blocking)
       sendManualAdjustmentNotification(playerId, {

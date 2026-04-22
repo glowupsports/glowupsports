@@ -3052,7 +3052,14 @@ export const payments = pgTable("payments", {
   
   proofUrl: text("proof_url"),
   notes: text("notes"),
-  
+
+  // Task #975 — link a payments row back to a package and record who/why
+  // a coach or admin booked the row. Lets the player Payments tab show
+  // coach-recorded payments and lets us guard against double-marking.
+  packageId: varchar("package_id"),
+  source: text("source"), // 'player' | 'coach_mark_paid' | 'coach_manual_cash'
+  recordedByUserId: varchar("recorded_by_user_id"),
+
   metadata: jsonb("metadata"),
   
   createdAt: timestamp("created_at").defaultNow(),
