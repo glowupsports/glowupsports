@@ -149,6 +149,7 @@ echo "    NODE_OPTIONS        = $NODE_OPTIONS"
 # Set OTA_KEEP_DEV_SERVER=1 to skip this.
 # ---------------------------------------------------------------------------
 DEV_SERVER_PAUSED=0
+DEV_RESTART_LOG="/tmp/ota-push-metro-restart.log"
 if [[ "${OTA_KEEP_DEV_SERVER:-0}" != "1" ]]; then
   DEV_PIDS="$(lsof -ti:8081 2>/dev/null || true)"
   if [[ -n "$DEV_PIDS" ]]; then
@@ -162,6 +163,36 @@ if [[ "${OTA_KEEP_DEV_SERVER:-0}" != "1" ]]; then
     DEV_SERVER_PAUSED=1
   fi
 fi
+
+# Best-effort: when this script exits (success OR failure), if we were the
+# one who killed the dev Metro, try to bring it back so the next chat
+# session has a working preview without the user/agent having to restart
+# the "Start App" workflow manually. We re-spawn ONLY `npm run expo:dev`
+# (the server side `npm run server:dev` was never killed); this matches
+# what "Start App" launches. setsid + nohup detach the child from this
+# script's process group so Replit's process-tree cleanup doesn't reap it
+# when this workflow ends.
+restore_dev_metro() {
+  if [[ "$DEV_SERVER_PAUSED" != "1" ]]; then
+    return
+  fi
+  if lsof -ti:8081 >/dev/null 2>&1; then
+    # Something already came back (likely the agent restarted Start App).
+    return
+  fi
+  echo ""
+  echo "  Restarting dev Metro on :8081 (best-effort) — log: $DEV_RESTART_LOG"
+  (
+    setsid nohup env \
+      EXPO_PACKAGER_PROXY_URL="${EXPO_PACKAGER_PROXY_URL:-https://${REPLIT_DEV_DOMAIN:-localhost}}" \
+      REACT_NATIVE_PACKAGER_HOSTNAME="${REACT_NATIVE_PACKAGER_HOSTNAME:-${REPLIT_DEV_DOMAIN:-localhost}}" \
+      EXPO_PUBLIC_DOMAIN="${REPLIT_DEV_DOMAIN:-localhost}:5000" \
+      npm run expo:dev \
+      </dev/null >"$DEV_RESTART_LOG" 2>&1 &
+  ) || true
+  echo "  (If preview is still empty after ~30s, restart the \"Start App\" workflow.)"
+}
+trap restore_dev_metro EXIT
 
 # ---------------------------------------------------------------------------
 # Step 1 — Bundle once with `expo export --platform all` (or single platform).
@@ -339,6 +370,89 @@ if [[ "$VERIFY_OK" != "1" ]]; then
   echo "#  and the Expo dashboard. Re-run the workflow to retry."
   echo "################################################################"
   exit 2
+fi
+
+# ---------------------------------------------------------------------------
+# Secondary check — ask EAS for the most recent updates on the production
+# branch and confirm our message + runtime show up there too. The primary
+# check above is authoritative (we read the JSON EAS just confirmed at
+# publish time), but a server-side roundtrip catches the rare case where
+# a publish "succeeded" locally but didn't actually land on the branch
+# (caching, eventual consistency, dashboard hiccups). Failures here are
+# treated as HARD — exit non-zero so the workflow goes red.
+# ---------------------------------------------------------------------------
+echo ""
+echo "  Cross-checking with eas update:list (branch=production, limit=5)..."
+LIST_JSON_FILE="/tmp/ota-push-list.json"
+set +e
+npx eas update:list --branch production --json --non-interactive --limit 5 \
+  > "$LIST_JSON_FILE" 2>/tmp/ota-push-list.err
+LIST_RC=$?
+set -e
+
+if [[ $LIST_RC -ne 0 ]]; then
+  echo "  ✘ eas update:list failed (exit $LIST_RC). Stderr:" >&2
+  cat /tmp/ota-push-list.err >&2 || true
+  exit 3
+fi
+
+LIST_OK=1
+list_check() {
+  local platform="$1"
+  local expected_rt="$2"
+  local result
+  result="$(MESSAGE_VAR="$MESSAGE" node -e "
+const fs = require('fs');
+let raw;
+try { raw = JSON.parse(fs.readFileSync('$LIST_JSON_FILE', 'utf8')); }
+catch (e) { console.log('PARSE_ERR ' + e.message); process.exit(0); }
+// eas update:list returns either an array of update groups or
+// { currentPage: [...] }. Each item may use 'platform' (singular) or
+// 'platforms' (array), and the message can be decorated.
+const items = Array.isArray(raw) ? raw : (raw.currentPage || raw.results || []);
+const flat = [];
+for (const it of items) {
+  if (!it) continue;
+  // A 'group' object may carry an updates[] array of per-platform records.
+  if (Array.isArray(it.updates)) flat.push(...it.updates);
+  else flat.push(it);
+}
+const wantMsg = process.env.MESSAGE_VAR || '';
+const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
+const match = flat.find(u => {
+  if (!u) return false;
+  const plats = u.platforms || (u.platform ? [u.platform] : []);
+  if (!plats.includes('$platform')) return false;
+  if (u.runtimeVersion !== '$expected_rt') return false;
+  // 'eas update:list' decorates messages with '(N seconds ago by ...)' —
+  // accept any message that STARTS with our exact text.
+  return norm(u.message).startsWith(norm(wantMsg));
+});
+if (match) console.log('OK id=' + (match.id || match.group || '?'));
+else console.log('NO_MATCH');
+")"
+  if [[ "$result" == OK* ]]; then
+    echo "    ✔ list check $platform (rt $expected_rt): $result"
+  else
+    echo "    ✘ list check $platform (rt $expected_rt): $result" >&2
+    LIST_OK=0
+  fi
+}
+
+if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
+  list_check "ios" "$EXPECTED_IOS_RT"
+fi
+if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
+  list_check "android" "$EXPECTED_ANDROID_RT"
+fi
+
+if [[ "$LIST_OK" != "1" ]]; then
+  echo "################################################################"
+  echo "#  OTA Push CROSS-CHECK FAILED — eas update:list does not show"
+  echo "#  the expected runtime+message on production. Inspect" >&2
+  echo "#  $LIST_JSON_FILE and the Expo dashboard before re-publishing."
+  echo "################################################################"
+  exit 4
 fi
 
 echo "################################################################"
