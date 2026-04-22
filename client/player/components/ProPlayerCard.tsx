@@ -25,8 +25,6 @@ import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { useTranslation } from "react-i18next";
-import { HelpCenterModal } from "@/components/HelpCenterModal";
-import type { FAQItem } from "@/components/HelpCenterModal";
 import MyThemeEditor from "@/player/components/MyThemeEditor";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -157,7 +155,6 @@ export function ProPlayerCard({
   const ringColorSoft = `${ringColor}CC`;
   const academyLogoUrl = buildPhotoUrl(academyLogoFromTheme);
   const insets = useSafeAreaInsets();
-  const [showHelp, setShowHelp] = useState(false);
   const [showThemeEditor, setShowThemeEditor] = useState(false);
   const { preference: appearancePref, resolvedScheme, setPreference: setAppearancePref } = usePlayerAppearance();
 
@@ -188,15 +185,6 @@ export function ProPlayerCard({
     setShowThemeEditor(true);
   };
 
-  const playerFAQs: FAQItem[] = [
-    { question: t("player.home.faqBookSession"), answer: t("player.home.faqBookSessionAnswer"), category: "Booking" },
-    { question: t("player.home.faqGlowScore"), answer: t("player.home.faqGlowScoreAnswer"), category: "Progress" },
-    { question: t("player.home.faqEarnXp"), answer: t("player.home.faqEarnXpAnswer"), category: "Progress" },
-    { question: t("player.home.faqCredits"), answer: t("player.home.faqCreditsAnswer"), category: "Billing" },
-    { question: t("player.home.faqFindPlayers"), answer: t("player.home.faqFindPlayersAnswer"), category: "Social" },
-    { question: t("player.home.faqBallLevel"), answer: t("player.home.faqBallLevelAnswer"), category: "Progress" },
-  ];
-  
   const { data: levelStatus } = usePlayerLevel(player.id);
   
   React.useEffect(() => {
@@ -500,8 +488,10 @@ export function ProPlayerCard({
               hitSlop={6}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowHelp(true);
+                navigation.navigate("PlayerHelp");
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Open player guide"
             >
               <Ionicons name="help-circle-outline" size={16} color={Colors.dark.iconMuted} />
             </Pressable>
@@ -584,15 +574,6 @@ export function ProPlayerCard({
           </View>
         </View>
       </Modal>
-      <HelpCenterModal
-        visible={showHelp}
-        onClose={() => setShowHelp(false)}
-        role="player"
-        faqs={playerFAQs}
-        glossary={[]}
-        tutorials={[]}
-        supportEmail="support@glowupsports.com"
-      />
     </View>
   );
 }

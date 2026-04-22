@@ -56,7 +56,8 @@ import GroupsScreen from "@/player/screens/GroupsScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
-import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
+import PlayerGuideScreen from "@/player/screens/PlayerGuideScreen";
+import { FloatingHelpButton } from "@/player/components/FloatingHelpButton";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
 import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
@@ -122,8 +123,6 @@ import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider, useFamily } from "@/player/context/FamilyContext";
 import { getApiUrl } from "@/lib/query-client";
 
-import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
-import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { ScheduleFocusProvider } from "@/player/context/ScheduleFocusContext";
 import { SportContextProvider } from "@/player/context/SportContext";
@@ -316,7 +315,8 @@ export type PlayerStackParamList = {
   PlayerMessages: undefined;
   PlayerBookingChat: { orderId?: string; conversationId?: string };
   PlayerNotifications: undefined;
-  PlayerHelp: undefined;
+  PlayerHelp: { initialTab?: "start" | "explore" | "faq" | "whatsnew" } | undefined;
+  PlayerGuide: { initialTab?: "start" | "explore" | "faq" | "whatsnew" } | undefined;
   PublicProfile: { playerId?: string };
   CoachProfile: { coachId: string };
   Shop: undefined;
@@ -1283,9 +1283,18 @@ function PlayerStackNavigator() {
       />
       <Stack.Screen 
         name="PlayerHelp" 
-        component={PlayerHelpScreen}
+        component={PlayerGuideScreen}
         options={{
           presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerGuide" 
+        component={PlayerGuideScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 
@@ -1670,13 +1679,11 @@ export default function PlayerNavigator() {
               <CartProvider>
                 <FamilyProvider playerId={playerId}>
                   <PlayerLevelProvider playerId={playerId}>
-                    <WalkthroughProvider>
-                      <PlayerThemedRoot>
-                        <FamilySwitchBackBanner />
-                        <PlayerStackNavigator />
-                        <WalkthroughOverlay />
-                      </PlayerThemedRoot>
-                    </WalkthroughProvider>
+                    <PlayerThemedRoot>
+                      <FamilySwitchBackBanner />
+                      <PlayerStackNavigator />
+                      <FloatingHelpButton />
+                    </PlayerThemedRoot>
                   </PlayerLevelProvider>
                 </FamilyProvider>
               </CartProvider>

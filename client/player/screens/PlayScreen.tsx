@@ -25,7 +25,6 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors, Back
 import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
-import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
 import { useSport, getSportLabel, getSportColor, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
@@ -204,7 +203,6 @@ export default function PlayScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<PlayStackParamList, "Play">>();
   const queryClient = useQueryClient();
-  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isFamily, familyData, activePlayerId } = useFamily();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
   const [showPlayModal, setShowPlayModal] = useState(false);
@@ -323,16 +321,6 @@ export default function PlayScreen() {
       0
     ),
   }));
-
-  useEffect(() => {
-    if (!hasSeenScreen("Play")) {
-      const timer = setTimeout(() => {
-        startWalkthrough("Play");
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenScreen, startWalkthrough]);
-
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string; city?: string; country?: string }; academy?: { id: string; name: string } | null }>({
     queryKey: ["/api/player/me/profile"],

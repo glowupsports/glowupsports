@@ -14,7 +14,6 @@ import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/consta
 import { useAuth } from "@/coach/context/AuthContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
-import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
@@ -39,12 +38,7 @@ import { FeedbackToast } from "@/player/components/FeedbackToast";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
-import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
-import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
-import { QuickTipsBanner } from "@/components/QuickTipsBanner";
-import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { NotificationGuideModal } from "@/components/NotificationGuideModal";
-import { FirstActionCelebration } from "@/components/FirstActionCelebration";
+import { WelcomeGuideCard } from "@/player/components/WelcomeGuideCard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuests, Quest } from "@/player/hooks/useQuests";
 import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
@@ -1221,8 +1215,6 @@ function PlayerHomeContent() {
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
-  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
-  const [showWelcome, setShowWelcome] = useState(false);
 
   // Defer below-the-fold heavy widgets (IMPROVE, COMMUNITY, SHOP) until after
   // the first frame settles. The home screen mounts ~10 useQuery-driven
@@ -1295,16 +1287,6 @@ function PlayerHomeContent() {
     refetchInterval: 120000,
   });
   const unreadCount = unreadData?.count || 0;
-
-  useEffect(() => {
-    if (effectiveData && !hasSeenScreen("Home")) {
-      const timer = setTimeout(() => {
-        startWalkthrough("Home");
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [effectiveData, hasSeenScreen, startWalkthrough]);
-
 
   useFocusEffect(
     useCallback(() => {
@@ -1466,54 +1448,6 @@ function PlayerHomeContent() {
   }, [effectiveData, navigation, setShowBookingWizard, isFreePlayer]);
 
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
-  const [showNotificationGuide, setShowNotificationGuide] = useState(false);
-  const [showFirstCelebration, setShowFirstCelebration] = useState(false);
-  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
-
-  const playerFeatureUsage = useMemo(() => [
-    { id: "profile", name: t("player.home.profileSetup"), icon: "person", isUsed: true },
-    { id: "sessions", name: t("player.home.sessionBooking"), icon: "calendar", isUsed: false },
-    { id: "feedback", name: t("player.home.feedbackCenter"), icon: "chatbubble-ellipses", isUsed: false },
-    { id: "community", name: t("player.community.title"), icon: "people", isUsed: false },
-    { id: "progress", name: t("player.home.progressTracking"), icon: "trending-up", isUsed: true },
-    { id: "shop", name: t("player.home.glowMarket"), icon: "cart", isUsed: false },
-  ], [t]);
-
-  const playerTips = [
-    { id: "tip_xp", icon: "star", text: t("player.home.tipXp") },
-    { id: "tip_profile", icon: "person", text: t("player.home.tipProfile") },
-    { id: "tip_community", icon: "people", text: t("player.home.tipCommunity") },
-    { id: "tip_feedback", icon: "chatbubble", text: t("player.home.tipFeedback") },
-    { id: "tip_credits", icon: "card", text: t("player.home.tipCredits") },
-  ];
-
-
-  const playerWelcomeSlides = [
-    {
-      icon: "tennisball",
-      iconColor: "#2ECC40",
-      title: t("player.home.welcomeTitle"),
-      description: t("player.home.welcomeDesc"),
-    },
-    {
-      icon: "trending-up",
-      iconColor: "#00BCD4",
-      title: t("player.home.trackProgressTitle"),
-      description: t("player.home.trackProgressDesc"),
-    },
-    {
-      icon: "people",
-      iconColor: "#FF9800",
-      title: t("player.home.connectCompeteTitle"),
-      description: t("player.home.connectCompeteDesc"),
-    },
-    {
-      icon: "rocket",
-      iconColor: "#9B59B6",
-      title: t("player.home.readyToPlayTitle"),
-      description: t("player.home.readyToPlayDesc"),
-    },
-  ];
 
   const { activeQuest, activeQuestType } = useMemo(() => {
     if (!questsData) return { activeQuest: null, activeQuestType: null };
@@ -1654,18 +1588,8 @@ function PlayerHomeContent() {
         {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
         {!isGuest ? <UpcomingProviderSessionCard /> : null}
 
-        {/* GETTING STARTED CLUSTER - first-week aids, demoted from top */}
-        <GettingStartedChecklist
-          role="player"
-          steps={playerChecklistSteps}
-        />
-
-        <QuickTipsBanner role="player" tips={playerTips} />
-
-        <PlatformUsageProgress
-          role="player"
-          features={playerFeatureUsage}
-        />
+        {/* WELCOME / GUIDE — first-run dismissible card pointing to the unified Player Guide */}
+        <WelcomeGuideCard />
 
         {/* ── PLAY SECTION ── Book, find players, join matches */}
         <View style={styles.playDivider}>
@@ -1804,24 +1728,6 @@ function PlayerHomeContent() {
         }}
       />
 
-      <WelcomeIntroModal
-        role="player"
-        slides={playerWelcomeSlides}
-        onComplete={() => {}}
-      />
-      <NotificationGuideModal
-        visible={showNotificationGuide}
-        onClose={() => setShowNotificationGuide(false)}
-        role="player"
-      />
-      <FirstActionCelebration
-        visible={showFirstCelebration}
-        onClose={() => setShowFirstCelebration(false)}
-        title={celebrationData.title}
-        description={celebrationData.description}
-        icon={celebrationData.icon}
-        xpReward={celebrationData.xpReward}
-      />
       <SpotlightNominationModal
         visible={showSpotlightNomination}
         onClose={() => setShowSpotlightNomination(false)}

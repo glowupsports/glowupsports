@@ -18,7 +18,6 @@ import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
-import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
@@ -411,7 +410,6 @@ export default function PlayerProfileScreen() {
   const track = useTrackFeature();
   const { setMode } = useAppMode();
   const { logout, isGuest } = useAuth();
-  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isBirthday } = usePlayer();
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -523,16 +521,6 @@ export default function PlayerProfileScreen() {
     }
     return t("player.profile.holidays.subtitleNone");
   }, [vacationData, t]);
-
-  useEffect(() => {
-    if (!hasSeenScreen("Profile")) {
-      const timer = setTimeout(() => {
-        startWalkthrough("Profile");
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenScreen, startWalkthrough]);
-
 
   const equipTitle = useMutation({
     mutationFn: async (titleId: string) => {

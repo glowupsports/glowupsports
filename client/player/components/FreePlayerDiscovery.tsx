@@ -12,7 +12,6 @@ import { apiFetch } from "@/lib/query-client";
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { MatchSummaryCard } from "./MatchSummaryCard";
 import { PlayersNearYouRow } from "./DiscoveryRows";
-import { SectionHeader } from "@/components/PremiumUI";
 
 type NavAny = ReturnType<typeof useNavigation<any>>;
 

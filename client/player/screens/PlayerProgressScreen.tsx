@@ -15,7 +15,6 @@ import { XPProgressBar } from "@/components/XPProgressBar";
 import PillarProgressRings from "@/components/PillarProgressRings";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStageFromLevel, type BallStage } from "@shared/language-switch";
-import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -1446,7 +1445,6 @@ export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const track = useTrackFeature();
-  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { activeSports, activeSport, setActiveSport, isMultiSport } = useSport();
   const { logout, isGuest } = useAuth();
   const [showLevelModal, setShowLevelModal] = useState(false);
@@ -1652,15 +1650,6 @@ export default function PlayerProgressScreen() {
   // it after the `isGuest` / `isLoading` / `error` early returns triggers
   // React's "change in the order of Hooks" warning (Task #822).
   const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? insets.bottom;
-
-  useEffect(() => {
-    if (!hasSeenScreen("Progress")) {
-      const timer = setTimeout(() => {
-        startWalkthrough("Progress");
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenScreen, startWalkthrough]);
 
   
   const isAdultPlayer = (level: string | null) => {

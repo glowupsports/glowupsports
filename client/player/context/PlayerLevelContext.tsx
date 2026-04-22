@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { usePlayerLevel, useMarkCelebrationComplete, PendingCelebration, useFeatureUnlocks } from "../hooks/usePlayerLevel";
 import { LevelUpCelebrationModal } from "../components/LevelUpCelebrationModal";
-import { FeatureOnboardingModal } from "../components/FeatureOnboardingModal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 
@@ -41,9 +40,6 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
   
   const [showCelebration, setShowCelebration] = useState(false);
   const [currentCelebration, setCurrentCelebration] = useState<PendingCelebration | null>(null);
-  
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [currentOnboardingFeature, setCurrentOnboardingFeature] = useState<string | null>(null);
 
   const markCelebrationShown = useMutation({
     mutationFn: async (celebrationId: string) => {
@@ -65,14 +61,6 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
     }
   }, [levelStatus?.pendingCelebrations]);
 
-  useEffect(() => {
-    if (!showCelebration && levelStatus?.pendingOnboardings && levelStatus.pendingOnboardings.length > 0) {
-      const featureKey = levelStatus.pendingOnboardings[0];
-      setCurrentOnboardingFeature(featureKey);
-      setShowOnboarding(true);
-    }
-  }, [showCelebration, levelStatus?.pendingOnboardings]);
-
   const handleCelebrationDismiss = useCallback(() => {
     if (currentCelebration) {
       markCelebrationShown.mutate(currentCelebration.id);
@@ -80,11 +68,6 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
     setShowCelebration(false);
     setCurrentCelebration(null);
   }, [currentCelebration, markCelebrationShown]);
-
-  const handleOnboardingDismiss = useCallback(() => {
-    setShowOnboarding(false);
-    setCurrentOnboardingFeature(null);
-  }, []);
 
   const isFeatureUnlocked = useCallback((featureKey: string) => {
     return levelStatus?.unlockedFeatures?.includes(featureKey) ?? false;
@@ -116,13 +99,6 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
         celebration={currentCelebration}
         visible={showCelebration}
         onDismiss={handleCelebrationDismiss}
-      />
-      
-      <FeatureOnboardingModal
-        featureKey={currentOnboardingFeature}
-        playerId={playerId}
-        visible={showOnboarding}
-        onDismiss={handleOnboardingDismiss}
       />
     </PlayerLevelContext.Provider>
   );

@@ -40,7 +40,6 @@ import {
 } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
-import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import {
   useSport,
   SPORT_DEFINITIONS,
@@ -284,7 +283,6 @@ export default function PlayerScheduleScreen() {
   useAcademyTheme();
   const track = useTrackFeature();
   const queryClient = useQueryClient();
-  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
   const { playerId: profilePlayerId } = usePlayer();
   const { activePlayerId } = useFamily();
@@ -358,16 +356,6 @@ export default function PlayerScheduleScreen() {
   const initialWeekIndex = WEEKS_BEHIND;
   const [weekIndex, setWeekIndex] = useState(initialWeekIndex);
   const pagerRef = useRef<PagerView | null>(null);
-
-  // Walkthrough trigger (run once)
-  const walkthroughTriggered = useRef(false);
-  useEffect(() => {
-    if (!walkthroughTriggered.current && !hasSeenScreen("Schedule")) {
-      walkthroughTriggered.current = true;
-      const timer = setTimeout(() => startWalkthrough("Schedule"), 500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Data queries

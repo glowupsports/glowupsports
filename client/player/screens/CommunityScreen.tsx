@@ -25,7 +25,6 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
-import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
@@ -67,7 +66,6 @@ export default function CommunityScreen() {
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isMinor, communityEnabled } = usePlayer();
   const [showSafetyModal, setShowSafetyModal] = useState(isMinor && !hasShownSafetyReminder());
   const canInteract = !isMinor || communityEnabled;
@@ -80,16 +78,6 @@ export default function CommunityScreen() {
   const [showPostDetailModal, setShowPostDetailModal] = useState(false);
   const [selectedFriendActivity, setSelectedFriendActivity] = useState<FriendActivity | null>(null);
   const chatFooterHeight = 70;
-
-  useEffect(() => {
-    if (!hasSeenScreen("Social")) {
-      const timer = setTimeout(() => {
-        startWalkthrough("Social");
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenScreen, startWalkthrough]);
-
 
   const { data: friendsData } = useQuery<{ friends: any[]; pendingRequests: any[] }>({
     queryKey: ["/api/player/me/friends"],
