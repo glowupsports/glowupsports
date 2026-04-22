@@ -32,6 +32,7 @@ import {
   Colors,
 } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { appendImageToFormData } from "@/lib/uploads";
 
@@ -367,14 +368,14 @@ export function PaymentDetailModal({
   const statusIcon = paymentStatusIcon(payment.status);
   const date = new Date(payment.paymentDate || payment.createdAt);
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={sheetStyles.overlay} onPress={onClose}>
-        <Pressable
-          style={[sheetStyles.sheet, { paddingBottom: insets.bottom + Spacing.lg }]}
-          onPress={() => {}}
-        >
-          <View style={sheetStyles.handle} />
-          <ScrollView keyboardShouldPersistTaps="handled">
+    <SwipeableBottomSheet
+      visible
+      onClose={onClose}
+      bottomInset={insets.bottom + Spacing.lg}
+      sheetStyle={sheetStyles.sheet}
+    >
+      {(scrollProps) => (
+          <ScrollView keyboardShouldPersistTaps="handled" {...scrollProps}>
             <View style={paymentStyles.detailHeader}>
               <Text style={sheetStyles.title}>
                 {payment.currency} {parseFloat(payment.amount).toFixed(2)}
@@ -432,9 +433,8 @@ export function PaymentDetailModal({
               <Text style={sheetStyles.cancelText}>Close</Text>
             </Pressable>
           </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      )}
+    </SwipeableBottomSheet>
   );
 }
 
@@ -745,19 +745,14 @@ export function LogPaymentSheet({
   };
 
   return (
-    <Modal
+    <SwipeableBottomSheet
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
+      onClose={handleClose}
+      bottomInset={insets.bottom + Spacing.lg}
+      sheetStyle={sheetStyles.sheet}
     >
-      <Pressable style={sheetStyles.overlay} onPress={handleClose}>
-        <Pressable
-          style={[sheetStyles.sheet, { paddingBottom: insets.bottom + Spacing.lg }]}
-          onPress={() => {}}
-        >
-          <View style={sheetStyles.handle} />
-          <ScrollView keyboardShouldPersistTaps="handled">
+      {(scrollProps) => (
+          <ScrollView keyboardShouldPersistTaps="handled" {...scrollProps}>
             <Text style={sheetStyles.title}>Log a payment</Text>
             <Text style={sheetStyles.sub}>
               Already paid the academy? Submit it here so they can confirm.
@@ -939,9 +934,8 @@ export function LogPaymentSheet({
               <Text style={sheetStyles.cancelText}>Cancel</Text>
             </Pressable>
           </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      )}
+    </SwipeableBottomSheet>
   );
 }
 
@@ -1054,14 +1048,14 @@ export function DebtExplainerSheet({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={sheetStyles.overlay} onPress={onClose}>
-        <Pressable
-          style={[sheetStyles.sheet, { paddingBottom: insets.bottom + Spacing.lg }]}
-          onPress={() => {}}
-        >
-          <View style={sheetStyles.handle} />
-          <ScrollView keyboardShouldPersistTaps="handled">
+    <SwipeableBottomSheet
+      visible={visible}
+      onClose={onClose}
+      bottomInset={insets.bottom + Spacing.lg}
+      sheetStyle={sheetStyles.sheet}
+    >
+      {(scrollProps) => (
+          <ScrollView keyboardShouldPersistTaps="handled" {...scrollProps}>
             <View style={debtStyles.iconWrap}>
               <Feather name="alert-circle" size={32} color={Colors.dark.error} />
             </View>
@@ -1125,9 +1119,8 @@ export function DebtExplainerSheet({
               <Text style={sheetStyles.cancelText}>Got it</Text>
             </Pressable>
           </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      )}
+    </SwipeableBottomSheet>
   );
 }
 

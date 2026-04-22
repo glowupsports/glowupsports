@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   Pressable,
   ScrollView,
   TextInput,
   ActivityIndicator,
 } from "react-native";
+import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -440,17 +440,13 @@ export default function InSessionFeedbackDrawer({
   };
 
   return (
-    <Modal
+    <>
+    <SwipeableBottomSheet
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+      onClose={onClose}
+      bottomInset={insets.bottom + Spacing.md}
+      sheetStyle={styles.drawer}
     >
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.md }]}>
-          <View style={styles.handle} />
-          
           <View style={styles.header}>
             <Text style={styles.title}>Feedback</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
@@ -471,10 +467,9 @@ export default function InSessionFeedbackDrawer({
           ) : (
             renderStep()
           )}
-        </View>
-      </View>
-      <SuccessToast visible={showSuccess} message="Feedback sent successfully" />
-    </Modal>
+    </SwipeableBottomSheet>
+    <SuccessToast visible={showSuccess} message="Feedback sent successfully" />
+    </>
   );
 }
 

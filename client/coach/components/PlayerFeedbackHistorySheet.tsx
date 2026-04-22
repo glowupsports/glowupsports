@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   Pressable,
   SectionList,
   ActivityIndicator,
 } from "react-native";
+import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -132,17 +132,14 @@ export default function PlayerFeedbackHistorySheet({
   if (!player) return null;
 
   return (
-    <Modal
+    <SwipeableBottomSheet
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+      onClose={onClose}
+      bottomInset={insets.bottom + Spacing.md}
+      sheetStyle={styles.sheet}
     >
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.md }]}>
-          <View style={styles.handle} />
-
+      {(scrollProps) => (
+        <>
           <View style={styles.header}>
             <View style={styles.playerInfo}>
               <View style={[styles.avatar, { backgroundColor: levelColor + "30", borderColor: levelColor }]}>
@@ -191,6 +188,7 @@ export default function PlayerFeedbackHistorySheet({
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
               stickySectionHeadersEnabled={false}
+              {...scrollProps}
               renderSectionHeader={({ section }) => (
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionHeaderText}>{section.title}</Text>
@@ -234,9 +232,9 @@ export default function PlayerFeedbackHistorySheet({
               <Text style={styles.giveFeedbackBtnText}>Give Feedback</Text>
             </Pressable>
           ) : null}
-        </View>
-      </View>
-    </Modal>
+        </>
+      )}
+    </SwipeableBottomSheet>
   );
 }
 

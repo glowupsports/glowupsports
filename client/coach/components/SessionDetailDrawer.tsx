@@ -43,6 +43,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
+import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import PlayerFeedbackHistorySheet from "./PlayerFeedbackHistorySheet";
 import StrokeFeedbackModal from "./StrokeFeedbackModal";
@@ -2599,15 +2600,12 @@ export default function SessionDetailDrawer({
         const cfg = modeConfig[feedbackPickerMode] ?? modeConfig.ai;
         const players = (liveSession?.players || []).filter(p => !removedPlayerIds.has(p.id) && !p.isGuest);
         return (
-          <Modal
+          <SwipeableBottomSheet
             visible={feedbackPickerMode !== null}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setFeedbackPickerMode(null)}
+            onClose={() => setFeedbackPickerMode(null)}
+            sheetStyle={styles.pickerSheet}
+            overlayStyle={{ backgroundColor: "rgba(0,0,0,0.72)" }}
           >
-            <Pressable style={styles.pickerOverlay} onPress={() => setFeedbackPickerMode(null)}>
-              <View style={styles.pickerSheet}>
-                <View style={styles.pickerHandle} />
                 <View style={styles.pickerHeader}>
                   <View style={[styles.pickerModeIconWrap, { backgroundColor: cfg.color + "20", borderColor: cfg.color + "40" }]}>
                     <Ionicons name={cfg.icon} size={24} color={cfg.color} />
@@ -2656,9 +2654,7 @@ export default function SessionDetailDrawer({
                     </Pressable>
                   ))}
                 </View>
-              </View>
-            </Pressable>
-          </Modal>
+          </SwipeableBottomSheet>
         );
       })()}
       </Modal>
