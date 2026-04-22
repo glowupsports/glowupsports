@@ -391,6 +391,14 @@ export function SessionHeroCard({
     }
   }, [dismissKey]);
 
+  const handleRestoreDismissed = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (dismissKey) {
+      try { await AsyncStorage.removeItem(dismissKey); } catch {}
+    }
+    setDismissed(false);
+  }, [dismissKey]);
+
   const reportIssueMutation = useMutation({
     mutationFn: async ({ issueType, description }: { issueType: string; description: string }) => {
       return apiRequest("POST", `/api/player/me/sessions/${sessionId}/report-issue`, { issueType, description });
@@ -1726,54 +1734,64 @@ export function SessionHeroCard({
     );
   }
 
-  if (sessionStatus === "none" || sessionStatus === "ended" || !sessionStatus) {
-    return (
-      <View style={styles.coachStyleCard}>
-        <View style={styles.coachCardAccentLine} />
-        <View style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}>
-          <View style={styles.commandHeader}>
-            <View style={styles.commandTitleSection}>
-              <View style={styles.commandIconWrap}>
-                <Feather name="calendar" size={14} color={Colors.dark.accentText} />
-              </View>
-              <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
+  const hasHiddenUpcomingSession = dismissed && !!sessionId;
+
+  const renderEmptyState = () => (
+    <View style={styles.coachStyleCard}>
+      <View style={styles.coachCardAccentLine} />
+      <View style={[styles.coachCardGradient, { backgroundColor: Backgrounds.root }]}>
+        <View style={styles.commandHeader}>
+          <View style={styles.commandTitleSection}>
+            <View style={styles.commandIconWrap}>
+              <Feather name="calendar" size={14} color={Colors.dark.accentText} />
             </View>
-          </View>
-          <View style={styles.commandDisplay}>
-            <Text style={styles.commandPrimary}>{t("player.home.noSessionsToday")}</Text>
-            <Text style={styles.commandSecondary}>{t("player.home.hitTheCourt")}</Text>
-          </View>
-          <View style={styles.commandActions}>
-            <SwipeBlocker>
-              <Pressable style={({ pressed }) => [styles.cleanPrimaryButton, pressed && styles.buttonPressed]} onPress={handleBookSession}>
-                <LinearGradient colors={[GlowColors.primary, GlowColors.soft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cleanPrimaryGradient}>
-                  <Feather name="calendar" size={18} color={Backgrounds.root} />
-                  <Text style={styles.cleanPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
-                </LinearGradient>
-              </Pressable>
-            </SwipeBlocker>
-            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <SwipeBlocker>
-                  <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleBookCourt}>
-                    <Feather name="grid" size={14} color={Colors.dark.accentText} />
-                    <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
-                  </Pressable>
-                </SwipeBlocker>
-              </View>
-              <View style={{ flex: 1 }}>
-                <SwipeBlocker>
-                  <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleFindMatch}>
-                    <Feather name="users" size={14} color={Colors.dark.accentText} />
-                    <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
-                  </Pressable>
-                </SwipeBlocker>
-              </View>
-            </View>
+            <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
           </View>
         </View>
+        <View style={styles.commandDisplay}>
+          <Text style={styles.commandPrimary}>{t("player.home.noSessionsToday")}</Text>
+          <Text style={styles.commandSecondary}>{t("player.home.hitTheCourt")}</Text>
+        </View>
+        <View style={styles.commandActions}>
+          <SwipeBlocker>
+            <Pressable style={({ pressed }) => [styles.cleanPrimaryButton, pressed && styles.buttonPressed]} onPress={handleBookSession}>
+              <LinearGradient colors={[GlowColors.primary, GlowColors.soft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cleanPrimaryGradient}>
+                <Feather name="calendar" size={18} color={Backgrounds.root} />
+                <Text style={styles.cleanPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
+              </LinearGradient>
+            </Pressable>
+          </SwipeBlocker>
+          <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <SwipeBlocker>
+                <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleBookCourt}>
+                  <Feather name="grid" size={14} color={Colors.dark.accentText} />
+                  <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
+            <View style={{ flex: 1 }}>
+              <SwipeBlocker>
+                <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleFindMatch}>
+                  <Feather name="users" size={14} color={Colors.dark.accentText} />
+                  <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
+          </View>
+          {hasHiddenUpcomingSession ? (
+            <Pressable onPress={handleRestoreDismissed} hitSlop={8} style={styles.restoreLink}>
+              <Feather name="rotate-ccw" size={12} color={TextColors.secondary} />
+              <Text style={styles.restoreLinkText}>{t("player.home.restoreHidden")}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
-    );
+    </View>
+  );
+
+  if (sessionStatus === "none" || sessionStatus === "ended" || !sessionStatus) {
+    return renderEmptyState();
   }
 
   if (false as boolean) {
@@ -2265,7 +2283,7 @@ export function SessionHeroCard({
     const isSoon = sessionStatus === "soon";
 
     if (dismissed) {
-      return null;
+      return renderEmptyState();
     }
 
     return (
@@ -3748,6 +3766,19 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: 4,
     borderRadius: 12,
     backgroundColor: "transparent",
+  },
+  restoreLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  restoreLinkText: {
+    fontSize: 12,
+    color: TextColors.secondary,
+    textDecorationLine: "underline",
   },
   cleanTextButton: {
     flexDirection: "row",

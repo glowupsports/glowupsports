@@ -436,6 +436,7 @@
       "report": "REPORT",
       "delay": "DELAY",
       "dismissCard": "Hide this card",
+      "restoreHidden": "Show hidden session",
       "startingSoon": "STARTING SOON",
       "whatsAtStake": "WHAT'S AT STAKE",
       "xpAttendance": "+75 XP Attendance",
