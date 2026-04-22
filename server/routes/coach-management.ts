@@ -2321,7 +2321,9 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
               senderType: "coach",
               senderCoachId: coachId,
               body: message,
-              messageType: "text",
+              // Tag so the player-side "Recent reminders" surface can
+              // distinguish coach reminders from regular chat messages.
+              messageType: "reminder",
             });
             await db
               .update(conversations)

@@ -4329,6 +4329,101 @@ import fs from "fs";
     },
   );
 
+  // Recent coach reminders for a training session's series
+  // (mirrors the series_group / lesson_group / squad chat thread).
+  router.get(
+    "/api/player/sessions/:sessionId/reminders",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        if (!req.user!.playerId) {
+          return res.json({ reminders: [], conversationId: null, seriesId: null });
+        }
+        const playerId = req.user!.playerId!;
+        const { sessionId } = req.params;
+
+        const [session] = await db
+          .select({
+            id: sessions.id,
+            seriesId: sessions.seriesId,
+            academyId: sessions.academyId,
+          })
+          .from(sessions)
+          .where(eq(sessions.id, sessionId))
+          .limit(1);
+        if (!session || !session.seriesId) {
+          return res.json({ reminders: [], conversationId: null, seriesId: null });
+        }
+
+        // Verify the player is enrolled in the series (any status — keep
+        // history visible even if their enrolment was paused).
+        const [enrolment] = await db
+          .select({ id: seriesPlayers.id })
+          .from(seriesPlayers)
+          .where(and(
+            eq(seriesPlayers.seriesId, session.seriesId),
+            eq(seriesPlayers.playerId, playerId),
+          ))
+          .limit(1);
+        if (!enrolment) {
+          return res.json({ reminders: [], conversationId: null, seriesId: session.seriesId });
+        }
+
+        // Find the matching series group conversation
+        const convConditions = [
+          eq(conversationsTable.title, session.seriesId),
+          inArray(conversationsTable.type, ["series_group", "squad", "lesson_group"]),
+        ];
+        if (session.academyId) {
+          convConditions.push(eq(conversationsTable.academyId, session.academyId));
+        }
+        const [conv] = await db
+          .select({ id: conversationsTable.id })
+          .from(conversationsTable)
+          .where(and(...convConditions))
+          .limit(1);
+        if (!conv) {
+          return res.json({ reminders: [], conversationId: null, seriesId: session.seriesId });
+        }
+
+        const recent = await db
+          .select({
+            id: messagesTable.id,
+            body: messagesTable.body,
+            createdAt: messagesTable.createdAt,
+            coachId: messagesTable.senderCoachId,
+            coachName: coaches.name,
+            coachPhotoUrl: coaches.profilePhotoUrl,
+          })
+          .from(messagesTable)
+          .leftJoin(coaches, eq(coaches.id, messagesTable.senderCoachId))
+          .where(and(
+            eq(messagesTable.conversationId, conv.id),
+            eq(messagesTable.senderType, "coach"),
+            eq(messagesTable.messageType, "reminder"),
+          ))
+          .orderBy(desc(messagesTable.createdAt))
+          .limit(5);
+
+        res.json({
+          conversationId: conv.id,
+          seriesId: session.seriesId,
+          reminders: recent.map((r) => ({
+            id: r.id,
+            body: r.body,
+            createdAt: r.createdAt,
+            coachName: r.coachName || "Your coach",
+            coachPhotoUrl: r.coachPhotoUrl || null,
+          })),
+        });
+      } catch (error) {
+        console.error("Error fetching session reminders:", error);
+        res.status(500).json({ error: "Failed to fetch reminders" });
+      }
+    },
+  );
+
   // Get skill details for a specific domain
   router.get(
     "/api/player/skills/:domain",

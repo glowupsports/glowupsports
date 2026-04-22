@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { Spacing, BorderRadius, Backgrounds, TextColors, GlowColors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { openDirections } from "@/lib/maps";
+import CoachRemindersCard from "@/player/components/CoachRemindersCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const BG = Backgrounds.root;
@@ -254,6 +255,13 @@ export default function ClassDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* Recent reminders from coach (only for enrolled players in series-backed classes) */}
+        {session.isEnrolled && session.id ? (
+          <View style={styles.section}>
+            <CoachRemindersCard sessionId={session.id} />
+          </View>
+        ) : null}
 
         {/* Coach */}
         {session.coachName ? (

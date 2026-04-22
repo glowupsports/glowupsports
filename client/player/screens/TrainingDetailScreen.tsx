@@ -16,6 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import CoachRemindersCard from "@/player/components/CoachRemindersCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type RouteParams = {
@@ -805,6 +806,9 @@ export default function TrainingDetailScreen() {
             <Text style={styles.totalValue}>+{data.xpEarned} XP</Text>
           </View>
         </View>
+
+        {/* Recent reminders from coach (mirrored from class group chat) */}
+        <CoachRemindersCard sessionId={sessionId} />
 
         {/* Glow Mirror — Player Voice Check-in */}
         <GlowMirrorCard
