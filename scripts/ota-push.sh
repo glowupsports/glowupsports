@@ -31,7 +31,11 @@
 #
 #   We also stop the "Start App" workflow's Metro on port 8081 for the
 #   duration of the push so the bundler isn't fighting it for memory, and
-#   restart it afterwards (best-effort). Set OTA_KEEP_DEV_SERVER=1 to skip.
+#   re-spawn `npm run expo:dev` on EXIT (best-effort, via a trap). The
+#   restart is best-effort: if Replit's process-tree cleanup reaps the
+#   detached child, the script also prints a hint to manually restart
+#   the "Start App" workflow. Set OTA_KEEP_DEV_SERVER=1 to skip both
+#   the kill and the auto-restart.
 #
 # USAGE — direct invocation:
 #   bash scripts/ota-push.sh "Your update message here"
