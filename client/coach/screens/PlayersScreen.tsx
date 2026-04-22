@@ -726,7 +726,7 @@ export default function PlayersScreen() {
           {(["active", "past", "pending_payment"] as const).map((tab) => {
             const isActive = rosterTab === tab;
             const tabIcon = tab === "active" ? "people" : tab === "past" ? "archive" : "wallet-outline";
-            const tabLabel = tab === "active" ? "Active" : tab === "past" ? "Past" : "Pending Payment";
+            const tabLabel = tab === "active" ? "Active" : tab === "past" ? "Past" : "Pending";
             const pendingCount = pendingPaymentPlayers.length;
             return (
               <Pressable
@@ -746,7 +746,11 @@ export default function PlayersScreen() {
                   size={13}
                   color={isActive ? Colors.dark.buttonText : tab === "pending_payment" ? "#f59e0b" : Colors.dark.tabIconDefault}
                 />
-                <Text style={[styles.rosterTabText, isActive && styles.rosterTabTextActive]}>
+                <Text
+                  style={[styles.rosterTabText, isActive && styles.rosterTabTextActive]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {tabLabel}
                 </Text>
                 {tab === "pending_payment" && pendingCount > 0 ? (
