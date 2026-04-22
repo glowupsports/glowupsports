@@ -374,6 +374,21 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
     navigation.navigate("PlayerMessages" as never);
   };
 
+  const extractServerError = (e: unknown): string | null => {
+    const msg = e instanceof Error ? e.message : String(e ?? "");
+    // apiRequest throws errors of the form "<status>: <body>" — try to parse the JSON body.
+    const match = msg.match(/^\d+:\s*(.*)$/s);
+    const body = match ? match[1] : msg;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed.error === "string" && parsed.error.length > 0) return parsed.error;
+      if (parsed && typeof parsed.message === "string" && parsed.message.length > 0) return parsed.message;
+    } catch {
+      // not JSON
+    }
+    return null;
+  };
+
   const handleAcceptRequest = async (connectionId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
@@ -385,7 +400,11 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/friends"] });
     } catch (e) {
       logger.log("Accept error", e);
-      Alert.alert("Couldn't accept request", "Please check your connection and try again.");
+      const serverMsg = extractServerError(e);
+      Alert.alert(
+        "Couldn't accept request",
+        serverMsg || "Please check your connection and try again.",
+      );
     }
   };
 
@@ -400,7 +419,11 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/friends"] });
     } catch (e) {
       logger.log("Reject error", e);
-      Alert.alert("Couldn't reject request", "Please check your connection and try again.");
+      const serverMsg = extractServerError(e);
+      Alert.alert(
+        "Couldn't reject request",
+        serverMsg || "Please check your connection and try again.",
+      );
     }
   };
 

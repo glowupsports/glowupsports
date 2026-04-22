@@ -2155,37 +2155,72 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
   
   // Accept or decline friend request
 router.post("/api/player/connections/:connectionId/respond", authMiddleware, async (req: AuthRequest, res: Response) => {
+    const { connectionId } = req.params;
+    const action = req.body?.action;
+    const playerId = req.user!.playerId;
+    const userId = req.user!.userId;
     try {
-      const playerId = req.user!.playerId;
       if (!playerId) {
-        return res.status(403).json({ error: "Player access required" });
+        console.warn("[FriendRespond] missing playerId", { userId, connectionId, action });
+        return res.status(403).json({ error: "Switch to a player profile to respond to friend requests." });
       }
-      
-      const { connectionId } = req.params;
-      const { action } = req.body; // "accept" or "decline"
-      
+
       if (!["accept", "decline"].includes(action)) {
         return res.status(400).json({ error: "Invalid action" });
       }
-      
+
       // Get the connection
       const [connection] = await db.select()
         .from(playerConnections)
         .where(eq(playerConnections.id, connectionId));
-      
+
       if (!connection) {
-        return res.status(404).json({ error: "Connection not found" });
+        // Decline of an already-removed request is a no-op success (idempotent)
+        if (action === "decline") {
+          console.log("[FriendRespond] decline on missing connection — treating as success", { playerId, connectionId });
+          return res.json({ success: true, action, alreadyHandled: true });
+        }
+        console.warn("[FriendRespond] connection not found", { playerId, connectionId, action });
+        return res.status(404).json({ error: "Friend request not found. It may have been cancelled." });
       }
-      
-      // Only the receiver (player2) can respond
-      if (connection.player2Id !== playerId) {
-        return res.status(403).json({ error: "Not authorized to respond to this request" });
+
+      const isReceiver = connection.player2Id === playerId;
+      const isRequester = connection.player1Id === playerId;
+
+      console.log("[FriendRespond] entry", {
+        playerId,
+        connectionId,
+        action,
+        connectionStatus: connection.status,
+        player1Id: connection.player1Id,
+        player2Id: connection.player2Id,
+        isReceiver,
+        isRequester,
+      });
+
+      // Only participants of this connection can respond
+      if (!isReceiver && !isRequester) {
+        return res.status(403).json({ error: "You can't respond to this friend request from this account." });
       }
-      
+
+      // Idempotent accept: if already accepted and the caller is part of the connection,
+      // treat the click as success so a retry (or a stale list) never errors out.
+      if (connection.status === "accepted") {
+        console.log("[FriendRespond] connection already accepted — idempotent success", { playerId, connectionId, action });
+        return res.json({ success: true, action, alreadyHandled: true });
+      }
+
+      // Pending request: only the receiver (player2) can accept/decline
+      if (!isReceiver) {
+        return res.status(403).json({ error: "Only the recipient can respond to this friend request." });
+      }
+
       if (connection.status !== "pending") {
-        return res.status(400).json({ error: "Request already responded to" });
+        // Any other unexpected status — surface a clear message instead of "responded to"
+        console.warn("[FriendRespond] unexpected status", { playerId, connectionId, status: connection.status });
+        return res.status(400).json({ error: `Friend request is no longer actionable (status: ${connection.status}).` });
       }
-      
+
       if (action === "accept") {
         await db.update(playerConnections)
           .set({ status: "accepted", acceptedAt: new Date() })
@@ -2227,8 +2262,8 @@ router.post("/api/player/connections/:connectionId/respond", authMiddleware, asy
 
       res.json({ success: true, action });
     } catch (error) {
-      console.error("Error responding to friend request:", error);
-      res.status(500).json({ error: "Failed to respond to friend request" });
+      console.error("[FriendRespond] unhandled error", { playerId, connectionId, action, error });
+      res.status(500).json({ error: "Something went wrong while updating the friend request. Please try again." });
     }
   });
   
