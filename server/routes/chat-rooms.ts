@@ -14,6 +14,7 @@ import {
   players,
   coaches,
   academies,
+  users,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -134,6 +135,15 @@ async function getMyCountryCode(req: AuthenticatedRequest): Promise<string | nul
 // Cross-academy chat room moderation requires platform-level role.
 // Academy owners are scoped to their tenant and must NOT moderate global rooms.
 function isAdmin(req: AuthenticatedRequest): boolean {
+  const role = (req.user as any)?.role;
+  return role === "platform_owner";
+}
+
+// Moderator role — chat rooms are global (world / country / sport) and have
+// no academy scope, so triage and room-wide actions are restricted to the
+// platform-level role. Per-tenant moderation should be added when per-academy
+// rooms exist.
+function isModerator(req: AuthenticatedRequest): boolean {
   const role = (req.user as any)?.role;
   return role === "platform_owner";
 }
@@ -749,6 +759,222 @@ router.post(
     } catch (err) {
       console.error("[chat-rooms] report error:", err);
       res.status(500).json({ error: "Failed to report message" });
+    }
+  },
+);
+
+// ---------- Moderation: report queue ----------
+
+// List reports for moderators (with message + room + reporter context).
+// Default: open reports, newest first.
+router.get(
+  "/api/chat-rooms/admin/reports",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isModerator(req)) return res.status(403).json({ error: "Moderators only" });
+      const status = (typeof req.query.status === "string" ? req.query.status : "open") as
+        | "open"
+        | "resolved"
+        | "dismissed"
+        | "all";
+      const validStatuses = ["open", "resolved", "dismissed", "all"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const rows = await db
+        .select({
+          report: chatRoomReports,
+          message: messages,
+          room: chatRooms,
+          reporter: users,
+        })
+        .from(chatRoomReports)
+        .leftJoin(messages, eq(messages.id, chatRoomReports.messageId))
+        .leftJoin(chatRooms, eq(chatRooms.id, chatRoomReports.roomId))
+        .leftJoin(users, eq(users.id, chatRoomReports.reporterUserId))
+        .where(status === "all" ? undefined : eq(chatRoomReports.status, status))
+        .orderBy(desc(chatRoomReports.createdAt))
+        .limit(200);
+
+      const items = rows.map((r) => ({
+        id: r.report.id,
+        status: r.report.status,
+        reason: r.report.reason,
+        createdAt: r.report.createdAt,
+        room: r.room
+          ? {
+              id: r.room.id,
+              scope: r.room.scope,
+              title: r.room.title,
+              flag: r.room.flag,
+              mutedAt: r.room.mutedAt,
+            }
+          : null,
+        message: r.message
+          ? {
+              id: r.message.id,
+              content: r.message.body,
+              isDeleted: r.message.isDeleted,
+              createdAt: r.message.createdAt,
+              senderType: r.message.senderType,
+              senderCoachId: r.message.senderCoachId,
+              senderPlayerId: r.message.senderPlayerId,
+            }
+          : null,
+        reporter: r.reporter
+          ? {
+              id: r.reporter.id,
+              username: r.reporter.username,
+              role: r.reporter.role,
+            }
+          : { id: r.report.reporterUserId, username: null, role: null },
+      }));
+
+      res.json({ items });
+    } catch (err) {
+      console.error("[chat-rooms] admin reports list error:", err);
+      res.status(500).json({ error: "Failed to load reports" });
+    }
+  },
+);
+
+async function loadReportOr404(reportId: string, res: Response) {
+  const rows = await db
+    .select()
+    .from(chatRoomReports)
+    .where(eq(chatRoomReports.id, reportId))
+    .limit(1);
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Report not found" });
+    return null;
+  }
+  return rows[0];
+}
+
+// Dismiss a report — no further action taken.
+router.post(
+  "/api/chat-rooms/admin/reports/:reportId/dismiss",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isModerator(req)) return res.status(403).json({ error: "Moderators only" });
+      const report = await loadReportOr404(req.params.reportId, res);
+      if (!report) return;
+      await db
+        .update(chatRoomReports)
+        .set({ status: "dismissed" })
+        .where(eq(chatRoomReports.id, report.id));
+      res.json({ ok: true, status: "dismissed" });
+    } catch (err) {
+      console.error("[chat-rooms] dismiss report error:", err);
+      res.status(500).json({ error: "Failed to dismiss report" });
+    }
+  },
+);
+
+// Soft-delete the reported message and resolve the report.
+router.post(
+  "/api/chat-rooms/admin/reports/:reportId/delete-message",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isModerator(req)) return res.status(403).json({ error: "Moderators only" });
+      const report = await loadReportOr404(req.params.reportId, res);
+      if (!report) return;
+      await db
+        .update(messages)
+        .set({ isDeleted: true, body: "" })
+        .where(eq(messages.id, report.messageId));
+      await db
+        .update(chatRoomReports)
+        .set({ status: "resolved" })
+        .where(eq(chatRoomReports.id, report.id));
+      broadcastWorldMessage({ kind: "chat_room_message_deleted", roomId: report.roomId, messageId: report.messageId });
+      res.json({ ok: true, status: "resolved" });
+    } catch (err) {
+      console.error("[chat-rooms] delete-message error:", err);
+      res.status(500).json({ error: "Failed to delete message" });
+    }
+  },
+);
+
+// Mute the reporter in this room (per-user mute). Defaults to indefinite when
+// hours is omitted; pass hours to mute for a fixed window.
+const muteReporterSchema = z.object({ hours: z.number().int().min(0).max(24 * 30).optional() });
+router.post(
+  "/api/chat-rooms/admin/reports/:reportId/mute-reporter",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isModerator(req)) return res.status(403).json({ error: "Moderators only" });
+      const parsed = muteReporterSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
+      const report = await loadReportOr404(req.params.reportId, res);
+      if (!report) return;
+      const mutedUntil =
+        parsed.data.hours && parsed.data.hours > 0
+          ? new Date(Date.now() + parsed.data.hours * 3600 * 1000)
+          : null;
+      const existing = await db
+        .select()
+        .from(chatRoomMutes)
+        .where(
+          and(
+            eq(chatRoomMutes.roomId, report.roomId),
+            eq(chatRoomMutes.userId, report.reporterUserId),
+          ),
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        await db
+          .update(chatRoomMutes)
+          .set({ mutedUntil })
+          .where(eq(chatRoomMutes.id, existing[0].id));
+      } else {
+        await db.insert(chatRoomMutes).values({
+          roomId: report.roomId,
+          userId: report.reporterUserId,
+          mutedUntil,
+        });
+      }
+      await db
+        .update(chatRoomReports)
+        .set({ status: "resolved" })
+        .where(eq(chatRoomReports.id, report.id));
+      res.json({ ok: true, mutedUntil, status: "resolved" });
+    } catch (err) {
+      console.error("[chat-rooms] mute-reporter error:", err);
+      res.status(500).json({ error: "Failed to mute reporter" });
+    }
+  },
+);
+
+// Toggle a room-wide mute on the room the report belongs to.
+router.post(
+  "/api/chat-rooms/admin/reports/:reportId/mute-room",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isModerator(req)) return res.status(403).json({ error: "Moderators only" });
+      const report = await loadReportOr404(req.params.reportId, res);
+      if (!report) return;
+      const enable = req.body?.enable !== false;
+      await db
+        .update(chatRooms)
+        .set({ mutedAt: enable ? new Date() : null, mutedBy: enable ? req.user!.userId : null })
+        .where(eq(chatRooms.id, report.roomId));
+      await db
+        .update(chatRoomReports)
+        .set({ status: "resolved" })
+        .where(eq(chatRoomReports.id, report.id));
+      res.json({ ok: true, muted: enable, status: "resolved" });
+    } catch (err) {
+      console.error("[chat-rooms] mute-room error:", err);
+      res.status(500).json({ error: "Failed to update room mute" });
     }
   },
 );

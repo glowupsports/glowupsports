@@ -22,6 +22,7 @@ import ProviderInviteManagementScreen from "@/platform/screens/ProviderInviteMan
 import PlayerActivityScreen from "@/platform/screens/PlayerActivityScreen";
 import TierManagementScreen from "@/platform/screens/TierManagementScreen";
 import BrandingScreen from "@/owner/screens/BrandingScreen";
+import ModerationReportsScreen from "@/owner/screens/ModerationReportsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
@@ -52,6 +53,7 @@ export type PlatformStackParamList = {
   PlayerActivity: { initialTab?: "features" | "players" | "dead_zones" };
   TierManagement: undefined;
   Branding: { academyId: string; academyName?: string };
+  ModerationReports: undefined;
 };
 
 const Stack = createNativeStackNavigator<PlatformStackParamList>();
@@ -96,6 +98,11 @@ function PlatformStackNavigator() {
       <Stack.Screen name="PlayerActivity" component={PlayerActivityScreen} />
       <Stack.Screen name="TierManagement" component={TierManagementScreen} />
       <Stack.Screen name="Branding" component={BrandingScreen} />
+      <Stack.Screen
+        name="ModerationReports"
+        component={ModerationReportsScreen}
+        options={{ headerShown: true, headerTitle: "Moderation Queue" }}
+      />
     </Stack.Navigator>
   );
 }

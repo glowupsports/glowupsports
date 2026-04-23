@@ -439,6 +439,12 @@ export default function SystemScreen() {
               description="Error reports from users"
               onPress={() => navigation.navigate("Diagnostics")}
             />
+            <SettingRow
+              icon="flag"
+              label="Moderation Queue"
+              description="Review reported chat messages"
+              onPress={() => navigation.navigate("ModerationReports")}
+            />
             <SettingRow 
               icon="shield" 
               label="GDPR Tools" 
