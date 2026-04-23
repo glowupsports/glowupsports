@@ -248,6 +248,86 @@ router.get("/api/chat-rooms/:roomId", authMiddleware, async (req: AuthenticatedR
   }
 });
 
+// Coach promo pin allowance for the current user in a country room.
+// Returns whether the caller is a public coach who is permitted to pin a promo
+// in this room and how many pins they have remaining this ISO week (0 or 1).
+router.get(
+  "/api/chat-rooms/:roomId/pin-allowance",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const roomRows = await db
+        .select()
+        .from(chatRooms)
+        .where(eq(chatRooms.id, req.params.roomId))
+        .limit(1);
+      if (roomRows.length === 0) return res.status(404).json({ error: "Room not found" });
+      const room = roomRows[0];
+      const weekStart = isoWeekStart();
+
+      if (!coachId || room.scope !== "country") {
+        return res.json({
+          canPin: false,
+          remaining: 0,
+          alreadyPinnedMessageId: null,
+          weekStart,
+          reason: room.scope !== "country" ? "not_country_room" : "not_coach",
+        });
+      }
+
+      const cd = await db
+        .select({
+          bioStatus: coaches.bioStatus,
+          showProfileToPlayers: coaches.showProfileToPlayers,
+          showInDirectory: coaches.showInDirectory,
+        })
+        .from(coaches)
+        .where(eq(coaches.id, coachId))
+        .limit(1);
+      const isPublicCoach =
+        cd[0] &&
+        cd[0].bioStatus === "approved" &&
+        cd[0].showProfileToPlayers !== false &&
+        cd[0].showInDirectory !== false;
+
+      if (!isPublicCoach) {
+        return res.json({
+          canPin: false,
+          remaining: 0,
+          alreadyPinnedMessageId: null,
+          weekStart,
+          reason: "not_public_coach",
+        });
+      }
+
+      const existing = await db
+        .select()
+        .from(chatRoomCoachPins)
+        .where(
+          and(
+            eq(chatRoomCoachPins.roomId, room.id),
+            eq(chatRoomCoachPins.coachId, coachId),
+            eq(chatRoomCoachPins.weekStart, weekStart),
+          ),
+        )
+        .limit(1);
+
+      const alreadyPinnedMessageId = existing[0]?.messageId || null;
+      return res.json({
+        canPin: !alreadyPinnedMessageId,
+        remaining: alreadyPinnedMessageId ? 0 : 1,
+        alreadyPinnedMessageId,
+        weekStart,
+        reason: alreadyPinnedMessageId ? "already_pinned_this_week" : null,
+      });
+    } catch (err) {
+      console.error("[chat-rooms] pin-allowance error:", err);
+      res.status(500).json({ error: "Failed to load pin allowance" });
+    }
+  },
+);
+
 // Get room messages
 router.get("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {

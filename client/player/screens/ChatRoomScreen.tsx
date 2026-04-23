@@ -19,6 +19,15 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { useAuth } from "@/coach/context/AuthContext";
+
+interface PinAllowance {
+  canPin: boolean;
+  remaining: number;
+  alreadyPinnedMessageId: string | null;
+  weekStart: string;
+  reason: string | null;
+}
 
 interface ChatRoom {
   id: string;
@@ -89,6 +98,7 @@ export default function ChatRoomScreen() {
   const roomId: string = route.params?.roomId;
   const initialTitle: string = route.params?.title || "Room";
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [text, setText] = useState("");
   const [showInvite, setShowInvite] = useState(false);
   const [pinPromo, setPinPromo] = useState(false);
@@ -98,6 +108,30 @@ export default function ChatRoomScreen() {
   const { data: room } = useQuery<ChatRoom>({
     queryKey: ["/api/chat-rooms", roomId],
   });
+
+  const isCoach = !!user?.coachId;
+  const isCountryRoom = room?.scope === "country";
+
+  const { data: pinAllowance } = useQuery<PinAllowance>({
+    queryKey: ["/api/chat-rooms", roomId, "pin-allowance"],
+    enabled: isCoach && isCountryRoom,
+  });
+
+  // Public coaches are the only ones who may pin. Detect via the server's
+  // allowance payload: either they can pin now, or they already used their
+  // weekly slot in this room. Anything else (e.g. non-public coach) hides
+  // the affordance entirely instead of showing a disabled button.
+  const showPinAffordance =
+    isCoach &&
+    isCountryRoom &&
+    !!pinAllowance &&
+    (pinAllowance.canPin || !!pinAllowance.alreadyPinnedMessageId);
+
+  // If the allowance flips to "cannot pin" after a successful pin, clear any
+  // stale toggle state so the next message is not unexpectedly flagged.
+  React.useEffect(() => {
+    if (pinAllowance && !pinAllowance.canPin && pinPromo) setPinPromo(false);
+  }, [pinAllowance, pinPromo]);
 
   const { data: messages = [], isLoading } = useQuery<RoomMessage[]>({
     queryKey: ["/api/chat-rooms", roomId, "messages"],
@@ -120,10 +154,14 @@ export default function ChatRoomScreen() {
       const res = await apiRequest("POST", `/api/chat-rooms/${roomId}/messages`, payload);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setText("");
       queryClient.invalidateQueries({ queryKey: ["/api/chat-rooms", roomId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-rooms", roomId, "pin-allowance"] });
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+      if (data?.pinDenied) {
+        Alert.alert("Promo not pinned", String(data.pinDenied));
+      }
     },
     onError: (e: any) => {
       Alert.alert("Could not send", e?.message || "Try again");
@@ -378,18 +416,37 @@ export default function ChatRoomScreen() {
           />
         </View>
       ) : null}
-      {room?.scope === "country" ? (
-        <View style={{ flexDirection: "row", paddingHorizontal: Spacing.sm, paddingTop: 4 }}>
+      {showPinAffordance && pinAllowance ? (
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.sm, paddingTop: 4 }}>
           <Pressable
             onPress={() => {
+              if (!pinAllowance.canPin) return;
               setPinPromo((v) => !v);
               Haptics.selectionAsync();
             }}
-            style={[styles.pinToggle, pinPromo && styles.pinToggleActive]}
+            disabled={!pinAllowance.canPin}
+            style={[
+              styles.pinToggle,
+              pinPromo && pinAllowance.canPin && styles.pinToggleActive,
+              !pinAllowance.canPin && styles.pinToggleDisabled,
+            ]}
           >
-            <Ionicons name="pin" size={12} color={pinPromo ? "#FBBF24" : Colors.dark.textSecondary} />
-            <Text style={[styles.pinToggleTxt, pinPromo && styles.pinToggleTxtActive]}>
-              Pin promo (coaches, 1/week)
+            <Ionicons
+              name="pin"
+              size={12}
+              color={pinPromo && pinAllowance.canPin ? "#FBBF24" : Colors.dark.textSecondary}
+            />
+            <Text
+              style={[
+                styles.pinToggleTxt,
+                pinPromo && pinAllowance.canPin && styles.pinToggleTxtActive,
+              ]}
+            >
+              {pinAllowance.canPin
+                ? `Pin promo · ${pinAllowance.remaining} left this week`
+                : pinAllowance.reason === "already_pinned_this_week"
+                ? "Pinned this week · 0 left"
+                : "Pin promo unavailable"}
             </Text>
           </Pressable>
         </View>
@@ -558,6 +615,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   pinToggleActive: { backgroundColor: "#FBBF2433", borderWidth: 1, borderColor: "#FBBF24" },
+  pinToggleDisabled: { opacity: 0.55 },
   pinToggleTxt: { color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" },
   pinToggleTxtActive: { color: "#FBBF24" },
   reactionsRow: { flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" },
