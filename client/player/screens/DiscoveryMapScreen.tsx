@@ -26,7 +26,26 @@ type DiscoveryMapNav = {
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
-import MapView, { Marker, PROVIDER_DEFAULT, type Region } from "react-native-maps";
+// react-native-maps is a native module. On builds where the native side
+// isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
+// build) the require can throw at module-eval time and produce a white
+// screen on navigate. We require it lazily inside a try/catch so the
+// screen can fall back to a list view instead of crashing.
+let MapViewLib: any = null;
+let MarkerLib: any = null;
+let PROVIDER_DEFAULT_VAL: any = undefined;
+let MAPS_LOAD_ERROR: Error | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const maps = require("react-native-maps");
+  MapViewLib = maps.default ?? maps.MapView;
+  MarkerLib = maps.Marker;
+  PROVIDER_DEFAULT_VAL = maps.PROVIDER_DEFAULT;
+} catch (e: any) {
+  MAPS_LOAD_ERROR = e instanceof Error ? e : new Error(String(e));
+  console.warn("[DiscoveryMap] react-native-maps failed to load:", MAPS_LOAD_ERROR.message);
+}
+type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiFetch } from "@/lib/query-client";
@@ -204,7 +223,8 @@ export default function DiscoveryMapScreen() {
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
+  const mapsAvailable = !!MapViewLib && !MAPS_LOAD_ERROR;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [centeredFromFallback, setCenteredFromFallback] = useState(false);
@@ -363,8 +383,11 @@ export default function DiscoveryMapScreen() {
 
   const headerTop = insets.top + Spacing.sm;
 
-  // ---------------- Web fallback: list ----------------
-  if (Platform.OS === "web") {
+  // ---------------- Fallback: list (web OR maps native module unavailable) ----------------
+  if (Platform.OS === "web" || !mapsAvailable) {
+    const fallbackMessage = Platform.OS === "web"
+      ? "Open the app on your phone to see the interactive global map. Showing the world list below."
+      : "Map view needs the latest app version from the store. Showing the world list below.";
     return (
       <View style={[styles.root, { paddingTop: headerTop }]}>
         <FilterBar filter={filter} onChange={setFilter} />
@@ -373,9 +396,7 @@ export default function DiscoveryMapScreen() {
         >
           <View style={styles.webNotice}>
             <Ionicons name="map-outline" size={20} color={Colors.dark.textMuted} />
-            <Text style={styles.webNoticeText}>
-              Open the app on your phone to see the interactive global map. Showing the world list below.
-            </Text>
+            <Text style={styles.webNoticeText}>{fallbackMessage}</Text>
           </View>
           {isLoading ? (
             <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
@@ -402,10 +423,10 @@ export default function DiscoveryMapScreen() {
   // ---------------- Native: map ----------------
   return (
     <View style={styles.root}>
-      <MapView
+      <MapViewLib
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
-        provider={PROVIDER_DEFAULT}
+        provider={PROVIDER_DEFAULT_VAL}
         initialRegion={region}
         onRegionChangeComplete={onRegionChangeComplete}
         showsUserLocation={!!userLocation}
@@ -413,7 +434,7 @@ export default function DiscoveryMapScreen() {
         toolbarEnabled={false}
       >
         {clusters.map((c) => (
-          <Marker
+          <MarkerLib
             key={`c:${c.key}`}
             coordinate={{ latitude: c.lat, longitude: c.lng }}
             onPress={() => handleClusterPress(c)}
@@ -422,19 +443,19 @@ export default function DiscoveryMapScreen() {
             <View style={styles.clusterPin}>
               <Text style={styles.clusterPinText}>{c.count > 99 ? "99+" : c.count}</Text>
             </View>
-          </Marker>
+          </MarkerLib>
         ))}
         {singles.map((p) => (
-          <Marker
+          <MarkerLib
             key={p.id}
             coordinate={{ latitude: p.lat, longitude: p.lng }}
             onPress={() => handlePinPress(p)}
             tracksViewChanges={false}
           >
             <PinDot color={PIN_COLORS[p.type]} size={20} />
-          </Marker>
+          </MarkerLib>
         ))}
-      </MapView>
+      </MapViewLib>
 
       <View style={[styles.topOverlay, { paddingTop: headerTop }]} pointerEvents="box-none">
         <FilterBar filter={filter} onChange={setFilter} />
