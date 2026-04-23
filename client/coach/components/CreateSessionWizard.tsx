@@ -1,5 +1,11 @@
 import logger from "@/lib/logger";
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 
 import {
   View,
@@ -34,11 +40,29 @@ import Animated, {
   SlideOutLeft,
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import {
+  Colors,
+  Backgrounds,
+  Typography,
+  Spacing,
+  BorderRadius,
+  GlowColors,
+} from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { getSportConfig, SPORTS, type Sport, type SportOrMulti } from "@shared/sportConfig";
+import {
+  getSportConfig,
+  SPORTS,
+  type Sport,
+  type SportOrMulti,
+} from "@shared/sportConfig";
 import { SportSingleSelector } from "@/components/SportBadge";
-import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import {
+  apiRequest,
+  apiFetch,
+  getApiUrl,
+  getStaticAssetsUrl,
+  buildPhotoUrl,
+} from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -61,16 +85,39 @@ interface Player {
 
 // Pillar configuration for display
 const PILLARS = [
-  { key: "technique", label: "Tech", color: Colors.dark.primary, icon: "tennisball" as const },
-  { key: "tactical", label: "Tact", color: Colors.dark.xpCyan, icon: "bulb" as const },
-  { key: "physical", label: "Phys", color: Colors.dark.gold, icon: "fitness" as const },
+  {
+    key: "technique",
+    label: "Tech",
+    color: Colors.dark.primary,
+    icon: "tennisball" as const,
+  },
+  {
+    key: "tactical",
+    label: "Tact",
+    color: Colors.dark.xpCyan,
+    icon: "bulb" as const,
+  },
+  {
+    key: "physical",
+    label: "Phys",
+    color: Colors.dark.gold,
+    icon: "fitness" as const,
+  },
   { key: "mental", label: "Ment", color: "#9B59B6", icon: "flash" as const },
   { key: "social", label: "Soc", color: "#FF6B9D", icon: "people" as const },
-  { key: "match", label: "Match", color: Colors.dark.orange, icon: "trophy" as const },
+  {
+    key: "match",
+    label: "Match",
+    color: Colors.dark.orange,
+    icon: "trophy" as const,
+  },
 ];
 
 // Format ball level display
-const formatBallLevel = (ballLevel?: string | null, skillLevel?: number | null): string => {
+const formatBallLevel = (
+  ballLevel?: string | null,
+  skillLevel?: number | null,
+): string => {
   if (!ballLevel) return "Not Set";
   const levelName = ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1);
   if (skillLevel && skillLevel >= 1 && skillLevel <= 3) {
@@ -106,53 +153,58 @@ interface CreateSessionWizardProps {
   createSeriesMode?: boolean;
 }
 
-type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
+type SessionType =
+  | "private"
+  | "semi_private"
+  | "group"
+  | "physical"
+  | "activity";
 type BallLevel = string;
 type SkillLevel = 1 | 2 | 3;
 
-const SESSION_TYPE_CARDS: { 
-  value: SessionType; 
-  label: string; 
+const SESSION_TYPE_CARDS: {
+  value: SessionType;
+  label: string;
   subtitle: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   gradient: [string, string];
 }[] = [
-  { 
-    value: "private", 
-    label: "Private", 
+  {
+    value: "private",
+    label: "Private",
     subtitle: "1 player · 1 coach",
     icon: "person",
     color: Colors.dark.primary,
     gradient: [Colors.dark.primary + "40", Colors.dark.primary + "10"],
   },
-  { 
-    value: "group", 
-    label: "Group", 
+  {
+    value: "group",
+    label: "Group",
     subtitle: "Multiple players · Fixed group",
     icon: "people",
     color: Colors.dark.orange,
     gradient: [Colors.dark.orange + "40", Colors.dark.orange + "10"],
   },
-  { 
-    value: "semi_private", 
-    label: "Semi-Private", 
+  {
+    value: "semi_private",
+    label: "Semi-Private",
     subtitle: "2-3 players",
     icon: "people-outline",
     color: Colors.dark.xpCyan,
     gradient: [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"],
   },
-  { 
-    value: "physical", 
-    label: "Physical", 
+  {
+    value: "physical",
+    label: "Physical",
     subtitle: "Conditioning · Fitness",
     icon: "fitness",
     color: Colors.dark.gold,
     gradient: [Colors.dark.gold + "40", Colors.dark.gold + "10"],
   },
-  { 
-    value: "activity", 
-    label: "Activity", 
+  {
+    value: "activity",
+    label: "Activity",
     subtitle: "Events · Games · Fun",
     icon: "game-controller",
     color: "#FF6B9D",
@@ -215,73 +267,89 @@ export default function CreateSessionWizard({
   const queryClient = useQueryClient();
   const { coach: currentCoach, refetchCalendar } = useCoach();
   const { isOffline } = useNetwork();
-  
+
   // Use ref to ensure mutation always has latest createSeriesMode value
   const createSeriesModeRef = useRef(createSeriesMode);
   useEffect(() => {
     createSeriesModeRef.current = createSeriesMode;
   }, [createSeriesMode]);
-  
+
   const totalSlides = adminMode ? ADMIN_TOTAL_SLIDES : TOTAL_SLIDES;
   const slideTitles = adminMode ? ADMIN_SLIDE_TITLES : SLIDE_TITLES;
-  
-  const effectiveCoach = adminMode 
-    ? coaches.find(c => c.id === selectedCoachId) 
+
+  const effectiveCoach = adminMode
+    ? coaches.find((c) => c.id === selectedCoachId)
     : currentCoach;
 
   // Current slide (0-5)
   const [currentSlide, setCurrentSlide] = useState(0);
-  
+
   // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
-  
+
   // Slide 1: Schedule Pattern - "one-time" | "recurring" | "flexible"
   type SchedulePattern = "one-time" | "recurring" | "flexible";
-  const [schedulePattern, setSchedulePattern] = useState<SchedulePattern>(createSeriesMode ? "recurring" : "one-time");
+  const [schedulePattern, setSchedulePattern] = useState<SchedulePattern>(
+    createSeriesMode ? "recurring" : "one-time",
+  );
   const [weekCount, setWeekCount] = useState(10);
-  
+
   // Legacy isRecurring for backwards compatibility
   const isRecurring = schedulePattern === "recurring";
   const isFlexible = schedulePattern === "flexible";
-  
+
   // Flexible schedule: array of selected dates with optional per-date times
   interface FlexibleDate {
     date: string; // "YYYY-MM-DD"
     time: string | null; // "HH:MM" or null to use default
   }
   const [flexibleDates, setFlexibleDates] = useState<FlexibleDate[]>([]);
-  const [flexibleDefaultTime, setFlexibleDefaultTime] = useState<string | null>(null);
+  const [flexibleDefaultTime, setFlexibleDefaultTime] = useState<string | null>(
+    null,
+  );
   const [showFlexibleCalendar, setShowFlexibleCalendar] = useState(false);
-  const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(new Date());
-  
+  const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(
+    new Date(),
+  );
+
   // Auto-enable recurring for series mode
   useEffect(() => {
     if (createSeriesMode && visible) {
       setSchedulePattern("recurring");
     }
   }, [createSeriesMode, visible]);
-  
+
   // Slide 2: When & Where
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [duration, setDuration] = useState(60);
   const [startTime, setStartTime] = useState<string | null>(null);
-  
+
   // Slide 3: Session Setup
   const [maxPlayers, setMaxPlayers] = useState(6);
   const [ballLevel, setBallLevel] = useState<BallLevel | null>(null);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [isOpenGroup, setIsOpenGroup] = useState(true);
+  // Task #1033 — Open By Default. Visibility controls coaching_series.isPublic
+  // (true = anyone, including other academies, can discover the lesson;
+  // false = my academy only). Drop-in price is optional and only applies when
+  // visibility is "open".
+  const [visibility, setVisibility] = useState<"open" | "academy">("open");
+  // Task #1033 — sensible default drop-in price for open lessons; coach
+  // can edit. Aligned with current group-lesson pricing baseline.
+  const [dropInPrice, setDropInPrice] = useState<string>("150");
   const [ballLevelOverride, setBallLevelOverride] = useState(false); // Manual override toggle
   const [sessionSport, setSessionSport] = useState<Sport>("tennis");
-  
+
   // Slide 4: Players
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
-  const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(null);
+  const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(
+    null,
+  );
   const [visibleToPlayers, setVisibleToPlayers] = useState(true);
   const [enableWaitlist, setEnableWaitlist] = useState(false);
-  
+
   // Guest player modal
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -291,14 +359,14 @@ export default function CreateSessionWizard({
   // Auto-select ball level based on selected players (unless manually overridden)
   useEffect(() => {
     if (ballLevelOverride || selectedPlayers.length === 0) return;
-    
+
     // Get ball levels from selected players
     const playerBallLevels = selectedPlayers
-      .map(p => p.ballLevel?.toLowerCase())
+      .map((p) => p.ballLevel?.toLowerCase())
       .filter((bl): bl is string => !!bl);
-    
+
     if (playerBallLevels.length === 0) return;
-    
+
     // Ball level priority order (for averaging)
     const BALL_LEVEL_ORDER: Record<string, number> = {
       red: 1,
@@ -307,36 +375,38 @@ export default function CreateSessionWizard({
       yellow: 4,
       glow: 5,
     };
-    
+
     // Calculate average level
     const levelSum = playerBallLevels.reduce((sum, bl) => {
       return sum + (BALL_LEVEL_ORDER[bl] || 0);
     }, 0);
     const avgLevel = Math.round(levelSum / playerBallLevels.length);
-    
+
     // Convert back to ball level
     const levelToValue: Record<number, BallLevel> = {
       1: "red",
-      2: "orange", 
+      2: "orange",
       3: "green",
       4: "yellow",
       5: "glow",
     };
-    
+
     const autoLevel = levelToValue[avgLevel] || null;
     if (autoLevel && autoLevel !== ballLevel) {
       setBallLevel(autoLevel);
     }
   }, [selectedPlayers, ballLevelOverride]);
-  
+
   // Slide 5: Extras
   const [travelTime, setTravelTime] = useState(0);
   const [notes, setNotes] = useState("");
-  
+
   // Loading states
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
-  const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<Set<string>>(new Set());
-  
+  const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<
+    Set<string>
+  >(new Set());
+
   // Calendar modal state
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
@@ -346,18 +416,22 @@ export default function CreateSessionWizard({
   const glowPulse = useSharedValue(0);
 
   // Fetch courts
-  const { data: courts = [] } = useQuery<{ id: string; name: string; locationId?: string }[]>({
+  const { data: courts = [] } = useQuery<
+    { id: string; name: string; locationId?: string }[]
+  >({
     queryKey: ["/api/courts"],
     enabled: visible,
   });
 
   // Fetch travel times
-  const { data: travelTimes = [] } = useQuery<Array<{
-    id: string;
-    fromLocationId: string;
-    toLocationId: string;
-    travelTimeMinutes: number;
-  }>>({
+  const { data: travelTimes = [] } = useQuery<
+    {
+      id: string;
+      fromLocationId: string;
+      toLocationId: string;
+      travelTimeMinutes: number;
+    }[]
+  >({
     queryKey: ["/api/coach/travel-times"],
     enabled: visible,
   });
@@ -371,7 +445,7 @@ export default function CreateSessionWizard({
 
   // Date string for API
   const selectedDateString = useMemo(() => {
-    return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
   }, [selectedDate]);
 
   // Fetch calendar data for selected date
@@ -383,12 +457,21 @@ export default function CreateSessionWizard({
     courtId?: string;
   }
 
-  const { data: calendarData } = useQuery<{ ownSessions: ExistingSession[]; blockedSessions: ExistingSession[] }>({
-    queryKey: ["/api/coach/calendar/day", effectiveCoach?.id, selectedDateString],
+  const { data: calendarData } = useQuery<{
+    ownSessions: ExistingSession[];
+    blockedSessions: ExistingSession[];
+  }>({
+    queryKey: [
+      "/api/coach/calendar/day",
+      effectiveCoach?.id,
+      selectedDateString,
+    ],
     queryFn: async () => {
       if (!effectiveCoach?.id) return { ownSessions: [], blockedSessions: [] };
-      const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
-      const res = await apiFetch(`/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`);
+      const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : "";
+      const res = await apiFetch(
+        `/api/coach/calendar?date=${selectedDateString}&view=day${coachIdParam}`,
+      );
       if (!res.ok) return { ownSessions: [], blockedSessions: [] };
       const data = await res.json();
       return {
@@ -396,7 +479,8 @@ export default function CreateSessionWizard({
         blockedSessions: data.blockedSessions || [],
       };
     },
-    enabled: visible && !!effectiveCoach?.id && currentSlide >= (adminMode ? 3 : 2),
+    enabled:
+      visible && !!effectiveCoach?.id && currentSlide >= (adminMode ? 3 : 2),
   });
 
   // Calculate blocked time slots
@@ -405,53 +489,90 @@ export default function CreateSessionWizard({
     if (!calendarData) return blocked;
 
     const slotTimes = [
-      "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+      "06:00",
+      "06:30",
+      "07:00",
+      "07:30",
+      "08:00",
+      "08:30",
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "14:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00",
+      "17:30",
+      "18:00",
+      "18:30",
+      "19:00",
+      "19:30",
+      "20:00",
+      "20:30",
+      "21:00",
+      "21:30",
     ];
 
     const checkSessionOverlap = (session: ExistingSession) => {
       const sessionStartStr = session.startTime;
       const sessionEndStr = session.endTime;
-      const sessionStart = new Date(sessionStartStr.endsWith("Z") ? sessionStartStr : sessionStartStr + "Z");
-      const sessionEnd = new Date(sessionEndStr.endsWith("Z") ? sessionEndStr : sessionEndStr + "Z");
-      
+      const sessionStart = new Date(
+        sessionStartStr.endsWith("Z") ? sessionStartStr : sessionStartStr + "Z",
+      );
+      const sessionEnd = new Date(
+        sessionEndStr.endsWith("Z") ? sessionEndStr : sessionEndStr + "Z",
+      );
+
       for (const time of slotTimes) {
         const [hours, mins] = time.split(":").map(Number);
         const slotStart = new Date(selectedDate);
         slotStart.setHours(hours, mins, 0, 0);
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
-        
+
         if (slotStart < sessionEnd && slotEnd > sessionStart) {
           blocked.add(time);
         }
       }
     };
-    
+
     // Block coach's own sessions
     for (const session of calendarData.ownSessions || []) {
       checkSessionOverlap(session);
     }
-    
+
     // Block court sessions if court selected
     if (selectedCourtId) {
-      for (const session of (calendarData.blockedSessions || []).filter(s => s.courtId === selectedCourtId)) {
+      for (const session of (calendarData.blockedSessions || []).filter(
+        (s) => s.courtId === selectedCourtId,
+      )) {
         checkSessionOverlap(session);
       }
     }
-    
+
     return blocked;
   }, [calendarData, selectedCourtId, selectedDate, duration]);
 
   // Calculate travel time conflicts for time slots
-  const travelTimeConflicts = useMemo((): Map<string, { warning: string; minutes: number }> => {
+  const travelTimeConflicts = useMemo((): Map<
+    string,
+    { warning: string; minutes: number }
+  > => {
     const conflicts = new Map<string, { warning: string; minutes: number }>();
-    if (!calendarData || !selectedCourtId || travelTimes.length === 0) return conflicts;
+    if (!calendarData || !selectedCourtId || travelTimes.length === 0)
+      return conflicts;
 
-    const selectedCourt = courts.find(c => c.id === selectedCourtId);
+    const selectedCourt = courts.find((c) => c.id === selectedCourtId);
     const selectedLocationId = selectedCourt?.locationId;
     if (!selectedLocationId) return conflicts;
 
@@ -459,11 +580,38 @@ export default function CreateSessionWizard({
     if (ownSessions.length === 0) return conflicts;
 
     const slotTimes = [
-      "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+      "06:00",
+      "06:30",
+      "07:00",
+      "07:30",
+      "08:00",
+      "08:30",
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "14:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00",
+      "17:30",
+      "18:00",
+      "18:30",
+      "19:00",
+      "19:30",
+      "20:00",
+      "20:30",
+      "21:00",
+      "21:30",
     ];
 
     for (const time of slotTimes) {
@@ -475,19 +623,31 @@ export default function CreateSessionWizard({
 
       // Check each existing session for travel time conflicts
       for (const session of ownSessions) {
-        const sessionCourt = courts.find(c => c.id === session.courtId);
+        const sessionCourt = courts.find((c) => c.id === session.courtId);
         const sessionLocationId = sessionCourt?.locationId;
-        if (!sessionLocationId || sessionLocationId === selectedLocationId) continue;
+        if (!sessionLocationId || sessionLocationId === selectedLocationId)
+          continue;
 
         // Find travel time between locations
-        const travelTime = travelTimes.find(t =>
-          (t.fromLocationId === sessionLocationId && t.toLocationId === selectedLocationId) ||
-          (t.fromLocationId === selectedLocationId && t.toLocationId === sessionLocationId)
+        const travelTime = travelTimes.find(
+          (t) =>
+            (t.fromLocationId === sessionLocationId &&
+              t.toLocationId === selectedLocationId) ||
+            (t.fromLocationId === selectedLocationId &&
+              t.toLocationId === sessionLocationId),
         );
         if (!travelTime) continue;
 
-        const sessionStart = new Date(session.startTime.endsWith("Z") ? session.startTime : session.startTime + "Z");
-        const sessionEnd = new Date(session.endTime.endsWith("Z") ? session.endTime : session.endTime + "Z");
+        const sessionStart = new Date(
+          session.startTime.endsWith("Z")
+            ? session.startTime
+            : session.startTime + "Z",
+        );
+        const sessionEnd = new Date(
+          session.endTime.endsWith("Z")
+            ? session.endTime
+            : session.endTime + "Z",
+        );
 
         // Check if new session would end too close to existing session start (need travel time before)
         const gapBefore = (sessionStart.getTime() - slotEnd.getTime()) / 60000;
@@ -512,7 +672,14 @@ export default function CreateSessionWizard({
     }
 
     return conflicts;
-  }, [calendarData, selectedCourtId, travelTimes, courts, selectedDate, duration]);
+  }, [
+    calendarData,
+    selectedCourtId,
+    travelTimes,
+    courts,
+    selectedDate,
+    duration,
+  ]);
 
   // Generate dates for recurring weeks
   const recurringDates = useMemo(() => {
@@ -520,8 +687,8 @@ export default function CreateSessionWizard({
     const dates: string[] = [];
     for (let week = 1; week < weekCount; week++) {
       const futureDate = new Date(selectedDate);
-      futureDate.setDate(futureDate.getDate() + (week * 7));
-      const dateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
+      futureDate.setDate(futureDate.getDate() + week * 7);
+      const dateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, "0")}-${String(futureDate.getDate()).padStart(2, "0")}`;
       dates.push(dateStr);
     }
     return dates;
@@ -534,42 +701,78 @@ export default function CreateSessionWizard({
         setMultiWeekBlockedSlots(new Set());
         return;
       }
-      
+
       setIsCheckingAvailability(true);
       try {
-        const res = await apiFetch("/api/coach/sessions/multi-week-availability", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dates: recurringDates, courtId: selectedCourtId }),
-        });
-        
+        const res = await apiFetch(
+          "/api/coach/sessions/multi-week-availability",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dates: recurringDates,
+              courtId: selectedCourtId,
+            }),
+          },
+        );
+
         if (!res.ok) {
           setMultiWeekBlockedSlots(new Set());
           return;
         }
-        
+
         const data = await res.json();
         const blockedTimes = new Set<string>();
-        
+
         const slotTimes = [
-          "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-          "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-          "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-          "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-          "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+          "06:00",
+          "06:30",
+          "07:00",
+          "07:30",
+          "08:00",
+          "08:30",
+          "09:00",
+          "09:30",
+          "10:00",
+          "10:30",
+          "11:00",
+          "11:30",
+          "12:00",
+          "12:30",
+          "13:00",
+          "13:30",
+          "14:00",
+          "14:30",
+          "15:00",
+          "15:30",
+          "16:00",
+          "16:30",
+          "17:00",
+          "17:30",
+          "18:00",
+          "18:30",
+          "19:00",
+          "19:30",
+          "20:00",
+          "20:30",
+          "21:00",
+          "21:30",
         ];
-        
+
         // For each future week, check which slots are blocked
         for (const dateStr of recurringDates) {
           const availability = data[dateStr];
           if (!availability) continue;
-          
-          const allBlocked = [...(availability.blockedSlots || []), ...(availability.coachBlocked || [])];
-          
+
+          const allBlocked = [
+            ...(availability.blockedSlots || []),
+            ...(availability.coachBlocked || []),
+          ];
+
           for (const blocked of allBlocked) {
             const blockStart = new Date(blocked.start);
             const blockEnd = new Date(blocked.end);
-            
+
             // Check each time slot against this blocked period
             for (const time of slotTimes) {
               const [hours, mins] = time.split(":").map(Number);
@@ -578,13 +781,13 @@ export default function CreateSessionWizard({
               slotDate.setHours(hours, mins, 0, 0);
               const slotEnd = new Date(slotDate);
               slotEnd.setMinutes(slotEnd.getMinutes() + duration);
-              
+
               // Map to the future week's date for comparison
               const [y, m, d] = dateStr.split("-").map(Number);
               const futureSlotStart = new Date(y, m - 1, d, hours, mins, 0, 0);
               const futureSlotEnd = new Date(futureSlotStart);
               futureSlotEnd.setMinutes(futureSlotEnd.getMinutes() + duration);
-              
+
               // Check overlap
               if (futureSlotStart < blockEnd && futureSlotEnd > blockStart) {
                 blockedTimes.add(time);
@@ -592,7 +795,7 @@ export default function CreateSessionWizard({
             }
           }
         }
-        
+
         setMultiWeekBlockedSlots(blockedTimes);
       } catch (error) {
         console.error("Failed to fetch multi-week availability:", error);
@@ -601,24 +804,52 @@ export default function CreateSessionWizard({
         setIsCheckingAvailability(false);
       }
     };
-    
+
     fetchMultiWeekAvailability();
   }, [isRecurring, selectedCourtId, recurringDates, duration, selectedDate]);
 
   // Available time slots (HIDDEN if blocked - includes both current day, future recurring days, AND travel time conflicts)
   const availableSlots = useMemo(() => {
     const allSlots = [
-      "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+      "06:00",
+      "06:30",
+      "07:00",
+      "07:30",
+      "08:00",
+      "08:30",
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "14:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00",
+      "17:30",
+      "18:00",
+      "18:30",
+      "19:00",
+      "19:30",
+      "20:00",
+      "20:30",
+      "21:00",
+      "21:30",
     ];
     // Filter out slots blocked on current day, future recurring weeks, AND travel time conflicts (HIDDEN, not just warned)
-    return allSlots.filter(time => 
-      !blockedSlots.has(time) && 
-      !multiWeekBlockedSlots.has(time) &&
-      !travelTimeConflicts.has(time)
+    return allSlots.filter(
+      (time) =>
+        !blockedSlots.has(time) &&
+        !multiWeekBlockedSlots.has(time) &&
+        !travelTimeConflicts.has(time),
     );
   }, [blockedSlots, multiWeekBlockedSlots, travelTimeConflicts]);
 
@@ -709,51 +940,81 @@ export default function CreateSessionWizard({
   const goNext = useCallback(() => {
     if (currentSlide < totalSlides - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setCurrentSlide(prev => prev + 1);
+      setCurrentSlide((prev) => prev + 1);
     }
   }, [currentSlide, totalSlides]);
 
   const goBack = useCallback(() => {
     if (currentSlide > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentSlide(prev => prev - 1);
+      setCurrentSlide((prev) => prev - 1);
     }
   }, [currentSlide]);
 
   // Can proceed to next slide?
   const canProceed = useMemo(() => {
     // For flexible schedule mode, check flexibleDates + flexibleDefaultTime instead of startTime
-    const hasFlexibleSchedule = isFlexible && flexibleDates.length > 0 && !!flexibleDefaultTime;
+    const hasFlexibleSchedule =
+      isFlexible && flexibleDates.length > 0 && !!flexibleDefaultTime;
     const hasRegularTime = !!startTime;
     const hasValidTimeSelection = hasFlexibleSchedule || hasRegularTime;
-    
+
     if (adminMode) {
       switch (currentSlide) {
-        case 0: return !!selectedCoachId;
-        case 1: return !!sessionType;
-        case 2: return true; // Recurring is optional
-        case 3: return !!selectedCourtId && hasValidTimeSelection;
-        case 4: return true; // Players optional
-        case 5: return true; // Setup has defaults (auto-level from players)
-        case 6: return true; // Confirm
-        default: return false;
+        case 0:
+          return !!selectedCoachId;
+        case 1:
+          return !!sessionType;
+        case 2:
+          return true; // Recurring is optional
+        case 3:
+          return !!selectedCourtId && hasValidTimeSelection;
+        case 4:
+          return true; // Players optional
+        case 5:
+          return true; // Setup has defaults (auto-level from players)
+        case 6:
+          return true; // Confirm
+        default:
+          return false;
       }
     } else {
       switch (currentSlide) {
-        case 0: return !!sessionType;
-        case 1: return true; // Recurring is optional
-        case 2: return !!selectedCourtId && hasValidTimeSelection;
-        case 3: return true; // Players optional
-        case 4: return true; // Setup has defaults (auto-level from players)
-        case 5: return true; // Confirm
-        default: return false;
+        case 0:
+          return !!sessionType;
+        case 1:
+          return true; // Recurring is optional
+        case 2:
+          return !!selectedCourtId && hasValidTimeSelection;
+        case 3:
+          return true; // Players optional
+        case 4:
+          return true; // Setup has defaults (auto-level from players)
+        case 5:
+          return true; // Confirm
+        default:
+          return false;
       }
     }
-  }, [currentSlide, sessionType, selectedCourtId, startTime, adminMode, selectedCoachId, isFlexible, flexibleDates, flexibleDefaultTime]);
+  }, [
+    currentSlide,
+    sessionType,
+    selectedCourtId,
+    startTime,
+    adminMode,
+    selectedCoachId,
+    isFlexible,
+    flexibleDates,
+    flexibleDefaultTime,
+  ]);
 
   // Create session mutation - endpoint is passed in data to avoid closure issues
   const createSessionMutation = useMutation({
-    mutationFn: async (mutationData: { endpoint: string; isSeriesMode: boolean; payload: any }) => {
+    mutationFn: async (mutationData: {
+      endpoint: string;
+      isSeriesMode: boolean;
+      payload: any;
+    }) => {
       const { endpoint, payload } = mutationData;
       logger.log("[CreateSession] Calling API:", endpoint, payload);
       const response = await apiRequest("POST", endpoint, payload);
@@ -766,41 +1027,59 @@ export default function CreateSessionWizard({
         refetchCalendar();
       }
       const isSeriesMode = variables.isSeriesMode;
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
-          if (typeof key !== 'string') return false;
+          if (typeof key !== "string") return false;
           if (isSeriesMode) {
-            const baseKey = key.split('?')[0];
-            return baseKey === '/api/coach/series' || 
-                   baseKey.startsWith('/api/coach/series/') ||
-                   baseKey === '/api/admin/series' || 
-                   baseKey.startsWith('/api/admin/series/') ||
-                   baseKey === '/api/coach/calendar' ||
-                   baseKey.startsWith('/api/coach/calendar');
+            const baseKey = key.split("?")[0];
+            return (
+              baseKey === "/api/coach/series" ||
+              baseKey.startsWith("/api/coach/series/") ||
+              baseKey === "/api/admin/series" ||
+              baseKey.startsWith("/api/admin/series/") ||
+              baseKey === "/api/coach/calendar" ||
+              baseKey.startsWith("/api/coach/calendar")
+            );
           }
           if (adminMode) {
-            const baseKey = key.split('?')[0];
-            return baseKey === '/api/admin/series' || 
-                   baseKey.startsWith('/api/admin/series/') || 
-                   baseKey.startsWith('/api/admin/calendar');
+            const baseKey = key.split("?")[0];
+            return (
+              baseKey === "/api/admin/series" ||
+              baseKey.startsWith("/api/admin/series/") ||
+              baseKey.startsWith("/api/admin/calendar")
+            );
           }
-          return key.startsWith('/api/coach/calendar');
-        }
+          return key.startsWith("/api/coach/calendar");
+        },
       });
       onClose();
       resetForm();
     },
     onError: (error: Error, variables) => {
       const isSeriesMode = variables.isSeriesMode;
-      Alert.alert("Error", error.message || (isSeriesMode ? "Failed to create class" : "Failed to create session"));
+      Alert.alert(
+        "Error",
+        error.message ||
+          (isSeriesMode
+            ? "Failed to create class"
+            : "Failed to create session"),
+      );
     },
   });
 
   // Handle create session
   const handleCreate = useCallback(() => {
-    logger.log("[CreateSession] handleCreate called", { isOffline, adminMode, effectiveCoach: effectiveCoach?.id, selectedCourtId, startTime, createSeriesMode, createSeriesModeRef: createSeriesModeRef.current });
-    
+    logger.log("[CreateSession] handleCreate called", {
+      isOffline,
+      adminMode,
+      effectiveCoach: effectiveCoach?.id,
+      selectedCourtId,
+      startTime,
+      createSeriesMode,
+      createSeriesModeRef: createSeriesModeRef.current,
+    });
+
     if (isOffline) {
       logger.log("[CreateSession] Blocked: offline");
       showOfflineAlert();
@@ -823,20 +1102,20 @@ export default function CreateSessionWizard({
         Alert.alert("Error", "Please select at least one date");
         return;
       }
-      if (!flexibleDefaultTime && flexibleDates.some(fd => !fd.time)) {
+      if (!flexibleDefaultTime && flexibleDates.some((fd) => !fd.time)) {
         Alert.alert("Error", "Please set a time for all sessions");
         return;
       }
-      
+
       // Build flexible sessions payload
-      const flexibleSessions = flexibleDates.map(fd => {
+      const flexibleSessions = flexibleDates.map((fd) => {
         const time = fd.time || flexibleDefaultTime!;
         const [hours, mins] = time.split(":").map(Number);
         const [year, month, day] = fd.date.split("-").map(Number);
         const sessionStart = new Date(year, month - 1, day, hours, mins, 0, 0);
         const sessionEnd = new Date(sessionStart);
         sessionEnd.setMinutes(sessionEnd.getMinutes() + duration);
-        
+
         return {
           date: fd.date,
           time,
@@ -844,7 +1123,7 @@ export default function CreateSessionWizard({
           endTime: sessionEnd.toISOString(),
         };
       });
-      
+
       const flexiblePayload = {
         coachId: effectiveCoach?.id,
         courtId: selectedCourtId,
@@ -853,23 +1132,42 @@ export default function CreateSessionWizard({
         ballLevel,
         skillLevel,
         notes: notes || null,
-        playerIds: selectedPlayers.map(p => p.id),
+        playerIds: selectedPlayers.map((p) => p.id),
         maxPlayers: sessionType === "private" ? 1 : maxPlayers,
         isOpen: isOpenGroup,
         visibleToPlayers,
         flexibleSessions,
         sport: sessionSport,
+        // Task #1033 — pass visibility to coaching_series.isPublic so the
+        // lesson is discoverable across academies by default.
+        isPublic: sessionType === "private" ? false : visibility === "open",
+        publicDropInPrice:
+          visibility === "open" && dropInPrice && Number(dropInPrice) > 0
+            ? Number(dropInPrice)
+            : null,
       };
-      
-      const endpoint = adminMode ? "/api/admin/sessions/bulk" : "/api/coach/sessions/bulk";
-      logger.log("[CreateSession] Creating flexible sessions:", flexibleSessions.length);
+
+      const endpoint = adminMode
+        ? "/api/admin/sessions/bulk"
+        : "/api/coach/sessions/bulk";
+      logger.log(
+        "[CreateSession] Creating flexible sessions:",
+        flexibleSessions.length,
+      );
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      createSessionMutation.mutate({ endpoint, isSeriesMode: false, payload: flexiblePayload });
+      createSessionMutation.mutate({
+        endpoint,
+        isSeriesMode: false,
+        payload: flexiblePayload,
+      });
       return;
     }
-    
+
     if (!selectedCourtId || !startTime) {
-      logger.log("[CreateSession] Blocked: missing court or time", { selectedCourtId, startTime });
+      logger.log("[CreateSession] Blocked: missing court or time", {
+        selectedCourtId,
+        startTime,
+      });
       Alert.alert("Error", "Please select a court and time");
       return;
     }
@@ -877,20 +1175,24 @@ export default function CreateSessionWizard({
     const [hours, mins] = startTime.split(":").map(Number);
     const sessionStart = new Date(selectedDate);
     sessionStart.setHours(hours, mins, 0, 0);
-    
+
     const sessionEnd = new Date(sessionStart);
     sessionEnd.setMinutes(sessionEnd.getMinutes() + duration);
 
     // For series mode, we need different data structure
     if (createSeriesMode) {
       const dayOfWeek = selectedDate.getDay(); // 0=Sunday, 1=Monday, etc.
-      const seriesStartDateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
-      
+      const seriesStartDateStr = selectedDate.toISOString().split("T")[0]; // YYYY-MM-DD
+
       // Generate title based on session type and time
-      const sessionTypeLabel = SESSION_TYPE_CARDS.find(t => t.value === sessionType)?.label || sessionType;
-      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+      const sessionTypeLabel =
+        SESSION_TYPE_CARDS.find((t) => t.value === sessionType)?.label ||
+        sessionType;
+      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
+        dayOfWeek
+      ];
       const title = `${sessionTypeLabel} Session - ${dayName} ${startTime}`;
-      
+
       const seriesPayload = {
         coachId: effectiveCoach?.id,
         title,
@@ -906,15 +1208,30 @@ export default function CreateSessionWizard({
         xpPerSession: 20,
         vibe: "casual",
         courtId: selectedCourtId,
-        playerIds: selectedPlayers.map(p => p.id),
+        playerIds: selectedPlayers.map((p) => p.id),
         isRecurring: true,
         sport: sessionSport,
+        // Task #1033 — visibility-first: cross-academy discoverability + drop-in price.
+        isPublic: sessionType === "private" ? false : visibility === "open",
+        publicDropInPrice:
+          visibility === "open" && dropInPrice && Number(dropInPrice) > 0
+            ? Number(dropInPrice)
+            : null,
       };
 
       const endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
-      logger.log("[CreateSession] Creating series with endpoint:", endpoint, "data:", JSON.stringify(seriesPayload, null, 2));
+      logger.log(
+        "[CreateSession] Creating series with endpoint:",
+        endpoint,
+        "data:",
+        JSON.stringify(seriesPayload, null, 2),
+      );
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      createSessionMutation.mutate({ endpoint, isSeriesMode: true, payload: seriesPayload });
+      createSessionMutation.mutate({
+        endpoint,
+        isSeriesMode: true,
+        payload: seriesPayload,
+      });
       return;
     }
 
@@ -929,7 +1246,7 @@ export default function CreateSessionWizard({
       skillLevel,
       notes: notes || null,
       travelTime,
-      playerIds: selectedPlayers.map(p => p.id),
+      playerIds: selectedPlayers.map((p) => p.id),
       isRecurring,
       weekCount: isRecurring ? weekCount : 1,
       maxPlayers: sessionType === "private" ? 1 : maxPlayers,
@@ -937,18 +1254,48 @@ export default function CreateSessionWizard({
       visibleToPlayers,
       enableWaitlist,
       sport: sessionSport,
+      // Task #1033 — visibility-first: forwarded to coaching_series.isPublic.
+      isPublic: sessionType === "private" ? false : visibility === "open",
+      publicDropInPrice:
+        visibility === "open" && dropInPrice && Number(dropInPrice) > 0
+          ? Number(dropInPrice)
+          : null,
     };
 
     const endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
     logger.log("[CreateSession] Creating session with endpoint:", endpoint);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    createSessionMutation.mutate({ endpoint, isSeriesMode: false, payload: sessionPayload });
+    createSessionMutation.mutate({
+      endpoint,
+      isSeriesMode: false,
+      payload: sessionPayload,
+    });
   }, [
-    isOffline, selectedCourtId, startTime, selectedDate, duration,
-    sessionType, ballLevel, skillLevel, notes, travelTime,
-    selectedPlayers, effectiveCoach, isRecurring, isFlexible, weekCount, maxPlayers,
-    isOpenGroup, visibleToPlayers, enableWaitlist, createSeriesMode,
-    flexibleDates, flexibleDefaultTime, sessionSport
+    isOffline,
+    selectedCourtId,
+    startTime,
+    selectedDate,
+    duration,
+    sessionType,
+    ballLevel,
+    skillLevel,
+    notes,
+    travelTime,
+    selectedPlayers,
+    effectiveCoach,
+    isRecurring,
+    isFlexible,
+    weekCount,
+    maxPlayers,
+    isOpenGroup,
+    visibility,
+    dropInPrice,
+    visibleToPlayers,
+    enableWaitlist,
+    createSeriesMode,
+    flexibleDates,
+    flexibleDefaultTime,
+    sessionSport,
   ]);
 
   // Progress bar animated style
@@ -1001,12 +1348,14 @@ export default function CreateSessionWizard({
       }
     }
   };
-  
+
   const renderCoachSelectionSlide = () => (
     <View style={styles.slideContent}>
-      <Text style={styles.slideSubtitle}>Select the coach for this session</Text>
+      <Text style={styles.slideSubtitle}>
+        Select the coach for this session
+      </Text>
       <ScrollView style={styles.coachList} showsVerticalScrollIndicator={false}>
-        {coaches.map(coachItem => (
+        {coaches.map((coachItem) => (
           <Pressable
             key={coachItem.id}
             style={[
@@ -1026,7 +1375,10 @@ export default function CreateSessionWizard({
                 />
               ) : (
                 <LinearGradient
-                  colors={[coachItem.color || Colors.dark.primary, Colors.dark.xpCyan]}
+                  colors={[
+                    coachItem.color || Colors.dark.primary,
+                    Colors.dark.xpCyan,
+                  ]}
                   style={styles.coachOptionAvatar}
                 >
                   <Text style={styles.coachOptionAvatarText}>
@@ -1037,7 +1389,11 @@ export default function CreateSessionWizard({
               <Text style={styles.coachOptionName}>{coachItem.name}</Text>
             </View>
             {selectedCoachId === coachItem.id && (
-              <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+              <Ionicons
+                name="checkmark-circle"
+                size={24}
+                color={Colors.dark.primary}
+              />
             )}
           </Pressable>
         ))}
@@ -1065,22 +1421,50 @@ export default function CreateSessionWizard({
               ]}
             >
               <LinearGradient
-                colors={isSelected ? type.gradient : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+                colors={
+                  isSelected
+                    ? type.gradient
+                    : [
+                        Colors.dark.backgroundSecondary,
+                        Colors.dark.backgroundRoot,
+                      ]
+                }
                 style={styles.sessionTypeCardGradient}
               >
                 {isSelected && (
-                  <View style={[styles.glowOrb, { backgroundColor: type.color }]} />
+                  <View
+                    style={[styles.glowOrb, { backgroundColor: type.color }]}
+                  />
                 )}
-                <View style={[styles.sessionTypeIcon, { backgroundColor: type.color + "30" }]}>
+                <View
+                  style={[
+                    styles.sessionTypeIcon,
+                    { backgroundColor: type.color + "30" },
+                  ]}
+                >
                   <Ionicons name={type.icon} size={32} color={type.color} />
                 </View>
-                <Text style={[styles.sessionTypeLabel, isSelected && { color: type.color }]}>
+                <Text
+                  style={[
+                    styles.sessionTypeLabel,
+                    isSelected && { color: type.color },
+                  ]}
+                >
                   {type.label}
                 </Text>
                 <Text style={styles.sessionTypeSubtitle}>{type.subtitle}</Text>
                 {isSelected && (
-                  <View style={[styles.selectedBadge, { backgroundColor: type.color }]}>
-                    <Ionicons name="checkmark" size={12} color={Colors.dark.buttonText} />
+                  <View
+                    style={[
+                      styles.selectedBadge,
+                      { backgroundColor: type.color },
+                    ]}
+                  >
+                    <Ionicons
+                      name="checkmark"
+                      size={12}
+                      color={Colors.dark.buttonText}
+                    />
                   </View>
                 )}
               </LinearGradient>
@@ -1093,23 +1477,25 @@ export default function CreateSessionWizard({
 
   // Helper: Toggle date in flexible schedule
   const toggleFlexibleDate = (dateStr: string) => {
-    setFlexibleDates(prev => {
-      const exists = prev.find(d => d.date === dateStr);
+    setFlexibleDates((prev) => {
+      const exists = prev.find((d) => d.date === dateStr);
       if (exists) {
-        return prev.filter(d => d.date !== dateStr);
+        return prev.filter((d) => d.date !== dateStr);
       } else {
-        return [...prev, { date: dateStr, time: null }].sort((a, b) => a.date.localeCompare(b.date));
+        return [...prev, { date: dateStr, time: null }].sort((a, b) =>
+          a.date.localeCompare(b.date),
+        );
       }
     });
   };
-  
+
   // Helper: Set time for a specific flexible date
   const setFlexibleDateTime = (dateStr: string, time: string | null) => {
-    setFlexibleDates(prev => 
-      prev.map(d => d.date === dateStr ? { ...d, time } : d)
+    setFlexibleDates((prev) =>
+      prev.map((d) => (d.date === dateStr ? { ...d, time } : d)),
     );
   };
-  
+
   // Generate calendar days for flexible picker
   const getFlexibleCalendarDays = () => {
     const year = flexibleCalendarMonth.getFullYear();
@@ -1117,7 +1503,7 @@ export default function CreateSessionWizard({
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startPadding = firstDay.getDay(); // 0=Sun
-    
+
     const days: (Date | null)[] = [];
     for (let i = 0; i < startPadding; i++) days.push(null);
     for (let d = 1; d <= lastDay.getDate(); d++) {
@@ -1130,7 +1516,7 @@ export default function CreateSessionWizard({
   const renderRecurringSlide = () => (
     <View style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>How often?</Text>
-      
+
       <View style={styles.schedulePatternRow}>
         {/* One-Time */}
         <Pressable
@@ -1140,25 +1526,41 @@ export default function CreateSessionWizard({
           }}
           style={[
             styles.schedulePatternOption,
-            schedulePattern === "one-time" && styles.schedulePatternOptionActive,
+            schedulePattern === "one-time" &&
+              styles.schedulePatternOptionActive,
           ]}
         >
           <LinearGradient
-            colors={schedulePattern === "one-time" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : ["transparent", "transparent"]}
+            colors={
+              schedulePattern === "one-time"
+                ? [Colors.dark.primary + "40", Colors.dark.primary + "10"]
+                : ["transparent", "transparent"]
+            }
             style={styles.schedulePatternGradient}
           >
-            <Ionicons 
-              name="calendar-outline" 
-              size={28} 
-              color={schedulePattern === "one-time" ? Colors.dark.primary : Colors.dark.textMuted} 
+            <Ionicons
+              name="calendar-outline"
+              size={28}
+              color={
+                schedulePattern === "one-time"
+                  ? Colors.dark.primary
+                  : Colors.dark.textMuted
+              }
             />
-            <Text style={[styles.schedulePatternLabel, schedulePattern === "one-time" && { color: Colors.dark.primary }]}>
+            <Text
+              style={[
+                styles.schedulePatternLabel,
+                schedulePattern === "one-time" && {
+                  color: Colors.dark.primary,
+                },
+              ]}
+            >
               One-Time
             </Text>
             <Text style={styles.schedulePatternSubtitle}>Single</Text>
           </LinearGradient>
         </Pressable>
-        
+
         {/* Weekly Recurring */}
         <Pressable
           onPress={() => {
@@ -1167,25 +1569,41 @@ export default function CreateSessionWizard({
           }}
           style={[
             styles.schedulePatternOption,
-            schedulePattern === "recurring" && styles.schedulePatternOptionActive,
+            schedulePattern === "recurring" &&
+              styles.schedulePatternOptionActive,
           ]}
         >
           <LinearGradient
-            colors={schedulePattern === "recurring" ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"] : ["transparent", "transparent"]}
+            colors={
+              schedulePattern === "recurring"
+                ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"]
+                : ["transparent", "transparent"]
+            }
             style={styles.schedulePatternGradient}
           >
-            <Ionicons 
-              name="repeat" 
-              size={28} 
-              color={schedulePattern === "recurring" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
+            <Ionicons
+              name="repeat"
+              size={28}
+              color={
+                schedulePattern === "recurring"
+                  ? Colors.dark.xpCyan
+                  : Colors.dark.textMuted
+              }
             />
-            <Text style={[styles.schedulePatternLabel, schedulePattern === "recurring" && { color: Colors.dark.xpCyan }]}>
+            <Text
+              style={[
+                styles.schedulePatternLabel,
+                schedulePattern === "recurring" && {
+                  color: Colors.dark.xpCyan,
+                },
+              ]}
+            >
               Weekly
             </Text>
             <Text style={styles.schedulePatternSubtitle}>Fixed day</Text>
           </LinearGradient>
         </Pressable>
-        
+
         {/* Flexible (Pick Dates) */}
         <Pressable
           onPress={() => {
@@ -1194,19 +1612,33 @@ export default function CreateSessionWizard({
           }}
           style={[
             styles.schedulePatternOption,
-            schedulePattern === "flexible" && styles.schedulePatternOptionActive,
+            schedulePattern === "flexible" &&
+              styles.schedulePatternOptionActive,
           ]}
         >
           <LinearGradient
-            colors={schedulePattern === "flexible" ? [Colors.dark.orange + "40", Colors.dark.orange + "10"] : ["transparent", "transparent"]}
+            colors={
+              schedulePattern === "flexible"
+                ? [Colors.dark.orange + "40", Colors.dark.orange + "10"]
+                : ["transparent", "transparent"]
+            }
             style={styles.schedulePatternGradient}
           >
-            <Ionicons 
-              name="calendar-number-outline" 
-              size={28} 
-              color={schedulePattern === "flexible" ? Colors.dark.orange : Colors.dark.textMuted} 
+            <Ionicons
+              name="calendar-number-outline"
+              size={28}
+              color={
+                schedulePattern === "flexible"
+                  ? Colors.dark.orange
+                  : Colors.dark.textMuted
+              }
             />
-            <Text style={[styles.schedulePatternLabel, schedulePattern === "flexible" && { color: Colors.dark.orange }]}>
+            <Text
+              style={[
+                styles.schedulePatternLabel,
+                schedulePattern === "flexible" && { color: Colors.dark.orange },
+              ]}
+            >
               Flexible
             </Text>
             <Text style={styles.schedulePatternSubtitle}>Pick dates</Text>
@@ -1216,7 +1648,10 @@ export default function CreateSessionWizard({
 
       {/* Weekly recurring options */}
       {isRecurring && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.weekCountSection}>
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.weekCountSection}
+        >
           <Text style={styles.weekCountLabel}>Number of weeks</Text>
           <View style={styles.weekCountRow}>
             {WEEK_COUNTS.map((count) => (
@@ -1231,26 +1666,31 @@ export default function CreateSessionWizard({
                   weekCount === count && styles.weekCountChipActive,
                 ]}
               >
-                <Text style={[
-                  styles.weekCountChipText,
-                  weekCount === count && styles.weekCountChipTextActive,
-                ]}>
+                <Text
+                  style={[
+                    styles.weekCountChipText,
+                    weekCount === count && styles.weekCountChipTextActive,
+                  ]}
+                >
                   {count}
                 </Text>
               </Pressable>
             ))}
           </View>
-          <Text style={styles.weekCountHint}>
-            {weekCount} sessions total
-          </Text>
+          <Text style={styles.weekCountHint}>{weekCount} sessions total</Text>
         </Animated.View>
       )}
-      
+
       {/* Flexible date picker */}
       {isFlexible && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.flexibleSection}>
-          <Text style={styles.weekCountLabel}>Select dates ({flexibleDates.length} selected)</Text>
-          
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.flexibleSection}
+        >
+          <Text style={styles.weekCountLabel}>
+            Select dates ({flexibleDates.length} selected)
+          </Text>
+
           {/* Month navigation */}
           <View style={styles.flexibleMonthNav}>
             <Pressable
@@ -1261,10 +1701,17 @@ export default function CreateSessionWizard({
               }}
               style={styles.flexibleMonthBtn}
             >
-              <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={Colors.dark.text}
+              />
             </Pressable>
             <Text style={styles.flexibleMonthLabel}>
-              {flexibleCalendarMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}
+              {flexibleCalendarMonth.toLocaleDateString("en", {
+                month: "long",
+                year: "numeric",
+              })}
             </Text>
             <Pressable
               onPress={() => {
@@ -1274,27 +1721,35 @@ export default function CreateSessionWizard({
               }}
               style={styles.flexibleMonthBtn}
             >
-              <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
+              <Ionicons
+                name="chevron-forward"
+                size={24}
+                color={Colors.dark.text}
+              />
             </Pressable>
           </View>
-          
+
           {/* Day headers */}
           <View style={styles.flexibleDayHeaders}>
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <Text key={d} style={styles.flexibleDayHeader}>{d}</Text>
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <Text key={d} style={styles.flexibleDayHeader}>
+                {d}
+              </Text>
             ))}
           </View>
-          
+
           {/* Calendar grid */}
           <View style={styles.flexibleCalendarGrid}>
             {getFlexibleCalendarDays().map((day, idx) => {
               if (!day) {
-                return <View key={`empty-${idx}`} style={styles.flexibleDayCell} />;
+                return (
+                  <View key={`empty-${idx}`} style={styles.flexibleDayCell} />
+                );
               }
-              const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-              const isSelected = flexibleDates.some(d => d.date === dateStr);
+              const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+              const isSelected = flexibleDates.some((d) => d.date === dateStr);
               const isToday = day.toDateString() === new Date().toDateString();
-              
+
               return (
                 <Pressable
                   key={dateStr}
@@ -1308,26 +1763,33 @@ export default function CreateSessionWizard({
                     isToday && styles.flexibleDayCellToday,
                   ]}
                 >
-                  <Text style={[
-                    styles.flexibleDayText,
-                    isSelected && styles.flexibleDayTextSelected,
-                  ]}>
+                  <Text
+                    style={[
+                      styles.flexibleDayText,
+                      isSelected && styles.flexibleDayTextSelected,
+                    ]}
+                  >
                     {day.getDate()}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
-          
+
           {/* Selected dates summary */}
           {flexibleDates.length > 0 && (
             <View style={styles.flexibleSummary}>
               <Text style={styles.flexibleSummaryLabel}>
-                {flexibleDates.length} date{flexibleDates.length !== 1 ? 's' : ''} selected
+                {flexibleDates.length} date
+                {flexibleDates.length !== 1 ? "s" : ""} selected
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flexibleChipsScroll}>
-                {flexibleDates.slice(0, 10).map(fd => {
-                  const [y, m, d] = fd.date.split('-').map(Number);
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.flexibleChipsScroll}
+              >
+                {flexibleDates.slice(0, 10).map((fd) => {
+                  const [y, m, d] = fd.date.split("-").map(Number);
                   const date = new Date(y, m - 1, d);
                   return (
                     <Pressable
@@ -1336,15 +1798,24 @@ export default function CreateSessionWizard({
                       style={styles.flexibleChip}
                     >
                       <Text style={styles.flexibleChipText}>
-                        {date.toLocaleDateString("en", { month: "short", day: "numeric" })}
+                        {date.toLocaleDateString("en", {
+                          month: "short",
+                          day: "numeric",
+                        })}
                       </Text>
-                      <Ionicons name="close-circle" size={14} color={Colors.dark.orange} />
+                      <Ionicons
+                        name="close-circle"
+                        size={14}
+                        color={Colors.dark.orange}
+                      />
                     </Pressable>
                   );
                 })}
                 {flexibleDates.length > 10 && (
                   <View style={styles.flexibleChip}>
-                    <Text style={styles.flexibleChipText}>+{flexibleDates.length - 10} more</Text>
+                    <Text style={styles.flexibleChipText}>
+                      +{flexibleDates.length - 10} more
+                    </Text>
                   </View>
                 )}
               </ScrollView>
@@ -1364,14 +1835,41 @@ export default function CreateSessionWizard({
       d.setDate(d.getDate() + i);
       days.push(d);
     }
-    
+
     // All time slots for flexible mode
     const allTimeSlots = [
-      "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-      "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-      "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-      "16:00", "16:30", "17:00", "17:30", "18:00", "18:30",
-      "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+      "06:00",
+      "06:30",
+      "07:00",
+      "07:30",
+      "08:00",
+      "08:30",
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "14:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00",
+      "17:30",
+      "18:00",
+      "18:30",
+      "19:00",
+      "19:30",
+      "20:00",
+      "20:30",
+      "21:00",
+      "21:30",
     ];
 
     return (
@@ -1379,15 +1877,27 @@ export default function CreateSessionWizard({
         {/* Flexible mode: Show selected dates summary */}
         {isFlexible && (
           <View style={styles.section}>
-            <View style={[styles.flexibleInfoBox, { backgroundColor: Colors.dark.orange + "15" }]}>
-              <Ionicons name="calendar-number" size={20} color={Colors.dark.orange} />
-              <Text style={[styles.flexibleInfoText, { color: Colors.dark.orange }]}>
-                {flexibleDates.length} date{flexibleDates.length !== 1 ? 's' : ''} selected
+            <View
+              style={[
+                styles.flexibleInfoBox,
+                { backgroundColor: Colors.dark.orange + "15" },
+              ]}
+            >
+              <Ionicons
+                name="calendar-number"
+                size={20}
+                color={Colors.dark.orange}
+              />
+              <Text
+                style={[styles.flexibleInfoText, { color: Colors.dark.orange }]}
+              >
+                {flexibleDates.length} date
+                {flexibleDates.length !== 1 ? "s" : ""} selected
               </Text>
             </View>
           </View>
         )}
-        
+
         {/* Date Selection - Only for one-time and recurring modes */}
         {!isFlexible && (
           <View style={styles.section}>
@@ -1408,14 +1918,23 @@ export default function CreateSessionWizard({
                   end={{ x: 1, y: 0 }}
                   style={styles.calendarBtnGradient}
                 >
-                  <Ionicons name="calendar" size={16} color={Colors.dark.buttonText} />
+                  <Ionicons
+                    name="calendar"
+                    size={16}
+                    color={Colors.dark.buttonText}
+                  />
                   <Text style={styles.calendarBtnText}>Pick Date</Text>
                 </LinearGradient>
               </Pressable>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.dateScroll}
+            >
               {days.map((day, idx) => {
-                const isSelected = day.toDateString() === selectedDate.toDateString();
+                const isSelected =
+                  day.toDateString() === selectedDate.toDateString();
                 const isToday = idx === 0;
                 return (
                   <Pressable
@@ -1425,15 +1944,35 @@ export default function CreateSessionWizard({
                       setSelectedDate(day);
                       setStartTime(null); // Reset time when date changes
                     }}
-                    style={[styles.dateCard, isSelected && styles.dateCardActive]}
+                    style={[
+                      styles.dateCard,
+                      isSelected && styles.dateCardActive,
+                    ]}
                   >
-                    <Text style={[styles.dateDayName, isSelected && styles.dateDayNameActive]}>
-                      {isToday ? "Today" : day.toLocaleDateString("en", { weekday: "short" })}
+                    <Text
+                      style={[
+                        styles.dateDayName,
+                        isSelected && styles.dateDayNameActive,
+                      ]}
+                    >
+                      {isToday
+                        ? "Today"
+                        : day.toLocaleDateString("en", { weekday: "short" })}
                     </Text>
-                    <Text style={[styles.dateNumber, isSelected && styles.dateNumberActive]}>
+                    <Text
+                      style={[
+                        styles.dateNumber,
+                        isSelected && styles.dateNumberActive,
+                      ]}
+                    >
                       {day.getDate()}
                     </Text>
-                    <Text style={[styles.dateMonth, isSelected && styles.dateMonthActive]}>
+                    <Text
+                      style={[
+                        styles.dateMonth,
+                        isSelected && styles.dateMonthActive,
+                      ]}
+                    >
                       {day.toLocaleDateString("en", { month: "short" })}
                     </Text>
                   </Pressable>
@@ -1446,7 +1985,11 @@ export default function CreateSessionWizard({
         {/* Court Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Court</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.courtScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.courtScroll}
+          >
             {courts.map((court) => {
               const isSelected = selectedCourtId === court.id;
               return (
@@ -1457,14 +2000,26 @@ export default function CreateSessionWizard({
                     setSelectedCourtId(court.id);
                     setStartTime(null); // Reset time when court changes
                   }}
-                  style={[styles.courtChip, isSelected && styles.courtChipActive]}
+                  style={[
+                    styles.courtChip,
+                    isSelected && styles.courtChipActive,
+                  ]}
                 >
-                  <Ionicons 
-                    name="location" 
-                    size={16} 
-                    color={isSelected ? Colors.dark.buttonText : Colors.dark.textMuted} 
+                  <Ionicons
+                    name="location"
+                    size={16}
+                    color={
+                      isSelected
+                        ? Colors.dark.buttonText
+                        : Colors.dark.textMuted
+                    }
                   />
-                  <Text style={[styles.courtChipText, isSelected && styles.courtChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.courtChipText,
+                      isSelected && styles.courtChipTextActive,
+                    ]}
+                  >
                     {court.name}
                   </Text>
                 </Pressable>
@@ -1485,9 +2040,17 @@ export default function CreateSessionWizard({
                   setDuration(d);
                   setStartTime(null); // Reset time when duration changes
                 }}
-                style={[styles.durationChip, duration === d && styles.durationChipActive]}
+                style={[
+                  styles.durationChip,
+                  duration === d && styles.durationChipActive,
+                ]}
               >
-                <Text style={[styles.durationChipText, duration === d && styles.durationChipTextActive]}>
+                <Text
+                  style={[
+                    styles.durationChipText,
+                    duration === d && styles.durationChipTextActive,
+                  ]}
+                >
                   {d}m
                 </Text>
               </Pressable>
@@ -1499,7 +2062,9 @@ export default function CreateSessionWizard({
         {isFlexible ? (
           // Flexible mode: Show all time slots for default time
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Default Time (for all dates)</Text>
+            <Text style={styles.sectionLabel}>
+              Default Time (for all dates)
+            </Text>
             <Text style={styles.flexibleTimeHint}>
               You can adjust individual times on the confirm screen
             </Text>
@@ -1513,9 +2078,17 @@ export default function CreateSessionWizard({
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setFlexibleDefaultTime(time);
                     }}
-                    style={[styles.timeSlot, isSelected && styles.timeSlotActive]}
+                    style={[
+                      styles.timeSlot,
+                      isSelected && styles.timeSlotActive,
+                    ]}
                   >
-                    <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextActive]}>
+                    <Text
+                      style={[
+                        styles.timeSlotText,
+                        isSelected && styles.timeSlotTextActive,
+                      ]}
+                    >
                       {time}
                     </Text>
                   </Pressable>
@@ -1531,10 +2104,12 @@ export default function CreateSessionWizard({
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionLabel}>Available Times</Text>
                   <View style={styles.slotCountBadge}>
-                    <Text style={styles.slotCountText}>{availableSlots.length} slots</Text>
+                    <Text style={styles.slotCountText}>
+                      {availableSlots.length} slots
+                    </Text>
                   </View>
                 </View>
-                
+
                 {availableSlots.length > 0 ? (
                   <View style={styles.timeGrid}>
                     {availableSlots.map((time) => {
@@ -1543,12 +2118,22 @@ export default function CreateSessionWizard({
                         <Pressable
                           key={time}
                           onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Medium,
+                            );
                             setStartTime(time);
                           }}
-                          style={[styles.timeSlot, isSelected && styles.timeSlotActive]}
+                          style={[
+                            styles.timeSlot,
+                            isSelected && styles.timeSlotActive,
+                          ]}
                         >
-                          <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextActive]}>
+                          <Text
+                            style={[
+                              styles.timeSlotText,
+                              isSelected && styles.timeSlotTextActive,
+                            ]}
+                          >
                             {time}
                           </Text>
                         </Pressable>
@@ -1557,17 +2142,29 @@ export default function CreateSessionWizard({
                   </View>
                 ) : (
                   <View style={styles.noSlotsBox}>
-                    <Ionicons name="calendar-outline" size={32} color={Colors.dark.error} />
+                    <Ionicons
+                      name="calendar-outline"
+                      size={32}
+                      color={Colors.dark.error}
+                    />
                     <Text style={styles.noSlotsText}>No available slots</Text>
-                    <Text style={styles.noSlotsHint}>Try a different date or duration</Text>
+                    <Text style={styles.noSlotsHint}>
+                      Try a different date or duration
+                    </Text>
                   </View>
                 )}
               </View>
             ) : (
               <View style={styles.section}>
                 <View style={styles.selectCourtPrompt}>
-                  <Ionicons name="arrow-up" size={20} color={Colors.dark.textMuted} />
-                  <Text style={styles.selectCourtText}>Select a court first</Text>
+                  <Ionicons
+                    name="arrow-up"
+                    size={20}
+                    color={Colors.dark.textMuted}
+                  />
+                  <Text style={styles.selectCourtText}>
+                    Select a court first
+                  </Text>
                 </View>
               </View>
             )}
@@ -1579,11 +2176,16 @@ export default function CreateSessionWizard({
 
   // Render player summary card for Session Setup slide
   const renderPlayerSummaryCard = (player: Player) => {
-    const xpLevel = typeof player.level === "number" ? player.level : parseInt(String(player.level)) || 1;
+    const xpLevel =
+      typeof player.level === "number"
+        ? player.level
+        : parseInt(String(player.level)) || 1;
     const totalXp = player.totalXp || 0;
     const xpProgress = getXpProgress(totalXp, xpLevel);
     const glowPower = player.glowBattlePower || 0;
-    const ballLevelColor = BALL_LEVELS.find(b => b.value === player.ballLevel)?.color || Colors.dark.disabled;
+    const ballLevelColor =
+      BALL_LEVELS.find((b) => b.value === player.ballLevel)?.color ||
+      Colors.dark.disabled;
 
     return (
       <View key={player.id} style={styles.playerSummaryCard}>
@@ -1597,21 +2199,38 @@ export default function CreateSessionWizard({
           <View style={styles.playerSummaryHeader}>
             <View style={styles.playerSummaryAvatar}>
               {player.profilePhotoUrl ? (
-                <Image 
-                  source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }} 
-                  style={styles.playerSummaryAvatarImage} 
+                <Image
+                  source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                  style={styles.playerSummaryAvatarImage}
                 />
               ) : (
-                <View style={[styles.playerSummaryAvatarPlaceholder, { backgroundColor: ballLevelColor + "30" }]}>
-                  <Text style={[styles.playerSummaryAvatarText, { color: ballLevelColor }]}>
+                <View
+                  style={[
+                    styles.playerSummaryAvatarPlaceholder,
+                    { backgroundColor: ballLevelColor + "30" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.playerSummaryAvatarText,
+                      { color: ballLevelColor },
+                    ]}
+                  >
                     {player.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
             </View>
             <View style={styles.playerSummaryNameRow}>
-              <Text style={styles.playerSummaryName} numberOfLines={1}>{player.name}</Text>
-              <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor }]}>
+              <Text style={styles.playerSummaryName} numberOfLines={1}>
+                {player.name}
+              </Text>
+              <View
+                style={[
+                  styles.ballLevelBadge,
+                  { backgroundColor: ballLevelColor },
+                ]}
+              >
                 <Text style={styles.ballLevelBadgeText}>
                   {formatBallLevel(player.ballLevel, player.skillLevel)}
                 </Text>
@@ -1627,7 +2246,9 @@ export default function CreateSessionWizard({
             </View>
             <View style={styles.xpProgressContainer}>
               <View style={styles.xpProgressBar}>
-                <View style={[styles.xpProgressFill, { width: `${xpProgress}%` }]} />
+                <View
+                  style={[styles.xpProgressFill, { width: `${xpProgress}%` }]}
+                />
               </View>
               <Text style={styles.xpText}>{totalXp} XP</Text>
             </View>
@@ -1642,15 +2263,20 @@ export default function CreateSessionWizard({
                 const pillarScore = Math.min(100, Math.floor(glowPower / 6));
                 return (
                   <View key={pillar.key} style={styles.pillarItem}>
-                    <View style={[styles.pillarBar, { backgroundColor: pillar.color + "30" }]}>
-                      <View 
+                    <View
+                      style={[
+                        styles.pillarBar,
+                        { backgroundColor: pillar.color + "30" },
+                      ]}
+                    >
+                      <View
                         style={[
-                          styles.pillarBarFill, 
-                          { 
+                          styles.pillarBarFill,
+                          {
                             backgroundColor: pillar.color,
-                            height: `${pillarScore}%` 
-                          }
-                        ]} 
+                            height: `${pillarScore}%`,
+                          },
+                        ]}
                       />
                     </View>
                     <Text style={styles.pillarLabel}>{pillar.label}</Text>
@@ -1677,11 +2303,16 @@ export default function CreateSessionWizard({
   const renderSessionSetupSlide = () => {
     const showMaxPlayers = sessionType !== "private";
     const showLevels = sessionType !== "activity";
-    const showOpenClosed = sessionType === "group" || sessionType === "semi_private";
+    const showOpenClosed =
+      sessionType === "group" || sessionType === "semi_private";
 
     return (
       <View style={styles.slideContent}>
-        <Text style={styles.slideSubtitle}>Configure your {SESSION_TYPE_CARDS.find(t => t.value === sessionType)?.label} session</Text>
+        <Text style={styles.slideSubtitle}>
+          Configure your{" "}
+          {SESSION_TYPE_CARDS.find((t) => t.value === sessionType)?.label}{" "}
+          session
+        </Text>
 
         {/* Selected Players Summary Cards */}
         {selectedPlayers.length > 0 && (
@@ -1689,11 +2320,13 @@ export default function CreateSessionWizard({
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionLabel}>Selected Players</Text>
               <View style={styles.playerCountBadge}>
-                <Text style={styles.playerCountText}>{selectedPlayers.length}</Text>
+                <Text style={styles.playerCountText}>
+                  {selectedPlayers.length}
+                </Text>
               </View>
             </View>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.playerSummaryScroll}
               contentContainerStyle={styles.playerSummaryScrollContent}
@@ -1708,7 +2341,7 @@ export default function CreateSessionWizard({
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Max Players</Text>
             <View style={styles.optionRow}>
-              {MAX_PLAYERS_OPTIONS.filter(n => {
+              {MAX_PLAYERS_OPTIONS.filter((n) => {
                 if (sessionType === "semi_private") return n <= 3;
                 return true;
               }).map((count) => (
@@ -1718,9 +2351,17 @@ export default function CreateSessionWizard({
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setMaxPlayers(count);
                   }}
-                  style={[styles.optionChip, maxPlayers === count && styles.optionChipActive]}
+                  style={[
+                    styles.optionChip,
+                    maxPlayers === count && styles.optionChipActive,
+                  ]}
                 >
-                  <Text style={[styles.optionChipText, maxPlayers === count && styles.optionChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.optionChipText,
+                      maxPlayers === count && styles.optionChipTextActive,
+                    ]}
+                  >
                     {count}
                   </Text>
                 </Pressable>
@@ -1733,34 +2374,49 @@ export default function CreateSessionWizard({
         {showLevels && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionLabel}>{getSportConfig(sessionSport).skillLevelLabel}</Text>
-              {selectedPlayers.length > 0 && !ballLevelOverride && ballLevel && (
-                <View style={styles.autoSelectedBadge}>
-                  <Ionicons name="sparkles" size={12} color={Colors.dark.xpCyan} />
-                  <Text style={styles.autoSelectedText}>Auto</Text>
-                </View>
-              )}
+              <Text style={styles.sectionLabel}>
+                {getSportConfig(sessionSport).skillLevelLabel}
+              </Text>
+              {selectedPlayers.length > 0 &&
+                !ballLevelOverride &&
+                ballLevel && (
+                  <View style={styles.autoSelectedBadge}>
+                    <Ionicons
+                      name="sparkles"
+                      size={12}
+                      color={Colors.dark.xpCyan}
+                    />
+                    <Text style={styles.autoSelectedText}>Auto</Text>
+                  </View>
+                )}
             </View>
-            
+
             {/* Auto-selected info */}
             {selectedPlayers.length > 0 && !ballLevelOverride && ballLevel && (
               <View style={styles.autoLevelInfo}>
                 <Text style={styles.autoLevelText}>
-                  Based on {selectedPlayers.length === 1 ? "player" : `${selectedPlayers.length} players avg`}
+                  Based on{" "}
+                  {selectedPlayers.length === 1
+                    ? "player"
+                    : `${selectedPlayers.length} players avg`}
                 </Text>
-                <Pressable 
+                <Pressable
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setBallLevelOverride(true);
                   }}
                   style={styles.overrideButton}
                 >
-                  <Ionicons name="pencil" size={14} color={Colors.dark.xpCyan} />
+                  <Ionicons
+                    name="pencil"
+                    size={14}
+                    color={Colors.dark.xpCyan}
+                  />
                   <Text style={styles.overrideButtonText}>Change</Text>
                 </Pressable>
               </View>
             )}
-            
+
             {sessionSport === "tennis" ? (
               <View style={styles.optionRow}>
                 {BALL_LEVELS.map((level) => (
@@ -1769,19 +2425,30 @@ export default function CreateSessionWizard({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setBallLevelOverride(true);
-                      setBallLevel(ballLevel === level.value ? null : level.value);
+                      setBallLevel(
+                        ballLevel === level.value ? null : level.value,
+                      );
                     }}
                     style={[
                       styles.ballLevelChip,
                       { borderColor: level.color + "60" },
-                      ballLevel === level.value && { backgroundColor: level.color, borderColor: level.color },
+                      ballLevel === level.value && {
+                        backgroundColor: level.color,
+                        borderColor: level.color,
+                      },
                     ]}
                   >
-                    <View style={[styles.ballDot, { backgroundColor: level.color }]} />
-                    <Text style={[
-                      styles.ballLevelText,
-                      ballLevel === level.value && { color: Colors.dark.buttonText },
-                    ]}>
+                    <View
+                      style={[styles.ballDot, { backgroundColor: level.color }]}
+                    />
+                    <Text
+                      style={[
+                        styles.ballLevelText,
+                        ballLevel === level.value && {
+                          color: Colors.dark.buttonText,
+                        },
+                      ]}
+                    >
                       {level.label}
                     </Text>
                   </Pressable>
@@ -1800,13 +2467,20 @@ export default function CreateSessionWizard({
                     style={[
                       styles.ballLevelChip,
                       { borderColor: Colors.dark.gold + "60" },
-                      ballLevel === level.key && { backgroundColor: Colors.dark.gold, borderColor: Colors.dark.gold },
+                      ballLevel === level.key && {
+                        backgroundColor: Colors.dark.gold,
+                        borderColor: Colors.dark.gold,
+                      },
                     ]}
                   >
-                    <Text style={[
-                      styles.ballLevelText,
-                      ballLevel === level.key && { color: Colors.dark.buttonText },
-                    ]}>
+                    <Text
+                      style={[
+                        styles.ballLevelText,
+                        ballLevel === level.key && {
+                          color: Colors.dark.buttonText,
+                        },
+                      ]}
+                    >
                       {level.label}
                     </Text>
                   </Pressable>
@@ -1832,34 +2506,122 @@ export default function CreateSessionWizard({
           />
         </View>
 
-        {/* Open/Closed Group */}
+        {/* Task #1033 — Visibility-first prominent card. Replaces the buried
+            Open/Closed toggle. Drives coaching_series.isPublic (true → discoverable
+            cross-academy; false → my academy only). Drop-in pricing sub-card
+            appears when "Open to everyone" is selected. */}
         {showOpenClosed && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Group Type</Text>
-            <View style={styles.toggleRow}>
+            <Text style={styles.sectionLabel}>Who can see this lesson?</Text>
+            <View style={styles.visibilityCardRow}>
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setVisibility("open");
                   setIsOpenGroup(true);
                 }}
-                style={[styles.toggleOption, isOpenGroup && styles.toggleOptionActive]}
+                style={[
+                  styles.visibilityCard,
+                  visibility === "open" && styles.visibilityCardActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Open to everyone"
               >
-                <Ionicons name="lock-open" size={20} color={isOpenGroup ? Colors.dark.buttonText : Colors.dark.textMuted} />
-                <Text style={[styles.toggleOptionText, isOpenGroup && styles.toggleOptionTextActive]}>Open</Text>
-                <Text style={styles.toggleOptionHint}>Players can join</Text>
+                <Ionicons
+                  name="globe-outline"
+                  size={28}
+                  color={
+                    visibility === "open"
+                      ? Colors.dark.primary
+                      : Colors.dark.textMuted
+                  }
+                />
+                <Text
+                  style={[
+                    styles.visibilityCardTitle,
+                    visibility === "open" && styles.visibilityCardTitleActive,
+                  ]}
+                >
+                  Open to everyone
+                </Text>
+                <Text style={styles.visibilityCardSubtitle}>
+                  Discoverable across academies. Worldwide players can request
+                  to join.
+                </Text>
+                {visibility === "open" ? (
+                  <View style={styles.visibilityRecommendedBadge}>
+                    <Text style={styles.visibilityRecommendedText}>
+                      Recommended
+                    </Text>
+                  </View>
+                ) : null}
               </Pressable>
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setVisibility("academy");
                   setIsOpenGroup(false);
                 }}
-                style={[styles.toggleOption, !isOpenGroup && styles.toggleOptionActive]}
+                style={[
+                  styles.visibilityCard,
+                  visibility === "academy" && styles.visibilityCardActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="My academy only"
               >
-                <Ionicons name="lock-closed" size={20} color={!isOpenGroup ? Colors.dark.buttonText : Colors.dark.textMuted} />
-                <Text style={[styles.toggleOptionText, !isOpenGroup && styles.toggleOptionTextActive]}>Closed</Text>
-                <Text style={styles.toggleOptionHint}>Invite only</Text>
+                <Ionicons
+                  name="lock-closed"
+                  size={28}
+                  color={
+                    visibility === "academy"
+                      ? Colors.dark.primary
+                      : Colors.dark.textMuted
+                  }
+                />
+                <Text
+                  style={[
+                    styles.visibilityCardTitle,
+                    visibility === "academy" &&
+                      styles.visibilityCardTitleActive,
+                  ]}
+                >
+                  My academy only
+                </Text>
+                <Text style={styles.visibilityCardSubtitle}>
+                  Only players in your academy will see this lesson.
+                </Text>
               </Pressable>
             </View>
+
+            {visibility === "open" ? (
+              <View style={styles.dropInSubCard}>
+                <View style={styles.dropInHeader}>
+                  <Ionicons
+                    name="cash-outline"
+                    size={18}
+                    color={Colors.dark.primary}
+                  />
+                  <Text style={styles.dropInTitle}>
+                    Drop-in price (optional)
+                  </Text>
+                </View>
+                <Text style={styles.dropInHint}>
+                  Set a per-seat price for visiting players. Leave blank to keep
+                  this lesson informational only.
+                </Text>
+                <TextInput
+                  value={dropInPrice}
+                  onChangeText={(t) =>
+                    setDropInPrice(t.replace(/[^0-9.]/g, ""))
+                  }
+                  placeholder="e.g. 75"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="decimal-pad"
+                  style={styles.dropInInput}
+                  accessibilityLabel="Drop-in price per seat"
+                />
+              </View>
+            ) : null}
           </View>
         )}
       </View>
@@ -1868,9 +2630,12 @@ export default function CreateSessionWizard({
 
   // SLIDE 4: Players
   const renderPlayersSlide = () => {
-    const filteredPlayers = players.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(playerSearch.toLowerCase());
-      const matchesLevel = !playerBallFilter || p.ballLevel?.toLowerCase() === playerBallFilter;
+    const filteredPlayers = players.filter((p) => {
+      const matchesSearch = p.name
+        .toLowerCase()
+        .includes(playerSearch.toLowerCase());
+      const matchesLevel =
+        !playerBallFilter || p.ballLevel?.toLowerCase() === playerBallFilter;
       return matchesSearch && matchesLevel;
     });
 
@@ -1889,9 +2654,17 @@ export default function CreateSessionWizard({
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setVisibleToPlayers(!visibleToPlayers);
             }}
-            style={[styles.toggleSwitch, visibleToPlayers && styles.toggleSwitchActive]}
+            style={[
+              styles.toggleSwitch,
+              visibleToPlayers && styles.toggleSwitchActive,
+            ]}
           >
-            <View style={[styles.toggleKnob, visibleToPlayers && styles.toggleKnobActive]} />
+            <View
+              style={[
+                styles.toggleKnob,
+                visibleToPlayers && styles.toggleKnobActive,
+              ]}
+            />
           </Pressable>
         </View>
 
@@ -1907,9 +2680,17 @@ export default function CreateSessionWizard({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setEnableWaitlist(!enableWaitlist);
               }}
-              style={[styles.toggleSwitch, enableWaitlist && styles.toggleSwitchActive]}
+              style={[
+                styles.toggleSwitch,
+                enableWaitlist && styles.toggleSwitchActive,
+              ]}
             >
-              <View style={[styles.toggleKnob, enableWaitlist && styles.toggleKnobActive]} />
+              <View
+                style={[
+                  styles.toggleKnob,
+                  enableWaitlist && styles.toggleKnobActive,
+                ]}
+              />
             </Pressable>
           </View>
         )}
@@ -1927,8 +2708,8 @@ export default function CreateSessionWizard({
         </View>
 
         {/* Ball Level Filter */}
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.playerFilterRow}
           contentContainerStyle={styles.playerFilterContent}
@@ -1943,32 +2724,47 @@ export default function CreateSessionWizard({
               !playerBallFilter && styles.playerFilterChipActive,
             ]}
           >
-            <Text style={[
-              styles.playerFilterChipText,
-              !playerBallFilter && styles.playerFilterChipTextActive,
-            ]}>All</Text>
+            <Text
+              style={[
+                styles.playerFilterChipText,
+                !playerBallFilter && styles.playerFilterChipTextActive,
+              ]}
+            >
+              All
+            </Text>
           </Pressable>
           {BALL_LEVELS.map((level) => (
             <Pressable
               key={level.value}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPlayerBallFilter(playerBallFilter === level.value ? null : level.value);
+                setPlayerBallFilter(
+                  playerBallFilter === level.value ? null : level.value,
+                );
               }}
               style={[
                 styles.playerFilterChip,
                 { borderColor: level.color + "60" },
-                playerBallFilter === level.value && { 
+                playerBallFilter === level.value && {
                   backgroundColor: level.color + "20",
                   borderColor: level.color,
                 },
               ]}
             >
-              <View style={[styles.playerFilterDot, { backgroundColor: level.color }]} />
-              <Text style={[
-                styles.playerFilterChipText,
-                playerBallFilter === level.value && { color: level.color },
-              ]}>{level.label}</Text>
+              <View
+                style={[
+                  styles.playerFilterDot,
+                  { backgroundColor: level.color },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.playerFilterChipText,
+                  playerBallFilter === level.value && { color: level.color },
+                ]}
+              >
+                {level.label}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -1988,14 +2784,19 @@ export default function CreateSessionWizard({
         {/* Selected Players */}
         {selectedPlayers.length > 0 && (
           <View style={styles.selectedPlayersRow}>
-            {selectedPlayers.map(player => (
+            {selectedPlayers.map((player) => (
               <Pressable
                 key={player.id}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedPlayers(prev => prev.filter(p => p.id !== player.id));
+                  setSelectedPlayers((prev) =>
+                    prev.filter((p) => p.id !== player.id),
+                  );
                 }}
-                style={[styles.selectedPlayerChip, player.isGuest && styles.selectedPlayerChipGuest]}
+                style={[
+                  styles.selectedPlayerChip,
+                  player.isGuest && styles.selectedPlayerChipGuest,
+                ]}
               >
                 {player.isGuest && (
                   <View style={styles.guestBadge}>
@@ -2010,39 +2811,68 @@ export default function CreateSessionWizard({
         )}
 
         {/* Player List */}
-        <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-          {filteredPlayers.map(player => {
-            const isSelected = selectedPlayers.some(p => p.id === player.id);
+        <ScrollView
+          style={styles.playerList}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredPlayers.map((player) => {
+            const isSelected = selectedPlayers.some((p) => p.id === player.id);
             return (
               <Pressable
                 key={player.id}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   if (isSelected) {
-                    setSelectedPlayers(prev => prev.filter(p => p.id !== player.id));
+                    setSelectedPlayers((prev) =>
+                      prev.filter((p) => p.id !== player.id),
+                    );
                   } else {
-                    setSelectedPlayers(prev => [...prev, player]);
+                    setSelectedPlayers((prev) => [...prev, player]);
                   }
                 }}
-                style={[styles.playerRow, isSelected && styles.playerRowSelected]}
+                style={[
+                  styles.playerRow,
+                  isSelected && styles.playerRowSelected,
+                ]}
               >
                 <View style={styles.playerAvatar}>
                   {player.profilePhotoUrl ? (
-                    <Image source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }} style={styles.playerAvatarImage} />
+                    <Image
+                      source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                      style={styles.playerAvatarImage}
+                    />
                   ) : (
-                    <Ionicons name="person" size={20} color={Colors.dark.textMuted} />
+                    <Ionicons
+                      name="person"
+                      size={20}
+                      color={Colors.dark.textMuted}
+                    />
                   )}
                 </View>
                 <View style={styles.playerInfo}>
                   <Text style={styles.playerName}>{player.name}</Text>
                   <View style={styles.playerMeta}>
                     {player.ballLevel && (
-                      <View style={[styles.playerBall, { backgroundColor: BALL_LEVELS.find(b => b.value === player.ballLevel)?.color || Colors.dark.disabled }]} />
+                      <View
+                        style={[
+                          styles.playerBall,
+                          {
+                            backgroundColor:
+                              BALL_LEVELS.find(
+                                (b) => b.value === player.ballLevel,
+                              )?.color || Colors.dark.disabled,
+                          },
+                        ]}
+                      />
                     )}
                   </View>
                 </View>
                 {isSelected ? (
-                  <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={Colors.dark.primary}
+                  />
                 ) : (
                   <View style={styles.playerSelectCircle} />
                 )}
@@ -2056,8 +2886,8 @@ export default function CreateSessionWizard({
 
   // SLIDE 5: Confirm
   const renderConfirmSlide = () => {
-    const selectedCourt = courts.find(c => c.id === selectedCourtId);
-    const typeCard = SESSION_TYPE_CARDS.find(t => t.value === sessionType);
+    const selectedCourt = courts.find((c) => c.id === selectedCourtId);
+    const typeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType);
 
     return (
       <View style={styles.slideContent}>
@@ -2065,19 +2895,33 @@ export default function CreateSessionWizard({
 
         <Animated.View style={[styles.summaryCard, glowStyle]}>
           <LinearGradient
-            colors={[typeCard?.color + "20" || Colors.dark.primary + "20", Colors.dark.backgroundSecondary]}
+            colors={[
+              typeCard?.color + "20" || Colors.dark.primary + "20",
+              Colors.dark.backgroundSecondary,
+            ]}
             style={styles.summaryCardGradient}
           >
             {/* Session Type Badge */}
-            <View style={[styles.summaryTypeBadge, { backgroundColor: typeCard?.color }]}>
-              <Ionicons name={typeCard?.icon || "tennisball"} size={16} color={Colors.dark.buttonText} />
+            <View
+              style={[
+                styles.summaryTypeBadge,
+                { backgroundColor: typeCard?.color },
+              ]}
+            >
+              <Ionicons
+                name={typeCard?.icon || "tennisball"}
+                size={16}
+                color={Colors.dark.buttonText}
+              />
               <Text style={styles.summaryTypeBadgeText}>{typeCard?.label}</Text>
             </View>
 
             {/* Location & Time */}
             <View style={styles.summaryRow}>
               <Ionicons name="location" size={18} color={Colors.dark.primary} />
-              <Text style={styles.summaryText}>{selectedCourt?.name || "No court"}</Text>
+              <Text style={styles.summaryText}>
+                {selectedCourt?.name || "No court"}
+              </Text>
             </View>
 
             {/* Date/Time display depends on mode */}
@@ -2085,15 +2929,21 @@ export default function CreateSessionWizard({
               // Flexible mode: show count of sessions
               <>
                 <View style={styles.summaryRow}>
-                  <Ionicons name="calendar-number" size={18} color={Colors.dark.orange} />
+                  <Ionicons
+                    name="calendar-number"
+                    size={18}
+                    color={Colors.dark.orange}
+                  />
                   <Text style={styles.summaryText}>
-                    {flexibleDates.length} session{flexibleDates.length !== 1 ? 's' : ''} scheduled
+                    {flexibleDates.length} session
+                    {flexibleDates.length !== 1 ? "s" : ""} scheduled
                   </Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Ionicons name="time" size={18} color={Colors.dark.gold} />
                   <Text style={styles.summaryText}>
-                    {flexibleDefaultTime || "Various times"} · {duration}min each
+                    {flexibleDefaultTime || "Various times"} · {duration}min
+                    each
                   </Text>
                 </View>
               </>
@@ -2101,9 +2951,17 @@ export default function CreateSessionWizard({
               // Normal mode: show single date/time
               <>
                 <View style={styles.summaryRow}>
-                  <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+                  <Ionicons
+                    name="calendar"
+                    size={18}
+                    color={Colors.dark.xpCyan}
+                  />
                   <Text style={styles.summaryText}>
-                    {selectedDate.toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                    {selectedDate.toLocaleDateString("en", {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </Text>
                 </View>
 
@@ -2131,7 +2989,8 @@ export default function CreateSessionWizard({
               <View style={styles.summaryRow}>
                 <Ionicons name="people" size={18} color="#FF6B9D" />
                 <Text style={styles.summaryText}>
-                  {selectedPlayers.length} player{selectedPlayers.length > 1 ? "s" : ""}
+                  {selectedPlayers.length} player
+                  {selectedPlayers.length > 1 ? "s" : ""}
                 </Text>
               </View>
             )}
@@ -2139,7 +2998,16 @@ export default function CreateSessionWizard({
             {/* Ball Level */}
             {ballLevel && (
               <View style={styles.summaryRow}>
-                <View style={[styles.summaryBall, { backgroundColor: BALL_LEVELS.find(b => b.value === ballLevel)?.color }]} />
+                <View
+                  style={[
+                    styles.summaryBall,
+                    {
+                      backgroundColor: BALL_LEVELS.find(
+                        (b) => b.value === ballLevel,
+                      )?.color,
+                    },
+                  ]}
+                />
                 <Text style={styles.summaryText}>
                   {ballLevel.charAt(0).toUpperCase() + ballLevel.slice(1)} Ball
                 </Text>
@@ -2154,12 +3022,17 @@ export default function CreateSessionWizard({
             <Text style={styles.sectionLabel}>Sessions Schedule</Text>
             <View style={styles.flexibleDatesList}>
               {flexibleDates.map((fd, idx) => {
-                const [y, m, d] = fd.date.split('-').map(Number);
+                const [y, m, d] = fd.date.split("-").map(Number);
                 const date = new Date(y, m - 1, d);
-                const dayName = date.toLocaleDateString("en", { weekday: "short" });
-                const dateStr = date.toLocaleDateString("en", { month: "short", day: "numeric" });
+                const dayName = date.toLocaleDateString("en", {
+                  weekday: "short",
+                });
+                const dateStr = date.toLocaleDateString("en", {
+                  month: "short",
+                  day: "numeric",
+                });
                 const time = fd.time || flexibleDefaultTime || "--:--";
-                
+
                 return (
                   <View key={fd.date} style={styles.flexibleDateRow}>
                     <View style={styles.flexibleDateLeft}>
@@ -2167,13 +3040,25 @@ export default function CreateSessionWizard({
                       <Text style={styles.flexibleDateDay}>{dayName}</Text>
                       <Text style={styles.flexibleDateStr}>{dateStr}</Text>
                     </View>
-                    <Pressable 
+                    <Pressable
                       style={styles.flexibleTimeBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         const times = [
-                          "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
-                          "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"
+                          "07:00",
+                          "08:00",
+                          "09:00",
+                          "10:00",
+                          "11:00",
+                          "12:00",
+                          "13:00",
+                          "14:00",
+                          "15:00",
+                          "16:00",
+                          "17:00",
+                          "18:00",
+                          "19:00",
+                          "20:00",
                         ];
                         const currentIdx = times.indexOf(time);
                         const nextIdx = (currentIdx + 1) % times.length;
@@ -2181,7 +3066,11 @@ export default function CreateSessionWizard({
                       }}
                     >
                       <Text style={styles.flexibleTimeBtnText}>{time}</Text>
-                      <Ionicons name="time-outline" size={14} color={Colors.dark.orange} />
+                      <Ionicons
+                        name="time-outline"
+                        size={14}
+                        color={Colors.dark.orange}
+                      />
                     </Pressable>
                   </View>
                 );
@@ -2201,9 +3090,17 @@ export default function CreateSessionWizard({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setTravelTime(t);
                 }}
-                style={[styles.optionChip, travelTime === t && styles.optionChipActive]}
+                style={[
+                  styles.optionChip,
+                  travelTime === t && styles.optionChipActive,
+                ]}
               >
-                <Text style={[styles.optionChipText, travelTime === t && styles.optionChipTextActive]}>
+                <Text
+                  style={[
+                    styles.optionChipText,
+                    travelTime === t && styles.optionChipTextActive,
+                  ]}
+                >
                   {t === 0 ? "None" : `${t}m`}
                 </Text>
               </Pressable>
@@ -2230,405 +3127,517 @@ export default function CreateSessionWizard({
 
   return (
     <>
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color={Colors.dark.text} />
-          </Pressable>
-          
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{slideTitles[currentSlide]}</Text>
-            <Text style={styles.headerSubtitle}>Step {currentSlide + 1} of {totalSlides}</Text>
-            {adminMode && effectiveCoach && currentSlide > 0 ? (
-              <View style={styles.schedulingForBadge}>
-                <Ionicons name="person" size={10} color={Colors.dark.orange} />
-                <Text style={styles.schedulingForText}>for {effectiveCoach.name}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.headerRight} />
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressTrack}>
-            <Animated.View style={[styles.progressFill, progressStyle]}>
-              <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.progressGradient}
-              />
-            </Animated.View>
-          </View>
-        </View>
-
-        {/* Slide Content */}
-        <KeyboardAwareScrollViewCompat 
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <View
+          style={[
+            styles.container,
+            { paddingTop: insets.top, paddingBottom: insets.bottom },
+          ]}
         >
-          {renderSlideContent()}
-        </KeyboardAwareScrollViewCompat>
-
-        {/* Navigation Footer */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
-          {currentSlide > 0 && (
-            <Pressable onPress={goBack} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
-              <Text style={styles.backBtnText}>Back</Text>
-            </Pressable>
-          )}
-          
-          <View style={{ flex: 1 }} />
-          
-          {currentSlide < totalSlides - 1 ? (
-            <Pressable
-              onPress={goNext}
-              disabled={!canProceed}
-              style={[styles.nextBtn, !canProceed && styles.nextBtnDisabled]}
-            >
-              <LinearGradient
-                colors={canProceed ? [Colors.dark.primary, Colors.dark.xpCyan] : [Colors.dark.disabled, Colors.dark.disabled]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.nextBtnGradient}
-              >
-                <Text style={styles.nextBtnText}>Next</Text>
-                <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
-              </LinearGradient>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={handleCreate}
-              disabled={createSessionMutation.isPending}
-              style={styles.createBtn}
-            >
-              <LinearGradient
-                colors={[Colors.dark.primary, "#00FF88"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createBtnGradient}
-              >
-                {createSessionMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
-                ) : (
-                  <>
-                    <Ionicons name="flash" size={20} color={Colors.dark.buttonText} />
-                    <Text style={styles.createBtnText}>{createSeriesMode ? "Create Class" : "Create Session"}</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </Modal>
-
-    {/* Calendar Picker Modal */}
-    <Modal
-      visible={showCalendarModal}
-      animationType="fade"
-      transparent
-      onRequestClose={() => setShowCalendarModal(false)}
-    >
-      <View style={styles.calendarModalOverlay}>
-        <View style={styles.calendarModalContent}>
-          <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.calendarModalHeaderLine}
-          />
-          
-          {/* Modal Header */}
-          <View style={styles.calendarModalHeader}>
-            <Text style={styles.calendarModalTitle}>SELECT DATE</Text>
-            <Pressable
-              onPress={() => setShowCalendarModal(false)}
-              style={styles.calendarModalCloseBtn}
-            >
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
+
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>
+                {slideTitles[currentSlide]}
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                Step {currentSlide + 1} of {totalSlides}
+              </Text>
+              {adminMode && effectiveCoach && currentSlide > 0 ? (
+                <View style={styles.schedulingForBadge}>
+                  <Ionicons
+                    name="person"
+                    size={10}
+                    color={Colors.dark.orange}
+                  />
+                  <Text style={styles.schedulingForText}>
+                    for {effectiveCoach.name}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.headerRight} />
           </View>
-          
-          {/* Month Navigation */}
-          <View style={styles.calendarMonthNav}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const newDate = new Date(calendarViewDate);
-                newDate.setMonth(newDate.getMonth() - 1);
-                setCalendarViewDate(newDate);
-              }}
-              style={styles.calendarNavBtn}
-            >
-              <Ionicons name="chevron-back" size={24} color={Colors.dark.xpCyan} />
-            </Pressable>
-            <Text style={styles.calendarMonthTitle}>
-              {calendarViewDate.toLocaleDateString("en", { month: "long", year: "numeric" })}
-            </Text>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const newDate = new Date(calendarViewDate);
-                newDate.setMonth(newDate.getMonth() + 1);
-                setCalendarViewDate(newDate);
-              }}
-              style={styles.calendarNavBtn}
-            >
-              <Ionicons name="chevron-forward" size={24} color={Colors.dark.xpCyan} />
-            </Pressable>
+
+          {/* Progress Bar */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressTrack}>
+              <Animated.View style={[styles.progressFill, progressStyle]}>
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.progressGradient}
+                />
+              </Animated.View>
+            </View>
           </View>
-          
-          {/* Weekday Headers */}
-          <View style={styles.calendarWeekdayRow}>
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <Text key={day} style={styles.calendarWeekdayText}>{day}</Text>
-            ))}
-          </View>
-          
-          {/* Calendar Days Grid */}
-          <View style={styles.calendarDaysGrid}>
-            {(() => {
-              const year = calendarViewDate.getFullYear();
-              const month = calendarViewDate.getMonth();
-              const firstDay = new Date(year, month, 1).getDay();
-              const daysInMonth = new Date(year, month + 1, 0).getDate();
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              
-              const days = [];
-              // Empty cells for days before first day of month
-              for (let i = 0; i < firstDay; i++) {
-                days.push(<View key={`empty-${i}`} style={styles.calendarDayCell} />);
-              }
-              // Days of the month
-              for (let d = 1; d <= daysInMonth; d++) {
-                const date = new Date(year, month, d);
-                const isPast = date < today;
-                const isSelected = date.toDateString() === selectedDate.toDateString();
-                const isToday = date.toDateString() === today.toDateString();
-                
-                days.push(
-                  <Pressable
-                    key={d}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setSelectedDate(date);
-                      setStartTime(null);
-                      setShowCalendarModal(false);
-                    }}
-                    style={[
-                      styles.calendarDayCell,
-                      isSelected && styles.calendarDayCellSelected,
-                      isToday && !isSelected && styles.calendarDayCellToday,
-                    ]}
-                  >
-                    {isSelected ? (
-                      <LinearGradient
-                        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-                        style={styles.calendarDayGradient}
-                      >
-                        <Text style={styles.calendarDayTextSelected}>{d}</Text>
-                      </LinearGradient>
-                    ) : (
-                      <Text style={[
-                        styles.calendarDayText,
-                        isToday && styles.calendarDayTextToday,
-                      ]}>
-                        {d}
+
+          {/* Slide Content */}
+          <KeyboardAwareScrollViewCompat
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {renderSlideContent()}
+          </KeyboardAwareScrollViewCompat>
+
+          {/* Navigation Footer */}
+          <View
+            style={[
+              styles.footer,
+              { paddingBottom: insets.bottom + Spacing.md },
+            ]}
+          >
+            {currentSlide > 0 && (
+              <Pressable onPress={goBack} style={styles.backBtn}>
+                <Ionicons
+                  name="arrow-back"
+                  size={20}
+                  color={Colors.dark.text}
+                />
+                <Text style={styles.backBtnText}>Back</Text>
+              </Pressable>
+            )}
+
+            <View style={{ flex: 1 }} />
+
+            {currentSlide < totalSlides - 1 ? (
+              <Pressable
+                onPress={goNext}
+                disabled={!canProceed}
+                style={[styles.nextBtn, !canProceed && styles.nextBtnDisabled]}
+              >
+                <LinearGradient
+                  colors={
+                    canProceed
+                      ? [Colors.dark.primary, Colors.dark.xpCyan]
+                      : [Colors.dark.disabled, Colors.dark.disabled]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.nextBtnGradient}
+                >
+                  <Text style={styles.nextBtnText}>Next</Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color={Colors.dark.buttonText}
+                  />
+                </LinearGradient>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={handleCreate}
+                disabled={createSessionMutation.isPending}
+                style={styles.createBtn}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, "#00FF88"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.createBtnGradient}
+                >
+                  {createSessionMutation.isPending ? (
+                    <ActivityIndicator color={Colors.dark.buttonText} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="flash"
+                        size={20}
+                        color={Colors.dark.buttonText}
+                      />
+                      <Text style={styles.createBtnText}>
+                        {createSeriesMode ? "Create Class" : "Create Session"}
                       </Text>
-                    )}
-                  </Pressable>
-                );
-              }
-              return days;
-            })()}
-          </View>
-          
-          {/* Quick Select Buttons */}
-          <View style={styles.calendarQuickSelect}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const today = new Date();
-                setSelectedDate(today);
-                setStartTime(null);
-                setShowCalendarModal(false);
-              }}
-              style={styles.calendarQuickBtn}
-            >
-              <Text style={styles.calendarQuickBtnText}>Today</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const nextWeek = new Date();
-                nextWeek.setDate(nextWeek.getDate() + 7);
-                setSelectedDate(nextWeek);
-                setStartTime(null);
-                setShowCalendarModal(false);
-              }}
-              style={styles.calendarQuickBtn}
-            >
-              <Text style={styles.calendarQuickBtnText}>Next Week</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const nextMonth = new Date();
-                nextMonth.setMonth(nextMonth.getMonth() + 1);
-                setSelectedDate(nextMonth);
-                setStartTime(null);
-                setShowCalendarModal(false);
-              }}
-              style={styles.calendarQuickBtn}
-            >
-              <Text style={styles.calendarQuickBtnText}>Next Month</Text>
-            </Pressable>
+                    </>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            )}
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
 
-    {/* Add Guest Player Modal */}
-    <Modal
-      visible={showGuestModal}
-      animationType="fade"
-      transparent
-      onRequestClose={() => setShowGuestModal(false)}
-    >
-      <View style={styles.guestModalOverlay}>
-        <View style={styles.guestModalContent}>
-          <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.guestModalHeaderLine}
-          />
-          
-          <View style={styles.guestModalHeader}>
-            <Text style={styles.guestModalTitle}>ADD GUEST PLAYER</Text>
-            <Pressable
-              onPress={() => {
-                setShowGuestModal(false);
-                setGuestName("");
-                setGuestBallLevel(null);
-              }}
-              style={styles.guestModalCloseBtn}
-            >
-              <Ionicons name="close" size={24} color={Colors.dark.text} />
-            </Pressable>
-          </View>
-
-          <View style={styles.guestModalBody}>
-            <Text style={styles.guestModalLabel}>Guest Name</Text>
-            <TextInput
-              style={styles.guestModalInput}
-              placeholder="Enter guest name..."
-              placeholderTextColor={Colors.dark.textMuted}
-              value={guestName}
-              onChangeText={setGuestName}
-              autoFocus
+      {/* Calendar Picker Modal */}
+      <Modal
+        visible={showCalendarModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowCalendarModal(false)}
+      >
+        <View style={styles.calendarModalOverlay}>
+          <View style={styles.calendarModalContent}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.calendarModalHeaderLine}
             />
 
-            <Text style={[styles.guestModalLabel, { marginTop: Spacing.lg }]}>Ball Level (Optional)</Text>
-            <View style={styles.guestBallLevels}>
-              {BALL_LEVELS.map(level => (
-                <Pressable
-                  key={level.value}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setGuestBallLevel(guestBallLevel === level.value ? null : level.value);
-                  }}
-                  style={[
-                    styles.guestBallOption,
-                    guestBallLevel === level.value && { borderColor: level.color, backgroundColor: level.color + "20" }
-                  ]}
-                >
-                  <View style={[styles.guestBallDot, { backgroundColor: level.color }]} />
-                  <Text style={[
-                    styles.guestBallText,
-                    guestBallLevel === level.value && { color: Colors.dark.text }
-                  ]}>
-                    {level.label}
-                  </Text>
-                </Pressable>
+            {/* Modal Header */}
+            <View style={styles.calendarModalHeader}>
+              <Text style={styles.calendarModalTitle}>SELECT DATE</Text>
+              <Pressable
+                onPress={() => setShowCalendarModal(false)}
+                style={styles.calendarModalCloseBtn}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            {/* Month Navigation */}
+            <View style={styles.calendarMonthNav}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const newDate = new Date(calendarViewDate);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setCalendarViewDate(newDate);
+                }}
+                style={styles.calendarNavBtn}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={24}
+                  color={Colors.dark.xpCyan}
+                />
+              </Pressable>
+              <Text style={styles.calendarMonthTitle}>
+                {calendarViewDate.toLocaleDateString("en", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const newDate = new Date(calendarViewDate);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setCalendarViewDate(newDate);
+                }}
+                style={styles.calendarNavBtn}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={Colors.dark.xpCyan}
+                />
+              </Pressable>
+            </View>
+
+            {/* Weekday Headers */}
+            <View style={styles.calendarWeekdayRow}>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <Text key={day} style={styles.calendarWeekdayText}>
+                  {day}
+                </Text>
               ))}
             </View>
 
-            <Pressable
-              onPress={async () => {
-                if (!guestName.trim() || isCreatingGuest) return;
-                
-                setIsCreatingGuest(true);
-                try {
-                  // Create the player in the database
-                  const response = await apiRequest("POST", "/api/players", {
-                    name: guestName.trim(),
-                    ballLevel: guestBallLevel,
-                    status: "active",
-                  });
-                  
-                  const savedPlayer = await response.json();
-                  
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  
-                  // Add the saved player to selected players
-                  setSelectedPlayers(prev => [...prev, {
-                    id: savedPlayer.id,
-                    name: savedPlayer.name,
-                    email: savedPlayer.email || "",
-                    ballLevel: savedPlayer.ballLevel,
-                  }]);
-                  
-                  // Invalidate players query to refresh the list
-                  queryClient.invalidateQueries({ queryKey: ["/api/players"] });
-                  
-                  setGuestName("");
-                  setGuestBallLevel(null);
-                  setShowGuestModal(false);
-                } catch (error) {
-                  console.error("Failed to create guest player:", error);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                  Alert.alert("Error", "Failed to add guest player. Please try again.");
-                } finally {
-                  setIsCreatingGuest(false);
+            {/* Calendar Days Grid */}
+            <View style={styles.calendarDaysGrid}>
+              {(() => {
+                const year = calendarViewDate.getFullYear();
+                const month = calendarViewDate.getMonth();
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const days = [];
+                // Empty cells for days before first day of month
+                for (let i = 0; i < firstDay; i++) {
+                  days.push(
+                    <View key={`empty-${i}`} style={styles.calendarDayCell} />,
+                  );
                 }
-              }}
-              disabled={!guestName.trim() || isCreatingGuest}
-              style={[styles.guestModalAddBtn, (!guestName.trim() || isCreatingGuest) && styles.guestModalAddBtnDisabled]}
-            >
-              <LinearGradient
-                colors={guestName.trim() && !isCreatingGuest ? [Colors.dark.primary, "#00FF88"] : [Colors.dark.disabled, Colors.dark.disabled]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.guestModalAddBtnGradient}
+                // Days of the month
+                for (let d = 1; d <= daysInMonth; d++) {
+                  const date = new Date(year, month, d);
+                  const isPast = date < today;
+                  const isSelected =
+                    date.toDateString() === selectedDate.toDateString();
+                  const isToday = date.toDateString() === today.toDateString();
+
+                  days.push(
+                    <Pressable
+                      key={d}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setSelectedDate(date);
+                        setStartTime(null);
+                        setShowCalendarModal(false);
+                      }}
+                      style={[
+                        styles.calendarDayCell,
+                        isSelected && styles.calendarDayCellSelected,
+                        isToday && !isSelected && styles.calendarDayCellToday,
+                      ]}
+                    >
+                      {isSelected ? (
+                        <LinearGradient
+                          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                          style={styles.calendarDayGradient}
+                        >
+                          <Text style={styles.calendarDayTextSelected}>
+                            {d}
+                          </Text>
+                        </LinearGradient>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.calendarDayText,
+                            isToday && styles.calendarDayTextToday,
+                          ]}
+                        >
+                          {d}
+                        </Text>
+                      )}
+                    </Pressable>,
+                  );
+                }
+                return days;
+              })()}
+            </View>
+
+            {/* Quick Select Buttons */}
+            <View style={styles.calendarQuickSelect}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const today = new Date();
+                  setSelectedDate(today);
+                  setStartTime(null);
+                  setShowCalendarModal(false);
+                }}
+                style={styles.calendarQuickBtn}
               >
-                {isCreatingGuest ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
-                ) : (
-                  <Ionicons name="person-add" size={18} color={guestName.trim() ? Colors.dark.buttonText : Colors.dark.textMuted} />
-                )}
-                <Text style={[styles.guestModalAddBtnText, (!guestName.trim() || isCreatingGuest) && { color: Colors.dark.textMuted }]}>
-                  {isCreatingGuest ? "Adding..." : "Add Guest"}
-                </Text>
-              </LinearGradient>
-            </Pressable>
+                <Text style={styles.calendarQuickBtnText}>Today</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const nextWeek = new Date();
+                  nextWeek.setDate(nextWeek.getDate() + 7);
+                  setSelectedDate(nextWeek);
+                  setStartTime(null);
+                  setShowCalendarModal(false);
+                }}
+                style={styles.calendarQuickBtn}
+              >
+                <Text style={styles.calendarQuickBtnText}>Next Week</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const nextMonth = new Date();
+                  nextMonth.setMonth(nextMonth.getMonth() + 1);
+                  setSelectedDate(nextMonth);
+                  setStartTime(null);
+                  setShowCalendarModal(false);
+                }}
+                style={styles.calendarQuickBtn}
+              >
+                <Text style={styles.calendarQuickBtnText}>Next Month</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* Add Guest Player Modal */}
+      <Modal
+        visible={showGuestModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowGuestModal(false)}
+      >
+        <View style={styles.guestModalOverlay}>
+          <View style={styles.guestModalContent}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.guestModalHeaderLine}
+            />
+
+            <View style={styles.guestModalHeader}>
+              <Text style={styles.guestModalTitle}>ADD GUEST PLAYER</Text>
+              <Pressable
+                onPress={() => {
+                  setShowGuestModal(false);
+                  setGuestName("");
+                  setGuestBallLevel(null);
+                }}
+                style={styles.guestModalCloseBtn}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            <View style={styles.guestModalBody}>
+              <Text style={styles.guestModalLabel}>Guest Name</Text>
+              <TextInput
+                style={styles.guestModalInput}
+                placeholder="Enter guest name..."
+                placeholderTextColor={Colors.dark.textMuted}
+                value={guestName}
+                onChangeText={setGuestName}
+                autoFocus
+              />
+
+              <Text style={[styles.guestModalLabel, { marginTop: Spacing.lg }]}>
+                Ball Level (Optional)
+              </Text>
+              <View style={styles.guestBallLevels}>
+                {BALL_LEVELS.map((level) => (
+                  <Pressable
+                    key={level.value}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setGuestBallLevel(
+                        guestBallLevel === level.value ? null : level.value,
+                      );
+                    }}
+                    style={[
+                      styles.guestBallOption,
+                      guestBallLevel === level.value && {
+                        borderColor: level.color,
+                        backgroundColor: level.color + "20",
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.guestBallDot,
+                        { backgroundColor: level.color },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.guestBallText,
+                        guestBallLevel === level.value && {
+                          color: Colors.dark.text,
+                        },
+                      ]}
+                    >
+                      {level.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Pressable
+                onPress={async () => {
+                  if (!guestName.trim() || isCreatingGuest) return;
+
+                  setIsCreatingGuest(true);
+                  try {
+                    // Create the player in the database
+                    const response = await apiRequest("POST", "/api/players", {
+                      name: guestName.trim(),
+                      ballLevel: guestBallLevel,
+                      status: "active",
+                    });
+
+                    const savedPlayer = await response.json();
+
+                    Haptics.notificationAsync(
+                      Haptics.NotificationFeedbackType.Success,
+                    );
+
+                    // Add the saved player to selected players
+                    setSelectedPlayers((prev) => [
+                      ...prev,
+                      {
+                        id: savedPlayer.id,
+                        name: savedPlayer.name,
+                        email: savedPlayer.email || "",
+                        ballLevel: savedPlayer.ballLevel,
+                      },
+                    ]);
+
+                    // Invalidate players query to refresh the list
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/players"],
+                    });
+
+                    setGuestName("");
+                    setGuestBallLevel(null);
+                    setShowGuestModal(false);
+                  } catch (error) {
+                    console.error("Failed to create guest player:", error);
+                    Haptics.notificationAsync(
+                      Haptics.NotificationFeedbackType.Error,
+                    );
+                    Alert.alert(
+                      "Error",
+                      "Failed to add guest player. Please try again.",
+                    );
+                  } finally {
+                    setIsCreatingGuest(false);
+                  }
+                }}
+                disabled={!guestName.trim() || isCreatingGuest}
+                style={[
+                  styles.guestModalAddBtn,
+                  (!guestName.trim() || isCreatingGuest) &&
+                    styles.guestModalAddBtnDisabled,
+                ]}
+              >
+                <LinearGradient
+                  colors={
+                    guestName.trim() && !isCreatingGuest
+                      ? [Colors.dark.primary, "#00FF88"]
+                      : [Colors.dark.disabled, Colors.dark.disabled]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.guestModalAddBtnGradient}
+                >
+                  {isCreatingGuest ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={Colors.dark.buttonText}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="person-add"
+                      size={18}
+                      color={
+                        guestName.trim()
+                          ? Colors.dark.buttonText
+                          : Colors.dark.textMuted
+                      }
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.guestModalAddBtnText,
+                      (!guestName.trim() || isCreatingGuest) && {
+                        color: Colors.dark.textMuted,
+                      },
+                    ]}
+                  >
+                    {isCreatingGuest ? "Adding..." : "Add Guest"}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -2716,7 +3725,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     textAlign: "center",
   },
-  
+
   // Session Type Cards
   sessionTypeGrid: {
     gap: Spacing.md,
@@ -2839,7 +3848,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
   },
-  
+
   // Schedule Pattern (3-column)
   schedulePatternRow: {
     flexDirection: "row",
@@ -2871,7 +3880,7 @@ const styles = StyleSheet.create({
     ...Typography.tiny,
     color: Colors.dark.textMuted,
   },
-  
+
   // Flexible Schedule
   flexibleSection: {
     marginTop: Spacing.lg,
@@ -3536,6 +4545,94 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     fontSize: 10,
+  },
+
+  // Task #1033 — visibility-first prominent card + drop-in pricing sub-card.
+  visibilityCardRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  visibilityCard: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
+    minHeight: 132,
+    gap: Spacing.xs,
+    position: "relative",
+  },
+  visibilityCardActive: {
+    borderColor: GlowColors.primary,
+    backgroundColor: GlowColors.primary + "15",
+  },
+  visibilityCardTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginTop: Spacing.xs,
+  },
+  visibilityCardTitleActive: {
+    color: GlowColors.primary,
+  },
+  visibilityCardSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  visibilityRecommendedBadge: {
+    position: "absolute",
+    top: Spacing.xs,
+    right: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: GlowColors.primary,
+  },
+  visibilityRecommendedText: {
+    ...Typography.small,
+    color: Colors.dark.buttonText,
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  dropInSubCard: {
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.xs,
+  },
+  dropInHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  dropInTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  dropInHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  dropInInput: {
+    marginTop: Spacing.xs,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.background,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    color: Colors.dark.text,
+    fontSize: 16,
   },
 
   // Players

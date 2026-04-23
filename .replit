@@ -82,7 +82,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "OTA_MESSAGE=\"Task #895: TennisNewsStrip — move news to mid-Home horizontal strip\" bash scripts/ota-push.sh"
+args = "bash scripts/ota-push.sh"
 
 [[workflows.workflow]]
 name = "GitHub Push"

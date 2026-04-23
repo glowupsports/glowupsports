@@ -2,7 +2,18 @@ import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
 import { fireQuestEvent } from "../services/quest-events";
-import { eq, sql, desc, and, inArray, isNotNull, gte, lte, ne, asc } from "drizzle-orm";
+import {
+  eq,
+  sql,
+  desc,
+  and,
+  inArray,
+  isNotNull,
+  gte,
+  lte,
+  ne,
+  asc,
+} from "drizzle-orm";
 import {
   conversations,
   messages,
@@ -40,15 +51,27 @@ import {
 import { sanitizeMessage } from "../utils/sanitize";
 import { ensureResolvableLocalTime } from "../utils/timezone";
 import { awardXP } from "../services/xp-service";
-import { broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate, broadcastWorldMessage } from "../websocket";
+import {
+  broadcastNewSession,
+  broadcastFeedbackReceived,
+  broadcastSessionUpdate,
+  broadcastWorldMessage,
+} from "../websocket";
 import {
   sendFeedbackNotification,
   sendLevelUpNotification,
   sendSessionConfirmedNotification,
   sendSessionCancelledNotification,
 } from "../pushNotifications";
-import { sendFeedbackNotificationEmail, sendLevelUpEmail } from "../emailService";
-import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "../googleCalendarService";
+import {
+  sendFeedbackNotificationEmail,
+  sendLevelUpEmail,
+} from "../emailService";
+import {
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from "../googleCalendarService";
 import { apiCache } from "../cache";
 import crypto from "crypto";
 import { z } from "zod";
@@ -65,7 +88,10 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
   if (!dateOfBirth) return false;
   const birthDate = new Date(dateOfBirth);
   const today = new Date();
-  return birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate();
+  return (
+    birthDate.getMonth() === today.getMonth() &&
+    birthDate.getDate() === today.getDate()
+  );
 }
 
 /**
@@ -100,24 +126,36 @@ async function autoCancel(
   });
 
   for (const sp of allSessionPlayers) {
-    const cancelResult = await storageArg.cancelSessionDebt(sp.playerId, sessionId);
+    const cancelResult = await storageArg.cancelSessionDebt(
+      sp.playerId,
+      sessionId,
+    );
     if (cancelResult.cancelled) {
-      console.log(`[AutoCancel] Cancelled debt for player ${sp.playerId} in session ${sessionId}`);
+      console.log(
+        `[AutoCancel] Cancelled debt for player ${sp.playerId} in session ${sessionId}`,
+      );
     }
   }
 
-  console.log(`[AutoCancel] Session ${sessionId} auto-cancelled: all players on holiday/absent`);
+  console.log(
+    `[AutoCancel] Session ${sessionId} auto-cancelled: all players on holiday/absent`,
+  );
 
   if (coachId) {
     try {
-      const { sendPushNotification, getCoachPushTokens } = await import("../pushNotifications");
+      const { sendPushNotification, getCoachPushTokens } = await import(
+        "../pushNotifications"
+      );
       const { coachNotifications } = await import("@shared/schema");
       const tokens = await getCoachPushTokens(coachId);
-      const sessionTime = new Date(session.startTime).toLocaleTimeString("nl-NL", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
+      const sessionTime = new Date(session.startTime).toLocaleTimeString(
+        "nl-NL",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        },
+      );
       const title = "Les automatisch geannuleerd";
       const message = `Alle spelers zijn op vakantie — les ${sessionTime} is automatisch geannuleerd`;
       if (tokens.length > 0) {
@@ -136,46 +174,57 @@ async function autoCancel(
         metadata: { sessionId, reason: "all_players_on_holiday" },
       });
     } catch (notifErr) {
-      console.error("[AutoCancel] Error sending auto-cancel notification:", notifErr);
+      console.error(
+        "[AutoCancel] Error sending auto-cancel notification:",
+        notifErr,
+      );
     }
   }
 
   return true;
 }
 
-  // ==================== WORLD CHAT ====================
-  // Global chat across all academies
+// ==================== WORLD CHAT ====================
+// Global chat across all academies
 
-  // Get or create the world chat conversation
-  router.get("/api/world-chat", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+// Get or create the world chat conversation
+router.get(
+  "/api/world-chat",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Find existing world chat conversation
-      let worldConv = await db.select({
-        id: conversations.id,
-        type: conversations.type,
-        title: conversations.title,
-        academyId: conversations.academyId,
-        playerId: conversations.playerId,
-        coachId: conversations.coachId,
-        providerId: conversations.providerId,
-        orderId: conversations.orderId,
-        lastMessageAt: conversations.lastMessageAt,
-        lastMessagePreview: conversations.lastMessagePreview,
-        isArchived: conversations.isArchived,
-        createdAt: conversations.createdAt,
-      }).from(conversations)
+      let worldConv = await db
+        .select({
+          id: conversations.id,
+          type: conversations.type,
+          title: conversations.title,
+          academyId: conversations.academyId,
+          playerId: conversations.playerId,
+          coachId: conversations.coachId,
+          providerId: conversations.providerId,
+          orderId: conversations.orderId,
+          lastMessageAt: conversations.lastMessageAt,
+          lastMessagePreview: conversations.lastMessagePreview,
+          isArchived: conversations.isArchived,
+          createdAt: conversations.createdAt,
+        })
+        .from(conversations)
         .where(eq(conversations.type, "world"))
         .limit(1);
 
       if (worldConv.length === 0) {
         // Create the world chat
-        const created = await db.insert(conversations).values({
-          type: "world",
-          title: "World Chat",
-          academyId: null,
-          coachId: null,
-          playerId: null,
-        }).returning();
+        const created = await db
+          .insert(conversations)
+          .values({
+            type: "world",
+            title: "World Chat",
+            academyId: null,
+            coachId: null,
+            playerId: null,
+          })
+          .returning();
         worldConv = created;
       }
 
@@ -184,26 +233,32 @@ async function autoCancel(
       console.error("Error getting world chat:", error);
       res.status(500).json({ error: "Failed to get world chat" });
     }
-  });
+  },
+);
 
-  // Get world chat messages
-  router.get("/api/world-chat/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+// Get world chat messages
+router.get(
+  "/api/world-chat/messages",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Find world chat conversation
-      const worldConvResult = await db.select({
-        id: conversations.id,
-        type: conversations.type,
-        title: conversations.title,
-        academyId: conversations.academyId,
-        playerId: conversations.playerId,
-        coachId: conversations.coachId,
-        providerId: conversations.providerId,
-        orderId: conversations.orderId,
-        lastMessageAt: conversations.lastMessageAt,
-        lastMessagePreview: conversations.lastMessagePreview,
-        isArchived: conversations.isArchived,
-        createdAt: conversations.createdAt,
-      }).from(conversations)
+      const worldConvResult = await db
+        .select({
+          id: conversations.id,
+          type: conversations.type,
+          title: conversations.title,
+          academyId: conversations.academyId,
+          playerId: conversations.playerId,
+          coachId: conversations.coachId,
+          providerId: conversations.providerId,
+          orderId: conversations.orderId,
+          lastMessageAt: conversations.lastMessageAt,
+          lastMessagePreview: conversations.lastMessagePreview,
+          isArchived: conversations.isArchived,
+          createdAt: conversations.createdAt,
+        })
+        .from(conversations)
         .where(eq(conversations.type, "world"))
         .limit(1);
 
@@ -215,20 +270,24 @@ async function autoCancel(
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
       // Get messages with sender info
-      const msgs = await db.select({
-        id: messages.id,
-        conversationId: messages.conversationId,
-        senderType: messages.senderType,
-        senderCoachId: messages.senderCoachId,
-        senderPlayerId: messages.senderPlayerId,
-        body: messages.body,
-        messageType: messages.messageType,
-        createdAt: messages.createdAt,
-      }).from(messages)
-        .where(and(
-          eq(messages.conversationId, worldConvId),
-          eq(messages.isDeleted, false)
-        ))
+      const msgs = await db
+        .select({
+          id: messages.id,
+          conversationId: messages.conversationId,
+          senderType: messages.senderType,
+          senderCoachId: messages.senderCoachId,
+          senderPlayerId: messages.senderPlayerId,
+          body: messages.body,
+          messageType: messages.messageType,
+          createdAt: messages.createdAt,
+        })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, worldConvId),
+            eq(messages.isDeleted, false),
+          ),
+        )
         .orderBy(desc(messages.createdAt))
         .limit(limit);
 
@@ -236,67 +295,136 @@ async function autoCancel(
       const orderedMsgs = msgs.reverse();
 
       // Get sender details (coach names + academy names)
-      const coachIds = [...new Set(orderedMsgs.filter(m => m.senderCoachId).map(m => m.senderCoachId!))];
-      const playerIds = [...new Set(orderedMsgs.filter(m => m.senderPlayerId).map(m => m.senderPlayerId!))];
+      const coachIds = [
+        ...new Set(
+          orderedMsgs
+            .filter((m) => m.senderCoachId)
+            .map((m) => m.senderCoachId!),
+        ),
+      ];
+      const playerIds = [
+        ...new Set(
+          orderedMsgs
+            .filter((m) => m.senderPlayerId)
+            .map((m) => m.senderPlayerId!),
+        ),
+      ];
 
-      const coachMap = new Map<string, { name: string; academyName: string; photoUrl: string | null }>();
-      const playerMap = new Map<string, { name: string; academyName: string; photoUrl: string | null }>();
+      const coachMap = new Map<
+        string,
+        { name: string; academyName: string; photoUrl: string | null }
+      >();
+      const playerMap = new Map<
+        string,
+        { name: string; academyName: string; photoUrl: string | null }
+      >();
 
       if (coachIds.length > 0) {
-        const coachData = await db.select({
-          id: coaches.id,
-          name: coaches.name,
-          academyId: coaches.academyId,
-          photoUrl: coaches.photoUrl,
-        }).from(coaches).where(inArray(coaches.id, coachIds));
+        const coachData = await db
+          .select({
+            id: coaches.id,
+            name: coaches.name,
+            academyId: coaches.academyId,
+            photoUrl: coaches.photoUrl,
+          })
+          .from(coaches)
+          .where(inArray(coaches.id, coachIds));
 
-        const academyIds = [...new Set(coachData.filter(c => c.academyId).map(c => c.academyId!))];
-        const academyData = academyIds.length > 0
-          ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray(academies.id, academyIds))
-          : [];
-        const academyNameMap = new Map(academyData.map(a => [a.id, a.name]));
+        const academyIds = [
+          ...new Set(
+            coachData.filter((c) => c.academyId).map((c) => c.academyId!),
+          ),
+        ];
+        const academyData =
+          academyIds.length > 0
+            ? await db
+                .select({ id: academies.id, name: academies.name })
+                .from(academies)
+                .where(inArray(academies.id, academyIds))
+            : [];
+        const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
 
         for (const c of coachData) {
-          const name = c.name || 'Coach';
-          coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || 'Academy', photoUrl: c.photoUrl || null });
+          const name = c.name || "Coach";
+          coachMap.set(c.id, {
+            name,
+            academyName:
+              (c.academyId ? academyNameMap.get(c.academyId) : null) ||
+              "Academy",
+            photoUrl: c.photoUrl || null,
+          });
         }
       }
 
       const playerUserIdMap = new Map<string, string | null>();
       if (playerIds.length > 0) {
-        const playerData = await db.select({
-          id: players.id,
-          name: players.name,
-          academyId: players.academyId,
-          profilePhotoUrl: players.profilePhotoUrl,
-        }).from(players).where(inArray(players.id, playerIds));
+        const playerData = await db
+          .select({
+            id: players.id,
+            name: players.name,
+            academyId: players.academyId,
+            profilePhotoUrl: players.profilePhotoUrl,
+          })
+          .from(players)
+          .where(inArray(players.id, playerIds));
 
-        const academyIds = [...new Set(playerData.filter(p => p.academyId).map(p => p.academyId!))];
-        const academyData = academyIds.length > 0
-          ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray(academies.id, academyIds))
-          : [];
-        const academyNameMap = new Map(academyData.map(a => [a.id, a.name]));
+        const academyIds = [
+          ...new Set(
+            playerData.filter((p) => p.academyId).map((p) => p.academyId!),
+          ),
+        ];
+        const academyData =
+          academyIds.length > 0
+            ? await db
+                .select({ id: academies.id, name: academies.name })
+                .from(academies)
+                .where(inArray(academies.id, academyIds))
+            : [];
+        const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
 
         for (const p of playerData) {
-          const name = p.name || 'Player';
-          playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || 'Academy', photoUrl: p.profilePhotoUrl || null });
+          const name = p.name || "Player";
+          playerMap.set(p.id, {
+            name,
+            academyName:
+              (p.academyId ? academyNameMap.get(p.academyId) : null) ||
+              "Academy",
+            photoUrl: p.profilePhotoUrl || null,
+          });
         }
 
         // Get userIds for players (for block functionality)
-        const playerUserData = await db.select({
-          playerId: users.playerId,
-          userId: users.id,
-        }).from(users).where(inArray(users.playerId, playerIds));
+        const playerUserData = await db
+          .select({
+            playerId: users.playerId,
+            userId: users.id,
+          })
+          .from(users)
+          .where(inArray(users.playerId, playerIds));
         for (const u of playerUserData) {
           if (u.playerId) playerUserIdMap.set(u.playerId, u.userId);
         }
       }
 
       // Fetch reactions for these messages
-      const messageIds = orderedMsgs.map(m => m.id);
-      const reactionsByMsg = new Map<string, Array<{ id: string; messageId: string; reactorType: string; reactorCoachId: string | null; reactorPlayerId: string | null; emoji: string; createdAt: Date }>>();
+      const messageIds = orderedMsgs.map((m) => m.id);
+      const reactionsByMsg = new Map<
+        string,
+        {
+          id: string;
+          messageId: string;
+          reactorType: string;
+          reactorCoachId: string | null;
+          reactorPlayerId: string | null;
+          emoji: string;
+          createdAt: Date;
+        }[]
+      >();
       if (messageIds.length > 0) {
-        const reacRows = await db.select().from(messageReactions).where(inArray(messageReactions.messageId, messageIds));
+        const reacRows = await db
+          .select()
+          .from(messageReactions)
+          .where(inArray(messageReactions.messageId, messageIds));
         for (const r of reacRows) {
           const arr = reactionsByMsg.get(r.messageId) || [];
           arr.push(r as any);
@@ -305,7 +433,7 @@ async function autoCancel(
       }
 
       // Enrich messages with sender info
-      const enrichedMessages = orderedMsgs.map(m => {
+      const enrichedMessages = orderedMsgs.map((m) => {
         let senderName = "Unknown";
         let academyName = "";
         let senderPhotoUrl: string | null = null;
@@ -340,14 +468,20 @@ async function autoCancel(
       console.error("Error getting world chat messages:", error);
       res.status(500).json({ error: "Failed to get world chat messages" });
     }
-  });
+  },
+);
 
-  // Post message to world chat
-  router.post("/api/world-chat/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+// Post message to world chat
+router.post(
+  "/api/world-chat/messages",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const parsedMsg = worldChatMessageSchema.safeParse(req.body);
       if (!parsedMsg.success) {
-        return res.status(400).json({ error: fromZodError(parsedMsg.error).message });
+        return res
+          .status(400)
+          .json({ error: fromZodError(parsedMsg.error).message });
       }
       const { body, messageType } = parsedMsg.data;
       const userId = req.user!.id;
@@ -356,35 +490,42 @@ async function autoCancel(
 
       const sanitizedBody = sanitizeMessage(body);
       if (!sanitizedBody) {
-        return res.status(400).json({ error: "Message body required after sanitization" });
+        return res
+          .status(400)
+          .json({ error: "Message body required after sanitization" });
       }
 
       // Get or create world chat conversation
-      let worldConvResult = await db.select({
-        id: conversations.id,
-        type: conversations.type,
-        title: conversations.title,
-        academyId: conversations.academyId,
-        playerId: conversations.playerId,
-        coachId: conversations.coachId,
-        providerId: conversations.providerId,
-        orderId: conversations.orderId,
-        lastMessageAt: conversations.lastMessageAt,
-        lastMessagePreview: conversations.lastMessagePreview,
-        isArchived: conversations.isArchived,
-        createdAt: conversations.createdAt,
-      }).from(conversations)
+      let worldConvResult = await db
+        .select({
+          id: conversations.id,
+          type: conversations.type,
+          title: conversations.title,
+          academyId: conversations.academyId,
+          playerId: conversations.playerId,
+          coachId: conversations.coachId,
+          providerId: conversations.providerId,
+          orderId: conversations.orderId,
+          lastMessageAt: conversations.lastMessageAt,
+          lastMessagePreview: conversations.lastMessagePreview,
+          isArchived: conversations.isArchived,
+          createdAt: conversations.createdAt,
+        })
+        .from(conversations)
         .where(eq(conversations.type, "world"))
         .limit(1);
 
       if (worldConvResult.length === 0) {
-        const created = await db.insert(conversations).values({
-          type: "world",
-          title: "World Chat",
-          academyId: null,
-          coachId: null,
-          playerId: null,
-        }).returning();
+        const created = await db
+          .insert(conversations)
+          .values({
+            type: "world",
+            title: "World Chat",
+            academyId: null,
+            coachId: null,
+            playerId: null,
+          })
+          .returning();
         worldConvResult = created;
       }
 
@@ -392,52 +533,74 @@ async function autoCancel(
 
       const senderType = coachId ? "coach" : playerId ? "player" : "system";
 
-      const result = await db.insert(messages).values({
-        conversationId: worldConvId,
-        senderType,
-        senderCoachId: coachId || null,
-        senderPlayerId: playerId || null,
-        body: sanitizedBody,
-        messageType: messageType || "text",
-        academyId: null,
-      }).returning();
+      const result = await db
+        .insert(messages)
+        .values({
+          conversationId: worldConvId,
+          senderType,
+          senderCoachId: coachId || null,
+          senderPlayerId: playerId || null,
+          body: sanitizedBody,
+          messageType: messageType || "text",
+          academyId: null,
+        })
+        .returning();
 
       // Update conversation last message
-      await db.update(conversations).set({
-        lastMessageAt: new Date(),
-        lastMessagePreview: sanitizedBody.substring(0, 100),
-      }).where(eq(conversations.id, worldConvId));
+      await db
+        .update(conversations)
+        .set({
+          lastMessageAt: new Date(),
+          lastMessagePreview: sanitizedBody.substring(0, 100),
+        })
+        .where(eq(conversations.id, worldConvId));
 
       // Get sender info for response
       let senderName = "Unknown";
       let academyName = "";
       let senderPhotoUrl: string | null = null;
       if (senderType === "coach" && coachId) {
-        const coachData = await db.select({
-          name: coaches.name,
-          academyId: coaches.academyId,
-          photoUrl: coaches.photoUrl,
-        }).from(coaches).where(eq(coaches.id, coachId)).limit(1);
+        const coachData = await db
+          .select({
+            name: coaches.name,
+            academyId: coaches.academyId,
+            photoUrl: coaches.photoUrl,
+          })
+          .from(coaches)
+          .where(eq(coaches.id, coachId))
+          .limit(1);
         if (coachData.length > 0) {
-          senderName = coachData[0].name || 'Coach';
+          senderName = coachData[0].name || "Coach";
           senderPhotoUrl = coachData[0].photoUrl || null;
           if (coachData[0].academyId) {
-            const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, coachData[0].academyId!)).limit(1);
-            academyName = acad[0]?.name || '';
+            const acad = await db
+              .select({ name: academies.name })
+              .from(academies)
+              .where(eq(academies.id, coachData[0].academyId!))
+              .limit(1);
+            academyName = acad[0]?.name || "";
           }
         }
       } else if (senderType === "player" && playerId) {
-        const playerData = await db.select({
-          name: players.name,
-          academyId: players.academyId,
-          profilePhotoUrl: players.profilePhotoUrl,
-        }).from(players).where(eq(players.id, playerId)).limit(1);
+        const playerData = await db
+          .select({
+            name: players.name,
+            academyId: players.academyId,
+            profilePhotoUrl: players.profilePhotoUrl,
+          })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
         if (playerData.length > 0) {
-          senderName = playerData[0].name || 'Player';
+          senderName = playerData[0].name || "Player";
           senderPhotoUrl = playerData[0].profilePhotoUrl || null;
           if (playerData[0].academyId) {
-            const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, playerData[0].academyId!)).limit(1);
-            academyName = acad[0]?.name || '';
+            const acad = await db
+              .select({ name: academies.name })
+              .from(academies)
+              .where(eq(academies.id, playerData[0].academyId!))
+              .limit(1);
+            academyName = acad[0]?.name || "";
           }
         }
       }
@@ -456,25 +619,34 @@ async function autoCancel(
       console.error("Error posting to world chat:", error);
       res.status(500).json({ error: "Failed to post message" });
     }
-  });
+  },
+);
 
-
-  // Academy Activity Feed - shows what's happening in the academy
-  router.get("/api/academy/activity-feed", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Academy Activity Feed - shows what's happening in the academy
+router.get(
+  "/api/academy/activity-feed",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
       const limit = Math.min(parseInt(req.query.limit as string) || 30, 50);
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
       // Get all academy players
-      const academyPlayers = await db.select({ 
-        id: players.id, 
-        name: players.name,
-      }).from(players).where(eq(players.academyId, academyId!));
-      
-      const playerIds = academyPlayers.map(p => p.id);
-      const playerMap = new Map(academyPlayers.map(p => [p.id, p.name || 'Player']));
-      
+      const academyPlayers = await db
+        .select({
+          id: players.id,
+          name: players.name,
+        })
+        .from(players)
+        .where(eq(players.academyId, academyId!));
+
+      const playerIds = academyPlayers.map((p) => p.id);
+      const playerMap = new Map(
+        academyPlayers.map((p) => [p.id, p.name || "Player"]),
+      );
+
       if (playerIds.length === 0) {
         return res.json({ events: [] });
       }
@@ -482,59 +654,71 @@ async function autoCancel(
       // Fetch events in parallel
       const [levelUps, xpEvents, completedSessions] = await Promise.all([
         // Level-up events (ball level promotions)
-        db.select({
-          id: levelUpEvents.id,
-          playerId: levelUpEvents.playerId,
-          toLevelId: levelUpEvents.toLevelId,
-          fromLevelId: levelUpEvents.fromLevelId,
-          xpAwarded: levelUpEvents.xpAwarded,
-          titleUnlocked: levelUpEvents.titleUnlocked,
-          createdAt: levelUpEvents.createdAt,
-        }).from(levelUpEvents)
-          .where(and(
-            inArray(levelUpEvents.playerId, playerIds),
-            gte(levelUpEvents.createdAt, sevenDaysAgo)
-          ))
+        db
+          .select({
+            id: levelUpEvents.id,
+            playerId: levelUpEvents.playerId,
+            toLevelId: levelUpEvents.toLevelId,
+            fromLevelId: levelUpEvents.fromLevelId,
+            xpAwarded: levelUpEvents.xpAwarded,
+            titleUnlocked: levelUpEvents.titleUnlocked,
+            createdAt: levelUpEvents.createdAt,
+          })
+          .from(levelUpEvents)
+          .where(
+            and(
+              inArray(levelUpEvents.playerId, playerIds),
+              gte(levelUpEvents.createdAt, sevenDaysAgo),
+            ),
+          )
           .orderBy(desc(levelUpEvents.createdAt))
           .limit(10),
 
         // XP events (level ups in XP system)
-        db.select({
-          id: playerXpEvents.id,
-          playerId: playerXpEvents.playerId,
-          actionSource: playerXpEvents.actionSource,
-          xpAmount: playerXpEvents.xpAmount,
-          triggeredLevelUp: playerXpEvents.triggeredLevelUp,
-          newLevel: playerXpEvents.newLevel,
-          levelAtEvent: playerXpEvents.levelAtEvent,
-          createdAt: playerXpEvents.createdAt,
-        }).from(playerXpEvents)
-          .where(and(
-            inArray(playerXpEvents.playerId, playerIds),
-            gte(playerXpEvents.createdAt, sevenDaysAgo)
-          ))
+        db
+          .select({
+            id: playerXpEvents.id,
+            playerId: playerXpEvents.playerId,
+            actionSource: playerXpEvents.actionSource,
+            xpAmount: playerXpEvents.xpAmount,
+            triggeredLevelUp: playerXpEvents.triggeredLevelUp,
+            newLevel: playerXpEvents.newLevel,
+            levelAtEvent: playerXpEvents.levelAtEvent,
+            createdAt: playerXpEvents.createdAt,
+          })
+          .from(playerXpEvents)
+          .where(
+            and(
+              inArray(playerXpEvents.playerId, playerIds),
+              gte(playerXpEvents.createdAt, sevenDaysAgo),
+            ),
+          )
           .orderBy(desc(playerXpEvents.createdAt))
           .limit(20),
 
         // Recently completed sessions
-        db.select({
-          id: sessions.id,
-          title: sessions.title,
-          sessionType: sessions.sessionType,
-          startTime: sessions.startTime,
-          status: sessions.status,
-        }).from(sessions)
-          .where(and(
-            eq(sessions.academyId, academyId!),
-            eq(sessions.status, "completed"),
-            gte(sessions.startTime, sevenDaysAgo)
-          ))
+        db
+          .select({
+            id: sessions.id,
+            title: sessions.title,
+            sessionType: sessions.sessionType,
+            startTime: sessions.startTime,
+            status: sessions.status,
+          })
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.academyId, academyId!),
+              eq(sessions.status, "completed"),
+              gte(sessions.startTime, sevenDaysAgo),
+            ),
+          )
           .orderBy(desc(sessions.startTime))
           .limit(10),
       ]);
 
       // Build unified activity feed
-      const events: Array<{
+      const events: {
         id: string;
         type: string;
         icon: string;
@@ -544,17 +728,19 @@ async function autoCancel(
         timestamp: string;
         xp?: number;
         level?: number;
-      }> = [];
+      }[] = [];
 
       // Add ball level promotions
       for (const lu of levelUps) {
-        const name = playerMap.get(lu.playerId) || 'Player';
+        const name = playerMap.get(lu.playerId) || "Player";
         events.push({
           id: `levelup-${lu.id}`,
           type: "level_up",
           icon: "arrow-up-circle",
           title: `${name} leveled up!`,
-          description: lu.titleUnlocked ? `Unlocked title: ${lu.titleUnlocked}` : `Promoted to new ball level`,
+          description: lu.titleUnlocked
+            ? `Unlocked title: ${lu.titleUnlocked}`
+            : `Promoted to new ball level`,
           playerName: name,
           timestamp: lu.createdAt?.toISOString() || new Date().toISOString(),
           xp: lu.xpAwarded || 0,
@@ -563,14 +749,14 @@ async function autoCancel(
 
       // Add XP level-ups (player XP system)
       for (const xp of xpEvents) {
-        const name = playerMap.get(xp.playerId) || 'Player';
+        const name = playerMap.get(xp.playerId) || "Player";
         if (xp.triggeredLevelUp && xp.newLevel) {
           events.push({
             id: `xplevel-${xp.id}`,
             type: "xp_level_up",
             icon: "star",
             title: `${name} reached Level ${xp.newLevel}!`,
-            description: `Earned ${xp.xpAmount} XP from ${xp.actionSource.replace(/_/g, ' ')}`,
+            description: `Earned ${xp.xpAmount} XP from ${xp.actionSource.replace(/_/g, " ")}`,
             playerName: name,
             timestamp: xp.createdAt?.toISOString() || new Date().toISOString(),
             xp: xp.xpAmount,
@@ -583,7 +769,7 @@ async function autoCancel(
             type: "xp_earned",
             icon: "flash",
             title: `${name} earned ${xp.xpAmount} XP`,
-            description: `From ${xp.actionSource.replace(/_/g, ' ')}`,
+            description: `From ${xp.actionSource.replace(/_/g, " ")}`,
             playerName: name,
             timestamp: xp.createdAt?.toISOString() || new Date().toISOString(),
             xp: xp.xpAmount,
@@ -594,10 +780,16 @@ async function autoCancel(
 
       // Add completed sessions
       for (const s of completedSessions) {
-        const typeLabel = s.sessionType === "private" ? "Private" : 
-          s.sessionType === "semi_private" ? "Semi-Private" : 
-          s.sessionType === "group" ? "Group" : 
-          s.sessionType === "private_adjusted" ? "Private (Adjusted)" : s.sessionType;
+        const typeLabel =
+          s.sessionType === "private"
+            ? "Private"
+            : s.sessionType === "semi_private"
+              ? "Semi-Private"
+              : s.sessionType === "group"
+                ? "Group"
+                : s.sessionType === "private_adjusted"
+                  ? "Private (Adjusted)"
+                  : s.sessionType;
         events.push({
           id: `session-${s.id}`,
           type: "session_completed",
@@ -609,24 +801,32 @@ async function autoCancel(
       }
 
       // Sort all events by timestamp descending
-      events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      events.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
 
       res.json({ events: events.slice(0, limit) });
     } catch (error) {
       console.error("Error fetching activity feed:", error);
       res.status(500).json({ error: "Failed to fetch activity feed" });
     }
-  });
+  },
+);
 
-  router.get("/api/coach/birthdays/today", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+router.get(
+  "/api/coach/birthdays/today",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
-      
+
       if (!coachId) {
         return res.status(400).json({ error: "Coach ID required" });
       }
-      
+
       // Get all players assigned to this coach
       const coachPlayers = await db
         .select({
@@ -638,38 +838,45 @@ async function autoCancel(
         })
         .from(players)
         .where(
-          and(
-            eq(players.coachId, coachId),
-            isNotNull(players.dateOfBirth)
-          )
+          and(eq(players.coachId, coachId), isNotNull(players.dateOfBirth)),
         );
-      
+
       // Filter players whose birthday is today
       const today = new Date();
-      const birthdayPlayers = coachPlayers.filter(p => {
-        if (!p.dateOfBirth) return false;
-        const birth = new Date(p.dateOfBirth);
-        return birth.getMonth() === today.getMonth() && birth.getDate() === today.getDate();
-      }).map(p => {
-        const birth = new Date(p.dateOfBirth!);
-        const age = today.getFullYear() - birth.getFullYear();
-        return {
-          id: p.id,
-          name: p.name,
-          ballLevel: p.ballLevel,
-          photoUrl: p.profilePhotoUrl,
-          turningAge: age,
-        };
-      });
-      
+      const birthdayPlayers = coachPlayers
+        .filter((p) => {
+          if (!p.dateOfBirth) return false;
+          const birth = new Date(p.dateOfBirth);
+          return (
+            birth.getMonth() === today.getMonth() &&
+            birth.getDate() === today.getDate()
+          );
+        })
+        .map((p) => {
+          const birth = new Date(p.dateOfBirth!);
+          const age = today.getFullYear() - birth.getFullYear();
+          return {
+            id: p.id,
+            name: p.name,
+            ballLevel: p.ballLevel,
+            photoUrl: p.profilePhotoUrl,
+            turningAge: age,
+          };
+        });
+
       res.json({ birthdays: birthdayPlayers, count: birthdayPlayers.length });
     } catch (error) {
       console.error("Error fetching today's birthdays:", error);
       res.status(500).json({ error: "Failed to fetch birthdays" });
     }
-  });
+  },
+);
 
-  router.get("/api/coach/birthdays/upcoming", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+router.get(
+  "/api/coach/birthdays/upcoming",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -688,10 +895,7 @@ async function autoCancel(
         })
         .from(players)
         .where(
-          and(
-            eq(players.coachId, coachId),
-            isNotNull(players.dateOfBirth)
-          )
+          and(eq(players.coachId, coachId), isNotNull(players.dateOfBirth)),
         );
 
       const today = new Date();
@@ -701,7 +905,20 @@ async function autoCancel(
       const todayBirthdays: any[] = [];
       const upcomingBirthdays: any[] = [];
 
-      const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const MONTH_NAMES = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
 
       for (const p of coachPlayers) {
         if (!p.dateOfBirth) continue;
@@ -710,11 +927,16 @@ async function autoCancel(
         const bDate = birth.getDate();
 
         const thisYearBirthday = new Date(today.getFullYear(), bMonth, bDate);
-        if (thisYearBirthday < new Date(today.getFullYear(), todayMonth, todayDate)) {
+        if (
+          thisYearBirthday <
+          new Date(today.getFullYear(), todayMonth, todayDate)
+        ) {
           thisYearBirthday.setFullYear(today.getFullYear() + 1);
         }
 
-        const diffMs = thisYearBirthday.getTime() - new Date(today.getFullYear(), todayMonth, todayDate).getTime();
+        const diffMs =
+          thisYearBirthday.getTime() -
+          new Date(today.getFullYear(), todayMonth, todayDate).getTime();
         const daysAway = Math.round(diffMs / (1000 * 60 * 60 * 24));
         const age = thisYearBirthday.getFullYear() - birth.getFullYear();
         const monthLabel = `${MONTH_NAMES[thisYearBirthday.getMonth()]} ${thisYearBirthday.getFullYear()}`;
@@ -750,9 +972,14 @@ async function autoCancel(
       console.error("Error fetching upcoming birthdays:", error);
       res.status(500).json({ error: "Failed to fetch upcoming birthdays" });
     }
-  });
+  },
+);
 
-  router.get("/api/coach/birthdays/week", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+router.get(
+  "/api/coach/birthdays/week",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
@@ -780,13 +1007,13 @@ async function autoCancel(
         })
         .from(players)
         .where(
-          and(
-            eq(players.coachId, coachId),
-            isNotNull(players.dateOfBirth)
-          )
+          and(eq(players.coachId, coachId), isNotNull(players.dateOfBirth)),
         );
 
-      const grouped: Record<string, { id: string; name: string; turningAge: number }[]> = {};
+      const grouped: Record<
+        string,
+        { id: string; name: string; turningAge: number }[]
+      > = {};
       for (const isoDate of weekDates) {
         grouped[isoDate] = [];
       }
@@ -794,9 +1021,10 @@ async function autoCancel(
       for (const p of coachPlayers) {
         if (!p.dateOfBirth) continue;
         // Force UTC parsing for date_of_birth to avoid server-timezone influence
-        const dobStr = typeof p.dateOfBirth === "string"
-          ? p.dateOfBirth.substring(0, 10)
-          : new Date(p.dateOfBirth).toISOString().split("T")[0];
+        const dobStr =
+          typeof p.dateOfBirth === "string"
+            ? p.dateOfBirth.substring(0, 10)
+            : new Date(p.dateOfBirth).toISOString().split("T")[0];
         const birth = new Date(dobStr + "T00:00:00Z");
         const bMonth = birth.getUTCMonth();
         const bDay = birth.getUTCDate();
@@ -819,12 +1047,18 @@ async function autoCancel(
       console.error("Error fetching week birthdays:", error);
       res.status(500).json({ error: "Failed to fetch week birthdays" });
     }
-  });
+  },
+);
 
-  // Check for conflicts before booking
-  router.get("/api/coach/sessions/check-conflict", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Check for conflicts before booking
+router.get(
+  "/api/coach/sessions/check-conflict",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { courtId, startTime, endTime, playerIds, excludeSessionId } = req.query;
+      const { courtId, startTime, endTime, playerIds, excludeSessionId } =
+        req.query;
       const coachId = req.user!.coachId;
 
       if (!courtId || !coachId || !startTime || !endTime) {
@@ -836,30 +1070,32 @@ async function autoCancel(
       const conflicts: string[] = [];
 
       const academyId = req.user?.academyId ?? undefined;
-      
+
       // Check unified time block conflict (across ALL academies)
-      const dateStr = start.toISOString().split('T')[0];
-      const startTimeStr = start.toISOString().split('T')[1].slice(0, 5);
-      const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
+      const dateStr = start.toISOString().split("T")[0];
+      const startTimeStr = start.toISOString().split("T")[1].slice(0, 5);
+      const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
       const unifiedConflict = await storage.checkUnifiedCoachConflict(
         coachId as string,
         dateStr,
         startTimeStr,
         endTimeStr,
         excludeSessionId as string | undefined,
-        academyId
+        academyId,
       );
       if (unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) {
-        conflicts.push("Coach is already booked at another academy for this time");
+        conflicts.push(
+          "Coach is already booked at another academy for this time",
+        );
       }
 
       // Check coach conflict within same academy
       const coachConflict = await storage.checkCoachConflict(
-        coachId as string, 
-        start, 
-        end, 
+        coachId as string,
+        start,
+        end,
         excludeSessionId as string | undefined,
-        academyId
+        academyId,
       );
       if (coachConflict) {
         conflicts.push("Coach is already booked for this time");
@@ -867,11 +1103,11 @@ async function autoCancel(
 
       // Check court conflict
       const courtConflict = await storage.checkCourtConflict(
-        courtId as string, 
-        start, 
+        courtId as string,
+        start,
         end,
         excludeSessionId as string | undefined,
-        academyId
+        academyId,
       );
       if (courtConflict) {
         conflicts.push("Court is already booked for this time");
@@ -879,14 +1115,16 @@ async function autoCancel(
 
       // Check player conflicts if provided
       if (playerIds) {
-        const playerIdArray = Array.isArray(playerIds) ? playerIds : [playerIds];
+        const playerIdArray = Array.isArray(playerIds)
+          ? playerIds
+          : [playerIds];
         for (const playerId of playerIdArray) {
           const playerConflict = await storage.checkPlayerConflict(
-            playerId as string, 
-            start, 
+            playerId as string,
+            start,
             end,
             excludeSessionId as string | undefined,
-            academyId
+            academyId,
           );
           if (playerConflict) {
             conflicts.push(`Player is already booked for this time`);
@@ -902,21 +1140,25 @@ async function autoCancel(
         message: string;
       }
       const warnings: Warning[] = [];
-      
+
       // Get adjacent sessions for the coach on the same day
       const dayStart = new Date(start);
       dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(start);
       dayEnd.setHours(23, 59, 59, 999);
-      const coachSessions = await storage.getSessionsByCoach(coachId as string, dayStart, dayEnd);
-      
+      const coachSessions = await storage.getSessionsByCoach(
+        coachId as string,
+        dayStart,
+        dayEnd,
+      );
+
       for (const session of coachSessions) {
         if (excludeSessionId && session.id === excludeSessionId) continue;
-        
+
         const sessionStart = new Date(session.startTime);
         const sessionEnd = new Date(session.endTime);
         const requiredTravelTime = session.travelTime || 0;
-        
+
         // Check if session ends just before new session
         if (sessionEnd <= start) {
           const gapMinutes = (start.getTime() - sessionEnd.getTime()) / 60000;
@@ -934,7 +1176,7 @@ async function autoCancel(
             });
           }
         }
-        
+
         // Check if new session ends just before existing session
         if (end <= sessionStart) {
           const gapMinutes = (sessionStart.getTime() - end.getTime()) / 60000;
@@ -959,20 +1201,26 @@ async function autoCancel(
         warnings.push({ level: 3, type: "conflict", message: conflict });
       });
 
-      res.json({ 
+      res.json({
         conflicts,
         warnings,
         hasConflicts: conflicts.length > 0,
-        maxWarningLevel: warnings.length > 0 ? Math.max(...warnings.map(w => w.level)) : 0,
+        maxWarningLevel:
+          warnings.length > 0 ? Math.max(...warnings.map((w) => w.level)) : 0,
       });
     } catch (error) {
       console.error("Error checking conflicts:", error);
       res.status(500).json({ error: "Failed to check conflicts" });
     }
-  });
+  },
+);
 
-  // Get multi-week availability for recurring session creation
-  router.post("/api/coach/sessions/multi-week-availability", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Get multi-week availability for recurring session creation
+router.post(
+  "/api/coach/sessions/multi-week-availability",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
@@ -983,31 +1231,50 @@ async function autoCancel(
       }
 
       // Build result: for each date, get blocked slots
-      const result: Record<string, { 
-        blockedSlots: Array<{ courtId: string | null; start: string; end: string }>;
-        coachBlocked: Array<{ start: string; end: string }>;
-      }> = {};
+      const result: Record<
+        string,
+        {
+          blockedSlots: {
+            courtId: string | null;
+            start: string;
+            end: string;
+          }[];
+          coachBlocked: { start: string; end: string }[];
+        }
+      > = {};
 
       for (const dateStr of dates) {
         const [year, month, day] = dateStr.split("-").map(Number);
         const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-        const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+        const endDate = new Date(
+          Date.UTC(year, month - 1, day, 23, 59, 59, 999),
+        );
 
         // Get all sessions for this day (blocked slots = other coaches' sessions)
-        const blockedSessions = await storage.getBlockedSessions(coachId as string, startDate, endDate, academyId ?? undefined);
-        const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
+        const blockedSessions = await storage.getBlockedSessions(
+          coachId as string,
+          startDate,
+          endDate,
+          academyId ?? undefined,
+        );
+        const ownSessions = await storage.getSessionsByCoach(
+          coachId as string,
+          startDate,
+          endDate,
+          academyId ?? undefined,
+        );
 
         // Court blocked slots (other coaches)
         const blockedSlots = blockedSessions
-          .filter(s => !courtId || s.courtId === courtId)
-          .map(s => ({
+          .filter((s) => !courtId || s.courtId === courtId)
+          .map((s) => ({
             courtId: s.courtId,
             start: new Date(s.startTime).toISOString(),
             end: new Date(s.endTime).toISOString(),
           }));
 
         // Coach blocked (own sessions - coach can't be in two places)
-        const coachBlocked = ownSessions.map(s => ({
+        const coachBlocked = ownSessions.map((s) => ({
           start: new Date(s.startTime).toISOString(),
           end: new Date(s.endTime).toISOString(),
         }));
@@ -1015,8 +1282,8 @@ async function autoCancel(
         // Also add other coaches' sessions to coachBlocked if on same court
         if (courtId) {
           const courtBlocked = blockedSessions
-            .filter(s => s.courtId === courtId)
-            .map(s => ({
+            .filter((s) => s.courtId === courtId)
+            .map((s) => ({
               start: new Date(s.startTime).toISOString(),
               end: new Date(s.endTime).toISOString(),
             }));
@@ -1031,10 +1298,15 @@ async function autoCancel(
       console.error("Error fetching multi-week availability:", error);
       res.status(500).json({ error: "Failed to fetch availability" });
     }
-  });
+  },
+);
 
-  // Create session
-  router.post("/api/coach/sessions", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Create session
+router.post(
+  "/api/coach/sessions",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
@@ -1061,18 +1333,28 @@ async function autoCancel(
         visibleToPlayers,
         notes,
         sport,
+        // Task #1033 — Open By Default. New lessons default to publicly listed
+        // for cross-academy drop-in unless the coach explicitly opts out.
+        isPublic,
+        publicDropInPrice,
       } = req.body;
 
-      const ballLevelsArr: string[] | null = Array.isArray(rawBallLevels) && rawBallLevels.length > 0
-        ? rawBallLevels.filter((l: unknown): l is string => typeof l === "string" && l.length > 0)
-        : null;
-      const primaryBallLevel: string | null = ballLevelsArr && ballLevelsArr.length > 0
-        ? ballLevelsArr[0]
-        : (ballLevel || null);
-      
+      const ballLevelsArr: string[] | null =
+        Array.isArray(rawBallLevels) && rawBallLevels.length > 0
+          ? rawBallLevels.filter(
+              (l: unknown): l is string =>
+                typeof l === "string" && l.length > 0,
+            )
+          : null;
+      const primaryBallLevel: string | null =
+        ballLevelsArr && ballLevelsArr.length > 0
+          ? ballLevelsArr[0]
+          : ballLevel || null;
+
       const FLEXIBLE_DAY = -1;
       const VALID_SPORTS = ["tennis", "padel", "pickleball"];
-      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
+      const validatedSport =
+        sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
 
       if (!coachId || !startTime || !duration || !sessionType) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -1084,9 +1366,13 @@ async function autoCancel(
 
       // Support both ISO timestamp format and separate date/time format
       let start: Date;
-      if (date && startTime && !startTime.includes('T')) {
+      if (date && startTime && !startTime.includes("T")) {
         // Validate that the start time is resolvable in the academy timezone
-        const timeResolution = ensureResolvableLocalTime(date, startTime, academyTimezone);
+        const timeResolution = ensureResolvableLocalTime(
+          date,
+          startTime,
+          academyTimezone,
+        );
         if (!timeResolution.ok) {
           return res.status(400).json({ error: timeResolution.error });
         }
@@ -1097,40 +1383,76 @@ async function autoCancel(
         start = new Date(startTime);
       }
       const end = new Date(start.getTime() + duration * 60000);
-      const dateStr = start.toISOString().split('T')[0];
-      const startTimeStr = start.toISOString().split('T')[1].slice(0, 5);
-      const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
+      const dateStr = start.toISOString().split("T")[0];
+      const startTimeStr = start.toISOString().split("T")[1].slice(0, 5);
+      const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
 
       // Check unified time block conflict (across ALL academies)
-      const unifiedConflict = await storage.checkUnifiedCoachConflict(coachId, dateStr, startTimeStr, endTimeStr, undefined, academyId ?? undefined);
+      const unifiedConflict = await storage.checkUnifiedCoachConflict(
+        coachId,
+        dateStr,
+        startTimeStr,
+        endTimeStr,
+        undefined,
+        academyId ?? undefined,
+      );
       if (unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) {
-        return res.status(409).json({ 
-          error: "Coach conflict", 
+        return res.status(409).json({
+          error: "Coach conflict",
           level: 3,
-          message: "Coach is already booked at another academy for this time slot" 
+          message:
+            "Coach is already booked at another academy for this time slot",
         });
       }
 
       // Check conflicts within this academy
-      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined, courtId);
+      const coachConflict = await storage.checkCoachConflict(
+        coachId,
+        start,
+        end,
+        undefined,
+        academyId ?? undefined,
+        courtId,
+      );
       if (coachConflict) {
-        console.log(`[CoachConflict] Coach ${coachId} has conflict at ${start.toISOString()} - ${end.toISOString()}`);
-        const conflictingSessions = await storage.getCoachSessionsInRange(coachId, academyId!, start, end);
-        console.log(`[CoachConflict] Conflicting sessions:`, conflictingSessions.map(s => ({ id: s.id, seriesId: s.seriesId, start: s.startTime, status: s.status })));
-        return res.status(409).json({ 
-          error: "Coach conflict", 
+        console.log(
+          `[CoachConflict] Coach ${coachId} has conflict at ${start.toISOString()} - ${end.toISOString()}`,
+        );
+        const conflictingSessions = await storage.getCoachSessionsInRange(
+          coachId,
+          academyId!,
+          start,
+          end,
+        );
+        console.log(
+          `[CoachConflict] Conflicting sessions:`,
+          conflictingSessions.map((s) => ({
+            id: s.id,
+            seriesId: s.seriesId,
+            start: s.startTime,
+            status: s.status,
+          })),
+        );
+        return res.status(409).json({
+          error: "Coach conflict",
           level: 3,
-          message: "Coach is already booked for this time slot" 
+          message: "Coach is already booked for this time slot",
         });
       }
 
       if (courtId) {
-        const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
+        const courtConflict = await storage.checkCourtConflict(
+          courtId,
+          start,
+          end,
+          undefined,
+          academyId ?? undefined,
+        );
         if (courtConflict) {
-          return res.status(409).json({ 
-            error: "Court conflict", 
+          return res.status(409).json({
+            error: "Court conflict",
             level: 3,
-            message: "Court is already booked for this time slot" 
+            message: "Court is already booked for this time slot",
           });
         }
       }
@@ -1139,81 +1461,106 @@ async function autoCancel(
       const coachSettingsData = await storage.getCoachSettings(coachId);
       if (coachSettingsData) {
         // Validate minimum session length
-        if (coachSettingsData.minSessionLength && duration < coachSettingsData.minSessionLength) {
+        if (
+          coachSettingsData.minSessionLength &&
+          duration < coachSettingsData.minSessionLength
+        ) {
           return res.status(400).json({
             error: "Session too short",
             level: 2,
-            message: `Session duration (${duration} min) is less than your minimum session length setting (${coachSettingsData.minSessionLength} min)`
+            message: `Session duration (${duration} min) is less than your minimum session length setting (${coachSettingsData.minSessionLength} min)`,
           });
         }
 
         // Validate buffer between sessions
-        if (coachSettingsData.bufferBetweenSessions && coachSettingsData.bufferBetweenSessions > 0) {
+        if (
+          coachSettingsData.bufferBetweenSessions &&
+          coachSettingsData.bufferBetweenSessions > 0
+        ) {
           const bufferMinutes = coachSettingsData.bufferBetweenSessions;
-          
+
           // Check for sessions that end within buffer time before this session starts
-          const bufferStartCheck = new Date(start.getTime() - bufferMinutes * 60000);
-          const sessionsBeforeBuffer = await storage.getCoachSessionsInRange(
-            coachId, 
-            academyId!, 
-            bufferStartCheck, 
-            start
+          const bufferStartCheck = new Date(
+            start.getTime() - bufferMinutes * 60000,
           );
-          
+          const sessionsBeforeBuffer = await storage.getCoachSessionsInRange(
+            coachId,
+            academyId!,
+            bufferStartCheck,
+            start,
+          );
+
           // Filter to find sessions that actually end within the buffer window
-          const conflictingBefore = sessionsBeforeBuffer.filter(s => {
+          const conflictingBefore = sessionsBeforeBuffer.filter((s) => {
             const sessionEnd = new Date(s.endTime);
-            const timeBetween = (start.getTime() - sessionEnd.getTime()) / 60000;
+            const timeBetween =
+              (start.getTime() - sessionEnd.getTime()) / 60000;
             return timeBetween > 0 && timeBetween < bufferMinutes;
           });
-          
+
           if (conflictingBefore.length > 0) {
             const prevSession = conflictingBefore[0];
             const prevEnd = new Date(prevSession.endTime);
-            const gapMinutes = Math.round((start.getTime() - prevEnd.getTime()) / 60000);
+            const gapMinutes = Math.round(
+              (start.getTime() - prevEnd.getTime()) / 60000,
+            );
             return res.status(409).json({
               error: "Buffer conflict",
               level: 2,
-              message: `Only ${gapMinutes} min gap before this session. Your settings require ${bufferMinutes} min buffer between sessions.`
+              message: `Only ${gapMinutes} min gap before this session. Your settings require ${bufferMinutes} min buffer between sessions.`,
             });
           }
-          
+
           // Check for sessions that start within buffer time after this session ends
-          const bufferEndCheck = new Date(end.getTime() + bufferMinutes * 60000);
-          const sessionsAfterBuffer = await storage.getCoachSessionsInRange(
-            coachId, 
-            academyId!, 
-            end, 
-            bufferEndCheck
+          const bufferEndCheck = new Date(
+            end.getTime() + bufferMinutes * 60000,
           );
-          
+          const sessionsAfterBuffer = await storage.getCoachSessionsInRange(
+            coachId,
+            academyId!,
+            end,
+            bufferEndCheck,
+          );
+
           // Filter to find sessions that actually start within the buffer window
-          const conflictingAfter = sessionsAfterBuffer.filter(s => {
+          const conflictingAfter = sessionsAfterBuffer.filter((s) => {
             const sessionStart = new Date(s.startTime);
-            const timeBetween = (sessionStart.getTime() - end.getTime()) / 60000;
+            const timeBetween =
+              (sessionStart.getTime() - end.getTime()) / 60000;
             return timeBetween > 0 && timeBetween < bufferMinutes;
           });
-          
+
           if (conflictingAfter.length > 0) {
             const nextSession = conflictingAfter[0];
             const nextStart = new Date(nextSession.startTime);
-            const gapMinutes = Math.round((nextStart.getTime() - end.getTime()) / 60000);
+            const gapMinutes = Math.round(
+              (nextStart.getTime() - end.getTime()) / 60000,
+            );
             return res.status(409).json({
               error: "Buffer conflict",
               level: 2,
-              message: `Only ${gapMinutes} min gap after this session. Your settings require ${bufferMinutes} min buffer between sessions.`
+              message: `Only ${gapMinutes} min gap after this session. Your settings require ${bufferMinutes} min buffer between sessions.`,
             });
           }
         }
       }
 
       // Create sessions (single, recurring, or flexible)
-      const isFlexibleSession = isFlexible && flexibleDates && Array.isArray(flexibleDates) && flexibleDates.length > 0;
-      const sessionsToCreate = isFlexibleSession ? flexibleDates.length : (weekCount && weekCount > 1 ? weekCount : 1);
-      const recurringGroupId = sessionsToCreate > 1 ? crypto.randomUUID() : null;
+      const isFlexibleSession =
+        isFlexible &&
+        flexibleDates &&
+        Array.isArray(flexibleDates) &&
+        flexibleDates.length > 0;
+      const sessionsToCreate = isFlexibleSession
+        ? flexibleDates.length
+        : weekCount && weekCount > 1
+          ? weekCount
+          : 1;
+      const recurringGroupId =
+        sessionsToCreate > 1 ? crypto.randomUUID() : null;
       const createdSessions = [];
       const skippedWeeks: number[] = [];
-      
+
       // Create coaching_series for ALL sessions (recurring, flexible, AND one-off)
       // - Recurring (weekly): dayOfWeek = 0-6
       // - Flexible/One-off: dayOfWeek = -1 (appears in "Flexible Schedule" section)
@@ -1225,7 +1572,7 @@ async function autoCancel(
         physical: "Physical Training",
         activity: "Activity",
       };
-      
+
       if (academyId && coachId) {
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         let seriesTitle: string;
@@ -1233,67 +1580,92 @@ async function autoCancel(
         let seriesStartDateStr: string;
         let seriesEndDateStr: string;
         let effectiveWeekCount: number;
-        
+
         if (isFlexibleSession) {
           // FLEXIBLE: Smart merge - check if existing flexible series matches these players
           let matchingFlexSeries: any = null;
-          
+
           if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
-            const allCoachSeries = await storage.getCoachingSeries(coachId, academyId!);
+            const allCoachSeries = await storage.getCoachingSeries(
+              coachId,
+              academyId!,
+            );
             for (const s of allCoachSeries) {
               if (s.status !== "active") continue;
               if (s.dayOfWeek !== FLEXIBLE_DAY) continue;
               if (s.sessionType !== sessionType) continue;
-              
+
               const sPlayers = await storage.getSeriesPlayers(s.id);
-              const activeIds = sPlayers.filter((p: any) => p.status === "active").map((p: any) => p.playerId);
-              
-              const allMatch = playerIds.every((pid: string) => activeIds.includes(pid));
+              const activeIds = sPlayers
+                .filter((p: any) => p.status === "active")
+                .map((p: any) => p.playerId);
+
+              const allMatch = playerIds.every((pid: string) =>
+                activeIds.includes(pid),
+              );
               if (allMatch && activeIds.length === playerIds.length) {
                 matchingFlexSeries = s;
                 break;
               }
             }
           }
-          
+
           if (matchingFlexSeries) {
             seriesId = matchingFlexSeries.id;
-            console.log(`[SmartSession] Adding flexible sessions to existing series: ${matchingFlexSeries.title} (ID: ${matchingFlexSeries.id})`);
-            
-            const sortedNewDates = [...flexibleDates].sort((a: any, b: any) => 
-              (a.date || a).localeCompare(b.date || b)
+            console.log(
+              `[SmartSession] Adding flexible sessions to existing series: ${matchingFlexSeries.title} (ID: ${matchingFlexSeries.id})`,
             );
-            const lastNewDate = typeof sortedNewDates[sortedNewDates.length - 1] === 'string' 
-              ? sortedNewDates[sortedNewDates.length - 1] 
-              : sortedNewDates[sortedNewDates.length - 1].date;
-            
-            if (!matchingFlexSeries.seriesEndDate || lastNewDate > matchingFlexSeries.seriesEndDate) {
-              await db.update(coachingSeries)
-                .set({ 
+
+            const sortedNewDates = [...flexibleDates].sort((a: any, b: any) =>
+              (a.date || a).localeCompare(b.date || b),
+            );
+            const lastNewDate =
+              typeof sortedNewDates[sortedNewDates.length - 1] === "string"
+                ? sortedNewDates[sortedNewDates.length - 1]
+                : sortedNewDates[sortedNewDates.length - 1].date;
+
+            if (
+              !matchingFlexSeries.seriesEndDate ||
+              lastNewDate > matchingFlexSeries.seriesEndDate
+            ) {
+              await db
+                .update(coachingSeries)
+                .set({
                   seriesEndDate: lastNewDate,
-                  weekCount: (matchingFlexSeries.weekCount || 0) + flexibleDates.length,
+                  weekCount:
+                    (matchingFlexSeries.weekCount || 0) + flexibleDates.length,
                 })
                 .where(eq(coachingSeries.id, matchingFlexSeries.id));
             }
           }
-          
+
           if (!seriesId) {
             effectiveDayOfWeek = FLEXIBLE_DAY;
-            const sortedDates = [...flexibleDates].sort((a: any, b: any) => 
-              (a.date || a).localeCompare(b.date || b)
+            const sortedDates = [...flexibleDates].sort((a: any, b: any) =>
+              (a.date || a).localeCompare(b.date || b),
             );
-            seriesStartDateStr = typeof sortedDates[0] === 'string' ? sortedDates[0] : sortedDates[0].date;
-            seriesEndDateStr = typeof sortedDates[sortedDates.length - 1] === 'string' 
-              ? sortedDates[sortedDates.length - 1] 
-              : sortedDates[sortedDates.length - 1].date;
+            seriesStartDateStr =
+              typeof sortedDates[0] === "string"
+                ? sortedDates[0]
+                : sortedDates[0].date;
+            seriesEndDateStr =
+              typeof sortedDates[sortedDates.length - 1] === "string"
+                ? sortedDates[sortedDates.length - 1]
+                : sortedDates[sortedDates.length - 1].date;
             effectiveWeekCount = flexibleDates.length;
-            
+
             let playerNameSuffix = "";
-            if ((sessionType === "private" || sessionType === "semi_private") && playerIds && playerIds.length > 0) {
-              const playerNames = await Promise.all(playerIds.map(async (pid: string) => {
-                const p = await storage.getPlayer(pid);
-                return p?.name?.split(" ")[0] || "Player";
-              }));
+            if (
+              (sessionType === "private" || sessionType === "semi_private") &&
+              playerIds &&
+              playerIds.length > 0
+            ) {
+              const playerNames = await Promise.all(
+                playerIds.map(async (pid: string) => {
+                  const p = await storage.getPlayer(pid);
+                  return p?.name?.split(" ")[0] || "Player";
+                }),
+              );
               playerNameSuffix = ` - ${playerNames.join(", ")}`;
             }
             seriesTitle = `${sessionTypeLabels[sessionType] || sessionType}${playerNameSuffix}`;
@@ -1302,48 +1674,68 @@ async function autoCancel(
           // ONE-OFF: Check if players already have a matching series on same day of week + time
           const sessionDayOfWeek = start.getUTCDay();
           let matchingSeries: any = null;
-          
+
           if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
             // Find series where ALL these players are active members, same day of week, same time
-            const allCoachSeries = await storage.getCoachingSeries(coachId, academyId!);
+            const allCoachSeries = await storage.getCoachingSeries(
+              coachId,
+              academyId!,
+            );
             for (const s of allCoachSeries) {
               // Include both active AND ended series for smart merge
               if (s.status !== "active" && s.status !== "ended") continue;
               if (s.dayOfWeek !== sessionDayOfWeek) continue;
               if (s.startTime !== startTimeStr) continue;
               if (s.sessionType !== sessionType) continue;
-              
+
               // Get active players in this series
               const seriesPlayers = await storage.getSeriesPlayers(s.id);
-              const activePlayerIds = seriesPlayers.filter((p: any) => p.status === "active").map((p: any) => p.playerId);
-              
+              const activePlayerIds = seriesPlayers
+                .filter((p: any) => p.status === "active")
+                .map((p: any) => p.playerId);
+
               // Check if all selected players are in this series
-              const allPlayersMatch = playerIds.every((pid: string) => activePlayerIds.includes(pid));
-              if (allPlayersMatch && activePlayerIds.length === playerIds.length) {
+              const allPlayersMatch = playerIds.every((pid: string) =>
+                activePlayerIds.includes(pid),
+              );
+              if (
+                allPlayersMatch &&
+                activePlayerIds.length === playerIds.length
+              ) {
                 matchingSeries = s;
                 break;
               }
             }
           }
-          
+
           if (matchingSeries) {
             // Found matching series - add session to it instead of creating new
             seriesId = matchingSeries.id;
-            console.log(`[SmartSession] Adding to existing series: ${matchingSeries.title} (ID: ${matchingSeries.id})`);
-            
+            console.log(
+              `[SmartSession] Adding to existing series: ${matchingSeries.title} (ID: ${matchingSeries.id})`,
+            );
+
             // Skip series creation, go directly to session creation
             // Get pricing from matchingSeries or fetch academy pricing
-            let sessionPricing: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+            let sessionPricing: {
+              academyPrice?: string;
+              coachPayout?: string;
+              academyMargin?: string;
+            } = {};
             if (matchingSeries.price) {
               sessionPricing = { academyPrice: matchingSeries.price };
             } else {
-              const academyPricing = await storage.getAcademyPricing(academyId!);
-              const pricingForType = academyPricing?.find((p: any) => p.sessionType === sessionType);
+              const academyPricing = await storage.getAcademyPricing(
+                academyId!,
+              );
+              const pricingForType = academyPricing?.find(
+                (p: any) => p.sessionType === sessionType,
+              );
               if (pricingForType) {
                 sessionPricing = {
                   academyPrice: pricingForType.price,
                   coachPayout: pricingForType.coachPayout,
-                  academyMargin: pricingForType.academyMargin
+                  academyMargin: pricingForType.academyMargin,
                 };
               }
             }
@@ -1360,13 +1752,16 @@ async function autoCancel(
               status: "scheduled",
               maxPlayers: matchingSeries.maxPlayers,
               xpValue: matchingSeries.xpPerSession || 20,
-              ...sessionPricing
+              ...sessionPricing,
             });
-            
+
             // Add players to this session
             for (const pid of playerIds) {
               try {
-                await storage.addPlayerToSession({ sessionId: newSession.id, playerId: pid });
+                await storage.addPlayerToSession({
+                  sessionId: newSession.id,
+                  playerId: pid,
+                });
               } catch (e) {}
             }
 
@@ -1381,34 +1776,48 @@ async function autoCancel(
                     sessionType,
                     newSession.startTime || start,
                     coachNameSmart,
-                    academyId
-                  ).catch(err => console.error("[PushNotification] SmartSession one-off notification failed:", err));
+                    academyId,
+                  ).catch((err) =>
+                    console.error(
+                      "[PushNotification] SmartSession one-off notification failed:",
+                      err,
+                    ),
+                  );
                 }
               } catch (err) {
-                console.error("[PushNotification] Failed to send SmartSession one-off notifications:", err);
+                console.error(
+                  "[PushNotification] Failed to send SmartSession one-off notifications:",
+                  err,
+                );
               }
             }
-            
+
             return res.json({
               series: matchingSeries,
               sessions: [newSession],
               skippedWeeks: [],
               addedToExistingSeries: true,
-              message: `Session added to existing class: ${matchingSeries.title}`
+              message: `Session added to existing class: ${matchingSeries.title}`,
             });
           }
-          
+
           // No matching series found, create one-off as usual
           effectiveDayOfWeek = FLEXIBLE_DAY;
           seriesStartDateStr = dateStr;
           seriesEndDateStr = dateStr;
           effectiveWeekCount = 1;
           let oneOffPlayerSuffix = "";
-          if ((sessionType === "private" || sessionType === "semi_private") && playerIds && playerIds.length > 0) {
-            const oneOffPlayerNames = await Promise.all(playerIds.map(async (pid: string) => {
-              const p = await storage.getPlayer(pid);
-              return p?.name?.split(" ")[0] || "Player";
-            }));
+          if (
+            (sessionType === "private" || sessionType === "semi_private") &&
+            playerIds &&
+            playerIds.length > 0
+          ) {
+            const oneOffPlayerNames = await Promise.all(
+              playerIds.map(async (pid: string) => {
+                const p = await storage.getPlayer(pid);
+                return p?.name?.split(" ")[0] || "Player";
+              }),
+            );
             oneOffPlayerSuffix = ` - ${oneOffPlayerNames.join(", ")}`;
           }
           seriesTitle = `${sessionTypeLabels[sessionType] || sessionType}${oneOffPlayerSuffix}`;
@@ -1416,12 +1825,14 @@ async function autoCancel(
           // RECURRING (weekly): dayOfWeek = 0-6
           effectiveDayOfWeek = start.getUTCDay();
           seriesStartDateStr = dateStr;
-          const seriesEndDate = new Date(start.getTime() + (sessionsToCreate - 1) * 7 * 24 * 60 * 60 * 1000);
-          seriesEndDateStr = seriesEndDate.toISOString().split('T')[0];
+          const seriesEndDate = new Date(
+            start.getTime() + (sessionsToCreate - 1) * 7 * 24 * 60 * 60 * 1000,
+          );
+          seriesEndDateStr = seriesEndDate.toISOString().split("T")[0];
           effectiveWeekCount = sessionsToCreate;
           seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - ${dayNames[effectiveDayOfWeek]} ${startTimeStr}`;
         }
-        
+
         if (!seriesId) {
           const series = await storage.createCoachingSeries({
             academyId,
@@ -1436,15 +1847,33 @@ async function autoCancel(
             ballLevel: primaryBallLevel,
             ballLevels: ballLevelsArr ?? undefined,
             skillLevel: skillLevel || null,
-            maxPlayers: maxPlayers || (sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 6),
+            maxPlayers:
+              maxPlayers ||
+              (sessionType === "private"
+                ? 1
+                : sessionType === "semi_private"
+                  ? 2
+                  : 6),
             weekCount: effectiveWeekCount,
             seriesStartDate: seriesStartDateStr,
             seriesEndDate: seriesEndDateStr,
             status: "active",
             sport: validatedSport,
+            // Task #1033 — Open By Default for new lessons (group/semi_private).
+            // Privates stay closed regardless of the toggle.
+            isPublic:
+              sessionType === "private"
+                ? false
+                : typeof isPublic === "boolean"
+                  ? isPublic
+                  : true,
+            publicDropInPrice:
+              publicDropInPrice != null && Number(publicDropInPrice) > 0
+                ? String(publicDropInPrice)
+                : null,
           });
           seriesId = series.id;
-          
+
           // Add players to series if provided
           if (playerIds && Array.isArray(playerIds)) {
             for (const playerId of playerIds) {
@@ -1463,51 +1892,97 @@ async function autoCancel(
       if (isFlexibleSession) {
         for (let i = 0; i < flexibleDates.length; i++) {
           const flexDate = flexibleDates[i];
-          const flexDateStr = typeof flexDate === 'string' ? flexDate : flexDate.date;
-          const flexTimeStr = typeof flexDate === 'object' && flexDate.time ? flexDate.time : startTime;
-          
+          const flexDateStr =
+            typeof flexDate === "string" ? flexDate : flexDate.date;
+          const flexTimeStr =
+            typeof flexDate === "object" && flexDate.time
+              ? flexDate.time
+              : startTime;
+
           // Parse the flexible date with time
-          const timeResolution = ensureResolvableLocalTime(flexDateStr, flexTimeStr, academyTimezone);
+          const timeResolution = ensureResolvableLocalTime(
+            flexDateStr,
+            flexTimeStr,
+            academyTimezone,
+          );
           if (!timeResolution.ok) {
             skippedWeeks.push(i + 1);
             continue;
           }
-          
+
           const flexStart = timeResolution.utcDate;
           const flexEnd = new Date(flexStart.getTime() + duration * 60000);
-          const flexStartTimeStr = flexStart.toISOString().split('T')[1].slice(0, 5);
-          const flexEndTimeStr = flexEnd.toISOString().split('T')[1].slice(0, 5);
-          
+          const flexStartTimeStr = flexStart
+            .toISOString()
+            .split("T")[1]
+            .slice(0, 5);
+          const flexEndTimeStr = flexEnd
+            .toISOString()
+            .split("T")[1]
+            .slice(0, 5);
+
           // Check conflicts
-          const unifiedConflict = await storage.checkUnifiedCoachConflict(coachId, flexDateStr, flexStartTimeStr, flexEndTimeStr, undefined, academyId ?? undefined);
-          const coachConflict = await storage.checkCoachConflict(coachId, flexStart, flexEnd, undefined, academyId ?? undefined);
-          const courtConflict = await storage.checkCourtConflict(courtId, flexStart, flexEnd, undefined, academyId ?? undefined);
-          
-          if ((unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) || coachConflict || courtConflict) {
+          const unifiedConflict = await storage.checkUnifiedCoachConflict(
+            coachId,
+            flexDateStr,
+            flexStartTimeStr,
+            flexEndTimeStr,
+            undefined,
+            academyId ?? undefined,
+          );
+          const coachConflict = await storage.checkCoachConflict(
+            coachId,
+            flexStart,
+            flexEnd,
+            undefined,
+            academyId ?? undefined,
+          );
+          const courtConflict = await storage.checkCourtConflict(
+            courtId,
+            flexStart,
+            flexEnd,
+            undefined,
+            academyId ?? undefined,
+          );
+
+          if (
+            (unifiedConflict.hasConflict && !unifiedConflict.isOwnAcademy) ||
+            coachConflict ||
+            courtConflict
+          ) {
             skippedWeeks.push(i + 1);
             continue;
           }
-          
+
           // Snapshot pricing
-          let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+          let pricingSnapshot: {
+            academyPrice?: string;
+            coachPayout?: string;
+            academyMargin?: string;
+          } = {};
           if (academyId && coachId) {
             try {
-              const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+              const pricing = await storage.calculateSessionPricing(
+                academyId,
+                coachId,
+                sessionType,
+                duration,
+              );
               pricingSnapshot = {
                 academyPrice: String(pricing.academyPrice),
                 coachPayout: String(pricing.coachPayout),
                 academyMargin: String(pricing.academyMargin),
               };
             } catch (err: any) {
-              return res.status(422).json({ 
-                error: "Pricing error", 
-                message: err.message || "Could not calculate session pricing"
+              return res.status(422).json({
+                error: "Pricing error",
+                message: err.message || "Could not calculate session pricing",
               });
             }
           }
-          
+
           const session = await storage.createSession({
-        duration: duration || 60,
+            duration: duration || 60,
             academyId,
             coachId,
             courtId,
@@ -1530,11 +2005,11 @@ async function autoCancel(
             sport: validatedSport,
             ...pricingSnapshot,
           });
-          
+
           // Create time block
           await storage.createCoachTimeBlock({
             coachId,
-            sourceType: 'session',
+            sourceType: "session",
             sourceAcademyId: academyId ?? undefined,
             sourceSessionId: session.id,
             date: flexDateStr,
@@ -1542,7 +2017,7 @@ async function autoCancel(
             endTime: flexEndTimeStr,
             isPrivate: true,
           });
-          
+
           // Add players to session
           if (playerIds && Array.isArray(playerIds)) {
             for (const playerId of playerIds) {
@@ -1552,18 +2027,18 @@ async function autoCancel(
               });
             }
           }
-          
+
           createdSessions.push(session);
         }
-        
+
         // Return early for flexible sessions
         if (createdSessions.length === 0) {
-          return res.status(409).json({ 
+          return res.status(409).json({
             error: "All time slots have conflicts",
-            message: "Could not create any sessions due to conflicts"
+            message: "Could not create any sessions due to conflicts",
           });
         }
-        
+
         await storage.createAuditLog({
           entityType: "session",
           entityId: createdSessions[0].id,
@@ -1583,14 +2058,22 @@ async function autoCancel(
                 sessionType,
                 firstFlexSession.startTime || start,
                 coachNameFlex,
-                academyId
-              ).catch(err => console.error("[PushNotification] Flexible session notification failed:", err));
+                academyId,
+              ).catch((err) =>
+                console.error(
+                  "[PushNotification] Flexible session notification failed:",
+                  err,
+                ),
+              );
             }
           } catch (err) {
-            console.error("[PushNotification] Failed to send flexible session notifications:", err);
+            console.error(
+              "[PushNotification] Failed to send flexible session notifications:",
+              err,
+            );
           }
         }
-        
+
         return res.status(201).json({
           sessions: createdSessions,
           seriesId,
@@ -1601,28 +2084,66 @@ async function autoCancel(
 
       // REGULAR and ONE-OFF sessions: continue with original loop
       for (let week = 0; week < sessionsToCreate; week++) {
-        const weekStart = new Date(start.getTime() + week * 7 * 24 * 60 * 60 * 1000);
+        const weekStart = new Date(
+          start.getTime() + week * 7 * 24 * 60 * 60 * 1000,
+        );
         const weekEnd = new Date(weekStart.getTime() + duration * 60000);
-        const weekDateStr = weekStart.toISOString().split('T')[0];
-        const weekStartTimeStr = weekStart.toISOString().split('T')[1].slice(0, 5);
-        const weekEndTimeStr = weekEnd.toISOString().split('T')[1].slice(0, 5);
+        const weekDateStr = weekStart.toISOString().split("T")[0];
+        const weekStartTimeStr = weekStart
+          .toISOString()
+          .split("T")[1]
+          .slice(0, 5);
+        const weekEndTimeStr = weekEnd.toISOString().split("T")[1].slice(0, 5);
 
         // Check unified time block conflicts for each week (across ALL academies)
-        const weekUnifiedConflict = await storage.checkUnifiedCoachConflict(coachId, weekDateStr, weekStartTimeStr, weekEndTimeStr, undefined, academyId ?? undefined);
-        const weekCoachConflict = await storage.checkCoachConflict(coachId, weekStart, weekEnd, undefined, academyId ?? undefined);
-        const weekCourtConflict = await storage.checkCourtConflict(courtId, weekStart, weekEnd, undefined, academyId ?? undefined);
-        
+        const weekUnifiedConflict = await storage.checkUnifiedCoachConflict(
+          coachId,
+          weekDateStr,
+          weekStartTimeStr,
+          weekEndTimeStr,
+          undefined,
+          academyId ?? undefined,
+        );
+        const weekCoachConflict = await storage.checkCoachConflict(
+          coachId,
+          weekStart,
+          weekEnd,
+          undefined,
+          academyId ?? undefined,
+        );
+        const weekCourtConflict = await storage.checkCourtConflict(
+          courtId,
+          weekStart,
+          weekEnd,
+          undefined,
+          academyId ?? undefined,
+        );
+
         // Skip if there's an external conflict or within-academy conflict
-        if ((weekUnifiedConflict.hasConflict && !weekUnifiedConflict.isOwnAcademy) || weekCoachConflict || weekCourtConflict) {
+        if (
+          (weekUnifiedConflict.hasConflict &&
+            !weekUnifiedConflict.isOwnAcademy) ||
+          weekCoachConflict ||
+          weekCourtConflict
+        ) {
           skippedWeeks.push(week + 1);
           continue;
         }
 
         // Snapshot pricing at booking time (Layer 3)
-        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+        let pricingSnapshot: {
+          academyPrice?: string;
+          coachPayout?: string;
+          academyMargin?: string;
+        } = {};
         if (academyId && coachId) {
           try {
-            const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+            const pricing = await storage.calculateSessionPricing(
+              academyId,
+              coachId,
+              sessionType,
+              duration,
+            );
             pricingSnapshot = {
               academyPrice: String(pricing.academyPrice),
               coachPayout: String(pricing.coachPayout),
@@ -1630,15 +2151,15 @@ async function autoCancel(
             };
           } catch (err: any) {
             // Currency mismatch and other critical errors must block session creation
-            return res.status(422).json({ 
-              error: "Pricing error", 
-              message: err.message || "Could not calculate session pricing"
+            return res.status(422).json({
+              error: "Pricing error",
+              message: err.message || "Could not calculate session pricing",
             });
           }
         }
 
         const session = await storage.createSession({
-        duration: duration || 60,
+          duration: duration || 60,
           academyId,
           coachId,
           courtId,
@@ -1665,7 +2186,7 @@ async function autoCancel(
         // Create unified time block to prevent double-booking across academies
         await storage.createCoachTimeBlock({
           coachId,
-          sourceType: 'session',
+          sourceType: "session",
           sourceAcademyId: academyId ?? undefined,
           sourceSessionId: session.id,
           date: weekDateStr,
@@ -1682,7 +2203,7 @@ async function autoCancel(
             if (player) {
               playerNames.push(player.name);
             }
-            
+
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
@@ -1691,31 +2212,41 @@ async function autoCancel(
         }
 
         // Sync to Google Calendar (non-blocking)
-        const court = courtId ? await storage.getCourt(courtId, academyId!) : null;
-        const location = locationId ? await storage.getLocation(locationId, academyId!) : null;
+        const court = courtId
+          ? await storage.getCourt(courtId, academyId!)
+          : null;
+        const location = locationId
+          ? await storage.getLocation(locationId, academyId!)
+          : null;
         const sessionTitle = `Tennis ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} Session`;
-        
+
         createCalendarEvent({
           sessionId: session.id,
           title: sessionTitle,
-          description: `Ball Level: ${ballLevel || 'Not specified'}\nSkill Level: ${skillLevel || 'Not specified'}`,
+          description: `Ball Level: ${ballLevel || "Not specified"}\nSkill Level: ${skillLevel || "Not specified"}`,
           startTime: weekStart,
           endTime: weekEnd,
           location: location?.name || court?.name,
           playerNames,
-        }).then(async (result) => {
-          if (result.success && result.eventId) {
-            await storage.updateSession(session.id, { googleCalendarEventId: result.eventId }, academyId!);
-          }
-        }).catch(err => console.error('[GoogleCalendar] Sync error:', err));
+        })
+          .then(async (result) => {
+            if (result.success && result.eventId) {
+              await storage.updateSession(
+                session.id,
+                { googleCalendarEventId: result.eventId },
+                academyId!,
+              );
+            }
+          })
+          .catch((err) => console.error("[GoogleCalendar] Sync error:", err));
 
         createdSessions.push(session);
       }
 
       if (createdSessions.length === 0) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "All time slots have conflicts",
-          message: "Could not create any sessions due to conflicts"
+          message: "Could not create any sessions due to conflicts",
         });
       }
 
@@ -1723,7 +2254,10 @@ async function autoCancel(
       await storage.createAuditLog({
         entityType: "session",
         entityId: createdSessions[0].id,
-        action: sessionsToCreate > 1 ? `create_recurring_${createdSessions.length}` : "create",
+        action:
+          sessionsToCreate > 1
+            ? `create_recurring_${createdSessions.length}`
+            : "create",
         performedBy: coachId,
       });
 
@@ -1743,15 +2277,20 @@ async function autoCancel(
         const coachData = await storage.getCoach(coachId!);
         const coachName = coachData?.name || "Your coach";
         const firstSession = createdSessions[0];
-        
+
         for (const playerId of playerIds) {
           sendSessionConfirmedNotification(
             playerId,
             sessionType,
             firstSession.startTime || new Date(),
             coachName,
-            academyId
-          ).catch(err => console.error("[PushNotification] Failed to send session notification:", err));
+            academyId,
+          ).catch((err) =>
+            console.error(
+              "[PushNotification] Failed to send session notification:",
+              err,
+            ),
+          );
         }
       }
 
@@ -1763,7 +2302,7 @@ async function autoCancel(
             requested: sessionsToCreate,
             created: createdSessions.length,
             skippedWeeks: skippedWeeks,
-          }
+          },
         });
       } else {
         res.status(201).json(createdSessions[0]);
@@ -1772,14 +2311,19 @@ async function autoCancel(
       console.error("Error creating session:", error);
       res.status(500).json({ error: "Failed to create session" });
     }
-  });
+  },
+);
 
-  // Bulk create sessions (flexible schedule)
-  router.post("/api/coach/sessions/bulk", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Bulk create sessions (flexible schedule)
+router.post(
+  "/api/coach/sessions/bulk",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
-      
+
       const {
         courtId,
         duration,
@@ -1795,77 +2339,105 @@ async function autoCancel(
         visibleToPlayers,
         flexibleSessions, // Array of { date, time, startTime, endTime }
         sport,
+        // Task #1033 — Open By Default. Series-level visibility for cross-academy
+        // discovery; defaults true unless coach explicitly opts to "My academy only".
+        isPublic,
+        publicDropInPrice,
       } = req.body;
 
-      const ballLevelsArr: string[] | null = Array.isArray(rawBallLevels) && rawBallLevels.length > 0
-        ? rawBallLevels.filter((l: unknown): l is string => typeof l === "string" && l.length > 0)
-        : null;
-      const primaryBallLevel: string | null = ballLevelsArr && ballLevelsArr.length > 0
-        ? ballLevelsArr[0]
-        : (ballLevel || null);
-      
-      if (!coachId || !courtId || !flexibleSessions || !Array.isArray(flexibleSessions) || flexibleSessions.length === 0) {
+      const ballLevelsArr: string[] | null =
+        Array.isArray(rawBallLevels) && rawBallLevels.length > 0
+          ? rawBallLevels.filter(
+              (l: unknown): l is string =>
+                typeof l === "string" && l.length > 0,
+            )
+          : null;
+      const primaryBallLevel: string | null =
+        ballLevelsArr && ballLevelsArr.length > 0
+          ? ballLevelsArr[0]
+          : ballLevel || null;
+
+      if (
+        !coachId ||
+        !courtId ||
+        !flexibleSessions ||
+        !Array.isArray(flexibleSessions) ||
+        flexibleSessions.length === 0
+      ) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      
+
       const VALID_SPORTS = ["tennis", "padel", "pickleball"];
-      const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
-      
+      const validatedSport =
+        sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
+
       const createdSessions: any[] = [];
       const skippedDates: string[] = [];
-      
+
       // Get pricing snapshot once for all sessions
-      let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+      let pricingSnapshot: {
+        academyPrice?: string;
+        coachPayout?: string;
+        academyMargin?: string;
+      } = {};
       if (academyId && coachId) {
         try {
-          const pricing = await storage.calculateSessionPricing(academyId, coachId, sessionType, duration);
+          const pricing = await storage.calculateSessionPricing(
+            academyId,
+            coachId,
+            sessionType,
+            duration,
+          );
           pricingSnapshot = {
             academyPrice: String(pricing.academyPrice),
             coachPayout: String(pricing.coachPayout),
             academyMargin: String(pricing.academyMargin),
           };
         } catch (err: any) {
-          return res.status(422).json({ 
-            error: "Pricing error", 
-            message: err.message || "Could not calculate session pricing"
+          return res.status(422).json({
+            error: "Pricing error",
+            message: err.message || "Could not calculate session pricing",
           });
         }
       }
-      
+
       // Determine series to use: find existing or create new flexible series
       let seriesId: string | null = null;
-      const sortedDates = [...flexibleSessions].sort((a: any, b: any) => a.date.localeCompare(b.date));
+      const sortedDates = [...flexibleSessions].sort((a: any, b: any) =>
+        a.date.localeCompare(b.date),
+      );
       const firstDate = sortedDates[0]?.date;
       const lastDate = sortedDates[sortedDates.length - 1]?.date;
-      
+
       // If players provided, try to find their existing active series with this coach
       if (playerIds && playerIds.length > 0 && academyId) {
         const firstPlayerId = playerIds[0];
         const playerSeries = await storage.getPlayerSeries(firstPlayerId);
-        const existingSeries = playerSeries.find((s: any) => 
-          s.coachId === coachId && 
-          s.sessionType === sessionType && 
-          s.status === "active"
+        const existingSeries = playerSeries.find(
+          (s: any) =>
+            s.coachId === coachId &&
+            s.sessionType === sessionType &&
+            s.status === "active",
         );
         if (existingSeries) {
           seriesId = existingSeries.id;
         }
       }
-      
+
       // If no existing series, create a flexible series
       if (!seriesId && academyId) {
-        let seriesTitle = `Flexible ${sessionType === 'private' ? 'Private' : sessionType === 'semi_private' ? 'Semi-Private' : 'Group'}`;
+        let seriesTitle = `Flexible ${sessionType === "private" ? "Private" : sessionType === "semi_private" ? "Semi-Private" : "Group"}`;
         if (playerIds && playerIds.length > 0) {
           const playerNames: string[] = [];
           for (const pid of playerIds.slice(0, 2)) {
             const p = await storage.getPlayer(pid, academyId);
-            if (p) playerNames.push(p.name.split(' ')[0]);
+            if (p) playerNames.push(p.name.split(" ")[0]);
           }
           if (playerNames.length > 0) {
-            seriesTitle = `${playerNames.join(' & ')}${playerIds.length > 2 ? ` +${playerIds.length - 2}` : ''} - Flexible`;
+            seriesTitle = `${playerNames.join(" & ")}${playerIds.length > 2 ? ` +${playerIds.length - 2}` : ""} - Flexible`;
           }
         }
-        
+
         const newSeries = await storage.createCoachingSeries({
           academyId,
           coachId,
@@ -1878,15 +2450,31 @@ async function autoCancel(
           ballLevel: primaryBallLevel,
           ballLevels: ballLevelsArr ?? undefined,
           skillLevel: skillLevel || null,
-          maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : maxPlayers || 6,
+          maxPlayers:
+            sessionType === "private"
+              ? 1
+              : sessionType === "semi_private"
+                ? 2
+                : maxPlayers || 6,
           weekCount: flexibleSessions.length,
           seriesStartDate: firstDate,
           seriesEndDate: lastDate,
           status: "active",
           sport: validatedSport,
+          // Task #1033 — Open By Default for new flexible series.
+          isPublic:
+            sessionType === "private"
+              ? false
+              : typeof isPublic === "boolean"
+                ? isPublic
+                : true,
+          publicDropInPrice:
+            publicDropInPrice != null && Number(publicDropInPrice) > 0
+              ? String(publicDropInPrice)
+              : null,
         });
         seriesId = newSeries.id;
-        
+
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
             await storage.addPlayerToSeries({
@@ -1897,26 +2485,39 @@ async function autoCancel(
           }
         }
       }
-      
+
       for (const fs of flexibleSessions) {
         const start = new Date(fs.startTime);
         const end = new Date(fs.endTime);
         const dateStr = fs.date;
         const startTimeStr = fs.time;
-        const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
-        
+        const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
+
         // Check for conflicts
-        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined, courtId);
-        const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
-        
+        const coachConflict = await storage.checkCoachConflict(
+          coachId,
+          start,
+          end,
+          undefined,
+          academyId ?? undefined,
+          courtId,
+        );
+        const courtConflict = await storage.checkCourtConflict(
+          courtId,
+          start,
+          end,
+          undefined,
+          academyId ?? undefined,
+        );
+
         if (coachConflict || courtConflict) {
           skippedDates.push(dateStr);
           continue;
         }
-        
+
         // Create the session linked to series
         const session = await storage.createSession({
-        duration: duration || 60,
+          duration: duration || 60,
           coachId,
           courtId,
           academyId: academyId || undefined,
@@ -1929,13 +2530,18 @@ async function autoCancel(
           ballLevel: primaryBallLevel,
           ballLevels: ballLevelsArr ?? undefined,
           skillLevel: skillLevel || null,
-          maxPlayers: sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : maxPlayers || 6,
+          maxPlayers:
+            sessionType === "private"
+              ? 1
+              : sessionType === "semi_private"
+                ? 2
+                : maxPlayers || 6,
           recurringGroupId: null,
           seriesId: seriesId || undefined,
           sport: validatedSport,
           ...pricingSnapshot,
         });
-        
+
         // Create unified coach time block
         await storage.createCoachTimeBlock({
           coachId,
@@ -1947,24 +2553,28 @@ async function autoCancel(
           endTime: endTimeStr,
           isPrivate: true,
         });
-        
+
         // Add players if provided
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
-            await storage.addPlayerToSession({ sessionId: session.id, playerId, status: "confirmed" });
+            await storage.addPlayerToSession({
+              sessionId: session.id,
+              playerId,
+              status: "confirmed",
+            });
           }
         }
-        
+
         createdSessions.push(session);
       }
-      
+
       if (createdSessions.length === 0) {
-        return res.status(409).json({ 
-          error: "All sessions had conflicts", 
-          skippedDates 
+        return res.status(409).json({
+          error: "All sessions had conflicts",
+          skippedDates,
         });
       }
-      
+
       // Audit log
       await storage.createAuditLog({
         entityType: "session",
@@ -1972,7 +2582,7 @@ async function autoCancel(
         action: `bulk_create_${createdSessions.length}`,
         performedBy: coachId,
       });
-      
+
       res.status(201).json({
         sessions: createdSessions,
         seriesId,
@@ -1981,27 +2591,40 @@ async function autoCancel(
           created: createdSessions.length,
           skippedDates,
         },
-        message: skippedDates.length > 0 
-          ? `Created ${createdSessions.length} sessions, skipped ${skippedDates.length} due to conflicts`
-          : `Created ${createdSessions.length} sessions successfully`
+        message:
+          skippedDates.length > 0
+            ? `Created ${createdSessions.length} sessions, skipped ${skippedDates.length} due to conflicts`
+            : `Created ${createdSessions.length} sessions successfully`,
       });
     } catch (error) {
       console.error("Error creating bulk sessions:", error);
       res.status(500).json({ error: "Failed to create sessions" });
     }
-  });
+  },
+);
 
-  // Update session
-  router.patch("/api/coach/sessions/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Update session
+router.patch(
+  "/api/coach/sessions/:id",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
       const updates = { ...req.body };
 
       // Convert timestamp strings to Date objects for Drizzle ORM
-      const timestampFields = ['startTime', 'endTime', 'completedAt', 'cancelledAt', 'createdAt', 'updatedAt'];
+      const timestampFields = [
+        "startTime",
+        "endTime",
+        "completedAt",
+        "cancelledAt",
+        "createdAt",
+        "updatedAt",
+      ];
       for (const field of timestampFields) {
-        if (updates[field] && typeof updates[field] === 'string') {
+        if (updates[field] && typeof updates[field] === "string") {
           updates[field] = new Date(updates[field]);
         }
       }
@@ -2014,23 +2637,39 @@ async function autoCancel(
 
       // Check ownership
       if (session.coachId !== coachId) {
-        return res.status(403).json({ error: "Not authorized to modify this session" });
+        return res
+          .status(403)
+          .json({ error: "Not authorized to modify this session" });
       }
 
       // If time changed, check conflicts
       if (updates.startTime || updates.duration) {
-        const start = updates.startTime ? new Date(updates.startTime) : session.startTime;
+        const start = updates.startTime
+          ? new Date(updates.startTime)
+          : session.startTime;
         const duration = updates.duration || session.duration;
         const end = new Date(start.getTime() + duration * 60000);
         const academyId = req.user?.academyId ?? undefined;
 
-        const coachConflict = await storage.checkCoachConflict(coachId!, start, end, id, academyId);
+        const coachConflict = await storage.checkCoachConflict(
+          coachId!,
+          start,
+          end,
+          id,
+          academyId,
+        );
         if (coachConflict) {
           return res.status(409).json({ error: "Coach conflict", level: 3 });
         }
 
         const courtId = updates.courtId || session.courtId;
-        const courtConflict = await storage.checkCourtConflict(courtId!, start, end, id, academyId);
+        const courtConflict = await storage.checkCourtConflict(
+          courtId!,
+          start,
+          end,
+          id,
+          academyId,
+        );
         if (courtConflict) {
           return res.status(409).json({ error: "Court conflict", level: 3 });
         }
@@ -2041,16 +2680,25 @@ async function autoCancel(
       const updated = await storage.updateSession(id, updates);
 
       // Recreate time block for rescheduled session (delete old, create new)
-      if (coachId && session.status !== 'cancelled' && (updates.startTime || updates.duration)) {
+      if (
+        coachId &&
+        session.status !== "cancelled" &&
+        (updates.startTime || updates.duration)
+      ) {
         await storage.deleteCoachTimeBlockBySession(id);
-        const newStart = updates.startTime ? new Date(updates.startTime) : session.startTime;
+        const newStart = updates.startTime
+          ? new Date(updates.startTime)
+          : session.startTime;
         const newEnd = updates.endTime || session.endTime;
-        const sessionDate = newStart.toISOString().split('T')[0];
-        const startTimeStr = newStart.toISOString().split('T')[1].substring(0, 5);
-        const endTimeStr = newEnd.toISOString().split('T')[1].substring(0, 5);
+        const sessionDate = newStart.toISOString().split("T")[0];
+        const startTimeStr = newStart
+          .toISOString()
+          .split("T")[1]
+          .substring(0, 5);
+        const endTimeStr = newEnd.toISOString().split("T")[1].substring(0, 5);
         await storage.createCoachTimeBlock({
           coachId,
-          sourceType: 'session',
+          sourceType: "session",
           sourceAcademyId: academyId || undefined,
           sourceSessionId: id,
           date: sessionDate,
@@ -2063,25 +2711,35 @@ async function autoCancel(
       // Sync to Google Calendar if event exists (non-blocking)
       if (session.googleCalendarEventId) {
         const sessionPlayers = await storage.getSessionPlayers(id);
-        const playerNames = sessionPlayers.map(sp => sp.player?.name).filter(Boolean) as string[];
-        
+        const playerNames = sessionPlayers
+          .map((sp) => sp.player?.name)
+          .filter(Boolean) as string[];
+
         const updatedCourtId = updates.courtId || session.courtId;
         const updatedLocationId = updates.locationId || session.locationId;
-        const court = updatedCourtId ? await storage.getCourt(updatedCourtId, academyId) : null;
-        const location = updatedLocationId ? await storage.getLocation(updatedLocationId, academyId) : null;
-        
-        const startTime = updates.startTime ? new Date(updates.startTime) : session.startTime;
+        const court = updatedCourtId
+          ? await storage.getCourt(updatedCourtId, academyId)
+          : null;
+        const location = updatedLocationId
+          ? await storage.getLocation(updatedLocationId, academyId)
+          : null;
+
+        const startTime = updates.startTime
+          ? new Date(updates.startTime)
+          : session.startTime;
         const endTime = updated?.endTime || session.endTime;
-        
+
         updateCalendarEvent(session.googleCalendarEventId, {
           sessionId: id,
           title: `Tennis ${(updates.sessionType || session.sessionType).charAt(0).toUpperCase() + (updates.sessionType || session.sessionType).slice(1)} Session`,
-          description: `Ball Level: ${updates.ballLevel || session.ballLevel || 'Not specified'}\nSkill Level: ${updates.skillLevel || session.skillLevel || 'Not specified'}`,
+          description: `Ball Level: ${updates.ballLevel || session.ballLevel || "Not specified"}\nSkill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           startTime,
           endTime,
           location: location?.name || court?.name,
           playerNames,
-        }).catch(err => console.error('[GoogleCalendar] Update sync error:', err));
+        }).catch((err) =>
+          console.error("[GoogleCalendar] Update sync error:", err),
+        );
       }
 
       await storage.createAuditLog({
@@ -2104,10 +2762,15 @@ async function autoCancel(
       console.error("Error updating session:", error);
       res.status(500).json({ error: "Failed to update session" });
     }
-  });
+  },
+);
 
-  // Cancel session - FULL DELETE with credit refund
-  router.post("/api/coach/sessions/:id/cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Cancel session - FULL DELETE with credit refund
+router.post(
+  "/api/coach/sessions/:id/cancel",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -2125,10 +2788,15 @@ async function autoCancel(
 
       // Refund credits for this session before deleting
       // Find all session_player records to locate credit transactions by session_player_id
-      const spRecordsForRefund = await db.select({ id: sessionPlayers.id, playerId: sessionPlayers.playerId, creditDeductedAt: sessionPlayers.creditDeductedAt })
+      const spRecordsForRefund = await db
+        .select({
+          id: sessionPlayers.id,
+          playerId: sessionPlayers.playerId,
+          creditDeductedAt: sessionPlayers.creditDeductedAt,
+        })
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, id));
-      
+
       // Task #684 Phase 3 — V2 owns refunds. `refundCreditsForSession`
       // dispatches to the V2 engine for V2 academies (every academy is V2
       // now) and falls back to legacy V1 logic for any historical
@@ -2142,23 +2810,36 @@ async function autoCancel(
         if (!sp.creditDeductedAt) continue;
 
         try {
-          const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
+          const refundResult = await storage.refundCreditsForSession(
+            sp.playerId,
+            id,
+            academyId,
+          );
           if (refundResult.success) {
             refundedCount++;
-            console.log(`[DeleteSession] Refunded credit for player ${sp.playerId} via refundCreditsForSession`);
+            console.log(
+              `[DeleteSession] Refunded credit for player ${sp.playerId} via refundCreditsForSession`,
+            );
           } else {
-            const reason = refundResult.reason ?? 'unknown';
-            console.warn(`[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${reason}`);
+            const reason = refundResult.reason ?? "unknown";
+            console.warn(
+              `[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${reason}`,
+            );
             refundFailures.push({ playerId: sp.playerId, reason });
           }
         } catch (err) {
-          const reason = err instanceof Error ? err.message : 'refund_threw';
-          console.error(`[DeleteSession] refundCreditsForSession threw for ${sp.playerId}:`, err);
+          const reason = err instanceof Error ? err.message : "refund_threw";
+          console.error(
+            `[DeleteSession] refundCreditsForSession threw for ${sp.playerId}:`,
+            err,
+          );
           refundFailures.push({ playerId: sp.playerId, reason });
         }
       }
       if (refundedCount > 0) {
-        console.log(`[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`);
+        console.log(
+          `[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`,
+        );
       }
       if (refundFailures.length > 0) {
         console.warn(
@@ -2168,7 +2849,8 @@ async function autoCancel(
       }
 
       // Get players for notification before deleting session_players
-      const playersInSession = await db.select({ playerId: sessionPlayers.playerId })
+      const playersInSession = await db
+        .select({ playerId: sessionPlayers.playerId })
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, id));
       const coachData = coachId ? await storage.getCoach(coachId) : null;
@@ -2181,40 +2863,74 @@ async function autoCancel(
             session.sessionType,
             session.startTime,
             reason || `Cancelled by ${coachName}`,
-            academyId
-          ).catch(err => console.error("[PushNotification] Failed to send cancellation notification:", err));
+            academyId,
+          ).catch((err) =>
+            console.error(
+              "[PushNotification] Failed to send cancellation notification:",
+              err,
+            ),
+          );
         }
       }
 
       // Wrap all DB nullification and deletion in a transaction for atomicity
       await db.transaction(async (tx) => {
         // Nullify session references in related tables
-        await tx.update(creditTransactions).set({ sessionId: null }).where(eq(creditTransactions.sessionId, id));
-        await tx.update(xpTransactions).set({ sessionId: null }).where(eq(xpTransactions.sessionId, id));
-        await tx.update(coachXpTransactions).set({ sessionId: null }).where(eq(coachXpTransactions.sessionId, id));
-        await tx.update(playerPillarProgress).set({ lastSessionId: null }).where(eq(playerPillarProgress.lastSessionId, id));
+        await tx
+          .update(creditTransactions)
+          .set({ sessionId: null })
+          .where(eq(creditTransactions.sessionId, id));
+        await tx
+          .update(xpTransactions)
+          .set({ sessionId: null })
+          .where(eq(xpTransactions.sessionId, id));
+        await tx
+          .update(coachXpTransactions)
+          .set({ sessionId: null })
+          .where(eq(coachXpTransactions.sessionId, id));
+        await tx
+          .update(playerPillarProgress)
+          .set({ lastSessionId: null })
+          .where(eq(playerPillarProgress.lastSessionId, id));
 
         // Nullify sessionPlayerId references in credit_transactions before deleting session_players
         // This is required because credit_transactions has a foreign key to session_players
-        const sessionPlayerRecords = await tx.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
+        const sessionPlayerRecords = await tx
+          .select({ id: sessionPlayers.id })
+          .from(sessionPlayers)
+          .where(eq(sessionPlayers.sessionId, id));
         if (sessionPlayerRecords.length > 0) {
-          const spIds = sessionPlayerRecords.map(sp => sp.id);
-          await tx.update(creditTransactions)
+          const spIds = sessionPlayerRecords.map((sp) => sp.id);
+          await tx
+            .update(creditTransactions)
             .set({ sessionPlayerId: null })
             .where(inArray(creditTransactions.sessionPlayerId, spIds));
         }
 
         // Delete related records
-        await tx.delete(inSessionFeedback).where(eq(inSessionFeedback.sessionId, id));
+        await tx
+          .delete(inSessionFeedback)
+          .where(eq(inSessionFeedback.sessionId, id));
         await tx.delete(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
-        await tx.delete(sessionSkillObservations).where(eq(sessionSkillObservations.sessionId, id));
-        await tx.delete(sessionSkillFeedback).where(eq(sessionSkillFeedback.sessionId, id));
+        await tx
+          .delete(sessionSkillObservations)
+          .where(eq(sessionSkillObservations.sessionId, id));
+        await tx
+          .delete(sessionSkillFeedback)
+          .where(eq(sessionSkillFeedback.sessionId, id));
         await tx.delete(sessionPlans).where(eq(sessionPlans.sessionId, id));
-        await tx.delete(playerSessionCancellations).where(eq(playerSessionCancellations.sessionId, id));
-        await tx.delete(sessionWaitlist).where(eq(sessionWaitlist.sessionId, id));
+        await tx
+          .delete(playerSessionCancellations)
+          .where(eq(playerSessionCancellations.sessionId, id));
+        await tx
+          .delete(sessionWaitlist)
+          .where(eq(sessionWaitlist.sessionId, id));
 
         // Nullify booking_requests.sessionId before deleting the session (FK constraint)
-        await tx.update(bookingRequests).set({ sessionId: null }).where(eq(bookingRequests.sessionId, id));
+        await tx
+          .update(bookingRequests)
+          .set({ sessionId: null })
+          .where(eq(bookingRequests.sessionId, id));
 
         // Delete the session itself
         await tx.delete(sessions).where(eq(sessions.id, id));
@@ -2225,8 +2941,9 @@ async function autoCancel(
 
       // Remove from Google Calendar if event exists (non-blocking)
       if (session.googleCalendarEventId) {
-        deleteCalendarEvent(session.googleCalendarEventId)
-          .catch(err => console.error('[GoogleCalendar] Delete sync error:', err));
+        deleteCalendarEvent(session.googleCalendarEventId).catch((err) =>
+          console.error("[GoogleCalendar] Delete sync error:", err),
+        );
       }
 
       await storage.createAuditLog({
@@ -2254,7 +2971,7 @@ async function autoCancel(
       if (academyId) {
         apiCache.invalidate(`players:${academyId}`);
       }
-      
+
       res.json({
         success: true,
         deleted: true,
@@ -2265,10 +2982,15 @@ async function autoCancel(
       console.error("Error deleting session:", error);
       res.status(500).json({ error: "Failed to delete session" });
     }
-  });
+  },
+);
 
-  // Transfer session to another coach
-  router.post("/api/coach/sessions/:id/transfer", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Transfer session to another coach
+router.post(
+  "/api/coach/sessions/:id/transfer",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const currentCoachId = req.user!.coachId;
@@ -2291,7 +3013,7 @@ async function autoCancel(
 
       // Verify current coach owns this session OR owns the series
       let isAuthorized = session.coachId === currentCoachId;
-      
+
       // Also allow transfer if coach owns the series this session belongs to
       if (!isAuthorized && session.seriesId) {
         const series = await storage.getCoachingSeriesById(session.seriesId);
@@ -2299,9 +3021,11 @@ async function autoCancel(
           isAuthorized = true;
         }
       }
-      
+
       if (!isAuthorized) {
-        return res.status(403).json({ error: "Not authorized to transfer this session" });
+        return res
+          .status(403)
+          .json({ error: "Not authorized to transfer this session" });
       }
 
       // Verify target coach exists and is in the same academy
@@ -2316,10 +3040,12 @@ async function autoCancel(
         session.startTime,
         session.endTime,
         id,
-        academyId
+        academyId,
       );
       if (conflict) {
-        return res.status(409).json({ error: "Target coach has a scheduling conflict at this time" });
+        return res.status(409).json({
+          error: "Target coach has a scheduling conflict at this time",
+        });
       }
 
       // Transfer the session by updating coachId
@@ -2330,8 +3056,10 @@ async function autoCancel(
       // If the session belongs to a series, copy series_players to session_players
       // This ensures the new coach can see the players for this specific session
       if (session.seriesId) {
-        const seriesPlayersList = await storage.getSeriesPlayers(session.seriesId);
-        
+        const seriesPlayersList = await storage.getSeriesPlayers(
+          session.seriesId,
+        );
+
         for (const sp of seriesPlayersList) {
           if (sp.status === "active") {
             // Add player to this specific session (addPlayerToSession handles duplicates)
@@ -2350,10 +3078,10 @@ async function autoCancel(
         entityId: id,
         action: "transfer",
         performedBy: currentCoachId!,
-        details: { 
-          fromCoachId: currentCoachId, 
+        details: {
+          fromCoachId: currentCoachId,
           toCoachId: targetCoachId,
-          reason: reason || "Session transferred to another coach"
+          reason: reason || "Session transferred to another coach",
         },
       });
 
@@ -2367,19 +3095,24 @@ async function autoCancel(
         });
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Session transferred to ${targetCoach.name}`,
-        session: updated 
+        session: updated,
       });
     } catch (error) {
       console.error("Error transferring session:", error);
       res.status(500).json({ error: "Failed to transfer session" });
     }
-  });
+  },
+);
 
-  // Extend session
-  router.post("/api/coach/sessions/:id/extend", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Extend session
+router.post(
+  "/api/coach/sessions/:id/extend",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
@@ -2402,14 +3135,30 @@ async function autoCancel(
       const newEndTime = new Date(session.endTime.getTime() + minutes * 60000);
 
       // Check if extension causes conflict
-      const coachConflict = await storage.checkCoachConflict(coachId!, session.endTime, newEndTime, id, academyId);
+      const coachConflict = await storage.checkCoachConflict(
+        coachId!,
+        session.endTime,
+        newEndTime,
+        id,
+        academyId,
+      );
       if (coachConflict) {
-        return res.status(409).json({ error: "Cannot extend - coach has another session" });
+        return res
+          .status(409)
+          .json({ error: "Cannot extend - coach has another session" });
       }
 
-      const courtConflict = await storage.checkCourtConflict(session.courtId!, session.endTime, newEndTime, id, academyId);
+      const courtConflict = await storage.checkCourtConflict(
+        session.courtId!,
+        session.endTime,
+        newEndTime,
+        id,
+        academyId,
+      );
       if (courtConflict) {
-        return res.status(409).json({ error: "Cannot extend - court is booked" });
+        return res
+          .status(409)
+          .json({ error: "Cannot extend - court is booked" });
       }
 
       const updated = await storage.updateSession(id, {
@@ -2422,23 +3171,36 @@ async function autoCancel(
       console.error("Error extending session:", error);
       res.status(500).json({ error: "Failed to extend session" });
     }
-  });
+  },
+);
 
-  // Add players to session
-  router.post("/api/coach/sessions/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Add players to session
+router.post(
+  "/api/coach/sessions/:id/players",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { playerId, isGuest, skipCreditCheck } = req.body;
       const academyId = req.user!.academyId;
 
-      const { valid: sessionValid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid: sessionValid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!sessionValid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
       // Validate player belongs to same academy
       if (playerId) {
-        const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+        const { valid: playerValid } = await validatePlayerOwnership(
+          playerId,
+          academyId,
+          storage,
+        );
         if (!playerValid) {
           return res.status(404).json({ error: "Player not found" });
         }
@@ -2449,12 +3211,12 @@ async function autoCancel(
           const creditCheck = await storage.checkPlayerCreditsForSessionType(
             playerId,
             session.sessionType,
-            academyId
+            academyId,
           );
 
           if (!creditCheck.hasCredits) {
             const player = await storage.getPlayer(playerId, academyId);
-            
+
             return res.status(200).json({
               warning: "credit_mismatch",
               message: `${player?.name || "Player"} has no ${creditCheck.creditType} credits available`,
@@ -2473,7 +3235,7 @@ async function autoCancel(
       const existingEnrollment = await storage.getSessionPlayer(id, playerId);
       let sessionPlayer: typeof existingEnrollment;
       let isNewEnrollment = false;
-      
+
       if (existingEnrollment) {
         // Player already enrolled - check if credits were already deducted
         if (existingEnrollment.creditDeductedAt) {
@@ -2501,13 +3263,16 @@ async function autoCancel(
         const creditCheck = await storage.checkPlayerCreditsForSessionType(
           playerId,
           session.sessionType,
-          academyId
+          academyId,
         );
 
         if (!creditCheck.hasCredits) {
           const player = await storage.getPlayer(playerId, academyId);
-          const creditTypeLabel = (creditCheck.creditType || "").replace("_", "-");
-          
+          const creditTypeLabel = (creditCheck.creditType || "").replace(
+            "_",
+            "-",
+          );
+
           await storage.createNotification({
             playerId,
             type: "credits_needed",
@@ -2549,11 +3314,16 @@ async function autoCancel(
           session.sessionType,
           session.startTime,
           coachName,
-          req.user?.academyId
-        ).catch(err => console.error("[PushNotification] Failed to send session notification:", err));
+          req.user?.academyId,
+        ).catch((err) =>
+          console.error(
+            "[PushNotification] Failed to send session notification:",
+            err,
+          ),
+        );
       }
-      res.status(201).json({ 
-        ...sessionPlayer, 
+      res.status(201).json({
+        ...sessionPlayer,
         success: true,
         creditDeducted: false,
         creditType: null,
@@ -2563,9 +3333,14 @@ async function autoCancel(
       console.error("Error adding player:", error);
       res.status(500).json({ error: "Failed to add player" });
     }
-  });
+  },
+);
 
-  router.post("/api/coach/sessions/:id/players/multi-week", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+router.post(
+  "/api/coach/sessions/:id/players/multi-week",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { playerId, isGuest, skipCreditCheck, weeks } = req.body;
@@ -2576,23 +3351,44 @@ async function autoCancel(
       }
       const weekCount = Math.min(Math.max(parseInt(weeks) || 1, 1), 4);
 
-      const { valid: sessionValid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid: sessionValid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!sessionValid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+      const { valid: playerValid } = await validatePlayerOwnership(
+        playerId,
+        academyId,
+        storage,
+      );
       if (!playerValid) {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const results: { sessionId: string; success: boolean; error?: string; week: number }[] = [];
+      const results: {
+        sessionId: string;
+        success: boolean;
+        error?: string;
+        week: number;
+      }[] = [];
 
       const addToSession = async (sessionId: string, weekNum: number) => {
         try {
-          const existingEnrollment = await storage.getSessionPlayer(sessionId, playerId);
+          const existingEnrollment = await storage.getSessionPlayer(
+            sessionId,
+            playerId,
+          );
           if (existingEnrollment) {
-            results.push({ sessionId, success: true, week: weekNum, error: "already_enrolled" });
+            results.push({
+              sessionId,
+              success: true,
+              week: weekNum,
+              error: "already_enrolled",
+            });
             return;
           }
           await storage.addPlayerToSession({
@@ -2602,7 +3398,12 @@ async function autoCancel(
           });
           results.push({ sessionId, success: true, week: weekNum });
         } catch (err) {
-          results.push({ sessionId, success: false, week: weekNum, error: "failed" });
+          results.push({
+            sessionId,
+            success: false,
+            week: weekNum,
+            error: "failed",
+          });
         }
       };
 
@@ -2616,17 +3417,21 @@ async function autoCancel(
 
         for (let w = 1; w < weekCount; w++) {
           const targetDate = new Date(sessionStart);
-          targetDate.setUTCDate(targetDate.getUTCDate() + (w * 7));
+          targetDate.setUTCDate(targetDate.getUTCDate() + w * 7);
 
           const rangeStart = new Date(targetDate);
           rangeStart.setUTCHours(0, 0, 0, 0);
           const rangeEnd = new Date(targetDate);
           rangeEnd.setUTCHours(23, 59, 59, 999);
 
-          const candidateSessions = await storage.getSessionsByDateRange(rangeStart, rangeEnd, academyId);
+          const candidateSessions = await storage.getSessionsByDateRange(
+            rangeStart,
+            rangeEnd,
+            academyId,
+          );
 
           const sorted = candidateSessions
-            .filter(s => {
+            .filter((s) => {
               const sStart = new Date(s.startTime);
               return (
                 sStart.getUTCDay() === sessionDay &&
@@ -2636,20 +3441,33 @@ async function autoCancel(
                 s.status !== "cancelled"
               );
             })
-            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            .sort(
+              (a, b) =>
+                new Date(a.startTime).getTime() -
+                new Date(b.startTime).getTime(),
+            );
 
           if (sorted.length > 0) {
             await addToSession(sorted[0].id, w + 1);
           } else {
-            results.push({ sessionId: "", success: false, week: w + 1, error: "no_session_found" });
+            results.push({
+              sessionId: "",
+              success: false,
+              week: w + 1,
+              error: "no_session_found",
+            });
           }
         }
       }
 
-      const added = results.filter(r => r.success && !r.error).length;
-      const alreadyEnrolled = results.filter(r => r.error === "already_enrolled").length;
-      const notFound = results.filter(r => r.error === "no_session_found").length;
-      const failed = results.filter(r => r.error === "failed").length;
+      const added = results.filter((r) => r.success && !r.error).length;
+      const alreadyEnrolled = results.filter(
+        (r) => r.error === "already_enrolled",
+      ).length;
+      const notFound = results.filter(
+        (r) => r.error === "no_session_found",
+      ).length;
+      const failed = results.filter((r) => r.error === "failed").length;
 
       res.status(201).json({
         success: true,
@@ -2664,21 +3482,34 @@ async function autoCancel(
       console.error("Error adding player to multiple weeks:", error);
       res.status(500).json({ error: "Failed to add player to sessions" });
     }
-  });
+  },
+);
 
-  // Remove player from session
-  router.delete("/api/coach/sessions/:id/players/:playerId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Remove player from session
+router.delete(
+  "/api/coach/sessions/:id/players/:playerId",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id, playerId } = req.params;
       const academyId = req.user!.academyId;
 
-      const { valid: sessionValid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid: sessionValid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!sessionValid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
       // Validate player belongs to same academy
-      const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+      const { valid: playerValid } = await validatePlayerOwnership(
+        playerId,
+        academyId,
+        storage,
+      );
       if (!playerValid) {
         return res.status(404).json({ error: "Player not found" });
       }
@@ -2686,12 +3517,18 @@ async function autoCancel(
       // Always refund credits when removing player
       let refundResult = null;
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
-      refundResult = await storage.refundCreditsForSession(playerId, id, academyId); // Always refund
+      const now = dateParam ? new Date(dateParam) : new Date();
+      const DUBAI_OFFSET = 4;
+      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      refundResult = await storage.refundCreditsForSession(
+        playerId,
+        id,
+        academyId,
+      ); // Always refund
 
       await storage.removePlayerFromSession(id, playerId);
 
-      res.json({ 
+      res.json({
         success: true,
         creditRefunded: refundResult?.success || false,
         creditType: refundResult?.creditType,
@@ -2700,10 +3537,15 @@ async function autoCancel(
       console.error("Error removing player:", error);
       res.status(500).json({ error: "Failed to remove player" });
     }
-  });
+  },
+);
 
-  // Get session players with player details (using efficient JOIN)
-  router.get("/api/coach/sessions/:id/players", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Get session players with player details (using efficient JOIN)
+router.get(
+  "/api/coach/sessions/:id/players",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
@@ -2713,23 +3555,43 @@ async function autoCancel(
         return res.status(404).json({ error: "Session not found" });
       }
 
-      const playersWithDetails = await storage.getSessionPlayersWithPlayerInfo(id);
-      console.log("[SessionPlayers] Returning players for session", id, ":", JSON.stringify(playersWithDetails.map(p => ({ playerId: p.playerId, attendanceStatus: p.attendanceStatus }))));
+      const playersWithDetails =
+        await storage.getSessionPlayersWithPlayerInfo(id);
+      console.log(
+        "[SessionPlayers] Returning players for session",
+        id,
+        ":",
+        JSON.stringify(
+          playersWithDetails.map((p) => ({
+            playerId: p.playerId,
+            attendanceStatus: p.attendanceStatus,
+          })),
+        ),
+      );
       res.json(playersWithDetails);
     } catch (error) {
       console.error("Error fetching players:", error);
       res.status(500).json({ error: "Failed to fetch players" });
     }
-  });
+  },
+);
 
-  // Save attendance (offline-safe) - supports single or batch
-  router.post("/api/coach/sessions/:id/attendance", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Save attendance (offline-safe) - supports single or batch
+router.post(
+  "/api/coach/sessions/:id/attendance",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
       const coachId = req.user!.coachId;
 
-      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -2745,7 +3607,7 @@ async function autoCancel(
             record.playerId,
             record.status,
             record.lateMinutes,
-            record.absentReason
+            record.absentReason,
           );
           results.push(updated);
 
@@ -2756,10 +3618,19 @@ async function autoCancel(
           // When attendance changes to holiday/vacation, cancel any debt for this session
           // Note: updateAttendance() now also handles this internally — this is a safety net
           if (record.status === "vacation" || record.status === "holiday") {
-            const cancelReason = record.status === "vacation" ? "attendance_changed_to_vacation" : "attendance_changed_to_holiday";
-            const cancelResult = await storage.cancelSessionDebt(record.playerId, id, cancelReason);
+            const cancelReason =
+              record.status === "vacation"
+                ? "attendance_changed_to_vacation"
+                : "attendance_changed_to_holiday";
+            const cancelResult = await storage.cancelSessionDebt(
+              record.playerId,
+              id,
+              cancelReason,
+            );
             if (cancelResult.cancelled) {
-              console.log(`[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`);
+              console.log(
+                `[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`,
+              );
             }
           }
         }
@@ -2768,129 +3639,202 @@ async function autoCancel(
         // Validates against ALL persisted session_players from DB (not just request payload)
         const isGroupSession = session.sessionType === "group";
         let autoCancelled = false;
-        const eligibleForAutoCancel = session.status === "scheduled" || session.status === "in_progress";
-        if (isGroupSession && eligibleForAutoCancel && req.body.attendance.length > 0) {
+        const eligibleForAutoCancel =
+          session.status === "scheduled" || session.status === "in_progress";
+        if (
+          isGroupSession &&
+          eligibleForAutoCancel &&
+          req.body.attendance.length > 0
+        ) {
           autoCancelled = await autoCancel(id, session, coachId, storage, db);
         }
-        
+
         // Award XP for timely attendance marking (during class time)
         if (coachId && session.endTime) {
-          const { rewardCoachForTimelyAttendance } = await import("../pushNotifications");
-          xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
+          const { rewardCoachForTimelyAttendance } = await import(
+            "../pushNotifications"
+          );
+          xpAwarded = await rewardCoachForTimelyAttendance(
+            coachId,
+            id,
+            session.endTime,
+          );
         }
-        
+
         // If markCompleted flag is set, mark session as completed and consume credits
         let creditConsumptionResult = null;
-        const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present" || a.status === "late");
-        
+        const presentPlayers = req.body.attendance.filter(
+          (a: { status: string }) =>
+            a.status === "present" || a.status === "late",
+        );
+
         // BUSINESS RULE: Absent players ALWAYS get charged (they missed the lesson but it still counts)
         // Only vacation/holiday status skips credit deduction
-        const isPrivateSession = session.sessionType === "private" || session.sessionType === "private_adjusted";
-        const chargeablePlayers = req.body.attendance.filter((a: { status: string }) => 
-          a.status === "present" || a.status === "late" || a.status === "absent"
+        const isPrivateSession =
+          session.sessionType === "private" ||
+          session.sessionType === "private_adjusted";
+        const chargeablePlayers = req.body.attendance.filter(
+          (a: { status: string }) =>
+            a.status === "present" ||
+            a.status === "late" ||
+            a.status === "absent",
         );
-        
+
         if (req.body.markCompleted && !autoCancelled) {
           // Auto-adjust session type based on present players
           // If only 1 player is present in a semi-private session, convert to private_adjusted
           let adjustedSessionType = session.sessionType;
           const presentCount = presentPlayers.length;
-          
+
           if (session.sessionType === "semi_private" && presentCount === 1) {
             adjustedSessionType = "private_adjusted";
-            console.log(`[SessionType] Auto-adjusting session ${id} from semi_private to private_adjusted (only 1 player present)`);
+            console.log(
+              `[SessionType] Auto-adjusting session ${id} from semi_private to private_adjusted (only 1 player present)`,
+            );
           }
-          
-          await storage.updateSession(id, { 
+
+          await storage.updateSession(id, {
             status: "completed",
-            sessionType: adjustedSessionType 
+            sessionType: adjustedSessionType,
           });
-          
+
           // REFACTORED: Use ensureCreditProcessed() for bulletproof credit handling
           // Process credits for chargeable players using the single entrypoint
-          const { ensureCreditProcessed: processCredit } = await import("../storage");
-          
+          const { ensureCreditProcessed: processCredit } = await import(
+            "../storage"
+          );
+
           // Track original session type BEFORE adjustment for correct charging logic
           const originalSessionType = session.sessionType;
-          const creditResults = { consumed: 0, debts: 0, skipped: 0, errors: [] as string[] };
-          
+          const creditResults = {
+            consumed: 0,
+            debts: 0,
+            skipped: 0,
+            errors: [] as string[],
+          };
+
           for (const updatedRecord of results) {
             if (!updatedRecord) continue;
-            
+
             // BUSINESS RULE for credit charging:
             // - Private sessions: absent = still charged (coach was there waiting)
             // - Semi-private sessions: absent = NOT charged (only the present player pays, as private)
             // - Group sessions: absent = still charged (lesson happened regardless)
-            const attendanceStatus = (updatedRecord.attendanceStatus || '').toLowerCase();
-            const isAbsent = attendanceStatus === 'absent';
-            const wasSemiPrivate = originalSessionType === 'semi_private';
-            
+            const attendanceStatus = (
+              updatedRecord.attendanceStatus || ""
+            ).toLowerCase();
+            const isAbsent = attendanceStatus === "absent";
+            const wasSemiPrivate = originalSessionType === "semi_private";
+
             // Skip credit deduction for absent players in semi-private sessions
             if (isAbsent && wasSemiPrivate) {
-              console.log(`[Credits] Skipping credit for absent player ${updatedRecord.playerId} in semi-private session ${id} (original type: semi_private)`);
+              console.log(
+                `[Credits] Skipping credit for absent player ${updatedRecord.playerId} in semi-private session ${id} (original type: semi_private)`,
+              );
               creditResults.skipped++;
               continue;
             }
-            
-            const isChargeable = ['present', 'late', 'absent'].includes(attendanceStatus);
-            
+
+            const isChargeable = ["present", "late", "absent"].includes(
+              attendanceStatus,
+            );
+
             if (isChargeable) {
               try {
                 const result = await processCredit(updatedRecord.id);
                 if (result.action === "consumed") creditResults.consumed++;
-                else if (result.action === "debt_created") creditResults.debts++;
-                else if (result.action === "already_processed") creditResults.skipped++;
-                else if (result.action === "error") creditResults.errors.push(result.error || "Unknown error");
+                else if (result.action === "debt_created")
+                  creditResults.debts++;
+                else if (result.action === "already_processed")
+                  creditResults.skipped++;
+                else if (result.action === "error")
+                  creditResults.errors.push(result.error || "Unknown error");
               } catch (err: any) {
-                console.error(`[Credits] Error processing credit for session_player ${updatedRecord.id}:`, err);
+                console.error(
+                  `[Credits] Error processing credit for session_player ${updatedRecord.id}:`,
+                  err,
+                );
                 creditResults.errors.push(err.message);
               }
             }
           }
-          
+
           creditConsumptionResult = {
             consumed: creditResults.consumed,
             debts: creditResults.debts,
             skipped: creditResults.skipped,
-            actualCreditType: session.sessionType || "group"
+            actualCreditType: session.sessionType || "group",
           };
-          console.log(`[Credits] Session ${id}: consumed ${creditResults.consumed}, debts ${creditResults.debts}, skipped ${creditResults.skipped}`);
+          console.log(
+            `[Credits] Session ${id}: consumed ${creditResults.consumed}, debts ${creditResults.debts}, skipped ${creditResults.skipped}`,
+          );
 
           // Send low credit notifications to chargeable players after credit consumption
           try {
-            const { sendLowCreditNotificationsAfterSession } = await import("../pushNotifications");
-            const chargeablePlayerIds = chargeablePlayers.map((a: { playerId: string }) => a.playerId).filter(Boolean);
+            const { sendLowCreditNotificationsAfterSession } = await import(
+              "../pushNotifications"
+            );
+            const chargeablePlayerIds = chargeablePlayers
+              .map((a: { playerId: string }) => a.playerId)
+              .filter(Boolean);
             if (chargeablePlayerIds.length > 0) {
-              sendLowCreditNotificationsAfterSession(chargeablePlayerIds, session.sessionType, academyId)
-                .catch(err => console.error("[LowCredit] Error sending low credit notifications:", err));
+              sendLowCreditNotificationsAfterSession(
+                chargeablePlayerIds,
+                session.sessionType,
+                academyId,
+              ).catch((err) =>
+                console.error(
+                  "[LowCredit] Error sending low credit notifications:",
+                  err,
+                ),
+              );
             }
           } catch (notifErr) {
-            console.error("[LowCredit] Error importing notification function:", notifErr);
+            console.error(
+              "[LowCredit] Error importing notification function:",
+              notifErr,
+            );
           }
 
           // Award XP to players marked as present or late (not absent, not vacation)
           // Uses canonical session_attendance XP rule (10 XP per session)
           for (const presentPlayer of presentPlayers) {
             try {
-              const xpResult = await awardXP(presentPlayer.playerId, "session_attendance", "session", id);
+              const xpResult = await awardXP(
+                presentPlayer.playerId,
+                "session_attendance",
+                "session",
+                id,
+              );
               if (xpResult.success) {
-                console.log(`[XP] Awarded ${xpResult.xpAwarded} XP to player ${presentPlayer.playerId} for session ${id} (session_attendance)`);
+                console.log(
+                  `[XP] Awarded ${xpResult.xpAwarded} XP to player ${presentPlayer.playerId} for session ${id} (session_attendance)`,
+                );
               }
             } catch (xpError) {
-              console.error(`[XP] Error awarding XP to player ${presentPlayer.playerId}:`, xpError);
+              console.error(
+                `[XP] Error awarding XP to player ${presentPlayer.playerId}:`,
+                xpError,
+              );
             }
           }
         }
 
-          // Auto-assign coach to present players if not already assigned
-          for (const presentPlayer of presentPlayers) {
-            try {
-              await storage.autoAssignCoachFromSession(presentPlayer.playerId, id);
-            } catch (coachError) {
-              console.error(`[AutoAssign] Error assigning coach to player ${presentPlayer.playerId}:`, coachError);
-            }
+        // Auto-assign coach to present players if not already assigned
+        for (const presentPlayer of presentPlayers) {
+          try {
+            await storage.autoAssignCoachFromSession(
+              presentPlayer.playerId,
+              id,
+            );
+          } catch (coachError) {
+            console.error(
+              `[AutoAssign] Error assigning coach to player ${presentPlayer.playerId}:`,
+              coachError,
+            );
           }
-        
+        }
+
         // Award session completion XP to coach (batch flow)
         let sessionCompletionXp = 0;
         if (req.body.markCompleted && coachId && !autoCancelled) {
@@ -2904,29 +3848,36 @@ async function autoCancel(
             match: 30,
             assessment: 40,
           } as Record<string, number>;
-          sessionCompletionXp = COACH_XP_REWARDS_BATCH[session.sessionType] || 20;
+          sessionCompletionXp =
+            COACH_XP_REWARDS_BATCH[session.sessionType] || 20;
 
           try {
-            const existingSessionXp = await db.select()
+            const existingSessionXp = await db
+              .select()
               .from(coachXpTransactions)
-              .where(and(
-                eq(coachXpTransactions.coachId, coachId),
-                eq(coachXpTransactions.source, 'session_completion'),
-                eq(coachXpTransactions.sessionId, id)
-              ));
+              .where(
+                and(
+                  eq(coachXpTransactions.coachId, coachId),
+                  eq(coachXpTransactions.source, "session_completion"),
+                  eq(coachXpTransactions.sessionId, id),
+                ),
+              );
 
             if (existingSessionXp.length === 0) {
               await db.insert(coachXpTransactions).values({
                 coachId,
                 xpAmount: sessionCompletionXp,
-                source: 'session_completion',
-                description: 'Completed ' + session.sessionType + ' session',
+                source: "session_completion",
+                description: "Completed " + session.sessionType + " session",
                 sessionId: id,
               });
 
               const coachForXp = await storage.getCoach(coachId);
               if (coachForXp) {
-                const newTotalXp = (coachForXp.totalXp || 0) + sessionCompletionXp + (xpAwarded ? 25 : 0);
+                const newTotalXp =
+                  (coachForXp.totalXp || 0) +
+                  sessionCompletionXp +
+                  (xpAwarded ? 25 : 0);
                 let newLevel = 1;
                 let xpThreshold = 500;
                 let accumulatedXp = 0;
@@ -2935,19 +3886,36 @@ async function autoCancel(
                   newLevel++;
                   xpThreshold = 500 + (newLevel - 1) * 100;
                 }
-                await storage.updateCoach(coachId, { totalXp: newTotalXp, level: newLevel });
-                console.log('[CoachXP] Awarded ' + sessionCompletionXp + ' session completion XP to coach ' + coachId + ' (total: ' + newTotalXp + ')');
+                await storage.updateCoach(coachId, {
+                  totalXp: newTotalXp,
+                  level: newLevel,
+                });
+                console.log(
+                  "[CoachXP] Awarded " +
+                    sessionCompletionXp +
+                    " session completion XP to coach " +
+                    coachId +
+                    " (total: " +
+                    newTotalXp +
+                    ")",
+                );
               }
             }
           } catch (xpErr) {
-            console.error('[CoachXP] Error awarding session completion XP:', xpErr);
+            console.error(
+              "[CoachXP] Error awarding session completion XP:",
+              xpErr,
+            );
           }
         }
 
         const totalXpAwarded = (xpAwarded ? 25 : 0) + sessionCompletionXp;
-        
+
         // Mark session as reviewed by coach
-        await db.update(sessions).set({ coachReviewedAt: new Date() }).where(eq(sessions.id, id));
+        await db
+          .update(sessions)
+          .set({ coachReviewedAt: new Date() })
+          .where(eq(sessions.id, id));
 
         // Invalidate server-side caches so next fetch gets fresh data
         if (coachId) {
@@ -2966,11 +3934,15 @@ async function autoCancel(
             apiCache.invalidate(`credits:${r.playerId}`);
           }
         }
-        
-        return res.json({ 
-          success: true, 
-          updated: results.length, 
-          message: autoCancelled ? 'Session auto-cancelled: all players on holiday' : (req.body.markCompleted ? 'Attendance saved and session completed' : 'Attendance saved'),
+
+        return res.json({
+          success: true,
+          updated: results.length,
+          message: autoCancelled
+            ? "Session auto-cancelled: all players on holiday"
+            : req.body.markCompleted
+              ? "Attendance saved and session completed"
+              : "Attendance saved",
           xpAwarded: totalXpAwarded,
           creditConsumption: creditConsumptionResult,
           autoCancelled,
@@ -2984,39 +3956,61 @@ async function autoCancel(
         playerId,
         status,
         lateMinutes,
-        absenceReason
+        absenceReason,
       );
 
       // AUTO-CANCEL (single-attendance path): For group sessions, check if all players are now on holiday/vacation/absent
       let singleAutoCancelled = false;
-      const singleEligibleForAutoCancel = session.status === "scheduled" || session.status === "in_progress";
+      const singleEligibleForAutoCancel =
+        session.status === "scheduled" || session.status === "in_progress";
       if (session.sessionType === "group" && singleEligibleForAutoCancel) {
-        singleAutoCancelled = await autoCancel(id, session, coachId, storage, db);
+        singleAutoCancelled = await autoCancel(
+          id,
+          session,
+          coachId,
+          storage,
+          db,
+        );
       }
 
       // Always mark session as completed when attendance is saved (single player), unless auto-cancelled
       if (!singleAutoCancelled && session.status === "scheduled") {
         await storage.updateSession(id, { status: "completed" });
-        console.log(`[Attendance] Auto-completed session ${id} after attendance save`);
+        console.log(
+          `[Attendance] Auto-completed session ${id} after attendance save`,
+        );
         // Fire-and-forget AI session digest for this player
         if (playerId) {
           const _sessionId = id;
           const _playerId = playerId;
           setImmediate(async () => {
             try {
-              const { generateSessionDigest } = await import("../services/ai-progress-engine");
+              const { generateSessionDigest } = await import(
+                "../services/ai-progress-engine"
+              );
               await generateSessionDigest(_sessionId, _playerId);
-            } catch { /* non-critical */ }
+            } catch {
+              /* non-critical */
+            }
           });
         }
-        
+
         // Check if player is eligible for coach review prompt (3+ sessions)
         if (playerId && session.coachId) {
           try {
-            const sessionCount = await storage.getPlayerCoachSessionCount(playerId, session.coachId);
-            const hasExistingReview = await storage.hasPlayerReviewedCoach(playerId, session.coachId);
-            const hasPendingPrompt = await storage.getPendingReviewPrompt(playerId, session.coachId);
-            
+            const sessionCount = await storage.getPlayerCoachSessionCount(
+              playerId,
+              session.coachId,
+            );
+            const hasExistingReview = await storage.hasPlayerReviewedCoach(
+              playerId,
+              session.coachId,
+            );
+            const hasPendingPrompt = await storage.getPendingReviewPrompt(
+              playerId,
+              session.coachId,
+            );
+
             if (sessionCount >= 3 && !hasExistingReview && !hasPendingPrompt) {
               await storage.createReviewPrompt({
                 playerId,
@@ -3026,22 +4020,36 @@ async function autoCancel(
                 sessionId: id,
                 isDismissed: false,
               });
-              console.log(`[ReviewPrompt] Created review prompt for player ${playerId} after ${sessionCount} sessions with coach ${session.coachId}`);
+              console.log(
+                `[ReviewPrompt] Created review prompt for player ${playerId} after ${sessionCount} sessions with coach ${session.coachId}`,
+              );
             }
           } catch (promptError) {
-            console.error("[ReviewPrompt] Error creating review prompt:", promptError);
+            console.error(
+              "[ReviewPrompt] Error creating review prompt:",
+              promptError,
+            );
           }
         }
       }
-      
+
       // Award XP for timely attendance marking (during class time)
       if (coachId && session.endTime) {
-        const { rewardCoachForTimelyAttendance } = await import("../pushNotifications");
-        xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
+        const { rewardCoachForTimelyAttendance } = await import(
+          "../pushNotifications"
+        );
+        xpAwarded = await rewardCoachForTimelyAttendance(
+          coachId,
+          id,
+          session.endTime,
+        );
       }
 
       // Mark session as reviewed by coach
-      await db.update(sessions).set({ coachReviewedAt: new Date() }).where(eq(sessions.id, id));
+      await db
+        .update(sessions)
+        .set({ coachReviewedAt: new Date() })
+        .where(eq(sessions.id, id));
 
       // Invalidate server-side caches for single player attendance
       if (coachId) {
@@ -3055,51 +4063,76 @@ async function autoCancel(
         apiCache.invalidate(`packages:${playerId}`);
         apiCache.invalidate(`credits:${playerId}`);
       }
-      
-      res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0, autoCancelled: singleAutoCancelled });
+
+      res.json({
+        ...updated,
+        xpAwarded: xpAwarded ? 25 : 0,
+        autoCancelled: singleAutoCancelled,
+      });
     } catch (error) {
       console.error("Error saving attendance:", error);
       res.status(500).json({ error: "Failed to save attendance" });
     }
-  });
+  },
+);
 
-  // Cancel session (holiday/no class)
-  router.patch("/api/coach/sessions/:id/cancel", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Cancel session (holiday/no class)
+router.patch(
+  "/api/coach/sessions/:id/cancel",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
       const { reason } = req.body;
 
-      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
       // Mark session as cancelled - no credits consumed
-      await storage.updateSession(id, { 
+      await storage.updateSession(id, {
         status: "cancelled",
-        notes: reason || "Session cancelled" 
+        notes: reason || "Session cancelled",
       });
-      
+
       // Refund credits for any players who had credits deducted for this session
       const sessionPlayersForRefund = await storage.getSessionPlayers(id);
       let refundedCount = 0;
-      
+
       for (const sp of sessionPlayersForRefund) {
         if (sp.creditDeductedAt) {
-          const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
+          const refundResult = await storage.refundCreditsForSession(
+            sp.playerId,
+            id,
+            academyId,
+          );
           if (refundResult.success) {
             refundedCount++;
-            console.log(`[Cancel PATCH] Refunded credit to player ${sp.playerId}`);
+            console.log(
+              `[Cancel PATCH] Refunded credit to player ${sp.playerId}`,
+            );
           }
         }
       }
 
       // Cancel any unsettled debt for ALL players — including those processed by ensureCreditProcessed.
       for (const sp of sessionPlayersForRefund) {
-        const debtResult = await storage.cancelSessionDebt(sp.playerId, id, "session_cancelled_by_admin");
+        const debtResult = await storage.cancelSessionDebt(
+          sp.playerId,
+          id,
+          "session_cancelled_by_admin",
+        );
         if (debtResult.cancelled) {
-          console.log(`[Cancel PATCH] Cancelled debt for player ${sp.playerId}, session ${id}`);
+          console.log(
+            `[Cancel PATCH] Cancelled debt for player ${sp.playerId}, session ${id}`,
+          );
         }
       }
 
@@ -3113,28 +4146,38 @@ async function autoCancel(
       if (academyId) {
         apiCache.invalidate(`players:${academyId}`);
       }
-      
-      res.json({ 
-        success: true, 
-        message: refundedCount > 0 
-          ? `Session cancelled. ${refundedCount} credit(s) refunded.`
-          : "Session cancelled successfully",
+
+      res.json({
+        success: true,
+        message:
+          refundedCount > 0
+            ? `Session cancelled. ${refundedCount} credit(s) refunded.`
+            : "Session cancelled successfully",
         sessionId: id,
-        creditsRefunded: refundedCount
+        creditsRefunded: refundedCount,
       });
     } catch (error) {
       console.error("Error cancelling session:", error);
       res.status(500).json({ error: "Failed to cancel session" });
     }
-  });
+  },
+);
 
-  // Restore a cancelled session
-  router.patch("/api/coach/sessions/:id/restore", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Restore a cancelled session
+router.patch(
+  "/api/coach/sessions/:id/restore",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const academyId = req.user!.academyId;
 
-      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -3146,8 +4189,8 @@ async function autoCancel(
       // Restore session to scheduled status
       await storage.updateSession(id, { status: "scheduled" });
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: "Session restored successfully",
         sessionId: id,
       });
@@ -3155,17 +4198,26 @@ async function autoCancel(
       console.error("Error restoring session:", error);
       res.status(500).json({ error: "Failed to restore session" });
     }
-  });
+  },
+);
 
-  // Save feedback and award XP
-  router.post("/api/coach/sessions/:id/feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+// Save feedback and award XP
+router.post(
+  "/api/coach/sessions/:id/feedback",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { intensity, mood, focusTags, coachNotes } = req.body;
       const academyId = req.user!.academyId;
 
       // Get session details with ownership validation
-      const { valid, session } = await validateSessionOwnership(id, academyId, storage);
+      const { valid, session } = await validateSessionOwnership(
+        id,
+        academyId,
+        storage,
+      );
       if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -3181,14 +4233,18 @@ async function autoCancel(
 
       // Auto-fill attendance for players without attendance status (default to 'present')
       try {
-        const sessionPlayers = await storage.getSessionPlayersWithPlayerInfo(id);
+        const sessionPlayers =
+          await storage.getSessionPlayersWithPlayerInfo(id);
         for (const sp of sessionPlayers) {
-          if (!sp.attendanceStatus || sp.attendanceStatus === 'pending') {
-            await storage.updateAttendance(id, sp.playerId!, 'present');
+          if (!sp.attendanceStatus || sp.attendanceStatus === "pending") {
+            await storage.updateAttendance(id, sp.playerId!, "present");
           }
         }
       } catch (attendanceError) {
-        console.error("[Attendance] Error auto-filling attendance:", attendanceError);
+        console.error(
+          "[Attendance] Error auto-filling attendance:",
+          attendanceError,
+        );
       }
 
       // Mark session as completed
@@ -3206,7 +4262,7 @@ async function autoCancel(
         assessment: 40,
       };
       const coachXp = COACH_XP_REWARDS[session.sessionType] || 20;
-      
+
       if (session.coachId) {
         await storage.addCoachXpTransaction({
           coachId: session.coachId,
@@ -3215,7 +4271,7 @@ async function autoCancel(
           description: `Completed ${session.sessionType} session with feedback`,
           sessionId: id,
         });
-        
+
         // Update coach total XP
         const coach = await storage.getCoach(session.coachId);
         if (coach) {
@@ -3228,7 +4284,10 @@ async function autoCancel(
             newLevel++;
             xpThreshold = 500 + (newLevel - 1) * 100;
           }
-          await storage.updateCoach(session.coachId, { totalXp: newTotalXp, level: newLevel });
+          await storage.updateCoach(session.coachId, {
+            totalXp: newTotalXp,
+            level: newLevel,
+          });
         }
       }
 
@@ -3244,19 +4303,20 @@ async function autoCancel(
         assessment: 15,
       };
       const playerXp = PLAYER_XP_REWARDS[session.sessionType] || 15;
-      
+
       const sessionPlayersList = await storage.getSessionPlayers(id);
-      
+
       for (const sp of sessionPlayersList) {
         if (sp.playerId && sp.attendanceStatus === "present") {
           // Fetch player first to check for birthday bonus
           const player = await storage.getPlayer(sp.playerId);
-          const hasBirthdayBonus = player && isBirthdayToday(player.dateOfBirth);
+          const hasBirthdayBonus =
+            player && isBirthdayToday(player.dateOfBirth);
           const xpWithBonus = hasBirthdayBonus ? playerXp * 2 : playerXp;
-          const xpDescription = hasBirthdayBonus 
+          const xpDescription = hasBirthdayBonus
             ? `Attended ${session.sessionType} session (2x Birthday Bonus!)`
             : `Attended ${session.sessionType} session`;
-          
+
           await storage.createXpTransaction({
             playerId: sp.playerId,
             xpAmount: xpWithBonus,
@@ -3264,14 +4324,16 @@ async function autoCancel(
             description: xpDescription,
             sessionId: id,
           });
-          
+
           // Update player total XP and check for level up
           if (player) {
             const oldLevel = player.level || 1;
             const newTotalXp = (player.totalXp || 0) + xpWithBonus;
-            
+
             // Calculate new level based on XP thresholds
-            const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500];
+            const LEVEL_THRESHOLDS = [
+              0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500,
+            ];
             let newLevel = 1;
             for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
               if (newTotalXp >= LEVEL_THRESHOLDS[i]) {
@@ -3279,15 +4341,32 @@ async function autoCancel(
                 break;
               }
             }
-            
-            await storage.updatePlayer(sp.playerId, { totalXp: newTotalXp, level: newLevel });
-            
+
+            await storage.updatePlayer(sp.playerId, {
+              totalXp: newTotalXp,
+              level: newLevel,
+            });
+
             // Send level up notification if player leveled up
             if (newLevel > oldLevel) {
-              const LEVEL_NAMES = ["Red", "Orange", "Green", "Yellow", "Glow", "Star", "Champion", "Legend", "Master", "Grand Master"];
-              const levelName = LEVEL_NAMES[Math.min(newLevel - 1, LEVEL_NAMES.length - 1)] || `Level ${newLevel}`;
-              sendLevelUpNotification(sp.playerId, newLevel, levelName).catch(err => 
-                console.error("Failed to send level up notification:", err)
+              const LEVEL_NAMES = [
+                "Red",
+                "Orange",
+                "Green",
+                "Yellow",
+                "Glow",
+                "Star",
+                "Champion",
+                "Legend",
+                "Master",
+                "Grand Master",
+              ];
+              const levelName =
+                LEVEL_NAMES[Math.min(newLevel - 1, LEVEL_NAMES.length - 1)] ||
+                `Level ${newLevel}`;
+              sendLevelUpNotification(sp.playerId, newLevel, levelName).catch(
+                (err) =>
+                  console.error("Failed to send level up notification:", err),
               );
               // Send level up email if player has email
               if (player.email) {
@@ -3296,22 +4375,32 @@ async function autoCancel(
                   playerName: player.name,
                   newLevel: levelName,
                   totalXP: newTotalXp,
-                }).catch(err => console.error("Failed to send level up email:", err));
+                }).catch((err) =>
+                  console.error("Failed to send level up email:", err),
+                );
               }
             }
           }
-          
         }
       }
 
       // Send feedback notifications to all attending players (non-blocking)
-      const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
+      const coach = session.coachId
+        ? await storage.getCoach(session.coachId)
+        : null;
       const coachName = coach?.name || "Your coach";
-      const sessionDate = new Date(session.startTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const sessionDate = new Date(session.startTime).toLocaleDateString(
+        "en-US",
+        { weekday: "short", month: "short", day: "numeric" },
+      );
       for (const sp of sessionPlayersList) {
         if (sp.playerId && sp.attendanceStatus === "present") {
-          sendFeedbackNotification(sp.playerId, coachName, session.name || "Training session").catch(err =>
-            console.error("Failed to send feedback notification:", err)
+          sendFeedbackNotification(
+            sp.playerId,
+            coachName,
+            session.name || "Training session",
+          ).catch((err) =>
+            console.error("Failed to send feedback notification:", err),
           );
           // Broadcast feedback received via WebSocket for real-time updates
           if (academyId && sp.playerId) {
@@ -3324,7 +4413,9 @@ async function autoCancel(
           // Send feedback email if player has email
           const feedbackPlayer = await storage.getPlayer(sp.playerId);
           if (feedbackPlayer?.email) {
-            const feedbackAcademy = academyId ? await storage.getAcademy(academyId) : null;
+            const feedbackAcademy = academyId
+              ? await storage.getAcademy(academyId)
+              : null;
             sendFeedbackNotificationEmail({
               to: feedbackPlayer.email,
               playerName: feedbackPlayer.name,
@@ -3333,32 +4424,46 @@ async function autoCancel(
               feedbackSummary: feedback?.coachNotes?.substring(0, 150),
               academyName: feedbackAcademy?.name,
               theme: feedbackAcademy?.theme ?? null,
-            }).catch(err => console.error("Failed to send feedback email:", err));
+            }).catch((err) =>
+              console.error("Failed to send feedback email:", err),
+            );
           }
         }
       }
 
       // Fire-and-forget AI session digests for all players after session feedback
       const _feedbackSessionId = id;
-      const _feedbackPlayerIds = sessionPlayersList.map((sp) => sp.playerId).filter(Boolean) as string[];
+      const _feedbackPlayerIds = sessionPlayersList
+        .map((sp) => sp.playerId)
+        .filter(Boolean) as string[];
       setImmediate(async () => {
         try {
-          const { generateSessionDigest } = await import("../services/ai-progress-engine");
+          const { generateSessionDigest } = await import(
+            "../services/ai-progress-engine"
+          );
           for (const pid of _feedbackPlayerIds) {
             await generateSessionDigest(_feedbackSessionId, pid);
           }
-        } catch { /* non-critical */ }
+        } catch {
+          /* non-critical */
+        }
       });
 
-      res.status(201).json({ 
-        feedback, 
-        xpAwarded: { coach: coachXp, playerCount: sessionPlayersList.filter(sp => sp.attendanceStatus === "present").length },
+      res.status(201).json({
+        feedback,
+        xpAwarded: {
+          coach: coachXp,
+          playerCount: sessionPlayersList.filter(
+            (sp) => sp.attendanceStatus === "present",
+          ).length,
+        },
         creditsDeducted: [],
       });
     } catch (error) {
       console.error("Error saving feedback:", error);
       res.status(500).json({ error: "Failed to save feedback" });
     }
-  });
+  },
+);
 
 export default router;
