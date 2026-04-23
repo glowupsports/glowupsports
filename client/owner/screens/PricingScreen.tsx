@@ -1,13 +1,15 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Alert, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { useTranslation } from "react-i18next";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { getCurrentAcademyId } from "@/lib/auth";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface AcademyPricing {
@@ -17,6 +19,7 @@ interface AcademyPricing {
   currency: string;
   pricePerSession: string;
   pricePerHour: string | null;
+  duration: number | null;
   isPerPerson: boolean | null;
   effectiveFrom: string;
   effectiveUntil: string | null;
@@ -27,11 +30,11 @@ interface AcademyPricing {
 }
 
 const SESSION_TYPES = [
-  { value: "private", label: "Private", icon: "person", perPerson: false },
-  { value: "semi", label: "Semi-Private", icon: "people", perPerson: true },
-  { value: "group", label: "Group", icon: "people-circle", perPerson: true },
-  { value: "physical", label: "Physical Training", icon: "fitness", perPerson: true },
-  { value: "activity", label: "Activity", icon: "football", perPerson: true },
+  { value: "private", labelKey: "academy.pricing.types.private", icon: "person", perPerson: false },
+  { value: "semi_private", labelKey: "academy.pricing.types.semi_private", icon: "people", perPerson: true },
+  { value: "group", labelKey: "academy.pricing.types.group", icon: "people-circle", perPerson: true },
+  { value: "physical", labelKey: "academy.pricing.types.physical", icon: "fitness", perPerson: true },
+  { value: "activity", labelKey: "academy.pricing.types.activity", icon: "football", perPerson: true },
 ];
 
 const CURRENCIES = ["AED", "EUR", "USD", "GBP"];
@@ -40,64 +43,73 @@ export default function PricingScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const academyId = getCurrentAcademyId();
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPricing, setEditingPricing] = useState<AcademyPricing | null>(null);
   const [selectedSessionType, setSelectedSessionType] = useState("private");
   const [pricePerSession, setPricePerSession] = useState("");
   const [pricePerHour, setPricePerHour] = useState("");
+  const [duration, setDuration] = useState("");
   const [currency, setCurrency] = useState("AED");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [effectiveUntil, setEffectiveUntil] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [isPerPerson, setIsPerPerson] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showUntilPicker, setShowUntilPicker] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const pricingPath = academyId ? `/api/academies/${academyId}/pricing` : null;
 
   const { data: pricingData, isLoading } = useQuery<AcademyPricing[]>({
-    queryKey: ["/api/admin/pricing"],
+    queryKey: [pricingPath],
+    enabled: !!pricingPath,
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: {
-      sessionType: string;
-      currency: string;
-      pricePerSession: string;
-      pricePerHour?: string;
-      effectiveFrom: string;
-      notes?: string;
-      isPerPerson?: boolean;
-    }) => {
-      return apiRequest("POST", "/api/admin/pricing", data);
+    mutationFn: async (data: Record<string, unknown>) => {
+      if (!pricingPath) throw new Error("No academy context");
+      return apiRequest("POST", pricingPath, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/pricing"] });
+      queryClient.invalidateQueries({ queryKey: [pricingPath] });
       handleCloseModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: any) => {
-      const message = error.message || "Failed to create pricing";
-      if (Platform.OS === "web") {
-        window.alert(message);
-      } else {
-        Alert.alert("Error", message);
-      }
+      setFormError(error?.message || t("academy.pricing.errors.createFailed"));
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<AcademyPricing> }) => {
-      return apiRequest("PATCH", `/api/admin/pricing/${id}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+      if (!pricingPath) throw new Error("No academy context");
+      return apiRequest("PATCH", `${pricingPath}/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/pricing"] });
+      queryClient.invalidateQueries({ queryKey: [pricingPath] });
       handleCloseModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: any) => {
-      const message = error.message || "Failed to update pricing";
-      if (Platform.OS === "web") {
-        window.alert(message);
-      } else {
-        Alert.alert("Error", message);
-      }
+      setFormError(error?.message || t("academy.pricing.errors.updateFailed"));
+    },
+  });
+
+  const disableMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!pricingPath) throw new Error("No academy context");
+      return apiRequest("DELETE", `${pricingPath}/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [pricingPath] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      setListError(error?.message || t("academy.pricing.errors.disableFailed"));
     },
   });
 
@@ -107,16 +119,20 @@ export default function PricingScreen() {
     setSelectedSessionType("private");
     setPricePerSession("");
     setPricePerHour("");
+    setDuration("");
     setCurrency("AED");
     setEffectiveFrom(new Date().toISOString().split("T")[0]);
+    setEffectiveUntil("");
     setNotes("");
     setIsPerPerson(false);
     setShowDatePicker(false);
+    setShowUntilPicker(false);
+    setFormError(null);
   };
 
   const handleOpenAdd = () => {
     handleCloseModal();
-    const defaultSessionType = SESSION_TYPES.find(t => t.value === "private");
+    const defaultSessionType = SESSION_TYPES.find((t) => t.value === "private");
     setIsPerPerson(defaultSessionType?.perPerson || false);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -127,34 +143,60 @@ export default function PricingScreen() {
     setSelectedSessionType(pricing.sessionType);
     setPricePerSession(pricing.pricePerSession);
     setPricePerHour(pricing.pricePerHour || "");
+    setDuration(pricing.duration ? String(pricing.duration) : "");
     setCurrency(pricing.currency);
     setEffectiveFrom(pricing.effectiveFrom);
+    setEffectiveUntil(pricing.effectiveUntil || "");
     setNotes(pricing.notes || "");
-    // Use stored value if exists, otherwise fall back to session type default
-    const sessionTypeInfo = SESSION_TYPES.find(t => t.value === pricing.sessionType);
+    const sessionTypeInfo = SESSION_TYPES.find((t) => t.value === pricing.sessionType);
     setIsPerPerson(pricing.isPerPerson ?? sessionTypeInfo?.perPerson ?? false);
     setShowAddModal(true);
+    setFormError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleSave = () => {
-    if (!pricePerSession || parseFloat(pricePerSession) <= 0) {
-      const message = "Please enter a valid price per session";
-      if (Platform.OS === "web") {
-        window.alert(message);
-      } else {
-        Alert.alert("Error", message);
-      }
+    setFormError(null);
+    const priceNum = parseFloat(pricePerSession);
+    if (!pricePerSession || !isFinite(priceNum) || priceNum <= 0) {
+      setFormError(t("academy.pricing.errors.priceInvalid"));
+      return;
+    }
+    if (effectiveUntil && effectiveFrom >= effectiveUntil) {
+      setFormError(t("academy.pricing.errors.dateOrder"));
       return;
     }
 
-    const data = {
+    // Client-side guard for the "max one active per session_type" rule
+    if (!editingPricing) {
+      const today = new Date().toISOString().split("T")[0];
+      const conflict = (pricingData || []).find(
+        (p) =>
+          p.sessionType === selectedSessionType &&
+          p.isActive &&
+          effectiveFrom <= today,
+      );
+      if (conflict) {
+        setFormError(t("academy.pricing.errors.activeExists"));
+        return;
+      }
+    }
+
+    const durationNum = duration ? parseInt(duration, 10) : null;
+    if (duration && (!isFinite(durationNum as number) || (durationNum as number) <= 0)) {
+      setFormError(t("academy.pricing.errors.durationInvalid"));
+      return;
+    }
+
+    const data: Record<string, unknown> = {
       sessionType: selectedSessionType,
       currency,
       pricePerSession,
-      pricePerHour: pricePerHour || undefined,
+      pricePerHour: pricePerHour || null,
+      duration: durationNum,
       effectiveFrom,
-      notes: notes || undefined,
+      effectiveUntil: effectiveUntil || null,
+      notes: notes || null,
       isPerPerson,
     };
 
@@ -165,28 +207,48 @@ export default function PricingScreen() {
     }
   };
 
-  const activePricing = pricingData?.filter((p) => p.isActive) || [];
-  const scheduledPricing = pricingData?.filter((p) => !p.isActive && !p.effectiveUntil) || [];
-  const historicPricing = pricingData?.filter((p) => p.effectiveUntil) || [];
+  const handleDisable = (id: string) => {
+    setListError(null);
+    disableMutation.mutate(id);
+  };
+
+  const today = new Date().toISOString().split("T")[0];
+  const activePricing =
+    pricingData?.filter(
+      (p) =>
+        p.isActive &&
+        p.effectiveFrom <= today &&
+        (!p.effectiveUntil || p.effectiveUntil >= today),
+    ) || [];
+  const scheduledPricing =
+    pricingData?.filter((p) => !p.isActive && !p.effectiveUntil && p.effectiveFrom > today) || [];
+  // History/Inactive: anything with an effective_until set (past dates AND
+  // just-disabled rows where effective_until = today). This keeps freshly
+  // disabled rows visible immediately instead of hiding them for the rest
+  // of the day.
+  const historicPricing =
+    pricingData?.filter((p) => !p.isActive && p.effectiveUntil) || [];
 
   const formatCurrency = (amount: string, curr: string) => {
     const num = parseFloat(amount);
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: curr,
-    }).format(num);
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: curr }).format(num);
+    } catch {
+      return `${curr} ${num.toFixed(2)}`;
+    }
   };
 
   const getSessionTypeLabel = (type: string) => {
-    return SESSION_TYPES.find((t) => t.value === type)?.label || type;
+    const found = SESSION_TYPES.find((s) => s.value === type);
+    return found ? t(found.labelKey) : type;
   };
 
   const getSessionTypeIcon = (type: string): keyof typeof Ionicons.glyphMap => {
-    const found = SESSION_TYPES.find((t) => t.value === type);
+    const found = SESSION_TYPES.find((s) => s.value === type);
     return (found?.icon as keyof typeof Ionicons.glyphMap) || "pricetag";
   };
 
-  const renderPricingCard = (pricing: AcademyPricing, showStatus = false) => (
+  const renderPricingCard = (pricing: AcademyPricing, showStatus = false, showDisable = false) => (
     <Pressable
       key={pricing.id}
       style={[styles.pricingCard, CardStyles.elevated]}
@@ -202,7 +264,9 @@ export default function PricingScreen() {
             {showStatus ? (
               <View style={[styles.statusBadge, pricing.isActive ? styles.statusActive : styles.statusScheduled]}>
                 <Text style={styles.statusText}>
-                  {pricing.isActive ? "Active" : "Scheduled"}
+                  {pricing.isActive
+                    ? t("academy.pricing.status.active")
+                    : t("academy.pricing.status.scheduled")}
                 </Text>
               </View>
             ) : null}
@@ -213,26 +277,53 @@ export default function PricingScreen() {
             {formatCurrency(pricing.pricePerSession, pricing.currency)}
           </Text>
           <Text style={styles.pricingLabel}>
-            {(pricing.isPerPerson ?? SESSION_TYPES.find(t => t.value === pricing.sessionType)?.perPerson) ? "per person" : "per session"}
+            {(pricing.isPerPerson ?? SESSION_TYPES.find((s) => s.value === pricing.sessionType)?.perPerson)
+              ? t("academy.pricing.perPerson")
+              : t("academy.pricing.perSession")}
           </Text>
           {pricing.pricePerHour ? (
-            <>
-              <Text style={styles.pricingPriceSmall}>
-                {formatCurrency(pricing.pricePerHour, pricing.currency)}/hr
-              </Text>
-            </>
+            <Text style={styles.pricingPriceSmall}>
+              {formatCurrency(pricing.pricePerHour, pricing.currency)}/hr
+            </Text>
           ) : null}
         </View>
       </View>
       <View style={styles.pricingCardFooter}>
         <Ionicons name="calendar-outline" size={14} color={Colors.dark.textMuted} />
         <Text style={styles.pricingDate}>
-          From {new Date(pricing.effectiveFrom).toLocaleDateString()}
-          {pricing.effectiveUntil ? ` to ${new Date(pricing.effectiveUntil).toLocaleDateString()}` : ""}
+          {t("academy.pricing.fromDate", { date: new Date(pricing.effectiveFrom).toLocaleDateString() })}
+          {pricing.effectiveUntil
+            ? ` ${t("academy.pricing.toDate", { date: new Date(pricing.effectiveUntil).toLocaleDateString() })}`
+            : ""}
         </Text>
+        {showDisable ? (
+          <Pressable
+            style={styles.disableButton}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              handleDisable(pricing.id);
+            }}
+            disabled={disableMutation.isPending}
+            hitSlop={8}
+          >
+            <Text style={styles.disableButtonText}>
+              {disableMutation.isPending && disableMutation.variables === pricing.id
+                ? t("academy.pricing.disabling")
+                : t("academy.pricing.disable")}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </Pressable>
   );
+
+  if (!academyId) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
+        <Text style={styles.subtitle}>{t("academy.pricing.noAcademyContext")}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -240,7 +331,7 @@ export default function PricingScreen() {
         <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.screenTitle}>Pricing</Text>
+        <Text style={styles.screenTitle}>{t("academy.pricing.title")}</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -250,8 +341,15 @@ export default function PricingScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.subtitle}>Set session prices for your academy</Text>
+          <Text style={styles.subtitle}>{t("academy.pricing.subtitle")}</Text>
         </View>
+
+        {listError ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={Colors.dark.errorNeon || "#ff6b6b"} />
+            <Text style={styles.errorText}>{listError}</Text>
+          </View>
+        ) : null}
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -261,21 +359,21 @@ export default function PricingScreen() {
           <>
             {activePricing.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Active Prices</Text>
-                {activePricing.map((p) => renderPricingCard(p))}
+                <Text style={styles.sectionTitle}>{t("academy.pricing.sections.active")}</Text>
+                {activePricing.map((p) => renderPricingCard(p, false, true))}
               </View>
             ) : null}
 
             {scheduledPricing.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Scheduled</Text>
-                {scheduledPricing.map((p) => renderPricingCard(p, true))}
+                <Text style={styles.sectionTitle}>{t("academy.pricing.sections.scheduled")}</Text>
+                {scheduledPricing.map((p) => renderPricingCard(p, true, true))}
               </View>
             ) : null}
 
             {historicPricing.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>History</Text>
+                <Text style={styles.sectionTitle}>{t("academy.pricing.sections.history")}</Text>
                 {historicPricing.slice(0, 5).map((p) => renderPricingCard(p))}
               </View>
             ) : null}
@@ -283,10 +381,8 @@ export default function PricingScreen() {
             {pricingData?.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="pricetag-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitle}>No Pricing Set</Text>
-                <Text style={styles.emptySubtitle}>
-                  Add pricing for your session types to start billing
-                </Text>
+                <Text style={styles.emptyTitle}>{t("academy.pricing.empty.title")}</Text>
+                <Text style={styles.emptySubtitle}>{t("academy.pricing.empty.subtitle")}</Text>
               </View>
             ) : null}
           </>
@@ -306,23 +402,37 @@ export default function PricingScreen() {
         <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
           <View style={styles.modalHeader}>
             <Pressable onPress={handleCloseModal}>
-              <Text style={styles.cancelButton}>Cancel</Text>
+              <Text style={styles.cancelButton}>{t("academy.pricing.cancel")}</Text>
             </Pressable>
             <Text style={styles.modalTitle}>
-              {editingPricing ? "Edit Pricing" : "Add Pricing"}
+              {editingPricing ? t("academy.pricing.editTitle") : t("academy.pricing.addTitle")}
             </Text>
             <Pressable
               onPress={handleSave}
               disabled={createMutation.isPending || updateMutation.isPending}
             >
-              <Text style={[styles.saveButton, (createMutation.isPending || updateMutation.isPending) && styles.disabledButton]}>
-                {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save"}
+              <Text
+                style={[
+                  styles.saveButton,
+                  (createMutation.isPending || updateMutation.isPending) && styles.disabledButton,
+                ]}
+              >
+                {createMutation.isPending || updateMutation.isPending
+                  ? t("academy.pricing.saving")
+                  : t("academy.pricing.save")}
               </Text>
             </Pressable>
           </View>
 
           <KeyboardAwareScrollViewCompat contentContainerStyle={styles.modalContent}>
-            <Text style={styles.fieldLabel}>Session Type</Text>
+            {formError ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={16} color={Colors.dark.errorNeon || "#ff6b6b"} />
+                <Text style={styles.errorText}>{formError}</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.sessionType")}</Text>
             <View style={styles.sessionTypeGrid}>
               {SESSION_TYPES.map((type) => (
                 <Pressable
@@ -343,21 +453,23 @@ export default function PricingScreen() {
                     color={selectedSessionType === type.value ? Colors.dark.gold : Colors.dark.textMuted}
                   />
                   <View>
-                    <Text style={[
-                      styles.sessionTypeLabel,
-                      selectedSessionType === type.value && styles.sessionTypeLabelSelected,
-                    ]}>
-                      {type.label}
+                    <Text
+                      style={[
+                        styles.sessionTypeLabel,
+                        selectedSessionType === type.value && styles.sessionTypeLabelSelected,
+                      ]}
+                    >
+                      {t(type.labelKey)}
                     </Text>
                     {type.perPerson ? (
-                      <Text style={styles.perPersonHint}>per person</Text>
+                      <Text style={styles.perPersonHint}>{t("academy.pricing.perPerson")}</Text>
                     ) : null}
                   </View>
                 </Pressable>
               ))}
             </View>
 
-            <Text style={styles.fieldLabel}>Price Per Session *</Text>
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.pricePerSession")} *</Text>
             <View style={styles.priceInputContainer}>
               <Text style={styles.currencyPrefix}>{currency}</Text>
               <TextInput
@@ -370,7 +482,7 @@ export default function PricingScreen() {
               />
             </View>
 
-            <Text style={styles.fieldLabel}>Price Per Hour (Optional)</Text>
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.pricePerHour")}</Text>
             <View style={styles.priceInputContainer}>
               <Text style={styles.currencyPrefix}>{currency}</Text>
               <TextInput
@@ -383,9 +495,19 @@ export default function PricingScreen() {
               />
             </View>
 
-            <Text style={styles.fieldLabel}>Per Person Pricing</Text>
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.duration")}</Text>
+            <TextInput
+              style={styles.textInput}
+              value={duration}
+              onChangeText={setDuration}
+              placeholder="60"
+              placeholderTextColor={Colors.dark.textMuted}
+              keyboardType="number-pad"
+            />
+
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.perPerson")}</Text>
             <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Price is per person (for multi-player sessions)</Text>
+              <Text style={styles.toggleLabel}>{t("academy.pricing.fields.perPersonHint")}</Text>
               <Switch
                 value={isPerPerson}
                 onValueChange={setIsPerPerson}
@@ -394,7 +516,7 @@ export default function PricingScreen() {
               />
             </View>
 
-            <Text style={styles.fieldLabel}>Currency</Text>
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.currency")}</Text>
             <View style={styles.currencyOptions}>
               {CURRENCIES.map((curr) => (
                 <Pressable
@@ -408,17 +530,19 @@ export default function PricingScreen() {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <Text style={[
-                    styles.currencyOptionText,
-                    currency === curr && styles.currencyOptionTextSelected,
-                  ]}>
+                  <Text
+                    style={[
+                      styles.currencyOptionText,
+                      currency === curr && styles.currencyOptionTextSelected,
+                    ]}
+                  >
                     {curr}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text style={styles.fieldLabel}>Effective From</Text>
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.effectiveFrom")}</Text>
             {Platform.OS === "web" ? (
               <View style={styles.datePickerButton}>
                 <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
@@ -434,8 +558,6 @@ export default function PricingScreen() {
                     marginLeft: 8,
                     outline: "none",
                     cursor: "pointer",
-                    WebkitAppearance: "none",
-                    MozAppearance: "textfield",
                   }}
                 />
               </View>
@@ -446,19 +568,15 @@ export default function PricingScreen() {
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
-                  <Text style={styles.datePickerText}>
-                    {new Date(effectiveFrom).toLocaleDateString()}
-                  </Text>
+                  <Text style={styles.datePickerText}>{new Date(effectiveFrom).toLocaleDateString()}</Text>
                 </Pressable>
                 {showDatePicker ? (
                   <DateTimePicker
                     value={new Date(effectiveFrom)}
                     mode="date"
                     display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={(event, selectedDate) => {
-                      if (Platform.OS === "android") {
-                        setShowDatePicker(false);
-                      }
+                    onChange={(_event, selectedDate) => {
+                      if (Platform.OS === "android") setShowDatePicker(false);
                       if (selectedDate) {
                         setEffectiveFrom(selectedDate.toISOString().split("T")[0]);
                       }
@@ -468,25 +586,90 @@ export default function PricingScreen() {
                 ) : null}
                 {Platform.OS === "ios" && showDatePicker ? (
                   <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.datePickerDoneText}>Done</Text>
+                    <Text style={styles.datePickerDoneText}>{t("academy.pricing.done")}</Text>
                   </Pressable>
                 ) : null}
               </>
             )}
-            <Text style={styles.fieldHint}>
-              Can be any date (past or future)
-            </Text>
 
-            <Text style={styles.fieldLabel}>Notes (Optional)</Text>
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.effectiveUntil")}</Text>
+            {Platform.OS === "web" ? (
+              <View style={styles.datePickerButton}>
+                <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+                <input
+                  type="date"
+                  value={effectiveUntil}
+                  onChange={(e) => setEffectiveUntil(e.target.value)}
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "none",
+                    color: Colors.dark.text,
+                    fontSize: 16,
+                    marginLeft: 8,
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                />
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  style={styles.datePickerButton}
+                  onPress={() => setShowUntilPicker(true)}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={Colors.dark.gold} />
+                  <Text style={styles.datePickerText}>
+                    {effectiveUntil
+                      ? new Date(effectiveUntil).toLocaleDateString()
+                      : t("academy.pricing.optional")}
+                  </Text>
+                </Pressable>
+                {showUntilPicker ? (
+                  <DateTimePicker
+                    value={effectiveUntil ? new Date(effectiveUntil) : new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_event, selectedDate) => {
+                      if (Platform.OS === "android") setShowUntilPicker(false);
+                      if (selectedDate) {
+                        setEffectiveUntil(selectedDate.toISOString().split("T")[0]);
+                      }
+                    }}
+                    themeVariant="dark"
+                  />
+                ) : null}
+                {Platform.OS === "ios" && showUntilPicker ? (
+                  <Pressable style={styles.datePickerDone} onPress={() => setShowUntilPicker(false)}>
+                    <Text style={styles.datePickerDoneText}>{t("academy.pricing.done")}</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            )}
+
+            <Text style={styles.fieldLabel}>{t("academy.pricing.fields.notes")}</Text>
             <TextInput
               style={[styles.textInput, styles.textArea]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="e.g., Summer pricing adjustment"
+              placeholder={t("academy.pricing.fields.notesPlaceholder")}
               placeholderTextColor={Colors.dark.textMuted}
               multiline
               numberOfLines={3}
             />
+
+            {editingPricing ? (
+              <Pressable
+                style={styles.disableModalButton}
+                onPress={() => {
+                  handleDisable(editingPricing.id);
+                  handleCloseModal();
+                }}
+                disabled={disableMutation.isPending}
+              >
+                <Ionicons name="close-circle-outline" size={18} color={Colors.dark.errorNeon || "#ff6b6b"} />
+                <Text style={styles.disableModalButtonText}>{t("academy.pricing.disable")}</Text>
+              </Pressable>
+            ) : null}
           </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
@@ -495,10 +678,7 @@ export default function PricingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
+  container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   screenHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -508,38 +688,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.border,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  screenTitle: {
-    ...Typography.h2,
-    color: Colors.dark.gold,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: Spacing.lg,
-  },
-  header: {
-    marginBottom: Spacing.xl,
-  },
-  subtitle: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: Spacing.xl * 3,
-  },
-  section: {
-    marginBottom: Spacing.xl,
-  },
+  backButton: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
+  screenTitle: { ...Typography.h2, color: Colors.dark.gold },
+  scrollView: { flex: 1 },
+  content: { padding: Spacing.lg },
+  header: { marginBottom: Spacing.xl },
+  subtitle: { ...Typography.body, color: Colors.dark.textMuted },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: Spacing.xl * 3 },
+  section: { marginBottom: Spacing.xl },
   sectionTitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
@@ -562,11 +718,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: Spacing.sm,
   },
-  pricingTypeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
+  pricingTypeContainer: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   pricingIcon: {
     width: 40,
     height: 40,
@@ -574,43 +726,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  pricingType: {
-    ...Typography.h4,
-    color: Colors.dark.text,
-  },
+  pricingType: { ...Typography.h4, color: Colors.dark.text },
   statusBadge: {
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
     borderRadius: BorderRadius.xs,
     marginTop: 4,
+    alignSelf: "flex-start",
   },
-  statusActive: {
-    backgroundColor: `${Colors.dark.successNeon}20`,
-  },
-  statusScheduled: {
-    backgroundColor: `${Colors.dark.gold}20`,
-  },
-  statusText: {
-    ...Typography.small,
-    fontSize: 10,
-    color: Colors.dark.text,
-  },
-  pricingAmounts: {
-    alignItems: "flex-end",
-  },
-  pricingPrice: {
-    ...Typography.h2,
-    color: Colors.dark.gold,
-  },
-  pricingLabel: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-  },
-  pricingPriceSmall: {
-    ...Typography.small,
-    color: Colors.dark.textSecondary,
-    marginTop: 2,
-  },
+  statusActive: { backgroundColor: `${Colors.dark.successNeon}20` },
+  statusScheduled: { backgroundColor: `${Colors.dark.gold}20` },
+  statusText: { ...Typography.small, fontSize: 10, color: Colors.dark.text },
+  pricingAmounts: { alignItems: "flex-end" },
+  pricingPrice: { ...Typography.h2, color: Colors.dark.gold },
+  pricingLabel: { ...Typography.small, color: Colors.dark.textMuted },
+  pricingPriceSmall: { ...Typography.small, color: Colors.dark.textSecondary, marginTop: 2 },
   pricingCardFooter: {
     flexDirection: "row",
     alignItems: "center",
@@ -618,25 +748,59 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
     paddingTop: Spacing.sm,
+    flexWrap: "wrap",
   },
-  pricingDate: {
+  pricingDate: { ...Typography.small, color: Colors.dark.textMuted, flex: 1 },
+  disableButton: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: `${Colors.dark.errorNeon || "#ff6b6b"}20`,
+  },
+  disableButtonText: {
     ...Typography.small,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.errorNeon || "#ff6b6b",
+    fontWeight: "600" as const,
   },
-  emptyState: {
+  disableModalButton: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.xl * 2,
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.errorNeon || "#ff6b6b",
   },
-  emptyTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-    marginTop: Spacing.md,
+  disableModalButtonText: {
+    ...Typography.body,
+    color: Colors.dark.errorNeon || "#ff6b6b",
+    fontWeight: "600" as const,
   },
+  emptyState: { alignItems: "center", paddingVertical: Spacing.xl * 2 },
+  emptyTitle: { ...Typography.h3, color: Colors.dark.text, marginTop: Spacing.md },
   emptySubtitle: {
     ...Typography.body,
     color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.xs,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: `${Colors.dark.errorNeon || "#ff6b6b"}15`,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.errorNeon || "#ff6b6b"}40`,
+  },
+  errorText: {
+    ...Typography.small,
+    color: Colors.dark.errorNeon || "#ff6b6b",
+    flex: 1,
   },
   fab: {
     position: "absolute",
@@ -653,10 +817,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
+  modalContainer: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -666,24 +827,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.border,
   },
-  modalTitle: {
-    ...Typography.h3,
-    color: Colors.dark.text,
-  },
-  cancelButton: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  saveButton: {
-    ...Typography.h4,
-    color: Colors.dark.gold,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  modalContent: {
-    padding: Spacing.lg,
-  },
+  modalTitle: { ...Typography.h3, color: Colors.dark.text },
+  cancelButton: { ...Typography.body, color: Colors.dark.textMuted },
+  saveButton: { ...Typography.h4, color: Colors.dark.gold },
+  disabledButton: { opacity: 0.5 },
+  modalContent: { padding: Spacing.lg },
   fieldLabel: {
     ...Typography.small,
     color: Colors.dark.textMuted,
@@ -692,16 +840,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     marginTop: Spacing.md,
   },
-  fieldHint: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
-  },
-  sessionTypeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
+  sessionTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
   sessionTypeOption: {
     flexDirection: "row",
     alignItems: "center",
@@ -713,22 +852,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  sessionTypeSelected: {
-    borderColor: Colors.dark.gold,
-    backgroundColor: `${Colors.dark.gold}10`,
-  },
-  sessionTypeLabel: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  sessionTypeLabelSelected: {
-    color: Colors.dark.gold,
-  },
-  perPersonHint: {
-    ...Typography.small,
-    fontSize: 10,
-    color: Colors.dark.textMuted,
-  },
+  sessionTypeSelected: { borderColor: Colors.dark.gold, backgroundColor: `${Colors.dark.gold}10` },
+  sessionTypeLabel: { ...Typography.body, color: Colors.dark.textMuted },
+  sessionTypeLabelSelected: { color: Colors.dark.gold },
+  perPersonHint: { ...Typography.small, fontSize: 10, color: Colors.dark.textMuted },
   priceInputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -737,11 +864,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  currencyPrefix: {
-    ...Typography.h4,
-    color: Colors.dark.textMuted,
-    paddingHorizontal: Spacing.md,
-  },
+  currencyPrefix: { ...Typography.h4, color: Colors.dark.textMuted, paddingHorizontal: Spacing.md },
   priceInput: {
     flex: 1,
     ...Typography.h2,
@@ -749,10 +872,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingRight: Spacing.md,
   },
-  currencyOptions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
+  currencyOptions: { flexDirection: "row", gap: Spacing.sm },
   currencyOption: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
@@ -761,17 +881,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  currencyOptionSelected: {
-    borderColor: Colors.dark.gold,
-    backgroundColor: `${Colors.dark.gold}10`,
-  },
-  currencyOptionText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  currencyOptionTextSelected: {
-    color: Colors.dark.gold,
-  },
+  currencyOptionSelected: { borderColor: Colors.dark.gold, backgroundColor: `${Colors.dark.gold}10` },
+  currencyOptionText: { ...Typography.body, color: Colors.dark.textMuted },
+  currencyOptionTextSelected: { color: Colors.dark.gold },
   textInput: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
@@ -781,10 +893,7 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: "top",
-  },
+  textArea: { minHeight: 80, textAlignVertical: "top" },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -795,12 +904,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  toggleLabel: {
-    ...Typography.body,
-    color: Colors.dark.text,
-    flex: 1,
-    marginRight: Spacing.sm,
-  },
+  toggleLabel: { ...Typography.body, color: Colors.dark.text, flex: 1, marginRight: Spacing.sm },
   datePickerButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -811,16 +915,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  datePickerText: {
-    ...Typography.body,
-    color: Colors.dark.text,
-  },
-  datePickerDone: {
-    alignSelf: "flex-end",
-    marginTop: Spacing.sm,
-  },
-  datePickerDoneText: {
-    ...Typography.h4,
-    color: Colors.dark.gold,
-  },
+  datePickerText: { ...Typography.body, color: Colors.dark.text },
+  datePickerDone: { alignSelf: "flex-end", marginTop: Spacing.sm },
+  datePickerDoneText: { ...Typography.h4, color: Colors.dark.gold },
 });

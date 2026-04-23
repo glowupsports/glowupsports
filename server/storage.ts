@@ -12157,6 +12157,16 @@ export const storage = {
       .orderBy(academyPricing.sessionType);
   },
 
+  // List ALL pricing rows for an academy (active, scheduled, and historical).
+  // Used by the academy-owner pricing settings screen which needs the full picture.
+  async getAllAcademyPricing(academyId: string): Promise<AcademyPricing[]> {
+    // Run lazy activation so the returned isActive flags are accurate.
+    await this.activateAllScheduledPricing(academyId);
+    return db.select().from(academyPricing)
+      .where(eq(academyPricing.academyId, academyId))
+      .orderBy(desc(academyPricing.effectiveFrom), desc(academyPricing.createdAt));
+  },
+
   async getAcademyPricingByType(academyId: string, sessionType: string): Promise<AcademyPricing | null> {
     // Task #736 — moved the lazy `activateScheduledPricing` UPDATE off the
     // read path (it was firing on every per-row pricing lookup, causing the

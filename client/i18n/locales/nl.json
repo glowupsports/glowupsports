@@ -1199,6 +1199,68 @@
       "schedule": "Schedule"
     }
   },
+  "academy": {
+    "pricing": {
+      "title": "Tarieven",
+      "subtitle": "Stel sessietarieven voor je academy in",
+      "addTitle": "Tarief toevoegen",
+      "editTitle": "Tarief bewerken",
+      "save": "Opslaan",
+      "saving": "Opslaan…",
+      "cancel": "Annuleren",
+      "done": "Klaar",
+      "disable": "Uitschakelen",
+      "disabling": "Uitschakelen…",
+      "perPerson": "per persoon",
+      "perSession": "per sessie",
+      "optional": "Optioneel",
+      "fromDate": "Vanaf {{date}}",
+      "toDate": "tot {{date}}",
+      "noAcademyContext": "Geen academy-context. Log in als academy-eigenaar.",
+      "sections": {
+        "active": "Actieve tarieven",
+        "scheduled": "Gepland",
+        "history": "Historie"
+      },
+      "status": {
+        "active": "Actief",
+        "scheduled": "Gepland"
+      },
+      "empty": {
+        "title": "Geen tarieven ingesteld",
+        "subtitle": "Voeg tarieven toe voor je sessietypes om te kunnen factureren"
+      },
+      "types": {
+        "private": "Privé",
+        "semi_private": "Semi-privé",
+        "group": "Groep",
+        "physical": "Fysieke training",
+        "activity": "Activiteit"
+      },
+      "fields": {
+        "sessionType": "Sessietype",
+        "pricePerSession": "Prijs per sessie",
+        "pricePerHour": "Prijs per uur (optioneel)",
+        "duration": "Duur in minuten (optioneel)",
+        "perPerson": "Prijs per persoon",
+        "perPersonHint": "Prijs is per persoon (voor sessies met meerdere spelers)",
+        "currency": "Valuta",
+        "effectiveFrom": "Geldig vanaf",
+        "effectiveUntil": "Geldig tot (optioneel)",
+        "notes": "Notities (optioneel)",
+        "notesPlaceholder": "bv. Zomertariefaanpassing"
+      },
+      "errors": {
+        "priceInvalid": "Voer een geldige prijs groter dan 0 in",
+        "dateOrder": "Geldig vanaf moet vóór Geldig tot liggen",
+        "durationInvalid": "Duur moet een positief aantal minuten zijn",
+        "activeExists": "Je hebt al een actief tarief voor dit sessietype — schakel het uit voordat je een nieuw tarief toevoegt.",
+        "createFailed": "Tarief aanmaken mislukt",
+        "updateFailed": "Tarief bijwerken mislukt",
+        "disableFailed": "Tarief uitschakelen mislukt"
+      }
+    }
+  },
   "onboarding": {
     "welcome": "Welcome!",
     "letsGetStarted": "Let's get you set up",

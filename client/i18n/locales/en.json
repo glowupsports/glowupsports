@@ -1199,6 +1199,68 @@
       "schedule": "Schedule"
     }
   },
+  "academy": {
+    "pricing": {
+      "title": "Pricing",
+      "subtitle": "Set session prices for your academy",
+      "addTitle": "Add Pricing",
+      "editTitle": "Edit Pricing",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "done": "Done",
+      "disable": "Disable",
+      "disabling": "Disabling…",
+      "perPerson": "per person",
+      "perSession": "per session",
+      "optional": "Optional",
+      "fromDate": "From {{date}}",
+      "toDate": "to {{date}}",
+      "noAcademyContext": "No academy context. Please sign in as an academy owner.",
+      "sections": {
+        "active": "Active Prices",
+        "scheduled": "Scheduled",
+        "history": "History"
+      },
+      "status": {
+        "active": "Active",
+        "scheduled": "Scheduled"
+      },
+      "empty": {
+        "title": "No Pricing Set",
+        "subtitle": "Add pricing for your session types to start billing"
+      },
+      "types": {
+        "private": "Private",
+        "semi_private": "Semi-Private",
+        "group": "Group",
+        "physical": "Physical Training",
+        "activity": "Activity"
+      },
+      "fields": {
+        "sessionType": "Session Type",
+        "pricePerSession": "Price Per Session",
+        "pricePerHour": "Price Per Hour (Optional)",
+        "duration": "Duration in minutes (Optional)",
+        "perPerson": "Per Person Pricing",
+        "perPersonHint": "Price is per person (for multi-player sessions)",
+        "currency": "Currency",
+        "effectiveFrom": "Effective From",
+        "effectiveUntil": "Effective Until (Optional)",
+        "notes": "Notes (Optional)",
+        "notesPlaceholder": "e.g., Summer pricing adjustment"
+      },
+      "errors": {
+        "priceInvalid": "Please enter a valid price greater than 0",
+        "dateOrder": "Effective From must be before Effective Until",
+        "durationInvalid": "Duration must be a positive number of minutes",
+        "activeExists": "You already have an active price for this session type — disable it before adding another.",
+        "createFailed": "Failed to create pricing",
+        "updateFailed": "Failed to update pricing",
+        "disableFailed": "Failed to disable pricing"
+      }
+    }
+  },
   "onboarding": {
     "welcome": "Welcome!",
     "letsGetStarted": "Let's get you set up",
