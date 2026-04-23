@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { Colors, GlowColors } from "@/constants/theme";
 
 const HIDDEN_ROUTES = new Set([
@@ -19,6 +20,7 @@ const HIDDEN_ROUTES = new Set([
 export function FloatingHelpButton() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const currentRouteName = useNavigationState((state) => {
     if (!state) return null;
     const findActive = (s: any): string | null => {
@@ -47,7 +49,7 @@ export function FloatingHelpButton() {
         }}
         style={styles.button}
         accessibilityRole="button"
-        accessibilityLabel="Open player guide and help"
+        accessibilityLabel={t("playerGuide.helpButton.a11y")}
         hitSlop={10}
       >
         <Ionicons name="help" size={18} color={Colors.dark.buttonText} />

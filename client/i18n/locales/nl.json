@@ -558,7 +558,6 @@
       "onVacation": "On Vacation",
       "upcomingVacation": "Upcoming Vacation",
       "lesson": "Lesson",
-      "vacation": "Vacation",
       "noSessionsYet": "No Sessions Yet",
       "noSessionsDesc": "Your training schedule will appear here once your coach adds you to sessions.",
       "askCoachAboutSessions": "Ask your coach about available session times",
@@ -807,10 +806,6 @@
       "doubles": "Doubles",
       "both": "Both",
       "members": "members",
-      "days": "days",
-      "group": "Group",
-      "private": "Private",
-      "semiPrivate": "Semi-Private",
       "matchHistory": "Match History",
       "offRadar": "Off Radar",
       "creditsAvailable": "available"
@@ -868,15 +863,6 @@
       "noCredits": "No credits available",
       "buyCredits": "Buy Credits",
       "quickBook": "Quick Book",
-      "courtBooking": "Court Booking",
-      "openMatch": "Open Match",
-      "invites": "Invites",
-      "preferences": "Preferences",
-      "manageMatch": "Manage Match",
-      "available": "Available",
-      "booked": "Booked",
-      "spotsLeft": "spots left",
-      "spotsFull": "Full",
       "courtBooking": {
         "stepTitle": "Baan reserveren",
         "stepSubtitle": "Wie reserveert de baan voor deze les?",
@@ -895,7 +881,15 @@
         "panelStatusBooked": "Baan geboekt door speler",
         "panelStatusPending": "Speler reserveert de baan",
         "panelOpenLink": "Open boekingslink"
-      }
+      },
+      "openMatch": "Open Match",
+      "invites": "Invites",
+      "preferences": "Preferences",
+      "manageMatch": "Manage Match",
+      "available": "Available",
+      "booked": "Booked",
+      "spotsLeft": "spots left",
+      "spotsFull": "Full"
     },
     "tournaments": {
       "title": "Tournaments & Ladders",
@@ -1328,6 +1322,368 @@
       "academySubtitle": "Academy chat coming soon",
       "groupsTitle": "You're not in any groups yet",
       "groupsSubtitle": "Join a lesson group or community group to start chatting"
+    }
+  },
+  "playerGuide": {
+    "title": "Spelersgids",
+    "back": "Terug",
+    "tabs": {
+      "start": "Aan de slag",
+      "explore": "Ontdek",
+      "faq": "Veelgestelde vragen",
+      "whatsnew": "Wat is nieuw"
+    },
+    "progress": {
+      "title": "Jouw setup",
+      "count": "{{done}} van {{total}}",
+      "hintComplete": "Helemaal klaar — je kunt aan de slag.",
+      "hintIncomplete": "Rond een paar snelle stappen af om alles uit de app te halen."
+    },
+    "steps": {
+      "profile": {
+        "title": "Maak je profiel af",
+        "desc": "Voeg een foto en korte bio toe zodat coaches en spelers weten wie je bent.",
+        "action": "Open profiel"
+      },
+      "court": {
+        "title": "Boek een baan",
+        "desc": "Reserveer een baan in de buurt voor een training of vriendschappelijke pot.",
+        "action": "Banen bekijken"
+      },
+      "session": {
+        "title": "Boek je eerste les",
+        "desc": "Plan een les met je coach.",
+        "action": "Open agenda"
+      },
+      "academyJoined": {
+        "title": "Jouw academy",
+        "desc": "Je bent aangesloten bij een academy — bekijk hun lessen en coaches.",
+        "action": "Open agenda"
+      },
+      "academyFind": {
+        "title": "Zoek een academy",
+        "desc": "Optioneel — sluit je aan bij een academy voor gestructureerde training.",
+        "action": "Academies bekijken"
+      },
+      "progressCheck": {
+        "title": "Bekijk je voortgang",
+        "desc": "Bekijk je Glow Score en skilloverzicht.",
+        "action": "Voortgang bekijken"
+      },
+      "community": {
+        "title": "Voeg een vriend toe",
+        "desc": "Verbind met vrienden om lessen te plannen en voortgang te delen.",
+        "action": "Open community"
+      },
+      "notifications": {
+        "title": "Zet meldingen aan",
+        "desc": "Krijg herinneringen voor lessen, feedback en vrienden.",
+        "action": "Meldingen beheren"
+      }
+    },
+    "explore": {
+      "intro": "Een korte tour door de hoofdonderdelen van de app. Tik op een kaart om direct naar dat scherm te gaan.",
+      "groups": {
+        "train": "Trainen & Verbeteren",
+        "play": "Spelen & Wedstrijden",
+        "connect": "Verbinden",
+        "account": "Account & Wallet",
+        "glossary": "Begrippen"
+      },
+      "entries": {
+        "bookLesson": {
+          "title": "Boek een les",
+          "desc": "Vind een coach en reserveer een slot in seconden.",
+          "cta": "Open Agenda"
+        },
+        "trackProgress": {
+          "title": "Volg je voortgang",
+          "desc": "Bekijk je Glow Score, skills en mijlpalen.",
+          "cta": "Open Growth"
+        },
+        "aiCoach": {
+          "title": "AI Coach",
+          "desc": "Persoonlijke oefeningen, plannen en tips uit je lessen.",
+          "cta": "Praat met AI Coach"
+        },
+        "tennisDna": {
+          "title": "Tennis DNA",
+          "desc": "Bekijk je unieke speelstijl en patronen.",
+          "cta": "Bekijk Tennis DNA"
+        },
+        "dailyQuests": {
+          "title": "Dagelijkse quests",
+          "desc": "Kleine doelen die elke dag XP en Glow Coins opleveren.",
+          "cta": "Bekijk Quests"
+        },
+        "findPlayers": {
+          "title": "Vind spelers in de buurt",
+          "desc": "Filter op niveau en locatie om een match te vinden.",
+          "cta": "Spelers bekijken"
+        },
+        "bookCourt": {
+          "title": "Boek een baan",
+          "desc": "Reserveer een baan voor een eigen training.",
+          "cta": "Baan boeken"
+        },
+        "tournaments": {
+          "title": "Toernooien & ladders",
+          "desc": "Klim de ranglijst op en speel op jouw niveau.",
+          "cta": "Open Play"
+        },
+        "groupEvents": {
+          "title": "Groepsevents",
+          "desc": "Doe mee aan open matches en groepsactiviteiten.",
+          "cta": "Events bekijken"
+        },
+        "communityFeed": {
+          "title": "Community feed",
+          "desc": "Posts, hoogtepunten en tips uit de community.",
+          "cta": "Open Community"
+        },
+        "friends": {
+          "title": "Vrienden & groepen",
+          "desc": "Voeg vrienden toe, sluit je aan bij groepen, plan samen lessen.",
+          "cta": "Vrienden zoeken"
+        },
+        "spotlight": {
+          "title": "Spotlight",
+          "desc": "Vier uitblinkers en nomineer een vriend.",
+          "cta": "Spotlight bekijken"
+        },
+        "messages": {
+          "title": "Berichten",
+          "desc": "Chat direct met coaches en vrienden.",
+          "cta": "Open berichten"
+        },
+        "wallet": {
+          "title": "Wallet & credits",
+          "desc": "Top credits op en bekijk eerdere aankopen.",
+          "cta": "Open profiel"
+        },
+        "glowMarket": {
+          "title": "Glow Market",
+          "desc": "Geef Glow Coins uit aan extra's, gear en beloningen.",
+          "cta": "Open shop"
+        },
+        "notifications": {
+          "title": "Meldingen",
+          "desc": "Kies welke meldingen je wilt ontvangen.",
+          "cta": "Beheren"
+        },
+        "settings": {
+          "title": "Instellingen & privacy",
+          "desc": "Familiebeheer, weergave, privacy.",
+          "cta": "Instellingen"
+        }
+      },
+      "glossary": {
+        "academy": {
+          "term": "Academy",
+          "def": "De tennisclub of school waar je geregistreerd bent."
+        },
+        "aiCoach": {
+          "term": "AI Coach",
+          "def": "Persoonlijke trainings- en wedstrijdtips op basis van je lessen."
+        },
+        "ballLevel": {
+          "term": "Ball Level",
+          "def": "Rood, Oranje, Groen of Geel — geeft je ontwikkelingsfase aan."
+        },
+        "credits": {
+          "term": "Credits",
+          "def": "Vooraf betaalde lespakketten om lessen mee te boeken."
+        },
+        "glowCoins": {
+          "term": "Glow Coins",
+          "def": "In-app valuta verdiend met quests; uit te geven in de Glow Market."
+        },
+        "glowScore": {
+          "term": "Glow Score",
+          "def": "Je algehele tennisscore, 0–100, op basis van coachbeoordelingen."
+        },
+        "glowRank": {
+          "term": "Glow Rank",
+          "def": "Je competitieve ranking, 1–9, op basis van wedstrijdprestaties."
+        },
+        "pillar": {
+          "term": "Pijler",
+          "def": "Een van zes skillcategorieën: Service, Return, Forehand, Backhand, Netspel, Beweging."
+        },
+        "quest": {
+          "term": "Quest",
+          "def": "Een kort dagelijks of wekelijks doel dat XP oplevert bij voltooiing."
+        },
+        "session": {
+          "term": "Les",
+          "def": "Een trainingsles geboekt bij een coach."
+        },
+        "spotlight": {
+          "term": "Spotlight",
+          "def": "Wekelijkse erkenning voor uitzonderlijk spel, sportiviteit of vooruitgang."
+        },
+        "tennisDna": {
+          "term": "Tennis DNA",
+          "def": "Je unieke stijlprofiel — sterktes, voorkeuren en patronen."
+        },
+        "trialGate": {
+          "term": "Trial Gate",
+          "def": "Een skillbeoordeling om naar het volgende ball level te gaan."
+        },
+        "xp": {
+          "term": "XP",
+          "def": "Ervaringspunten verdiend met lessen en activiteiten. Vult je levelbalk."
+        }
+      }
+    },
+    "faq": {
+      "searchPlaceholder": "Zoek vragen en antwoorden",
+      "searchA11y": "Zoek in FAQ",
+      "clearA11y": "Zoekopdracht wissen",
+      "categories": {
+        "All": "Alles",
+        "Booking": "Boeken",
+        "Progress": "Voortgang",
+        "Billing": "Betalen",
+        "Social": "Sociaal",
+        "Account": "Account"
+      },
+      "emptyTitle": "Geen passende antwoorden",
+      "emptyDesc": "Probeer een andere zoekterm of mail support hieronder.",
+      "needHelp": "Meer hulp nodig?",
+      "emailSupport": "Mail support",
+      "emailSupportDesc": "support@glowupsports.com",
+      "reportBug": "Meld een bug",
+      "reportBugDesc": "Vertel ons wat er niet werkt.",
+      "items": {
+        "bookSession": {
+          "q": "Hoe boek ik een les?",
+          "a": "Tik op Boek les op je startscherm, of open het tabblad Agenda en kies een datum en tijd. Sommige banen vereisen goedkeuring van de academy.",
+          "category": "Booking"
+        },
+        "bookCourt": {
+          "q": "Hoe boek ik een baan?",
+          "a": "Open het tabblad Play en kies Boek een baan, of tik op Baan boeken op het startscherm. Je kunt filteren op locatie, ondergrond en tijd.",
+          "category": "Booking"
+        },
+        "cancelSession": {
+          "q": "Hoe annuleer of verzet ik een les?",
+          "a": "Open de les vanuit het tabblad Agenda en tik op Annuleren of Verzetten. Annuleringstermijnen hangen af van het beleid van je academy.",
+          "category": "Booking"
+        },
+        "glowScore": {
+          "q": "Wat is mijn Glow Score?",
+          "a": "Je Glow Score (0–100) is een momentopname van je algemene tennisontwikkeling. Combineert skillniveaus, consistentie, vooruitgang en aanwezigheid.",
+          "category": "Progress"
+        },
+        "glowRank": {
+          "q": "Wat is mijn Glow Rank?",
+          "a": "Glow Rank is je competitieve ranking (1–9) op basis van wedstrijdprestaties tegen spelers op jouw niveau.",
+          "category": "Progress"
+        },
+        "earnXp": {
+          "q": "Hoe verdien ik XP?",
+          "a": "Je verdient XP met voltooide lessen, skillverbeteringen, dagelijkse quests, prestaties en wedstrijden. XP vult je levelbalk en ontgrendelt nieuwe functies.",
+          "category": "Progress"
+        },
+        "ballLevel": {
+          "q": "Wat betekent mijn Ball Level?",
+          "a": "Ball Level (Rood, Oranje, Groen, Geel) geeft je ontwikkelingsfase aan. Coaches beoordelen je en ontgrendelen het volgende level via Trial Gates.",
+          "category": "Progress"
+        },
+        "aiCoach": {
+          "q": "Wat is de AI Coach?",
+          "a": "De AI Coach beoordeelt je lessen en feedback, en geeft je daarna persoonlijke oefeningen, plannen en wedstrijdtips. Te vinden onder het tabblad Growth.",
+          "category": "Progress"
+        },
+        "tennisDna": {
+          "q": "Wat is Tennis DNA?",
+          "a": "Tennis DNA is je unieke speelstijlprofiel — je sterktes, voorkeuren en hoe je je verhoudt tot spelers om je heen.",
+          "category": "Progress"
+        },
+        "credits": {
+          "q": "Hoe werken credits?",
+          "a": "Credits zijn vooraf betaalde lespakketten (privé, semi-privé of groep) waarmee je lessen boekt. Beheer ze vanuit je wallet op het startscherm.",
+          "category": "Billing"
+        },
+        "topUp": {
+          "q": "Hoe top ik credits op?",
+          "a": "Open je wallet vanuit het startscherm of het tabblad Profiel en tik op Opwaarderen. Je kunt betalen met kaart, Apple Pay of Google Pay.",
+          "category": "Billing"
+        },
+        "refunds": {
+          "q": "Hoe werken terugbetalingen?",
+          "a": "Terugbetalingen hangen af van het annuleringsbeleid van je academy. Annuleer je binnen het toegestane venster, dan wordt het credit automatisch teruggestort in je wallet.",
+          "category": "Billing"
+        },
+        "findPlayers": {
+          "q": "Hoe vind ik spelers om mee te spelen?",
+          "a": "Open het tabblad Play, kies Vind spelers, en filter op ball level of locatie. Je kunt ook open matches bekijken en iemand in de buurt uitdagen.",
+          "category": "Social"
+        },
+        "spotlight": {
+          "q": "Wat is Spotlight?",
+          "a": "Spotlight viert elke week uitzonderlijke spelers. Nomineer een vriend of word zelf genomineerd voor mooi spel, sportiviteit of vooruitgang.",
+          "category": "Social"
+        },
+        "quests": {
+          "q": "Hoe werken quests?",
+          "a": "Quests zijn korte dagelijkse en wekelijkse doelen. Voltooi ze om XP en Glow Coins te verdienen. Te vinden op het startscherm of onder het tabblad Growth.",
+          "category": "Progress"
+        },
+        "profile": {
+          "q": "Waar update ik mijn profiel?",
+          "a": "Open het tabblad Profiel. Tik op je avatar om je foto, bio, doelen en speelvoorkeuren te bewerken.",
+          "category": "Account"
+        },
+        "notifications": {
+          "q": "Hoe zet ik meldingen aan?",
+          "a": "Ga naar Profiel → Meldingen. Kies welke meldingen je wilt — boekingen, feedback, sociaal of herinneringen.",
+          "category": "Account"
+        },
+        "privacy": {
+          "q": "Zijn mijn gegevens privé?",
+          "a": "Ja. Je persoonlijke info is standaard privé. Je bepaalt zelf wat zichtbaar is voor andere spelers in Profiel → Privacyinstellingen.",
+          "category": "Account"
+        }
+      },
+      "a11yItem": "FAQ {{index}}: {{question}}",
+      "emailSupportSubject": "Verzoek om spelersondersteuning"
+    },
+    "whatsnew": {
+      "intro": "De laatste updates en verbeteringen in de app.",
+      "items": {
+        "unifiedGuide": {
+          "date": "April 2026",
+          "title": "Geünificeerde Spelersgids",
+          "desc": "Alles wat je nodig hebt om de app te leren — Aan de slag, Ontdek, FAQ en Wat is nieuw — staat nu op één plek."
+        },
+        "searchableFaq": {
+          "date": "April 2026",
+          "title": "Doorzoekbare FAQ",
+          "desc": "Doorzoek de FAQ op trefwoord en filter op categorie om sneller antwoorden te vinden."
+        },
+        "smarterEmpty": {
+          "date": "April 2026",
+          "title": "Slimmere lege schermen",
+          "desc": "Lege lijsten tonen nu een korte uitleg en een actie met één tik, zodat je weet wat de volgende stap is."
+        },
+        "helpButton": {
+          "date": "April 2026",
+          "title": "Helpknop in elke header",
+          "desc": "Zoek de vraagteken-knop rechtsboven in elk spelersscherm om meteen hier terug te komen."
+        }
+      }
+    },
+    "welcome": {
+      "title": "Welkom bij Glow Up",
+      "body": "Doe een rondleiding van 1 minuut — stel alles in, leer de basis en ontdek wat nieuw is.",
+      "openGuide": "Open de gids",
+      "later": "Later",
+      "dismissA11y": "Welkom sluiten"
+    },
+    "helpButton": {
+      "a11y": "Open spelersgids en help"
     }
   }
 }

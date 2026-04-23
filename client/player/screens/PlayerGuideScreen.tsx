@@ -16,6 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/coach/context/AuthContext";
 import {
   Colors,
@@ -34,11 +35,11 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 type TabKey = "start" | "explore" | "faq" | "whatsnew";
 
-const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: "start", label: "Get Started", icon: "rocket" },
-  { key: "explore", label: "Explore", icon: "compass" },
-  { key: "faq", label: "FAQ", icon: "help-circle" },
-  { key: "whatsnew", label: "What's New", icon: "sparkles" },
+const TABS: { key: TabKey; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "start", icon: "rocket" },
+  { key: "explore", icon: "compass" },
+  { key: "faq", icon: "help-circle" },
+  { key: "whatsnew", icon: "sparkles" },
 ];
 
 interface DashboardLite {
@@ -80,294 +81,107 @@ interface ChecklistStep {
   onPress: () => void;
 }
 
-const FAQS: { q: string; a: string; category: string }[] = [
-  {
-    q: "How do I book a session?",
-    a: "Tap Book Lesson on your home screen, or open the Schedule tab and pick a date and time. Some courts may require approval from the academy.",
-    category: "Booking",
-  },
-  {
-    q: "How do I book a court?",
-    a: "Open the Play tab and choose Book a Court, or tap Court Booking on the home screen. You can filter by location, surface, and time.",
-    category: "Booking",
-  },
-  {
-    q: "How do I cancel or reschedule a session?",
-    a: "Open the session from the Schedule tab and tap Cancel or Reschedule. Cancellation deadlines depend on your academy's policy.",
-    category: "Booking",
-  },
-  {
-    q: "What is my Glow Score?",
-    a: "Your Glow Score (0–100) is a snapshot of your overall tennis development. It blends skill levels, consistency, improvement, and attendance.",
-    category: "Progress",
-  },
-  {
-    q: "What is my Glow Rank?",
-    a: "Glow Rank is your competitive ranking (1–9) based on match performance against other players at your level.",
-    category: "Progress",
-  },
-  {
-    q: "How do I earn XP?",
-    a: "You earn XP from completed sessions, skill improvements, daily quests, achievements, and matches. XP fills your level bar and unlocks new features.",
-    category: "Progress",
-  },
-  {
-    q: "What does my Ball Level mean?",
-    a: "Ball Level (Red, Orange, Green, Yellow) marks your stage of development. Coaches assess you and unlock the next level via Trial Gates.",
-    category: "Progress",
-  },
-  {
-    q: "What is the AI Coach?",
-    a: "The AI Coach reviews your sessions and feedback, then gives you personalized drills, practice plans, and matchplay tips. Find it under the Growth tab.",
-    category: "Progress",
-  },
-  {
-    q: "What is Tennis DNA?",
-    a: "Tennis DNA is your unique playing style profile — your strengths, tendencies, and how you compare to players around you.",
-    category: "Progress",
-  },
-  {
-    q: "How do credits work?",
-    a: "Credits are prepaid lesson packages (private, semi-private, or group) used to book sessions. Manage them from your wallet on the home screen.",
-    category: "Billing",
-  },
-  {
-    q: "How do I top up credits?",
-    a: "Open your wallet from the home screen or Profile tab and tap Top Up. You can pay with card, Apple Pay, or Google Pay.",
-    category: "Billing",
-  },
-  {
-    q: "How do refunds work?",
-    a: "Refunds depend on your academy's cancellation policy. If you cancel within the allowed window, the credit is returned to your wallet automatically.",
-    category: "Billing",
-  },
-  {
-    q: "How do I find players to play with?",
-    a: "Open the Play tab, choose Find Players, and filter by ball level or location. You can also browse open matches and challenge anyone nearby.",
-    category: "Social",
-  },
-  {
-    q: "What is Spotlight?",
-    a: "Spotlight celebrates standout players each week. Nominate a friend or get nominated for great play, sportsmanship, or improvement.",
-    category: "Social",
-  },
-  {
-    q: "How do quests work?",
-    a: "Quests are short daily and weekly goals. Complete them to earn XP and Glow Coins. Find them on the home screen or under the Growth tab.",
-    category: "Progress",
-  },
-  {
-    q: "Where do I update my profile?",
-    a: "Open the Profile tab. Tap your avatar to edit your photo, bio, goals, and play style preferences.",
-    category: "Account",
-  },
-  {
-    q: "How do I turn on notifications?",
-    a: "Go to Profile → Notifications. Choose which alerts you want — bookings, feedback, social, or reminders.",
-    category: "Account",
-  },
-  {
-    q: "Is my data private?",
-    a: "Yes. Your personal info is private by default. You can control what's visible to other players in Profile → Privacy Settings.",
-    category: "Account",
-  },
+type FAQCategoryKey = "Booking" | "Progress" | "Billing" | "Social" | "Account";
+
+const FAQ_IDS: { id: string; category: FAQCategoryKey }[] = [
+  { id: "bookSession", category: "Booking" },
+  { id: "bookCourt", category: "Booking" },
+  { id: "cancelSession", category: "Booking" },
+  { id: "glowScore", category: "Progress" },
+  { id: "glowRank", category: "Progress" },
+  { id: "earnXp", category: "Progress" },
+  { id: "ballLevel", category: "Progress" },
+  { id: "aiCoach", category: "Progress" },
+  { id: "tennisDna", category: "Progress" },
+  { id: "credits", category: "Billing" },
+  { id: "topUp", category: "Billing" },
+  { id: "refunds", category: "Billing" },
+  { id: "findPlayers", category: "Social" },
+  { id: "spotlight", category: "Social" },
+  { id: "quests", category: "Progress" },
+  { id: "profile", category: "Account" },
+  { id: "notifications", category: "Account" },
+  { id: "privacy", category: "Account" },
 ];
 
-const FAQ_CATEGORIES = ["All", "Booking", "Progress", "Billing", "Social", "Account"] as const;
+const FAQ_CATEGORIES: ("All" | FAQCategoryKey)[] = [
+  "All",
+  "Booking",
+  "Progress",
+  "Billing",
+  "Social",
+  "Account",
+];
 type FAQCategory = (typeof FAQ_CATEGORIES)[number];
 
-const GLOSSARY: { term: string; definition: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { term: "Academy", definition: "The tennis club or school you're registered with.", icon: "business" },
-  { term: "AI Coach", definition: "Personalized practice and matchplay tips based on your sessions.", icon: "sparkles" },
-  { term: "Ball Level", definition: "Red, Orange, Green, or Yellow — marks your development stage.", icon: "tennisball" },
-  { term: "Credits", definition: "Prepaid lesson packages used to book sessions.", icon: "wallet" },
-  { term: "Glow Coins", definition: "In-app currency earned from quests; spend in the Glow Market.", icon: "logo-bitcoin" },
-  { term: "Glow Score", definition: "Your overall tennis rating, 0–100, based on coach assessments.", icon: "star" },
-  { term: "Glow Rank", definition: "Your competitive ranking, 1–9, based on match performance.", icon: "podium" },
-  { term: "Pillar", definition: "One of six skill categories: Serve, Return, Forehand, Backhand, Net Play, Movement.", icon: "grid" },
-  { term: "Quest", definition: "A short daily or weekly goal that rewards XP when completed.", icon: "flag" },
-  { term: "Session", definition: "A training lesson booked with a coach.", icon: "calendar" },
-  { term: "Spotlight", definition: "Weekly recognition for outstanding play, sportsmanship, or improvement.", icon: "star-half" },
-  { term: "Tennis DNA", definition: "Your unique style profile — strengths, tendencies, and patterns.", icon: "fitness" },
-  { term: "Trial Gate", definition: "A skill assessment to advance to the next ball level.", icon: "checkmark-done" },
-  { term: "XP", definition: "Experience points earned from sessions and activities. Fills your level bar.", icon: "flash" },
+const GLOSSARY_KEYS: { key: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "academy", icon: "business" },
+  { key: "aiCoach", icon: "sparkles" },
+  { key: "ballLevel", icon: "tennisball" },
+  { key: "credits", icon: "wallet" },
+  { key: "glowCoins", icon: "logo-bitcoin" },
+  { key: "glowScore", icon: "star" },
+  { key: "glowRank", icon: "podium" },
+  { key: "pillar", icon: "grid" },
+  { key: "quest", icon: "flag" },
+  { key: "session", icon: "calendar" },
+  { key: "spotlight", icon: "star-half" },
+  { key: "tennisDna", icon: "fitness" },
+  { key: "trialGate", icon: "checkmark-done" },
+  { key: "xp", icon: "flash" },
 ];
 
-interface ExploreEntry {
-  title: string;
-  description: string;
+interface ExploreEntryDef {
+  key: string;
   icon: keyof typeof Ionicons.glyphMap;
-  cta: string;
   onPress: (nav: any) => void;
 }
 
-const EXPLORE_GROUPS: { title: string; entries: ExploreEntry[] }[] = [
+const EXPLORE_GROUPS: { groupKey: string; entries: ExploreEntryDef[] }[] = [
   {
-    title: "Train & Improve",
+    groupKey: "train",
     entries: [
-      {
-        title: "Book a lesson",
-        description: "Find a coach and reserve a slot in seconds.",
-        icon: "calendar",
-        cta: "Open Schedule",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Schedule" }),
-      },
-      {
-        title: "Track your progress",
-        description: "See your Glow Score, skills, and milestones.",
-        icon: "trending-up",
-        cta: "Open Growth",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth" }),
-      },
-      {
-        title: "AI Coach",
-        description: "Personalized drills, plans, and tips from your sessions.",
-        icon: "sparkles",
-        cta: "Talk to AI Coach",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "AICoach" } }),
-      },
-      {
-        title: "Tennis DNA",
-        description: "See your unique playing style and tendencies.",
-        icon: "fitness",
-        cta: "View Tennis DNA",
-        onPress: (nav) => nav.navigate("PlayerDNAWizard"),
-      },
-      {
-        title: "Daily quests",
-        description: "Small goals that earn XP and Glow Coins every day.",
-        icon: "flag",
-        cta: "View Quests",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "QuestsMain" } }),
-      },
+      { key: "bookLesson", icon: "calendar", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Schedule" }) },
+      { key: "trackProgress", icon: "trending-up", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth" }) },
+      { key: "aiCoach", icon: "sparkles", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "AICoach" } }) },
+      { key: "tennisDna", icon: "fitness", onPress: (nav) => nav.navigate("PlayerDNAWizard") },
+      { key: "dailyQuests", icon: "flag", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "QuestsMain" } }) },
     ],
   },
   {
-    title: "Play & Compete",
+    groupKey: "play",
     entries: [
-      {
-        title: "Find players nearby",
-        description: "Filter by level and location to find a match.",
-        icon: "people",
-        cta: "Browse Players",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play" }),
-      },
-      {
-        title: "Book a court",
-        description: "Reserve a court when you want to hit on your own.",
-        icon: "tennisball",
-        cta: "Book Court",
-        onPress: (nav) => nav.navigate("CourtBooking"),
-      },
-      {
-        title: "Tournaments & ladders",
-        description: "Climb the ranks and compete at your level.",
-        icon: "trophy",
-        cta: "Open Play",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play", params: { initialTab: "Tournaments" } }),
-      },
-      {
-        title: "Group events",
-        description: "Join open matches and group activities.",
-        icon: "calendar-number",
-        cta: "Browse Events",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play" }),
-      },
+      { key: "findPlayers", icon: "people", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play" }) },
+      { key: "bookCourt", icon: "tennisball", onPress: (nav) => nav.navigate("CourtBooking") },
+      { key: "tournaments", icon: "trophy", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play", params: { initialTab: "Tournaments" } }) },
+      { key: "groupEvents", icon: "calendar-number", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play" }) },
     ],
   },
   {
-    title: "Connect",
+    groupKey: "connect",
     entries: [
-      {
-        title: "Community feed",
-        description: "Posts, highlights, and tips from the community.",
-        icon: "chatbubbles",
-        cta: "Open Community",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }),
-      },
-      {
-        title: "Friends & groups",
-        description: "Add friends, join groups, plan sessions together.",
-        icon: "person-add",
-        cta: "Find Friends",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }),
-      },
-      {
-        title: "Spotlight",
-        description: "Celebrate standout players and nominate a friend.",
-        icon: "star",
-        cta: "View Spotlight",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }),
-      },
-      {
-        title: "Messages",
-        description: "Direct chat with coaches and friends.",
-        icon: "mail",
-        cta: "Open Messages",
-        onPress: (nav) => nav.navigate("PlayerMessages"),
-      },
+      { key: "communityFeed", icon: "chatbubbles", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
+      { key: "friends", icon: "person-add", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
+      { key: "spotlight", icon: "star", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
+      { key: "messages", icon: "mail", onPress: (nav) => nav.navigate("PlayerMessages") },
     ],
   },
   {
-    title: "Account & Wallet",
+    groupKey: "account",
     entries: [
-      {
-        title: "Wallet & credits",
-        description: "Top up credits and review past purchases.",
-        icon: "wallet",
-        cta: "Open Profile",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Profile" }),
-      },
-      {
-        title: "Glow Market",
-        description: "Spend Glow Coins on perks, gear, and rewards.",
-        icon: "cart",
-        cta: "Open Shop",
-        onPress: (nav) => nav.navigate("Shop"),
-      },
-      {
-        title: "Notifications",
-        description: "Choose which alerts you want to receive.",
-        icon: "notifications",
-        cta: "Manage",
-        onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Profile" }),
-      },
-      {
-        title: "Settings & privacy",
-        description: "Family controls, appearance, privacy.",
-        icon: "settings",
-        cta: "Settings",
-        onPress: (nav) => nav.navigate("Settings"),
-      },
+      { key: "wallet", icon: "wallet", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Profile" }) },
+      { key: "glowMarket", icon: "cart", onPress: (nav) => nav.navigate("Shop") },
+      { key: "notifications", icon: "notifications", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Profile" }) },
+      { key: "settings", icon: "settings", onPress: (nav) => nav.navigate("Settings") },
     ],
   },
 ];
 
-const WHATS_NEW: { date: string; title: string; description: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  {
-    date: "April 2026",
-    title: "Unified Player Guide",
-    description: "Everything you need to learn the app — Get Started, Explore, FAQ, and What's New — now lives in one place.",
-    icon: "sparkles",
-  },
-  {
-    date: "April 2026",
-    title: "Searchable FAQ",
-    description: "Search the FAQ by keyword and filter by category to find answers faster.",
-    icon: "search",
-  },
-  {
-    date: "April 2026",
-    title: "Smarter empty screens",
-    description: "Empty lists now show a one-line explanation and a one-tap action so you always know what to do next.",
-    icon: "bulb",
-  },
-  {
-    date: "April 2026",
-    title: "Help button in every header",
-    description: "Look for the question-mark button at the top-right of any player screen to jump straight back here.",
-    icon: "help-circle",
-  },
+const WHATS_NEW_IDS: { id: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: "unifiedGuide", icon: "sparkles" },
+  { id: "searchableFaq", icon: "search" },
+  { id: "smarterEmpty", icon: "bulb" },
+  { id: "helpButton", icon: "help-circle" },
 ];
 
 export default function PlayerGuideScreen() {
@@ -375,6 +189,7 @@ export default function PlayerGuideScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isGuest } = useAuth();
+  const { t } = useTranslation();
   const initialTab: TabKey = (route.params?.initialTab as TabKey) || "start";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [faqQuery, setFaqQuery] = useState("");
@@ -435,9 +250,9 @@ export default function PlayerGuideScreen() {
       {
         id: "profile",
         icon: "person-circle",
-        title: "Complete your profile",
-        description: "Add a photo and a short bio so coaches and players know who you are.",
-        actionLabel: "Open profile",
+        title: t("playerGuide.steps.profile.title"),
+        description: t("playerGuide.steps.profile.desc"),
+        actionLabel: t("playerGuide.steps.profile.action"),
         done: hasProfile,
         onPress: () => navigation.navigate("PlayerTabs", { screen: "Profile" }),
       },
@@ -445,29 +260,33 @@ export default function PlayerGuideScreen() {
         ? {
             id: "court",
             icon: "tennisball",
-            title: "Book a court",
-            description: "Reserve a court near you for a hit or a casual match.",
-            actionLabel: "Browse courts",
+            title: t("playerGuide.steps.court.title"),
+            description: t("playerGuide.steps.court.desc"),
+            actionLabel: t("playerGuide.steps.court.action"),
             done: hasNextSession,
             onPress: () => navigation.navigate("CourtBooking"),
           }
         : {
             id: "session",
             icon: "calendar",
-            title: "Book your first session",
-            description: "Lock in a lesson with your coach.",
-            actionLabel: "Open schedule",
+            title: t("playerGuide.steps.session.title"),
+            description: t("playerGuide.steps.session.desc"),
+            actionLabel: t("playerGuide.steps.session.action"),
             done: hasNextSession,
             onPress: () => navigation.navigate("PlayerTabs", { screen: "Schedule" }),
           },
       {
         id: "academy",
         icon: "business",
-        title: hasAcademy ? "Your academy" : "Find an academy",
+        title: hasAcademy
+          ? t("playerGuide.steps.academyJoined.title")
+          : t("playerGuide.steps.academyFind.title"),
         description: hasAcademy
-          ? "You're set up with an academy — explore their sessions and coaches."
-          : "Optional — join an academy for structured coaching and training.",
-        actionLabel: hasAcademy ? "Open schedule" : "Browse academies",
+          ? t("playerGuide.steps.academyJoined.desc")
+          : t("playerGuide.steps.academyFind.desc"),
+        actionLabel: hasAcademy
+          ? t("playerGuide.steps.academyJoined.action")
+          : t("playerGuide.steps.academyFind.action"),
         done: hasAcademy,
         onPress: () =>
           hasAcademy
@@ -477,59 +296,65 @@ export default function PlayerGuideScreen() {
       {
         id: "progress",
         icon: "trending-up",
-        title: "Check your progress",
-        description: "See your Glow Score and skill breakdown.",
-        actionLabel: "View progress",
+        title: t("playerGuide.steps.progressCheck.title"),
+        description: t("playerGuide.steps.progressCheck.desc"),
+        actionLabel: t("playerGuide.steps.progressCheck.action"),
         done: hasProgressActivity,
         onPress: () => navigation.navigate("PlayerTabs", { screen: "Growth" }),
       },
       {
         id: "community",
         icon: "people",
-        title: "Add a friend",
-        description: "Connect with friends to plan sessions and share progress.",
-        actionLabel: "Open community",
+        title: t("playerGuide.steps.community.title"),
+        description: t("playerGuide.steps.community.desc"),
+        actionLabel: t("playerGuide.steps.community.action"),
         done: hasFriends,
         onPress: () => navigation.navigate("PlayerTabs", { screen: "Community" }),
       },
       {
         id: "notifications",
         icon: "notifications",
-        title: "Turn on notifications",
-        description: "Get reminders for sessions, feedback, and friends.",
-        actionLabel: "Manage notifications",
+        title: t("playerGuide.steps.notifications.title"),
+        description: t("playerGuide.steps.notifications.desc"),
+        actionLabel: t("playerGuide.steps.notifications.action"),
         done: hasNotifications,
         onPress: () => navigation.navigate("PlayerTabs", { screen: "Profile" }),
       },
     ];
     return steps;
-  }, [dashboard, profile, friends, notificationPrefs, navigation]);
+  }, [dashboard, profile, friends, notificationPrefs, navigation, t]);
 
   const completedCount = checklistSteps.filter((s) => s.done).length;
   const progressPercent = Math.round((completedCount / checklistSteps.length) * 100);
 
   const filteredFaqs = useMemo(() => {
     const q = faqQuery.trim().toLowerCase();
-    return FAQS.filter((item) => {
+    return FAQ_IDS.map((item) => {
+      const question = t(`playerGuide.faq.items.${item.id}.q`);
+      const answer = t(`playerGuide.faq.items.${item.id}.a`);
+      const categoryLabel = t(`playerGuide.faq.categories.${item.category}`);
+      return { id: item.id, category: item.category, question, answer, categoryLabel };
+    }).filter((item) => {
       const matchesCategory = faqCategory === "All" || item.category === faqCategory;
       if (!matchesCategory) return false;
       if (!q) return true;
       return (
-        item.q.toLowerCase().includes(q) ||
-        item.a.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
+        item.question.toLowerCase().includes(q) ||
+        item.answer.toLowerCase().includes(q) ||
+        item.categoryLabel.toLowerCase().includes(q)
       );
     });
-  }, [faqQuery, faqCategory]);
+  }, [faqQuery, faqCategory, t]);
 
   const handleEmail = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await Linking.openURL("mailto:support@glowupsports.com?subject=Player%20Support%20Request");
+      const subject = encodeURIComponent(t("playerGuide.faq.emailSupportSubject"));
+      await Linking.openURL(`mailto:support@glowupsports.com?subject=${subject}`);
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [t]);
 
   const handleReportBug = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -539,10 +364,15 @@ export default function PlayerGuideScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
+        <Pressable
+          style={styles.backButton}
+          onPress={handleBack}
+          hitSlop={8}
+          accessibilityLabel={t("playerGuide.back")}
+        >
           <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Player Guide</Text>
+        <Text style={styles.headerTitle}>{t("playerGuide.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -562,7 +392,9 @@ export default function PlayerGuideScreen() {
                 size={16}
                 color={isActive ? GlowColors.primary : TextColors.muted}
               />
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                {t(`playerGuide.tabs.${tab.key}`)}
+              </Text>
             </Pressable>
           );
         })}
@@ -578,9 +410,12 @@ export default function PlayerGuideScreen() {
           <View>
             <View style={styles.progressCard}>
               <View style={styles.progressRow}>
-                <Text style={styles.progressTitle}>Your setup</Text>
+                <Text style={styles.progressTitle}>{t("playerGuide.progress.title")}</Text>
                 <Text style={styles.progressCount}>
-                  {completedCount} of {checklistSteps.length}
+                  {t("playerGuide.progress.count", {
+                    done: completedCount,
+                    total: checklistSteps.length,
+                  })}
                 </Text>
               </View>
               <View style={styles.progressBarTrack}>
@@ -588,8 +423,8 @@ export default function PlayerGuideScreen() {
               </View>
               <Text style={styles.progressHint}>
                 {progressPercent === 100
-                  ? "All set — you're ready to play."
-                  : "Knock out a few quick steps to get the most out of the app."}
+                  ? t("playerGuide.progress.hintComplete")
+                  : t("playerGuide.progress.hintIncomplete")}
               </Text>
             </View>
 
@@ -621,16 +456,15 @@ export default function PlayerGuideScreen() {
 
         {activeTab === "explore" ? (
           <View>
-            <Text style={styles.intro}>
-              A quick tour of the main areas of the app. Tap any card to jump straight to that
-              screen.
-            </Text>
+            <Text style={styles.intro}>{t("playerGuide.explore.intro")}</Text>
             {EXPLORE_GROUPS.map((group) => (
-              <View key={group.title} style={styles.groupSection}>
-                <Text style={styles.groupTitle}>{group.title}</Text>
+              <View key={group.groupKey} style={styles.groupSection}>
+                <Text style={styles.groupTitle}>
+                  {t(`playerGuide.explore.groups.${group.groupKey}`)}
+                </Text>
                 {group.entries.map((entry) => (
                   <Pressable
-                    key={entry.title}
+                    key={entry.key}
                     style={styles.exploreCard}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -641,9 +475,15 @@ export default function PlayerGuideScreen() {
                       <Ionicons name={entry.icon} size={20} color={GlowColors.primary} />
                     </View>
                     <View style={styles.exploreBody}>
-                      <Text style={styles.exploreTitle}>{entry.title}</Text>
-                      <Text style={styles.exploreDesc}>{entry.description}</Text>
-                      <Text style={styles.exploreCta}>{entry.cta}</Text>
+                      <Text style={styles.exploreTitle}>
+                        {t(`playerGuide.explore.entries.${entry.key}.title`)}
+                      </Text>
+                      <Text style={styles.exploreDesc}>
+                        {t(`playerGuide.explore.entries.${entry.key}.desc`)}
+                      </Text>
+                      <Text style={styles.exploreCta}>
+                        {t(`playerGuide.explore.entries.${entry.key}.cta`)}
+                      </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={TextColors.muted} />
                   </Pressable>
@@ -652,15 +492,19 @@ export default function PlayerGuideScreen() {
             ))}
 
             <View style={styles.groupSection}>
-              <Text style={styles.groupTitle}>Glossary</Text>
-              {GLOSSARY.map((g) => (
-                <View key={g.term} style={styles.glossaryRow}>
+              <Text style={styles.groupTitle}>{t("playerGuide.explore.groups.glossary")}</Text>
+              {GLOSSARY_KEYS.map((g) => (
+                <View key={g.key} style={styles.glossaryRow}>
                   <View style={styles.glossaryIcon}>
                     <Ionicons name={g.icon} size={16} color={GlowColors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.glossaryTerm}>{g.term}</Text>
-                    <Text style={styles.glossaryDef}>{g.definition}</Text>
+                    <Text style={styles.glossaryTerm}>
+                      {t(`playerGuide.explore.glossary.${g.key}.term`)}
+                    </Text>
+                    <Text style={styles.glossaryDef}>
+                      {t(`playerGuide.explore.glossary.${g.key}.def`)}
+                    </Text>
                   </View>
                 </View>
               ))}
@@ -679,19 +523,19 @@ export default function PlayerGuideScreen() {
               />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search questions and answers"
+                placeholder={t("playerGuide.faq.searchPlaceholder")}
                 placeholderTextColor={TextColors.muted}
                 value={faqQuery}
                 onChangeText={setFaqQuery}
                 returnKeyType="search"
                 autoCorrect={false}
-                accessibilityLabel="Search FAQ"
+                accessibilityLabel={t("playerGuide.faq.searchA11y")}
               />
               {faqQuery.length > 0 ? (
                 <Pressable
                   onPress={() => setFaqQuery("")}
                   hitSlop={8}
-                  accessibilityLabel="Clear search"
+                  accessibilityLabel={t("playerGuide.faq.clearA11y")}
                 >
                   <Ionicons name="close-circle" size={16} color={TextColors.muted} />
                 </Pressable>
@@ -721,7 +565,7 @@ export default function PlayerGuideScreen() {
                         active && styles.categoryChipTextActive,
                       ]}
                     >
-                      {cat}
+                      {t(`playerGuide.faq.categories.${cat}`)}
                     </Text>
                   </Pressable>
                 );
@@ -731,26 +575,30 @@ export default function PlayerGuideScreen() {
             {filteredFaqs.length === 0 ? (
               <View style={styles.faqEmpty}>
                 <Ionicons name="search" size={28} color={TextColors.muted} />
-                <Text style={styles.faqEmptyTitle}>No matching answers</Text>
-                <Text style={styles.faqEmptyDesc}>
-                  Try a different search term or email support below.
-                </Text>
+                <Text style={styles.faqEmptyTitle}>{t("playerGuide.faq.emptyTitle")}</Text>
+                <Text style={styles.faqEmptyDesc}>{t("playerGuide.faq.emptyDesc")}</Text>
               </View>
             ) : (
               filteredFaqs.map((item, idx) => (
-                <FAQRow key={item.q} item={item} index={idx} />
+                <FAQRow
+                  key={item.id}
+                  question={item.question}
+                  answer={item.answer}
+                  categoryLabel={item.categoryLabel}
+                  index={idx}
+                />
               ))
             )}
 
             <View style={styles.supportSection}>
-              <Text style={styles.groupTitle}>Need more help?</Text>
+              <Text style={styles.groupTitle}>{t("playerGuide.faq.needHelp")}</Text>
               <Pressable style={styles.supportCard} onPress={handleEmail}>
                 <View style={styles.supportIcon}>
                   <Ionicons name="mail" size={20} color={GlowColors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.supportTitle}>Email support</Text>
-                  <Text style={styles.supportDesc}>support@glowupsports.com</Text>
+                  <Text style={styles.supportTitle}>{t("playerGuide.faq.emailSupport")}</Text>
+                  <Text style={styles.supportDesc}>{t("playerGuide.faq.emailSupportDesc")}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={TextColors.muted} />
               </Pressable>
@@ -764,8 +612,8 @@ export default function PlayerGuideScreen() {
                   <Ionicons name="bug" size={20} color={Colors.dark.accentWarning} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.supportTitle}>Report a bug</Text>
-                  <Text style={styles.supportDesc}>Tell us what isn't working.</Text>
+                  <Text style={styles.supportTitle}>{t("playerGuide.faq.reportBug")}</Text>
+                  <Text style={styles.supportDesc}>{t("playerGuide.faq.reportBugDesc")}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={TextColors.muted} />
               </Pressable>
@@ -775,16 +623,22 @@ export default function PlayerGuideScreen() {
 
         {activeTab === "whatsnew" ? (
           <View>
-            <Text style={styles.intro}>The latest updates and improvements to the app.</Text>
-            {WHATS_NEW.map((item) => (
-              <View key={item.title} style={styles.newsCard}>
+            <Text style={styles.intro}>{t("playerGuide.whatsnew.intro")}</Text>
+            {WHATS_NEW_IDS.map((item) => (
+              <View key={item.id} style={styles.newsCard}>
                 <View style={styles.newsIcon}>
                   <Ionicons name={item.icon} size={20} color={GlowColors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.newsDate}>{item.date}</Text>
-                  <Text style={styles.newsTitle}>{item.title}</Text>
-                  <Text style={styles.newsDesc}>{item.description}</Text>
+                  <Text style={styles.newsDate}>
+                    {t(`playerGuide.whatsnew.items.${item.id}.date`)}
+                  </Text>
+                  <Text style={styles.newsTitle}>
+                    {t(`playerGuide.whatsnew.items.${item.id}.title`)}
+                  </Text>
+                  <Text style={styles.newsDesc}>
+                    {t(`playerGuide.whatsnew.items.${item.id}.desc`)}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -795,7 +649,18 @@ export default function PlayerGuideScreen() {
   );
 }
 
-function FAQRow({ item, index }: { item: { q: string; a: string; category: string }; index: number }) {
+function FAQRow({
+  question,
+  answer,
+  categoryLabel,
+  index,
+}: {
+  question: string;
+  answer: string;
+  categoryLabel: string;
+  index: number;
+}) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <Pressable
@@ -806,18 +671,18 @@ function FAQRow({ item, index }: { item: { q: string; a: string; category: strin
         setOpen((v) => !v);
       }}
       accessibilityRole="button"
-      accessibilityLabel={`FAQ ${index + 1}: ${item.q}`}
+      accessibilityLabel={t("playerGuide.faq.a11yItem", { index: index + 1, question })}
     >
       <View style={styles.faqHeader}>
-        <Text style={styles.faqQuestion}>{item.q}</Text>
+        <Text style={styles.faqQuestion}>{question}</Text>
         <Ionicons name={open ? "chevron-up" : "chevron-down"} size={16} color={TextColors.muted} />
       </View>
       {open ? (
         <View style={styles.faqAnswerWrap}>
           <View style={styles.faqCategoryBadge}>
-            <Text style={styles.faqCategoryText}>{item.category}</Text>
+            <Text style={styles.faqCategoryText}>{categoryLabel}</Text>
           </View>
-          <Text style={styles.faqAnswer}>{item.a}</Text>
+          <Text style={styles.faqAnswer}>{answer}</Text>
         </View>
       ) : null}
     </Pressable>

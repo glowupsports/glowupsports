@@ -773,10 +773,6 @@
       "doubles": "Ganda",
       "both": "Keduanya",
       "members": "anggota",
-      "days": "hari",
-      "group": "Grup",
-      "private": "Privat",
-      "semiPrivate": "Semi-Privat",
       "matchHistory": "Riwayat Pertandingan",
       "offRadar": "Tidak Aktif",
       "creditsAvailable": "tersedia"
@@ -1254,6 +1250,368 @@
       "academySubtitle": "Chat akademi segera hadir",
       "groupsTitle": "Kamu belum ada di grup mana pun",
       "groupsSubtitle": "Gabung grup les atau grup komunitas untuk mulai chat"
+    }
+  },
+  "playerGuide": {
+    "title": "Panduan Pemain",
+    "back": "Kembali",
+    "tabs": {
+      "start": "Mulai",
+      "explore": "Jelajahi",
+      "faq": "FAQ",
+      "whatsnew": "Yang Baru"
+    },
+    "progress": {
+      "title": "Pengaturan kamu",
+      "count": "{{done}} dari {{total}}",
+      "hintComplete": "Semua siap — kamu siap bermain.",
+      "hintIncomplete": "Selesaikan beberapa langkah cepat untuk memaksimalkan aplikasi."
+    },
+    "steps": {
+      "profile": {
+        "title": "Lengkapi profilmu",
+        "desc": "Tambahkan foto dan bio singkat agar pelatih dan pemain mengenalmu.",
+        "action": "Buka profil"
+      },
+      "court": {
+        "title": "Pesan lapangan",
+        "desc": "Pesan lapangan terdekat untuk latihan atau pertandingan santai.",
+        "action": "Cari lapangan"
+      },
+      "session": {
+        "title": "Pesan sesi pertamamu",
+        "desc": "Pesan pelajaran dengan pelatihmu.",
+        "action": "Buka jadwal"
+      },
+      "academyJoined": {
+        "title": "Akademimu",
+        "desc": "Kamu sudah terdaftar di akademi — jelajahi sesi dan pelatihnya.",
+        "action": "Buka jadwal"
+      },
+      "academyFind": {
+        "title": "Cari akademi",
+        "desc": "Opsional — gabung akademi untuk pelatihan terstruktur.",
+        "action": "Cari akademi"
+      },
+      "progressCheck": {
+        "title": "Cek perkembanganmu",
+        "desc": "Lihat Glow Score dan rincian skill kamu.",
+        "action": "Lihat perkembangan"
+      },
+      "community": {
+        "title": "Tambah teman",
+        "desc": "Terhubung dengan teman untuk merencanakan sesi dan berbagi perkembangan.",
+        "action": "Buka komunitas"
+      },
+      "notifications": {
+        "title": "Aktifkan notifikasi",
+        "desc": "Dapatkan pengingat untuk sesi, umpan balik, dan teman.",
+        "action": "Atur notifikasi"
+      }
+    },
+    "explore": {
+      "intro": "Tur singkat area utama aplikasi. Ketuk kartu mana pun untuk langsung menuju layar tersebut.",
+      "groups": {
+        "train": "Latihan & Berkembang",
+        "play": "Main & Bertanding",
+        "connect": "Terhubung",
+        "account": "Akun & Dompet",
+        "glossary": "Glosarium"
+      },
+      "entries": {
+        "bookLesson": {
+          "title": "Pesan pelajaran",
+          "desc": "Cari pelatih dan pesan slot dalam hitungan detik.",
+          "cta": "Buka Jadwal"
+        },
+        "trackProgress": {
+          "title": "Lacak perkembanganmu",
+          "desc": "Lihat Glow Score, skill, dan pencapaianmu.",
+          "cta": "Buka Growth"
+        },
+        "aiCoach": {
+          "title": "AI Coach",
+          "desc": "Latihan, rencana, dan tips personal dari sesimu.",
+          "cta": "Bicara dengan AI Coach"
+        },
+        "tennisDna": {
+          "title": "Tennis DNA",
+          "desc": "Lihat gaya bermain dan kecenderunganmu yang unik.",
+          "cta": "Lihat Tennis DNA"
+        },
+        "dailyQuests": {
+          "title": "Quest harian",
+          "desc": "Tujuan kecil yang menghasilkan XP dan Glow Coin setiap hari.",
+          "cta": "Lihat Quest"
+        },
+        "findPlayers": {
+          "title": "Cari pemain di sekitar",
+          "desc": "Filter berdasarkan level dan lokasi untuk menemukan lawan.",
+          "cta": "Telusuri Pemain"
+        },
+        "bookCourt": {
+          "title": "Pesan lapangan",
+          "desc": "Pesan lapangan saat ingin berlatih sendiri.",
+          "cta": "Pesan Lapangan"
+        },
+        "tournaments": {
+          "title": "Turnamen & ladder",
+          "desc": "Naik peringkat dan bertanding di levelmu.",
+          "cta": "Buka Play"
+        },
+        "groupEvents": {
+          "title": "Acara grup",
+          "desc": "Gabung pertandingan terbuka dan aktivitas grup.",
+          "cta": "Telusuri Acara"
+        },
+        "communityFeed": {
+          "title": "Feed komunitas",
+          "desc": "Postingan, sorotan, dan tips dari komunitas.",
+          "cta": "Buka Komunitas"
+        },
+        "friends": {
+          "title": "Teman & grup",
+          "desc": "Tambah teman, gabung grup, rencanakan sesi bersama.",
+          "cta": "Cari Teman"
+        },
+        "spotlight": {
+          "title": "Spotlight",
+          "desc": "Apresiasi pemain menonjol dan nominasikan teman.",
+          "cta": "Lihat Spotlight"
+        },
+        "messages": {
+          "title": "Pesan",
+          "desc": "Chat langsung dengan pelatih dan teman.",
+          "cta": "Buka Pesan"
+        },
+        "wallet": {
+          "title": "Dompet & kredit",
+          "desc": "Top up kredit dan tinjau pembelian sebelumnya.",
+          "cta": "Buka Profil"
+        },
+        "glowMarket": {
+          "title": "Glow Market",
+          "desc": "Belanjakan Glow Coin untuk perks, gear, dan reward.",
+          "cta": "Buka Toko"
+        },
+        "notifications": {
+          "title": "Notifikasi",
+          "desc": "Pilih notifikasi mana yang ingin kamu terima.",
+          "cta": "Atur"
+        },
+        "settings": {
+          "title": "Pengaturan & privasi",
+          "desc": "Kontrol keluarga, tampilan, privasi.",
+          "cta": "Pengaturan"
+        }
+      },
+      "glossary": {
+        "academy": {
+          "term": "Akademi",
+          "def": "Klub atau sekolah tenis tempat kamu terdaftar."
+        },
+        "aiCoach": {
+          "term": "AI Coach",
+          "def": "Tips latihan dan pertandingan personal berdasarkan sesimu."
+        },
+        "ballLevel": {
+          "term": "Ball Level",
+          "def": "Merah, Oranye, Hijau, atau Kuning — menandai tahap perkembanganmu."
+        },
+        "credits": {
+          "term": "Kredit",
+          "def": "Paket pelajaran prabayar untuk memesan sesi."
+        },
+        "glowCoins": {
+          "term": "Glow Coin",
+          "def": "Mata uang dalam aplikasi dari quest; dipakai di Glow Market."
+        },
+        "glowScore": {
+          "term": "Glow Score",
+          "def": "Penilaian tenis keseluruhanmu, 0–100, dari penilaian pelatih."
+        },
+        "glowRank": {
+          "term": "Glow Rank",
+          "def": "Peringkat kompetitifmu, 1–9, berdasarkan performa pertandingan."
+        },
+        "pillar": {
+          "term": "Pilar",
+          "def": "Salah satu dari enam kategori skill: Servis, Return, Forehand, Backhand, Net Play, Movement."
+        },
+        "quest": {
+          "term": "Quest",
+          "def": "Tujuan harian atau mingguan singkat yang memberi XP saat selesai."
+        },
+        "session": {
+          "term": "Sesi",
+          "def": "Pelajaran latihan yang dipesan dengan pelatih."
+        },
+        "spotlight": {
+          "term": "Spotlight",
+          "def": "Pengakuan mingguan untuk permainan, sportivitas, atau peningkatan luar biasa."
+        },
+        "tennisDna": {
+          "term": "Tennis DNA",
+          "def": "Profil gaya unikmu — kekuatan, kecenderungan, dan pola."
+        },
+        "trialGate": {
+          "term": "Trial Gate",
+          "def": "Penilaian skill untuk naik ke ball level berikutnya."
+        },
+        "xp": {
+          "term": "XP",
+          "def": "Poin pengalaman dari sesi dan aktivitas. Mengisi bar level kamu."
+        }
+      }
+    },
+    "faq": {
+      "searchPlaceholder": "Cari pertanyaan dan jawaban",
+      "searchA11y": "Cari FAQ",
+      "clearA11y": "Hapus pencarian",
+      "categories": {
+        "All": "Semua",
+        "Booking": "Pemesanan",
+        "Progress": "Perkembangan",
+        "Billing": "Pembayaran",
+        "Social": "Sosial",
+        "Account": "Akun"
+      },
+      "emptyTitle": "Tidak ada jawaban yang cocok",
+      "emptyDesc": "Coba kata kunci lain atau hubungi support di bawah.",
+      "needHelp": "Butuh bantuan lebih?",
+      "emailSupport": "Email support",
+      "emailSupportDesc": "support@glowupsports.com",
+      "reportBug": "Laporkan bug",
+      "reportBugDesc": "Beri tahu apa yang tidak berfungsi.",
+      "items": {
+        "bookSession": {
+          "q": "Bagaimana cara memesan sesi?",
+          "a": "Ketuk Pesan Pelajaran di layar utama, atau buka tab Jadwal dan pilih tanggal serta waktu. Beberapa lapangan mungkin memerlukan persetujuan akademi.",
+          "category": "Booking"
+        },
+        "bookCourt": {
+          "q": "Bagaimana cara memesan lapangan?",
+          "a": "Buka tab Play dan pilih Pesan Lapangan, atau ketuk Pemesanan Lapangan di layar utama. Kamu dapat memfilter berdasarkan lokasi, permukaan, dan waktu.",
+          "category": "Booking"
+        },
+        "cancelSession": {
+          "q": "Bagaimana cara membatalkan atau menjadwal ulang sesi?",
+          "a": "Buka sesi dari tab Jadwal dan ketuk Batal atau Jadwal Ulang. Batas waktu pembatalan tergantung kebijakan akademimu.",
+          "category": "Booking"
+        },
+        "glowScore": {
+          "q": "Apa itu Glow Score saya?",
+          "a": "Glow Score (0–100) adalah gambaran perkembangan tenis kamu secara keseluruhan. Menggabungkan level skill, konsistensi, peningkatan, dan kehadiran.",
+          "category": "Progress"
+        },
+        "glowRank": {
+          "q": "Apa itu Glow Rank saya?",
+          "a": "Glow Rank adalah peringkat kompetitifmu (1–9) berdasarkan performa pertandingan melawan pemain selevelmu.",
+          "category": "Progress"
+        },
+        "earnXp": {
+          "q": "Bagaimana cara mendapat XP?",
+          "a": "Kamu mendapat XP dari sesi yang selesai, peningkatan skill, quest harian, pencapaian, dan pertandingan. XP mengisi bar level dan membuka fitur baru.",
+          "category": "Progress"
+        },
+        "ballLevel": {
+          "q": "Apa arti Ball Level saya?",
+          "a": "Ball Level (Merah, Oranye, Hijau, Kuning) menandai tahap perkembanganmu. Pelatih menilaimu dan membuka level berikutnya melalui Trial Gate.",
+          "category": "Progress"
+        },
+        "aiCoach": {
+          "q": "Apa itu AI Coach?",
+          "a": "AI Coach meninjau sesi dan umpan balikmu, lalu memberikan latihan, rencana, dan tips pertandingan personal. Temukan di tab Growth.",
+          "category": "Progress"
+        },
+        "tennisDna": {
+          "q": "Apa itu Tennis DNA?",
+          "a": "Tennis DNA adalah profil gaya bermain unikmu — kekuatan, kecenderungan, dan bagaimana kamu dibanding pemain lain.",
+          "category": "Progress"
+        },
+        "credits": {
+          "q": "Bagaimana cara kerja kredit?",
+          "a": "Kredit adalah paket pelajaran prabayar (privat, semi-privat, atau grup) untuk memesan sesi. Kelola dari dompet di layar utama.",
+          "category": "Billing"
+        },
+        "topUp": {
+          "q": "Bagaimana cara top up kredit?",
+          "a": "Buka dompet dari layar utama atau tab Profil dan ketuk Top Up. Kamu bisa bayar dengan kartu, Apple Pay, atau Google Pay.",
+          "category": "Billing"
+        },
+        "refunds": {
+          "q": "Bagaimana cara kerja refund?",
+          "a": "Refund tergantung kebijakan pembatalan akademimu. Jika kamu membatalkan dalam batas waktu, kredit otomatis dikembalikan ke dompet.",
+          "category": "Billing"
+        },
+        "findPlayers": {
+          "q": "Bagaimana cara menemukan pemain?",
+          "a": "Buka tab Play, pilih Cari Pemain, dan filter berdasarkan ball level atau lokasi. Kamu juga bisa menelusuri pertandingan terbuka dan menantang siapa saja di dekatmu.",
+          "category": "Social"
+        },
+        "spotlight": {
+          "q": "Apa itu Spotlight?",
+          "a": "Spotlight merayakan pemain menonjol setiap minggu. Nominasikan teman atau dapatkan nominasi atas permainan, sportivitas, atau peningkatan.",
+          "category": "Social"
+        },
+        "quests": {
+          "q": "Bagaimana cara kerja quest?",
+          "a": "Quest adalah tujuan harian dan mingguan singkat. Selesaikan untuk dapat XP dan Glow Coin. Temukan di layar utama atau tab Growth.",
+          "category": "Progress"
+        },
+        "profile": {
+          "q": "Di mana saya memperbarui profil?",
+          "a": "Buka tab Profil. Ketuk avatarmu untuk mengedit foto, bio, tujuan, dan preferensi gaya bermain.",
+          "category": "Account"
+        },
+        "notifications": {
+          "q": "Bagaimana cara mengaktifkan notifikasi?",
+          "a": "Buka Profil → Notifikasi. Pilih notifikasi yang kamu inginkan — pemesanan, umpan balik, sosial, atau pengingat.",
+          "category": "Account"
+        },
+        "privacy": {
+          "q": "Apakah data saya privat?",
+          "a": "Ya. Info pribadimu privat secara default. Kamu bisa mengontrol apa yang terlihat oleh pemain lain di Profil → Pengaturan Privasi.",
+          "category": "Account"
+        }
+      },
+      "a11yItem": "FAQ {{index}}: {{question}}",
+      "emailSupportSubject": "Permintaan Dukungan Pemain"
+    },
+    "whatsnew": {
+      "intro": "Pembaruan dan peningkatan terbaru di aplikasi.",
+      "items": {
+        "unifiedGuide": {
+          "date": "April 2026",
+          "title": "Panduan Pemain Terpadu",
+          "desc": "Semua yang kamu butuhkan untuk mempelajari aplikasi — Mulai, Jelajahi, FAQ, dan Yang Baru — kini di satu tempat."
+        },
+        "searchableFaq": {
+          "date": "April 2026",
+          "title": "FAQ yang dapat dicari",
+          "desc": "Cari FAQ berdasarkan kata kunci dan filter kategori untuk menemukan jawaban lebih cepat."
+        },
+        "smarterEmpty": {
+          "date": "April 2026",
+          "title": "Layar kosong yang lebih pintar",
+          "desc": "Daftar kosong kini menampilkan penjelasan satu baris dan aksi satu ketuk agar kamu tahu langkah berikutnya."
+        },
+        "helpButton": {
+          "date": "April 2026",
+          "title": "Tombol bantuan di setiap header",
+          "desc": "Cari tombol tanda tanya di kanan atas layar pemain mana pun untuk langsung kembali ke sini."
+        }
+      }
+    },
+    "welcome": {
+      "title": "Selamat datang di Glow Up",
+      "body": "Ikuti tur singkat 1 menit — siapkan akun, pelajari dasar-dasar, dan temukan apa yang baru.",
+      "openGuide": "Buka panduan",
+      "later": "Nanti",
+      "dismissA11y": "Tutup sambutan"
+    },
+    "helpButton": {
+      "a11y": "Buka panduan dan bantuan pemain"
     }
   }
 }

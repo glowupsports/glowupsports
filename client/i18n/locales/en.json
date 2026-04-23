@@ -558,7 +558,6 @@
       "onVacation": "On Vacation",
       "upcomingVacation": "Upcoming Vacation",
       "lesson": "Lesson",
-      "vacation": "Vacation",
       "noSessionsYet": "No Sessions Yet",
       "noSessionsDesc": "Your training schedule will appear here once your coach adds you to sessions.",
       "askCoachAboutSessions": "Ask your coach about available session times",
@@ -807,10 +806,6 @@
       "doubles": "Doubles",
       "both": "Both",
       "members": "members",
-      "days": "days",
-      "group": "Group",
-      "private": "Private",
-      "semiPrivate": "Semi-Private",
       "matchHistory": "Match History",
       "offRadar": "Off Radar",
       "creditsAvailable": "available"
@@ -868,15 +863,6 @@
       "noCredits": "No credits available",
       "buyCredits": "Buy Credits",
       "quickBook": "Quick Book",
-      "courtBooking": "Court Booking",
-      "openMatch": "Open Match",
-      "invites": "Invites",
-      "preferences": "Preferences",
-      "manageMatch": "Manage Match",
-      "available": "Available",
-      "booked": "Booked",
-      "spotsLeft": "spots left",
-      "spotsFull": "Full",
       "courtBooking": {
         "stepTitle": "Court Booking",
         "stepSubtitle": "Who books the court for this lesson?",
@@ -895,7 +881,15 @@
         "panelStatusBooked": "Court booked by player",
         "panelStatusPending": "Player will book the court",
         "panelOpenLink": "Open booking link"
-      }
+      },
+      "openMatch": "Open Match",
+      "invites": "Invites",
+      "preferences": "Preferences",
+      "manageMatch": "Manage Match",
+      "available": "Available",
+      "booked": "Booked",
+      "spotsLeft": "spots left",
+      "spotsFull": "Full"
     },
     "tournaments": {
       "title": "Tournaments & Ladders",
@@ -1328,6 +1322,368 @@
       "academySubtitle": "Academy chat coming soon",
       "groupsTitle": "You're not in any groups yet",
       "groupsSubtitle": "Join a lesson group or community group to start chatting"
+    }
+  },
+  "playerGuide": {
+    "title": "Player Guide",
+    "back": "Back",
+    "tabs": {
+      "start": "Get Started",
+      "explore": "Explore",
+      "faq": "FAQ",
+      "whatsnew": "What's New"
+    },
+    "progress": {
+      "title": "Your setup",
+      "count": "{{done}} of {{total}}",
+      "hintComplete": "All set — you're ready to play.",
+      "hintIncomplete": "Knock out a few quick steps to get the most out of the app."
+    },
+    "steps": {
+      "profile": {
+        "title": "Complete your profile",
+        "desc": "Add a photo and a short bio so coaches and players know who you are.",
+        "action": "Open profile"
+      },
+      "court": {
+        "title": "Book a court",
+        "desc": "Reserve a court near you for a hit or a casual match.",
+        "action": "Browse courts"
+      },
+      "session": {
+        "title": "Book your first session",
+        "desc": "Lock in a lesson with your coach.",
+        "action": "Open schedule"
+      },
+      "academyJoined": {
+        "title": "Your academy",
+        "desc": "You're set up with an academy — explore their sessions and coaches.",
+        "action": "Open schedule"
+      },
+      "academyFind": {
+        "title": "Find an academy",
+        "desc": "Optional — join an academy for structured coaching and training.",
+        "action": "Browse academies"
+      },
+      "progressCheck": {
+        "title": "Check your progress",
+        "desc": "See your Glow Score and skill breakdown.",
+        "action": "View progress"
+      },
+      "community": {
+        "title": "Add a friend",
+        "desc": "Connect with friends to plan sessions and share progress.",
+        "action": "Open community"
+      },
+      "notifications": {
+        "title": "Turn on notifications",
+        "desc": "Get reminders for sessions, feedback, and friends.",
+        "action": "Manage notifications"
+      }
+    },
+    "explore": {
+      "intro": "A quick tour of the main areas of the app. Tap any card to jump straight to that screen.",
+      "groups": {
+        "train": "Train & Improve",
+        "play": "Play & Compete",
+        "connect": "Connect",
+        "account": "Account & Wallet",
+        "glossary": "Glossary"
+      },
+      "entries": {
+        "bookLesson": {
+          "title": "Book a lesson",
+          "desc": "Find a coach and reserve a slot in seconds.",
+          "cta": "Open Schedule"
+        },
+        "trackProgress": {
+          "title": "Track your progress",
+          "desc": "See your Glow Score, skills, and milestones.",
+          "cta": "Open Growth"
+        },
+        "aiCoach": {
+          "title": "AI Coach",
+          "desc": "Personalized drills, plans, and tips from your sessions.",
+          "cta": "Talk to AI Coach"
+        },
+        "tennisDna": {
+          "title": "Tennis DNA",
+          "desc": "See your unique playing style and tendencies.",
+          "cta": "View Tennis DNA"
+        },
+        "dailyQuests": {
+          "title": "Daily quests",
+          "desc": "Small goals that earn XP and Glow Coins every day.",
+          "cta": "View Quests"
+        },
+        "findPlayers": {
+          "title": "Find players nearby",
+          "desc": "Filter by level and location to find a match.",
+          "cta": "Browse Players"
+        },
+        "bookCourt": {
+          "title": "Book a court",
+          "desc": "Reserve a court when you want to hit on your own.",
+          "cta": "Book Court"
+        },
+        "tournaments": {
+          "title": "Tournaments & ladders",
+          "desc": "Climb the ranks and compete at your level.",
+          "cta": "Open Play"
+        },
+        "groupEvents": {
+          "title": "Group events",
+          "desc": "Join open matches and group activities.",
+          "cta": "Browse Events"
+        },
+        "communityFeed": {
+          "title": "Community feed",
+          "desc": "Posts, highlights, and tips from the community.",
+          "cta": "Open Community"
+        },
+        "friends": {
+          "title": "Friends & groups",
+          "desc": "Add friends, join groups, plan sessions together.",
+          "cta": "Find Friends"
+        },
+        "spotlight": {
+          "title": "Spotlight",
+          "desc": "Celebrate standout players and nominate a friend.",
+          "cta": "View Spotlight"
+        },
+        "messages": {
+          "title": "Messages",
+          "desc": "Direct chat with coaches and friends.",
+          "cta": "Open Messages"
+        },
+        "wallet": {
+          "title": "Wallet & credits",
+          "desc": "Top up credits and review past purchases.",
+          "cta": "Open Profile"
+        },
+        "glowMarket": {
+          "title": "Glow Market",
+          "desc": "Spend Glow Coins on perks, gear, and rewards.",
+          "cta": "Open Shop"
+        },
+        "notifications": {
+          "title": "Notifications",
+          "desc": "Choose which alerts you want to receive.",
+          "cta": "Manage"
+        },
+        "settings": {
+          "title": "Settings & privacy",
+          "desc": "Family controls, appearance, privacy.",
+          "cta": "Settings"
+        }
+      },
+      "glossary": {
+        "academy": {
+          "term": "Academy",
+          "def": "The tennis club or school you're registered with."
+        },
+        "aiCoach": {
+          "term": "AI Coach",
+          "def": "Personalized practice and matchplay tips based on your sessions."
+        },
+        "ballLevel": {
+          "term": "Ball Level",
+          "def": "Red, Orange, Green, or Yellow — marks your development stage."
+        },
+        "credits": {
+          "term": "Credits",
+          "def": "Prepaid lesson packages used to book sessions."
+        },
+        "glowCoins": {
+          "term": "Glow Coins",
+          "def": "In-app currency earned from quests; spend in the Glow Market."
+        },
+        "glowScore": {
+          "term": "Glow Score",
+          "def": "Your overall tennis rating, 0–100, based on coach assessments."
+        },
+        "glowRank": {
+          "term": "Glow Rank",
+          "def": "Your competitive ranking, 1–9, based on match performance."
+        },
+        "pillar": {
+          "term": "Pillar",
+          "def": "One of six skill categories: Serve, Return, Forehand, Backhand, Net Play, Movement."
+        },
+        "quest": {
+          "term": "Quest",
+          "def": "A short daily or weekly goal that rewards XP when completed."
+        },
+        "session": {
+          "term": "Session",
+          "def": "A training lesson booked with a coach."
+        },
+        "spotlight": {
+          "term": "Spotlight",
+          "def": "Weekly recognition for outstanding play, sportsmanship, or improvement."
+        },
+        "tennisDna": {
+          "term": "Tennis DNA",
+          "def": "Your unique style profile — strengths, tendencies, and patterns."
+        },
+        "trialGate": {
+          "term": "Trial Gate",
+          "def": "A skill assessment to advance to the next ball level."
+        },
+        "xp": {
+          "term": "XP",
+          "def": "Experience points earned from sessions and activities. Fills your level bar."
+        }
+      }
+    },
+    "faq": {
+      "searchPlaceholder": "Search questions and answers",
+      "searchA11y": "Search FAQ",
+      "clearA11y": "Clear search",
+      "categories": {
+        "All": "All",
+        "Booking": "Booking",
+        "Progress": "Progress",
+        "Billing": "Billing",
+        "Social": "Social",
+        "Account": "Account"
+      },
+      "emptyTitle": "No matching answers",
+      "emptyDesc": "Try a different search term or email support below.",
+      "needHelp": "Need more help?",
+      "emailSupport": "Email support",
+      "emailSupportDesc": "support@glowupsports.com",
+      "reportBug": "Report a bug",
+      "reportBugDesc": "Tell us what isn't working.",
+      "items": {
+        "bookSession": {
+          "q": "How do I book a session?",
+          "a": "Tap Book Lesson on your home screen, or open the Schedule tab and pick a date and time. Some courts may require approval from the academy.",
+          "category": "Booking"
+        },
+        "bookCourt": {
+          "q": "How do I book a court?",
+          "a": "Open the Play tab and choose Book a Court, or tap Court Booking on the home screen. You can filter by location, surface, and time.",
+          "category": "Booking"
+        },
+        "cancelSession": {
+          "q": "How do I cancel or reschedule a session?",
+          "a": "Open the session from the Schedule tab and tap Cancel or Reschedule. Cancellation deadlines depend on your academy's policy.",
+          "category": "Booking"
+        },
+        "glowScore": {
+          "q": "What is my Glow Score?",
+          "a": "Your Glow Score (0–100) is a snapshot of your overall tennis development. It blends skill levels, consistency, improvement, and attendance.",
+          "category": "Progress"
+        },
+        "glowRank": {
+          "q": "What is my Glow Rank?",
+          "a": "Glow Rank is your competitive ranking (1–9) based on match performance against other players at your level.",
+          "category": "Progress"
+        },
+        "earnXp": {
+          "q": "How do I earn XP?",
+          "a": "You earn XP from completed sessions, skill improvements, daily quests, achievements, and matches. XP fills your level bar and unlocks new features.",
+          "category": "Progress"
+        },
+        "ballLevel": {
+          "q": "What does my Ball Level mean?",
+          "a": "Ball Level (Red, Orange, Green, Yellow) marks your stage of development. Coaches assess you and unlock the next level via Trial Gates.",
+          "category": "Progress"
+        },
+        "aiCoach": {
+          "q": "What is the AI Coach?",
+          "a": "The AI Coach reviews your sessions and feedback, then gives you personalized drills, practice plans, and matchplay tips. Find it under the Growth tab.",
+          "category": "Progress"
+        },
+        "tennisDna": {
+          "q": "What is Tennis DNA?",
+          "a": "Tennis DNA is your unique playing style profile — your strengths, tendencies, and how you compare to players around you.",
+          "category": "Progress"
+        },
+        "credits": {
+          "q": "How do credits work?",
+          "a": "Credits are prepaid lesson packages (private, semi-private, or group) used to book sessions. Manage them from your wallet on the home screen.",
+          "category": "Billing"
+        },
+        "topUp": {
+          "q": "How do I top up credits?",
+          "a": "Open your wallet from the home screen or Profile tab and tap Top Up. You can pay with card, Apple Pay, or Google Pay.",
+          "category": "Billing"
+        },
+        "refunds": {
+          "q": "How do refunds work?",
+          "a": "Refunds depend on your academy's cancellation policy. If you cancel within the allowed window, the credit is returned to your wallet automatically.",
+          "category": "Billing"
+        },
+        "findPlayers": {
+          "q": "How do I find players to play with?",
+          "a": "Open the Play tab, choose Find Players, and filter by ball level or location. You can also browse open matches and challenge anyone nearby.",
+          "category": "Social"
+        },
+        "spotlight": {
+          "q": "What is Spotlight?",
+          "a": "Spotlight celebrates standout players each week. Nominate a friend or get nominated for great play, sportsmanship, or improvement.",
+          "category": "Social"
+        },
+        "quests": {
+          "q": "How do quests work?",
+          "a": "Quests are short daily and weekly goals. Complete them to earn XP and Glow Coins. Find them on the home screen or under the Growth tab.",
+          "category": "Progress"
+        },
+        "profile": {
+          "q": "Where do I update my profile?",
+          "a": "Open the Profile tab. Tap your avatar to edit your photo, bio, goals, and play style preferences.",
+          "category": "Account"
+        },
+        "notifications": {
+          "q": "How do I turn on notifications?",
+          "a": "Go to Profile → Notifications. Choose which alerts you want — bookings, feedback, social, or reminders.",
+          "category": "Account"
+        },
+        "privacy": {
+          "q": "Is my data private?",
+          "a": "Yes. Your personal info is private by default. You can control what's visible to other players in Profile → Privacy Settings.",
+          "category": "Account"
+        }
+      },
+      "a11yItem": "FAQ {{index}}: {{question}}",
+      "emailSupportSubject": "Player Support Request"
+    },
+    "whatsnew": {
+      "intro": "The latest updates and improvements to the app.",
+      "items": {
+        "unifiedGuide": {
+          "date": "April 2026",
+          "title": "Unified Player Guide",
+          "desc": "Everything you need to learn the app — Get Started, Explore, FAQ, and What's New — now lives in one place."
+        },
+        "searchableFaq": {
+          "date": "April 2026",
+          "title": "Searchable FAQ",
+          "desc": "Search the FAQ by keyword and filter by category to find answers faster."
+        },
+        "smarterEmpty": {
+          "date": "April 2026",
+          "title": "Smarter empty screens",
+          "desc": "Empty lists now show a one-line explanation and a one-tap action so you always know what to do next."
+        },
+        "helpButton": {
+          "date": "April 2026",
+          "title": "Help button in every header",
+          "desc": "Look for the question-mark button at the top-right of any player screen to jump straight back here."
+        }
+      }
+    },
+    "welcome": {
+      "title": "Welcome to Glow Up",
+      "body": "Take a 1-minute tour of the app — get set up, learn the basics, and find what's new.",
+      "openGuide": "Open the guide",
+      "later": "Later",
+      "dismissA11y": "Dismiss welcome"
+    },
+    "helpButton": {
+      "a11y": "Open player guide and help"
     }
   }
 }

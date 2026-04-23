@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Colors,
@@ -19,6 +20,7 @@ const WELCOME_KEY = "@glow_player_welcome_dismissed";
 
 export function WelcomeGuideCard() {
   const navigation = useNavigation<any>();
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -90,21 +92,21 @@ export function WelcomeGuideCard() {
           <View style={styles.iconCircle}>
             <Ionicons name="sparkles" size={18} color={GlowColors.primary} />
           </View>
-          <Text style={styles.title}>Welcome to Glow Up</Text>
-          <Pressable onPress={handleDismiss} hitSlop={8} accessibilityLabel="Dismiss welcome">
+          <Text style={styles.title}>{t("playerGuide.welcome.title")}</Text>
+          <Pressable onPress={handleDismiss} hitSlop={8} accessibilityLabel={t("playerGuide.welcome.dismissA11y")}>
             <Ionicons name="close" size={18} color={TextColors.muted} />
           </Pressable>
         </View>
         <Text style={styles.body}>
-          Take a 1-minute tour of the app — get set up, learn the basics, and find what's new.
+          {t("playerGuide.welcome.body")}
         </Text>
         <View style={styles.actionRow}>
           <Pressable style={styles.primaryBtn} onPress={handleOpenGuide}>
             <Ionicons name="rocket" size={14} color={Colors.dark.buttonText} />
-            <Text style={styles.primaryBtnText}>Open the guide</Text>
+            <Text style={styles.primaryBtnText}>{t("playerGuide.welcome.openGuide")}</Text>
           </Pressable>
           <Pressable style={styles.secondaryBtn} onPress={handleLater}>
-            <Text style={styles.secondaryBtnText}>Later</Text>
+            <Text style={styles.secondaryBtnText}>{t("playerGuide.welcome.later")}</Text>
           </Pressable>
         </View>
       </LinearGradient>
