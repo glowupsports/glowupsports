@@ -13,6 +13,10 @@ import { sendPushNotification, getCoachPushTokens } from './pushNotifications';
 
 interface DropInLessonMetadata {
   type: 'drop_in_lesson';
+  // Task #1093 — distinguishes a cross-academy drop-in (default) from a
+  // same-academy internal lesson. The webhook materialises both via the
+  // same path; only the coach notification copy + session.joinType differ.
+  bookingType?: 'drop_in' | 'internal_lesson';
   playerId: string;
   coachId: string;
   academyId: string;
@@ -24,6 +28,7 @@ interface DropInLessonMetadata {
   courtId?: string;
   playerNote?: string;
   price?: string;
+  currency?: string;
 }
 
 function parseDropInLessonMetadata(
@@ -125,6 +130,9 @@ export class WebhookHandlers {
     const courtId = meta.courtId || '';
     const playerNote = meta.playerNote || '';
     const price = meta.price ? parseFloat(meta.price) : 0;
+    const currency = meta.currency || 'AED';
+    const bookingType = meta.bookingType === 'internal_lesson' ? 'internal_lesson' : 'drop_in';
+    const isInternal = bookingType === 'internal_lesson';
 
     if (!Number.isFinite(duration) || duration <= 0) {
       console.error('[DropInLesson] Invalid duration in metadata', meta);
@@ -226,6 +234,14 @@ export class WebhookHandlers {
 
         const [coach] = await tx.select().from(coaches).where(eq(coaches.id, coachId)).limit(1);
 
+        const sessionTitle = coach
+          ? isInternal
+            ? `Lesson with ${coach.name}`
+            : `Drop-in with ${coach.name}`
+          : isInternal
+          ? 'Lesson'
+          : 'Drop-in Lesson';
+
         const inserted = await tx
           .insert(sessions)
           .values({
@@ -237,11 +253,15 @@ export class WebhookHandlers {
             endTime,
             duration,
             sessionType,
-            title: coach ? `Drop-in with ${coach.name}` : 'Drop-in Lesson',
-            maxPlayers: 1,
+            title: sessionTitle,
+            maxPlayers: sessionType === 'group' ? 6 : sessionType === 'semi_private' ? 2 : 1,
             paymentStatus: 'paid',
             price: price ? String(price) : null,
+            // Task #1093 — snapshot the academy price + currency on the
+            // session row so historical invoices stay stable when admins
+            // later edit academy_pricing.
             academyPrice: price ? String(price) : null,
+            pricingCurrency: currency,
             status: 'scheduled',
           })
           .returning();
@@ -250,6 +270,11 @@ export class WebhookHandlers {
         await tx.insert(sessionPlayers).values({
           sessionId: newSession.id,
           playerId,
+          // Internal lessons aren't really "drop-in" but the schema only
+          // ships drop_in / waitlist / regular today. Internal card-paid
+          // bookings reuse `drop_in` so the existing payment surfaces (it
+          // already maps drop_in → roster entry without a credit deduction)
+          // work without further changes.
           joinType: 'drop_in',
           notes: playerNote || null,
         });
@@ -268,15 +293,19 @@ export class WebhookHandlers {
         await tx.insert(coachNotifications).values({
           coachId,
           type: 'booking_request',
-          title: 'New Drop-in Lesson Booked',
-          message: `A drop-in player paid for a ${duration}-min lesson on ${startTime.toUTCString()}.`,
+          title: isInternal ? 'New Lesson Booked (Card)' : 'New Drop-in Lesson Booked',
+          message: isInternal
+            ? `A player paid online for a ${duration}-min lesson on ${startTime.toUTCString()}.`
+            : `A drop-in player paid for a ${duration}-min lesson on ${startTime.toUTCString()}.`,
           priority: 'high',
           actionUrl: `/coach/sessions/${newSession.id}`,
           metadata: {
             sessionId: newSession.id,
             playerId,
-            dropIn: true,
+            dropIn: !isInternal,
+            internalLesson: isInternal,
             price,
+            currency,
             stripeCheckoutSessionId: stripeCheckoutId,
             stripePaymentIntentId: paymentIntentId,
           },
@@ -315,9 +344,11 @@ export class WebhookHandlers {
         if (tokens.length > 0) {
           await sendPushNotification(
             tokens,
-            'New drop-in booking',
-            `A drop-in player just booked a ${duration}-min lesson.`,
-            { type: 'drop_in_lesson_booked', coachId },
+            isInternal ? 'New paid lesson' : 'New drop-in booking',
+            isInternal
+              ? `A player just paid online for a ${duration}-min lesson.`
+              : `A drop-in player just booked a ${duration}-min lesson.`,
+            { type: isInternal ? 'internal_lesson_booked' : 'drop_in_lesson_booked', coachId },
           );
         }
       } catch (pushErr) {

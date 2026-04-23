@@ -1162,6 +1162,10 @@ interface PendingBookingRequest {
   playerLevel?: string | null;
   playerXp?: number | null;
   lessonsWithCoach?: number;
+  // Task #1093 — when the player picks "Pay later" in the booking wizard
+  // we surface an "Awaiting payment" pill on this card so the coach knows
+  // to collect cash / bank-transfer at attendance time.
+  paymentIntent?: "credits" | "pay_later" | null;
 }
 
 function BookingRequestCard({
@@ -1374,6 +1378,28 @@ function BookingRequestCard({
         <View style={bStyles.sessionTypePill}>
           <Text style={bStyles.sessionTypeText}>{sessionTypeLabel}</Text>
         </View>
+        {/* Task #1093 — surface "Awaiting payment" when the player picked
+            pay-later so the coach knows to collect cash on attendance. */}
+        {req.paymentIntent === "pay_later" ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              backgroundColor: (Colors.dark.orange || "#FF9800") + "22",
+              borderColor: (Colors.dark.orange || "#FF9800") + "55",
+              borderWidth: 1,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 999,
+            }}
+          >
+            <Ionicons name="cash-outline" size={11} color={Colors.dark.orange || "#FF9800"} />
+            <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.orange || "#FF9800" }}>
+              Awaiting payment
+            </Text>
+          </View>
+        ) : null}
         <Text style={bStyles.sessionDateTime}>{dateStr}</Text>
         <Text style={bStyles.sessionTime}>{timeStr}</Text>
         <Text style={bStyles.sessionDuration}>{req.duration} min</Text>

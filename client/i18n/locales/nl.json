@@ -874,6 +874,19 @@
       "noCredits": "No credits available",
       "buyCredits": "Buy Credits",
       "quickBook": "Quick Book",
+      "payment": {
+        "howToPay": "Hoe wil je betalen?",
+        "lessonPrice": "Lesprijs",
+        "credits": "Betaal met credits",
+        "creditsLeft": "Nog {{count}} over",
+        "notEnoughCredits": "Niet genoeg credits",
+        "buyCredits": "Credits kopen",
+        "card": "Online betalen met kaart",
+        "cardUnavailable": "Online kaartbetalingen zijn nog niet door je academie ingeschakeld",
+        "payLater": "Later betalen (contant / overschrijving)",
+        "payLaterSub": "De coach markeert als betaald zodra je afrekent",
+        "awaitingPayment": "Wacht op betaling"
+      },
       "courtBooking": {
         "stepTitle": "Baan reserveren",
         "stepSubtitle": "Wie reserveert de baan voor deze les?",

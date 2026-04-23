@@ -44,10 +44,12 @@ import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } fr
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
-import { ComingSoonPaymentRow } from "@/components/ComingSoonPaymentRow";
 import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { CourtBookingPicker } from "./CourtBookingPicker";
+import PaymentMethodPicker, { PaymentMethod } from "@/components/PaymentMethodPicker";
+import { CreditPackagesList } from "@/components/CreditPackagesList";
+import { useTranslation } from "react-i18next";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -238,24 +240,6 @@ export default function PlayerBookingWizard({
 
   // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
-
-  // Confirm slide — minimal payment-method picker (Task #1095). The third
-  // option ("Pay online with card") is shown as a disabled "Coming soon" row
-  // until Task #1093 wires up Stripe and flips the academy's onlineCardEnabled
-  // flag, at which point the disabled row is replaced by a real selectable
-  // option without any other refactor here.
-  const [paymentMethod, setPaymentMethod] = useState<"credits" | "pay_later">(
-    "credits",
-  );
-
-  // Pull the academy's onlineCardEnabled flag from /api/player/me. When true,
-  // hide the "Coming soon" teaser entirely (Task #1093 will replace it with a
-  // real card option). Defaults to false everywhere today.
-  const { data: meData } = useQuery<{ academy?: { onlineCardEnabled?: boolean } | null }>({
-    queryKey: ["/api/player/me"],
-    staleTime: 5 * 60_000,
-  });
-  const onlineCardEnabled = meData?.academy?.onlineCardEnabled ?? false;
 
   // Slide 1: Browse Mode (by time or by coach)
   const [browseMode, setBrowseMode] = useState<BrowseMode>("by_time");
@@ -485,6 +469,111 @@ export default function PlayerBookingWizard({
     enabled: visible,
   });
   const directoryCoaches = academyCoachesData?.coaches || [];
+
+  // Task #1093 — Translation hook for the new payment strings.
+  const { t } = useTranslation();
+
+  // Task #1093 — Payment method state for the Confirm step.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("credits");
+  const [showCreditPackages, setShowCreditPackages] = useState(false);
+
+  // Resolve the academy that will own this booking (mirrors server-side
+  // logic — public coaches from another academy route the booking through
+  // the coach's academy).
+  const resolvedCoachId =
+    selectedSlot?.coachId || selectedSession?.coachId || preselectedCoachId || null;
+  const resolvedCoach = resolvedCoachId
+    ? directoryCoaches.find((c) => c.id === resolvedCoachId)
+    : null;
+  const resolvedAcademyId = resolvedCoach?.academyId || null;
+  const isCrossAcademyResolvedCoach =
+    !!resolvedCoach?.isExternalPublicCoach;
+
+  // Pull the player's current credit balance — the picker uses it to
+  // toggle the Credits row enabled/disabled and show the "(N left)" badge.
+  const { data: creditsData } = useQuery<{ credits: { group: number; private: number; semi_private: number; court: number } }>({
+    queryKey: [`/api/players/${playerId}/credits-summary`],
+    enabled: !!playerId && visible,
+  });
+
+  // Pull the academy_pricing row for the resolved coach's academy +
+  // selected session_type. A 404 means the academy hasn't configured a
+  // price yet — the picker hides the Card option in that case.
+  const pricingType: "private" | "semi_private" | "group" | null =
+    sessionType === "private" || sessionType === "semi_private" || sessionType === "group"
+      ? sessionType
+      : null;
+  const pricingQueryKey = resolvedAcademyId && pricingType
+    ? [`/api/player/academy-pricing/${resolvedAcademyId}/${pricingType}`]
+    : ["/api/player/academy-pricing/none"];
+  const { data: pricingData, isFetched: pricingFetched } = useQuery<
+    | {
+        available: true;
+        sessionType: string;
+        currency: string;
+        pricePerSession: number | null;
+        pricePerHour: number | null;
+        isPerPerson: boolean;
+      }
+    | { available: false }
+  >({
+    queryKey: pricingQueryKey,
+    queryFn: async () => {
+      if (!resolvedAcademyId || !pricingType) return { available: false } as const;
+      const res = await apiFetch(
+        `/api/player/academy-pricing/${resolvedAcademyId}/${pricingType}`,
+      );
+      if (res.status === 404) return { available: false } as const;
+      if (!res.ok) throw new Error("Failed to load pricing");
+      return res.json();
+    },
+    enabled: visible && currentSlide >= 2 && !!resolvedAcademyId && !!pricingType,
+    retry: false,
+  });
+
+  // Compute the displayable lesson price for the chosen duration. We mirror
+  // the server-side rule: pricePerHour wins when set, else pricePerSession.
+  const lessonPriceInfo = useMemo(() => {
+    if (!pricingData || !("available" in pricingData) || !pricingData.available) return null;
+    const perHour = pricingData.pricePerHour || 0;
+    const flat = pricingData.pricePerSession || 0;
+    let amount = 0;
+    if (perHour > 0) amount = Math.round(perHour * (duration / 60) * 100) / 100;
+    else amount = Math.round(flat * 100) / 100;
+    if (!amount || amount <= 0) return null;
+    return { amount, currency: pricingData.currency || "AED" };
+  }, [pricingData, duration]);
+
+  // Credits available for the chosen sessionType.
+  const creditsForType = useMemo(() => {
+    const c = creditsData?.credits;
+    if (!c) return 0;
+    if (sessionType === "private") return c.private || 0;
+    if (sessionType === "semi_private") return c.semi_private || 0;
+    if (sessionType === "group") return c.group || 0;
+    return 0;
+  }, [creditsData, sessionType]);
+
+  // The Card option is shown only when the booking has a clear price source.
+  // For cross-academy drop-ins we fall back to the legacy hourlyRate path,
+  // which we treat as always card-payable.
+  const cardEnabled = isCrossAcademyResolvedCoach
+    ? true
+    : !!lessonPriceInfo;
+
+  // Default selection: prefer Credits when available, else Card if enabled,
+  // else Pay later. Re-runs when the inputs that drive availability change.
+  useEffect(() => {
+    if (!visible) return;
+    if (currentSlide < 2) return;
+    if (creditsForType >= 1) {
+      setPaymentMethod("credits");
+    } else if (cardEnabled) {
+      setPaymentMethod("card");
+    } else {
+      setPaymentMethod("pay_later");
+    }
+  }, [visible, currentSlide, creditsForType, cardEnabled, sessionType]);
 
   // Coach profile drawer state
   const [showCoachDrawer, setShowCoachDrawer] = useState(false);
@@ -981,14 +1070,19 @@ export default function PlayerBookingWizard({
         sessionType: selectedSession.sessionType,
         playerNote: playerNote || null,
         isJoinRequest: true,
+        // Task #1093 — tag the join request so the coach knows whether to
+        // expect a credit deduction or to collect cash on attendance.
+        paymentIntent: paymentMethod === "pay_later" ? "pay_later" : "credits",
         ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
     } else if (selectedSlot) {
-      // Task #1052: external public coaches can't be paid via the player's
-      // home academy credit / approval flow. Route to Stripe checkout, which
-      // creates the session + drop-in roster entry on payment success.
-      if (isCrossAcademyDropInCoach(selectedSlot.coachId)) {
+      // Task #1052 / #1093: Card payments (cross-academy drop-ins AND
+      // same-academy internal lessons) go through Stripe checkout. The
+      // Stripe webhook materialises the session + roster entry on success.
+      const wantsCardPath =
+        isCrossAcademyDropInCoach(selectedSlot.coachId) || paymentMethod === "card";
+      if (wantsCardPath) {
         const checkoutData = {
           coachId: selectedSlot.coachId,
           locationId: selectedSlot.locationId ?? undefined,
@@ -998,6 +1092,9 @@ export default function PlayerBookingWizard({
           duration: selectedSlot.duration,
           sessionType,
           playerNote: playerNote || null,
+          bookingType: isCrossAcademyDropInCoach(selectedSlot.coachId)
+            ? "drop_in"
+            : "internal_lesson",
         };
         dropInLessonMutation.mutate(checkoutData);
         return;
@@ -1014,11 +1111,15 @@ export default function PlayerBookingWizard({
         duration: selectedSlot.duration,
         sessionType,
         playerNote: playerNote || null,
+        // Task #1093 — tag the booking so the coach sees an "Awaiting
+        // payment" pill when the player chose pay-later, or proceeds with
+        // the normal credit deduction otherwise.
+        paymentIntent: paymentMethod === "pay_later" ? "pay_later" : "credits",
         ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
     }
-  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation, dropInLessonMutation, isCrossAcademyDropInCoach, isAcademyCourt, courtBookingStatus, courtBookingNote, courtBookingUrl]);
+  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation, dropInLessonMutation, isCrossAcademyDropInCoach, isAcademyCourt, courtBookingStatus, courtBookingNote, courtBookingUrl, paymentMethod]);
 
   // Progress bar animated style
   const progressStyle = useAnimatedStyle(() => ({
@@ -2128,64 +2229,36 @@ export default function PlayerBookingWizard({
               </LinearGradient>
             </View>
 
-            {/* Payment method picker (Task #1095) — minimal block. The third
-                "Pay online with card" row is a disabled teaser until Task #1093
-                ships. The first two rows are visual today; the wizard's
-                existing booking flow continues to use credits/pay-later. */}
-            <View style={styles.paymentBlock}>
-              <Text style={styles.paymentBlockTitle}>Payment method</Text>
-              <Pressable
-                style={[
-                  styles.paymentMethodRow,
-                  paymentMethod === "credits" && styles.paymentMethodRowActive,
-                ]}
-                onPress={() => setPaymentMethod("credits")}
-              >
-                <View
-                  style={[
-                    styles.paymentRadio,
-                    paymentMethod === "credits" && styles.paymentRadioActive,
-                  ]}
-                >
-                  {paymentMethod === "credits" ? (
-                    <View style={styles.paymentRadioDot} />
-                  ) : null}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.paymentMethodTitle}>Pay with credits</Text>
-                  <Text style={styles.paymentMethodSubtitle}>
-                    Use your existing lesson credits
-                  </Text>
-                </View>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.paymentMethodRow,
-                  paymentMethod === "pay_later" && styles.paymentMethodRowActive,
-                ]}
-                onPress={() => setPaymentMethod("pay_later")}
-              >
-                <View
-                  style={[
-                    styles.paymentRadio,
-                    paymentMethod === "pay_later" && styles.paymentRadioActive,
-                  ]}
-                >
-                  {paymentMethod === "pay_later" ? (
-                    <View style={styles.paymentRadioDot} />
-                  ) : null}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.paymentMethodTitle}>Pay later</Text>
-                  <Text style={styles.paymentMethodSubtitle}>
-                    Cash or bank transfer at the academy
-                  </Text>
-                </View>
-              </Pressable>
-              {!onlineCardEnabled ? (
-                <ComingSoonPaymentRow featureKey="online_card_payments" />
-              ) : null}
-            </View>
+            {/* Task #1093 — Price summary row (only shown when academy_pricing exists). */}
+            {lessonPriceInfo ? (
+              <View style={styles.priceSummaryRow}>
+                <Text style={styles.priceSummaryLabel}>
+                  {t("booking.payment.lessonPrice", "Lesson price")}
+                </Text>
+                <Text style={styles.priceSummaryValue}>
+                  {lessonPriceInfo.currency} {lessonPriceInfo.amount.toFixed(2)}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Task #1093 — Payment method picker. Hidden until pricing has
+                resolved so we don't briefly show the Card option then hide
+                it after the academy_pricing 404 lands. */}
+            {pricingFetched || isCrossAcademyResolvedCoach || !pricingType ? (
+              <PaymentMethodPicker
+                selected={paymentMethod}
+                onChange={setPaymentMethod}
+                creditsAvailable={creditsForType}
+                creditsRequired={1}
+                cardEnabled={cardEnabled}
+                cardPriceLabel={
+                  lessonPriceInfo
+                    ? `${lessonPriceInfo.currency} ${lessonPriceInfo.amount.toFixed(2)}`
+                    : null
+                }
+                onBuyCredits={() => setShowCreditPackages(true)}
+              />
+            ) : null}
 
             {/* XP Preview */}
             <View style={styles.rewardPreview}>
@@ -2198,6 +2271,35 @@ export default function PlayerBookingWizard({
                 <Text style={styles.rewardText}>Streak continues</Text>
               </View>
             </View>
+
+            {/* Task #1093 — Buy-credits modal launched from the picker. */}
+            <Modal
+              visible={showCreditPackages}
+              animationType="slide"
+              presentationStyle="pageSheet"
+              onRequestClose={() => setShowCreditPackages(false)}
+            >
+              <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: Spacing.md,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: Colors.dark.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 18, fontWeight: "700", color: Colors.dark.text }}>
+                    {t("booking.payment.buyCredits", "Buy credits")}
+                  </Text>
+                  <Pressable onPress={() => setShowCreditPackages(false)}>
+                    <Ionicons name="close" size={24} color={Colors.dark.text} />
+                  </Pressable>
+                </View>
+                <CreditPackagesList playerId={playerId || ""} />
+              </View>
+            </Modal>
           </>
         )}
       </Animated.View>
@@ -3211,57 +3313,25 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.primary,
     textDecorationLine: "underline",
   },
-  paymentBlock: {
-    marginBottom: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  paymentBlockTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    marginBottom: Spacing.xs,
-  },
-  paymentMethodRow: {
+  priceSummaryRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: Spacing.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "transparent",
+    marginTop: Spacing.md,
   },
-  paymentMethodRowActive: {
-    borderColor: Colors.dark.primary,
-  },
-  paymentRadio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.dark.textMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  paymentRadioActive: {
-    borderColor: Colors.dark.primary,
-  },
-  paymentRadioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.dark.primary,
-  },
-  paymentMethodTitle: {
+  priceSummaryLabel: {
     fontSize: 14,
+    color: Colors.dark.textSecondary,
     fontWeight: "600",
-    color: Colors.dark.text,
   },
-  paymentMethodSubtitle: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
+  priceSummaryValue: {
+    fontSize: 18,
+    color: Colors.dark.text,
+    fontWeight: "800",
   },
   rewardPreview: {
     flexDirection: "row",

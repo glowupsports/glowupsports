@@ -161,6 +161,10 @@ const bookingRequestSchema = z.object({
     .nullable(),
   courtBookingNote: z.string().max(500).optional().nullable(),
   courtBookingUrl: z.string().max(500).optional().nullable(),
+  // Task #1093 — How the player intends to pay if/when the coach approves
+  // the request. Card payments don't go through this endpoint (they
+  // materialise via Stripe webhook).
+  paymentIntent: z.enum(["credits", "pay_later"]).optional().nullable(),
 });
 
 const bookingDeclineSchema = z.object({
@@ -698,6 +702,7 @@ router.post(
         courtBookingStatus,
         courtBookingNote,
         courtBookingUrl,
+        paymentIntent,
       } = parsedBooking.data;
 
       // Task #1037: Public Coach Profiles. If the player is booking a public
@@ -800,6 +805,7 @@ router.post(
               courtBookingStatus: courtBookingStatus || null,
               courtBookingNote: courtBookingNote || null,
               courtBookingUrl: courtBookingUrl || null,
+              paymentIntent: paymentIntent || null,
             })
             .returning();
 
@@ -2576,6 +2582,54 @@ router.post(
   },
 );
 
+// ==================== Task #1093: Academy Pricing Lookup ====================
+// Returns the active academy_pricing row for a (academyId, sessionType) pair
+// in a shape the booking wizard's Confirm step can render. Returns 404 with
+// `{ available: false }` when the academy hasn't configured pricing for the
+// requested type — the wizard hides the "Pay online with card" option in
+// that case.
+router.get(
+  "/api/player/academy-pricing/:academyId/:sessionType",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      const { academyId, sessionType } = req.params;
+      const allowed = ["private", "semi_private", "group"];
+      if (!allowed.includes(sessionType)) {
+        return res.status(400).json({ error: "Invalid session type" });
+      }
+      const pricingRow = await storage.getAcademyPricingByType(
+        academyId,
+        sessionType,
+      );
+      if (!pricingRow) {
+        return res.status(404).json({ available: false });
+      }
+      const flat = pricingRow.pricePerSession
+        ? parseFloat(pricingRow.pricePerSession.toString())
+        : 0;
+      const perHour = pricingRow.pricePerHour
+        ? parseFloat(pricingRow.pricePerHour.toString())
+        : 0;
+      return res.json({
+        available: true,
+        sessionType,
+        currency: pricingRow.currency || "AED",
+        pricePerSession: flat || null,
+        pricePerHour: perHour || null,
+        isPerPerson: !!pricingRow.isPerPerson,
+      });
+    } catch (error) {
+      console.error("[AcademyPricing] lookup error:", error);
+      res.status(500).json({ error: "Failed to load pricing" });
+    }
+  },
+);
+
 // ==================== Task #1052: Drop-in Lesson Checkout ====================
 // Creates a Stripe Checkout session for a non-academy player to book a
 // brand-new private lesson with a public coach from another academy. The
@@ -2599,9 +2653,17 @@ router.post(
         requestedStart: z.string().min(1),
         requestedEnd: z.string().min(1),
         duration: z.number().int().positive(),
-        // Drop-in lessons are 1-on-1 by definition.
-        sessionType: z.enum(["private"]).default("private"),
+        // Task #1093 — internal academy bookings can also be paid by card,
+        // so the type is no longer restricted to "private". The pricing
+        // source differs based on bookingType (see below).
+        sessionType: z
+          .enum(["private", "semi_private", "group"])
+          .default("private"),
         playerNote: z.string().max(500).optional().nullable(),
+        // Task #1093 — distinguishes a cross-academy "drop-in" lesson with
+        // a public coach (price from coach.hourlyRate) from a same-academy
+        // "internal_lesson" booking (price from academyPricing).
+        bookingType: z.enum(["drop_in", "internal_lesson"]).default("drop_in"),
       });
 
       const parsed = checkoutSchema.safeParse(req.body);
@@ -2610,7 +2672,7 @@ router.post(
       }
       const {
         coachId, locationId, courtId, requestedStart, requestedEnd,
-        duration, sessionType, playerNote,
+        duration, sessionType, playerNote, bookingType,
       } = parsed.data;
 
       const player = await storage.getPlayer(playerId, req.user?.academyId || "");
@@ -2626,9 +2688,18 @@ router.post(
         return res.status(400).json({ error: "This coach has no academy and cannot host drop-in lessons yet." });
       }
 
-      // Drop-in path is reserved for cross-academy players. Same-academy
-      // players already have credits / regular booking-request flow.
-      if (player.academyId && player.academyId === coach.academyId) {
+      // Task #1093 — Cross-academy drop-ins keep their original guard.
+      // Internal lessons (same-academy) are now also allowed via this
+      // endpoint when the player picked "Pay online with card" in the
+      // wizard — pricing comes from academy_pricing instead of the coach's
+      // hourly rate.
+      const isInternalLesson = bookingType === "internal_lesson";
+      const isSameAcademy =
+        player.academyId && player.academyId === coach.academyId;
+      if (isInternalLesson && !isSameAcademy) {
+        return res.status(400).json({ error: "Internal lesson bookings require the player and coach to share an academy." });
+      }
+      if (!isInternalLesson && isSameAcademy) {
         return res.status(400).json({ error: "Use the regular booking flow for coaches in your academy." });
       }
 
@@ -2641,14 +2712,50 @@ router.post(
         return res.status(400).json({ error: "Pick a future time slot." });
       }
 
-      // Compute price from coach's hourly rate, prorated to the lesson length.
-      const hourlyRate = coach.hourlyRate ? parseFloat(coach.hourlyRate.toString()) : 0;
-      if (!hourlyRate || hourlyRate <= 0) {
-        return res.status(400).json({ error: "This coach hasn't set a price for drop-in lessons yet." });
-      }
-      const price = Math.round((hourlyRate * (duration / 60)) * 100) / 100;
-      if (!price || price <= 0) {
-        return res.status(400).json({ error: "Price could not be computed." });
+      // Task #1093 — Pricing source forks based on bookingType:
+      //  - drop_in (cross-academy):  coach.hourlyRate (legacy behaviour)
+      //  - internal_lesson:          academy_pricing for the requested
+      //                              session_type (same source the future
+      //                              admin pricing UI will edit, see #1094).
+      let price: number;
+      let currency = "AED";
+      if (isInternalLesson) {
+        const pricingRow = await storage.getAcademyPricingByType(
+          coach.academyId,
+          sessionType,
+        );
+        if (!pricingRow) {
+          return res.status(400).json({
+            error:
+              "Online card payments are not enabled by your academy yet. Please pick another payment method.",
+          });
+        }
+        const pricingCurrency = pricingRow.currency || "AED";
+        const flatPrice = pricingRow.pricePerSession
+          ? parseFloat(pricingRow.pricePerSession.toString())
+          : 0;
+        const perHour = pricingRow.pricePerHour
+          ? parseFloat(pricingRow.pricePerHour.toString())
+          : 0;
+        const computed =
+          perHour > 0
+            ? Math.round(perHour * (duration / 60) * 100) / 100
+            : Math.round(flatPrice * 100) / 100;
+        if (!computed || computed <= 0) {
+          return res.status(400).json({ error: "Price could not be computed." });
+        }
+        price = computed;
+        currency = pricingCurrency;
+      } else {
+        const hourlyRate = coach.hourlyRate ? parseFloat(coach.hourlyRate.toString()) : 0;
+        if (!hourlyRate || hourlyRate <= 0) {
+          return res.status(400).json({ error: "This coach hasn't set a price for drop-in lessons yet." });
+        }
+        const computed = Math.round((hourlyRate * (duration / 60)) * 100) / 100;
+        if (!computed || computed <= 0) {
+          return res.status(400).json({ error: "Price could not be computed." });
+        }
+        price = computed;
       }
 
       // Authoritative slot validation — re-resolve against the coach's
@@ -2717,7 +2824,13 @@ router.post(
       const forwardedHost = req.header("x-forwarded-host") || req.get("host") || "localhost";
       const baseUrl = `${forwardedProto}://${forwardedHost}`;
 
-      const lessonTitle = `Private Lesson with ${coach.name}`;
+      const lessonTitleType =
+        sessionType === "semi_private"
+          ? "Semi-Private Lesson"
+          : sessionType === "group"
+          ? "Group Session"
+          : "Private Lesson";
+      const lessonTitle = `${lessonTitleType} with ${coach.name}`;
       const priceMinor = Math.round(price * 100);
 
       const checkoutSession = await stripe.checkout.sessions.create({
@@ -2726,7 +2839,7 @@ router.post(
         line_items: [
           {
             price_data: {
-              currency: "aed",
+              currency: currency.toLowerCase(),
               product_data: {
                 name: lessonTitle,
                 description: `${duration} minutes · ${startDate.toUTCString()}`,
@@ -2740,7 +2853,10 @@ router.post(
         cancel_url: `${baseUrl}/?drop_in_lesson_cancelled=true`,
         customer_email: player.email || undefined,
         metadata: {
+          // Same metadata `type` keeps webhook handler signatures unchanged
+          // — `bookingType` distinguishes the two flows on materialisation.
           type: "drop_in_lesson",
+          bookingType,
           playerId,
           coachId,
           academyId: coach.academyId,
@@ -2753,12 +2869,14 @@ router.post(
           // Stripe metadata values must be <= 500 chars.
           playerNote: (playerNote || "").slice(0, 500),
           price: String(price),
+          currency,
         },
       });
 
       return res.json({
         checkoutUrl: checkoutSession.url,
         price,
+        currency,
       });
     } catch (error) {
       console.error("[DropInLesson] Checkout error:", error);

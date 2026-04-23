@@ -3311,6 +3311,13 @@ export const bookingRequests = pgTable("booking_requests", {
   courtBookingNote: text("court_booking_note"),
   courtBookingUrl: text("court_booking_url"),
 
+  // Task #1093 — How the player intends to pay for the lesson when the
+  // request is approved. 'credits' (deduct from wallet on approval — default
+  // / legacy behaviour), 'pay_later' (cash/bank transfer settled by coach
+  // off-line). Card payments don't go through this table — they materialise
+  // a session directly via the Stripe webhook.
+  paymentIntent: text("payment_intent"), // 'credits' | 'pay_later' | null
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

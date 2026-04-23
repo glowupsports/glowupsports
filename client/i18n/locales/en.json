@@ -874,6 +874,19 @@
       "noCredits": "No credits available",
       "buyCredits": "Buy Credits",
       "quickBook": "Quick Book",
+      "payment": {
+        "howToPay": "How would you like to pay?",
+        "lessonPrice": "Lesson price",
+        "credits": "Pay with credits",
+        "creditsLeft": "{{count}} left",
+        "notEnoughCredits": "Not enough credits",
+        "buyCredits": "Buy credits",
+        "card": "Pay online with card",
+        "cardUnavailable": "Online card payments not enabled by your academy yet",
+        "payLater": "Pay later (cash / bank)",
+        "payLaterSub": "Coach marks paid when you settle",
+        "awaitingPayment": "Awaiting payment"
+      },
       "courtBooking": {
         "stepTitle": "Court Booking",
         "stepSubtitle": "Who books the court for this lesson?",
