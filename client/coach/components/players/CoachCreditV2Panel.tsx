@@ -152,6 +152,12 @@ export function CoachCreditV2Panel({ playerId }: Props) {
   const [addPrice, setAddPrice] = useState("");
   const [addPayment, setAddPayment] = useState<"cash" | "bank_transfer" | "already_paid">("cash");
   const [addError, setAddError] = useState<string | null>(null);
+  // Task #1060 — coach can remove credits (negative manual adjustment).
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [removeType, setRemoveType] = useState<CreditType>("group");
+  const [removeQty, setRemoveQty] = useState("1");
+  const [removeReason, setRemoveReason] = useState("");
+  const [removeError, setRemoveError] = useState<string | null>(null);
   // Task #700: invoice returned by purchase-credits, opened via "View invoice" CTA.
   const [purchasedInvoice, setPurchasedInvoice] = useState<ViewableInvoice | null>(null);
   const queryClient = useQueryClient();
@@ -239,6 +245,58 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       setAddError(err.message);
     },
   });
+
+  // Task #1060 — remove credits via the existing manual-adjustment endpoint
+  // with a negative delta. Server allows negative balances (debt) so we warn
+  // in the UI rather than block.
+  const removeCreditsMutation = useMutation({
+    mutationFn: async () => {
+      const qty = parseInt(removeQty, 10);
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new Error("Enter a valid number of credits to remove");
+      }
+      const reason = removeReason.trim() || "Coach removed credits";
+      const res = await apiRequest("POST", "/api/v2/credits/manual-adjustment", {
+        playerId,
+        type: removeType,
+        delta: -qty,
+        reason,
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j?.error || "Failed to remove credits");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/wallet/${playerId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/ledger/${playerId}`, { limit: 20 }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credits-summary`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+      invalidatePlayersList(queryClient);
+      setShowRemoveModal(false);
+      setRemoveError(null);
+      Alert.alert("Credits removed", "The wallet has been updated.");
+    },
+    onError: (err: Error) => {
+      setRemoveError(err.message);
+    },
+  });
+
+  const openRemoveModal = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setRemoveError(null);
+    setRemoveType("group");
+    setRemoveQty("1");
+    setRemoveReason("");
+    setShowRemoveModal(true);
+  };
 
   // Tracks the credit type for which the price field was last auto-filled.
   // Lets us preserve manual edits within the same type, while still
@@ -472,6 +530,27 @@ export function CoachCreditV2Panel({ playerId }: Props) {
             Add credits
           </Text>
         </Pressable>
+        {/* Task #1060 — Remove credits entry point */}
+        <Pressable
+          onPress={openRemoveModal}
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            paddingVertical: Spacing.sm,
+            borderRadius: 8,
+            backgroundColor: `${Colors.dark.error}20`,
+            borderWidth: 1,
+            borderColor: `${Colors.dark.error}50`,
+          }}
+        >
+          <Ionicons name="remove-circle-outline" size={14} color={Colors.dark.error} />
+          <Text style={{ color: Colors.dark.error, fontWeight: "800", fontSize: 12 }}>
+            Remove credits
+          </Text>
+        </Pressable>
         <Pressable
           onPress={() => setShowLedger((v) => !v)}
           style={{
@@ -519,6 +598,21 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         isPending={addCreditsMutation.isPending}
         error={addError}
         isBillingAuthorized={isBillingAuthorized}
+      />
+
+      <RemoveCreditsModal
+        visible={showRemoveModal}
+        onClose={() => setShowRemoveModal(false)}
+        removeType={removeType}
+        setRemoveType={setRemoveType}
+        removeQty={removeQty}
+        setRemoveQty={setRemoveQty}
+        removeReason={removeReason}
+        setRemoveReason={setRemoveReason}
+        currentBalance={Number(wallet.balance[removeType] ?? 0)}
+        onSubmit={() => removeCreditsMutation.mutate()}
+        isPending={removeCreditsMutation.isPending}
+        error={removeError}
       />
 
       <InvoiceViewerModal
@@ -790,6 +884,153 @@ function AddCreditsModal({
           ) : (
             <Text style={{ color: "#000", fontWeight: "800", fontSize: 14 }}>
               {addPayment === "already_paid" ? "Add credits now" : "Create invoice"}
+            </Text>
+          )}
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
+interface RemoveCreditsModalProps {
+  visible: boolean;
+  onClose: () => void;
+  removeType: CreditType;
+  setRemoveType: (t: CreditType) => void;
+  removeQty: string;
+  setRemoveQty: (s: string) => void;
+  removeReason: string;
+  setRemoveReason: (s: string) => void;
+  currentBalance: number;
+  onSubmit: () => void;
+  isPending: boolean;
+  error: string | null;
+}
+
+function RemoveCreditsModal({
+  visible, onClose, removeType, setRemoveType, removeQty, setRemoveQty,
+  removeReason, setRemoveReason, currentBalance, onSubmit, isPending, error,
+}: RemoveCreditsModalProps) {
+  const qtyNum = parseInt(removeQty, 10);
+  const validQty = Number.isFinite(qtyNum) && qtyNum > 0;
+  const projected = validQty ? currentBalance - qtyNum : currentBalance;
+  const willCreateDebt = validQty && projected < 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot, padding: Spacing.lg }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.lg }}>
+          <Text style={{ ...Typography.h2, color: Colors.dark.text }}>Remove credits</Text>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+        </View>
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>Credit type</Text>
+        <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.md }}>
+          {(["group", "semi_private", "private"] as CreditType[]).map((t) => {
+            const active = removeType === t;
+            return (
+              <Pressable
+                key={t}
+                onPress={() => setRemoveType(t)}
+                style={{
+                  flex: 1,
+                  paddingVertical: Spacing.sm,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  backgroundColor: active ? `${TYPE_COLOR[t]}30` : `${Colors.dark.text}10`,
+                  borderWidth: 1,
+                  borderColor: active ? TYPE_COLOR[t] : "transparent",
+                }}
+              >
+                <Text style={{ color: active ? TYPE_COLOR[t] : Colors.dark.text, fontWeight: "700", fontSize: 12 }}>
+                  {TYPE_LABEL[t]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>
+          Current balance: {fmtNumber(currentBalance)} {TYPE_LABEL[removeType]}
+        </Text>
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6, marginTop: Spacing.sm }}>
+          Number of credits to remove
+        </Text>
+        <TextInput
+          value={removeQty}
+          onChangeText={setRemoveQty}
+          keyboardType="number-pad"
+          placeholder="1"
+          placeholderTextColor={Colors.dark.textMuted}
+          style={{
+            backgroundColor: `${Colors.dark.text}10`,
+            color: Colors.dark.text,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            fontSize: 16,
+            marginBottom: Spacing.md,
+          }}
+        />
+
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginBottom: 6 }}>
+          Reason (optional, shown in history)
+        </Text>
+        <TextInput
+          value={removeReason}
+          onChangeText={setRemoveReason}
+          placeholder="e.g. Granted to wrong player"
+          placeholderTextColor={Colors.dark.textMuted}
+          multiline
+          style={{
+            backgroundColor: `${Colors.dark.text}10`,
+            color: Colors.dark.text,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            fontSize: 14,
+            minHeight: 60,
+            marginBottom: Spacing.md,
+          }}
+        />
+
+        {validQty ? (
+          <Text
+            style={{
+              fontSize: 12,
+              color: willCreateDebt ? Colors.dark.error : Colors.dark.textMuted,
+              marginBottom: Spacing.sm,
+              fontWeight: willCreateDebt ? "700" : "400",
+            }}
+          >
+            New balance: {fmtNumber(projected)} {TYPE_LABEL[removeType]}
+            {willCreateDebt ? "  ·  This will put the player into debt." : ""}
+          </Text>
+        ) : null}
+
+        {error ? (
+          <Text style={{ color: Colors.dark.error, fontSize: 12, marginBottom: Spacing.sm }}>{error}</Text>
+        ) : null}
+
+        <Pressable
+          onPress={onSubmit}
+          disabled={isPending || !validQty}
+          style={{
+            paddingVertical: 14,
+            borderRadius: 10,
+            backgroundColor: Colors.dark.error,
+            alignItems: "center",
+            opacity: isPending || !validQty ? 0.6 : 1,
+          }}
+        >
+          {isPending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
+              Remove credits
             </Text>
           )}
         </Pressable>
