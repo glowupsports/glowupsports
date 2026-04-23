@@ -13,6 +13,7 @@ import {
   ScrollView,
   FlatList,
   Keyboard,
+  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { openDirections } from "@/lib/maps";
@@ -76,6 +77,11 @@ interface DirectoryCoach {
   bio?: string | null;
   certifications?: string[] | null;
   ballLevels?: string[] | null;
+  /** Task #1052: true when the coach was injected from the public directory
+   *  (cross-academy). Drop-in lessons with these coaches require Stripe
+   *  payment up front instead of the regular credit / approval flow. */
+  isExternalPublicCoach?: boolean | null;
+  hourlyRate?: string | number | null;
 }
 
 interface Location {
@@ -854,6 +860,87 @@ export default function PlayerBookingWizard({
     },
   });
 
+  // Task #1052 — Drop-in lesson Stripe checkout for non-academy players.
+  // When the player books a private slot with a public coach from another
+  // academy, we don't have a credit / approval flow available. Instead we
+  // collect payment up front via Stripe Checkout. The coach + session +
+  // sessionPlayer (joinType=drop_in) are created server-side by the
+  // checkout.session.completed webhook handler.
+  const dropInLessonMutation = useMutation({
+    mutationFn: async (bookingData: any) => {
+      const res = await apiRequest("POST", "/api/player/drop-in-lesson/checkout", bookingData);
+      return res.json() as Promise<{ checkoutUrl: string; price: number }>;
+    },
+    onSuccess: async (data) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const holdId = activeReservationRef.current;
+      if (holdId) {
+        apiRequest("DELETE", `/api/player/reserve-slot/${holdId}`, undefined).catch(() => {});
+        activeReservationRef.current = null;
+      }
+      setReservationId(null);
+      setReservationExpiresAt(null);
+      AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
+
+      try {
+        if (data?.checkoutUrl) {
+          await Linking.openURL(data.checkoutUrl);
+        }
+      } catch (err) {
+        Alert.alert(
+          "Couldn't open payment",
+          "We couldn't open the secure payment page. Please try again.",
+        );
+        return;
+      }
+
+      // The session + roster spot are only created by the Stripe webhook
+      // *after* the player completes payment. Make this explicit instead of
+      // showing an immediate booking-success state, so the player isn't
+      // misled if they abandon the checkout.
+      Alert.alert(
+        "Payment in progress",
+        "Finish payment in the secure window to confirm your lesson. You'll see it in your bookings once payment is confirmed.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              resetForm();
+              onClose();
+            },
+          },
+        ],
+      );
+    },
+    onError: (error: Error) => {
+      let message = error.message || "Failed to start payment";
+      const colonIdx = message.indexOf(": ");
+      if (colonIdx !== -1) {
+        const body = message.slice(colonIdx + 2);
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed?.error) message = parsed.error;
+        } catch {
+          if (body) message = body;
+        }
+      }
+      Alert.alert("Payment Failed", message);
+    },
+  });
+
+  // Task #1052: when the resolved coach for the chosen slot/session is an
+  // external public coach (i.e., not in the player's academy), we route
+  // brand-new private lessons through the Stripe drop-in checkout instead
+  // of the credit-based booking-request flow.
+  const isCrossAcademyDropInCoach = useCallback(
+    (coachId: string | null | undefined) => {
+      if (!coachId) return false;
+      const dc = directoryCoaches.find((c) => c.id === coachId);
+      return !!dc?.isExternalPublicCoach;
+    },
+    [directoryCoaches],
+  );
+
   // Handle booking - both flows create booking requests for coach approval
   const handleBook = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -879,6 +966,24 @@ export default function PlayerBookingWizard({
       };
       bookingMutation.mutate(bookingData);
     } else if (selectedSlot) {
+      // Task #1052: external public coaches can't be paid via the player's
+      // home academy credit / approval flow. Route to Stripe checkout, which
+      // creates the session + drop-in roster entry on payment success.
+      if (isCrossAcademyDropInCoach(selectedSlot.coachId)) {
+        const checkoutData = {
+          coachId: selectedSlot.coachId,
+          locationId: selectedSlot.locationId ?? undefined,
+          courtId: (selectedCourtId ?? selectedSlot.courtId) ?? undefined,
+          requestedStart: selectedSlot.startTime,
+          requestedEnd: selectedSlot.endTime,
+          duration: selectedSlot.duration,
+          sessionType,
+          playerNote: playerNote || null,
+        };
+        dropInLessonMutation.mutate(checkoutData);
+        return;
+      }
+
       // Request new session slot (use player-selected court if overridden, else slot's pre-assigned court)
       // Convert null → undefined so optional Zod fields are treated as absent (null fails z.string())
       const bookingData = {
@@ -894,7 +999,7 @@ export default function PlayerBookingWizard({
       };
       bookingMutation.mutate(bookingData);
     }
-  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation, isAcademyCourt, courtBookingStatus, courtBookingNote, courtBookingUrl]);
+  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation, dropInLessonMutation, isCrossAcademyDropInCoach, isAcademyCourt, courtBookingStatus, courtBookingNote, courtBookingUrl]);
 
   // Progress bar animated style
   const progressStyle = useAnimatedStyle(() => ({
@@ -2122,9 +2227,9 @@ export default function PlayerBookingWizard({
                 currentSlide === getTotalSlides() - 1 && styles.confirmButton,
               ]}
               onPress={currentSlide === getTotalSlides() - 1 ? handleBook : goNext}
-              disabled={!canProceed || bookingMutation.isPending}
+              disabled={!canProceed || bookingMutation.isPending || dropInLessonMutation.isPending}
             >
-              {bookingMutation.isPending ? (
+              {bookingMutation.isPending || dropInLessonMutation.isPending ? (
                 <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
@@ -2132,7 +2237,9 @@ export default function PlayerBookingWizard({
                     {currentSlide === getTotalSlides() - 1
                       ? isJoining
                         ? "Join Session"
-                        : "Request Booking"
+                        : selectedSlot && isCrossAcademyDropInCoach(selectedSlot.coachId)
+                          ? "Pay & Book"
+                          : "Request Booking"
                       : "Next"}
                   </Text>
                   {currentSlide < getTotalSlides() - 1 && (

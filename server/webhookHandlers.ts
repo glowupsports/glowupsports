@@ -1,7 +1,42 @@
+import type Stripe from 'stripe';
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { db } from './db';
-import { sessionPlayers } from '../shared/schema';
-import { eq, and } from 'drizzle-orm';
+import {
+  sessionPlayers,
+  sessions,
+  courtAvailability,
+  coachNotifications,
+  coaches,
+} from '../shared/schema';
+import { eq, and, ne, sql } from 'drizzle-orm';
+import { sendPushNotification, getCoachPushTokens } from './pushNotifications';
+
+interface DropInLessonMetadata {
+  type: 'drop_in_lesson';
+  playerId: string;
+  coachId: string;
+  academyId: string;
+  requestedStart: string;
+  requestedEnd: string;
+  duration: string;
+  sessionType?: string;
+  locationId?: string;
+  courtId?: string;
+  playerNote?: string;
+  price?: string;
+}
+
+function parseDropInLessonMetadata(
+  raw: Stripe.Metadata | null | undefined,
+): DropInLessonMetadata | null {
+  if (!raw) return null;
+  if (raw.type !== 'drop_in_lesson') return null;
+  const required = ['playerId', 'coachId', 'academyId', 'requestedStart', 'requestedEnd', 'duration'];
+  for (const k of required) {
+    if (!raw[k] || typeof raw[k] !== 'string') return null;
+  }
+  return raw as unknown as DropInLessonMetadata;
+}
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -29,7 +64,7 @@ export class WebhookHandlers {
       const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 
       if (event.type === 'checkout.session.completed') {
-        const checkoutSession = event.data.object as any;
+        const checkoutSession = event.data.object as Stripe.Checkout.Session;
         const metadata = checkoutSession.metadata || {};
 
         if (metadata.type === 'drop_in_session' && metadata.sessionId && metadata.playerId) {
@@ -51,11 +86,245 @@ export class WebhookHandlers {
             console.log(`[DropIn] Player ${playerId} already in session ${sessionId}, skipping`);
           }
         }
+
+        // Task #1052 — drop-in private lesson with a public coach. The
+        // session row + court block + roster entry are materialised here
+        // (after payment) so we never create empty/unpaid sessions.
+        const dropInLessonMeta = parseDropInLessonMetadata(metadata);
+        if (dropInLessonMeta) {
+          await WebhookHandlers.fulfillDropInLesson(checkoutSession, dropInLessonMeta);
+        }
       }
-    } catch (err: any) {
-      // Signature verification failure or parse error — log but don't rethrow
-      // (the sync.processWebhook above may have already succeeded)
-      console.error('[Webhook] Drop-in fulfillment error:', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[Webhook] Drop-in fulfillment error:', message);
+    }
+  }
+
+  /**
+   * Materialise a drop-in private lesson after payment.
+   *
+   * Idempotency model:
+   * - Primary key: Stripe Checkout Session id, persisted on the resulting
+   *   coach_notification metadata. A retried webhook for the same checkout
+   *   short-circuits without doing anything.
+   * - For a *different* paid checkout that targets the same coach/time
+   *   (which would be a duplicate charge), the in-transaction coach overlap
+   *   check fires and we automatically refund the payment.
+   */
+  private static async fulfillDropInLesson(
+    checkoutSession: Stripe.Checkout.Session,
+    meta: DropInLessonMetadata,
+  ): Promise<void> {
+    const playerId = meta.playerId;
+    const coachId = meta.coachId;
+    const academyId = meta.academyId;
+    const duration = parseInt(meta.duration, 10);
+    const sessionType = meta.sessionType || 'private';
+    const locationId = meta.locationId || '';
+    const courtId = meta.courtId || '';
+    const playerNote = meta.playerNote || '';
+    const price = meta.price ? parseFloat(meta.price) : 0;
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      console.error('[DropInLesson] Invalid duration in metadata', meta);
+      return;
+    }
+
+    const startTime = new Date(meta.requestedStart);
+    const endTime = new Date(meta.requestedEnd);
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
+      console.error('[DropInLesson] Invalid timestamps in metadata', meta);
+      return;
+    }
+
+    const stripeCheckoutId: string = checkoutSession.id;
+    const paymentIntentId: string | undefined =
+      typeof checkoutSession.payment_intent === 'string'
+        ? checkoutSession.payment_intent
+        : checkoutSession.payment_intent?.id;
+
+    let conflictDetected = false;
+
+    try {
+      await db.transaction(async (tx) => {
+        // Race safety: serialize all concurrent fulfillments for the same
+        // coach via a transaction-scoped Postgres advisory lock keyed on a
+        // stable hash of the coach id. This makes the read-then-insert
+        // overlap check atomic even under default isolation, since any
+        // concurrent webhook for the same coach must wait its turn.
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`drop_in_lesson:${coachId}`}, 0))`);
+
+        // Idempotency keyed on the Stripe Checkout Session id, persisted on
+        // the coach_notifications row we write below. If we've already
+        // processed THIS checkout, short-circuit cleanly.
+        const alreadyProcessed = await tx
+          .select({ id: coachNotifications.id })
+          .from(coachNotifications)
+          .where(
+            and(
+              eq(coachNotifications.coachId, coachId),
+              sql`${coachNotifications.metadata}->>'stripeCheckoutSessionId' = ${stripeCheckoutId}`,
+            ),
+          )
+          .limit(1);
+        if (alreadyProcessed.length > 0) {
+          console.log(`[DropInLesson] Checkout ${stripeCheckoutId} already fulfilled — skipping (retry)`);
+          return;
+        }
+
+        // Atomic authoritative overlap check — refuse to create a second
+        // session for the same coach overlapping in time. Runs inside the
+        // transaction so two concurrent webhooks can't both succeed. A
+        // duplicate paid checkout for the same slot will hit this branch
+        // and be refunded after the transaction commits.
+        const overlap = await tx
+          .select({ id: sessions.id })
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.coachId, coachId),
+              ne(sessions.status, 'cancelled'),
+              sql`${sessions.startTime} < ${endTime.toISOString()}::timestamp`,
+              sql`${sessions.endTime} > ${startTime.toISOString()}::timestamp`,
+            ),
+          )
+          .limit(1);
+        if (overlap.length > 0) {
+          console.error(`[DropInLesson] Coach overlap on fulfillment — refusing to double-book coach ${coachId} @ ${meta.requestedStart} (checkout=${stripeCheckoutId})`);
+          conflictDetected = true;
+          return;
+        }
+
+        const dateStr = `${startTime.getFullYear()}-${String(startTime.getMonth() + 1).padStart(2, '0')}-${String(startTime.getDate()).padStart(2, '0')}`;
+        const startTimeStr = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
+        const endTimeStr = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+
+        // If a court is requested, double-check it's still free; if it's
+        // taken we still fulfil the booking but without a court assignment
+        // so the player isn't charged for nothing. The coach can reassign.
+        let assignCourtId: string | null = courtId || null;
+        if (assignCourtId) {
+          const courtConflict = await tx
+            .select({ id: courtAvailability.id })
+            .from(courtAvailability)
+            .where(
+              and(
+                eq(courtAvailability.courtId, assignCourtId),
+                eq(courtAvailability.date, dateStr),
+                sql`${courtAvailability.startTime} < ${endTimeStr}`,
+                sql`${courtAvailability.endTime} > ${startTimeStr}`,
+                sql`${courtAvailability.status} IN ('blocked', 'booked')`,
+              ),
+            )
+            .limit(1);
+          if (courtConflict.length > 0) {
+            console.warn(`[DropInLesson] Court ${assignCourtId} no longer free — booking lesson without court`);
+            assignCourtId = null;
+          }
+        }
+
+        const [coach] = await tx.select().from(coaches).where(eq(coaches.id, coachId)).limit(1);
+
+        const inserted = await tx
+          .insert(sessions)
+          .values({
+            academyId,
+            coachId,
+            courtId: assignCourtId,
+            locationId: locationId || null,
+            startTime,
+            endTime,
+            duration,
+            sessionType,
+            title: coach ? `Drop-in with ${coach.name}` : 'Drop-in Lesson',
+            maxPlayers: 1,
+            paymentStatus: 'paid',
+            price: price ? String(price) : null,
+            academyPrice: price ? String(price) : null,
+            status: 'scheduled',
+          })
+          .returning();
+        const newSession = inserted[0];
+
+        await tx.insert(sessionPlayers).values({
+          sessionId: newSession.id,
+          playerId,
+          joinType: 'drop_in',
+          notes: playerNote || null,
+        });
+
+        if (assignCourtId) {
+          await tx.insert(courtAvailability).values({
+            courtId: assignCourtId,
+            date: dateStr,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            status: 'booked',
+            blockedReason: `drop_in_lesson:${newSession.id}`,
+          });
+        }
+
+        await tx.insert(coachNotifications).values({
+          coachId,
+          type: 'booking_request',
+          title: 'New Drop-in Lesson Booked',
+          message: `A drop-in player paid for a ${duration}-min lesson on ${startTime.toUTCString()}.`,
+          priority: 'high',
+          actionUrl: `/coach/sessions/${newSession.id}`,
+          metadata: {
+            sessionId: newSession.id,
+            playerId,
+            dropIn: true,
+            price,
+            stripeCheckoutSessionId: stripeCheckoutId,
+            stripePaymentIntentId: paymentIntentId,
+          },
+        });
+
+        console.log(`[DropInLesson] Created session ${newSession.id} for player ${playerId} with coach ${coachId} (checkout=${stripeCheckoutId})`);
+      });
+
+      // Conflict path: refund the duplicate/late payment so the player isn't
+      // charged for a booking we couldn't honour.
+      if (conflictDetected && paymentIntentId) {
+        try {
+          const stripe = await getUncachableStripeClient();
+          await stripe.refunds.create({
+            payment_intent: paymentIntentId,
+            reason: 'requested_by_customer',
+            metadata: {
+              reason: 'drop_in_lesson_conflict',
+              coachId,
+              playerId,
+              requestedStart: meta.requestedStart,
+              stripeCheckoutSessionId: stripeCheckoutId,
+            },
+          });
+          console.log(`[DropInLesson] Refunded payment ${paymentIntentId} after coach overlap (checkout=${stripeCheckoutId})`);
+        } catch (refundErr) {
+          console.error('[DropInLesson] Refund failed — manual reconciliation needed:', refundErr);
+        }
+        return;
+      }
+
+      // Best-effort push notification — outside the transaction so a delivery
+      // failure can't roll back the booking.
+      try {
+        const tokens = await getCoachPushTokens(coachId);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            'New drop-in booking',
+            `A drop-in player just booked a ${duration}-min lesson.`,
+            { type: 'drop_in_lesson_booked', coachId },
+          );
+        }
+      } catch (pushErr) {
+        console.warn('[DropInLesson] Push notification failed (non-fatal):', pushErr);
+      }
+    } catch (err) {
+      console.error('[DropInLesson] Fulfillment failed:', err);
     }
   }
 }

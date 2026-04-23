@@ -1948,6 +1948,197 @@ Return only the JSON array, nothing else.`;
     }
   });
 
+  // ==================== Task #1052: Drop-in Lesson Checkout ====================
+  // Creates a Stripe Checkout session for a non-academy player to book a
+  // brand-new private lesson with a public coach from another academy. The
+  // session, court block, and roster entry are NOT created here — they are
+  // materialised by the checkout.session.completed webhook in
+  // server/webhookHandlers.ts after the payment is captured.
+  router.post(
+    "/api/player/drop-in-lesson/checkout",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const playerId = req.user?.playerId;
+        if (!playerId) {
+          return res.status(403).json({ error: "Player access required" });
+        }
+
+        const checkoutSchema = z.object({
+          coachId: z.string().min(1),
+          locationId: z.string().min(1).nullish(),
+          courtId: z.string().min(1).nullish(),
+          requestedStart: z.string().min(1),
+          requestedEnd: z.string().min(1),
+          duration: z.number().int().positive(),
+          // Drop-in lessons are 1-on-1 by definition.
+          sessionType: z.enum(["private"]).default("private"),
+          playerNote: z.string().max(500).optional().nullable(),
+        });
+
+        const parsed = checkoutSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: fromZodError(parsed.error).message });
+        }
+        const {
+          coachId, locationId, courtId, requestedStart, requestedEnd,
+          duration, sessionType, playerNote,
+        } = parsed.data;
+
+        const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+        if (!player) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        const coach = await storage.getCoach(coachId);
+        if (!coach || coach.publicProfileEnabled === false) {
+          return res.status(404).json({ error: "Coach is not publicly bookable." });
+        }
+        if (!coach.academyId) {
+          return res.status(400).json({ error: "This coach has no academy and cannot host drop-in lessons yet." });
+        }
+
+        // Drop-in path is reserved for cross-academy players. Same-academy
+        // players already have credits / regular booking-request flow.
+        if (player.academyId && player.academyId === coach.academyId) {
+          return res.status(400).json({ error: "Use the regular booking flow for coaches in your academy." });
+        }
+
+        const startDate = new Date(requestedStart);
+        const endDate = new Date(requestedEnd);
+        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+          return res.status(400).json({ error: "Invalid time range." });
+        }
+        if (startDate.getTime() <= Date.now()) {
+          return res.status(400).json({ error: "Pick a future time slot." });
+        }
+
+        // Compute price from coach's hourly rate, prorated to the lesson length.
+        const hourlyRate = coach.hourlyRate ? parseFloat(coach.hourlyRate.toString()) : 0;
+        if (!hourlyRate || hourlyRate <= 0) {
+          return res.status(400).json({ error: "This coach hasn't set a price for drop-in lessons yet." });
+        }
+        const price = Math.round((hourlyRate * (duration / 60)) * 100) / 100;
+        if (!price || price <= 0) {
+          return res.status(400).json({ error: "Price could not be computed." });
+        }
+
+        // Authoritative slot validation — re-resolve against the coach's
+        // published availability windows so a client cannot pay for a time the
+        // coach never exposed. We ask for the slots the coach is offering on
+        // the same calendar day (in UTC, matching the slot generator) at the
+        // requested duration, and require the requested start to land on one
+        // of them (with the same end). This is the same source of truth the
+        // booking wizard uses, so legitimate selections always pass.
+        const dayStart = new Date(Date.UTC(
+          startDate.getUTCFullYear(),
+          startDate.getUTCMonth(),
+          startDate.getUTCDate(),
+          0, 0, 0, 0,
+        ));
+        const dayEnd = new Date(Date.UTC(
+          startDate.getUTCFullYear(),
+          startDate.getUTCMonth(),
+          startDate.getUTCDate(),
+          23, 59, 59, 999,
+        ));
+        const offeredSlots = await storage.getAvailableSlots({
+          academyId: coach.academyId,
+          coachId,
+          locationId: locationId || undefined,
+          courtId: courtId || undefined,
+          startDate: dayStart,
+          endDate: dayEnd,
+          duration,
+          requestingPlayerId: playerId,
+        });
+        const matchesOfferedSlot = offeredSlots.some((slot) => {
+          const slotStart = new Date(slot.startTime).getTime();
+          const slotEnd = new Date(slot.endTime).getTime();
+          // Allow the requested window to fit anywhere inside an offered slot
+          // (offered slots may be longer than the requested lesson length).
+          return slotStart <= startDate.getTime() && slotEnd >= endDate.getTime();
+        });
+        if (!matchesOfferedSlot) {
+          return res.status(409).json({ error: "That slot is no longer available. Please pick another time." });
+        }
+
+        // Light-weight pre-check for an obvious session conflict so we don't
+        // send the player to checkout for a slot the coach already has booked.
+        // The webhook re-runs this atomically before inserting.
+        const conflicts = await db
+          .select({ id: sessions.id })
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.coachId, coachId),
+              ne(sessions.status, "cancelled"),
+              sql`${sessions.startTime} < ${endDate.toISOString()}::timestamp`,
+              sql`${sessions.endTime} > ${startDate.toISOString()}::timestamp`,
+            ),
+          )
+          .limit(1);
+        if (conflicts.length > 0) {
+          return res.status(409).json({ error: "That slot is no longer available. Please pick another time." });
+        }
+
+        const { getUncachableStripeClient } = await import("../stripeClient");
+        const stripe = await getUncachableStripeClient();
+
+        const forwardedProto = req.header("x-forwarded-proto") || req.protocol || "https";
+        const forwardedHost = req.header("x-forwarded-host") || req.get("host") || "localhost";
+        const baseUrl = `${forwardedProto}://${forwardedHost}`;
+
+        const lessonTitle = `Private Lesson with ${coach.name}`;
+        const priceMinor = Math.round(price * 100);
+
+        const checkoutSession = await stripe.checkout.sessions.create({
+          mode: "payment",
+          payment_method_types: ["card"],
+          line_items: [
+            {
+              price_data: {
+                currency: "aed",
+                product_data: {
+                  name: lessonTitle,
+                  description: `${duration} minutes · ${startDate.toUTCString()}`,
+                },
+                unit_amount: priceMinor,
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${baseUrl}/?drop_in_lesson_success=true&coach_id=${coachId}`,
+          cancel_url: `${baseUrl}/?drop_in_lesson_cancelled=true`,
+          customer_email: player.email || undefined,
+          metadata: {
+            type: "drop_in_lesson",
+            playerId,
+            coachId,
+            academyId: coach.academyId,
+            locationId: locationId || "",
+            courtId: courtId || "",
+            requestedStart: startDate.toISOString(),
+            requestedEnd: endDate.toISOString(),
+            duration: String(duration),
+            sessionType,
+            // Stripe metadata values must be <= 500 chars.
+            playerNote: (playerNote || "").slice(0, 500),
+            price: String(price),
+          },
+        });
+
+        return res.json({
+          checkoutUrl: checkoutSession.url,
+          price,
+        });
+      } catch (error) {
+        console.error("[DropInLesson] Checkout error:", error);
+        res.status(500).json({ error: "Failed to start payment" });
+      }
+    },
+  );
+
   // Leave a play session (frees up slot and notifies waitlist/make-up credit holders)
   router.post("/api/play/sessions/:sessionId/leave", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
