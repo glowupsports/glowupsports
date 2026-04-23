@@ -11,11 +11,13 @@ import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import { PlayerAppearanceProvider, usePlayerAppearance } from "@/player/context/PlayerAppearanceContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
+import DiscoverScreen from "@/player/screens/DiscoverScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
@@ -220,6 +222,7 @@ export { usePlayerDrawer };
 
 export type PlayerTabParamList = {
   Home: undefined;
+  Discover: undefined;
   Community: undefined;
   PlayStack: undefined;
   Growth: undefined;
@@ -802,34 +805,142 @@ const SHOW_CHAT_TABS = ["Home"];
 
 const TAB_FEATURE_KEYS: Record<string, string> = {
   Home: "tab:home",
+  Discover: "tab:discover",
   Community: "tab:social",
   PlayStack: "tab:play",
   Growth: "tab:growth",
   Profile: "tab:me",
 };
 
+// Task #1034 — Free players land on Discover; academy players keep Home.
+// Pulled from the same dashboard query the home screen uses (cache-shared).
+function useFreePlayerStatus(): { isFreePlayer: boolean; isReady: boolean } {
+  const { user } = useAuth();
+  const { data, isFetched } = useQuery<{ isFreePlayer?: boolean; academy?: unknown }>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: !!user?.playerId,
+    staleTime: 10 * 60 * 1000,
+  });
+  if (!user?.playerId) {
+    return { isFreePlayer: false, isReady: true };
+  }
+  if (!data) {
+    return { isFreePlayer: false, isReady: isFetched };
+  }
+  const isFreePlayer = data.isFreePlayer ?? !data.academy;
+  return { isFreePlayer, isReady: true };
+}
+
+// Task #1034 — Last-used-tab persistence. Stored as { role, tab } so that
+// when a free player joins an academy (role transitions from "free" → "academy")
+// we reset the default to Home; otherwise we restore the last tab they used.
+type PlayerRole = "free" | "academy";
+const TAB_STORAGE_KEY = "player:tabs:lastUsed:v1";
+
+interface StoredTabState {
+  role: PlayerRole;
+  tab: string;
+  userId?: string;
+}
+
+function rolesDefaultTab(role: PlayerRole): string {
+  return role === "free" ? "Discover" : "Home";
+}
+
+function useResolvedInitialTab(
+  isFreePlayer: boolean,
+  isPlayerStatusReady: boolean,
+  userId: string | undefined,
+  validTabKeys: Set<string>,
+): { initialTabKey: string; isResolved: boolean } {
+  const [resolved, setResolved] = useState<{ tab: string; ready: boolean }>({
+    tab: rolesDefaultTab(isFreePlayer ? "free" : "academy"),
+    ready: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isPlayerStatusReady) return;
+    const role: PlayerRole = isFreePlayer ? "free" : "academy";
+
+    // Free players ALWAYS land on Discover on cold start / fresh login.
+    // In-session tab changes still update local state via handlePageChange
+    // (and we persist them so academy users get restoration), but on the
+    // next app launch a free player should be funneled back to Discover.
+    if (role === "free") {
+      AsyncStorage.setItem(
+        TAB_STORAGE_KEY,
+        JSON.stringify({ role, tab: "Discover", userId } satisfies StoredTabState),
+      ).catch(() => { /* best-effort */ });
+      setResolved({ tab: "Discover", ready: true });
+      return () => { cancelled = true; };
+    }
+
+    AsyncStorage.getItem(TAB_STORAGE_KEY)
+      .then((raw) => {
+        if (cancelled) return;
+        let stored: StoredTabState | null = null;
+        if (raw) {
+          try { stored = JSON.parse(raw) as StoredTabState; } catch { stored = null; }
+        }
+        // Academy players: restore last tab when role+user match; otherwise
+        // reset to role default.
+        const sameContext = stored && stored.role === role && (!stored.userId || !userId || stored.userId === userId);
+        const candidate = sameContext && stored && validTabKeys.has(stored.tab)
+          ? stored.tab
+          : rolesDefaultTab(role);
+        if (!sameContext) {
+          AsyncStorage.setItem(
+            TAB_STORAGE_KEY,
+            JSON.stringify({ role, tab: candidate, userId } satisfies StoredTabState),
+          ).catch(() => { /* best-effort */ });
+        }
+        setResolved({ tab: candidate, ready: true });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setResolved({ tab: rolesDefaultTab(role), ready: true });
+      });
+    return () => { cancelled = true; };
+  }, [isFreePlayer, isPlayerStatusReady, userId, validTabKeys]);
+
+  return { initialTabKey: resolved.tab, isResolved: resolved.ready };
+}
+
 function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwipeLeft?: () => void; drawerOpen?: boolean }) {
   const { t } = useTranslation();
-  const [currentTabKey, setCurrentTabKey] = useState("Home");
-  const navigation = useNavigation<any>();
-  const track = useTrackFeature();
-  const isMountedRef = useRef(false);
+  const { user } = useAuth();
+  const { isFreePlayer, isReady: isPlayerStatusReady } = useFreePlayerStatus();
 
   const playerTabs: TabConfig[] = useMemo(() => [
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
+    { key: "Discover", label: "Discover", icon: "compass-outline", iconFocused: "compass", component: DiscoverScreen },
     { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
     { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
     { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
     { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
   ], [t]);
 
+  const validTabKeys = useMemo(() => new Set(playerTabs.map(t => t.key)), [playerTabs]);
+  const { initialTabKey, isResolved } = useResolvedInitialTab(
+    isFreePlayer,
+    isPlayerStatusReady,
+    user?.playerId,
+    validTabKeys,
+  );
+  const initialPage = playerTabs.findIndex(tab => tab.key === initialTabKey);
+  const [currentTabKey, setCurrentTabKey] = useState(initialTabKey);
+  const navigation = useNavigation<any>();
+  const track = useTrackFeature();
+  const isMountedRef = useRef(false);
+
   const playCenterButton = useMemo(() => ({
     icon: "tennisball-outline" as const,
     iconFocused: "tennisball" as const,
     label: "Play",
     color: Colors.dark.primary,
-    pagerIndex: 2,
-  }), []);
+    pagerIndex: playerTabs.findIndex(tab => tab.key === "PlayStack"),
+  }), [playerTabs]);
   
   const hideChat = !SHOW_CHAT_TABS.includes(currentTabKey);
 
@@ -850,7 +961,17 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
       track(featureKey);
     }
     isMountedRef.current = true;
-  }, [track]);
+    // Task #1034 — persist last-used tab so the next session restores it.
+    // Skip writes until the role-aware initial resolution finished, so we
+    // don't accidentally overwrite the stored tab with the loading default.
+    if (isResolved) {
+      const role: PlayerRole = isFreePlayer ? "free" : "academy";
+      AsyncStorage.setItem(
+        TAB_STORAGE_KEY,
+        JSON.stringify({ role, tab: key, userId: user?.playerId } satisfies StoredTabState),
+      ).catch(() => { /* best-effort */ });
+    }
+  }, [track, isResolved, isFreePlayer, user?.playerId]);
   
   const renderOverlay = useCallback((tabKey: string) => {
     if (drawerOpen) return null;
@@ -863,7 +984,9 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
 
   return (
     <SwipeableTabBar
+      key={isResolved ? `tabs-${initialTabKey}` : "tabs-loading"}
       tabs={playerTabs}
+      initialPage={initialPage >= 0 ? initialPage : 0}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.primary}
       onEdgeSwipeLeft={onEdgeSwipeLeft}

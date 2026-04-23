@@ -66,6 +66,10 @@ router.get("/api/tournaments/public", async (req: Request, res: Response) => {
   try {
     const sport = req.query.sport as string | undefined;
     const city = req.query.city as string | undefined;
+    // Task #1034 — Discover scope chip filters tournaments by host academy's
+    // country. Tournaments don't carry their own country column, so we use
+    // the joined academy as the country signal.
+    const country = (req.query.country as string | undefined)?.trim();
 
     const activeStatuses = ["upcoming", "registration_open", "in_progress"];
 
@@ -89,6 +93,7 @@ router.get("/api/tournaments/public", async (req: Request, res: Response) => {
       venueLat: tournaments.venueLat,
       venueLng: tournaments.venueLng,
       academyName: academies.name,
+      academyCountry: academies.country,
     })
       .from(tournaments)
       .leftJoin(academies, eq(tournaments.academyId, academies.id))
@@ -98,6 +103,7 @@ router.get("/api/tournaments/public", async (req: Request, res: Response) => {
           inArray(tournaments.status, activeStatuses),
           sport ? eq(tournaments.sport, sport) : undefined,
           city ? sql`LOWER(${tournaments.location}) LIKE LOWER(${"%" + city + "%"})` : undefined,
+          country ? sql`LOWER(${academies.country}) = LOWER(${country})` : undefined,
         )
       )
       .orderBy(asc(tournaments.startDate));

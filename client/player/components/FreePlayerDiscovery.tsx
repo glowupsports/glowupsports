@@ -17,6 +17,7 @@ import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles"
 import { MatchSummaryCard } from "./MatchSummaryCard";
 import { PlayersNearYouRow } from "./DiscoveryRows";
 import { SectionHeader } from "@/components/PremiumUI";
+import { useDiscoverScope } from "@/player/context/DiscoverScopeContext";
 
 type NavAny = ReturnType<typeof useNavigation<any>>;
 
@@ -63,6 +64,11 @@ interface NearbyPlayerApi {
   driveTimeText?: string;
   ballLevel?: string | null;
   skillLevel?: number | null;
+  // Server enriches these for the player directory; used by Discover rails to
+  // sort by "Players you might know" (mutual count) and "Recently active".
+  mutualSessions?: number;
+  lastLoginAt?: string | null;
+  country?: string | null;
 }
 
 const COURT_CARD_WIDTH = 240;
@@ -333,11 +339,24 @@ function NearbyClubsSection({
   );
 }
 
-function OpenMatchesSection({ navigation }: { navigation: NavAny }) {
+function OpenMatchesSection({ navigation, variant = "home" }: { navigation: NavAny; variant?: "home" | "discover" }) {
+  const scopeCtx = useDiscoverScope();
+  const isDiscover = variant === "discover";
+  // Discover: pass scope to the server (mine|country|all). Home: keep
+  // existing behavior — show all open matches the player can see.
+  const scopeParam: "country" | "all" | undefined = isDiscover
+    ? (scopeCtx?.scope === "global" ? "all" : "country")
+    : undefined;
+
   const { data, isLoading } = useQuery<OpenMatch[]>({
-    queryKey: ["/api/open-matches", "free-home"],
+    queryKey: isDiscover
+      ? ["/api/open-matches", "discover", scopeParam]
+      : ["/api/open-matches", "free-home"],
     queryFn: async () => {
-      const res = await apiFetch(`/api/open-matches?includeAllLevels=true`);
+      const url = scopeParam
+        ? `/api/open-matches?includeAllLevels=true&scope=${scopeParam}`
+        : `/api/open-matches?includeAllLevels=true`;
+      const res = await apiFetch(url);
       if (!res.ok) return [];
       const json = await res.json();
       return Array.isArray(json) ? json : [];
@@ -350,23 +369,47 @@ function OpenMatchesSection({ navigation }: { navigation: NavAny }) {
     [data],
   );
 
-  // "Be the first" CTA replaces the empty state for matches.
-  const emptyBanner = !isLoading && items.length === 0 ? (
-    <Pressable
-      style={sectionStyles.emptyCta}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate("CreateMatch");
-      }}
-    >
-      <Ionicons name="add-circle" size={20} color={Colors.dark.accentText} />
-      <View style={{ flex: 1 }}>
-        <Text style={sectionStyles.emptyCtaTitle}>No open matches yet</Text>
-        <Text style={sectionStyles.emptyCtaSub}>Be the first — host one and players can join.</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-    </Pressable>
-  ) : null;
+  // "Be the first" CTA replaces the empty state for matches. In Discover mode
+  // we additionally prompt the user to widen the scope chip when their country
+  // is empty.
+  const renderEmptyCta = () => {
+    if (isDiscover && scopeCtx?.scope === "country") {
+      return (
+        <Pressable
+          style={sectionStyles.emptyCta}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            scopeCtx.setScope("global");
+          }}
+        >
+          <Ionicons name="globe-outline" size={20} color={Colors.dark.accentText} />
+          <View style={{ flex: 1 }}>
+            <Text style={sectionStyles.emptyCtaTitle}>No open matches in your country</Text>
+            <Text style={sectionStyles.emptyCtaSub}>Tap to widen to worldwide.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
+      );
+    }
+    return (
+      <Pressable
+        style={sectionStyles.emptyCta}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("CreateMatch");
+        }}
+      >
+        <Ionicons name="add-circle" size={20} color={Colors.dark.accentText} />
+        <View style={{ flex: 1 }}>
+          <Text style={sectionStyles.emptyCtaTitle}>No open matches yet</Text>
+          <Text style={sectionStyles.emptyCtaSub}>Be the first — host one and players can join.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </Pressable>
+    );
+  };
+
+  const emptyBanner = !isLoading && items.length === 0 ? renderEmptyCta() : null;
 
   return (
     <HomeCarouselSection
@@ -413,17 +456,23 @@ function OpenMatchesSection({ navigation }: { navigation: NavAny }) {
 function NearbyPlayersSection({
   permission,
   onRequestPermission,
+  variant = "home",
 }: {
   permission: Location.PermissionResponse | null;
   onRequestPermission: () => void;
+  variant?: "home" | "discover";
 }) {
   const needsPermission = !permission?.granted;
+  const scopeCtx = useDiscoverScope();
+  // The discover tab broadcasts a country/global scope. The home variant
+  // keeps its existing worldwide-only behavior.
+  const scopeParam = variant === "discover" && scopeCtx?.scope === "country" ? "country" : "all";
 
   // Only fetch once permission is granted (matches the location-aware contract).
   const { data, isLoading } = useQuery<NearbyPlayerApi[]>({
-    queryKey: ["/api/play/nearby-players", "free-home"],
+    queryKey: ["/api/play/nearby-players", variant === "discover" ? `discover:${scopeParam}` : "free-home"],
     queryFn: async () => {
-      const res = await apiFetch(`/api/play/nearby-players?scope=all`);
+      const res = await apiFetch(`/api/play/nearby-players?scope=${scopeParam}`);
       if (!res.ok) return [];
       const json = await res.json();
       return Array.isArray(json) ? json : [];
@@ -532,15 +581,25 @@ interface PublicCoachEntry {
 function CoachesNearYouSection({
   navigation,
   coords,
+  showLocalChip = true,
 }: {
   navigation: any;
   coords: { lat: number; lng: number } | null;
+  /** When false (used inside DiscoverScreen), suppress the per-rail scope chip
+   * because the screen already shows a single global chip at the top. */
+  showLocalChip?: boolean;
 }) {
   useThemeReactivity();
   // Resolve the player's country from profile → GPS reverse-geocode → device locale
   // so players in countries without an academy still get a country-scoped rail.
   const { country: resolvedCountry, isResolving } = usePlayerCountry(coords);
-  const [scope, setScope] = useState<"country" | "global">("country");
+  const scopeCtx = useDiscoverScope();
+  const [localScope, setLocalScope] = useState<"country" | "global">("country");
+  const scope: "country" | "global" = scopeCtx ? scopeCtx.scope : localScope;
+  const setScope = (next: "country" | "global") => {
+    if (scopeCtx) scopeCtx.setScope(next);
+    else setLocalScope(next);
+  };
 
   const { data, isLoading } = useQuery<{ coaches: PublicCoachEntry[] }>({
     queryKey: ["/api/coaches/directory", "discover", scope, resolvedCountry],
@@ -578,24 +637,26 @@ function CoachesNearYouSection({
         </Pressable>
       </View>
 
-      <View style={coachRailStyles.scopeRow}>
-        <Pressable
-          style={[coachRailStyles.scopeChip, scope === "country" && coachRailStyles.scopeChipActive]}
-          onPress={() => { Haptics.selectionAsync(); setScope("country"); }}
-        >
-          <Ionicons name="location" size={12} color={scope === "country" ? Colors.dark.buttonText : Colors.dark.textMuted} />
-          <Text style={[coachRailStyles.scopeChipText, scope === "country" && coachRailStyles.scopeChipTextActive]}>
-            {resolvedCountry ? resolvedCountry : "My country"}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[coachRailStyles.scopeChip, scope === "global" && coachRailStyles.scopeChipActive]}
-          onPress={() => { Haptics.selectionAsync(); setScope("global"); }}
-        >
-          <Ionicons name="globe-outline" size={12} color={scope === "global" ? Colors.dark.buttonText : Colors.dark.textMuted} />
-          <Text style={[coachRailStyles.scopeChipText, scope === "global" && coachRailStyles.scopeChipTextActive]}>Worldwide</Text>
-        </Pressable>
-      </View>
+      {showLocalChip ? (
+        <View style={coachRailStyles.scopeRow}>
+          <Pressable
+            style={[coachRailStyles.scopeChip, scope === "country" && coachRailStyles.scopeChipActive]}
+            onPress={() => { Haptics.selectionAsync(); setScope("country"); }}
+          >
+            <Ionicons name="location" size={12} color={scope === "country" ? Colors.dark.buttonText : Colors.dark.textMuted} />
+            <Text style={[coachRailStyles.scopeChipText, scope === "country" && coachRailStyles.scopeChipTextActive]}>
+              {resolvedCountry ? resolvedCountry : "My country"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[coachRailStyles.scopeChip, scope === "global" && coachRailStyles.scopeChipActive]}
+            onPress={() => { Haptics.selectionAsync(); setScope("global"); }}
+          >
+            <Ionicons name="globe-outline" size={12} color={scope === "global" ? Colors.dark.buttonText : Colors.dark.textMuted} />
+            <Text style={[coachRailStyles.scopeChipText, scope === "global" && coachRailStyles.scopeChipTextActive]}>Worldwide</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {isLoading || (scope === "country" && !resolvedCountry && isResolving) ? (
         <View style={sectionStyles.skeletonRow}>
@@ -759,7 +820,557 @@ const coachRailStyles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
+// ─── Public tournaments rail (Discover tab) ──────────────────────────────────
+
+interface PublicTournamentItem {
+  id: string;
+  name: string;
+  sport: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  entryFee?: number | string | null;
+  spotsTotal: number;
+  spotsTaken: number;
+  status: string;
+  academyName?: string | null;
+}
+
+function PublicTournamentsSection({
+  navigation,
+  coords,
+}: {
+  navigation: NavAny;
+  coords: { lat: number; lng: number } | null;
+}) {
+  useThemeReactivity();
+  const scopeCtx = useDiscoverScope();
+  const { country: resolvedCountry, isResolving: isResolvingCountry } = usePlayerCountry(coords);
+  const isCountryScope = scopeCtx?.scope === "country";
+  // Server filters tournaments by joined-academy country when provided.
+  const countryParam = isCountryScope && resolvedCountry ? resolvedCountry : null;
+
+  const { data, isLoading } = useQuery<PublicTournamentItem[]>({
+    queryKey: ["/api/tournaments/public", "discover", scopeCtx?.scope ?? "global", countryParam],
+    queryFn: async () => {
+      const url = countryParam
+        ? `/api/tournaments/public?country=${encodeURIComponent(countryParam)}`
+        : "/api/tournaments/public";
+      const res = await apiFetch(url);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+    // Mirror CoachesNearYouSection: in country scope, never fall back to a
+    // worldwide fetch — wait for a resolved country, otherwise the rail
+    // would silently serve global results under the "My country" chip.
+    enabled: !isCountryScope || !!resolvedCountry,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const navigation2 = navigation;
+  // Country scope but country still unknown after resolution → CTA gate.
+  if (isCountryScope && !resolvedCountry && !isResolvingCountry) {
+    return (
+      <HomeCarouselSection
+        title="Public tournaments"
+        icon="trophy-outline"
+        isLoading={false}
+        banner={
+          <Pressable
+            style={sectionStyles.emptyCta}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation2.navigate("EditProfile");
+            }}
+          >
+            <Ionicons name="location-outline" size={20} color={Colors.dark.accentText} />
+            <View style={{ flex: 1 }}>
+              <Text style={sectionStyles.emptyCtaTitle}>Set your country</Text>
+              <Text style={sectionStyles.emptyCtaSub}>
+                Add it in your profile to see tournaments near you, or switch to Worldwide.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+          </Pressable>
+        }
+      />
+    );
+  }
+
+  const items = (data || []).slice(0, 8);
+
+  const emptyBanner = !isLoading && items.length === 0 ? (
+    isCountryScope ? (
+      <Pressable
+        style={sectionStyles.emptyCta}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          scopeCtx?.setScope("global");
+        }}
+      >
+        <Ionicons name="globe-outline" size={20} color={Colors.dark.accentText} />
+        <View style={{ flex: 1 }}>
+          <Text style={sectionStyles.emptyCtaTitle}>No tournaments in {resolvedCountry || "your country"} yet</Text>
+          <Text style={sectionStyles.emptyCtaSub}>Tap to see worldwide.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </Pressable>
+    ) : (
+      <Pressable
+        style={sectionStyles.emptyCta}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("PlayerTabs", {
+            screen: "Growth",
+            params: { screen: "Tournaments" },
+          });
+        }}
+      >
+        <Ionicons name="trophy" size={20} color={Colors.dark.accentText} />
+        <View style={{ flex: 1 }}>
+          <Text style={sectionStyles.emptyCtaTitle}>No public tournaments yet</Text>
+          <Text style={sectionStyles.emptyCtaSub}>Browse all tournaments to find one to enter.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </Pressable>
+    )
+  ) : null;
+
+  return (
+    <HomeCarouselSection
+      title="Public tournaments"
+      icon="trophy-outline"
+      onSeeAll={() =>
+        navigation.navigate("PlayerTabs", {
+          screen: "Growth",
+          params: { screen: "Tournaments" },
+        })
+      }
+      isLoading={isLoading}
+      banner={emptyBanner}
+      skeletonWidth={MATCH_CARD_WIDTH}
+    >
+      {items.map((tour) => {
+        const isFull = tour.spotsTaken >= tour.spotsTotal;
+        const fee = tour.entryFee && Number(tour.entryFee) > 0 ? `AED ${Number(tour.entryFee)}` : "Free";
+        return (
+          <Pressable
+            key={tour.id}
+            onPress={() => {
+              Haptics.selectionAsync();
+              navigation.navigate("PlayerTabs", {
+                screen: "Growth",
+                params: { screen: "TournamentDetail", params: { tournamentId: tour.id } },
+              });
+            }}
+            style={[tournamentStyles.card, { width: MATCH_CARD_WIDTH }]}
+          >
+            <View style={tournamentStyles.cardHeader}>
+              <View style={tournamentStyles.sportBadge}>
+                <Ionicons name="trophy" size={11} color={Colors.dark.accentText} />
+                <Text style={tournamentStyles.sportBadgeText}>{tour.sport?.toUpperCase() || "TENNIS"}</Text>
+              </View>
+              {isFull ? (
+                <Text style={tournamentStyles.fullChip}>FULL</Text>
+              ) : (
+                <Text style={tournamentStyles.spotsChip}>{tour.spotsTotal - tour.spotsTaken} spots</Text>
+              )}
+            </View>
+            <Text style={tournamentStyles.name} numberOfLines={2}>{tour.name}</Text>
+            <View style={tournamentStyles.metaRow}>
+              <Ionicons name="location-outline" size={11} color={Colors.dark.textMuted} />
+              <Text style={tournamentStyles.metaText} numberOfLines={1}>{tour.location}</Text>
+            </View>
+            <View style={tournamentStyles.metaRow}>
+              <Ionicons name="calendar-outline" size={11} color={Colors.dark.textMuted} />
+              <Text style={tournamentStyles.metaText} numberOfLines={1}>
+                {new Date(tour.startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </Text>
+            </View>
+            <View style={tournamentStyles.footer}>
+              <Text style={tournamentStyles.fee}>{fee}</Text>
+              <Text style={tournamentStyles.cta}>View →</Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </HomeCarouselSection>
+  );
+}
+
+const tournamentStyles = makeReactiveStyles(() => StyleSheet.create({
+  card: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.chipBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBackgroundStrong,
+    gap: 6,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sportBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.accentTextSoft,
+  },
+  sportBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: Colors.dark.accentText,
+    letterSpacing: 0.4,
+  },
+  spotsChip: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+  },
+  fullChip: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FF4D4D",
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    flex: 1,
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  fee: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  cta: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.accentText,
+  },
+}));
+
+// ─── Open lessons rail (Discover) ────────────────────────────────────────────
+
+interface OpenLessonItem {
+  id: string;
+  type: "group" | "private" | "open_match";
+  time: string;
+  spotsLeft: number;
+  maxPlayers?: number;
+  coachName?: string;
+  ballLevel?: string;
+  locationName?: string;
+}
+
+function OpenLessonsRailDiscover({ navigation }: { navigation: NavAny }) {
+  useThemeReactivity();
+  const scopeCtx = useDiscoverScope();
+  const isCountryScope = scopeCtx?.scope === "country";
+
+  // Open lessons currently aggregate from the player's joined-academy graph
+  // and don't carry a country attribute on the wire. Until the endpoint
+  // gains country support we explicitly gate "country" scope with a CTA so
+  // we never silently render worldwide results under the country chip. In
+  // worldwide scope we surface the cached open-sessions list as-is.
+  const { data, isLoading } = useQuery<{ openSessions?: OpenLessonItem[] }>({
+    queryKey: ["/api/player/me/social?levelFallback=adjacent"],
+    enabled: !isCountryScope,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const items = useMemo(
+    () => (data?.openSessions || []).filter(s => s.type === "group" && s.spotsLeft > 0).slice(0, 8),
+    [data],
+  );
+
+  if (isCountryScope) {
+    return (
+      <HomeCarouselSection
+        title="Open lessons near me"
+        icon="school-outline"
+        isLoading={false}
+        banner={
+          <Pressable
+            style={sectionStyles.emptyCta}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              scopeCtx?.setScope("global");
+            }}
+          >
+            <Ionicons name="globe-outline" size={20} color={Colors.dark.accentText} />
+            <View style={{ flex: 1 }}>
+              <Text style={sectionStyles.emptyCtaTitle}>Country-scoped lessons coming soon</Text>
+              <Text style={sectionStyles.emptyCtaSub}>Tap to switch to Worldwide and see open lessons now.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+          </Pressable>
+        }
+      />
+    );
+  }
+
+  const emptyBanner = !isLoading && items.length === 0 ? (
+    <Pressable
+      style={sectionStyles.emptyCta}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.navigate("ClassesDiscovery");
+      }}
+    >
+      <Ionicons name="search" size={20} color={Colors.dark.accentText} />
+      <View style={{ flex: 1 }}>
+        <Text style={sectionStyles.emptyCtaTitle}>No open lessons yet</Text>
+        <Text style={sectionStyles.emptyCtaSub}>Browse all classes to find one to join.</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+    </Pressable>
+  ) : null;
+
+  return (
+    <HomeCarouselSection
+      title="Open lessons near me"
+      icon="school-outline"
+      onSeeAll={() => navigation.navigate("ClassesDiscovery")}
+      isLoading={isLoading}
+      banner={emptyBanner}
+      skeletonWidth={MATCH_CARD_WIDTH}
+    >
+      {items.map((s) => (
+        <Pressable
+          key={s.id}
+          onPress={() => {
+            Haptics.selectionAsync();
+            navigation.navigate("ClassesDiscovery");
+          }}
+          style={[tournamentStyles.card, { width: MATCH_CARD_WIDTH }]}
+        >
+          <View style={tournamentStyles.cardHeader}>
+            <View style={tournamentStyles.sportBadge}>
+              <Ionicons name="school" size={11} color={Colors.dark.accentText} />
+              <Text style={tournamentStyles.sportBadgeText}>{(s.ballLevel || "ALL").toUpperCase()}</Text>
+            </View>
+            <Text style={tournamentStyles.spotsChip}>{s.spotsLeft} spot{s.spotsLeft === 1 ? "" : "s"}</Text>
+          </View>
+          <Text style={tournamentStyles.name} numberOfLines={2}>
+            {s.coachName ? `with ${s.coachName}` : "Group lesson"}
+          </Text>
+          <View style={tournamentStyles.metaRow}>
+            <Ionicons name="time-outline" size={11} color={Colors.dark.textMuted} />
+            <Text style={tournamentStyles.metaText} numberOfLines={1}>
+              {new Date(s.time).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+            </Text>
+          </View>
+          {s.locationName ? (
+            <View style={tournamentStyles.metaRow}>
+              <Ionicons name="location-outline" size={11} color={Colors.dark.textMuted} />
+              <Text style={tournamentStyles.metaText} numberOfLines={1}>{s.locationName}</Text>
+            </View>
+          ) : null}
+          <View style={tournamentStyles.footer}>
+            <Text style={tournamentStyles.fee}>{s.maxPlayers ? `${(s.maxPlayers - s.spotsLeft)}/${s.maxPlayers}` : ""}</Text>
+            <Text style={tournamentStyles.cta}>Join →</Text>
+          </View>
+        </Pressable>
+      ))}
+    </HomeCarouselSection>
+  );
+}
+
+// ─── Discover players rail (you-might-know / recently-active) ────────────────
+
+type DiscoverPlayersKind = "youMightKnow" | "recentlyActive";
+
+function DiscoverPlayersRail({ kind }: { kind: DiscoverPlayersKind }) {
+  useThemeReactivity();
+  const scopeCtx = useDiscoverScope();
+  const navigation = useNavigation<any>();
+  const isCountryScope = scopeCtx?.scope === "country";
+  const scopeParam: "country" | "all" = isCountryScope ? "country" : "all";
+
+  const filter = kind === "youMightKnow" ? "recommended" : undefined;
+  const { data, isLoading } = useQuery<NearbyPlayerApi[]>({
+    queryKey: ["/api/play/nearby-players", "discover", kind, scopeParam],
+    queryFn: async () => {
+      const url = filter
+        ? `/api/play/nearby-players?scope=${scopeParam}&filter=${filter}`
+        : `/api/play/nearby-players?scope=${scopeParam}`;
+      const res = await apiFetch(url);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const items = useMemo(() => {
+    const all = data || [];
+    if (kind === "recentlyActive") {
+      // Sort by lastLoginAt desc; players with no login data go last.
+      return [...all].sort((a, b) => {
+        const ta = a.lastLoginAt ? new Date(a.lastLoginAt).getTime() : 0;
+        const tb = b.lastLoginAt ? new Date(b.lastLoginAt).getTime() : 0;
+        return tb - ta;
+      }).slice(0, 12);
+    }
+    // youMightKnow: server already sorted by mutualSessions desc when filter=recommended
+    return all.slice(0, 12);
+  }, [data, kind]);
+
+  const mapped = useMemo(() => items.map((p) => ({
+    id: p.id,
+    name: p.name,
+    level: (p.ballLevel || "glow"),
+    status: (p.openToPlay ? "available" : "offline") as "available" | "playing" | "offline",
+    profilePhotoUrl: p.avatarUrl ?? undefined,
+    ballLevel: p.ballLevel ?? undefined,
+    skillLevel: p.skillLevel ?? undefined,
+    driveTimeText: p.driveTimeText,
+  })), [items]);
+
+  const title = kind === "youMightKnow" ? "Players you might know" : "Recently active worldwide";
+  const icon: keyof typeof Ionicons.glyphMap = kind === "youMightKnow" ? "people-outline" : "pulse-outline";
+
+  if (isLoading) {
+    return (
+      <View style={sectionStyles.section}>
+        <SectionHeader title={title} icon={icon} />
+        <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginVertical: Spacing.md }} />
+      </View>
+    );
+  }
+
+  if (mapped.length === 0) {
+    return (
+      <HomeCarouselSection
+        title={title}
+        icon={icon}
+        isLoading={false}
+        banner={
+          isCountryScope ? (
+            <Pressable
+              style={sectionStyles.emptyCta}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                scopeCtx?.setScope("global");
+              }}
+            >
+              <Ionicons name="globe-outline" size={20} color={Colors.dark.accentText} />
+              <View style={{ flex: 1 }}>
+                <Text style={sectionStyles.emptyCtaTitle}>
+                  {kind === "youMightKnow"
+                    ? "No matching players in your country"
+                    : "Nobody recently active in your country"}
+                </Text>
+                <Text style={sectionStyles.emptyCtaSub}>Tap to widen to worldwide.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={sectionStyles.emptyCta}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("PlayerTabs", { screen: "Community" });
+              }}
+            >
+              <Ionicons name="people" size={20} color={Colors.dark.accentText} />
+              <View style={{ flex: 1 }}>
+                <Text style={sectionStyles.emptyCtaTitle}>No players to show yet</Text>
+                <Text style={sectionStyles.emptyCtaSub}>Visit the social tab to invite friends.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+            </Pressable>
+          )
+        }
+      />
+    );
+  }
+
+  return (
+    <PlayersNearYouRow
+      filterByLevel={false}
+      players={mapped}
+      hideWhenEmpty={false}
+      title={title}
+    />
+  );
+}
+
 // ─── Public component ─────────────────────────────────────────────────────────
+
+/**
+ * Discover-tab variant — surfaces global discovery rails using the
+ * country/worldwide scope from `DiscoverScopeProvider`. Order matches the
+ * task #1034 spec: open lessons → open matches → public tournaments →
+ * players you might know → recently active worldwide → public coaches.
+ * Every rail observes the shared scope chip and ships a CTA-driven empty
+ * state.
+ */
+export function DiscoverSections() {
+  useThemeReactivity();
+  const navigation = useNavigation<any>();
+  const [permission, requestPermission] = Location.useForegroundPermissions();
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState(false);
+  const fetchingRef = useRef(false);
+
+  const fetchCoords = React.useCallback(() => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    setLocationError(false);
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then(loc => {
+        setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+        setLocationError(false);
+      })
+      .catch(() => {
+        setCoords(null);
+        setLocationError(true);
+      })
+      .finally(() => { fetchingRef.current = false; });
+  }, []);
+
+  useEffect(() => {
+    if (permission?.granted && !coords && !locationError) {
+      fetchCoords();
+    }
+  }, [permission?.granted, coords, locationError, fetchCoords]);
+
+  return (
+    <View style={sectionStyles.wrap}>
+      <OpenLessonsRailDiscover navigation={navigation} />
+      <OpenMatchesSection navigation={navigation} variant="discover" />
+      <PublicTournamentsSection navigation={navigation} coords={coords} />
+      <DiscoverPlayersRail kind="youMightKnow" />
+      <DiscoverPlayersRail kind="recentlyActive" />
+      <CoachesNearYouSection navigation={navigation} coords={coords} showLocalChip={false} />
+    </View>
+  );
+}
 
 export function FreePlayerDiscoverySections() {
   useThemeReactivity();
