@@ -38,11 +38,18 @@ While the OTA push is running, the script kills the dev Metro on port 8081 (the 
 - **ALWAYS use `psql "$SUPABASE_DATABASE_URL" -c "..."` for any real database query or mutation.**
 - Never trust `executeSql` results for debugging production data — they will be wrong/empty.
 
-### CRITICAL: Lint guardrail against missing-import crashes (Task #1016)
+### CRITICAL: Lint guardrail against missing-import crashes (Tasks #1016, #1082)
 **`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
-- Background: Task #1015 was a one-line missing `import { SectionHeader }` that crashed the new-account onboarding flow on production Android. Static analysis would have caught it but the rules were not enforced in flat-config mode.
-- Always run `npm run lint` (and ideally `npm run check:types` for a full type pass) **before** OTA-pushing or merging. A red lint = do NOT push.
-- Do NOT lower these rules to `warn` or `off`. If a third-party global is needed, declare it via the `globals` config block — don't disable the rule.
+- Background: Task #1015 (missing `SectionHeader`) and Task #1082 (missing `MATCH_CARD_WIDTH`) were both one-line undeclared-identifier bugs that crashed prod Android. Static analysis catches exactly this — IF lint actually runs.
+- Task #1082 fixed two silent failure modes:
+  1. `eslint-plugin-prettier/recommended` was crashing inside Prettier (`Comment "::(_)" was not printed`), making `npm run lint` exit non-zero before any rule was evaluated. The plugin is now removed; Prettier runs separately via `npm run check:format`.
+  2. Legitimate Node/browser globals (`Buffer`, `NodeJS`, `setTimeout`, etc.) were flagging as `no-undef` and burying real bugs in noise. They're now declared via the `globals` package in `eslint.config.js` `languageOptions.globals`.
+- The OTA push script (`scripts/ota-push.sh`) now runs a lint pre-flight that **hard-aborts** the push on any error. Modes:
+  - **Default**: lints ONLY files this push touches (`git diff HEAD` + `git diff HEAD~1 HEAD` filtered to `client/`/`server/` `.ts(x)`/`.js(x)`, excluding tests/scripts). ~15s. Aborts on any error in changed files. This protects against MATCH_CARD_WIDTH-style regressions without being held hostage to ~83 pre-existing `no-undef` errors elsewhere in the tree.
+  - `OTA_STRICT_LINT=1`: lints the entire `client/`+`server/` tree. Flip this to default once the pre-existing backlog is cleaned up.
+  - `OTA_SKIP_LINT=1`: skip entirely. Emergency hotfix only — leaves a hint in the workflow log.
+- Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pushing or merging. A red lint = do NOT push.
+- Do NOT lower these rules to `warn` or `off`. If a third-party global is needed, declare it via the `globals` config block — don't disable the rule. Do NOT re-add `eslint-plugin-prettier` — it will silently break the gate again.
 
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**

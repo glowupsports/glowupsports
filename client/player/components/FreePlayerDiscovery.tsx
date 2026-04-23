@@ -27,8 +27,10 @@ import {
   useThemeReactivity,
 } from "@/hooks/useThemedStyles";
 import { PlayersNearYouRow } from "./DiscoveryRows";
+import { MatchSummaryCard } from "./MatchSummaryCard";
 import { SectionHeader } from "@/components/PremiumUI";
 import { useDiscoverScope } from "@/player/context/DiscoverScopeContext";
+import type { OpenMatch } from "@shared/schema";
 
 type NavAny = ReturnType<typeof useNavigation<any>>;
 
@@ -65,6 +67,7 @@ interface NearbyPlayerApi {
 
 const COURT_CARD_WIDTH = 240;
 const ACADEMY_CARD_WIDTH = 240;
+const MATCH_CARD_WIDTH = 280;
 
 // ─── Shared horizontal carousel section wrapper ───────────────────────────────
 // Standardizes title + see-all header, horizontal list area, and the

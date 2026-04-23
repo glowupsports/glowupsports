@@ -125,6 +125,98 @@ if [[ "$PLATFORM" != "ios" && "$PLATFORM" != "android" && "$PLATFORM" != "all" ]
 fi
 
 # ---------------------------------------------------------------------------
+# Pre-flight — Lint guardrail (Task #1082)
+#
+# Why this exists: Task #1082 (missing MATCH_CARD_WIDTH) and Task #1015
+# (missing SectionHeader) both shipped a one-line undeclared-identifier
+# bug straight to production. ESLint's `no-undef` and `react/jsx-no-undef`
+# rules catch exactly this — but only if lint actually runs and we treat
+# its errors as release blockers.
+#
+# Strategy: lint ONLY the files this push is changing — i.e. uncommitted
+# working-tree changes plus the most recent commit on HEAD — under
+# `client/` and `server/`. Any no-undef / jsx-no-undef error in that set
+# is a HARD abort. This protects against the regression class without
+# being held hostage to ~83 pre-existing errors elsewhere in the tree
+# (those are tracked for cleanup separately).
+#
+# Modes:
+#   - Default: HARD abort on no-undef / jsx-no-undef in changed files.
+#   - OTA_STRICT_LINT=1: hard abort on ANY lint error in client/+server/
+#     (post-cleanup mode — flip this to default once backlog is cleared).
+#   - OTA_SKIP_LINT=1: skip entirely (emergency hotfix only).
+# ---------------------------------------------------------------------------
+if [[ "${OTA_SKIP_LINT:-0}" == "1" ]]; then
+  echo ""
+  echo "  ⚠ OTA_SKIP_LINT=1 set — skipping lint pre-flight."
+else
+  echo ""
+  echo "============================================================"
+  echo "  Pre-flight — Lint guardrail (no-undef gate)"
+  echo "  Time : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+  echo "============================================================"
+
+  if [[ "${OTA_STRICT_LINT:-0}" == "1" ]]; then
+    # Strict mode: lint the entire client+server tree.
+    echo "  Mode  : STRICT (entire client/+server/ tree)"
+    set +e
+    npx expo lint client server -- --quiet > /tmp/ota-lint.log 2>&1
+    LINT_RC=$?
+    set -e
+    if [[ $LINT_RC -eq 0 ]]; then
+      echo "  ✔ lint clean"
+    else
+      echo "  ✘ lint FAILED (OTA_STRICT_LINT=1). See /tmp/ota-lint.log." >&2
+      tail -60 /tmp/ota-lint.log >&2 || true
+      exit 5
+    fi
+  else
+    # Default mode: lint only files the current push touches.
+    # "Touched" = uncommitted working-tree changes + files in HEAD's
+    # last commit. Restricted to client/+server/ and js/ts source.
+    set +e
+    CHANGED_FILES="$(
+      {
+        git diff --name-only HEAD -- 'client/*' 'server/*' 2>/dev/null
+        git diff --name-only HEAD~1 HEAD -- 'client/*' 'server/*' 2>/dev/null
+      } \
+        | grep -E '\.(ts|tsx|js|jsx)$' \
+        | grep -vE '\.(test|spec)\.' \
+        | grep -vE '(^|/)(__tests__|__mocks__|tests|scripts)/' \
+        | sort -u \
+        | tr '\n' ' '
+    )"
+    set -e
+
+    if [[ -z "$CHANGED_FILES" ]]; then
+      echo "  ✔ no client/ or server/ source files changed in this push — skipping."
+    else
+      FILE_COUNT="$(echo "$CHANGED_FILES" | wc -w | tr -d ' ')"
+      echo "  Mode  : DIFF ($FILE_COUNT changed file(s))"
+      echo "  Files :"
+      echo "$CHANGED_FILES" | tr ' ' '\n' | sed 's/^/    /'
+
+      set +e
+      # shellcheck disable=SC2086
+      npx eslint --no-warn-ignored --quiet $CHANGED_FILES > /tmp/ota-lint.log 2>&1
+      LINT_RC=$?
+      set -e
+
+      if [[ $LINT_RC -eq 0 ]]; then
+        echo "  ✔ lint clean — no errors in changed files"
+      else
+        echo "  ✘ lint FAILED on changed files. See /tmp/ota-lint.log:" >&2
+        cat /tmp/ota-lint.log >&2 || true
+        echo "" >&2
+        echo "  Fix the errors above, or set OTA_SKIP_LINT=1 for an" >&2
+        echo "  emergency hotfix that bypasses this gate." >&2
+        exit 5
+      fi
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Environment — memory-optimised, non-interactive CI mode
 # ---------------------------------------------------------------------------
 export CI=true
