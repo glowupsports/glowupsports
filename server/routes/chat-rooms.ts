@@ -8,6 +8,7 @@ import {
   chatRoomMutes,
   chatRoomReports,
   chatRoomCoachPins,
+  chatRoomMessageMentions,
   conversations,
   messages,
   messageReactions,
@@ -15,6 +16,7 @@ import {
   coaches,
   academies,
   users,
+  playerNotifications,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -391,12 +393,28 @@ router.get("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Authe
 
     const messageIds = ordered.map((m) => m.id);
     const reactionsByMsg = new Map<string, any[]>();
+    const mentionsByMsg = new Map<string, Array<{ handle: string; playerId: string; name: string }>>();
     if (messageIds.length > 0) {
       const rrows = await db.select().from(messageReactions).where(inArray(messageReactions.messageId, messageIds));
       for (const r of rrows) {
         const arr = reactionsByMsg.get(r.messageId) || [];
         arr.push(r);
         reactionsByMsg.set(r.messageId, arr);
+      }
+      const mrows = await db
+        .select({
+          messageId: chatRoomMessageMentions.messageId,
+          playerId: chatRoomMessageMentions.playerId,
+          handle: chatRoomMessageMentions.handle,
+          name: players.name,
+        })
+        .from(chatRoomMessageMentions)
+        .leftJoin(players, eq(players.id, chatRoomMessageMentions.playerId))
+        .where(inArray(chatRoomMessageMentions.messageId, messageIds));
+      for (const m of mrows) {
+        const arr = mentionsByMsg.get(m.messageId) || [];
+        arr.push({ handle: m.handle, playerId: m.playerId, name: m.name || m.handle });
+        mentionsByMsg.set(m.messageId, arr);
       }
     }
 
@@ -435,6 +453,7 @@ router.get("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Authe
         academyName,
         reactions: reactionsByMsg.get(m.id) || [],
         isPinned: pinnedIds.has(m.id),
+        mentions: mentionsByMsg.get(m.id) || [],
       };
     });
 
@@ -461,7 +480,52 @@ const postSchema = z.object({
     })
     .optional(),
   pinPromo: z.boolean().optional(),
+  mentions: z.array(z.string().min(1).max(64)).max(20).optional(),
 });
+
+// Resolve @mention handles (whitespace-stripped player names) to player rows.
+// World rooms scan all players; country rooms only consider players in the
+// same country. Returns at most 20 unique resolved mentions.
+async function resolveMentionHandles(
+  rawHandles: string[],
+  room: { scope: string; countryCode: string | null },
+): Promise<Array<{ handle: string; playerId: string; name: string }>> {
+  const handles = Array.from(
+    new Set(
+      rawHandles
+        .map((h) => h.replace(/^@/, "").trim())
+        .filter((h) => h.length > 0 && h.length <= 64),
+    ),
+  ).slice(0, 20);
+  if (handles.length === 0) return [];
+
+  const lower = new Set(handles.map((h) => h.toLowerCase()));
+  // Pull a bounded set of candidate players to match against.
+  const conditions =
+    room.scope === "country" && room.countryCode
+      ? [eq(players.country, room.countryCode)]
+      : [];
+  const candidates = await db
+    .select({ id: players.id, name: players.name })
+    .from(players)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .limit(5000);
+
+  const matchedByHandle = new Map<string, { playerId: string; name: string }>();
+  for (const p of candidates) {
+    if (!p.name) continue;
+    const handleKey = p.name.replace(/\s+/g, "").toLowerCase();
+    if (lower.has(handleKey) && !matchedByHandle.has(handleKey)) {
+      matchedByHandle.set(handleKey, { playerId: p.id, name: p.name });
+    }
+  }
+  const out: Array<{ handle: string; playerId: string; name: string }> = [];
+  for (const original of handles) {
+    const m = matchedByHandle.get(original.toLowerCase());
+    if (m) out.push({ handle: original, playerId: m.playerId, name: m.name });
+  }
+  return out;
+}
 
 router.post("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -614,8 +678,56 @@ router.post("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Auth
       isPinned: pinned,
     };
 
-    broadcastWorldMessage({ kind: "chat_room_message", roomId: room.id, message: payload });
-    res.status(201).json({ ...payload, pinDenied });
+    // Resolve & persist @mentions, fan out notifications.
+    const requestedMentions = parsed.data.mentions && parsed.data.mentions.length > 0
+      ? parsed.data.mentions
+      : Array.from(body.matchAll(/@([\w][\w._-]{1,30})/g)).map((m) => m[1]);
+    let resolvedMentions: Array<{ handle: string; playerId: string; name: string }> = [];
+    if (requestedMentions.length > 0) {
+      try {
+        resolvedMentions = await resolveMentionHandles(requestedMentions, room);
+        if (resolvedMentions.length > 0) {
+          await db
+            .insert(chatRoomMessageMentions)
+            .values(
+              resolvedMentions.map((m) => ({
+                messageId: msg.id,
+                playerId: m.playerId,
+                handle: m.handle,
+              })),
+            )
+            .onConflictDoNothing();
+          // Notify each mentioned player (excluding self-mentions).
+          const notifyTargets = resolvedMentions.filter((m) => m.playerId !== playerId);
+          if (notifyTargets.length > 0) {
+            const mentionedBy = senderName || "Someone";
+            const preview = body.replace(/\s+/g, " ").slice(0, 120);
+            await db.insert(playerNotifications).values(
+              notifyTargets.map((m) => ({
+                playerId: m.playerId,
+                title: `${mentionedBy} mentioned you`,
+                body: preview,
+                type: "chat_mention",
+                data: {
+                  roomId: room.id,
+                  roomTitle: room.title,
+                  messageId: msg.id,
+                  senderName,
+                  senderPlayerId: playerId || null,
+                  senderCoachId: coachId || null,
+                },
+              })),
+            );
+          }
+        }
+      } catch (e) {
+        console.error("[chat-rooms] mention persist error:", e);
+      }
+    }
+
+    const payloadWithMentions = { ...payload, mentions: resolvedMentions };
+    broadcastWorldMessage({ kind: "chat_room_message", roomId: room.id, message: payloadWithMentions });
+    res.status(201).json({ ...payloadWithMentions, pinDenied });
   } catch (err) {
     console.error("[chat-rooms] post error:", err);
     res.status(500).json({ error: "Failed to post message" });

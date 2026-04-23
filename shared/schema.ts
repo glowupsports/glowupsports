@@ -7713,6 +7713,23 @@ export const chatRoomCoachPins = pgTable("chat_room_coach_pins", {
 
 export type ChatRoomCoachPin = typeof chatRoomCoachPins.$inferSelect;
 
+// Task #1047 — @mentions in world/country chat rooms.
+// Records players mentioned in a room message so chips can be made tappable
+// (link to the player's public profile) and so we can fan out notifications.
+export const chatRoomMessageMentions = pgTable("chat_room_message_mentions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }).notNull(),
+  playerId: varchar("player_id").references(() => players.id, { onDelete: "cascade" }).notNull(),
+  handle: varchar("handle", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("chat_room_msg_mentions_unique").on(table.messageId, table.playerId),
+  index("chat_room_msg_mentions_msg_idx").on(table.messageId),
+  index("chat_room_msg_mentions_player_idx").on(table.playerId),
+]);
+
+export type ChatRoomMessageMention = typeof chatRoomMessageMentions.$inferSelect;
+
 // Persistent log of series-group reminders sent by coaches. Used to enforce a
 // per-(coach, series) rate limit (max 3 per trailing 60 minutes) that survives
 // server restarts and is shared across instances.

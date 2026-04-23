@@ -38,6 +38,12 @@ interface ChatRoom {
   mutedAt: string | null;
 }
 
+interface MessageMention {
+  handle: string;
+  playerId: string;
+  name: string;
+}
+
 interface RoomMessage {
   id: string;
   body: string;
@@ -53,14 +59,37 @@ interface RoomMessage {
   academyName?: string;
   reactions?: Array<{ id: string; emoji: string; reactorPlayerId: string | null; reactorCoachId: string | null }>;
   isPinned?: boolean;
+  mentions?: MessageMention[];
 }
 
 const REACTIONS = ["👍", "❤️", "🔥", "🎾", "🏆"];
 
-function renderWithMentions(body: string, baseStyle: any, mentionStyle: any) {
+function renderWithMentions(
+  body: string,
+  baseStyle: any,
+  mentionStyle: any,
+  mentions: MessageMention[] | undefined,
+  onMentionPress: (playerId: string) => void,
+) {
+  const map = new Map<string, MessageMention>();
+  for (const m of mentions || []) map.set(m.handle.toLowerCase(), m);
   const parts = body.split(/(@[\w][\w._-]{1,30})/g);
   return parts.map((part, i) => {
     if (part.startsWith("@") && part.length > 1) {
+      const handle = part.slice(1);
+      const match = map.get(handle.toLowerCase());
+      if (match) {
+        return (
+          <Text
+            key={i}
+            style={mentionStyle}
+            onPress={() => onMentionPress(match.playerId)}
+            suppressHighlighting
+          >
+            {part}
+          </Text>
+        );
+      }
       return (
         <Text key={i} style={mentionStyle}>
           {part}
@@ -194,17 +223,36 @@ export default function ChatRoomScreen() {
     onSuccess: () => Alert.alert("Reported", "Thanks — our team will review."),
   });
 
-  const recentSenders = useMemo(() => {
-    const map = new Map<string, string>();
-    for (let i = messages.length - 1; i >= 0 && map.size < 12; i--) {
-      const m = messages[i];
-      if (m.senderName) {
-        const key = m.senderName.replace(/\s+/g, "");
-        if (!map.has(key)) map.set(key, m.senderName);
+  const { data: friendsData } = useQuery<{ friends?: Array<{ id: string; name: string }> }>({
+    queryKey: ["/api/player/me/friends"],
+    staleTime: 60_000,
+  });
+
+  const mentionCandidates = useMemo(() => {
+    // Each entry: [handle, displayName, source]. Friends rank above recent senders.
+    const map = new Map<string, { name: string; source: "friend" | "recent" }>();
+    for (const f of friendsData?.friends || []) {
+      if (!f?.name) continue;
+      const handle = f.name.replace(/\s+/g, "");
+      if (handle.length > 0 && !map.has(handle)) {
+        map.set(handle, { name: f.name, source: "friend" });
       }
     }
-    return Array.from(map.entries()); // [handle, displayName]
-  }, [messages]);
+    for (let i = messages.length - 1; i >= 0 && map.size < 24; i--) {
+      const m = messages[i];
+      if (m.senderName) {
+        const handle = m.senderName.replace(/\s+/g, "");
+        if (handle.length > 0 && !map.has(handle)) {
+          map.set(handle, { name: m.senderName, source: "recent" });
+        }
+      }
+    }
+    return Array.from(map.entries()).map(([handle, v]) => ({
+      handle,
+      name: v.name,
+      source: v.source,
+    }));
+  }, [friendsData, messages]);
 
   const handleTextChange = useCallback((newText: string) => {
     setText(newText);
@@ -323,7 +371,16 @@ export default function ChatRoomScreen() {
             </View>
           ) : (
             <Text style={styles.messageText}>
-              {renderWithMentions(item.body, styles.messageText, styles.mentionText)}
+              {renderWithMentions(
+                item.body,
+                styles.messageText,
+                styles.mentionText,
+                item.mentions,
+                (playerId) => {
+                  Haptics.selectionAsync();
+                  navigation.navigate("PublicProfile", { playerId });
+                },
+              )}
             </Text>
           )}
           {item.reactions && item.reactions.length > 0 ? (
@@ -396,16 +453,21 @@ export default function ChatRoomScreen() {
         />
       )}
 
-      {mentionQuery !== null && recentSenders.length > 0 ? (
+      {mentionQuery !== null && mentionCandidates.length > 0 ? (
         <View style={styles.mentionDropdown}>
           <FlatList
-            data={recentSenders.filter(([h]) => h.toLowerCase().includes(mentionQuery))}
-            keyExtractor={([h]) => h}
+            data={mentionCandidates.filter((c) => c.handle.toLowerCase().includes(mentionQuery))}
+            keyExtractor={(c) => c.handle}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item: [handle, name] }) => (
-              <Pressable style={styles.mentionItem} onPress={() => insertMention(handle)}>
+            renderItem={({ item }) => (
+              <Pressable style={styles.mentionItem} onPress={() => insertMention(item.handle)}>
                 <Ionicons name="at" size={14} color={Colors.dark.primary} />
-                <Text style={styles.mentionItemTxt}>{name}</Text>
+                <Text style={styles.mentionItemTxt}>{item.name}</Text>
+                {item.source === "friend" ? (
+                  <View style={styles.mentionFriendBadge}>
+                    <Text style={styles.mentionFriendBadgeTxt}>Friend</Text>
+                  </View>
+                ) : null}
               </Pressable>
             )}
             ListEmptyComponent={
@@ -603,7 +665,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   mentionItem: { paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 },
-  mentionItemTxt: { color: Colors.dark.text, ...Typography.body },
+  mentionItemTxt: { color: Colors.dark.text, ...Typography.body, flex: 1 },
+  mentionFriendBadge: {
+    backgroundColor: Colors.dark.primary + "33",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  mentionFriendBadgeTxt: { color: Colors.dark.primary, fontSize: 10, fontWeight: "700" },
   pinToggle: {
     flexDirection: "row",
     alignItems: "center",
