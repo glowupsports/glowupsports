@@ -126,6 +126,8 @@ export default function ChatRoomScreen() {
   const route = useRoute<any>();
   const roomId: string = route.params?.roomId;
   const initialTitle: string = route.params?.title || "Room";
+  const scrollToMessageId: string | undefined = route.params?.scrollToMessageId;
+  const didScrollToTargetRef = useRef(false);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [text, setText] = useState("");
@@ -443,7 +445,30 @@ export default function ChatRoomScreen() {
           keyExtractor={(m) => m.id}
           renderItem={renderMessage}
           contentContainerStyle={[styles.listContent, { paddingBottom: 12 }]}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => {
+            if (scrollToMessageId && !didScrollToTargetRef.current) {
+              const idx = messages.findIndex((m) => m.id === scrollToMessageId);
+              if (idx >= 0) {
+                didScrollToTargetRef.current = true;
+                try {
+                  listRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+                } catch {
+                  listRef.current?.scrollToEnd({ animated: false });
+                }
+                return;
+              }
+            }
+            listRef.current?.scrollToEnd({ animated: false });
+          }}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              try {
+                listRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0.5 });
+              } catch {
+                listRef.current?.scrollToEnd({ animated: false });
+              }
+            }, 200);
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="chatbubbles-outline" size={36} color={Colors.dark.textMuted} />

@@ -17,7 +17,13 @@ import {
   academies,
   users,
   playerNotifications,
+  notificationPreferences,
 } from "@shared/schema";
+import {
+  getPlayerPushTokens,
+  getCoachPushTokens,
+  sendPushNotification,
+} from "../pushNotifications";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   type AuthenticatedRequest,
@@ -483,6 +489,42 @@ const postSchema = z.object({
   mentions: z.array(z.string().min(1).max(64)).max(20).optional(),
 });
 
+// Resolve @mention handles (whitespace-stripped coach names) to coach rows.
+// Coach mentions are global (no country/academy scope): if a coach's name
+// matches a typed @handle they get notified, regardless of directory
+// visibility. Returns at most 20 unique resolved mentions.
+async function resolveCoachMentionHandles(
+  rawHandles: string[],
+): Promise<Array<{ handle: string; coachId: string; name: string }>> {
+  const handles = Array.from(
+    new Set(
+      rawHandles
+        .map((h) => h.replace(/^@/, "").trim())
+        .filter((h) => h.length > 0 && h.length <= 64),
+    ),
+  ).slice(0, 20);
+  if (handles.length === 0) return [];
+  const lower = new Set(handles.map((h) => h.toLowerCase()));
+  const candidates = await db
+    .select({ id: coaches.id, name: coaches.name })
+    .from(coaches)
+    .limit(5000);
+  const matched = new Map<string, { coachId: string; name: string }>();
+  for (const c of candidates) {
+    if (!c.name) continue;
+    const handleKey = c.name.replace(/\s+/g, "").toLowerCase();
+    if (lower.has(handleKey) && !matched.has(handleKey)) {
+      matched.set(handleKey, { coachId: c.id, name: c.name });
+    }
+  }
+  const out: Array<{ handle: string; coachId: string; name: string }> = [];
+  for (const original of handles) {
+    const m = matched.get(original.toLowerCase());
+    if (m) out.push({ handle: original, coachId: m.coachId, name: m.name });
+  }
+  return out;
+}
+
 // Resolve @mention handles (whitespace-stripped player names) to player rows.
 // World rooms scan all players; country rooms only consider players in the
 // same country. Returns at most 20 unique resolved mentions.
@@ -702,26 +744,107 @@ router.post("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Auth
           if (notifyTargets.length > 0) {
             const mentionedBy = senderName || "Someone";
             const preview = body.replace(/\s+/g, " ").slice(0, 120);
+            const notifTitle = `${mentionedBy} mentioned you`;
+            const notifData = {
+              roomId: room.id,
+              roomTitle: room.title,
+              messageId: msg.id,
+              senderName,
+              senderPlayerId: playerId || null,
+              senderCoachId: coachId || null,
+            };
             await db.insert(playerNotifications).values(
               notifyTargets.map((m) => ({
                 playerId: m.playerId,
-                title: `${mentionedBy} mentioned you`,
+                title: notifTitle,
                 body: preview,
                 type: "chat_mention",
-                data: {
-                  roomId: room.id,
-                  roomTitle: room.title,
-                  messageId: msg.id,
-                  senderName,
-                  senderPlayerId: playerId || null,
-                  senderCoachId: coachId || null,
-                },
+                data: notifData,
               })),
+            );
+
+            // Fan out push notifications to mentioned players. We pass
+            // playerId=undefined so the push helper does NOT also insert into
+            // playerNotifications (we just inserted above, avoiding dupes).
+            await Promise.all(
+              notifyTargets.map(async (m) => {
+                try {
+                  const tokens = await getPlayerPushTokens(m.playerId);
+                  if (tokens.length === 0) return;
+                  await sendPushNotification(
+                    tokens,
+                    notifTitle,
+                    preview,
+                    {
+                      type: "chat_mention",
+                      screen: "ChatRoom",
+                      roomId: room.id,
+                      roomTitle: room.title,
+                      messageId: msg.id,
+                      params: {
+                        roomId: room.id,
+                        title: room.title,
+                        scrollToMessageId: msg.id,
+                      },
+                    },
+                  );
+                } catch (pushErr) {
+                  console.error("[chat-rooms] mention push (player) error:", pushErr);
+                }
+              }),
             );
           }
         }
       } catch (e) {
         console.error("[chat-rooms] mention persist error:", e);
+      }
+
+      // Coach mentions — push only (no inbox row; the mentions table is
+      // player-only). Respect each coach's chatMessages preference and skip
+      // self-mentions.
+      try {
+        const resolvedCoachMentions = await resolveCoachMentionHandles(requestedMentions);
+        const coachTargets = resolvedCoachMentions.filter((m) => m.coachId !== coachId);
+        if (coachTargets.length > 0) {
+          const mentionedBy = senderName || "Someone";
+          const preview = body.replace(/\s+/g, " ").slice(0, 120);
+          const notifTitle = `${mentionedBy} mentioned you`;
+          await Promise.all(
+            coachTargets.map(async (m) => {
+              try {
+                const prefs = await db
+                  .select({ chatMessages: notificationPreferences.chatMessages })
+                  .from(notificationPreferences)
+                  .where(eq(notificationPreferences.coachId, m.coachId))
+                  .limit(1);
+                if (prefs[0] && prefs[0].chatMessages === false) return;
+                const tokens = await getCoachPushTokens(m.coachId);
+                if (tokens.length === 0) return;
+                await sendPushNotification(
+                  tokens,
+                  notifTitle,
+                  preview,
+                  {
+                    type: "chat_mention",
+                    screen: "ChatRoom",
+                    roomId: room.id,
+                    roomTitle: room.title,
+                    messageId: msg.id,
+                    params: {
+                      roomId: room.id,
+                      title: room.title,
+                      scrollToMessageId: msg.id,
+                    },
+                  },
+                );
+              } catch (pushErr) {
+                console.error("[chat-rooms] mention push (coach) error:", pushErr);
+              }
+            }),
+          );
+        }
+      } catch (e) {
+        console.error("[chat-rooms] coach mention error:", e);
       }
     }
 

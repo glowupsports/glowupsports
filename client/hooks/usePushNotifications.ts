@@ -15,6 +15,9 @@ type DeepLinkData = {
   sessionId?: string;
   matchId?: string;
   conversationId?: string;
+  roomId?: string;
+  roomTitle?: string;
+  messageId?: string;
 };
 
 if (Platform.OS !== 'web') {
@@ -105,6 +108,16 @@ export function usePushNotifications() {
             break;
           case 'CoachFeedbackHistory':
             navigation.navigate('CoachFeedbackHistory');
+            break;
+          case 'ChatRoom':
+            if (data.roomId) {
+              navigation.navigate('ChatRoom', {
+                roomId: data.roomId,
+                title: data.roomTitle,
+                scrollToMessageId: data.messageId,
+                ...(data.params || {}),
+              });
+            }
             break;
           default:
             logger.log('[Push] Unknown deep link screen:', data.screen);
