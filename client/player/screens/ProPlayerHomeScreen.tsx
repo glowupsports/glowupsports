@@ -44,7 +44,7 @@ import { useQuests, Quest } from "@/player/hooks/useQuests";
 import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
-import { FreePlayerDiscoverySections, JoinAcademySoftCard } from "@/player/components/FreePlayerDiscovery";
+import { CoachesRail, JoinAcademySoftCard } from "@/player/components/CoachesRail";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 interface DashboardData {
@@ -1602,12 +1602,12 @@ function PlayerHomeContent() {
           <View style={styles.playDividerLine} />
         </View>
 
-        {/* FREE PLAYER DISCOVERY — Suggested clubs, open matches, players near you */}
-        {isFreePlayer && !isGuest ? (
-          <FreePlayerDiscoverySections />
-        ) : (
-          <PlayersNearYouRow />
-        )}
+        {/* COACHES RAIL — Public coaches the player can browse and book */}
+        {!isGuest ? <CoachesRail /> : null}
+
+        {/* PLAYERS NEAR YOU — academy players only; free players land here from
+            the Coaches rail and surface players via the Social tab instead. */}
+        {!isFreePlayer && !isGuest ? <PlayersNearYouRow /> : null}
 
         {!isGuest ? <CountryLeaderboardsEntry /> : null}
 
