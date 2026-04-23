@@ -12,6 +12,7 @@ import { Image } from "expo-image";
 import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayerCountry } from "@/player/hooks/usePlayerCountry";
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { MatchSummaryCard } from "./MatchSummaryCard";
 import { PlayersNearYouRow } from "./DiscoveryRows";
@@ -528,25 +529,36 @@ interface PublicCoachEntry {
   academyCountry?: string | null;
 }
 
-function CoachesNearYouSection({ navigation }: { navigation: any }) {
+function CoachesNearYouSection({
+  navigation,
+  coords,
+}: {
+  navigation: any;
+  coords: { lat: number; lng: number } | null;
+}) {
   useThemeReactivity();
-  const { user } = useAuth();
-  const userCountry = user?.country || user?.academyCountry || null;
-  const [scope, setScope] = useState<"country" | "global">(userCountry ? "country" : "global");
+  // Resolve the player's country from profile → GPS reverse-geocode → device locale
+  // so players in countries without an academy still get a country-scoped rail.
+  const { country: resolvedCountry, isResolving } = usePlayerCountry(coords);
+  const [scope, setScope] = useState<"country" | "global">("country");
 
   const { data, isLoading } = useQuery<{ coaches: PublicCoachEntry[] }>({
-    queryKey: ["/api/coaches/directory", "discover", scope, userCountry],
+    queryKey: ["/api/coaches/directory", "discover", scope, resolvedCountry],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("public", "true");
-      if (scope === "country" && userCountry) {
+      if (scope === "country" && resolvedCountry) {
         params.set("scope", "country");
-        params.set("country", userCountry);
+        params.set("country", resolvedCountry);
       }
       const res = await apiFetch(`/api/coaches/directory?${params.toString()}`);
       if (!res.ok) return { coaches: [] };
       return res.json();
     },
+    // In country scope, never fall back to a global fetch — wait for a
+    // resolved country, otherwise the rail would silently show worldwide
+    // results under the "My country" chip.
+    enabled: scope === "global" || !!resolvedCountry,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -572,7 +584,9 @@ function CoachesNearYouSection({ navigation }: { navigation: any }) {
           onPress={() => { Haptics.selectionAsync(); setScope("country"); }}
         >
           <Ionicons name="location" size={12} color={scope === "country" ? Colors.dark.buttonText : Colors.dark.textMuted} />
-          <Text style={[coachRailStyles.scopeChipText, scope === "country" && coachRailStyles.scopeChipTextActive]}>My country</Text>
+          <Text style={[coachRailStyles.scopeChipText, scope === "country" && coachRailStyles.scopeChipTextActive]}>
+            {resolvedCountry ? resolvedCountry : "My country"}
+          </Text>
         </Pressable>
         <Pressable
           style={[coachRailStyles.scopeChip, scope === "global" && coachRailStyles.scopeChipActive]}
@@ -583,15 +597,36 @@ function CoachesNearYouSection({ navigation }: { navigation: any }) {
         </Pressable>
       </View>
 
-      {isLoading ? (
+      {isLoading || (scope === "country" && !resolvedCountry && isResolving) ? (
         <View style={sectionStyles.skeletonRow}>
           {[0, 1, 2].map((i) => (
             <View key={i} style={[sectionStyles.skeletonCard, { width: 160 }]} />
           ))}
         </View>
+      ) : scope === "country" && !resolvedCountry ? (
+        <Pressable
+          style={sectionStyles.emptyCta}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("EditProfile");
+          }}
+        >
+          <Ionicons name="location-outline" size={20} color={Colors.dark.accentText} />
+          <View style={{ flex: 1 }}>
+            <Text style={sectionStyles.emptyCtaTitle}>Set your country</Text>
+            <Text style={sectionStyles.emptyCtaSub}>
+              Add it in your profile to see coaches near you, or browse worldwide.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+        </Pressable>
       ) : coaches.length === 0 ? (
         <View style={sectionStyles.emptyWrap}>
-          <Text style={sectionStyles.emptyText}>No public coaches yet.</Text>
+          <Text style={sectionStyles.emptyText}>
+            {scope === "country" && resolvedCountry
+              ? `No public coaches in ${resolvedCountry} yet — try Worldwide.`
+              : "No public coaches yet."}
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -773,7 +808,7 @@ export function FreePlayerDiscoverySections() {
         navigation={navigation}
       />
       <OpenMatchesSection navigation={navigation} />
-      <CoachesNearYouSection navigation={navigation} />
+      <CoachesNearYouSection navigation={navigation} coords={coords} />
       <NearbyPlayersSection
         permission={permission}
         onRequestPermission={handleRequestPermission}

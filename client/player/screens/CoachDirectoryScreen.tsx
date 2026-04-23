@@ -22,6 +22,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiFetch, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayerCountry } from "@/player/hooks/usePlayerCountry";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -170,10 +171,12 @@ export default function CoachDirectoryScreen() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
-  // Task #1037: My country / Worldwide scope chips. Falls back to global when
-  // we don't know the player's country.
-  const userCountry = user?.country || user?.academyCountry || null;
-  const [scope, setScope] = useState<ScopeFilter>(userCountry ? "country" : "global");
+  // Task #1037 + #1051: My country / Worldwide scope chips. The country is
+  // resolved from profile → silent GPS (only if location permission is already
+  // granted from elsewhere in the app, never prompts here) → device locale.
+  // The empty state guides players who still don't have a resolvable country.
+  const { country: userCountry } = usePlayerCountry();
+  const [scope, setScope] = useState<ScopeFilter>("country");
 
   const { data: coachesData, isLoading } = useQuery<{ coaches: CoachDirectoryEntry[] }>({
     queryKey: ["/api/coaches/directory", "public", activeTab, scope, userCountry],
@@ -189,6 +192,10 @@ export default function CoachDirectoryScreen() {
       if (!response.ok) throw new Error("Failed to load coaches");
       return response.json();
     },
+    // Never silently fall back to worldwide results when the user picked
+    // "My country" but we couldn't resolve one — the empty-state prompts them
+    // to set it instead.
+    enabled: scope === "global" || !!userCountry,
   });
 
   const coaches = coachesData?.coaches || [];
@@ -268,8 +275,7 @@ export default function CoachDirectoryScreen() {
         {/* Task #1037: country / worldwide scope chips */}
         <View style={styles.scopeRow}>
           <Pressable
-            style={[styles.scopeChip, scope === "country" && styles.scopeChipActive, !userCountry && styles.scopeChipDisabled]}
-            disabled={!userCountry}
+            style={[styles.scopeChip, scope === "country" && styles.scopeChipActive]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setScope("country");
@@ -326,12 +332,36 @@ export default function CoachDirectoryScreen() {
             colors={[GlowColors.primary + "30", GlowColors.primary + "10"]}
             style={styles.emptyIcon}
           >
-            <Ionicons name="people-outline" size={40} color={Colors.dark.accentText} />
+            <Ionicons
+              name={scope === "country" && !userCountry ? "location-outline" : "people-outline"}
+              size={40}
+              color={Colors.dark.accentText}
+            />
           </LinearGradient>
-          <Text style={styles.emptyTitle}>No Coaches Found</Text>
-          <Text style={styles.emptyText}>
-            {searchQuery ? "Try adjusting your search" : "No coaches match your filters"}
+          <Text style={styles.emptyTitle}>
+            {scope === "country" && !userCountry ? "Set your country" : "No Coaches Found"}
           </Text>
+          <Text style={styles.emptyText}>
+            {scope === "country" && !userCountry
+              ? "Add your country in your profile to see coaches near you, or switch to Worldwide above."
+              : searchQuery
+              ? "Try adjusting your search"
+              : scope === "country" && userCountry
+              ? `No coaches in ${userCountry} yet — try Worldwide above.`
+              : "No coaches match your filters"}
+          </Text>
+          {scope === "country" && !userCountry ? (
+            <Pressable
+              style={styles.emptyAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("EditProfile");
+              }}
+            >
+              <Text style={styles.emptyActionText}>Edit profile</Text>
+              <Ionicons name="chevron-forward" size={14} color={Colors.dark.buttonText} />
+            </Pressable>
+          ) : null}
         </View>
       ) : (
         <FlatList
@@ -506,6 +536,21 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  emptyAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: GlowColors.primary,
+    marginTop: Spacing.sm,
+  },
+  emptyActionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.buttonText,
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
