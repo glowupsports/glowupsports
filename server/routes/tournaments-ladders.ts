@@ -132,18 +132,48 @@ router.get("/api/player/tournaments", authMiddleware, async (req: AuthRequest, r
     const academyId = req.user!.academyId;
     const playerId = req.user!.playerId;
 
-    if (!academyId) {
-      return res.status(400).json({ error: "Academy context required" });
-    }
-
     const status = req.query.status as string | undefined;
     const playerLat = req.query.lat ? parseFloat(req.query.lat as string) : null;
     const playerLng = req.query.lng ? parseFloat(req.query.lng as string) : null;
+    // Task #1070 — discovery scope chip parity:
+    //   mine     → tournaments at the caller's academy (default w/ academy)
+    //   country  → tournaments hosted by academies in the caller's country
+    //   all      → public tournaments worldwide
+    // Free / academy-less players default to "country".
+    const scope = (req.query.scope as string) || (academyId ? "mine" : "country");
 
-    let whereClause = eq(tournaments.academyId, academyId);
-    if (status) {
-      whereClause = and(whereClause, eq(tournaments.status, status))!;
+    if (scope === "mine" && !academyId) {
+      return res.status(400).json({ error: "Academy context required" });
     }
+
+    const conds: any[] = [];
+    if (scope === "mine") {
+      conds.push(eq(tournaments.academyId, academyId!));
+    } else {
+      // For country / all we restrict to discoverable (public) tournaments
+      // so the row never leaks private academy events.
+      conds.push(eq(tournaments.isPublic, true));
+      if (scope === "country" && playerId) {
+        const [callerRow] = await db
+          .select({ country: players.country })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
+        const callerCountry = (callerRow?.country || "").trim().toLowerCase();
+        if (callerCountry) {
+          // Sub-select academies in the caller's country (case-insensitive).
+          const academyIdsInCountry = db
+            .select({ id: academies.id })
+            .from(academies)
+            .where(sql`LOWER(${academies.country}) = ${callerCountry}`);
+          conds.push(inArray(tournaments.academyId, academyIdsInCountry));
+        }
+      }
+    }
+    if (status) {
+      conds.push(eq(tournaments.status, status));
+    }
+    const whereClause = conds.length === 1 ? conds[0] : and(...conds)!;
 
     const allTournaments = await db.select({
       tournament: tournaments,

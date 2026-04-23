@@ -70,6 +70,11 @@ import {
   SPORT_DEFINITIONS,
 } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
+import {
+  RecentlyActiveWorldwideRow,
+  PlayersYouMightKnowRow,
+  TournamentsDiscoveryRow,
+} from "@/player/components/DiscoveryRows";
 import * as WebBrowser from "expo-web-browser";
 
 import {
@@ -713,7 +718,7 @@ export default function PlayScreen() {
   // Task #1033 — free players (no academy) cannot use "mine" but can still
   // pick country vs worldwide. Default them to "country" to keep discovery
   // local-first.
-  const effectiveScope = playerAcademyId
+  const effectiveScope: "mine" | "country" | "all" = playerAcademyId
     ? scope
     : scope === "mine"
       ? "country"
@@ -1331,6 +1336,9 @@ export default function PlayScreen() {
                           />
                           <Text style={styles.coachRatingText}>
                             {session.coachAverageRating.toFixed(1)}
+                            {session.coachTotalRatings
+                              ? ` · ${session.coachTotalRatings} review${session.coachTotalRatings === 1 ? "" : "s"}`
+                              : ""}
                           </Text>
                         </View>
                       ) : null}
@@ -3523,10 +3531,18 @@ export default function PlayScreen() {
                   ) : null}
                 </View>
               )}
+              {/* Task #1070 — Tournaments row uses the same scope chip as
+                  the rest of the Group Lessons tab for parity. */}
+              <TournamentsDiscoveryRow scope={effectiveScope} />
               {renderCourtsNearYou()}
             </>
           ) : activeTab === "Players" ? (
             <>
+              {/* Task #1070 — discovery rows that make Play feel alive even
+                  when local pickings are slim. */}
+              <RecentlyActiveWorldwideRow sport={activeSport} />
+              <PlayersYouMightKnowRow sport={activeSport} />
+
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
                   <Ionicons

@@ -2004,7 +2004,24 @@ router.get(
       const playerId = req.user?.playerId;
       const { filter, travelTime, scope: scopeParam } = req.query;
       const useTravelTime = travelTime === "true";
-      const scope = (scopeParam as string) || "mine";
+      // Task #1070 — extra discovery flags used by the Play tab carousels.
+      // recentlyActive=true → only players who logged in within the last 24h
+      //                       (worldwide, capped to a small batch for the row).
+      // suggested=true     → "Players you might know": rank by shared sport +
+      //                       same ball-level bucket + same country (worldwide).
+      const recentlyActive = req.query.recentlyActive === "true";
+      const suggested = req.query.suggested === "true";
+      // Task #1070 — when the Play tab passes ?sport=padel/tennis/etc we
+      // narrow candidates to players who have a profile in that sport so
+      // the carousels match the chip the player picked.
+      const sportFilter = ((req.query.sport as string) || "").trim().toLowerCase() || null;
+      const limitParam = parseInt((req.query.limit as string) || "0", 10);
+      const limit = Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(limitParam, 50)
+        : null;
+      // Both special modes default to worldwide so the carousel feels global,
+      // unless the caller explicitly provides a scope.
+      const scope = (scopeParam as string) || (recentlyActive || suggested ? "all" : "mine");
 
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
@@ -2138,6 +2155,9 @@ router.get(
           // Task #1033 — flag + city on player cards across scopes.
           city: player.city ?? null,
           country: player.country ?? null,
+          // Task #1070 — sport overlap signal for the suggested branch. Stripped
+          // from the response shape later (privacy + payload size).
+          sportProfiles: (player.sportProfiles ?? null) as Record<string, unknown> | null,
         };
       });
 
@@ -2147,8 +2167,87 @@ router.get(
         // Academy-only players only visible to players from their own academy
         if (p.privacyLevel === "academy" && p.candidateAcademyId !== academyId)
           return false;
+        // Task #1070 — sport chip: keep players who have a profile in the
+        // requested sport, or whose default sport (tennis) matches when the
+        // candidate has no sportProfiles set yet.
+        if (sportFilter) {
+          const profiles = p.sportProfiles && typeof p.sportProfiles === "object"
+            ? Object.keys(p.sportProfiles).map((s) => s.toLowerCase())
+            : [];
+          const effective = profiles.length > 0 ? profiles : ["tennis"];
+          if (!effective.includes(sportFilter)) return false;
+        }
         return true;
       });
+
+      // Task #1070 — recentlyActive: filter to logins within the last 24h.
+      if (recentlyActive) {
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        filteredPlayers = filteredPlayers.filter((p) => {
+          if (!p.lastOnlineAt) return false;
+          const t = new Date(p.lastOnlineAt).getTime();
+          return Number.isFinite(t) && t >= cutoff;
+        });
+        // Most recently active first.
+        filteredPlayers.sort((a, b) => {
+          const at = a.lastOnlineAt ? new Date(a.lastOnlineAt).getTime() : 0;
+          const bt = b.lastOnlineAt ? new Date(b.lastOnlineAt).getTime() : 0;
+          return bt - at;
+        });
+      }
+
+      // Task #1070 — suggested: "Players you might know" — score by shared
+      // sport (sportProfiles), same ball-level bucket, same country.
+      if (suggested) {
+        const callerBallBucket = (currentPlayer?.ballLevel || "")
+          .toLowerCase()
+          .split(/[\s_-]/)[0];
+        const callerCountryNorm = (currentPlayer?.country || "")
+          .trim()
+          .toLowerCase();
+        const callerSports = new Set<string>();
+        const callerSportProfiles =
+          currentPlayer?.sportProfiles &&
+          typeof currentPlayer.sportProfiles === "object"
+            ? Object.keys(currentPlayer.sportProfiles)
+            : [];
+        for (const s of callerSportProfiles) {
+          if (s) callerSports.add(s.toLowerCase());
+        }
+        // Always count tennis (the schema default) so single-sport players
+        // still get matched on level + country.
+        if (callerSports.size === 0) callerSports.add("tennis");
+
+        type Candidate = typeof filteredPlayers[number];
+        const scoreFor = (p: Candidate): number => {
+          let score = 0;
+          // Same ball-level bucket (e.g. "intermediate", "advanced").
+          const pBucket = (p.ballLevel || "").toLowerCase().split(/[\s_-]/)[0];
+          if (pBucket && callerBallBucket && pBucket === callerBallBucket) score += 3;
+          // Same country.
+          const pCountry = (p.country || "").trim().toLowerCase();
+          if (pCountry && callerCountryNorm && pCountry === callerCountryNorm) score += 2;
+          // Shared sport(s) — +2 per overlapping sport profile, capped.
+          const candidateSports = p.sportProfiles && typeof p.sportProfiles === "object"
+            ? Object.keys(p.sportProfiles)
+            : [];
+          let sportOverlap = 0;
+          for (const s of candidateSports) {
+            if (s && callerSports.has(s.toLowerCase())) sportOverlap += 1;
+          }
+          score += Math.min(sportOverlap, 3) * 2;
+          // Mutual-sessions tiebreaker — small bump for people you've
+          // actually played with.
+          score += Math.min(p.mutualSessions || 0, 3);
+          return score;
+        };
+        type Scored = { item: Candidate; score: number };
+        const scored: Scored[] = filteredPlayers
+          .map((item) => ({ item, score: scoreFor(item) }))
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score);
+        filteredPlayers = scored.map((s) => s.item);
+      }
 
       // Apply discovery filter if provided
 
@@ -2239,6 +2338,11 @@ router.get(
         filteredPlayers.map((p) => p.id),
       );
 
+      // Task #1070 — apply optional limit (used by carousel rows).
+      if (limit != null) {
+        filteredPlayers = filteredPlayers.slice(0, limit);
+      }
+
       // Strip internal fields from response (location data + server-only privacy fields).
       // Attach friendStatus + connectionId so the player card can render the right pill.
       const responseData = filteredPlayers.map(
@@ -2247,6 +2351,7 @@ router.get(
           lastLongitude,
           candidateAcademyId,
           privacyLevel,
+          sportProfiles,
           ...rest
         }) => {
           const fs = friendStatusByPlayerId.get(rest.id);

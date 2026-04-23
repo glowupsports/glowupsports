@@ -884,6 +884,224 @@ export function OpenMatchesRow() {
   );
 }
 
+// Task #1070 — Lightweight player carousel cards used by the new
+// "Recently active worldwide" + "Players you might know" rows on the Play tab.
+
+interface DiscoveryPlayer {
+  id: string;
+  name: string;
+  level: number;
+  avatarUrl?: string | null;
+  ballLevel?: string | null;
+  skillLevel?: number | null;
+  city?: string | null;
+  country?: string | null;
+  lastOnlineAt?: string | null;
+}
+
+function formatRelativeTime(iso?: string | null): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(diff) || diff < 0) return "";
+  const mins = Math.floor(diff / 60000);
+  if (mins < 5) return "online now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return "today";
+}
+
+function flagEmojiForCountry(country?: string | null): string {
+  if (!country) return "";
+  const c = country.trim();
+  if (c.length === 2 && /^[A-Za-z]{2}$/.test(c)) {
+    const code = c.toUpperCase();
+    return String.fromCodePoint(
+      ...code.split("").map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65),
+    );
+  }
+  return "";
+}
+
+function DiscoveryPlayerCard({ player, subtitle }: { player: DiscoveryPlayer; subtitle?: string }) {
+  const navigation = useNavigation<any>();
+  const ballLevel = (player.ballLevel || "").toString();
+  const levelColor = getBallLevelColor(ballLevel || "glow");
+  const flag = flagEmojiForCountry(player.country);
+  const placeText = [flag, player.city || player.country || ""].filter(Boolean).join(" ").trim();
+  const handlePress = () => {
+    Haptics.selectionAsync();
+    navigation.navigate("PublicProfile", { playerId: player.id });
+  };
+  return (
+    <Pressable onPress={handlePress}>
+      <View style={discoveryRowStyles.card}>
+        <GlowAvatar
+          source={buildPhotoUrl(player.avatarUrl ?? undefined) || null}
+          name={player.name}
+          size="md"
+          ballLevel={ballLevel || "glow"}
+          showGlow={true}
+          glowIntensity="low"
+          pulsing={false}
+        />
+        <Text style={discoveryRowStyles.name} numberOfLines={1}>
+          {player.name?.split(" ")[0] || "Player"}
+        </Text>
+        {ballLevel ? (
+          <View style={[discoveryRowStyles.levelChip, { backgroundColor: `${levelColor}25`, borderColor: `${levelColor}55` }]}>
+            <View style={[discoveryRowStyles.levelDot, { backgroundColor: levelColor }]} />
+            <Text style={[discoveryRowStyles.levelChipText, { color: levelColor }]} numberOfLines={1}>
+              {ballLevel.toUpperCase()}{player.skillLevel ? ` ${player.skillLevel}` : ""}
+            </Text>
+          </View>
+        ) : null}
+        {subtitle ? (
+          <Text style={discoveryRowStyles.subtitle} numberOfLines={1}>{subtitle}</Text>
+        ) : placeText ? (
+          <Text style={discoveryRowStyles.subtitle} numberOfLines={1}>{placeText}</Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function PlayerCarouselRow({
+  title,
+  accent,
+  apiPath,
+  emptyText,
+  subtitleFor,
+}: {
+  title: string;
+  accent: string;
+  apiPath: string;
+  emptyText?: string;
+  subtitleFor?: (p: DiscoveryPlayer) => string | undefined;
+}) {
+  const { data, isLoading } = useQuery<DiscoveryPlayer[]>({
+    queryKey: [apiPath],
+    queryFn: async () => {
+      const res = await fetch(new URL(apiPath, getApiUrl()).toString(), {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const players = data ?? [];
+
+  // Hide entire row when nothing to show — keeps the Play tab tidy when the
+  // network is sparse instead of leaving an empty header behind.
+  if (!isLoading && players.length === 0) {
+    if (!emptyText) return null;
+    return (
+      <View style={styles.section}>
+        <SectionHeader title={title} accentColor={accent} />
+        <View style={discoveryRowStyles.emptyWrap}>
+          <Text style={discoveryRowStyles.emptyText}>{emptyText}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader title={title} count={players.length} accentColor={accent} />
+      {isLoading ? (
+        <ActivityIndicator size="small" color={accent} style={{ marginVertical: Spacing.sm }} />
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rowScrollContent}
+        >
+          {players.slice(0, 12).map((p, idx) => (
+            <Animated.View key={p.id} entering={FadeInRight.delay(idx * 50).duration(280)}>
+              <DiscoveryPlayerCard player={p} subtitle={subtitleFor?.(p)} />
+            </Animated.View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+export function RecentlyActiveWorldwideRow({ sport }: { sport?: string } = {}) {
+  const path = `/api/play/nearby-players?recentlyActive=true&limit=20${sport ? `&sport=${encodeURIComponent(sport)}` : ""}`;
+  return (
+    <PlayerCarouselRow
+      title="Recently active worldwide"
+      accent={GlowColors.primary}
+      apiPath={path}
+      subtitleFor={(p) => formatRelativeTime(p.lastOnlineAt) || undefined}
+    />
+  );
+}
+
+export function PlayersYouMightKnowRow({ sport }: { sport?: string } = {}) {
+  const path = `/api/play/nearby-players?suggested=true&limit=20${sport ? `&sport=${encodeURIComponent(sport)}` : ""}`;
+  return (
+    <PlayerCarouselRow
+      title="Players you might know"
+      accent={ProTennisColors.electricGreen}
+      apiPath={path}
+    />
+  );
+}
+
+const discoveryRowStyles = StyleSheet.create({
+  card: {
+    alignItems: "center",
+    gap: 4,
+    width: 96,
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: ProTennisColors.white,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  levelChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  levelDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  levelChipText: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  subtitle: {
+    fontSize: 10,
+    color: ProTennisColors.textMuted,
+    textAlign: "center",
+    maxWidth: 96,
+  },
+  emptyWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  emptyText: {
+    fontSize: 12,
+    color: ProTennisColors.textMuted,
+  },
+});
+
 interface TournamentMini {
   id: string;
   name: string;
@@ -916,15 +1134,20 @@ function formatTournamentDate(dateStr: string): string {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-export function TournamentsDiscoveryRow() {
+export function TournamentsDiscoveryRow({ scope }: { scope?: "mine" | "country" | "all" } = {}) {
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
 
+  // Task #1070 — accept the same scope chip used by Players / Open Matches so
+  // tournament discovery matches the rest of the Play tab.
+  const effectiveScope = scope ?? "mine";
+
   const { data, isLoading } = useQuery<{ upcoming: TournamentMini[] }>({
-    queryKey: ["/api/player/tournaments", "registration_open"],
+    queryKey: ["/api/player/tournaments", "registration_open", effectiveScope],
     queryFn: async () => {
       const url = new URL("/api/player/tournaments", getApiUrl());
       url.searchParams.set("status", "registration_open");
+      url.searchParams.set("scope", effectiveScope);
       const res = await fetch(url.toString(), { credentials: "include", headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to load tournaments");
       return res.json();
