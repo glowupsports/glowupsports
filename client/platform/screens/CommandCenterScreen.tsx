@@ -491,16 +491,24 @@ function ActivityDay({ day, intensity }: ActivityDayProps) {
 // ("online_card_payments"); when more coming-soon teasers are added the tile
 // can grow into a list.
 function FeatureInterestTile() {
+  const navigation = useNavigation<NativeStackNavigationProp<PlatformStackParamList>>();
   const { data } = useQuery<{ counts: Record<string, number> }>({
     queryKey: ["/api/platform/feature-interest/counts"],
     staleTime: 60_000,
   });
   const onlineCardCount = data?.counts?.online_card_payments ?? 0;
 
+  // Task #1097 — tile is now a drill-down entry point into the full
+  // feature_interest list (filterable + CSV export).
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("FeatureInterest");
+  };
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Coming-soon interest</Text>
-      <View style={styles.featureInterestCard}>
+      <Pressable style={styles.featureInterestCard} onPress={handlePress}>
         <View style={[styles.featureInterestIcon, { backgroundColor: `${PLATFORM_PURPLE}15` }]}>
           <Ionicons name="card" size={22} color={PLATFORM_PURPLE} />
         </View>
@@ -510,12 +518,13 @@ function FeatureInterestTile() {
           </Text>
           <Text style={styles.featureInterestSub}>
             {onlineCardCount === 1
-              ? "1 player waiting"
-              : `${onlineCardCount} players waiting`}
+              ? "1 player waiting · tap to view"
+              : `${onlineCardCount} players waiting · tap to view`}
           </Text>
         </View>
         <Text style={styles.featureInterestValue}>{onlineCardCount}</Text>
-      </View>
+        <Ionicons name="chevron-forward" size={16} color={PLATFORM_PURPLE} style={{ marginLeft: 4 }} />
+      </Pressable>
     </View>
   );
 }

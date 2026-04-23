@@ -92,6 +92,103 @@ router.get(
   },
 );
 
+// Task #1097 — list endpoint for the platform-owner drill-down screen.
+// Returns one row per (player, feature_key) tap with player name, academy
+// (id + name; nullable for academy-less players) and timestamp. Supports an
+// optional ?featureKey=... filter and ?format=csv export. No pagination yet —
+// the table is tiny and ordered by created_at desc; revisit if it grows.
+router.get(
+  "/api/platform/feature-interest",
+  authMiddleware,
+  requireRole("platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const featureKeyFilter = String(req.query.featureKey ?? "").trim();
+      if (featureKeyFilter.length > 0 && !ALLOWED_FEATURE_KEYS.has(featureKeyFilter)) {
+        return res.status(400).json({ error: "Unknown feature_key" });
+      }
+      const useFilter = featureKeyFilter.length > 0;
+
+      const rows = useFilter
+        ? await db.execute(sql`
+            SELECT fi.id,
+                   fi.feature_key,
+                   fi.created_at,
+                   fi.player_id,
+                   p.name AS player_name,
+                   a.id   AS academy_id,
+                   a.name AS academy_name
+            FROM feature_interest fi
+            JOIN players p     ON p.id = fi.player_id
+            LEFT JOIN academies a ON a.id = p.academy_id
+            WHERE fi.feature_key = ${featureKeyFilter}
+            ORDER BY fi.created_at DESC
+          `)
+        : await db.execute(sql`
+            SELECT fi.id,
+                   fi.feature_key,
+                   fi.created_at,
+                   fi.player_id,
+                   p.name AS player_name,
+                   a.id   AS academy_id,
+                   a.name AS academy_name
+            FROM feature_interest fi
+            JOIN players p     ON p.id = fi.player_id
+            LEFT JOIN academies a ON a.id = p.academy_id
+            ORDER BY fi.created_at DESC
+          `);
+
+      type Row = {
+        id: string;
+        feature_key: string;
+        created_at: string | Date;
+        player_id: string;
+        player_name: string | null;
+        academy_id: string | null;
+        academy_name: string | null;
+      };
+      const items = (rows.rows as Row[]).map((r) => ({
+        id: r.id,
+        featureKey: r.feature_key,
+        createdAt:
+          r.created_at instanceof Date
+            ? r.created_at.toISOString()
+            : String(r.created_at),
+        playerId: r.player_id,
+        playerName: r.player_name ?? "",
+        academyId: r.academy_id,
+        academyName: r.academy_name ?? "",
+      }));
+
+      if (String(req.query.format ?? "").toLowerCase() === "csv") {
+        const escape = (v: unknown) => {
+          const s = v === null || v === undefined ? "" : String(v);
+          if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+          return s;
+        };
+        const header = "feature_key,player_name,academy_name,created_at";
+        const lines = items.map((it) =>
+          [it.featureKey, it.playerName, it.academyName, it.createdAt]
+            .map(escape)
+            .join(","),
+        );
+        const csv = [header, ...lines].join("\n");
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="feature-interest.csv"`,
+        );
+        return res.send(csv);
+      }
+
+      return res.json({ items });
+    } catch (error) {
+      console.error("[feature-interest] list failed:", error);
+      return res.status(500).json({ error: "Failed to load feature interest" });
+    }
+  },
+);
+
 router.get(
   "/api/platform/feature-interest/counts",
   authMiddleware,

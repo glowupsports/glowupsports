@@ -20,6 +20,7 @@ import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
 import ProviderInviteManagementScreen from "@/platform/screens/ProviderInviteManagementScreen";
 import PlayerActivityScreen from "@/platform/screens/PlayerActivityScreen";
+import FeatureInterestScreen from "@/platform/screens/FeatureInterestScreen";
 import TierManagementScreen from "@/platform/screens/TierManagementScreen";
 import BrandingScreen from "@/owner/screens/BrandingScreen";
 import ModerationReportsScreen from "@/owner/screens/ModerationReportsScreen";
@@ -51,6 +52,7 @@ export type PlatformStackParamList = {
   Diagnostics: undefined;
   ProviderInviteManagement: undefined;
   PlayerActivity: { initialTab?: "features" | "players" | "dead_zones" };
+  FeatureInterest: undefined;
   TierManagement: undefined;
   Branding: { academyId: string; academyName?: string };
   ModerationReports: undefined;
@@ -96,6 +98,7 @@ function PlatformStackNavigator() {
       <Stack.Screen name="Diagnostics" component={DiagnosticsScreen} />
       <Stack.Screen name="ProviderInviteManagement" component={ProviderInviteManagementScreen} />
       <Stack.Screen name="PlayerActivity" component={PlayerActivityScreen} />
+      <Stack.Screen name="FeatureInterest" component={FeatureInterestScreen} />
       <Stack.Screen name="TierManagement" component={TierManagementScreen} />
       <Stack.Screen name="Branding" component={BrandingScreen} />
       <Stack.Screen
