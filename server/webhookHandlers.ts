@@ -7,6 +7,7 @@ import {
   courtAvailability,
   coachNotifications,
   coaches,
+  payments,
 } from '../shared/schema';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { sendPushNotification, getCoachPushTokens } from './pushNotifications';
@@ -31,7 +32,7 @@ interface DropInLessonMetadata {
   currency?: string;
 }
 
-function parseDropInLessonMetadata(
+export function parseDropInLessonMetadata(
   raw: Stripe.Metadata | null | undefined,
 ): DropInLessonMetadata | null {
   if (!raw) return null;
@@ -117,7 +118,7 @@ export class WebhookHandlers {
    *   (which would be a duplicate charge), the in-transaction coach overlap
    *   check fires and we automatically refund the payment.
    */
-  private static async fulfillDropInLesson(
+  static async fulfillDropInLesson(
     checkoutSession: Stripe.Checkout.Session,
     meta: DropInLessonMetadata,
   ): Promise<void> {
@@ -287,6 +288,32 @@ export class WebhookHandlers {
             endTime: endTimeStr,
             status: 'booked',
             blockedReason: `drop_in_lesson:${newSession.id}`,
+          });
+        }
+
+        // Task #1101 — record a confirmed `payments` row so the academy
+        // payments / invoices screens surface paid-online drop-in lessons
+        // alongside cash + bank-transfer entries.
+        if (price > 0) {
+          await tx.insert(payments).values({
+            academyId,
+            playerId,
+            amount: String(price),
+            currency,
+            status: 'confirmed',
+            paymentMethod: 'card',
+            paymentDate: new Date(),
+            confirmedAt: new Date(),
+            stripePaymentIntentId: paymentIntentId || null,
+            source: 'player',
+            notes: isInternal
+              ? `Online card payment for lesson on ${startTime.toUTCString()}`
+              : `Online card payment for drop-in lesson on ${startTime.toUTCString()}`,
+            metadata: {
+              sessionId: newSession.id,
+              stripeCheckoutSessionId: stripeCheckoutId,
+              bookingType,
+            },
           });
         }
 

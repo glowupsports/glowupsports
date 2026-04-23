@@ -9188,6 +9188,13 @@ export const storage = {
     seriesId: string | null;
     locationId: string | null;
     sessionStatus: string | null;
+    // Task #1101 — surface payment fields so the player schedule can render
+    // a "Paid" indicator + currency-formatted price for paid-online lessons
+    // materialised from a Stripe checkout webhook.
+    paymentStatus: string | null;
+    price: string | null;
+    academyPrice: string | null;
+    pricingCurrency: string | null;
   }[]> {
     try {
       // Get sessionPlayer records, excluding those marked as absent (cancelled)
@@ -9240,6 +9247,10 @@ export const storage = {
           seriesId: s.seriesId,
           locationId: s.locationId ?? null,
           sessionStatus: s.status,
+          paymentStatus: s.paymentStatus ?? null,
+          price: s.price != null ? String(s.price) : null,
+          academyPrice: s.academyPrice != null ? String(s.academyPrice) : null,
+          pricingCurrency: s.pricingCurrency ?? null,
         };
       });
     } catch (error) {

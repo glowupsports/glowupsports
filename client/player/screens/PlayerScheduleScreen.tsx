@@ -157,6 +157,10 @@ interface SessionData {
     locationLng?: number | null;
   } | null;
   coachName: string | null;
+  // Task #1101 — payment surfacing for paid-online (Stripe) lessons.
+  paymentStatus?: string | null;
+  price?: string | null;
+  currency?: string | null;
 }
 
 interface CourtBookingData {
@@ -204,6 +208,10 @@ interface ScheduledItem {
   locationLng?: number | null;
   status: "upcoming" | "completed" | "cancelled";
   attendanceStatus?: string;
+  // Task #1101 — payment indicators surfaced on the card.
+  paymentStatus?: string | null;
+  price?: string | null;
+  currency?: string | null;
 }
 
 interface V2WalletData {
@@ -258,6 +266,25 @@ const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
+
+// Task #1101 — currency-formatted price for the "Paid" pill on session
+// cards. Falls back to a plain number when Intl can't resolve the currency
+// (e.g. unknown currency code on web).
+const formatMoney = (amount: string | number | null | undefined, currency: string | null | undefined): string => {
+  if (amount == null) return "";
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (!Number.isFinite(num)) return "";
+  const code = (currency || "AED").toUpperCase();
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 2,
+    }).format(num);
+  } catch {
+    return `${code} ${num.toFixed(2)}`;
+  }
+};
 
 const addHour = (time: string) => {
   const [hours, mins] = time.split(":").map(Number);
@@ -538,6 +565,9 @@ export default function PlayerScheduleScreen() {
           locationLng: s.session.locationLng ?? null,
           status: isCancelled ? "cancelled" : isPast ? "completed" : "upcoming",
           attendanceStatus: s.attendanceStatus,
+          paymentStatus: s.paymentStatus ?? null,
+          price: s.price ?? null,
+          currency: s.currency ?? null,
         });
       }
     }
@@ -2026,6 +2056,17 @@ function DayHero({
               ) : null}
             </View>
           ) : null}
+          {primary.paymentStatus === "paid" ? (
+            <View style={styles.paidPill}>
+              <Feather name="check-circle" size={11} color={Colors.dark.primary} />
+              <Text style={styles.paidPillText}>
+                {t("common.paid")}
+                {primary.price
+                  ? ` · ${formatMoney(primary.price, primary.currency)}`
+                  : ""}
+              </Text>
+            </View>
+          ) : null}
         </View>
         <View style={styles.heroActions}>
           {primary.locationLat != null ||
@@ -2087,6 +2128,16 @@ function DayHero({
                       .join(" · ")}
                   </Text>
                 </View>
+                {it.paymentStatus === "paid" ? (
+                  <View style={styles.paidPill}>
+                    <Feather name="check-circle" size={11} color={Colors.dark.primary} />
+                    <Text style={styles.paidPillText}>
+                      {it.price
+                        ? formatMoney(it.price, it.currency)
+                        : t("common.paid")}
+                    </Text>
+                  </View>
+                ) : null}
                 {it.status === "cancelled" ? (
                   <Feather name="x" size={14} color={Colors.dark.error} />
                 ) : it.status === "completed" ? (
@@ -2625,6 +2676,22 @@ const styles = makeReactiveStyles(() =>
       fontSize: 10,
       color: EVENT_COLORS.court,
       fontWeight: "700",
+    },
+    paidPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: Colors.dark.primary + "1F",
+      borderWidth: 1,
+      borderColor: Colors.dark.primary + "55",
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    paidPillText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: Colors.dark.primary,
     },
     heroActions: {
       flexDirection: "row",
