@@ -1,0 +1,38 @@
+{
+  "name": "production",
+  "id": "0da9acf6-a42c-4ee1-9d5d-d3f8a38f3203",
+  "currentPage": [
+    {
+      "branch": "production",
+      "message": "\"Hotfix — Add missing SectionHeader import in FreePlayerDiscovery (Android crash)\" (16 minutes ago by GitHub App · @glowupsports (robot))",
+      "runtimeVersion": "1.3.5",
+      "isRollBackToEmbedded": false,
+      "group": "bec675da-7ebb-46ff-ad99-155d14711b0b",
+      "platforms": "android"
+    },
+    {
+      "branch": "production",
+      "message": "\"Hotfix — Add missing SectionHeader import in FreePlayerDiscovery (Android crash)\" (17 minutes ago by GitHub App · @glowupsports (robot))",
+      "runtimeVersion": "1.3.4",
+      "isRollBackToEmbedded": false,
+      "group": "6d7ba83c-df1d-44eb-87cb-6c865b4d4d4d",
+      "platforms": "ios"
+    },
+    {
+      "branch": "production",
+      "message": "\"Earlier successful push covering both runtimes\" (27 minutes ago by GitHub App · @glowupsports (robot))",
+      "runtimeVersion": "1.3.5",
+      "isRollBackToEmbedded": false,
+      "group": "c7d5ceb5-c8ff-40e2-aa06-f2b7aab90c55",
+      "platforms": "android"
+    },
+    {
+      "branch": "production",
+      "message": "\"Earlier successful push covering both runtimes\" (28 minutes ago by GitHub App · @glowupsports (robot))",
+      "runtimeVersion": "1.3.4",
+      "isRollBackToEmbedded": false,
+      "group": "f1e2d3c4-b5a6-4978-9abc-deadbeefcafe",
+      "platforms": "ios"
+    }
+  ]
+}

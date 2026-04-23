@@ -404,43 +404,29 @@ LIST_OK=1
 list_check() {
   local platform="$1"
   local expected_rt="$2"
+  # Delegate to scripts/ota-list-parser.js which understands the real
+  # `eas update:list --json` shape ({ currentPage: [...] }, `platforms`
+  # as a singular string, and messages wrapped in quotes + decorated
+  # with " (N <unit> ago by ...)"). Keeping the parser in its own file
+  # lets us unit-test it via scripts/test-ota-list-parser.sh.
   local result
-  result="$(MESSAGE_VAR="$MESSAGE" node -e "
-const fs = require('fs');
-let raw;
-try { raw = JSON.parse(fs.readFileSync('$LIST_JSON_FILE', 'utf8')); }
-catch (e) { console.log('PARSE_ERR ' + e.message); process.exit(0); }
-// eas update:list returns either an array of update groups or
-// { currentPage: [...] }. Each item may use 'platform' (singular) or
-// 'platforms' (array), and the message can be decorated.
-const items = Array.isArray(raw) ? raw : (raw.currentPage || raw.results || []);
-const flat = [];
-for (const it of items) {
-  if (!it) continue;
-  // A 'group' object may carry an updates[] array of per-platform records.
-  if (Array.isArray(it.updates)) flat.push(...it.updates);
-  else flat.push(it);
-}
-const wantMsg = process.env.MESSAGE_VAR || '';
-const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
-const match = flat.find(u => {
-  if (!u) return false;
-  const plats = u.platforms || (u.platform ? [u.platform] : []);
-  if (!plats.includes('$platform')) return false;
-  if (u.runtimeVersion !== '$expected_rt') return false;
-  // 'eas update:list' decorates messages with '(N seconds ago by ...)' —
-  // accept any message that STARTS with our exact text.
-  return norm(u.message).startsWith(norm(wantMsg));
-});
-if (match) console.log('OK id=' + (match.id || match.group || '?'));
-else console.log('NO_MATCH');
-")"
-  if [[ "$result" == OK* ]]; then
+  local stderr_file
+  stderr_file="$(mktemp)"
+  set +e
+  result="$(node scripts/ota-list-parser.js \
+    "$LIST_JSON_FILE" "$platform" "$expected_rt" "$MESSAGE" 2>"$stderr_file")"
+  local rc=$?
+  set -e
+  if [[ $rc -eq 0 && "$result" == OK* ]]; then
     echo "    ✔ list check $platform (rt $expected_rt): $result"
   else
     echo "    ✘ list check $platform (rt $expected_rt): $result" >&2
+    if [[ -s "$stderr_file" ]]; then
+      sed 's/^/      /' "$stderr_file" >&2
+    fi
     LIST_OK=0
   fi
+  rm -f "$stderr_file"
 }
 
 if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
