@@ -1654,23 +1654,19 @@
       "intro": "The latest updates and improvements to the app.",
       "items": {
         "unifiedGuide": {
-          "date": "April 2026",
-          "title": "Unified Player Guide",
+              "title": "Unified Player Guide",
           "desc": "Everything you need to learn the app — Get Started, Explore, FAQ, and What's New — now lives in one place."
         },
         "searchableFaq": {
-          "date": "April 2026",
-          "title": "Searchable FAQ",
+              "title": "Searchable FAQ",
           "desc": "Search the FAQ by keyword and filter by category to find answers faster."
         },
         "smarterEmpty": {
-          "date": "April 2026",
-          "title": "Smarter empty screens",
+              "title": "Smarter empty screens",
           "desc": "Empty lists now show a one-line explanation and a one-tap action so you always know what to do next."
         },
         "helpButton": {
-          "date": "April 2026",
-          "title": "Help button in every header",
+              "title": "Help button in every header",
           "desc": "Look for the question-mark button at the top-right of any player screen to jump straight back here."
         }
       }

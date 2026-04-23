@@ -177,19 +177,44 @@ const EXPLORE_GROUPS: { groupKey: string; entries: ExploreEntryDef[] }[] = [
   },
 ];
 
-const WHATS_NEW_IDS: { id: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: "unifiedGuide", icon: "sparkles" },
-  { id: "searchableFaq", icon: "search" },
-  { id: "smarterEmpty", icon: "bulb" },
-  { id: "helpButton", icon: "help-circle" },
+const WHATS_NEW_IDS: {
+  id: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  date: string;
+}[] = [
+  { id: "unifiedGuide", icon: "sparkles", date: "2026-04" },
+  { id: "searchableFaq", icon: "search", date: "2026-04" },
+  { id: "smarterEmpty", icon: "bulb", date: "2026-04" },
+  { id: "helpButton", icon: "help-circle", date: "2026-04" },
 ];
+
+function formatReleaseDate(isoMonth: string, locale: string | undefined): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(isoMonth);
+  if (!match) return isoMonth;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const date = new Date(Date.UTC(year, monthIndex, 1));
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(date);
+  }
+}
 
 export default function PlayerGuideScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isGuest } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const initialTab: TabKey = (route.params?.initialTab as TabKey) || "start";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [faqQuery, setFaqQuery] = useState("");
@@ -631,7 +656,7 @@ export default function PlayerGuideScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.newsDate}>
-                    {t(`playerGuide.whatsnew.items.${item.id}.date`)}
+                    {formatReleaseDate(item.date, i18n.language)}
                   </Text>
                   <Text style={styles.newsTitle}>
                     {t(`playerGuide.whatsnew.items.${item.id}.title`)}

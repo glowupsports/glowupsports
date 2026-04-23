@@ -1582,23 +1582,19 @@
       "intro": "Pembaruan dan peningkatan terbaru di aplikasi.",
       "items": {
         "unifiedGuide": {
-          "date": "April 2026",
-          "title": "Panduan Pemain Terpadu",
+              "title": "Panduan Pemain Terpadu",
           "desc": "Semua yang kamu butuhkan untuk mempelajari aplikasi — Mulai, Jelajahi, FAQ, dan Yang Baru — kini di satu tempat."
         },
         "searchableFaq": {
-          "date": "April 2026",
-          "title": "FAQ yang dapat dicari",
+              "title": "FAQ yang dapat dicari",
           "desc": "Cari FAQ berdasarkan kata kunci dan filter kategori untuk menemukan jawaban lebih cepat."
         },
         "smarterEmpty": {
-          "date": "April 2026",
-          "title": "Layar kosong yang lebih pintar",
+              "title": "Layar kosong yang lebih pintar",
           "desc": "Daftar kosong kini menampilkan penjelasan satu baris dan aksi satu ketuk agar kamu tahu langkah berikutnya."
         },
         "helpButton": {
-          "date": "April 2026",
-          "title": "Tombol bantuan di setiap header",
+              "title": "Tombol bantuan di setiap header",
           "desc": "Cari tombol tanda tanya di kanan atas layar pemain mana pun untuk langsung kembali ke sini."
         }
       }

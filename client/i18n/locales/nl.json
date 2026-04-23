@@ -1654,23 +1654,19 @@
       "intro": "De laatste updates en verbeteringen in de app.",
       "items": {
         "unifiedGuide": {
-          "date": "April 2026",
-          "title": "Geünificeerde Spelersgids",
+              "title": "Geünificeerde Spelersgids",
           "desc": "Alles wat je nodig hebt om de app te leren — Aan de slag, Ontdek, FAQ en Wat is nieuw — staat nu op één plek."
         },
         "searchableFaq": {
-          "date": "April 2026",
-          "title": "Doorzoekbare FAQ",
+              "title": "Doorzoekbare FAQ",
           "desc": "Doorzoek de FAQ op trefwoord en filter op categorie om sneller antwoorden te vinden."
         },
         "smarterEmpty": {
-          "date": "April 2026",
-          "title": "Slimmere lege schermen",
+              "title": "Slimmere lege schermen",
           "desc": "Lege lijsten tonen nu een korte uitleg en een actie met één tik, zodat je weet wat de volgende stap is."
         },
         "helpButton": {
-          "date": "April 2026",
-          "title": "Helpknop in elke header",
+              "title": "Helpknop in elke header",
           "desc": "Zoek de vraagteken-knop rechtsboven in elk spelersscherm om meteen hier terug te komen."
         }
       }
