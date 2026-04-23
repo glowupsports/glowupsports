@@ -13,6 +13,7 @@ import {
   Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -63,6 +64,7 @@ export default function CommunityScreen() {
   useThemeReactivity();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -221,6 +223,18 @@ export default function CommunityScreen() {
         <ThemedText style={styles.title}>{t('player.community.title')}</ThemedText>
 
         <View style={styles.headerActions}>
+          <Pressable
+            style={styles.headerButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("DiscoveryMap");
+            }}
+            testID="button-discovery-map"
+          >
+            <View style={styles.addButton}>
+              <Ionicons name="map" size={20} color={Colors.dark.buttonText} />
+            </View>
+          </Pressable>
           {mainTab === "feed" && canInteract ? (
               <Pressable
                 style={styles.headerButton}

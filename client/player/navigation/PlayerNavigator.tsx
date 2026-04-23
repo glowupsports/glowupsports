@@ -97,6 +97,7 @@ import MyGamesScreen from "@/player/screens/MyGamesScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import ClassesDiscoveryScreen from "@/player/screens/ClassesDiscoveryScreen";
 import ClassDetailScreen from "@/player/screens/ClassDetailScreen";
+import DiscoveryMapScreen from "@/player/screens/DiscoveryMapScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
 import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
@@ -345,6 +346,7 @@ export type PlayerStackParamList = {
   MyGames: undefined;
   ClassesDiscovery: undefined;
   ClassDetail: { session: any };
+  DiscoveryMap: { initialFilter?: "all" | "academies" | "lessons" | "matches" | "tournaments" } | undefined;
   MatchLive: {
     matchId: string;
     opponentName: string;
@@ -1546,6 +1548,17 @@ function PlayerStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "My Games",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen
+        name="DiscoveryMap"
+        component={DiscoveryMapScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Map",
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.primary,
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
