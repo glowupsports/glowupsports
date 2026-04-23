@@ -17,7 +17,6 @@ import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
-import DiscoverScreen from "@/player/screens/DiscoverScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
@@ -222,7 +221,6 @@ export { usePlayerDrawer };
 
 export type PlayerTabParamList = {
   Home: undefined;
-  Discover: undefined;
   Community: undefined;
   PlayStack: undefined;
   Growth: undefined;
@@ -805,15 +803,14 @@ const SHOW_CHAT_TABS = ["Home"];
 
 const TAB_FEATURE_KEYS: Record<string, string> = {
   Home: "tab:home",
-  Discover: "tab:discover",
   Community: "tab:social",
   PlayStack: "tab:play",
   Growth: "tab:growth",
   Profile: "tab:me",
 };
 
-// Task #1034 — Free players land on Discover; academy players keep Home.
-// Pulled from the same dashboard query the home screen uses (cache-shared).
+// All players land on Home. (Discover tab removed in Task #1086.)
+// Status hook retained because other logic still consults free-player flag.
 function useFreePlayerStatus(): { isFreePlayer: boolean; isReady: boolean } {
   const { user } = useAuth();
   const { data, isFetched } = useQuery<{ isFreePlayer?: boolean; academy?: unknown }>({
@@ -843,8 +840,8 @@ interface StoredTabState {
   userId?: string;
 }
 
-function rolesDefaultTab(role: PlayerRole): string {
-  return role === "free" ? "Discover" : "Home";
+function rolesDefaultTab(_role: PlayerRole): string {
+  return "Home";
 }
 
 function useResolvedInitialTab(
@@ -862,19 +859,6 @@ function useResolvedInitialTab(
     let cancelled = false;
     if (!isPlayerStatusReady) return;
     const role: PlayerRole = isFreePlayer ? "free" : "academy";
-
-    // Free players ALWAYS land on Discover on cold start / fresh login.
-    // In-session tab changes still update local state via handlePageChange
-    // (and we persist them so academy users get restoration), but on the
-    // next app launch a free player should be funneled back to Discover.
-    if (role === "free") {
-      AsyncStorage.setItem(
-        TAB_STORAGE_KEY,
-        JSON.stringify({ role, tab: "Discover", userId } satisfies StoredTabState),
-      ).catch(() => { /* best-effort */ });
-      setResolved({ tab: "Discover", ready: true });
-      return () => { cancelled = true; };
-    }
 
     AsyncStorage.getItem(TAB_STORAGE_KEY)
       .then((raw) => {
@@ -914,7 +898,6 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
 
   const playerTabs: TabConfig[] = useMemo(() => [
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
-    { key: "Discover", label: "Discover", icon: "compass-outline", iconFocused: "compass", component: DiscoverScreen },
     { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
     { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
     { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
