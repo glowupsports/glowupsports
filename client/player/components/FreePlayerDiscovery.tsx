@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Platform, Linking } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+  Linking,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
@@ -13,45 +22,28 @@ import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerCountry } from "@/player/hooks/usePlayerCountry";
-import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
-import { MatchSummaryCard } from "./MatchSummaryCard";
+import {
+  makeReactiveStyles,
+  useThemeReactivity,
+} from "@/hooks/useThemedStyles";
 import { PlayersNearYouRow } from "./DiscoveryRows";
 import { SectionHeader } from "@/components/PremiumUI";
 import { useDiscoverScope } from "@/player/context/DiscoverScopeContext";
 
 type NavAny = ReturnType<typeof useNavigation<any>>;
 
-interface NearbyCourt {
+interface NearbyAcademy {
   id: string;
   name: string;
-  address: string | null;
-  distance: number | null;
-  lat?: number | null;
-  lng?: number | null;
-  sport: string;
-  surface: string;
-  isInternal: boolean;
-  bookingEnabled: boolean;
-  academyName: string | null;
-}
-
-interface OpenMatch {
-  id: string;
-  matchType: string;
-  title: string;
-  ballLevel: string;
-  maxPlayers: number;
-  currentPlayers: number;
-  scheduledTime: string | null;
-  preferredDate: string | null;
-  preferredTime: string | null;
-  sport?: string;
-  courtName?: string | null;
-  locationName?: string | null;
-  costPerPlayer?: string | null;
-  currency?: string;
-  xpBonus?: number;
-  host: { id: string; name: string; photoUrl: string | null; level: number; ballLevel: string; skillLevel?: number };
+  slug?: string | null;
+  city: string | null;
+  country: string | null;
+  description?: string | null;
+  logoUrl: string | null;
+  averageRating: number | null;
+  sports: string[];
+  coachCount?: number;
+  playerCount?: number;
 }
 
 interface NearbyPlayerApi {
@@ -72,7 +64,7 @@ interface NearbyPlayerApi {
 }
 
 const COURT_CARD_WIDTH = 240;
-const MATCH_CARD_WIDTH = 280;
+const ACADEMY_CARD_WIDTH = 240;
 
 // ─── Shared horizontal carousel section wrapper ───────────────────────────────
 // Standardizes title + see-all header, horizontal list area, and the
@@ -119,7 +111,13 @@ function HomeCarouselSection({
           <Text style={sectionStyles.title}>{title}</Text>
         </View>
         {onSeeAll ? (
-          <Pressable onPress={() => { Haptics.selectionAsync(); onSeeAll(); }} hitSlop={10}>
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              onSeeAll();
+            }}
+            hitSlop={10}
+          >
             <Text style={sectionStyles.seeAll}>See all</Text>
           </Pressable>
         ) : null}
@@ -130,12 +128,17 @@ function HomeCarouselSection({
       ) : isLoading ? (
         <View style={sectionStyles.skeletonRow}>
           {[0, 1, 2].map((i) => (
-            <View key={i} style={[sectionStyles.skeletonCard, { width: skeletonWidth }]} />
+            <View
+              key={i}
+              style={[sectionStyles.skeletonCard, { width: skeletonWidth }]}
+            />
           ))}
         </View>
       ) : childArr.length === 0 ? (
         <View style={sectionStyles.emptyWrap}>
-          <Text style={sectionStyles.emptyText}>{emptyMessage ?? "Nothing here yet."}</Text>
+          <Text style={sectionStyles.emptyText}>
+            {emptyMessage ?? "Nothing here yet."}
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -144,7 +147,12 @@ function HomeCarouselSection({
           contentContainerStyle={sectionStyles.listContent}
         >
           {childArr.map((child, idx) => (
-            <View key={idx} style={{ marginRight: idx === childArr.length - 1 ? 0 : Spacing.sm }}>
+            <View
+              key={idx}
+              style={{
+                marginRight: idx === childArr.length - 1 ? 0 : Spacing.sm,
+              }}
+            >
               {child}
             </View>
           ))}
@@ -170,8 +178,15 @@ function LocationPermissionBanner({
   if (Platform.OS === "web") {
     return (
       <View style={permStyles.banner}>
-        <Ionicons name="location-outline" size={16} color={Colors.dark.textMuted} />
-        <Text style={permStyles.bannerText}>Open the app on your phone via Expo Go to discover nearby clubs and players.</Text>
+        <Ionicons
+          name="location-outline"
+          size={16}
+          color={Colors.dark.textMuted}
+        />
+        <Text style={permStyles.bannerText}>
+          Open the app on your phone via Expo Go to discover nearby clubs and
+          players.
+        </Text>
       </View>
     );
   }
@@ -181,11 +196,21 @@ function LocationPermissionBanner({
       <Pressable
         style={permStyles.banner}
         onPress={async () => {
-          try { await Linking.openSettings(); } catch { /* not supported on this platform */ }
+          try {
+            await Linking.openSettings();
+          } catch {
+            /* not supported on this platform */
+          }
         }}
       >
-        <Ionicons name="location-outline" size={16} color={Colors.dark.primary} />
-        <Text style={permStyles.bannerText}>Enable location in Settings to {message}.</Text>
+        <Ionicons
+          name="location-outline"
+          size={16}
+          color={Colors.dark.primary}
+        />
+        <Text style={permStyles.bannerText}>
+          Enable location in Settings to {message}.
+        </Text>
         <Text style={permStyles.bannerCta}>Open Settings</Text>
       </Pressable>
     );
@@ -194,7 +219,10 @@ function LocationPermissionBanner({
   return (
     <Pressable
       style={permStyles.banner}
-      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRequest(); }}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onRequest();
+      }}
     >
       <Ionicons name="location-outline" size={16} color={Colors.dark.primary} />
       <Text style={permStyles.bannerText}>Enable location to {message}.</Text>
@@ -203,60 +231,85 @@ function LocationPermissionBanner({
   );
 }
 
-// ─── Reusable nearby-court card (mirrors PlayScreen visual language) ─────────
+// ─── Academy card (rendered in the "Academies near you" rail) ─────────────────
 
-function NearbyCourtCardCompact({ court, onPress }: { court: NearbyCourt; onPress: () => void }) {
+function formatSportLabel(sport: string): string {
+  if (!sport) return "";
+  return sport.charAt(0).toUpperCase() + sport.slice(1);
+}
+
+function NearbyAcademyCardCompact({
+  academy,
+  onPress,
+}: {
+  academy: NearbyAcademy;
+  onPress: () => void;
+}) {
   useThemeReactivity();
-  const sportLabel = court.sport ? court.sport.charAt(0).toUpperCase() + court.sport.slice(1) : "Court";
-  const surfaceLabel = court.surface && court.surface !== "unknown"
-    ? court.surface.charAt(0).toUpperCase() + court.surface.slice(1)
-    : null;
+  const sportsLabel =
+    academy.sports && academy.sports.length > 0
+      ? academy.sports.slice(0, 3).map(formatSportLabel).join(" · ")
+      : "Tennis";
+  const cityCountry = [academy.city, academy.country]
+    .filter(Boolean)
+    .join(", ");
+  const initial = academy.name?.trim()?.charAt(0)?.toUpperCase() || "A";
+  const logo = academy.logoUrl ? buildPhotoUrl(academy.logoUrl) : null;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [courtStyles.card, pressed && courtStyles.cardPressed, { width: COURT_CARD_WIDTH }]}>
-      <View style={courtStyles.headerRow}>
-        <View style={courtStyles.badgeRow}>
-          <View style={[courtStyles.sportBadge, { backgroundColor: court.isInternal ? Colors.dark.primary + "25" : Colors.dark.backgroundTertiary }]}>
-            <Ionicons
-              name={court.sport === "padel" ? "grid-outline" : "tennisball-outline"}
-              size={11}
-              color={court.isInternal ? Colors.dark.primary : Colors.dark.textMuted}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        courtStyles.card,
+        pressed && courtStyles.cardPressed,
+        { width: ACADEMY_CARD_WIDTH },
+      ]}
+    >
+      <View style={academyStyles.headerRow}>
+        <View style={academyStyles.logoWrap}>
+          {logo ? (
+            <Image
+              source={{ uri: logo }}
+              style={academyStyles.logo}
+              contentFit="cover"
             />
-            <Text style={[courtStyles.sportText, { color: court.isInternal ? Colors.dark.primary : Colors.dark.textMuted }]}>{sportLabel}</Text>
-          </View>
-          {court.isInternal ? (
-            <View style={courtStyles.internalBadge}>
-              <Text style={courtStyles.internalText}>Academy</Text>
+          ) : (
+            <View style={[academyStyles.logo, academyStyles.logoFallback]}>
+              <Text style={academyStyles.logoInitial}>{initial}</Text>
             </View>
-          ) : court.academyName ? (
-            <View style={courtStyles.externalBadge}>
-              <Text style={courtStyles.externalText} numberOfLines={1}>{court.academyName}</Text>
-            </View>
-          ) : null}
+          )}
         </View>
-        {court.distance != null ? (
-          <View style={courtStyles.distanceBadge}>
-            <Ionicons name="navigate" size={9} color={Colors.dark.primary} />
-            <Text style={courtStyles.distanceText}>{court.distance} km</Text>
-          </View>
-        ) : null}
+        <View style={{ flex: 1 }}>
+          <Text style={courtStyles.name} numberOfLines={2}>
+            {academy.name}
+          </Text>
+          <Text style={academyStyles.sports} numberOfLines={1}>
+            {sportsLabel}
+          </Text>
+        </View>
       </View>
-      <Text style={courtStyles.name} numberOfLines={2}>{court.name}</Text>
-      {court.address ? (
-        <Text style={courtStyles.address} numberOfLines={1}>{court.address}</Text>
+      {cityCountry ? (
+        <View style={academyStyles.locationRow}>
+          <Ionicons
+            name="location-outline"
+            size={11}
+            color={Colors.dark.textMuted}
+          />
+          <Text style={courtStyles.address} numberOfLines={1}>
+            {cityCountry}
+          </Text>
+        </View>
       ) : null}
       <View style={courtStyles.footerRow}>
-        {surfaceLabel ? (
-          <View style={courtStyles.surfaceChip}>
-            <Text style={courtStyles.surfaceText}>{surfaceLabel}</Text>
-          </View>
-        ) : <View />}
-        {court.bookingEnabled ? (
-          <View style={courtStyles.bookChip}>
-            <Text style={courtStyles.bookChipText}>Book</Text>
-            <Ionicons name="chevron-forward" size={11} color={Colors.dark.backgroundRoot} />
-          </View>
-        ) : null}
+        <View />
+        <View style={courtStyles.bookChip}>
+          <Text style={courtStyles.bookChipText}>Visit</Text>
+          <Ionicons
+            name="chevron-forward"
+            size={11}
+            color={Colors.dark.backgroundRoot}
+          />
+        </View>
       </View>
     </Pressable>
   );
@@ -264,74 +317,51 @@ function NearbyCourtCardCompact({ court, onPress }: { court: NearbyCourt; onPres
 
 // ─── Sections ─────────────────────────────────────────────────────────────────
 
-function NearbyClubsSection({
+function NearbyAcademiesSection({
   coords,
-  permission,
-  locationError,
-  onRequestPermission,
-  onRetryLocation,
   navigation,
 }: {
   coords: { lat: number; lng: number } | null;
-  permission: Location.PermissionResponse | null;
-  locationError: boolean;
-  onRequestPermission: () => void;
-  onRetryLocation: () => void;
   navigation: NavAny;
 }) {
-  const { data, isLoading } = useQuery<NearbyCourt[]>({
-    queryKey: ["/api/play/nearby-courts", coords?.lat, coords?.lng],
+  // Resolve player's country (profile → GPS reverse-geocode → device locale)
+  // so we can scope academies to "near you" without requiring GPS permission.
+  const { country: resolvedCountry } = usePlayerCountry(coords);
+
+  const { data, isLoading } = useQuery<{ academies: NearbyAcademy[] }>({
+    queryKey: ["/api/academies/browse", "free-home", resolvedCountry || "all"],
     queryFn: async () => {
-      if (!coords) return [];
-      const res = await apiFetch(`/api/play/nearby-courts?lat=${coords.lat}&lng=${coords.lng}`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json) ? json : [];
+      const params = new URLSearchParams();
+      if (resolvedCountry) params.set("country", resolvedCountry);
+      const res = await apiFetch(
+        `/api/academies/browse${params.toString() ? `?${params.toString()}` : ""}`,
+      );
+      if (!res.ok) return { academies: [] };
+      return res.json();
     },
-    enabled: !!coords,
     staleTime: 5 * 60 * 1000,
   });
 
-  const items = (data || []).slice(0, 10);
-  const needsPermission = !permission?.granted;
-
-  // Build the banner that replaces the carousel area when we cannot show data.
-  let banner: React.ReactNode = null;
-  if (needsPermission) {
-    banner = (
-      <LocationPermissionBanner
-        permission={permission}
-        onRequest={onRequestPermission}
-        message="discover clubs nearby"
-      />
-    );
-  } else if (locationError) {
-    banner = (
-      <Pressable style={permStyles.banner} onPress={onRetryLocation}>
-        <Ionicons name="warning-outline" size={16} color={Colors.dark.primary} />
-        <Text style={permStyles.bannerText}>Couldn't get your location. Check that GPS is on.</Text>
-        <Text style={permStyles.bannerCta}>Retry</Text>
-      </Pressable>
-    );
-  }
+  const items = (data?.academies || []).slice(0, 10);
 
   return (
     <HomeCarouselSection
-      title="Suggested clubs near you"
-      icon="tennisball-outline"
-      onSeeAll={() => navigation.navigate("CourtBooking")}
-      isLoading={!banner && (!coords || isLoading)}
-      banner={banner}
-      emptyMessage="No clubs found nearby. Try a different area."
-      skeletonWidth={COURT_CARD_WIDTH}
+      title="Academies near you"
+      icon="business-outline"
+      onSeeAll={() => navigation.navigate("AcademyBrowser")}
+      isLoading={isLoading}
+      emptyMessage="No academies found near you. Try widening your search."
+      skeletonWidth={ACADEMY_CARD_WIDTH}
     >
-      {items.map((court) => (
-        <NearbyCourtCardCompact
-          key={court.id}
-          court={court}
+      {items.map((academy) => (
+        <NearbyAcademyCardCompact
+          key={academy.id}
+          academy={academy}
           onPress={() => {
             Haptics.selectionAsync();
-            navigation.navigate("CourtBooking");
+            navigation.navigate("AcademyPublicProfile", {
+              academyId: academy.id,
+            });
           }}
         />
       ))}
@@ -453,6 +483,11 @@ function OpenMatchesSection({ navigation, variant = "home" }: { navigation: NavA
   );
 }
 
+// NOTE (Task #1079): The duplicate "Open matches you can join" rail was
+// removed from the free-player Play tab (FreePlayerDiscoverySections) because
+// the top-of-screen open matches card is the single source for that
+// information. OpenMatchesSection above is still used by DiscoverSections.
+
 function NearbyPlayersSection({
   permission,
   onRequestPermission,
@@ -486,8 +521,11 @@ function NearbyPlayersSection({
     return (data || []).slice(0, 12).map((p) => ({
       id: p.id,
       name: p.name,
-      level: (p.ballLevel || "glow"),
-      status: (p.openToPlay ? "available" : "offline") as "available" | "playing" | "offline",
+      level: p.ballLevel || "glow",
+      status: (p.openToPlay ? "available" : "offline") as
+        | "available"
+        | "playing"
+        | "offline",
       profilePhotoUrl: p.avatarUrl ?? undefined,
       ballLevel: p.ballLevel ?? undefined,
       skillLevel: p.skillLevel ?? undefined,
@@ -512,7 +550,11 @@ function NearbyPlayersSection({
     return (
       <View style={sectionStyles.section}>
         <SectionHeader title="Players near you" icon="people-outline" />
-        <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginVertical: Spacing.md }} />
+        <ActivityIndicator
+          size="small"
+          color={Colors.dark.primary}
+          style={{ marginVertical: Spacing.md }}
+        />
       </View>
     );
   }
@@ -552,9 +594,15 @@ export function JoinAcademySoftCard() {
         </View>
         <View style={joinStyles.textWrap}>
           <Text style={joinStyles.title}>Want structured coaching?</Text>
-          <Text style={joinStyles.sub}>Join an academy for sessions, drills, and personalized feedback.</Text>
+          <Text style={joinStyles.sub}>
+            Join an academy for sessions, drills, and personalized feedback.
+          </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={Colors.dark.accentText} />
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={Colors.dark.accentText}
+        />
       </LinearGradient>
     </Pressable>
   );
@@ -628,11 +676,21 @@ function CoachesNearYouSection({
       <View style={sectionStyles.header}>
         <View style={sectionStyles.headerLeft}>
           <View style={sectionStyles.headerIcon}>
-            <Ionicons name="ribbon-outline" size={13} color={Colors.dark.accentText} />
+            <Ionicons
+              name="ribbon-outline"
+              size={13}
+              color={Colors.dark.accentText}
+            />
           </View>
           <Text style={sectionStyles.title}>Coaches</Text>
         </View>
-        <Pressable onPress={() => { Haptics.selectionAsync(); navigation.navigate("CoachDirectory"); }} hitSlop={10}>
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync();
+            navigation.navigate("CoachDirectory");
+          }}
+          hitSlop={10}
+        >
           <Text style={sectionStyles.seeAll}>See all</Text>
         </Pressable>
       </View>
@@ -640,20 +698,60 @@ function CoachesNearYouSection({
       {showLocalChip ? (
         <View style={coachRailStyles.scopeRow}>
           <Pressable
-            style={[coachRailStyles.scopeChip, scope === "country" && coachRailStyles.scopeChipActive]}
-            onPress={() => { Haptics.selectionAsync(); setScope("country"); }}
+            style={[
+              coachRailStyles.scopeChip,
+              scope === "country" && coachRailStyles.scopeChipActive,
+            ]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setScope("country");
+            }}
           >
-            <Ionicons name="location" size={12} color={scope === "country" ? Colors.dark.buttonText : Colors.dark.textMuted} />
-            <Text style={[coachRailStyles.scopeChipText, scope === "country" && coachRailStyles.scopeChipTextActive]}>
+            <Ionicons
+              name="location"
+              size={12}
+              color={
+                scope === "country"
+                  ? Colors.dark.buttonText
+                  : Colors.dark.textMuted
+              }
+            />
+            <Text
+              style={[
+                coachRailStyles.scopeChipText,
+                scope === "country" && coachRailStyles.scopeChipTextActive,
+              ]}
+            >
               {resolvedCountry ? resolvedCountry : "My country"}
             </Text>
           </Pressable>
           <Pressable
-            style={[coachRailStyles.scopeChip, scope === "global" && coachRailStyles.scopeChipActive]}
-            onPress={() => { Haptics.selectionAsync(); setScope("global"); }}
+            style={[
+              coachRailStyles.scopeChip,
+              scope === "global" && coachRailStyles.scopeChipActive,
+            ]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setScope("global");
+            }}
           >
-            <Ionicons name="globe-outline" size={12} color={scope === "global" ? Colors.dark.buttonText : Colors.dark.textMuted} />
-            <Text style={[coachRailStyles.scopeChipText, scope === "global" && coachRailStyles.scopeChipTextActive]}>Worldwide</Text>
+            <Ionicons
+              name="globe-outline"
+              size={12}
+              color={
+                scope === "global"
+                  ? Colors.dark.buttonText
+                  : Colors.dark.textMuted
+              }
+            />
+            <Text
+              style={[
+                coachRailStyles.scopeChipText,
+                scope === "global" && coachRailStyles.scopeChipTextActive,
+              ]}
+            >
+              Worldwide
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -661,7 +759,10 @@ function CoachesNearYouSection({
       {isLoading || (scope === "country" && !resolvedCountry && isResolving) ? (
         <View style={sectionStyles.skeletonRow}>
           {[0, 1, 2].map((i) => (
-            <View key={i} style={[sectionStyles.skeletonCard, { width: 160 }]} />
+            <View
+              key={i}
+              style={[sectionStyles.skeletonCard, { width: 160 }]}
+            />
           ))}
         </View>
       ) : scope === "country" && !resolvedCountry ? (
@@ -672,14 +773,23 @@ function CoachesNearYouSection({
             navigation.navigate("EditProfile");
           }}
         >
-          <Ionicons name="location-outline" size={20} color={Colors.dark.accentText} />
+          <Ionicons
+            name="location-outline"
+            size={20}
+            color={Colors.dark.accentText}
+          />
           <View style={{ flex: 1 }}>
             <Text style={sectionStyles.emptyCtaTitle}>Set your country</Text>
             <Text style={sectionStyles.emptyCtaSub}>
-              Add it in your profile to see coaches near you, or browse worldwide.
+              Add it in your profile to see coaches near you, or browse
+              worldwide.
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={Colors.dark.textMuted}
+          />
         </Pressable>
       ) : coaches.length === 0 ? (
         <View style={sectionStyles.emptyWrap}>
@@ -704,28 +814,50 @@ function CoachesNearYouSection({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   navigation.navigate("CoachProfile", { coachId: c.id });
                 }}
-                style={[coachRailStyles.card, { marginRight: idx === coaches.length - 1 ? 0 : Spacing.sm }]}
+                style={[
+                  coachRailStyles.card,
+                  { marginRight: idx === coaches.length - 1 ? 0 : Spacing.sm },
+                ]}
               >
                 {photo ? (
-                  <Image source={{ uri: buildPhotoUrl(photo)! }} style={coachRailStyles.avatar} contentFit="cover" />
+                  <Image
+                    source={{ uri: buildPhotoUrl(photo)! }}
+                    style={coachRailStyles.avatar}
+                    contentFit="cover"
+                  />
                 ) : (
-                  <View style={[coachRailStyles.avatar, coachRailStyles.avatarPlaceholder]}>
-                    <Text style={coachRailStyles.initial}>{c.name.charAt(0).toUpperCase()}</Text>
+                  <View
+                    style={[
+                      coachRailStyles.avatar,
+                      coachRailStyles.avatarPlaceholder,
+                    ]}
+                  >
+                    <Text style={coachRailStyles.initial}>
+                      {c.name.charAt(0).toUpperCase()}
+                    </Text>
                   </View>
                 )}
-                <Text style={coachRailStyles.name} numberOfLines={1}>{c.name}</Text>
+                <Text style={coachRailStyles.name} numberOfLines={1}>
+                  {c.name}
+                </Text>
                 {c.specialty ? (
-                  <Text style={coachRailStyles.specialty} numberOfLines={1}>{c.specialty}</Text>
+                  <Text style={coachRailStyles.specialty} numberOfLines={1}>
+                    {c.specialty}
+                  </Text>
                 ) : null}
                 <View style={coachRailStyles.metaRow}>
                   {c.averageRating ? (
                     <View style={coachRailStyles.metaItem}>
                       <Ionicons name="star" size={11} color="#FFD700" />
-                      <Text style={coachRailStyles.metaText}>{Number(c.averageRating).toFixed(1)}</Text>
+                      <Text style={coachRailStyles.metaText}>
+                        {Number(c.averageRating).toFixed(1)}
+                      </Text>
                     </View>
                   ) : null}
                   {c.hourlyRate ? (
-                    <Text style={coachRailStyles.priceText}>AED {parseInt(String(c.hourlyRate), 10)}</Text>
+                    <Text style={coachRailStyles.priceText}>
+                      AED {parseInt(String(c.hourlyRate), 10)}
+                    </Text>
                   ) : null}
                 </View>
               </Pressable>
@@ -737,88 +869,90 @@ function CoachesNearYouSection({
   );
 }
 
-const coachRailStyles = makeReactiveStyles(() => StyleSheet.create({
-  scopeRow: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.xs,
-  },
-  scopeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.chipBackground,
-  },
-  scopeChipActive: {
-    backgroundColor: Colors.dark.accentText,
-  },
-  scopeChipText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-  },
-  scopeChipTextActive: {
-    color: Colors.dark.buttonText,
-  },
-  card: {
-    width: 160,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.chipBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-  },
-  avatar: {
-    width: "100%",
-    height: 100,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.xs,
-  },
-  avatarPlaceholder: {
-    backgroundColor: Colors.dark.accentTextSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  initial: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: Colors.dark.accentText,
-  },
-  name: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  specialty: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: Spacing.xs,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  metaText: {
-    fontSize: 11,
-    color: Colors.dark.textSecondary,
-    fontWeight: "600",
-  },
-  priceText: {
-    fontSize: 11,
-    color: Colors.dark.accentText,
-    fontWeight: "700",
-  },
-}));
+const coachRailStyles = makeReactiveStyles(() =>
+  StyleSheet.create({
+    scopeRow: {
+      flexDirection: "row",
+      paddingHorizontal: Spacing.lg,
+      gap: Spacing.xs,
+    },
+    scopeChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 4,
+      borderRadius: BorderRadius.full,
+      backgroundColor: Colors.dark.chipBackground,
+    },
+    scopeChipActive: {
+      backgroundColor: Colors.dark.accentText,
+    },
+    scopeChipText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: Colors.dark.textMuted,
+    },
+    scopeChipTextActive: {
+      color: Colors.dark.buttonText,
+    },
+    card: {
+      width: 160,
+      padding: Spacing.sm,
+      borderRadius: BorderRadius.lg,
+      backgroundColor: Colors.dark.chipBackground,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBackgroundStrong,
+    },
+    avatar: {
+      width: "100%",
+      height: 100,
+      borderRadius: BorderRadius.md,
+      marginBottom: Spacing.xs,
+    },
+    avatarPlaceholder: {
+      backgroundColor: Colors.dark.accentTextSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    initial: {
+      fontSize: 32,
+      fontWeight: "800",
+      color: Colors.dark.accentText,
+    },
+    name: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: Colors.dark.text,
+    },
+    specialty: {
+      fontSize: 11,
+      color: Colors.dark.textMuted,
+      marginTop: 2,
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: Spacing.xs,
+    },
+    metaItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+    },
+    metaText: {
+      fontSize: 11,
+      color: Colors.dark.textSecondary,
+      fontWeight: "600",
+    },
+    priceText: {
+      fontSize: 11,
+      color: Colors.dark.accentText,
+      fontWeight: "700",
+    },
+  }),
+);
 
 // ─── Public tournaments rail (Discover tab) ──────────────────────────────────
 
@@ -1376,7 +1510,9 @@ export function FreePlayerDiscoverySections() {
   useThemeReactivity();
   const navigation = useNavigation<any>();
   const [permission, requestPermission] = Location.useForegroundPermissions();
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const [locationError, setLocationError] = useState(false);
   const fetchingRef = useRef(false);
 
@@ -1385,7 +1521,7 @@ export function FreePlayerDiscoverySections() {
     fetchingRef.current = true;
     setLocationError(false);
     Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-      .then(loc => {
+      .then((loc) => {
         setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
         setLocationError(false);
       })
@@ -1394,7 +1530,9 @@ export function FreePlayerDiscoverySections() {
         setCoords(null);
         setLocationError(true);
       })
-      .finally(() => { fetchingRef.current = false; });
+      .finally(() => {
+        fetchingRef.current = false;
+      });
   }, []);
 
   // Only fetch coords once permission is granted (request is user-initiated).
@@ -1405,20 +1543,16 @@ export function FreePlayerDiscoverySections() {
   }, [permission?.granted, coords, locationError, fetchCoords]);
 
   const handleRequestPermission = async () => {
-    try { await requestPermission(); } catch { /* user cancelled */ }
+    try {
+      await requestPermission();
+    } catch {
+      /* user cancelled */
+    }
   };
 
   return (
     <View style={sectionStyles.wrap}>
-      <NearbyClubsSection
-        coords={coords}
-        permission={permission}
-        locationError={locationError}
-        onRequestPermission={handleRequestPermission}
-        onRetryLocation={fetchCoords}
-        navigation={navigation}
-      />
-      <OpenMatchesSection navigation={navigation} />
+      <NearbyAcademiesSection coords={coords} navigation={navigation} />
       <CoachesNearYouSection navigation={navigation} coords={coords} />
       <NearbyPlayersSection
         permission={permission}
@@ -1430,277 +1564,330 @@ export function FreePlayerDiscoverySections() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const sectionStyles = makeReactiveStyles(() => StyleSheet.create({
-  wrap: {
-    gap: Spacing.lg,
-  },
-  section: {
-    gap: Spacing.sm,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  headerIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.dark.accentTextSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    letterSpacing: 0.2,
-  },
-  seeAll: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.dark.accentText,
-  },
-  listContent: {
-    paddingHorizontal: Spacing.lg,
-  },
-  skeletonRow: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  skeletonCard: {
-    height: 140,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.chipBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-  },
-  emptyWrap: {
-    marginHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.chipBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    fontWeight: "600",
-  },
-  emptyCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.accentTextSoft,
-    borderWidth: 1,
-    borderColor: "rgba(200,255,61,0.2)",
-  },
-  emptyCtaTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  emptyCtaSub: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-}));
+const sectionStyles = makeReactiveStyles(() =>
+  StyleSheet.create({
+    wrap: {
+      gap: Spacing.lg,
+    },
+    section: {
+      gap: Spacing.sm,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: Spacing.lg,
+    },
+    headerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    headerIcon: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: Colors.dark.accentTextSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    title: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: Colors.dark.text,
+      letterSpacing: 0.2,
+    },
+    seeAll: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: Colors.dark.accentText,
+    },
+    listContent: {
+      paddingHorizontal: Spacing.lg,
+    },
+    skeletonRow: {
+      flexDirection: "row",
+      paddingHorizontal: Spacing.lg,
+      gap: Spacing.sm,
+    },
+    skeletonCard: {
+      height: 140,
+      borderRadius: BorderRadius.lg,
+      backgroundColor: Colors.dark.chipBackground,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBackgroundStrong,
+    },
+    emptyWrap: {
+      marginHorizontal: Spacing.lg,
+      paddingVertical: Spacing.lg,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      backgroundColor: Colors.dark.chipBackground,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBackgroundStrong,
+      alignItems: "center",
+    },
+    emptyText: {
+      fontSize: 12,
+      color: Colors.dark.textMuted,
+      fontWeight: "600",
+    },
+    emptyCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+      marginHorizontal: Spacing.lg,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      backgroundColor: Colors.dark.accentTextSoft,
+      borderWidth: 1,
+      borderColor: "rgba(200,255,61,0.2)",
+    },
+    emptyCtaTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: Colors.dark.text,
+    },
+    emptyCtaSub: {
+      fontSize: 11,
+      color: Colors.dark.textMuted,
+      marginTop: 2,
+    },
+  }),
+);
 
-const permStyles = makeReactiveStyles(() => StyleSheet.create({
-  banner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.chipBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-  },
-  bannerText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-  },
-  bannerCta: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: Colors.dark.primary,
-  },
-}));
+const permStyles = makeReactiveStyles(() =>
+  StyleSheet.create({
+    banner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginHorizontal: Spacing.lg,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      backgroundColor: Colors.dark.chipBackground,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBackgroundStrong,
+    },
+    bannerText: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: "600",
+      color: Colors.dark.textMuted,
+    },
+    bannerCta: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: Colors.dark.primary,
+    },
+  }),
+);
 
-const courtStyles = makeReactiveStyles(() => StyleSheet.create({
-  card: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.chipBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-    gap: 6,
-  },
-  cardPressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.92,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 6,
-  },
-  badgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flex: 1,
-  },
-  sportBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.full,
-  },
-  sportText: {
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  internalBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.full,
-    backgroundColor: GlowColors.primary + "30",
-  },
-  internalText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: GlowColors.primary,
-    letterSpacing: 0.4,
-  },
-  externalBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    flex: 1,
-  },
-  externalText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: Colors.dark.textMuted,
-  },
-  distanceBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.primary + "20",
-  },
-  distanceText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.dark.primary,
-  },
-  name: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    marginTop: 4,
-  },
-  address: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    fontWeight: "600",
-  },
-  footerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 6,
-  },
-  surfaceChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.chipBackgroundStrong,
-  },
-  surfaceText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: Colors.dark.textMuted,
-  },
-  bookChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    backgroundColor: GlowColors.primary,
-  },
-  bookChipText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: Colors.dark.backgroundRoot,
-  },
-}));
+const courtStyles = makeReactiveStyles(() =>
+  StyleSheet.create({
+    card: {
+      padding: Spacing.md,
+      borderRadius: BorderRadius.lg,
+      backgroundColor: Colors.dark.chipBackground,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBackgroundStrong,
+      gap: 6,
+    },
+    cardPressed: {
+      transform: [{ scale: 0.97 }],
+      opacity: 0.92,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 6,
+    },
+    badgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      flex: 1,
+    },
+    sportBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: BorderRadius.full,
+    },
+    sportText: {
+      fontSize: 10,
+      fontWeight: "700",
+    },
+    internalBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: BorderRadius.full,
+      backgroundColor: GlowColors.primary + "30",
+    },
+    internalText: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: GlowColors.primary,
+      letterSpacing: 0.4,
+    },
+    externalBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: BorderRadius.full,
+      backgroundColor: Colors.dark.backgroundTertiary,
+      flex: 1,
+    },
+    externalText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: Colors.dark.textMuted,
+    },
+    distanceBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      borderRadius: BorderRadius.full,
+      backgroundColor: Colors.dark.primary + "20",
+    },
+    distanceText: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: Colors.dark.primary,
+    },
+    name: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: Colors.dark.text,
+      marginTop: 4,
+    },
+    address: {
+      fontSize: 11,
+      color: Colors.dark.textMuted,
+      fontWeight: "600",
+    },
+    footerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 6,
+    },
+    surfaceChip: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: BorderRadius.sm,
+      backgroundColor: Colors.dark.chipBackgroundStrong,
+    },
+    surfaceText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: Colors.dark.textMuted,
+    },
+    bookChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: BorderRadius.full,
+      backgroundColor: GlowColors.primary,
+    },
+    bookChipText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: Colors.dark.backgroundRoot,
+    },
+  }),
+);
 
-const joinStyles = makeReactiveStyles(() => StyleSheet.create({
-  card: {
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(200,255,61,0.18)",
-  },
-  gradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.accentTextSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  textWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: Colors.dark.text,
-  },
-  sub: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-  },
-}));
+const academyStyles = makeReactiveStyles(() =>
+  StyleSheet.create({
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+    },
+    logoWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: BorderRadius.md,
+      overflow: "hidden",
+      backgroundColor: Colors.dark.chipBackgroundStrong,
+    },
+    logo: {
+      width: 44,
+      height: 44,
+      borderRadius: BorderRadius.md,
+    },
+    logoFallback: {
+      backgroundColor: Colors.dark.accentTextSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    logoInitial: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: Colors.dark.accentText,
+    },
+    sports: {
+      fontSize: 11,
+      color: Colors.dark.textMuted,
+      fontWeight: "700",
+      marginTop: 2,
+      letterSpacing: 0.2,
+    },
+    locationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 2,
+    },
+  }),
+);
+
+const joinStyles = makeReactiveStyles(() =>
+  StyleSheet.create({
+    card: {
+      marginHorizontal: Spacing.lg,
+      borderRadius: BorderRadius.lg,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: "rgba(200,255,61,0.18)",
+    },
+    gradient: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.md,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.md,
+    },
+    iconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: Colors.dark.accentTextSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    textWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    title: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: Colors.dark.text,
+    },
+    sub: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: Colors.dark.textMuted,
+    },
+  }),
+);
