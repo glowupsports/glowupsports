@@ -2325,3 +2325,54 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "700",
   },
 }));
+
+export function CountryLeaderboardsEntry() {
+  const { navigateToTab } = useTabNavigation();
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigateToTab("Growth", { screen: "CountryLeaderboard" });
+  };
+  return (
+    <Pressable onPress={handlePress} style={leaderboardEntryStyles.wrap}>
+      <LinearGradient
+        colors={[Colors.dark.gold + "30", Colors.dark.primary + "20"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={leaderboardEntryStyles.card}
+      >
+        <View style={leaderboardEntryStyles.iconWrap}>
+          <Ionicons name="trophy" size={20} color={Colors.dark.gold} />
+        </View>
+        <View style={leaderboardEntryStyles.content}>
+          <Text style={leaderboardEntryStyles.title}>Country Leaderboards</Text>
+          <Text style={leaderboardEntryStyles.subtitle}>Top players in your country across all sports</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
+const leaderboardEntryStyles = StyleSheet.create({
+  wrap: { paddingHorizontal: Spacing.lg },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.gold + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  content: { flex: 1, gap: 2 },
+  title: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
+  subtitle: { fontSize: 12, color: Colors.dark.textMuted },
+});

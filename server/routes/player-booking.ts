@@ -5,6 +5,7 @@ import https from "https";
 import {
   players, coaches, users, sessions, packages, coachingSeries, seriesPlayers,
   creditTransactions, invoices, payments, sessionPlayers, sessionWaitlist,
+  leaderboardSnapshots,
   locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions,
   coachTimeBlocks, courtAvailability, courtAvailabilitySnapshots, courts,
   bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
@@ -7211,5 +7212,352 @@ router.get(
     }
   }
 );
+
+// ==================== COUNTRY LEADERBOARDS PER SPORT (Task #1035) ====================
+
+const SUPPORTED_LEADERBOARD_SPORTS = ["tennis", "padel", "pickleball"] as const;
+type LeaderboardSport = typeof SUPPORTED_LEADERBOARD_SPORTS[number];
+type LeaderboardScope = "country" | "global";
+
+interface LeaderboardRow {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  city: string | null;
+  country: string | null;
+  ballLevel: string | null;
+  glowMmr: number;
+  glowRank: number | null;
+  isAdult: boolean;
+}
+
+interface CachedLeaderboard {
+  rows: LeaderboardRow[];
+  fetchedAt: number;
+}
+
+const LEADERBOARD_TTL_MS = 15 * 60 * 1000;
+const LEADERBOARD_TOP_N = 50;
+const leaderboardCache = new Map<string, CachedLeaderboard>();
+
+function leaderboardCacheKey(sport: LeaderboardSport, scope: LeaderboardScope, country: string | null): string {
+  return `${sport}:${scope}:${(country ?? "").toLowerCase()}`;
+}
+
+function isoWeekMonday(date: Date = new Date()): string {
+  // Returns YYYY-MM-DD for the Monday of the ISO week of `date` (UTC).
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7; // Sun=0 → 7
+  if (day !== 1) d.setUTCDate(d.getUTCDate() - (day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function previousIsoWeekMonday(date: Date = new Date()): string {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() - 7);
+  return isoWeekMonday(d);
+}
+
+function formatDssRating(mmr: number | null | undefined): string | null {
+  if (!mmr) return null;
+  return ((mmr - 1000) / 1000 * 3 + 3).toFixed(1);
+}
+
+async function loadLeaderboardRows(
+  sport: LeaderboardSport,
+  scope: LeaderboardScope,
+  country: string | null,
+): Promise<LeaderboardRow[]> {
+  const conditions: any[] = [
+    eq(players.status, "active"),
+    sql`${players.privacyLevel} != 'hidden'`,
+    eq(users.status, "active"),
+    sql`COALESCE(${users.deleted}, false) = false`,
+    sql`COALESCE(${players.glowMmr}, 0) > 0`,
+    // Sport filter: academy plays this sport OR the player has it in their sportProfiles
+    or(
+      sql`${academies.sports} @> ${JSON.stringify([sport])}::jsonb`,
+      sql`${players.sportProfiles} ? ${sport}`,
+    )!,
+  ];
+
+  if (scope === "country" && country) {
+    conditions.push(
+      or(
+        sql`LOWER(${players.country}) = LOWER(${country})`,
+        sql`LOWER(${academies.country}) = LOWER(${country})`,
+      )!,
+    );
+  }
+
+  const rows = await db.select({
+    id: players.id,
+    name: players.name,
+    photoUrl: players.profilePhotoUrl,
+    playerCity: players.city,
+    playerCountry: players.country,
+    academyCity: academies.city,
+    academyCountry: academies.country,
+    ballLevel: players.ballLevel,
+    glowMmr: players.glowMmr,
+    glowRank: players.glowRank,
+    isAdult: players.isAdult,
+  })
+    .from(players)
+    .innerJoin(users, eq(users.playerId, players.id))
+    .leftJoin(academies, eq(players.academyId, academies.id))
+    .where(and(...conditions))
+    .orderBy(desc(players.glowMmr))
+    .limit(LEADERBOARD_TOP_N);
+
+  return rows.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    photoUrl: r.photoUrl ?? null,
+    city: r.playerCity ?? r.academyCity ?? null,
+    country: r.playerCountry ?? r.academyCountry ?? null,
+    ballLevel: r.ballLevel ?? null,
+    glowMmr: r.glowMmr ?? 0,
+    glowRank: r.glowRank ?? null,
+    isAdult: !!r.isAdult,
+  }));
+}
+
+async function getCachedLeaderboard(
+  sport: LeaderboardSport,
+  scope: LeaderboardScope,
+  country: string | null,
+): Promise<LeaderboardRow[]> {
+  const key = leaderboardCacheKey(sport, scope, country);
+  const cached = leaderboardCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < LEADERBOARD_TTL_MS) {
+    return cached.rows;
+  }
+  const rows = await loadLeaderboardRows(sport, scope, country);
+  leaderboardCache.set(key, { rows, fetchedAt: now });
+  // Persist a weekly snapshot in the background; idempotent via unique index.
+  void persistWeeklySnapshot(sport, scope, country, rows).catch((err) => {
+    console.error("[Leaderboard] snapshot insert failed", err);
+  });
+  return rows;
+}
+
+async function persistWeeklySnapshot(
+  sport: LeaderboardSport,
+  scope: LeaderboardScope,
+  country: string | null,
+  rows: LeaderboardRow[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  const week = isoWeekMonday();
+  const countryKey = scope === "country" ? (country ?? "").toLowerCase() : "";
+  const values = rows.map((r, idx) => ({
+    sport,
+    scope,
+    country: countryKey,
+    playerId: r.id,
+    rank: idx + 1,
+    snapshotWeek: week,
+  }));
+  await db.insert(leaderboardSnapshots).values(values).onConflictDoNothing();
+}
+
+async function fetchPreviousRanks(
+  sport: LeaderboardSport,
+  scope: LeaderboardScope,
+  country: string | null,
+  playerIds: string[],
+): Promise<Map<string, number>> {
+  if (playerIds.length === 0) return new Map();
+  const previousWeek = previousIsoWeekMonday();
+  const countryKey = scope === "country" ? (country ?? "").toLowerCase() : "";
+  const rows = await db.select({
+    playerId: leaderboardSnapshots.playerId,
+    rank: leaderboardSnapshots.rank,
+  })
+    .from(leaderboardSnapshots)
+    .where(and(
+      eq(leaderboardSnapshots.sport, sport),
+      eq(leaderboardSnapshots.scope, scope),
+      eq(leaderboardSnapshots.country, countryKey),
+      eq(leaderboardSnapshots.snapshotWeek, previousWeek),
+      inArray(leaderboardSnapshots.playerId, playerIds),
+    ));
+  const map = new Map<string, number>();
+  for (const r of rows) map.set(r.playerId, r.rank);
+  return map;
+}
+
+router.get("/api/player/country-leaderboard", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) {
+      return res.status(403).json({ error: "Player access required" });
+    }
+
+    const sportParam = (req.query.sport as string | undefined)?.toLowerCase() || "tennis";
+    if (!SUPPORTED_LEADERBOARD_SPORTS.includes(sportParam as LeaderboardSport)) {
+      return res.status(400).json({ error: "Unsupported sport" });
+    }
+    const sport = sportParam as LeaderboardSport;
+
+    const scopeParam = (req.query.scope as string | undefined) || "country";
+    const scope: LeaderboardScope = scopeParam === "global" ? "global" : "country";
+
+    const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+
+    let country: string | null = null;
+    if (scope === "country") {
+      const requested = (req.query.country as string | undefined)?.trim();
+      country = (requested && requested.length > 0 ? requested : (player as any).country) ?? null;
+      if (!country) {
+        return res.json({
+          sport,
+          scope,
+          country: null,
+          rankings: [],
+          currentPlayer: null,
+          myRank: 0,
+          message: "Set your country in your profile to see country rankings.",
+        });
+      }
+    }
+
+    const rows = await getCachedLeaderboard(sport, scope, country);
+
+    // Determine the current player's rank. If they're in the top-N, use their
+    // index. Otherwise, count how many qualifying players have a higher MMR.
+    const meIndex = rows.findIndex((r) => r.id === playerId);
+    let myRank = 0;
+    let currentPlayerRow: LeaderboardRow | null = null;
+
+    if (meIndex >= 0) {
+      myRank = meIndex + 1;
+      currentPlayerRow = rows[meIndex];
+    } else {
+      // Fetch the current player's qualifying row directly (using the same filters).
+      const meConditions: any[] = [
+        eq(players.id, playerId),
+        eq(players.status, "active"),
+        sql`${players.privacyLevel} != 'hidden'`,
+        eq(users.status, "active"),
+        sql`COALESCE(${users.deleted}, false) = false`,
+        sql`COALESCE(${players.glowMmr}, 0) > 0`,
+        or(
+          sql`${academies.sports} @> ${JSON.stringify([sport])}::jsonb`,
+          sql`${players.sportProfiles} ? ${sport}`,
+        )!,
+      ];
+      if (scope === "country" && country) {
+        meConditions.push(
+          or(
+            sql`LOWER(${players.country}) = LOWER(${country})`,
+            sql`LOWER(${academies.country}) = LOWER(${country})`,
+          )!,
+        );
+      }
+      const meRows = await db.select({
+        id: players.id,
+        name: players.name,
+        photoUrl: players.profilePhotoUrl,
+        playerCity: players.city,
+        playerCountry: players.country,
+        academyCity: academies.city,
+        academyCountry: academies.country,
+        ballLevel: players.ballLevel,
+        glowMmr: players.glowMmr,
+        glowRank: players.glowRank,
+        isAdult: players.isAdult,
+      })
+        .from(players)
+        .innerJoin(users, eq(users.playerId, players.id))
+        .leftJoin(academies, eq(players.academyId, academies.id))
+        .where(and(...meConditions))
+        .limit(1);
+
+      if (meRows[0]) {
+        const me = meRows[0] as any;
+        currentPlayerRow = {
+          id: me.id,
+          name: me.name,
+          photoUrl: me.photoUrl ?? null,
+          city: me.playerCity ?? me.academyCity ?? null,
+          country: me.playerCountry ?? me.academyCountry ?? null,
+          ballLevel: me.ballLevel ?? null,
+          glowMmr: me.glowMmr ?? 0,
+          glowRank: me.glowRank ?? null,
+          isAdult: !!me.isAdult,
+        };
+        const meMmr = currentPlayerRow.glowMmr;
+        const above = await db.select({ count: count() })
+          .from(players)
+          .innerJoin(users, eq(users.playerId, players.id))
+          .leftJoin(academies, eq(players.academyId, academies.id))
+          .where(and(
+            eq(players.status, "active"),
+            sql`${players.privacyLevel} != 'hidden'`,
+            eq(users.status, "active"),
+            sql`COALESCE(${users.deleted}, false) = false`,
+            sql`COALESCE(${players.glowMmr}, 0) > ${meMmr}`,
+            or(
+              sql`${academies.sports} @> ${JSON.stringify([sport])}::jsonb`,
+              sql`${players.sportProfiles} ? ${sport}`,
+            )!,
+            ...(scope === "country" && country ? [
+              or(
+                sql`LOWER(${players.country}) = LOWER(${country})`,
+                sql`LOWER(${academies.country}) = LOWER(${country})`,
+              )!,
+            ] : []),
+          ));
+        myRank = (above[0]?.count ?? 0) + 1;
+      }
+    }
+
+    // Look up last week's ranks for everyone we're returning + current player.
+    const idsToCheck = new Set<string>(rows.map((r) => r.id));
+    if (currentPlayerRow) idsToCheck.add(currentPlayerRow.id);
+    const previousRanks = await fetchPreviousRanks(sport, scope, country, Array.from(idsToCheck));
+
+    const formatRow = (r: LeaderboardRow, rank: number) => {
+      const prevRank = previousRanks.get(r.id);
+      const delta = prevRank != null ? prevRank - rank : null; // positive = moved up
+      return {
+        rank,
+        id: r.id,
+        name: r.name,
+        photoUrl: r.photoUrl,
+        city: r.city,
+        country: r.country,
+        ballLevel: r.ballLevel,
+        glowMmr: r.glowMmr,
+        glowRank: r.glowRank,
+        isAdult: r.isAdult,
+        dssRating: formatDssRating(r.glowMmr),
+        rankDelta: delta,
+        isCurrentPlayer: r.id === playerId,
+      };
+    };
+
+    const rankings = rows.map((r, idx) => formatRow(r, idx + 1));
+
+    res.json({
+      sport,
+      scope,
+      country,
+      myRank,
+      currentPlayer: currentPlayerRow ? formatRow(currentPlayerRow, myRank) : null,
+      rankings,
+      cachedTtlSeconds: Math.floor(LEADERBOARD_TTL_MS / 1000),
+    });
+  } catch (error) {
+    console.error("[Leaderboard] country-leaderboard error", error);
+    res.status(500).json({ error: "Failed to fetch leaderboard" });
+  }
+});
 
 export default router;

@@ -7649,3 +7649,27 @@ export const seriesReminderLog = pgTable("series_reminder_log", {
 ]);
 
 export type SeriesReminderLog = typeof seriesReminderLog.$inferSelect;
+
+// Task #1035 — Country Leaderboards Per Sport.
+// Weekly snapshot of a player's rank in a (sport, scope, country) leaderboard
+// so we can show a small +/- delta vs last week. We write at most one row per
+// (sport, scope, country, player, week).
+export const leaderboardSnapshots = pgTable("leaderboard_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sport: text("sport").notNull(),
+  scope: text("scope").notNull(), // 'country' | 'global'
+  country: text("country").notNull().default(""), // empty string for global scope
+  playerId: varchar("player_id").notNull(),
+  rank: integer("rank").notNull(),
+  snapshotWeek: date("snapshot_week").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("leaderboard_snapshots_unique_idx").on(
+    table.sport, table.scope, table.country, table.playerId, table.snapshotWeek,
+  ),
+  index("leaderboard_snapshots_lookup_idx").on(
+    table.sport, table.scope, table.country, table.snapshotWeek,
+  ),
+]);
+
+export type LeaderboardSnapshot = typeof leaderboardSnapshots.$inferSelect;

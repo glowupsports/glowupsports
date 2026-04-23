@@ -49,6 +49,7 @@ import BookingConfirmedScreen from "@/player/screens/BookingConfirmedScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import FriendsListScreen from "@/player/screens/FriendsListScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
+import CountryLeaderboardScreen from "@/player/screens/CountryLeaderboardScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
 import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
@@ -252,6 +253,7 @@ export type ScheduleStackParamList = {
 export type ProgressStackParamList = {
   ProgressMain: undefined;
   GlowLeaderboard: undefined;
+  CountryLeaderboard: undefined;
   Quests: undefined;
   Tournaments: undefined;
   TournamentDetail: { tournamentId: string };
@@ -620,6 +622,17 @@ function ProgressStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Leaderboard",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen
+        name="CountryLeaderboard"
+        component={CountryLeaderboardScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Country Leaderboards",
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.primary,
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },

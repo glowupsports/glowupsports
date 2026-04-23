@@ -19,7 +19,7 @@ import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
-import { PlayersNearYouRow } from "@/player/components/DiscoveryRows";
+import { PlayersNearYouRow, CountryLeaderboardsEntry } from "@/player/components/DiscoveryRows";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
@@ -1608,6 +1608,8 @@ function PlayerHomeContent() {
         ) : (
           <PlayersNearYouRow />
         )}
+
+        {!isGuest ? <CountryLeaderboardsEntry /> : null}
 
         {/* ── IMPROVE SECTION ── always shown for logged-in players (AI Coach is the entry point) */}
         {secondaryReady && !isGuest ? (
