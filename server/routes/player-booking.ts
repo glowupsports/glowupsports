@@ -4113,6 +4113,213 @@ router.post(
   },
 );
 
+// Task #1100 — Coach marks a 'pay later' booking as paid.
+// Records a confirmed payments row (mirrors the credit-pack / drop-in
+// money-side plumbing) and flips booking_requests.payment_intent from
+// 'pay_later' → 'paid' so the "Awaiting payment" pill on the coach's
+// BookingRequestCard disappears. Idempotent on the booking request id —
+// re-posting returns the existing payment without inserting a duplicate.
+router.post(
+  "/api/coach/booking-requests/:id/mark-paid",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      const { id } = req.params;
+
+      if (!coachId || !academyId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
+      const methodSchema = z.object({
+        method: z.enum(["cash", "bank_transfer"]).optional(),
+      });
+      const parsed = methodSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res
+          .status(400)
+          .json({ error: fromZodError(parsed.error).message });
+      }
+      const method = parsed.data.method || "cash";
+
+      const request = await storage.getBookingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+      if (request.academyId !== academyId) {
+        return res
+          .status(403)
+          .json({ error: "Not authorized to access this request" });
+      }
+      if (request.coachId && request.coachId !== coachId) {
+        return res
+          .status(403)
+          .json({ error: "Not authorized to mark this request paid" });
+      }
+      if (request.paymentIntent !== "pay_later" && request.paymentIntent !== "paid") {
+        return res
+          .status(400)
+          .json({ error: "Only pay-later bookings can be marked paid" });
+      }
+
+      // Idempotency — if a payment row was already recorded for this
+      // booking request, return it without inserting a second one. Keeps
+      // the action safe to double-tap and against retried requests.
+      const existing = await db
+        .select()
+        .from(payments)
+        .where(
+          and(
+            eq(payments.academyId, academyId),
+            sql`${payments.metadata}->>'bookingRequestId' = ${id}`,
+          ),
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        // Make sure the request reflects the paid state even if a previous
+        // call recorded the payment but failed to flip the intent.
+        if (request.paymentIntent !== "paid") {
+          await storage.updateBookingRequest(id, { paymentIntent: "paid" });
+        }
+        invalidateHomeDataCache(coachId);
+        return res.json({
+          payment: existing[0],
+          request: { ...request, paymentIntent: "paid" },
+          alreadyRecorded: true,
+        });
+      }
+
+      // Drizzle's `timestamp` columns deserialize to `Date`, but the
+      // returned union also includes `string` in some configurations — so
+      // normalize defensively without resorting to an `any` cast.
+      const toDate = (v: Date | string | null | undefined): Date | null => {
+        if (!v) return null;
+        const d = v instanceof Date ? v : new Date(v);
+        return Number.isNaN(d.getTime()) ? null : d;
+      };
+      const startDate = toDate(request.requestedStart);
+      const endDate = toDate(request.requestedEnd);
+
+      // Compute the lesson amount — mirrors the player wizard rule:
+      // pricePerHour wins when set, else the flat pricePerSession. If the
+      // academy hasn't configured pricing for this session type we still
+      // record a zero-amount payment row so the pill clears (the coach can
+      // reconcile the actual cash amount externally).
+      let amount = 0;
+      let currency = "AED";
+      try {
+        const pricingRow = await storage.getAcademyPricingByType(
+          academyId,
+          request.sessionType,
+        );
+        if (pricingRow) {
+          currency = pricingRow.currency || "AED";
+          const perHour = pricingRow.pricePerHour
+            ? parseFloat(pricingRow.pricePerHour.toString())
+            : 0;
+          const flat = pricingRow.pricePerSession
+            ? parseFloat(pricingRow.pricePerSession.toString())
+            : 0;
+          const durationMinutes = startDate && endDate
+            ? Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000))
+            : 60;
+          if (perHour > 0) {
+            amount = Math.round(perHour * (durationMinutes / 60) * 100) / 100;
+          } else if (flat > 0) {
+            amount = Math.round(flat * 100) / 100;
+          }
+        }
+      } catch (priceErr) {
+        console.warn(
+          "[mark-paid] pricing lookup failed — recording zero amount:",
+          priceErr,
+        );
+      }
+
+      const paymentInput: InsertPayment = {
+        academyId,
+        playerId: request.playerId,
+        amount: String(amount),
+        currency,
+        status: "confirmed",
+        paymentMethod: method,
+        paymentDate: new Date(),
+        receivedBy: coachId,
+        confirmedBy: coachId,
+        confirmedAt: new Date(),
+        source: "coach_mark_paid",
+        recordedByUserId: req.user!.userId,
+        notes: `Pay-later lesson booking marked paid (request ${id})`,
+        metadata: {
+          bookingRequestId: id,
+          sessionId: request.sessionId || null,
+          sessionType: request.sessionType,
+          requestedStart: startDate ? startDate.toISOString() : null,
+          requestedEnd: endDate ? endDate.toISOString() : null,
+        },
+      };
+
+      // Hard idempotency — a partial unique index on
+      // payments(metadata->>'bookingRequestId') (migration 0031) means
+      // concurrent "Mark paid" taps cannot ever insert two rows for the
+      // same booking. If the insert trips the constraint we fall back to
+      // returning the row that won the race.
+      let payment;
+      try {
+        payment = await storage.createPayment(paymentInput);
+      } catch (insertErr: unknown) {
+        const errObj: { code?: unknown; message?: unknown } =
+          typeof insertErr === "object" && insertErr !== null ? (insertErr as Record<string, unknown>) : {};
+        const errCode = typeof errObj.code === "string" ? errObj.code : "";
+        const errMessage = typeof errObj.message === "string" ? errObj.message : "";
+        const isUniqueViolation =
+          errCode === "23505" ||
+          /payments_booking_request_id_unique|duplicate key/i.test(errMessage);
+        if (!isUniqueViolation) throw insertErr;
+        const raced = await db
+          .select()
+          .from(payments)
+          .where(
+            and(
+              eq(payments.academyId, academyId),
+              sql`${payments.metadata}->>'bookingRequestId' = ${id}`,
+            ),
+          )
+          .limit(1);
+        if (raced.length === 0) throw insertErr;
+        payment = raced[0];
+      }
+
+      const updated = await storage.updateBookingRequest(id, {
+        paymentIntent: "paid",
+      });
+
+      try {
+        await storage.createAuditLog({
+          academyId,
+          entityType: "booking_request",
+          entityId: id,
+          action: "mark_paid",
+          performedBy: coachId,
+          performedByRole: "coach",
+        });
+      } catch (auditErr) {
+        // non-fatal — money side already recorded
+        console.warn("[mark-paid] audit log failed:", auditErr);
+      }
+
+      invalidateHomeDataCache(coachId);
+
+      res.json({ payment, request: updated });
+    } catch (error) {
+      console.error("Mark booking paid error:", error);
+      res.status(500).json({ error: "Failed to mark booking as paid" });
+    }
+  },
+);
+
 // Player accepts or declines a counter-proposal
 router.post(
   "/api/player/booking-requests/:id/counter-response",

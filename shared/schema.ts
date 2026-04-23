@@ -3316,7 +3316,10 @@ export const bookingRequests = pgTable("booking_requests", {
   // / legacy behaviour), 'pay_later' (cash/bank transfer settled by coach
   // off-line). Card payments don't go through this table — they materialise
   // a session directly via the Stripe webhook.
-  paymentIntent: text("payment_intent"), // 'credits' | 'pay_later' | null
+  // Task #1100 — once the coach taps "Mark paid" on a pay_later booking we
+  // flip this column to 'paid' so the "Awaiting payment" pill clears (and a
+  // confirmed payments row is recorded as the money-side audit trail).
+  paymentIntent: text("payment_intent"), // 'credits' | 'pay_later' | 'paid' | null
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

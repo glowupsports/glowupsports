@@ -1165,7 +1165,7 @@ interface PendingBookingRequest {
   // Task #1093 — when the player picks "Pay later" in the booking wizard
   // we surface an "Awaiting payment" pill on this card so the coach knows
   // to collect cash / bank-transfer at attendance time.
-  paymentIntent?: "credits" | "pay_later" | null;
+  paymentIntent?: "credits" | "pay_later" | "paid" | null;
 }
 
 function BookingRequestCard({
@@ -1203,6 +1203,39 @@ function BookingRequestCard({
   const [loadingDecline, setLoadingDecline] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [loadingCounter, setLoadingCounter] = useState(false);
+  // Task #1100 — Mark paid action on pay-later bookings.
+  const queryClientLocal = useQueryClient();
+  const [loadingMarkPaid, setLoadingMarkPaid] = useState(false);
+  const [paidLocally, setPaidLocally] = useState(false);
+  const isPaid = paidLocally || req.paymentIntent === "paid";
+
+  const submitMarkPaid = async (method: "cash" | "bank_transfer") => {
+    setLoadingMarkPaid(true);
+    try {
+      await apiRequest("POST", `/api/coach/booking-requests/${req.id}/mark-paid`, { method });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setPaidLocally(true);
+      queryClientLocal.invalidateQueries({ queryKey: ["/api/coach/me/home-data"], refetchType: "all" });
+    } catch (err) {
+      console.error("Failed to mark booking paid:", err);
+      RNAlert.alert("Error", "Could not mark this booking as paid. Please try again.");
+    } finally {
+      setLoadingMarkPaid(false);
+    }
+  };
+
+  const handleMarkPaid = () => {
+    if (loadingMarkPaid || isPaid) return;
+    RNAlert.alert(
+      "Mark booking as paid?",
+      "Record the cash/bank-transfer payment for this lesson. You can do this once per booking.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Cash", onPress: () => submitMarkPaid("cash") },
+        { text: "Bank transfer", onPress: () => submitMarkPaid("bank_transfer") },
+      ],
+    );
+  };
 
   const start = new Date(req.requestedStart);
   const end = new Date(req.requestedEnd);
@@ -1379,26 +1412,59 @@ function BookingRequestCard({
           <Text style={bStyles.sessionTypeText}>{sessionTypeLabel}</Text>
         </View>
         {/* Task #1093 — surface "Awaiting payment" when the player picked
-            pay-later so the coach knows to collect cash on attendance. */}
-        {req.paymentIntent === "pay_later" ? (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              backgroundColor: (Colors.dark.orange || "#FF9800") + "22",
-              borderColor: (Colors.dark.orange || "#FF9800") + "55",
-              borderWidth: 1,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 999,
-            }}
-          >
-            <Ionicons name="cash-outline" size={11} color={Colors.dark.orange || "#FF9800"} />
-            <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.orange || "#FF9800" }}>
-              Awaiting payment
-            </Text>
-          </View>
+            pay-later so the coach knows to collect cash on attendance.
+            Task #1100 — the pill is now tappable: tapping it lets the coach
+            record the cash/bank payment, which flips the pill to "Paid". */}
+        {req.paymentIntent === "pay_later" || isPaid ? (
+          isPaid ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: (Colors.dark.success || "#4CAF50") + "22",
+                borderColor: (Colors.dark.success || "#4CAF50") + "55",
+                borderWidth: 1,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={11} color={Colors.dark.success || "#4CAF50"} />
+              <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.success || "#4CAF50" }}>
+                Paid
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={handleMarkPaid}
+              disabled={loadingMarkPaid}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: (Colors.dark.orange || "#FF9800") + (pressed ? "44" : "22"),
+                borderColor: (Colors.dark.orange || "#FF9800") + "55",
+                borderWidth: 1,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+                opacity: loadingMarkPaid ? 0.6 : 1,
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="Mark booking as paid"
+            >
+              <Ionicons
+                name={loadingMarkPaid ? "hourglass-outline" : "cash-outline"}
+                size={11}
+                color={Colors.dark.orange || "#FF9800"}
+              />
+              <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.orange || "#FF9800" }}>
+                {loadingMarkPaid ? "Saving…" : "Mark paid"}
+              </Text>
+            </Pressable>
+          )
         ) : null}
         <Text style={bStyles.sessionDateTime}>{dateStr}</Text>
         <Text style={bStyles.sessionTime}>{timeStr}</Text>
