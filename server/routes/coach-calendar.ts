@@ -918,6 +918,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               id: academyData.id,
               name: academyData.name,
               timezone: academyData.timezone || null,
+              // Task #1095 — drives the booking wizard's "Coming soon" teaser
+              // for online card payments. Flipped true per-academy by Task #1093.
+              onlineCardEnabled: academyData.onlineCardEnabled ?? false,
             };
           }
         }

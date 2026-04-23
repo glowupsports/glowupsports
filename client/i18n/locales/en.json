@@ -107,6 +107,17 @@
     "logIn": "Log In",
     "signUp": "Sign Up"
   },
+  "comingSoon": {
+    "label": "Coming soon",
+    "notifyMe": "Notify me",
+    "savingNotify": "Saving…",
+    "onlineCard": {
+      "title": "Pay online with card",
+      "subtitle": "Credit / debit card",
+      "bannerText": "Online card payments coming soon.",
+      "toast": "We'll let you know — thanks!"
+    }
+  },
   "auth": {
     "welcome": "Welcome to Glow Up Sports",
     "loginTitle": "Sign In",

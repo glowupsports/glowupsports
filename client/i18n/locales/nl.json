@@ -107,6 +107,17 @@
     "logIn": "Log In",
     "signUp": "Sign Up"
   },
+  "comingSoon": {
+    "label": "Binnenkort",
+    "notifyMe": "Houd me op de hoogte",
+    "savingNotify": "Bezig met opslaan…",
+    "onlineCard": {
+      "title": "Online betalen met kaart",
+      "subtitle": "Creditcard / pinpas",
+      "bannerText": "Online kaartbetalingen komen eraan.",
+      "toast": "Bedankt — we laten het je weten!"
+    }
+  },
   "auth": {
     "welcome": "Welcome to Glow Up Sports",
     "loginTitle": "Sign In",

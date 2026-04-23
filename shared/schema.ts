@@ -250,6 +250,10 @@ export const academies = pgTable("academies", {
   paymentInstructions: text("payment_instructions"),
   acceptsCash: boolean("accepts_cash").default(true),
   acceptsBankTransfer: boolean("accepts_bank_transfer").default(true),
+  // Task #1095 — flag flipped to true by Task #1093 once online card payments
+  // are wired up for an academy. Default false so the booking wizard shows the
+  // "Coming soon" teaser everywhere until then.
+  onlineCardEnabled: boolean("online_card_enabled").default(false),
   
   // Multi-sport support: list of sports this academy offers (e.g., ["tennis", "padel"])
   sports: jsonb("sports").$type<string[]>().default(["tennis"]),
@@ -7779,3 +7783,20 @@ export const leaderboardSnapshots = pgTable("leaderboard_snapshots", {
 ]);
 
 export type LeaderboardSnapshot = typeof leaderboardSnapshots.$inferSelect;
+
+// ==================== FEATURE INTEREST (Task #1095) ====================
+// Soft demand signal table — players tap "Notify me" on a "Coming soon" feature
+// and we record one row per (player, feature). Used today only for an aggregate
+// count tile on the platform-owner dashboard; later (Task #1093) we'll email
+// these players when the feature ships.
+export const featureInterest = pgTable("feature_interest", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  featureKey: text("feature_key").notNull(), // e.g. "online_card_payments"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("feature_interest_player_feature_unique").on(table.playerId, table.featureKey),
+]);
+
+export type FeatureInterest = typeof featureInterest.$inferSelect;
+

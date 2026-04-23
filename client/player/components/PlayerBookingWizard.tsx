@@ -44,6 +44,7 @@ import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } fr
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
+import { ComingSoonPaymentRow } from "@/components/ComingSoonPaymentRow";
 import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { CourtBookingPicker } from "./CourtBookingPicker";
@@ -237,6 +238,24 @@ export default function PlayerBookingWizard({
 
   // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
+
+  // Confirm slide — minimal payment-method picker (Task #1095). The third
+  // option ("Pay online with card") is shown as a disabled "Coming soon" row
+  // until Task #1093 wires up Stripe and flips the academy's onlineCardEnabled
+  // flag, at which point the disabled row is replaced by a real selectable
+  // option without any other refactor here.
+  const [paymentMethod, setPaymentMethod] = useState<"credits" | "pay_later">(
+    "credits",
+  );
+
+  // Pull the academy's onlineCardEnabled flag from /api/player/me. When true,
+  // hide the "Coming soon" teaser entirely (Task #1093 will replace it with a
+  // real card option). Defaults to false everywhere today.
+  const { data: meData } = useQuery<{ academy?: { onlineCardEnabled?: boolean } | null }>({
+    queryKey: ["/api/player/me"],
+    staleTime: 5 * 60_000,
+  });
+  const onlineCardEnabled = meData?.academy?.onlineCardEnabled ?? false;
 
   // Slide 1: Browse Mode (by time or by coach)
   const [browseMode, setBrowseMode] = useState<BrowseMode>("by_time");
@@ -2109,6 +2128,65 @@ export default function PlayerBookingWizard({
               </LinearGradient>
             </View>
 
+            {/* Payment method picker (Task #1095) — minimal block. The third
+                "Pay online with card" row is a disabled teaser until Task #1093
+                ships. The first two rows are visual today; the wizard's
+                existing booking flow continues to use credits/pay-later. */}
+            <View style={styles.paymentBlock}>
+              <Text style={styles.paymentBlockTitle}>Payment method</Text>
+              <Pressable
+                style={[
+                  styles.paymentMethodRow,
+                  paymentMethod === "credits" && styles.paymentMethodRowActive,
+                ]}
+                onPress={() => setPaymentMethod("credits")}
+              >
+                <View
+                  style={[
+                    styles.paymentRadio,
+                    paymentMethod === "credits" && styles.paymentRadioActive,
+                  ]}
+                >
+                  {paymentMethod === "credits" ? (
+                    <View style={styles.paymentRadioDot} />
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentMethodTitle}>Pay with credits</Text>
+                  <Text style={styles.paymentMethodSubtitle}>
+                    Use your existing lesson credits
+                  </Text>
+                </View>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.paymentMethodRow,
+                  paymentMethod === "pay_later" && styles.paymentMethodRowActive,
+                ]}
+                onPress={() => setPaymentMethod("pay_later")}
+              >
+                <View
+                  style={[
+                    styles.paymentRadio,
+                    paymentMethod === "pay_later" && styles.paymentRadioActive,
+                  ]}
+                >
+                  {paymentMethod === "pay_later" ? (
+                    <View style={styles.paymentRadioDot} />
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentMethodTitle}>Pay later</Text>
+                  <Text style={styles.paymentMethodSubtitle}>
+                    Cash or bank transfer at the academy
+                  </Text>
+                </View>
+              </Pressable>
+              {!onlineCardEnabled ? (
+                <ComingSoonPaymentRow featureKey="online_card_payments" />
+              ) : null}
+            </View>
+
             {/* XP Preview */}
             <View style={styles.rewardPreview}>
               <View style={styles.rewardItem}>
@@ -3132,6 +3210,58 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.primary,
     textDecorationLine: "underline",
+  },
+  paymentBlock: {
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  paymentBlockTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  paymentMethodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  paymentMethodRowActive: {
+    borderColor: Colors.dark.primary,
+  },
+  paymentRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.dark.textMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentRadioActive: {
+    borderColor: Colors.dark.primary,
+  },
+  paymentRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.dark.primary,
+  },
+  paymentMethodTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  paymentMethodSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   rewardPreview: {
     flexDirection: "row",

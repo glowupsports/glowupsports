@@ -34,6 +34,7 @@ import {
 } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
+import { ComingSoonPaymentRow } from "@/components/ComingSoonPaymentRow";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { appendImageToFormData } from "@/lib/uploads";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
@@ -247,6 +248,12 @@ export function PaymentsTab({
 
   return (
     <View style={{ paddingHorizontal: Spacing.lg, paddingTop: Spacing.md }}>
+      {/* Task #1095 — coming-soon teaser for online card payments. Hides itself
+          once the player taps Notify-me on any surface. */}
+      <ComingSoonPaymentRow
+        featureKey="online_card_payments"
+        variant="banner"
+      />
       <View style={paymentStyles.summaryRow}>
         <View style={paymentStyles.summaryCard}>
           <Text style={paymentStyles.summaryLabel}>Paid</Text>

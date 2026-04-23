@@ -486,6 +486,40 @@ function ActivityDay({ day, intensity }: ActivityDayProps) {
   );
 }
 
+// Task #1095 — read-only tile that surfaces aggregate "Notify me" interest
+// counts to the platform owner. Today we only track one feature key
+// ("online_card_payments"); when more coming-soon teasers are added the tile
+// can grow into a list.
+function FeatureInterestTile() {
+  const { data } = useQuery<{ counts: Record<string, number> }>({
+    queryKey: ["/api/platform/feature-interest/counts"],
+    staleTime: 60_000,
+  });
+  const onlineCardCount = data?.counts?.online_card_payments ?? 0;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Coming-soon interest</Text>
+      <View style={styles.featureInterestCard}>
+        <View style={[styles.featureInterestIcon, { backgroundColor: `${PLATFORM_PURPLE}15` }]}>
+          <Ionicons name="card" size={22} color={PLATFORM_PURPLE} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.featureInterestLabel}>
+            Online payments
+          </Text>
+          <Text style={styles.featureInterestSub}>
+            {onlineCardCount === 1
+              ? "1 player waiting"
+              : `${onlineCardCount} players waiting`}
+          </Text>
+        </View>
+        <Text style={styles.featureInterestValue}>{onlineCardCount}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function CommandCenterScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
@@ -709,6 +743,10 @@ export default function CommandCenterScreen() {
           />
         
 
+        {/* Task #1095 — coming-soon interest tile. Counts players who tapped
+            "Notify me" on the online-card-payments teaser. Read-only. */}
+        <FeatureInterestTile />
+
         <View style={styles.kpiRow}>
           <View style={styles.kpiItem}>
             <AnimatedKpiCard
@@ -931,6 +969,36 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: PLATFORM_PURPLE,
     fontWeight: "600",
+  },
+  featureInterestCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+  },
+  featureInterestIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featureInterestLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  featureInterestSub: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  featureInterestValue: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: PLATFORM_PURPLE,
   },
   activityCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
