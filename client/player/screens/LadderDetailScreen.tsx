@@ -77,6 +77,10 @@ interface LadderDetailData {
     challengeWindowDays: number;
     rules: string[];
     status: string;
+    // Task #1039 — Cross-Country Ladders.
+    scope?: "academy" | "country";
+    countryCode?: string | null;
+    sport?: string | null;
   };
   players: LadderPlayer[];
   myChallenges: Challenge[];
@@ -282,7 +286,12 @@ export default function LadderDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {ladder.name}
           </Text>
-          <Text style={styles.headerSubtitle}>{data.playerCount} players</Text>
+          <Text style={styles.headerSubtitle}>
+            {data.playerCount} players
+            {ladder.scope === "country" && ladder.countryCode
+              ? ` · ${ladder.countryCode}${ladder.sport ? ` · ${ladder.sport[0].toUpperCase()}${ladder.sport.slice(1)}` : ""}`
+              : ""}
+          </Text>
         </View>
         <Pressable style={styles.rulesButton} onPress={() => setShowRules(!showRules)}>
           <Ionicons name="help-circle-outline" size={24} color={TextColors.secondary} />

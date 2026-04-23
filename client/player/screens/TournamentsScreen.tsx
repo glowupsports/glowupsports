@@ -106,6 +106,10 @@ interface Ladder {
   isJoined: boolean;
   challengeWindow: string;
   lastActivity: string;
+  // Task #1039 — Cross-Country Ladders.
+  scope?: "academy" | "country";
+  countryCode?: string | null;
+  sport?: string | null;
 }
 
 function getLevelLabel(level: number): string {
@@ -427,8 +431,17 @@ function LadderCard({
           </View>
           <View style={styles.ladderInfo}>
             <Text style={styles.ladderName} numberOfLines={1}>{ladder.name}</Text>
-            <View style={styles.ladderTypeBadge}>
-              <Text style={styles.ladderTypeBadgeText}>{getTypeLabel(ladder.type)}</Text>
+            <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+              <View style={styles.ladderTypeBadge}>
+                <Text style={styles.ladderTypeBadgeText}>{getTypeLabel(ladder.type)}</Text>
+              </View>
+              {ladder.scope === "country" ? (
+                <View style={[styles.ladderTypeBadge, { backgroundColor: "rgba(108, 164, 255, 0.18)" }]}>
+                  <Text style={[styles.ladderTypeBadgeText, { color: "#6CA4FF" }]}>
+                    {`${ladder.countryCode || ""}${ladder.sport ? ` · ${ladder.sport[0].toUpperCase()}${ladder.sport.slice(1)}` : ""}`}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -950,19 +963,76 @@ export default function TournamentsScreen() {
             )}
           </View>
         );
-      case "ladders":
+      case "ladders": {
+        // Task #1039 — Cross-Country Ladders. Render two distinct rails:
+        // the academy ladder section and the country ladder section, so the
+        // two pools are visually separate even when the player belongs to both.
+        const academyOnly = ladders.filter((l) => l.scope !== "country");
+        const countryOnly = ladders.filter((l) => l.scope === "country");
+        type Row =
+          | { kind: "section"; key: string; title: string; subtitle?: string }
+          | { kind: "ladder"; ladder: Ladder }
+          | { kind: "empty"; key: string; message: string };
+        const rows: Row[] = [];
+        rows.push({
+          kind: "section",
+          key: "sec-academy",
+          title: "Academy ladder",
+          subtitle: "Climb against players from your academy.",
+        });
+        if (academyOnly.length === 0) {
+          rows.push({ kind: "empty", key: "empty-academy", message: "No academy ladders yet." });
+        } else {
+          for (const l of academyOnly) rows.push({ kind: "ladder", ladder: l });
+        }
+        rows.push({
+          kind: "section",
+          key: "sec-country",
+          title: "Country ladder",
+          subtitle: "Open to every active player in your country.",
+        });
+        if (countryOnly.length === 0) {
+          rows.push({
+            kind: "empty",
+            key: "empty-country",
+            message: "Your country ladder unlocks once 20 active players in your country are signed up.",
+          });
+        } else {
+          for (const l of countryOnly) rows.push({ kind: "ladder", ladder: l });
+        }
         return (
           <FlatList
-            data={ladders}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <LadderCard
-                ladder={item}
-                onPress={() => handleLadderPress(item.id)}
-                onJoin={handleJoinLadder}
-                isJoining={joiningId === item.id}
-              />
-            )}
+            data={rows}
+            keyExtractor={(item) => (item.kind === "ladder" ? item.ladder.id : item.key)}
+            renderItem={({ item }) => {
+              if (item.kind === "section") {
+                return (
+                  <View style={{ marginTop: 18, marginBottom: 8, paddingHorizontal: 4 }}>
+                    <Text style={{ color: Colors.dark.accentText, fontSize: 13, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                      {item.title}
+                    </Text>
+                    {item.subtitle ? (
+                      <Text style={{ color: TextColors.muted, fontSize: 12, marginTop: 2 }}>{item.subtitle}</Text>
+                    ) : null}
+                  </View>
+                );
+              }
+              if (item.kind === "empty") {
+                return (
+                  <View style={{ paddingVertical: 12, paddingHorizontal: 4 }}>
+                    <Text style={{ color: TextColors.muted, fontSize: 13 }}>{item.message}</Text>
+                  </View>
+                );
+              }
+              return (
+                <LadderCard
+                  ladder={item.ladder}
+                  onPress={() => handleLadderPress(item.ladder.id)}
+                  onJoin={handleJoinLadder}
+                  isJoining={joiningId === item.ladder.id}
+                />
+              );
+            }}
             contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
@@ -972,11 +1042,9 @@ export default function TournamentsScreen() {
                 tintColor={Colors.dark.accentText}
               />
             }
-            ListEmptyComponent={
-              <EmptyState icon="podium-outline" title={t("player.tournaments.noTournaments")} />
-            }
           />
         );
+      }
     }
   };
 

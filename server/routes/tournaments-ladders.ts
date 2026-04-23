@@ -595,18 +595,264 @@ router.post("/api/tournaments/:tournamentId/match-prep", authMiddleware, async (
 
 // ==================== PLAYER LADDER ENDPOINTS ====================
 
+// Task #1039 — Cross-Country Ladders.
+// Auto-create a country ladder per (sport, country) once enough active players
+// exist in that country. The threshold is intentionally a constant for v1; we
+// can move it to academies/platform settings later if needed.
+const COUNTRY_LADDER_MIN_PLAYERS = 20;
+const SUPPORTED_LADDER_SPORTS = ["tennis", "padel", "pickleball"] as const;
+
+const COUNTRY_NAMES: Record<string, string> = {
+  AE: "United Arab Emirates",
+  US: "United States",
+  GB: "United Kingdom",
+  NL: "Netherlands",
+};
+
+function countryDisplayName(code: string): string {
+  const cc = code.toUpperCase();
+  return COUNTRY_NAMES[cc] || cc;
+}
+
+function sportLabel(sport: string): string {
+  return sport.charAt(0).toUpperCase() + sport.slice(1);
+}
+
+// Resolve a player's country to a 2-letter ISO code: prefer the player's own
+// country field, fall back to their academy. Mirrors the helper used by the
+// cross-academy chat rooms (server/routes/chat-rooms.ts) so both surfaces stay
+// in sync.
+async function resolvePlayerCountryCode(playerId: string): Promise<string | null> {
+  const rows = await db
+    .select({ country: players.country, academyId: players.academyId, sportProfiles: players.sportProfiles })
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  if (row.country) return row.country.trim().slice(0, 2).toUpperCase();
+  if (row.academyId) {
+    const acad = await db
+      .select({ country: academies.country })
+      .from(academies)
+      .where(eq(academies.id, row.academyId))
+      .limit(1);
+    if (acad[0]?.country) return acad[0].country.trim().slice(0, 2).toUpperCase();
+  }
+  return null;
+}
+
+// Resolve which sports a player participates in. Falls back to the player's
+// academy `sports` setting, then "tennis" so existing single-sport academies
+// keep their previous behavior.
+async function resolvePlayerSports(playerId: string): Promise<string[]> {
+  const [row] = await db
+    .select({ sportProfiles: players.sportProfiles, academyId: players.academyId })
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+  if (row?.sportProfiles && typeof row.sportProfiles === "object") {
+    const keys = Object.keys(row.sportProfiles).filter((k) =>
+      (SUPPORTED_LADDER_SPORTS as readonly string[]).includes(k),
+    );
+    if (keys.length > 0) return keys;
+  }
+  if (row?.academyId) {
+    const [acad] = await db
+      .select({ sports: academies.sports })
+      .from(academies)
+      .where(eq(academies.id, row.academyId))
+      .limit(1);
+    if (acad?.sports && Array.isArray(acad.sports) && acad.sports.length > 0) {
+      const filtered = acad.sports.filter((s) =>
+        (SUPPORTED_LADDER_SPORTS as readonly string[]).includes(s),
+      );
+      if (filtered.length > 0) return filtered;
+    }
+  }
+  return ["tennis"];
+}
+
+// Count active players in a (country, sport) pool. Used by the country-ladder
+// threshold check. We resolve a player's country the same way as
+// resolvePlayerCountryCode (own country first, academy fallback), and count
+// any player whose sport_profiles object contains the sport key (or, for
+// tennis, players with no sport_profiles at all so legacy data still counts).
+async function countActiveCountryPlayers(countryCode: string, sport: string): Promise<number> {
+  const cc = countryCode.toUpperCase();
+  // No table aliases here so `${players.sportProfiles}` (which renders to
+  // `players.sport_profiles`) stays valid.
+  const sportClause =
+    sport === "tennis"
+      ? sql`(players.sport_profiles ? ${sport} OR players.sport_profiles IS NULL)`
+      : sql`players.sport_profiles ? ${sport}`;
+  const result = await db.execute(sql`
+    SELECT COUNT(DISTINCT players.id)::int AS count
+    FROM ${players}
+    LEFT JOIN ${academies} ON academies.id = players.academy_id
+    WHERE players.status = 'active'
+      AND UPPER(SUBSTRING(COALESCE(NULLIF(players.country, ''), academies.country, '') FROM 1 FOR 2)) = ${cc}
+      AND ${sportClause}
+  `);
+  const first = result.rows[0] as { count?: number } | undefined;
+  return Number(first?.count ?? 0);
+}
+
+// Find or create the canonical country ladder for a (sport, country). Returns
+// null if `force` is false and the player threshold is not met yet.
+async function ensureCountryLadder(
+  sport: string,
+  countryCode: string,
+  opts: { force?: boolean } = {},
+): Promise<typeof ladders.$inferSelect | null> {
+  const cc = countryCode.toUpperCase();
+  const [existing] = await db
+    .select()
+    .from(ladders)
+    .where(and(eq(ladders.scope, "country"), eq(ladders.countryCode, cc), eq(ladders.sport, sport)))
+    .limit(1);
+  if (existing) return existing;
+
+  if (!opts.force) {
+    const count = await countActiveCountryPlayers(cc, sport);
+    if (count < COUNTRY_LADDER_MIN_PLAYERS) return null;
+  }
+
+  const name = `${countryDisplayName(cc)} ${sportLabel(sport)} Ladder`;
+  try {
+    const [created] = await db
+      .insert(ladders)
+      .values({
+        scope: "country",
+        countryCode: cc,
+        sport,
+        name,
+        type: "singles",
+        description: `Open ladder for ${sportLabel(sport)} players in ${countryDisplayName(cc)}.`,
+        challengeRange: 5, // task: ±5 ranks
+        challengeWindowDays: 7,
+        rules: [
+          `Open to every active ${sportLabel(sport)} player in ${countryDisplayName(cc)}.`,
+          "Challenge anyone within 5 ranks above you.",
+          "Win and you swap positions; lose and the ladder stays the same.",
+          "Each challenge must be completed within 7 days.",
+        ],
+        status: "active",
+      } as typeof ladders.$inferInsert)
+      .onConflictDoNothing()
+      .returning();
+    if (created) return created;
+  } catch (err) {
+    console.error("[CountryLadder] insert failed:", err);
+  }
+  // Race: another request just created it; re-read.
+  const [reread] = await db
+    .select()
+    .from(ladders)
+    .where(and(eq(ladders.scope, "country"), eq(ladders.countryCode, cc), eq(ladders.sport, sport)))
+    .limit(1);
+  return reread || null;
+}
+
+// Returns the rank a player currently holds in the country ladder for a given
+// sport, or null if no such ladder exists or they have not joined.
+async function getPlayerCountryLadderRank(
+  playerId: string,
+  sport: string,
+): Promise<{ countryCode: string; sport: string; position: number; ladderId: string; playerCount: number } | null> {
+  const cc = await resolvePlayerCountryCode(playerId);
+  if (!cc) return null;
+  const [ladder] = await db
+    .select()
+    .from(ladders)
+    .where(and(eq(ladders.scope, "country"), eq(ladders.countryCode, cc), eq(ladders.sport, sport)))
+    .limit(1);
+  if (!ladder) return null;
+  const [entry] = await db
+    .select({ position: ladderPlayers.position })
+    .from(ladderPlayers)
+    .where(and(eq(ladderPlayers.ladderId, ladder.id), eq(ladderPlayers.playerId, playerId)))
+    .limit(1);
+  if (!entry) return null;
+  const [{ count } = { count: 0 }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(ladderPlayers)
+    .where(eq(ladderPlayers.ladderId, ladder.id));
+  return {
+    ladderId: ladder.id,
+    countryCode: cc,
+    sport,
+    position: entry.position,
+    playerCount: Number(count) || 0,
+  };
+}
+
+router.get("/api/player/ladders/country-rank", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user!.playerId;
+    if (!playerId) return res.status(400).json({ error: "Player context required" });
+    const sports = await resolvePlayerSports(playerId);
+    const ranks = [] as Array<NonNullable<Awaited<ReturnType<typeof getPlayerCountryLadderRank>>>>;
+    for (const sport of sports) {
+      const rank = await getPlayerCountryLadderRank(playerId, sport);
+      if (rank) ranks.push(rank);
+    }
+    res.json({ ranks });
+  } catch (error) {
+    console.error("Error fetching country ladder rank:", error);
+    res.status(500).json({ error: "Failed to fetch country ladder rank" });
+  }
+});
+
+// Re-export for use by other modules (e.g. the player profile route).
+export { getPlayerCountryLadderRank, resolvePlayerSports };
+
 router.get("/api/player/ladders", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const academyId = req.user!.academyId;
     const playerId = req.user!.playerId;
 
-    if (!academyId) {
-      return res.status(400).json({ error: "Academy context required" });
+    // Academy ladders are still scoped to the player's academy. Country ladders
+    // (Task #1039) are surfaced even for players with no academy as long as we
+    // can resolve a country for them.
+    const academyLadders = academyId
+      ? await db.select().from(ladders)
+          .where(and(eq(ladders.academyId, academyId), eq(ladders.scope, "academy")))
+          .orderBy(desc(ladders.createdAt))
+      : [];
+
+    // Resolve / lazily create country ladders the player is eligible for.
+    const countryLaddersOut: (typeof ladders.$inferSelect)[] = [];
+    if (playerId) {
+      const countryCode = await resolvePlayerCountryCode(playerId);
+      if (countryCode) {
+        const sports = await resolvePlayerSports(playerId);
+        for (const sport of sports) {
+          const ladder = await ensureCountryLadder(sport, countryCode);
+          if (ladder) countryLaddersOut.push(ladder);
+        }
+        // Also include any country ladders the player has already joined for
+        // sports outside their current profile (so they don't disappear).
+        const joined = await db
+          .select({ ladder: ladders })
+          .from(ladderPlayers)
+          .innerJoin(ladders, eq(ladderPlayers.ladderId, ladders.id))
+          .where(
+            and(
+              eq(ladderPlayers.playerId, playerId),
+              eq(ladders.scope, "country"),
+              eq(ladders.countryCode, countryCode),
+            ),
+          );
+        for (const row of joined) {
+          if (!countryLaddersOut.some((l) => l.id === row.ladder.id)) {
+            countryLaddersOut.push(row.ladder);
+          }
+        }
+      }
     }
 
-    const allLadders = await db.select().from(ladders)
-      .where(eq(ladders.academyId, academyId))
-      .orderBy(desc(ladders.createdAt));
+    const allLadders = [...academyLadders, ...countryLaddersOut];
 
     const ladderIds = allLadders.map(l => l.id);
 
@@ -720,6 +966,16 @@ router.post("/api/player/ladders/:id/join", authMiddleware, async (req: AuthRequ
       return res.status(400).json({ error: "Ladder is not active" });
     }
 
+    // Task #1039 — Cross-Country Ladders: country ladders are open to any
+    // active player whose resolved country matches. Block players from joining
+    // the wrong country's ladder so the pool stays meaningful.
+    if (ladder.scope === "country") {
+      const myCountry = await resolvePlayerCountryCode(playerId);
+      if (!myCountry || !ladder.countryCode || myCountry !== ladder.countryCode) {
+        return res.status(403).json({ error: "This country ladder is not open to your country" });
+      }
+    }
+
     const [existing] = await db.select().from(ladderPlayers)
       .where(and(
         eq(ladderPlayers.ladderId, id),
@@ -787,13 +1043,27 @@ router.post("/api/player/ladders/:id/challenge", authMiddleware, async (req: Aut
       return res.status(400).json({ error: "Challenged player is not in this ladder" });
     }
 
-    if (challengedEntry.position >= challengerEntry.position) {
-      return res.status(400).json({ error: "You can only challenge players ranked higher than you" });
-    }
-
-    const positionDiff = challengerEntry.position - challengedEntry.position;
-    if (positionDiff > ladder.challengeRange) {
-      return res.status(400).json({ error: `You can only challenge players within ${ladder.challengeRange} positions above you` });
+    // Country ladders use ±N rank distance (Task #1039 — "challenge anyone
+    // within ±5 ranks"). Academy ladders keep their existing "higher only"
+    // semantics so legacy behavior is unchanged.
+    if (ladder.scope === "country") {
+      if (challengedEntry.position === challengerEntry.position) {
+        return res.status(400).json({ error: "You cannot challenge yourself" });
+      }
+      const positionDiff = Math.abs(challengerEntry.position - challengedEntry.position);
+      if (positionDiff > ladder.challengeRange) {
+        return res
+          .status(400)
+          .json({ error: `You can only challenge players within ${ladder.challengeRange} ranks of you` });
+      }
+    } else {
+      if (challengedEntry.position >= challengerEntry.position) {
+        return res.status(400).json({ error: "You can only challenge players ranked higher than you" });
+      }
+      const positionDiff = challengerEntry.position - challengedEntry.position;
+      if (positionDiff > ladder.challengeRange) {
+        return res.status(400).json({ error: `You can only challenge players within ${ladder.challengeRange} positions above you` });
+      }
     }
 
     const [existingChallenge] = await db.select().from(ladderChallenges)
@@ -909,24 +1179,44 @@ router.post("/api/player/ladders/challenges/:id/result", authMiddleware, async (
       })
       .where(eq(ladderChallenges.id, id));
 
-    if (winnerId === challenge.challengerId) {
-      const challengerPos = challenge.challengerPosition;
-      const challengedPos = challenge.challengedPosition;
-
-      await db.update(ladderPlayers)
-        .set({ position: sql`position + 1` })
-        .where(and(
-          eq(ladderPlayers.ladderId, challenge.ladderId),
-          gte(ladderPlayers.position, challengedPos),
-          lte(ladderPlayers.position, challengerPos - 1),
-        ));
-
-      await db.update(ladderPlayers)
-        .set({ position: challengedPos })
-        .where(and(
-          eq(ladderPlayers.ladderId, challenge.ladderId),
-          eq(ladderPlayers.playerId, challenge.challengerId),
-        ));
+    // Generalized swap: only swap positions when the winner currently sits
+    // BELOW the loser on the ladder (higher position number). Re-read live
+    // positions because a country ladder allows the challenger to be either
+    // higher or lower than the challenged player (Task #1039 — ±5 ranks).
+    {
+      const livePositions = await db
+        .select({ playerId: ladderPlayers.playerId, position: ladderPlayers.position })
+        .from(ladderPlayers)
+        .where(
+          and(
+            eq(ladderPlayers.ladderId, challenge.ladderId),
+            inArray(ladderPlayers.playerId, [challenge.challengerId, challenge.challengedId]),
+          ),
+        );
+      const winnerLive = livePositions.find((p) => p.playerId === winnerId);
+      const loserId0 = winnerId === challenge.challengerId ? challenge.challengedId : challenge.challengerId;
+      const loserLive = livePositions.find((p) => p.playerId === loserId0);
+      if (winnerLive && loserLive && winnerLive.position > loserLive.position) {
+        await db
+          .update(ladderPlayers)
+          .set({ position: sql`position + 1` })
+          .where(
+            and(
+              eq(ladderPlayers.ladderId, challenge.ladderId),
+              gte(ladderPlayers.position, loserLive.position),
+              lte(ladderPlayers.position, winnerLive.position - 1),
+            ),
+          );
+        await db
+          .update(ladderPlayers)
+          .set({ position: loserLive.position })
+          .where(
+            and(
+              eq(ladderPlayers.ladderId, challenge.ladderId),
+              eq(ladderPlayers.playerId, winnerId),
+            ),
+          );
+      }
     }
 
     await db.update(ladderPlayers)
@@ -943,6 +1233,109 @@ router.post("/api/player/ladders/challenges/:id/result", authMiddleware, async (
         eq(ladderPlayers.ladderId, challenge.ladderId),
         eq(ladderPlayers.playerId, loserId),
       ));
+
+    // Task #1039 — Cross-Country Ladders.
+    // Propagate the result ONLY to other active ladders that represent the
+    // same sport context as the source ladder. Both ladders must resolve to a
+    // concrete, equal sport — otherwise we skip (conservative: a tennis
+    // result must never touch a padel/pickleball ladder).
+    //
+    // Resolution: a ladder's sport is its `sport` column when set; for legacy
+    // academy ladders with a null sport we fall back to the academy's
+    // configured sports — but only when the academy advertises a single
+    // sport, so the mapping is unambiguous. Otherwise we treat it as
+    // unresolved and refuse to propagate.
+    const resolveLadderSport = async (l: { sport: string | null; scope: string; academyId: string | null }): Promise<string | null> => {
+      if (l.sport) return l.sport;
+      if (l.scope === "academy" && l.academyId) {
+        const [acad] = await db
+          .select({ sports: academies.sports })
+          .from(academies)
+          .where(eq(academies.id, l.academyId))
+          .limit(1);
+        if (acad?.sports && Array.isArray(acad.sports)) {
+          const supported = acad.sports.filter((s) => (SUPPORTED_LADDER_SPORTS as readonly string[]).includes(s));
+          if (supported.length === 1) return supported[0];
+        }
+      }
+      return null;
+    };
+
+    const [sourceLadder] = await db
+      .select({ sport: ladders.sport, scope: ladders.scope, academyId: ladders.academyId })
+      .from(ladders)
+      .where(eq(ladders.id, challenge.ladderId))
+      .limit(1);
+    const sourceSport = sourceLadder ? await resolveLadderSport(sourceLadder) : null;
+
+    if (!sourceSport) {
+      // Cannot safely propagate without a confirmed sport context.
+      return res.json({ success: true, message: "Result recorded" });
+    }
+
+    const sharedLadders = await db
+      .select({ id: ladders.id, sport: ladders.sport, scope: ladders.scope, academyId: ladders.academyId })
+      .from(ladders)
+      .innerJoin(ladderPlayers, eq(ladderPlayers.ladderId, ladders.id))
+      .where(
+        and(
+          eq(ladders.status, "active"),
+          eq(ladderPlayers.playerId, winnerId),
+        ),
+      );
+    for (const candidate of sharedLadders) {
+      const otherLadderId = candidate.id;
+      if (otherLadderId === challenge.ladderId) continue;
+      const otherSport = await resolveLadderSport(candidate);
+      // Strict same-sport pairing only; never cross sports.
+      if (!otherSport || otherSport !== sourceSport) continue;
+      const positions = await db
+        .select({ playerId: ladderPlayers.playerId, position: ladderPlayers.position })
+        .from(ladderPlayers)
+        .where(
+          and(
+            eq(ladderPlayers.ladderId, otherLadderId),
+            inArray(ladderPlayers.playerId, [winnerId, loserId]),
+          ),
+        );
+      if (positions.length < 2) continue; // loser isn't in this ladder
+
+      const winnerEntry = positions.find((p) => p.playerId === winnerId)!;
+      const loserEntry = positions.find((p) => p.playerId === loserId)!;
+
+      if (winnerEntry.position > loserEntry.position) {
+        // Winner is currently ranked below loser; swap positions, shifting
+        // everyone in between down one slot.
+        await db
+          .update(ladderPlayers)
+          .set({ position: sql`position + 1` })
+          .where(
+            and(
+              eq(ladderPlayers.ladderId, otherLadderId),
+              gte(ladderPlayers.position, loserEntry.position),
+              lte(ladderPlayers.position, winnerEntry.position - 1),
+            ),
+          );
+        await db
+          .update(ladderPlayers)
+          .set({ position: loserEntry.position })
+          .where(
+            and(
+              eq(ladderPlayers.ladderId, otherLadderId),
+              eq(ladderPlayers.playerId, winnerId),
+            ),
+          );
+      }
+
+      await db
+        .update(ladderPlayers)
+        .set({ wins: sql`wins + 1` })
+        .where(and(eq(ladderPlayers.ladderId, otherLadderId), eq(ladderPlayers.playerId, winnerId)));
+      await db
+        .update(ladderPlayers)
+        .set({ losses: sql`losses + 1` })
+        .where(and(eq(ladderPlayers.ladderId, otherLadderId), eq(ladderPlayers.playerId, loserId)));
+    }
 
     res.json({ success: true, message: "Result recorded" });
   } catch (error) {

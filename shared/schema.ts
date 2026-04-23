@@ -6690,7 +6690,16 @@ export type TournamentMatch = typeof tournamentMatches.$inferSelect;
 
 export const ladders = pgTable("ladders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  // Nullable: country-scoped ladders (Task #1039) are not tied to a single academy.
+  academyId: varchar("academy_id").references(() => academies.id),
+  // Task #1039 — Cross-Country Ladders.
+  // `scope` controls the player pool. `academy` keeps the legacy behavior;
+  // `country` opens the ladder to every active player in the country, per sport.
+  scope: text("scope").notNull().default("academy"), // academy | country
+  countryCode: text("country_code"), // ISO 3166-1 alpha-2 when scope=country
+  // Sport for country ladders (tennis | padel | pickleball). Optional for legacy
+  // academy ladders so existing rows do not need a value backfilled.
+  sport: text("sport"),
   name: text("name").notNull(),
   type: text("type").notNull(),
   description: text("description"),
@@ -6698,11 +6707,14 @@ export const ladders = pgTable("ladders", {
   challengeWindowDays: integer("challenge_window_days").notNull().default(7),
   rules: jsonb("rules").$type<string[]>(),
   status: text("status").notNull().default("active"),
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  // Nullable: country ladders are auto-created by the system and have no human creator.
+  createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("ladders_academy_idx").on(table.academyId),
+  index("ladders_country_idx").on(table.scope, table.countryCode, table.sport),
+  uniqueIndex("ladders_country_unique").on(table.scope, table.countryCode, table.sport),
 ]);
 
 export const insertLadderSchema = createInsertSchema(ladders).omit({ id: true, createdAt: true, updatedAt: true });

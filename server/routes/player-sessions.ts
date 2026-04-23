@@ -2,6 +2,7 @@ import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { deletePlayerWithUserWipe } from "../services/player-lifecycle";
+import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-ladders";
   import { db } from "../db";
   import { storage } from "../storage";
   import {
@@ -2084,6 +2085,20 @@ import fs from "fs";
             connectionsCount,
             recentPartners,
           },
+          countryLadders: await (async () => {
+            try {
+              const sports = await resolvePlayerSports(playerId);
+              const out: Array<{ sport: string; countryCode: string; position: number; ladderId: string; playerCount: number }> = [];
+              for (const sport of sports) {
+                const r = await getPlayerCountryLadderRank(playerId, sport);
+                if (r) out.push(r);
+              }
+              return out;
+            } catch (e) {
+              console.error("[Profile] countryLadders lookup failed:", e);
+              return [];
+            }
+          })(),
         });
       } catch (error) {
         console.error("Error fetching player profile:", error);

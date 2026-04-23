@@ -73,6 +73,15 @@ interface ProfileData {
     recentPartners: Array<{ id: string; name: string; lastPlayedAt: string }>;
     connectionsCount: number;
   };
+  // Task #1039 — Cross-Country Ladders. Optional list of country-ladder ranks
+  // for sports the player participates in.
+  countryLadders?: Array<{
+    sport: string;
+    countryCode: string;
+    position: number;
+    ladderId: string;
+    playerCount: number;
+  }>;
 }
 
 function getLevelTitle(level: number): string {
@@ -889,6 +898,31 @@ export default function PlayerProfileScreen() {
                 {equippedTitle ? equippedTitle.name : getLevelTitle(player.level)}
               </Text>
             </Pressable>
+            {data?.countryLadders && data.countryLadders.length > 0 ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 6 }}>
+                {data.countryLadders.map((cl) => (
+                  <View
+                    key={cl.ladderId}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 999,
+                      backgroundColor: "rgba(108, 164, 255, 0.18)",
+                      borderWidth: 1,
+                      borderColor: "rgba(108, 164, 255, 0.35)",
+                    }}
+                  >
+                    <Ionicons name="podium" size={11} color="#6CA4FF" />
+                    <Text style={{ color: "#6CA4FF", fontSize: 11, fontWeight: "600" }}>
+                      {`${cl.countryCode} · ${cl.sport[0].toUpperCase()}${cl.sport.slice(1)} #${cl.position}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             {equippedTitle && (
               <View style={[styles.titleBadge, { borderColor: RARITY_COLORS[equippedTitle.rarity] || RARITY_COLORS.common }]}>
                 <Ionicons name="ribbon" size={12} color={RARITY_COLORS[equippedTitle.rarity] || RARITY_COLORS.common} />
