@@ -843,6 +843,78 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] users.chat_onboarding_seen_at migration skipped:', e.message);
   }
 
+  // Cross-academy chat rooms (World + Country)
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_rooms (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        conversation_id VARCHAR NOT NULL REFERENCES conversations(id),
+        scope TEXT NOT NULL,
+        country_code TEXT,
+        sport TEXT,
+        title TEXT NOT NULL,
+        flag TEXT,
+        is_pinned_default BOOLEAN NOT NULL DEFAULT FALSE,
+        muted_at TIMESTAMP,
+        muted_by VARCHAR,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // Backfill columns for any pre-existing chat_rooms tables
+    await pool.query(`
+      ALTER TABLE chat_rooms
+        ADD COLUMN IF NOT EXISTS is_pinned_default BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS muted_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS muted_by VARCHAR,
+        ADD COLUMN IF NOT EXISTS sport TEXT,
+        ADD COLUMN IF NOT EXISTS flag TEXT
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS chat_rooms_conversation_unique ON chat_rooms(conversation_id)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS chat_rooms_country_unique ON chat_rooms(country_code) WHERE country_code IS NOT NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS chat_rooms_scope_idx ON chat_rooms(scope)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_room_mutes (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        room_id VARCHAR NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+        user_id VARCHAR NOT NULL,
+        muted_until TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS chat_room_mutes_unique ON chat_room_mutes(room_id, user_id)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_room_reports (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        room_id VARCHAR NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+        message_id VARCHAR NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        reporter_user_id VARCHAR NOT NULL,
+        reason TEXT,
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS chat_room_reports_room_idx ON chat_room_reports(room_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS chat_room_reports_status_idx ON chat_room_reports(status)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_room_coach_pins (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        room_id VARCHAR NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+        coach_id VARCHAR NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+        message_id VARCHAR NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        week_start DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS chat_room_coach_pins_unique ON chat_room_coach_pins(room_id, coach_id, week_start)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS chat_room_coach_pins_room_idx ON chat_room_coach_pins(room_id)`);
+    console.log('[Database] chat_rooms migration applied');
+  } catch (e: any) {
+    console.log('[Database] chat_rooms migration skipped:', e.message);
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");

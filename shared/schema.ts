@@ -7636,6 +7636,73 @@ export const playerMoneyWallet = pgTable("player_money_wallet", {
 
 export type PlayerMoneyWallet = typeof playerMoneyWallet.$inferSelect;
 
+// ==================== WORLD/COUNTRY CHAT ROOMS (Task #1038) ====================
+// Cross-academy chat rooms scoped to "world" or per-country (extensible to sport).
+// Each room is backed by a `conversations` row of type "world_room" so we can
+// reuse the existing messages + reactions infrastructure.
+
+export const chatRooms = pgTable("chat_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => conversations.id).notNull().unique(),
+  scope: text("scope").notNull(), // world | country | sport
+  countryCode: text("country_code"), // ISO 3166-1 alpha-2 when scope=country
+  sport: text("sport"), // when scope=sport
+  title: text("title").notNull(),
+  flag: text("flag"), // emoji flag
+  isPinnedDefault: boolean("is_pinned_default").notNull().default(false),
+  mutedAt: timestamp("muted_at"), // room-wide mute (admin)
+  mutedBy: varchar("muted_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("chat_rooms_country_unique").on(table.countryCode),
+  index("chat_rooms_scope_idx").on(table.scope),
+]);
+
+export type ChatRoom = typeof chatRooms.$inferSelect;
+export type InsertChatRoom = typeof chatRooms.$inferInsert;
+
+export const chatRoomMutes = pgTable("chat_room_mutes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").references(() => chatRooms.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").notNull(),
+  mutedUntil: timestamp("muted_until"), // null = indefinite
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("chat_room_mutes_unique").on(table.roomId, table.userId),
+]);
+
+export type ChatRoomMute = typeof chatRoomMutes.$inferSelect;
+
+export const chatRoomReports = pgTable("chat_room_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").references(() => chatRooms.id, { onDelete: "cascade" }).notNull(),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }).notNull(),
+  reporterUserId: varchar("reporter_user_id").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("open"), // open | resolved | dismissed
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("chat_room_reports_room_idx").on(table.roomId),
+  index("chat_room_reports_status_idx").on(table.status),
+]);
+
+export type ChatRoomReport = typeof chatRoomReports.$inferSelect;
+
+// Public coaches can pin one promo message per country room per ISO week.
+export const chatRoomCoachPins = pgTable("chat_room_coach_pins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").references(() => chatRooms.id, { onDelete: "cascade" }).notNull(),
+  coachId: varchar("coach_id").references(() => coaches.id, { onDelete: "cascade" }).notNull(),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }).notNull(),
+  weekStart: date("week_start").notNull(), // Monday of the ISO week (UTC)
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("chat_room_coach_pins_unique").on(table.roomId, table.coachId, table.weekStart),
+  index("chat_room_coach_pins_room_idx").on(table.roomId),
+]);
+
+export type ChatRoomCoachPin = typeof chatRoomCoachPins.$inferSelect;
+
 // Persistent log of series-group reminders sent by coaches. Used to enforce a
 // per-(coach, series) rate limit (max 3 per trailing 60 minutes) that survives
 // server restarts and is shared across instances.

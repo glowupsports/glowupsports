@@ -230,6 +230,7 @@ import playerSocialRoutes from "./routes/player-social";
 import tournamentsLaddersRouter from "./routes/tournaments-ladders";
 import discoveryMapRouter from "./routes/discovery-map";
 import worldChatRouter from "./routes/world-chat";
+import chatRoomsRouter from "./routes/chat-rooms";
 import adminSeriesRouter from "./routes/admin-series";
 import authRoutesRouter from "./routes/auth-routes";
 import academyPublicRouter from "./routes/academy-public";
@@ -553,6 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(tournamentsLaddersRouter);
   app.use(discoveryMapRouter);
   app.use(worldChatRouter);
+  app.use(chatRoomsRouter);
   app.use(adminSeriesRouter);
 
   // Register extracted route modules

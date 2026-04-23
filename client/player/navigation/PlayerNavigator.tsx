@@ -55,6 +55,8 @@ import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
+import ChatRoomScreen from "@/player/screens/ChatRoomScreen";
+import BrowseChatRoomsScreen from "@/player/screens/BrowseChatRoomsScreen";
 import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerGuideScreen from "@/player/screens/PlayerGuideScreen";
@@ -316,6 +318,8 @@ export type PlayerStackParamList = {
   Groups: undefined;
   GroupDetail: { groupId: string; groupName: string };
   PlayerMessages: undefined;
+  ChatRoom: { roomId: string; title?: string };
+  BrowseChatRooms: undefined;
   PlayerBookingChat: { orderId?: string; conversationId?: string };
   PlayerNotifications: undefined;
   PlayerHelp: { initialTab?: "start" | "explore" | "faq" | "whatsnew" } | undefined;
@@ -1280,6 +1284,16 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
         }}
+      />
+      <Stack.Screen
+        name="ChatRoom"
+        component={ChatRoomScreen}
+        options={{ presentation: "card", headerShown: false }}
+      />
+      <Stack.Screen
+        name="BrowseChatRooms"
+        component={BrowseChatRoomsScreen}
+        options={{ presentation: "card", headerShown: false }}
       />
       <Stack.Screen 
         name="PlayerBookingChat" 

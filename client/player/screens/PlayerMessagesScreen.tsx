@@ -37,6 +37,16 @@ interface Conversation {
   unreadCount?: number;
 }
 
+interface ChatRoomItem {
+  id: string;
+  scope: string;
+  countryCode: string | null;
+  title: string;
+  flag: string | null;
+  lastMessageAt?: string | null;
+  lastMessagePreview?: string | null;
+}
+
 export default function PlayerMessagesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -49,14 +59,28 @@ export default function PlayerMessagesScreen() {
     queryKey: ["/api/player/me/conversations"],
   });
 
+  const { data: chatRooms = [], refetch: refetchRooms } = useQuery<ChatRoomItem[]>({
+    queryKey: ["/api/chat-rooms"],
+  });
+
   const filteredConversations = isMinor && !chatEnabled
     ? conversations.filter((c: Conversation) => c.type === "coach_player" || c.type === "academy")
     : conversations;
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refetchRooms()]);
     setRefreshing(false);
+  };
+
+  const handleRoomPress = (room: ChatRoomItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("ChatRoom", { roomId: room.id, title: room.title });
+  };
+
+  const handleBrowseRooms = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("BrowseChatRooms");
   };
 
   const formatTime = (dateString: string | null | undefined) => {
@@ -206,6 +230,47 @@ export default function PlayerMessagesScreen() {
             { paddingBottom: insets.bottom + Spacing.xl },
             filteredConversations.length === 0 && styles.emptyListContent,
           ]}
+          ListHeaderComponent={
+            isMinor && !chatEnabled ? null : (
+            <View>
+              <View style={styles.worldHeaderRow}>
+                <Text style={styles.worldHeaderTitle}>World</Text>
+                <Pressable onPress={handleBrowseRooms} hitSlop={8}>
+                  <Text style={styles.worldHeaderBrowse}>Browse rooms</Text>
+                </Pressable>
+              </View>
+              {chatRooms.length === 0 ? (
+                <Pressable style={styles.worldEmpty} onPress={handleBrowseRooms}>
+                  <Text style={styles.worldEmptyTxt}>Join the global tennis chat</Text>
+                </Pressable>
+              ) : (
+                chatRooms.map((room) => (
+                  <Pressable
+                    key={room.id}
+                    style={styles.worldRoom}
+                    onPress={() => handleRoomPress(room)}
+                  >
+                    <View style={styles.worldFlagBox}>
+                      <Text style={styles.worldFlagTxt}>{room.flag || "🌍"}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.worldRoomTitle}>{room.title}</Text>
+                      <Text style={styles.worldRoomPreview} numberOfLines={1}>
+                        {room.lastMessagePreview ||
+                          (room.scope === "world" ? "Global chat" : "Country chat")}
+                      </Text>
+                    </View>
+                    {room.lastMessageAt ? (
+                      <Text style={styles.worldRoomTime}>{formatTime(room.lastMessageAt)}</Text>
+                    ) : null}
+                  </Pressable>
+                ))
+              )}
+              <View style={styles.worldDivider} />
+              <Text style={styles.directHeader}>Direct messages</Text>
+            </View>
+            )
+          }
           ListEmptyComponent={renderEmpty}
           refreshControl={
             <RefreshControl
@@ -415,5 +480,59 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: "rgba(255,255,255,0.7)",
+  },
+  worldHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: 8,
+  },
+  worldHeaderTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  worldHeaderBrowse: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  worldEmpty: {
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: 12,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  worldEmptyTxt: {
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  worldRoom: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  worldFlagBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.chipBackground,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  worldFlagTxt: { fontSize: 22 },
+  worldRoomTitle: { ...Typography.body, color: Colors.dark.text, fontWeight: "600" },
+  worldRoomPreview: { ...Typography.caption, color: Colors.dark.textMuted, marginTop: 2 },
+  worldRoomTime: { ...Typography.caption, color: Colors.dark.textMuted, marginLeft: 8 },
+  worldDivider: { height: 1, backgroundColor: Colors.dark.chipBackground, marginVertical: Spacing.md, marginHorizontal: Spacing.lg },
+  directHeader: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 8,
   },
 }));
