@@ -1681,5 +1681,69 @@
     "helpButton": {
       "a11y": "Open player guide and help"
     }
+  },
+  "coachCredit": {
+    "history": {
+      "sheetTitle": "History entry",
+      "field": {
+        "action": "Action",
+        "creditType": "Credit type",
+        "amount": "Amount",
+        "when": "When",
+        "by": "By",
+        "bySystem": "system",
+        "note": "Note",
+        "linkedSession": "Linked session",
+        "linkedPackage": "Linked package",
+        "linkedInvoice": "Linked invoice"
+      },
+      "reason": {
+        "purchase": "Package purchase",
+        "consume": "Session consumed",
+        "refund": "Session refund",
+        "makeup": "Make-up credit",
+        "manual": "Manual adjustment",
+        "expiry": "Lot expired",
+        "moneyCharge": "Money charge",
+        "moneyTopup": "Money top-up"
+      },
+      "row": {
+        "openA11y": "Open {{label}} details"
+      },
+      "lotSummary": "{{used}} used / {{total}} total · {{remaining}} remaining",
+      "invoiceLabel": "Invoice {{n}}",
+      "consume": {
+        "title": "Linked to a session",
+        "body": "Consume entries are tied to attendance. To restore these credits, cancel or refund the underlying session — the credit will return through the existing session refund flow.",
+        "openSession": "Open session",
+        "openSessionA11y": "Open the linked session"
+      },
+      "action": {
+        "cancelPurchase": "Cancel this purchase",
+        "reverseAdjustment": "Reverse this adjustment",
+        "noPackageNote": "This purchase has no linked package on file and cannot be cancelled from here."
+      },
+      "willGoNegative": "Reversing will put the {{typeLabel}} balance at {{projected}} (debt).",
+      "informationalOnly": "This entry type is informational and cannot be undone from here.",
+      "confirm": {
+        "purchase": {
+          "title": "Cancel this purchase?",
+          "titleUsed": "Cancel a partly-used purchase?",
+          "body": "This will delete the {{typeLabel}} package ({{total}} credits) and reverse the {{remaining}} remaining credits from the wallet.",
+          "usedWarn": "{{used}} of {{total}} credits have already been used. Reversing the unused remainder may push the balance negative."
+        },
+        "manual": {
+          "title": "Reverse this adjustment?",
+          "bodyRemove": "This will remove {{amt}} {{typeLabel}} credits as a reversal of the original adjustment.",
+          "bodyAdd": "This will add back {{amt}} {{typeLabel}} credits as a reversal of the original adjustment."
+        },
+        "negativeWarn": "New balance will be {{projected}} {{typeLabel}} — the player will be in debt.",
+        "cannotUndo": "This cannot be undone."
+      },
+      "toast": {
+        "purchaseCancelled": "Purchase cancelled · credits reversed",
+        "adjustmentReversed": "Adjustment reversed · wallet restored"
+      }
+    }
   }
 }

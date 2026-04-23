@@ -1,14 +1,17 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform, Alert } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform, Alert, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { useTranslation, type TFunction } from "react-i18next";
 import { apiRequest } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
+import { SuccessToast } from "@/components/SuccessToast";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -29,6 +32,21 @@ interface LedgerEntry {
   balance_after: string | number;
   occurred_at: string;
   metadata?: Record<string, unknown> | null;
+  actor_role?: string | null;
+  session_id?: string | null;
+  session_player_id?: string | null;
+  lot_id?: string | null;
+  invoice_id?: string | null;
+}
+
+interface LotSummary {
+  id: string;
+  type: string;
+  qty_total: string | number;
+  qty_remaining: string | number;
+  status: string;
+  source_package_id?: string | null;
+  invoice_number?: string | null;
 }
 
 interface WalletData {
@@ -109,6 +127,41 @@ function ledgerLabel(type: string): string {
   }
 }
 
+// Friendly label for the ledger `reason` (event type) column. The `type`
+// column actually stores the credit type (group / semi_private / private)
+// so the action sheet uses `reason` to decide which undo affordance to show.
+function reasonLabel(reason: string, t: TFunction): string {
+  switch (reason) {
+    case "purchase":
+      return t("coachCredit.history.reason.purchase", "Package purchase");
+    case "consume":
+      return t("coachCredit.history.reason.consume", "Session consumed");
+    case "refund":
+      return t("coachCredit.history.reason.refund", "Session refund");
+    case "makeup":
+      return t("coachCredit.history.reason.makeup", "Make-up credit");
+    case "manual":
+      return t("coachCredit.history.reason.manual", "Manual adjustment");
+    case "expiry":
+      return t("coachCredit.history.reason.expiry", "Lot expired");
+    case "money_charge":
+      return t("coachCredit.history.reason.moneyCharge", "Money charge");
+    case "money_topup":
+      return t("coachCredit.history.reason.moneyTopup", "Money top-up");
+    default:
+      return reason.replace(/_/g, " ");
+  }
+}
+
+// Human reason text — manual adjustments stash the coach's note in
+// metadata.reason; purchases set the column reason to "purchase".
+function ledgerNote(e: LedgerEntry): string | null {
+  const meta = (e.metadata || {}) as Record<string, unknown>;
+  const metaReason = typeof meta.reason === "string" ? meta.reason : null;
+  if (metaReason && metaReason.trim()) return metaReason.trim();
+  return null;
+}
+
 export function useV2Enabled(playerId: string | undefined): boolean {
   const q = useQuery<WalletData>({
     queryKey: [`/api/v2/credits/wallet/${playerId}`],
@@ -141,9 +194,13 @@ interface Props {
 
 export function CoachCreditV2Panel({ playerId }: Props) {
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const navigation = useNavigation<any>();
   const isBillingAuthorized = !!user && ["academy_owner", "admin", "platform_owner"].includes(user.role);
   // Task #696: deletion is allowed for coaches too (separate from price/payment gating above).
   const canDeletePackages = !!user && ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
+  // Task #1089 — toast for undo success (matches PlayerPaymentsSection pattern).
+  const [undoToast, setUndoToast] = useState<{ visible: boolean; message: string }>({ visible: false, message: "" });
 
   const [showLedger, setShowLedger] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -160,6 +217,15 @@ export function CoachCreditV2Panel({ playerId }: Props) {
   const [removeError, setRemoveError] = useState<string | null>(null);
   // Task #700: invoice returned by purchase-credits, opened via "View invoice" CTA.
   const [purchasedInvoice, setPurchasedInvoice] = useState<ViewableInvoice | null>(null);
+  // Task #1089 — tappable credit history rows: open a detail sheet on tap with
+  // an undo affordance that fits the entry type (purchase / manual / consume).
+  const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null);
+  const [entryFeedback, setEntryFeedback] = useState<{ kind: "error" | "info"; message: string } | null>(null);
+  const [pendingUndo, setPendingUndo] = useState<
+    | { kind: "purchase"; packageId: string; force: boolean; used: number; remaining: number; total: number; typeLabel: string }
+    | { kind: "reverse_manual"; entry: LedgerEntry }
+    | null
+  >(null);
   const queryClient = useQueryClient();
 
   const walletQuery = useQuery<WalletData>({
@@ -286,6 +352,112 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       setRemoveError(err.message);
     },
   });
+
+  // Task #1089 — central invalidation so the wallet, ledger, packages and
+  // invoices all refresh after an undo from the row detail sheet.
+  const invalidateAfterUndo = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/wallet/${playerId}`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/v2/credits/lots/${playerId}`] });
+    queryClient.invalidateQueries({
+      predicate: (q) => {
+        const k = q.queryKey?.[0];
+        return typeof k === "string" && k.startsWith(`/api/v2/credits/ledger/${playerId}`);
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credits-summary`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+    invalidatePlayersList(queryClient);
+  };
+
+  // Task #1089 — pull the lots list so a purchase row's detail sheet can show
+  // remaining vs used and warn before reversing a partly-consumed package.
+  const lotsQuery = useQuery<{ lots: LotSummary[] }>({
+    queryKey: [`/api/v2/credits/lots/${playerId}`],
+    enabled: !!playerId && !!selectedEntry && selectedEntry.reason === "purchase",
+  });
+
+  // Task #1089 — package delete (used to cancel a purchase from the row).
+  const cancelPurchaseMutation = useMutation({
+    mutationFn: async ({ packageId, force }: { packageId: string; force: boolean }) => {
+      const url = force ? `/api/packages/${packageId}?force=true` : `/api/packages/${packageId}`;
+      const res = await apiRequest("DELETE", url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to cancel purchase");
+      return data;
+    },
+    onSuccess: () => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      invalidateAfterUndo();
+      setPendingUndo(null);
+      setSelectedEntry(null);
+      setEntryFeedback(null);
+      setUndoToast({
+        visible: true,
+        message: t("coachCredit.history.toast.purchaseCancelled", "Purchase cancelled · credits reversed"),
+      });
+    },
+    onError: (err: Error) => {
+      setPendingUndo(null);
+      setEntryFeedback({ kind: "error", message: err.message || "Could not cancel purchase" });
+    },
+  });
+
+  // Task #1089 — manual adjustment reversal: post the opposite delta with a
+  // "Reversal of …" reason so the audit trail makes the link obvious.
+  const reverseAdjustmentMutation = useMutation({
+    mutationFn: async (entry: LedgerEntry) => {
+      const origDelta = Number(entry.delta);
+      if (!Number.isFinite(origDelta) || origDelta === 0) {
+        throw new Error("Cannot reverse this adjustment");
+      }
+      const origNote = ledgerNote(entry) || "manual adjustment";
+      const dateLabel = fmtDateTime(entry.occurred_at);
+      const body: Record<string, unknown> = {
+        playerId,
+        type: entry.type,
+        delta: -origDelta,
+        reason: `Reversal of "${origNote}" (${dateLabel})`,
+      };
+      // Server requires recordPayment to be explicit on positive deltas.
+      // Reversing a negative manual adjustment yields a positive delta but
+      // is not a real cash payment, so flag it as a goodwill grant.
+      if (-origDelta > 0) {
+        body.recordPayment = false;
+      }
+      const res = await apiRequest("POST", "/api/v2/credits/manual-adjustment", body);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to reverse adjustment");
+      return data;
+    },
+    onSuccess: () => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      invalidateAfterUndo();
+      setPendingUndo(null);
+      setSelectedEntry(null);
+      setEntryFeedback(null);
+      setUndoToast({
+        visible: true,
+        message: t("coachCredit.history.toast.adjustmentReversed", "Adjustment reversed · wallet restored"),
+      });
+    },
+    onError: (err: Error) => {
+      setPendingUndo(null);
+      setEntryFeedback({ kind: "error", message: err.message || "Could not reverse adjustment" });
+    },
+  });
+
+  const openEntry = (entry: LedgerEntry) => {
+    if (Platform.OS !== "web") Haptics.selectionAsync();
+    setEntryFeedback(null);
+    setPendingUndo(null);
+    setSelectedEntry(entry);
+  };
 
   const openRemoveModal = () => {
     if (Platform.OS !== "web") {
@@ -641,16 +813,25 @@ export function CoachCreditV2Panel({ playerId }: Props) {
               const delta = Number(e.delta);
               const isNegative = delta < 0;
               return (
-                <View
+                <Pressable
                   key={e.id}
-                  style={{
+                  onPress={() => openEntry(e)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("coachCredit.history.row.openA11y", {
+                    defaultValue: "Open {{label}} details",
+                    label: reasonLabel(e.reason, t),
+                  })}
+                  style={({ pressed }) => ({
                     flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "flex-start",
                     paddingVertical: 6,
+                    paddingHorizontal: 4,
+                    borderRadius: 6,
                     borderBottomWidth: 1,
                     borderBottomColor: `${Colors.dark.text}08`,
-                  }}
+                    backgroundColor: pressed ? `${Colors.dark.text}10` : "transparent",
+                  })}
                 >
                   <View style={{ flex: 1 }}>
                     <Text
@@ -706,12 +887,77 @@ export function CoachCreditV2Panel({ playerId }: Props) {
                     {isNegative ? "" : "+"}
                     {fmtNumber(delta)}
                   </Text>
-                </View>
+                </Pressable>
               );
             })
           )}
         </View>
       ) : null}
+
+      <LedgerEntryDetailSheet
+        entry={selectedEntry}
+        onClose={() => {
+          setSelectedEntry(null);
+          setPendingUndo(null);
+          setEntryFeedback(null);
+        }}
+        currentBalances={wallet.balance}
+        lots={lotsQuery.data?.lots ?? []}
+        canUndoPurchase={canDeletePackages}
+        canReverseAdjustment={canDeletePackages}
+        feedback={entryFeedback}
+        clearFeedback={() => setEntryFeedback(null)}
+        onRequestCancelPurchase={(packageId, lot) => {
+          const total = lot ? Number(lot.qty_total) : Math.abs(Number(selectedEntry?.delta ?? 0));
+          const remaining = lot ? Number(lot.qty_remaining) : total;
+          const used = Math.max(0, total - remaining);
+          // Match CreditPackagesList: force=true is only required when there
+          // are still un-consumed credits the server has to debit on delete.
+          const force = remaining > 0;
+          setEntryFeedback(null);
+          setPendingUndo({
+            kind: "purchase",
+            packageId,
+            force,
+            used,
+            remaining,
+            total,
+            typeLabel: TYPE_LABEL[selectedEntry?.type ?? "group"] ?? "credits",
+          });
+        }}
+        onRequestReverseAdjustment={(entry) => {
+          setEntryFeedback(null);
+          setPendingUndo({ kind: "reverse_manual", entry });
+        }}
+        pendingUndo={pendingUndo}
+        cancelPending={() => setPendingUndo(null)}
+        confirmPending={() => {
+          if (!pendingUndo) return;
+          if (pendingUndo.kind === "purchase") {
+            cancelPurchaseMutation.mutate({ packageId: pendingUndo.packageId, force: pendingUndo.force });
+          } else {
+            reverseAdjustmentMutation.mutate(pendingUndo.entry);
+          }
+        }}
+        isPending={cancelPurchaseMutation.isPending || reverseAdjustmentMutation.isPending}
+        onOpenSession={(sessionId) => {
+          setSelectedEntry(null);
+          try {
+            navigation.navigate("ActiveSession", { sessionId });
+          } catch {
+            /* navigation target unavailable in this stack — silently no-op */
+          }
+        }}
+      />
+
+      <SuccessToast
+        visible={undoToast.visible}
+        message={undoToast.message}
+        variant="success"
+        duration={2200}
+        icon="arrow-undo-outline"
+        onHide={() => setUndoToast({ visible: false, message: "" })}
+      />
     </View>
   );
 }
@@ -1034,6 +1280,489 @@ function RemoveCreditsModal({
             </Text>
           )}
         </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
+// Task #1089 — Detail sheet for a single ledger row with an undo affordance
+// adapted to the entry type. Confirmation is rendered as a JSX child Modal so
+// it stacks correctly on top of the sheet on iOS, Android, and web (per the
+// modal stacking convention used by CreditPackagesList / PackagesCard).
+interface LedgerEntryDetailSheetProps {
+  entry: LedgerEntry | null;
+  onClose: () => void;
+  currentBalances: { group: number; semi_private: number; private: number };
+  lots: LotSummary[];
+  canUndoPurchase: boolean;
+  canReverseAdjustment: boolean;
+  feedback: { kind: "error" | "info"; message: string } | null;
+  clearFeedback: () => void;
+  onRequestCancelPurchase: (packageId: string, lot: LotSummary | null) => void;
+  onRequestReverseAdjustment: (entry: LedgerEntry) => void;
+  pendingUndo:
+    | { kind: "purchase"; packageId: string; force: boolean; used: number; remaining: number; total: number; typeLabel: string }
+    | { kind: "reverse_manual"; entry: LedgerEntry }
+    | null;
+  cancelPending: () => void;
+  confirmPending: () => void;
+  isPending: boolean;
+  onOpenSession: (sessionId: string) => void;
+}
+
+function LedgerEntryDetailSheet({
+  entry,
+  onClose,
+  currentBalances,
+  lots,
+  canUndoPurchase,
+  canReverseAdjustment,
+  feedback,
+  clearFeedback,
+  onRequestCancelPurchase,
+  onRequestReverseAdjustment,
+  pendingUndo,
+  cancelPending,
+  confirmPending,
+  isPending,
+  onOpenSession,
+}: LedgerEntryDetailSheetProps) {
+  const { t } = useTranslation();
+  const visible = !!entry;
+  const e = entry;
+  const delta = e ? Number(e.delta) : 0;
+  const isNegative = delta < 0;
+  const note = e ? ledgerNote(e) : null;
+  const meta = (e?.metadata || {}) as Record<string, unknown>;
+  const sourcePackageId =
+    typeof meta.sourcePackageId === "string" ? meta.sourcePackageId : null;
+
+  // Find the lot that this purchase row created so we can show used/remaining.
+  const matchedLot = useMemo<LotSummary | null>(() => {
+    if (!e || e.reason !== "purchase" || !sourcePackageId) return null;
+    return lots.find((l) => l.source_package_id === sourcePackageId) || null;
+  }, [e, lots, sourcePackageId]);
+
+  const usedCount = matchedLot
+    ? Math.max(0, Number(matchedLot.qty_total) - Number(matchedLot.qty_remaining))
+    : 0;
+  const remainingCount = matchedLot ? Number(matchedLot.qty_remaining) : Math.abs(delta);
+
+  const creditTypeLabel = e ? (TYPE_LABEL[e.type] || e.type) : "";
+  const reasonLabelText = e ? reasonLabel(e.reason, t) : "";
+
+  // Projected balance for a reversal: current ± reversal delta.
+  const currentBalForType = e
+    ? Number(currentBalances[e.type as CreditType] ?? 0)
+    : 0;
+  const reversalDelta = e
+    ? e.reason === "purchase"
+      ? -remainingCount
+      : -delta
+    : 0;
+  const projected = currentBalForType + reversalDelta;
+  const willGoNegative = e && reversalDelta !== 0 && projected < 0;
+
+  const rows: { label: string; value: string; color?: string }[] = e
+    ? [
+        { label: t("coachCredit.history.field.action", "Action"), value: reasonLabelText },
+        { label: t("coachCredit.history.field.creditType", "Credit type"), value: creditTypeLabel, color: TYPE_COLOR[e.type] },
+        {
+          label: t("coachCredit.history.field.amount", "Amount"),
+          value: `${isNegative ? "" : "+"}${fmtNumber(delta)}`,
+          color: isNegative ? Colors.dark.error : Colors.dark.successNeon,
+        },
+        { label: t("coachCredit.history.field.when", "When"), value: fmtDateTime(e.occurred_at) },
+        {
+          label: t("coachCredit.history.field.by", "By"),
+          value: e.actor_role ? String(e.actor_role) : t("coachCredit.history.field.bySystem", "system"),
+        },
+        ...(note ? [{ label: t("coachCredit.history.field.note", "Note"), value: note }] : []),
+        ...(e.session_id ? [{ label: t("coachCredit.history.field.linkedSession", "Linked session"), value: e.session_id.slice(0, 8) }] : []),
+        ...(sourcePackageId ? [{ label: t("coachCredit.history.field.linkedPackage", "Linked package"), value: sourcePackageId.slice(0, 8) }] : []),
+        ...(e.invoice_id ? [{ label: t("coachCredit.history.field.linkedInvoice", "Linked invoice"), value: e.invoice_id.slice(0, 8) }] : []),
+      ]
+    : [];
+
+  // Adaptive confirmation copy.
+  const confirmTitle = (() => {
+    if (!pendingUndo) return "";
+    if (pendingUndo.kind === "purchase") {
+      return pendingUndo.used > 0
+        ? t("coachCredit.history.confirm.purchase.titleUsed", "Cancel a partly-used purchase?")
+        : t("coachCredit.history.confirm.purchase.title", "Cancel this purchase?");
+    }
+    return t("coachCredit.history.confirm.manual.title", "Reverse this adjustment?");
+  })();
+
+  const confirmBody = (() => {
+    if (!pendingUndo || !e) return "";
+    if (pendingUndo.kind === "purchase") {
+      const base = t("coachCredit.history.confirm.purchase.body", {
+        defaultValue:
+          "This will delete the {{typeLabel}} package ({{total}} credits) and reverse the {{remaining}} remaining credits from the wallet.",
+        typeLabel: pendingUndo.typeLabel,
+        total: fmtNumber(pendingUndo.total),
+        remaining: fmtNumber(pendingUndo.remaining),
+        count: pendingUndo.remaining,
+      });
+      const usedWarn = pendingUndo.used > 0
+        ? "\n\n" + t("coachCredit.history.confirm.purchase.usedWarn", {
+            defaultValue:
+              "{{used}} of {{total}} credits have already been used. Reversing the unused remainder may push the balance negative.",
+            used: fmtNumber(pendingUndo.used),
+            total: fmtNumber(pendingUndo.total),
+            count: pendingUndo.used,
+          })
+        : "";
+      const negWarn = projected < 0
+        ? "\n\n" + t("coachCredit.history.confirm.negativeWarn", {
+            defaultValue:
+              "New balance will be {{projected}} {{typeLabel}} — the player will be in debt.",
+            projected: fmtNumber(projected),
+            typeLabel: creditTypeLabel,
+          })
+        : "";
+      const tail = "\n\n" + t("coachCredit.history.confirm.cannotUndo", "This cannot be undone.");
+      return `${base}${usedWarn}${negWarn}${tail}`;
+    }
+    // reverse_manual
+    const amt = fmtNumber(Math.abs(delta));
+    const base = delta > 0
+      ? t("coachCredit.history.confirm.manual.bodyRemove", {
+          defaultValue: "This will remove {{amt}} {{typeLabel}} credits as a reversal of the original adjustment.",
+          amt, typeLabel: creditTypeLabel, count: Math.abs(delta),
+        })
+      : t("coachCredit.history.confirm.manual.bodyAdd", {
+          defaultValue: "This will add back {{amt}} {{typeLabel}} credits as a reversal of the original adjustment.",
+          amt, typeLabel: creditTypeLabel, count: Math.abs(delta),
+        });
+    const negWarn = projected < 0
+      ? "\n\n" + t("coachCredit.history.confirm.negativeWarn", {
+          defaultValue: "New balance will be {{projected}} {{typeLabel}} — the player will be in debt.",
+          projected: fmtNumber(projected),
+          typeLabel: creditTypeLabel,
+        })
+      : "";
+    return `${base}${negWarn}`;
+  })();
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot, padding: Spacing.lg }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: Spacing.lg,
+          }}
+        >
+          <Text style={{ ...Typography.h2, color: Colors.dark.text }}>{t("coachCredit.history.sheetTitle", "History entry")}</Text>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+        </View>
+
+        {e ? (
+          <ScrollView style={{ flex: 1 }}>
+            <View>
+              {rows.map((r) => (
+                <View
+                  key={r.label}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    paddingVertical: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: `${Colors.dark.text}10`,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, color: Colors.dark.textMuted }}>{r.label}</Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: r.color || Colors.dark.text,
+                      fontWeight: "700",
+                      textAlign: "right",
+                      flex: 1,
+                      marginLeft: Spacing.md,
+                    }}
+                  >
+                    {r.value}
+                  </Text>
+                </View>
+              ))}
+
+              {e.reason === "purchase" && matchedLot ? (
+                <View
+                  style={{
+                    marginTop: Spacing.md,
+                    padding: Spacing.sm,
+                    borderRadius: 8,
+                    backgroundColor: `${Colors.dark.text}08`,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, color: Colors.dark.textMuted }}>
+                    {t("coachCredit.history.lotSummary", {
+                      defaultValue: "{{used}} used / {{total}} total · {{remaining}} remaining",
+                      used: fmtNumber(usedCount),
+                      total: fmtNumber(matchedLot.qty_total),
+                      remaining: fmtNumber(matchedLot.qty_remaining),
+                    })}
+                    {matchedLot.invoice_number
+                      ? " · " + t("coachCredit.history.invoiceLabel", { defaultValue: "Invoice {{n}}", n: matchedLot.invoice_number })
+                      : ""}
+                  </Text>
+                </View>
+              ) : null}
+
+              {e.reason === "consume" ? (
+                <View
+                  style={{
+                    marginTop: Spacing.md,
+                    padding: Spacing.sm,
+                    borderRadius: 8,
+                    backgroundColor: `${Colors.dark.text}08`,
+                    borderWidth: 1,
+                    borderColor: `${Colors.dark.text}15`,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, color: Colors.dark.text, fontWeight: "700" }}>
+                    {t("coachCredit.history.consume.title", "Linked to a session")}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 4 }}>
+                    {t(
+                      "coachCredit.history.consume.body",
+                      "Consume entries are tied to attendance. To restore these credits, cancel or refund the underlying session — the credit will return through the existing session refund flow.",
+                    )}
+                  </Text>
+                  {e.session_id ? (
+                    <Pressable
+                      onPress={() => onOpenSession(e.session_id as string)}
+                      accessibilityRole="link"
+                      accessibilityLabel={t("coachCredit.history.consume.openSessionA11y", "Open the linked session")}
+                      style={{
+                        marginTop: Spacing.sm,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        alignSelf: "flex-start",
+                      }}
+                    >
+                      <Ionicons name="open-outline" size={14} color={Colors.dark.tint} />
+                      <Text style={{ color: Colors.dark.tint, fontSize: 12, fontWeight: "700" }}>
+                        {t("coachCredit.history.consume.openSession", "Open session")}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {feedback ? (
+                <View
+                  style={{
+                    marginTop: Spacing.md,
+                    padding: Spacing.sm,
+                    borderRadius: 8,
+                    backgroundColor:
+                      feedback.kind === "error"
+                        ? `${Colors.dark.error}15`
+                        : `${Colors.dark.text}10`,
+                    borderWidth: 1,
+                    borderColor:
+                      feedback.kind === "error"
+                        ? `${Colors.dark.error}40`
+                        : `${Colors.dark.text}20`,
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons
+                    name={feedback.kind === "error" ? "alert-circle" : "information-circle"}
+                    size={16}
+                    color={feedback.kind === "error" ? Colors.dark.error : Colors.dark.textMuted}
+                    style={{ marginTop: 1 }}
+                  />
+                  <Text style={{ flex: 1, fontSize: 12, color: Colors.dark.text }}>
+                    {feedback.message}
+                  </Text>
+                  <Pressable onPress={clearFeedback} hitSlop={8}>
+                    <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {/* Primary action — purchase */}
+              {e.reason === "purchase" && canUndoPurchase ? (
+                <Pressable
+                  onPress={() => {
+                    if (!sourcePackageId) return;
+                    onRequestCancelPurchase(sourcePackageId, matchedLot);
+                  }}
+                  disabled={isPending || !sourcePackageId}
+                  style={{
+                    marginTop: Spacing.lg,
+                    paddingVertical: 14,
+                    borderRadius: 10,
+                    backgroundColor: Colors.dark.error,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    gap: 8,
+                    opacity: isPending || !sourcePackageId ? 0.6 : 1,
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
+                    {t("coachCredit.history.action.cancelPurchase", "Cancel this purchase")}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {e.reason === "purchase" && !sourcePackageId ? (
+                <Text style={{ marginTop: Spacing.sm, fontSize: 11, color: Colors.dark.textMuted }}>
+                  {t(
+                    "coachCredit.history.action.noPackageNote",
+                    "This purchase has no linked package on file and cannot be cancelled from here.",
+                  )}
+                </Text>
+              ) : null}
+
+              {/* Primary action — manual reversal */}
+              {e.reason === "manual" && canReverseAdjustment ? (
+                <Pressable
+                  onPress={() => onRequestReverseAdjustment(e)}
+                  disabled={isPending}
+                  style={{
+                    marginTop: Spacing.lg,
+                    paddingVertical: 14,
+                    borderRadius: 10,
+                    backgroundColor: Colors.dark.error,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    gap: 8,
+                    opacity: isPending ? 0.6 : 1,
+                  }}
+                >
+                  <Ionicons name="arrow-undo-outline" size={18} color="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
+                    {t("coachCredit.history.action.reverseAdjustment", "Reverse this adjustment")}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {willGoNegative && (e.reason === "purchase" || e.reason === "manual") ? (
+                <Text
+                  style={{
+                    marginTop: Spacing.sm,
+                    fontSize: 12,
+                    color: Colors.dark.error,
+                    fontWeight: "700",
+                  }}
+                >
+                  {t("coachCredit.history.willGoNegative", {
+                    defaultValue: "Reversing will put the {{typeLabel}} balance at {{projected}} (debt).",
+                    typeLabel: creditTypeLabel,
+                    projected: fmtNumber(projected),
+                  })}
+                </Text>
+              ) : null}
+
+              {!["purchase", "manual", "consume"].includes(e.reason) ? (
+                <Text style={{ marginTop: Spacing.lg, fontSize: 12, color: Colors.dark.textMuted }}>
+                  {t(
+                    "coachCredit.history.informationalOnly",
+                    "This entry type is informational and cannot be undone from here.",
+                  )}
+                </Text>
+              ) : null}
+            </View>
+          </ScrollView>
+        ) : null}
+
+        {/* Nested confirmation — JSX child so it stacks above the sheet. */}
+        <Modal
+          visible={!!pendingUndo}
+          animationType="fade"
+          transparent
+          onRequestClose={cancelPending}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: Spacing.lg,
+            }}
+          >
+            <View
+              style={{
+                width: "100%",
+                maxWidth: 420,
+                backgroundColor: Colors.dark.backgroundSecondary,
+                borderRadius: 14,
+                padding: Spacing.lg,
+              }}
+            >
+              <Text style={{ ...Typography.h3, color: Colors.dark.text, marginBottom: Spacing.sm }}>
+                {confirmTitle}
+              </Text>
+              <Text style={{ fontSize: 13, color: Colors.dark.textMuted, lineHeight: 19 }}>
+                {confirmBody}
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: Spacing.sm,
+                  marginTop: Spacing.lg,
+                  justifyContent: "flex-end",
+                }}
+              >
+                <Pressable
+                  onPress={cancelPending}
+                  disabled={isPending}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    backgroundColor: `${Colors.dark.text}12`,
+                  }}
+                >
+                  <Text style={{ color: Colors.dark.text, fontWeight: "700", fontSize: 13 }}>{t("common.cancel", "Cancel")}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={confirmPending}
+                  disabled={isPending}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    backgroundColor: Colors.dark.error,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    opacity: isPending ? 0.6 : 1,
+                  }}
+                >
+                  {isPending ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Ionicons name="checkmark" size={14} color="#fff" />
+                  )}
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{t("common.confirm", "Confirm")}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );

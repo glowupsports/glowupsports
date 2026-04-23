@@ -1681,5 +1681,69 @@
     "helpButton": {
       "a11y": "Open spelersgids en help"
     }
+  },
+  "coachCredit": {
+    "history": {
+      "sheetTitle": "Historie-item",
+      "field": {
+        "action": "Actie",
+        "creditType": "Credittype",
+        "amount": "Aantal",
+        "when": "Wanneer",
+        "by": "Door",
+        "bySystem": "systeem",
+        "note": "Notitie",
+        "linkedSession": "Gekoppelde sessie",
+        "linkedPackage": "Gekoppeld pakket",
+        "linkedInvoice": "Gekoppelde factuur"
+      },
+      "reason": {
+        "purchase": "Pakketaankoop",
+        "consume": "Sessie verbruikt",
+        "refund": "Sessie-restitutie",
+        "makeup": "Inhaalcredit",
+        "manual": "Handmatige aanpassing",
+        "expiry": "Lot verlopen",
+        "moneyCharge": "Geldafschrijving",
+        "moneyTopup": "Geld bijgeboekt"
+      },
+      "row": {
+        "openA11y": "Open details van {{label}}"
+      },
+      "lotSummary": "{{used}} gebruikt / {{total}} totaal · {{remaining}} resterend",
+      "invoiceLabel": "Factuur {{n}}",
+      "consume": {
+        "title": "Gekoppeld aan een sessie",
+        "body": "Verbruiksregels horen bij aanwezigheid. Annuleer of crediteer de onderliggende sessie om deze credits te herstellen — de credit komt terug via de bestaande sessie-restitutiestroom.",
+        "openSession": "Open sessie",
+        "openSessionA11y": "Open de gekoppelde sessie"
+      },
+      "action": {
+        "cancelPurchase": "Aankoop annuleren",
+        "reverseAdjustment": "Aanpassing terugdraaien",
+        "noPackageNote": "Deze aankoop heeft geen gekoppeld pakket en kan hier niet worden geannuleerd."
+      },
+      "willGoNegative": "Terugdraaien zet het saldo {{typeLabel}} op {{projected}} (schuld).",
+      "informationalOnly": "Dit type item is informatief en kan hier niet worden teruggedraaid.",
+      "confirm": {
+        "purchase": {
+          "title": "Deze aankoop annuleren?",
+          "titleUsed": "Een gedeeltelijk gebruikte aankoop annuleren?",
+          "body": "Hiermee verwijder je het pakket {{typeLabel}} ({{total}} credits) en draai je de {{remaining}} resterende credits terug uit de wallet.",
+          "usedWarn": "{{used}} van de {{total}} credits zijn al gebruikt. Het restant terugdraaien kan het saldo negatief maken."
+        },
+        "manual": {
+          "title": "Deze aanpassing terugdraaien?",
+          "bodyRemove": "Hiermee worden {{amt}} {{typeLabel}}-credits verwijderd als terugdraaiing van de oorspronkelijke aanpassing.",
+          "bodyAdd": "Hiermee worden {{amt}} {{typeLabel}}-credits weer toegevoegd als terugdraaiing van de oorspronkelijke aanpassing."
+        },
+        "negativeWarn": "Het nieuwe saldo wordt {{projected}} {{typeLabel}} — de speler komt in de min.",
+        "cannotUndo": "Dit kan niet ongedaan worden gemaakt."
+      },
+      "toast": {
+        "purchaseCancelled": "Aankoop geannuleerd · credits teruggedraaid",
+        "adjustmentReversed": "Aanpassing teruggedraaid · wallet hersteld"
+      }
+    }
   }
 }
