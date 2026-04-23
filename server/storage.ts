@@ -1268,29 +1268,42 @@ export const storage = {
     city?: string;
     country?: string;
     openToOpportunities?: boolean;
+    /**
+     * Public-list mode (Task #1037). When true, only return coaches who have
+     * `publicProfileEnabled` true (regardless of `bioStatus`), so external
+     * players can discover them worldwide.
+     */
+    publicOnly?: boolean;
+    /** When `publicOnly` is true and country is set, scope=country filters to that country. */
+    scope?: "country" | "global";
   }) {
-    let query = db.select({
+    const baseSelect = {
       id: coaches.id,
       name: coaches.name,
       specialty: coaches.specialty,
       photoUrl: coaches.photoUrl,
       publicQuote: coaches.publicQuote,
+      bio: coaches.bio,
       yearsExperience: coaches.yearsExperience,
       specializations: coaches.specializations,
       languages: coaches.languages,
+      certifications: coaches.certifications,
       level: coaches.level,
+      averageRating: coaches.averageRating,
+      totalRatings: coaches.totalRatings,
       openToOpportunities: coaches.openToOpportunities,
+      publicProfileEnabled: coaches.publicProfileEnabled,
+      hourlyRate: coaches.hourlyRate,
       academyId: coaches.academyId,
-    }).from(coaches).where(and(
-      eq(coaches.showInDirectory, true),
-      eq(coaches.bioStatus, "approved")
-    ));
-    
-    const results = await query;
+    };
+    const whereClause = filters?.publicOnly
+      ? eq(coaches.publicProfileEnabled, true)
+      : and(eq(coaches.showInDirectory, true), eq(coaches.bioStatus, "approved"));
+    const results = await db.select(baseSelect).from(coaches).where(whereClause);
     
     // Get academy info for each coach
     const coachesWithAcademy = await Promise.all(results.map(async (coach) => {
-      if (!coach.academyId) return { ...coach, academyName: null, academyCity: null };
+      if (!coach.academyId) return { ...coach, academyName: null, academyCity: null, academyCountry: null };
       const academy = await db.select({ name: academies.name, city: academies.city, country: academies.country })
         .from(academies).where(eq(academies.id, coach.academyId));
       return {
@@ -1313,6 +1326,10 @@ export const storage = {
     }
     if (filters?.openToOpportunities) {
       filtered = filtered.filter(c => c.openToOpportunities === true);
+    }
+    if (filters?.publicOnly && filters?.scope === "country" && filters?.country) {
+      const country = filters.country.toLowerCase();
+      filtered = filtered.filter(c => (c.academyCountry || "").toLowerCase() === country);
     }
     
     return filtered;
@@ -1401,22 +1418,46 @@ export const storage = {
 
 
   async getCoachPublicProfile(coachId: string) {
-    const coach = await db.select().from(coaches).where(and(
+    // Task #1037: publicProfileEnabled is the single source of truth for the
+    // public coach profile route. The legacy showInDirectory toggle controls
+    // only the in-academy directory and must NOT leak public visibility.
+    //
+    // SECURITY: this DTO is intentionally an explicit ALLOWLIST of public-safe
+    // columns. Do NOT spread the full coach row here — `coaches` contains
+    // internal/sensitive fields (e.g. parent_dashboard_pin, internal flags)
+    // that must never reach an unauthenticated public endpoint.
+    const rows = await db.select({
+      id: coaches.id,
+      name: coaches.name,
+      photoUrl: coaches.photoUrl,
+      specialty: coaches.specialty,
+      bio: coaches.bio,
+      publicQuote: coaches.publicQuote,
+      yearsExperience: coaches.yearsExperience,
+      certifications: coaches.certifications,
+      specializations: coaches.specializations,
+      languages: coaches.languages,
+      hourlyRate: coaches.hourlyRate,
+      city: coaches.city,
+      country: coaches.country,
+      academyId: coaches.academyId,
+      publicProfileEnabled: coaches.publicProfileEnabled,
+    }).from(coaches).where(and(
       eq(coaches.id, coachId),
-      eq(coaches.showInDirectory, true)
+      eq(coaches.publicProfileEnabled, true),
     ));
-    if (!coach[0]) return null;
-    
-    // Get academy info
+    if (!rows[0]) return null;
+
+    // Get public academy info (no internal fields).
     let academyInfo = null;
-    if (coach[0].academyId) {
+    if (rows[0].academyId) {
       const academy = await db.select({ id: academies.id, name: academies.name, city: academies.city, country: academies.country })
-        .from(academies).where(eq(academies.id, coach[0].academyId));
+        .from(academies).where(eq(academies.id, rows[0].academyId));
       academyInfo = academy[0] || null;
     }
-    
+
     return {
-      ...coach[0],
+      ...rows[0],
       academy: academyInfo,
     };
   },

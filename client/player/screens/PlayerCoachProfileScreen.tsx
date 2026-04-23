@@ -61,6 +61,13 @@ interface CoachDetails {
   academyCity?: string | null;
   upcomingPublicSessions?: UpcomingSession[];
   recentReviews?: RecentReview[];
+  /** Drop-in lesson price (Task #1037). Free-form string from server. */
+  dropInPrice?: string | null;
+  languages?: string[] | null;
+  publicProfileEnabled?: boolean;
+  /** Total completed lessons taught by this coach (Task #1037). */
+  totalLessonsTaught?: number;
+  academyCountry?: string | null;
 }
 
 const NEON_GREEN = GlowColors.primary;
@@ -110,12 +117,16 @@ export default function PlayerCoachProfileScreen() {
     }
   };
 
+  // Task #1037: Use the in-app drop-in lesson booking flow instead of mailto.
+  // Passes the coachId so LessonBooking can pre-select this coach.
   const handlePrivateLesson = () => {
-    if (coach?.email) {
-      const subject = encodeURIComponent(`Private Lesson Request — ${coach.name}`);
-      const body = encodeURIComponent(`Hi ${coach.name},\n\nI would like to request a private lesson.\n\nPlease let me know your availability.\n\nThanks!`);
-      Linking.openURL(`mailto:${coach.email}?subject=${subject}&body=${body}`);
-    }
+    if (!coach) return;
+    navigation.navigate("LessonBooking", { coachId: coach.id, coachName: coach.name });
+  };
+
+  const handleBookSession = (sessionId: string) => {
+    if (!coach) return;
+    navigation.navigate("LessonBooking", { coachId: coach.id, sessionId, coachName: coach.name });
   };
 
   const handleAcademyPress = () => {
@@ -200,8 +211,10 @@ export default function PlayerCoachProfileScreen() {
             )}
             <View style={styles.academyInfo}>
               <ThemedText style={styles.academyName}>{coach.academyName}</ThemedText>
-              {coach.academyCity ? (
-                <ThemedText style={styles.academySubtext}>{coach.academyCity}, UAE</ThemedText>
+              {coach.academyCity || coach.academyCountry ? (
+                <ThemedText style={styles.academySubtext}>
+                  {[coach.academyCity, coach.academyCountry].filter(Boolean).join(", ")}
+                </ThemedText>
               ) : (
                 <ThemedText style={styles.academySubtext}>View Academy</ThemedText>
               )}
@@ -246,6 +259,14 @@ export default function PlayerCoachProfileScreen() {
             <ThemedText style={styles.noRatingsText}>No ratings yet</ThemedText>
           )}
         </View>
+
+        {/* Task #1037: primary CTA — book a drop-in lesson with this coach */}
+        <Pressable style={styles.primaryBookButton} onPress={handlePrivateLesson}>
+          <Ionicons name="calendar" size={18} color={Colors.dark.buttonText} />
+          <ThemedText style={styles.primaryBookButtonText}>
+            Book a Lesson{coach.dropInPrice ? ` · AED ${coach.dropInPrice}` : ""}
+          </ThemedText>
+        </Pressable>
 
         <View style={styles.contactButtons}>
           {coach.email ? (
@@ -295,7 +316,7 @@ export default function PlayerCoachProfileScreen() {
                   {s.spotsLeft > 0 ? (
                     <Pressable
                       style={styles.bookNowButton}
-                      onPress={() => navigation.navigate("LessonBooking")}
+                      onPress={() => handleBookSession(s.id)}
                     >
                       <ThemedText style={styles.bookNowButtonText}>Book Now</ThemedText>
                     </Pressable>
@@ -323,6 +344,20 @@ export default function PlayerCoachProfileScreen() {
           </Card>
         ) : null}
 
+        {coach.languages && coach.languages.length > 0 ? (
+          <Card style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Languages</ThemedText>
+            <View style={styles.specsContainer}>
+              {coach.languages.map((lang, index) => (
+                <View key={index} style={styles.specChip}>
+                  <Ionicons name="globe-outline" size={14} color={Colors.dark.primary} />
+                  <ThemedText style={styles.specChipText}>{lang}</ThemedText>
+                </View>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
         {coach.certifications && coach.certifications.length > 0 ? (
           <Card style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Certifications</ThemedText>
@@ -338,6 +373,10 @@ export default function PlayerCoachProfileScreen() {
         <Card style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Stats</ThemedText>
           <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{coach.totalLessonsTaught || 0}</ThemedText>
+              <ThemedText style={styles.statLabel}>Lessons</ThemedText>
+            </View>
             <View style={styles.statItem}>
               <ThemedText style={styles.statValue}>{coach.playersCount || 0}</ThemedText>
               <ThemedText style={styles.statLabel}>Players</ThemedText>
@@ -525,6 +564,22 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
     fontStyle: "italic",
+  },
+  primaryBookButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  primaryBookButtonText: {
+    color: Colors.dark.buttonText,
+    fontWeight: "700",
+    fontSize: 15,
   },
   contactButtons: {
     flexDirection: "row",

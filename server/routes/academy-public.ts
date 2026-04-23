@@ -832,14 +832,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   // ==================== COACH DIRECTORY ====================
 
   // Browse coaches across the platform
+  // Public-list mode (Task #1037): pass `?public=true` to filter by
+  // `publicProfileEnabled` rather than the academy directory toggle.
+  // Optional `?scope=country&country=NL` narrows to a single country.
   router.get("/api/coaches/directory", async (req: Request, res: Response) => {
     try {
-      const { search, specialization, openToOpportunities } = req.query;
+      const { search, specialization, openToOpportunities, public: publicMode, scope, country } = req.query;
 
       const coaches = await storage.getCoachesForDirectory({
         search: search as string,
         specialization: specialization as string,
         openToOpportunities: openToOpportunities === "true",
+        publicOnly: publicMode === "true",
+        scope: scope === "country" ? "country" : "global",
+        country: country as string | undefined,
       });
 
       res.json({ coaches });
@@ -859,7 +865,61 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         return res.status(404).json({ error: "Coach not found" });
       }
 
-      res.json({ profile });
+      // Enrich with public-facing extras for Task #1037: open drop-in lessons
+      // so the unauthenticated public profile is useful.
+      const now = new Date();
+      const upcoming = await db.select({
+        id: sessions.id,
+        title: sessions.title,
+        startTime: sessions.startTime,
+        endTime: sessions.endTime,
+        maxPlayers: sessions.maxPlayers,
+        ballLevel: sessions.ballLevel,
+        sessionType: sessions.sessionType,
+        price: sessions.price,
+        academyPrice: sessions.academyPrice,
+      })
+        .from(sessions)
+        .where(and(
+          eq(sessions.coachId, id),
+          eq(sessions.status, "scheduled"),
+          inArray(sessions.sessionType, ["group", "semi_private"]),
+          gte(sessions.startTime, now),
+        ))
+        .orderBy(asc(sessions.startTime))
+        .limit(6);
+
+      const openLessons = await Promise.all(upcoming.map(async (s) => {
+        const enrolled = await db.select({ count: sql<number>`count(*)` })
+          .from(sessionPlayers).where(eq(sessionPlayers.sessionId, s.id));
+        const currentPlayers = Number(enrolled[0]?.count || 0);
+        const maxP = s.maxPlayers || 6;
+        const dropInPrice = s.academyPrice != null
+          ? parseFloat(s.academyPrice.toString())
+          : (s.price != null ? parseFloat(s.price.toString()) : null);
+        return {
+          id: s.id,
+          title: s.title,
+          startTime: s.startTime.toISOString(),
+          endTime: s.endTime.toISOString(),
+          ballLevel: s.ballLevel,
+          sessionType: s.sessionType,
+          maxPlayers: maxP,
+          currentPlayers,
+          spotsLeft: Math.max(0, maxP - currentPlayers),
+          dropInPrice,
+        };
+      }));
+
+      res.json({
+        profile: {
+          ...profile,
+          // Surface a single avatar for clients regardless of which field is set.
+          avatarUrl: profile.photoUrl || null,
+          dropInPrice: profile.hourlyRate != null ? parseFloat(profile.hourlyRate.toString()) : null,
+          openLessons,
+        },
+      });
     } catch (error) {
       console.error("Get coach profile error:", error);
       res.status(500).json({ error: "Failed to get coach profile" });

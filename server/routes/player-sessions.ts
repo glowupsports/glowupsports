@@ -4018,6 +4018,53 @@ import fs from "fs";
     },
   );
 
+  // Update coach public profile (Task #1037 — Public Coach Profiles)
+  // Allows the coach to edit their public-facing bio, photo, languages,
+  // public quote, and toggle public discoverability.
+  router.patch(
+    "/api/coach/me/public-profile",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const coachId = req.user!.coachId;
+        if (!coachId) {
+          return res.status(403).json({ error: "Coach account required" });
+        }
+
+        const {
+          publicProfileEnabled,
+          bio,
+          publicQuote,
+          languages,
+          specializations,
+        } = req.body || {};
+
+        const update: Record<string, any> = {};
+        if (typeof publicProfileEnabled === "boolean")
+          update.publicProfileEnabled = publicProfileEnabled;
+        if (typeof bio === "string" || bio === null) update.bio = bio;
+        if (typeof publicQuote === "string" || publicQuote === null)
+          update.publicQuote = publicQuote;
+        if (Array.isArray(languages)) update.languages = languages;
+        if (Array.isArray(specializations))
+          update.specializations = specializations;
+
+        if (Object.keys(update).length === 0) {
+          return res.status(400).json({ error: "No fields to update" });
+        }
+
+        const coach = await storage.updateCoach(coachId, update);
+        if (!coach) {
+          return res.status(404).json({ error: "Coach not found" });
+        }
+        res.json({ coach });
+      } catch (error) {
+        console.error("Error updating coach public profile:", error);
+        res.status(500).json({ error: "Failed to update public profile" });
+      }
+    },
+  );
+
   // Get pending coach bios for review (Platform Owner only)
   router.get(
     "/api/platform/pending-bios",

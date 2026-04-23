@@ -293,8 +293,17 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
         const academyId = req.user!.academyId!;
 
         // Whitelist allowed fields — never allow role, academyId, totalXp, level, or other privileged fields
-        const { name, phone, specialty, bio, hourlyRate, photoUrl, availability, certifications } = req.body;
+        // Public profile fields (Task #1037) are also allowed so the coach can
+        // toggle public discoverability and edit their public-facing details.
+        const {
+          name, phone, specialty, bio, hourlyRate, photoUrl, availability, certifications,
+          publicProfileEnabled, publicQuote, languages, specializations,
+        } = req.body;
         const updates: Record<string, any> = { name, phone, specialty, bio, photoUrl, availability, certifications };
+        if (typeof publicProfileEnabled === "boolean") updates.publicProfileEnabled = publicProfileEnabled;
+        if (typeof publicQuote === "string" || publicQuote === null) updates.publicQuote = publicQuote;
+        if (Array.isArray(languages)) updates.languages = languages;
+        if (Array.isArray(specializations)) updates.specializations = specializations;
 
         // Sanitize numeric fields: convert empty strings to null, valid strings to numbers
         if (hourlyRate === "" || hourlyRate === undefined) {

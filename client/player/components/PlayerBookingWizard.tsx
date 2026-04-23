@@ -126,6 +126,14 @@ interface PlayerBookingWizardProps {
   playerId?: string;
   playerBallLevel?: string | null;
   sport?: string;
+  /**
+   * Task #1037 — Public Coach Profiles. When set, the wizard locks coach
+   * selection to this coach (including coaches from another academy via
+   * the public directory) and skips straight to the slot picker.
+   */
+  preselectedCoachId?: string;
+  /** Optional open lesson the player wants to join from a public profile. */
+  preselectedSessionId?: string;
 }
 
 type SessionType = "private" | "semi_private" | "group" | "open_play";
@@ -202,6 +210,8 @@ export default function PlayerBookingWizard({
   playerId,
   playerBallLevel,
   sport = "tennis",
+  preselectedCoachId,
+  preselectedSessionId,
 }: PlayerBookingWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -323,18 +333,55 @@ export default function PlayerBookingWizard({
   const joinableSessionsUrl = useMemo(() => {
     const params = new URLSearchParams({
       date: selectedDateString,
-      sessionType,
     });
+    // Task #1037: when a specific session is preselected (e.g. tapped on a
+    // public coach's open lesson), don't constrain by sessionType — the
+    // open lesson could be group/semi_private/open_play and we want to
+    // resolve it regardless of the wizard's current sessionType state.
+    if (!preselectedSessionId) {
+      params.set("sessionType", sessionType);
+    }
     if (sport) params.set("sport", sport);
+    // Task #1037: when looking at a public coach (potentially in another
+    // academy), include their coachId so the server can return that
+    // coach's sessions even when they're outside our academy.
+    if (preselectedCoachId) params.set("coachId", preselectedCoachId);
     return `/api/player/joinable-sessions?${params}`;
-  }, [selectedDateString, sessionType, sport]);
+  }, [selectedDateString, sessionType, sport, preselectedCoachId, preselectedSessionId]);
 
   // Fetch joinable sessions using the dedicated player endpoint (server-filtered)
   // Enable when on slide 2 (When & Where) or later
   const { data: joinableSessions = [], isLoading: sessionsLoading } = useQuery<JoinableSession[]>({
     queryKey: [joinableSessionsUrl],
-    enabled: visible && currentSlide >= 2 && (sessionType === "group" || sessionType === "semi_private" || sessionType === "open_play"),
+    // Task #1037: also enable when arriving with a preselectedSessionId so
+    // we can resolve and auto-select the open lesson regardless of the
+    // current sessionType (which starts as "private").
+    enabled:
+      visible &&
+      currentSlide >= 2 &&
+      (!!preselectedSessionId ||
+        sessionType === "group" ||
+        sessionType === "semi_private" ||
+        sessionType === "open_play"),
   });
+
+  // Task #1037 — when entered from a public coach profile with a specific
+  // open lesson, auto-select that session as soon as it shows up in the
+  // joinable list, so the player isn't forced to find it again.
+  useEffect(() => {
+    if (!preselectedSessionId) return;
+    if (selectedSession?.id === preselectedSessionId) return;
+    const match = joinableSessions.find((s) => s.id === preselectedSessionId);
+    if (match) {
+      setSelectedSession(match);
+      // Sync the wizard's sessionType to the resolved session so the rest
+      // of the flow (filters, summary, submit) reflects the actual type.
+      const validSessionTypes = ["private", "semi_private", "group", "open_play"] as const;
+      if (validSessionTypes.includes(match.sessionType as typeof validSessionTypes[number])) {
+        setSessionType(match.sessionType as typeof validSessionTypes[number]);
+      }
+    }
+  }, [preselectedSessionId, joinableSessions, selectedSession?.id]);
 
   // Fetch available courts when a slot is selected (for court selection step)
   const availableCourtsUrl = useMemo(() => {
@@ -399,9 +446,14 @@ export default function PlayerBookingWizard({
 
   // Fetch all coaches from player's academy for coach selection screen
   const { data: academyCoachesData, isLoading: academyCoachesLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
-    queryKey: ["/api/player/academy-coaches"],
+    queryKey: ["/api/player/academy-coaches", preselectedCoachId || null],
     queryFn: async () => {
-      const response = await apiFetch("/api/player/academy-coaches");
+      // Task #1037: pass preselectedCoachId so the server can include a
+      // public coach who is not in this player's academy.
+      const url = preselectedCoachId
+        ? `/api/player/academy-coaches?coachId=${encodeURIComponent(preselectedCoachId)}`
+        : "/api/player/academy-coaches";
+      const response = await apiFetch(url);
       if (!response.ok) throw new Error("Failed to load coaches");
       return response.json();
     },
@@ -583,10 +635,27 @@ export default function PlayerBookingWizard({
           // corrupted entry — ignore
         }
       }).catch(() => {});
+
+      // Task #1037: when the wizard is opened from a public coach profile,
+      // lock the booking to that coach (and optionally to a preselected
+      // open lesson) and skip ahead to the slot picker.
+      if (preselectedCoachId) {
+        setBrowseMode("by_coach");
+        setSelectedCoachId(preselectedCoachId);
+        if (preselectedSessionId) {
+          // Don't lock sessionType yet — the open lesson could be group,
+          // semi_private, or open_play. The effect below will derive it
+          // from the resolved session record once joinable-sessions loads.
+          setIsJoining(true);
+        } else {
+          setSessionType("private");
+        }
+        setCurrentSlide(2);
+      }
     } else {
       resetForm();
     }
-  }, [visible]);
+  }, [visible, preselectedCoachId, preselectedSessionId]);
 
   // Animate slide progress
   useEffect(() => {

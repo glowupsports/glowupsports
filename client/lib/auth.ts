@@ -42,6 +42,10 @@ export interface AuthUser {
   profilePhotoUrl?: string | null;
   displayName?: string;
   isGuest?: boolean;
+  /** Player/coach country (Task #1037 — used for "Coaches near you" scoping). */
+  country?: string | null;
+  /** Country of the player's home academy, used as a fallback. */
+  academyCountry?: string | null;
 }
 
 const GUEST_MODE_KEY = "guest_mode";

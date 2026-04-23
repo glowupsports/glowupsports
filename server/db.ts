@@ -915,6 +915,46 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] chat_rooms migration skipped:', e.message);
   }
 
+  // Task #1037 — Public Coach Profiles. The schema default for
+  // public_profile_enabled is true so newly created coaches are publicly
+  // discoverable, but for privacy we must keep ALL pre-existing coaches
+  // opt-in. This idempotent backfill flips any coach whose flag was never
+  // explicitly set (still NULL on legacy rows or implicitly true on rows
+  // that existed before this column had a meaningful value) to false on
+  // first boot, and then is a no-op on subsequent boots.
+  try {
+    // Step 1: ensure both columns exist. The marker column starts FALSE so
+    // existing rows are caught by the one-shot backfill below; once the
+    // backfill runs we flip the default to TRUE so subsequent inserts
+    // (new coaches) are NOT touched again on later boots.
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS public_profile_enabled BOOLEAN DEFAULT TRUE`);
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS public_profile_backfilled BOOLEAN DEFAULT FALSE`);
+    // Drizzle schema declares this column too — ensure it exists at runtime
+    // so plain `select().from(coaches)` queries don't fail on environments
+    // that haven't run db:push.
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS public_avatar_url TEXT`);
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS public_quote TEXT`);
+    await pool.query(`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS languages JSONB`);
+
+    // Step 2: opt-in for existing coaches — flip enabled=false on every row
+    // that has not yet been processed. Idempotent.
+    const r = await pool.query(`
+      UPDATE coaches
+         SET public_profile_enabled = FALSE,
+             public_profile_backfilled = TRUE
+       WHERE public_profile_backfilled IS NOT TRUE
+    `);
+    if (r.rowCount && r.rowCount > 0) {
+      console.log(`[Database] coaches public_profile_enabled backfill: ${r.rowCount} existing coaches set opt-in`);
+    }
+
+    // Step 3: from now on, freshly inserted coaches are pre-marked as
+    // backfilled so they are never affected by re-running this migration.
+    await pool.query(`ALTER TABLE coaches ALTER COLUMN public_profile_backfilled SET DEFAULT TRUE`);
+  } catch (e: any) {
+    console.warn('[Database] coaches public_profile_enabled backfill skipped:', e.message);
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");

@@ -16,6 +16,12 @@ export default function LessonBookingScreen() {
 
   useFocusEffect(useCallback(() => { track("screen:lesson_booking"); }, [track]));
   const sport: string | undefined = route.params?.sport;
+  // Task #1037: A player tapping "Book a Lesson" from a public coach profile
+  // navigates here with a preselected coachId (and optionally sessionId), so
+  // the wizard can lock onto that coach — including coaches from another
+  // academy — without forcing the player to re-pick from a list.
+  const preselectedCoachId: string | undefined = route.params?.coachId;
+  const preselectedSessionId: string | undefined = route.params?.sessionId;
 
   const handleClose = () => {
     navigation.goBack();
@@ -33,6 +39,8 @@ export default function LessonBookingScreen() {
         onBookingSuccess={handleBookingSuccess}
         playerId={user?.playerId || undefined}
         sport={sport}
+        preselectedCoachId={preselectedCoachId}
+        preselectedSessionId={preselectedSessionId}
       />
     </View>
   );

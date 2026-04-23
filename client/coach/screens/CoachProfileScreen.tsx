@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Switch,
   Image as RNImage,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,6 +46,10 @@ interface CoachProfile {
   workingHoursStart: string | null;
   workingHoursEnd: string | null;
   photoUrl: string | null;
+  // Public profile (Task #1037)
+  publicProfileEnabled?: boolean | null;
+  publicQuote?: string | null;
+  languages?: string[] | null;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -193,9 +198,26 @@ export default function CoachProfileScreen() {
       specialty: profile?.specialty || "",
       bio: profile?.bio || "",
       hourlyRate: profile?.hourlyRate || "",
+      publicProfileEnabled: profile?.publicProfileEnabled !== false,
+      publicQuote: profile?.publicQuote || "",
+      languages: profile?.languages || [],
     });
     setIsEditing(true);
   };
+
+  // Quick-toggle the public discoverability switch (Task #1037 — privacy control).
+  // Persists immediately so the coach doesn't have to enter "edit mode" just to opt out.
+  const togglePublicMutation = useMutation({
+    mutationFn: async (enabled: boolean) =>
+      apiRequest("PATCH", "/api/coach/me/public-profile", { publicProfileEnabled: enabled }),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to update visibility");
+    },
+  });
 
   const handleSave = () => {
     if (!coach?.id) {
@@ -468,6 +490,108 @@ export default function CoachProfileScreen() {
                 ) : (
                   <Text style={styles.fieldValue}>
                     {profile?.bio || "No bio added yet"}
+                  </Text>
+                )}
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+
+        {/* Public Profile (Task #1037) — controls public discoverability and bio */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PUBLIC PROFILE</Text>
+
+          <View style={styles.field}>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={[styles.fieldInner, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
+                <View style={{ flex: 1, paddingRight: Spacing.md }}>
+                  <Text style={styles.fieldLabel}>Discoverable worldwide</Text>
+                  <Text style={[styles.fieldValue, { fontSize: 12, color: Colors.dark.textMuted, marginTop: 4 }]}>
+                    Players can find you in the public coach directory and book drop-in lessons.
+                  </Text>
+                </View>
+                <Switch
+                  value={
+                    isEditing
+                      ? formData.publicProfileEnabled !== false
+                      : profile?.publicProfileEnabled !== false
+                  }
+                  onValueChange={(v) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (isEditing) {
+                      setFormData({ ...formData, publicProfileEnabled: v });
+                    } else {
+                      togglePublicMutation.mutate(v);
+                    }
+                  }}
+                  trackColor={{ false: Colors.dark.backgroundRoot, true: Colors.dark.xpCyan }}
+                  thumbColor={Colors.dark.text}
+                />
+              </View>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.field}>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                <Text style={styles.fieldLabel}>Public quote (one-liner)</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={formData.publicQuote || ""}
+                    onChangeText={(text) => setFormData({ ...formData, publicQuote: text })}
+                    placeholder="e.g., I help juniors fall in love with the game"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    maxLength={120}
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>{profile?.publicQuote || "Not set"}</Text>
+                )}
+              </View>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.field}>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.fieldGradient}
+            >
+              <View style={styles.fieldInner}>
+                <Text style={styles.fieldLabel}>Languages (comma-separated)</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={(formData.languages || []).join(", ")}
+                    onChangeText={(text) =>
+                      setFormData({
+                        ...formData,
+                        languages: text
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    placeholder="English, Dutch, Spanish"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    autoCapitalize="words"
+                  />
+                ) : (
+                  <Text style={styles.fieldValue}>
+                    {(profile?.languages && profile.languages.length > 0)
+                      ? profile.languages.join(", ")
+                      : "Not set"}
                   </Text>
                 )}
               </View>

@@ -7,8 +7,11 @@ import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { Image } from "expo-image";
+
 import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
-import { apiFetch } from "@/lib/query-client";
+import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { MatchSummaryCard } from "./MatchSummaryCard";
 import { PlayersNearYouRow } from "./DiscoveryRows";
@@ -507,6 +510,220 @@ export function JoinAcademySoftCard() {
   );
 }
 
+// ─── Coaches rail (Task #1037 — Public Coach Profiles) ───────────────────────
+// Shows publicly discoverable coaches the player can browse and book a
+// drop-in lesson with. Defaults to "My country" scope when we know the
+// player's country, otherwise falls back to worldwide.
+
+interface PublicCoachEntry {
+  id: string;
+  name: string;
+  specialty?: string | null;
+  photoUrl?: string | null;
+  publicQuote?: string | null;
+  averageRating?: number | null;
+  totalRatings?: number | null;
+  hourlyRate?: string | null;
+  academyName?: string | null;
+  academyCountry?: string | null;
+}
+
+function CoachesNearYouSection({ navigation }: { navigation: any }) {
+  useThemeReactivity();
+  const { user } = useAuth();
+  const userCountry = user?.country || user?.academyCountry || null;
+  const [scope, setScope] = useState<"country" | "global">(userCountry ? "country" : "global");
+
+  const { data, isLoading } = useQuery<{ coaches: PublicCoachEntry[] }>({
+    queryKey: ["/api/coaches/directory", "discover", scope, userCountry],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("public", "true");
+      if (scope === "country" && userCountry) {
+        params.set("scope", "country");
+        params.set("country", userCountry);
+      }
+      const res = await apiFetch(`/api/coaches/directory?${params.toString()}`);
+      if (!res.ok) return { coaches: [] };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const coaches = (data?.coaches || []).slice(0, 12);
+
+  return (
+    <View style={sectionStyles.section}>
+      <View style={sectionStyles.header}>
+        <View style={sectionStyles.headerLeft}>
+          <View style={sectionStyles.headerIcon}>
+            <Ionicons name="ribbon-outline" size={13} color={Colors.dark.accentText} />
+          </View>
+          <Text style={sectionStyles.title}>Coaches</Text>
+        </View>
+        <Pressable onPress={() => { Haptics.selectionAsync(); navigation.navigate("CoachDirectory"); }} hitSlop={10}>
+          <Text style={sectionStyles.seeAll}>See all</Text>
+        </Pressable>
+      </View>
+
+      <View style={coachRailStyles.scopeRow}>
+        <Pressable
+          style={[coachRailStyles.scopeChip, scope === "country" && coachRailStyles.scopeChipActive]}
+          onPress={() => { Haptics.selectionAsync(); setScope("country"); }}
+        >
+          <Ionicons name="location" size={12} color={scope === "country" ? Colors.dark.buttonText : Colors.dark.textMuted} />
+          <Text style={[coachRailStyles.scopeChipText, scope === "country" && coachRailStyles.scopeChipTextActive]}>My country</Text>
+        </Pressable>
+        <Pressable
+          style={[coachRailStyles.scopeChip, scope === "global" && coachRailStyles.scopeChipActive]}
+          onPress={() => { Haptics.selectionAsync(); setScope("global"); }}
+        >
+          <Ionicons name="globe-outline" size={12} color={scope === "global" ? Colors.dark.buttonText : Colors.dark.textMuted} />
+          <Text style={[coachRailStyles.scopeChipText, scope === "global" && coachRailStyles.scopeChipTextActive]}>Worldwide</Text>
+        </Pressable>
+      </View>
+
+      {isLoading ? (
+        <View style={sectionStyles.skeletonRow}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={[sectionStyles.skeletonCard, { width: 160 }]} />
+          ))}
+        </View>
+      ) : coaches.length === 0 ? (
+        <View style={sectionStyles.emptyWrap}>
+          <Text style={sectionStyles.emptyText}>No public coaches yet.</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={sectionStyles.listContent}
+        >
+          {coaches.map((c, idx) => {
+            const photo = c.photoUrl;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("CoachProfile", { coachId: c.id });
+                }}
+                style={[coachRailStyles.card, { marginRight: idx === coaches.length - 1 ? 0 : Spacing.sm }]}
+              >
+                {photo ? (
+                  <Image source={{ uri: buildPhotoUrl(photo)! }} style={coachRailStyles.avatar} contentFit="cover" />
+                ) : (
+                  <View style={[coachRailStyles.avatar, coachRailStyles.avatarPlaceholder]}>
+                    <Text style={coachRailStyles.initial}>{c.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
+                <Text style={coachRailStyles.name} numberOfLines={1}>{c.name}</Text>
+                {c.specialty ? (
+                  <Text style={coachRailStyles.specialty} numberOfLines={1}>{c.specialty}</Text>
+                ) : null}
+                <View style={coachRailStyles.metaRow}>
+                  {c.averageRating ? (
+                    <View style={coachRailStyles.metaItem}>
+                      <Ionicons name="star" size={11} color="#FFD700" />
+                      <Text style={coachRailStyles.metaText}>{Number(c.averageRating).toFixed(1)}</Text>
+                    </View>
+                  ) : null}
+                  {c.hourlyRate ? (
+                    <Text style={coachRailStyles.priceText}>AED {parseInt(String(c.hourlyRate), 10)}</Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+const coachRailStyles = makeReactiveStyles(() => StyleSheet.create({
+  scopeRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  scopeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.chipBackground,
+  },
+  scopeChipActive: {
+    backgroundColor: Colors.dark.accentText,
+  },
+  scopeChipText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  scopeChipTextActive: {
+    color: Colors.dark.buttonText,
+  },
+  card: {
+    width: 160,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.chipBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBackgroundStrong,
+  },
+  avatar: {
+    width: "100%",
+    height: 100,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xs,
+  },
+  avatarPlaceholder: {
+    backgroundColor: Colors.dark.accentTextSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  initial: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: Colors.dark.accentText,
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  specialty: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.xs,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  metaText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  priceText: {
+    fontSize: 11,
+    color: Colors.dark.accentText,
+    fontWeight: "700",
+  },
+}));
+
 // ─── Public component ─────────────────────────────────────────────────────────
 
 export function FreePlayerDiscoverySections() {
@@ -556,6 +773,7 @@ export function FreePlayerDiscoverySections() {
         navigation={navigation}
       />
       <OpenMatchesSection navigation={navigation} />
+      <CoachesNearYouSection navigation={navigation} />
       <NearbyPlayersSection
         permission={permission}
         onRequestPermission={handleRequestPermission}

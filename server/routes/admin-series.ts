@@ -4683,7 +4683,25 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       if (!coach) {
         return res.status(404).json({ error: "Coach not found" });
       }
-      
+
+      // Task #1037: Privacy gate. A non-public coach should only be visible
+      // to players who already share an academy with the coach (in-academy
+      // directory access). Otherwise we treat the coach as not found so a
+      // direct-ID probe cannot leak hidden coaches across academies.
+      if (coach.publicProfileEnabled === false) {
+        const requesterPlayerId = req.user?.playerId;
+        let allowed = false;
+        if (requesterPlayerId) {
+          const player = await storage.getPlayer(requesterPlayerId);
+          if (player?.academyId && player.academyId === coach.academyId) {
+            allowed = true;
+          }
+        }
+        if (!allowed) {
+          return res.status(404).json({ error: "Coach not found" });
+        }
+      }
+
       // Get coach review stats
       const reviewStats = await storage.getCoachReviewStats(coachId);
       
@@ -4691,18 +4709,28 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const playersList = await storage.getPlayersByCoach(coachId);
       const activePlayers = playersList.length;
 
+      // Task #1037: total lessons taught — count of completed sessions for
+      // this coach. Surfaced on the public profile so players can gauge
+      // experience at a glance.
+      const lessonsTaughtRow = await db.select({ count: sql<number>`count(*)` })
+        .from(sessions)
+        .where(and(eq(sessions.coachId, coachId), eq(sessions.status, "completed")));
+      const totalLessonsTaught = Number(lessonsTaughtRow[0]?.count || 0);
+
       // Get academy info
       let academyId: string | null = coach.academyId || null;
       let academyName: string | null = null;
       let academyLogoUrl: string | null = null;
       let academyCity: string | null = null;
+      let academyCountry: string | null = null;
       if (academyId) {
-        const academyRows = await db.select({ id: academies.id, name: academies.name, logoUrl: academies.logoUrl, city: academies.city })
+        const academyRows = await db.select({ id: academies.id, name: academies.name, logoUrl: academies.logoUrl, city: academies.city, country: academies.country })
           .from(academies).where(eq(academies.id, academyId)).limit(1);
         if (academyRows[0]) {
           academyName = academyRows[0].name || null;
           academyLogoUrl = academyRows[0].logoUrl || null;
           academyCity = academyRows[0].city || null;
+          academyCountry = academyRows[0].country || null;
         }
       }
 
@@ -4795,14 +4823,19 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         yearsExperience: coach.yearsExperience || 0,
         specializations: coach.specializations || [],
         certifications: coach.certifications || [],
+        languages: coach.languages || [],
         playersCount: activePlayers,
+        totalLessonsTaught,
         averageRating: reviewStats?.averageOverall ? parseFloat(reviewStats.averageOverall.toString()) : null,
         reviewsCount: reviewStats?.totalReviews || 0,
         profilePhotoUrl: coach.photoUrl || null,
+        publicProfileEnabled: coach.publicProfileEnabled !== false,
+        dropInPrice: coach.hourlyRate != null ? parseFloat(coach.hourlyRate.toString()) : null,
         academyId,
         academyName,
         academyLogoUrl,
         academyCity,
+        academyCountry,
         upcomingPublicSessions: upcomingSessionsEnriched,
         recentReviews: reviewsFormatted,
       });

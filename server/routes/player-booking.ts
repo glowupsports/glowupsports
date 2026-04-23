@@ -167,9 +167,25 @@ function toDubaiTime(utcDate: Date): Date {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      console.log("[Availability] Fetching slots for player:", playerId, "date:", date || `${startDate} - ${endDate}`, "academyId:", player.academyId);
+      // Task #1037: If the player is booking a public coach from another
+      // academy, look up that coach's availability under THEIR academy
+      // (not the player's). The coach must have publicProfileEnabled=true.
+      let scopedAcademyId = player.academyId || "";
+      if (coachId) {
+        const targetCoach = await storage.getCoach(coachId as string);
+        if (
+          targetCoach &&
+          targetCoach.academyId &&
+          targetCoach.academyId !== scopedAcademyId &&
+          targetCoach.publicProfileEnabled !== false
+        ) {
+          scopedAcademyId = targetCoach.academyId;
+        }
+      }
+
+      console.log("[Availability] Fetching slots for player:", playerId, "date:", date || `${startDate} - ${endDate}`, "academyId:", scopedAcademyId);
       const slots = await storage.getAvailableSlots({
-        academyId: player.academyId || "",
+        academyId: scopedAcademyId,
         coachId: coachId as string | undefined,
         locationId: locationId as string | undefined,
         courtId: courtId as string | undefined,
@@ -212,19 +228,52 @@ function toDubaiTime(utcDate: Date): Date {
     try {
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
-      
+
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
       }
 
-      if (!academyId) {
-        return res.json([]);
+      // Task #1037: Public Coach Profiles. When the wizard is opened from a
+      // public coach profile, the player may want to book a coach who is not
+      // in their own academy. We accept ?coachId=... and inject that coach
+      // into the list (provided the coach has publicProfileEnabled=true) so
+      // the wizard can lock onto them even cross-academy.
+      const requestedCoachId = (req.query.coachId as string | undefined) || undefined;
+
+      const academyCoaches = academyId
+        ? await storage.getAcademyCoachesForBooking(academyId)
+        : [];
+
+      let coaches = academyCoaches;
+
+      if (requestedCoachId && !academyCoaches.some((c: any) => c.id === requestedCoachId)) {
+        const externalCoach = await storage.getCoach(requestedCoachId);
+        if (externalCoach && externalCoach.publicProfileEnabled !== false) {
+          coaches = [
+            ...academyCoaches,
+            {
+              id: externalCoach.id,
+              name: externalCoach.name,
+              profilePhotoUrl: externalCoach.photoUrl,
+              specialty: externalCoach.specialty,
+              yearsExperience: externalCoach.yearsExperience,
+              specializations: externalCoach.specializations,
+              bio: externalCoach.publicQuote,
+              certifications: externalCoach.certifications,
+              languages: externalCoach.languages,
+              hourlyRate: externalCoach.hourlyRate,
+              totalSessions: 0,
+              rating: null,
+              totalReviews: 0,
+              availableForPrivate: true,
+              availableForGroup: true,
+              isExternalPublicCoach: true,
+            },
+          ];
+        }
       }
 
-      // Get all coaches from this academy with extended details for booking
-      const academyCoaches = await storage.getAcademyCoachesForBooking(academyId);
-      
-      res.json({ coaches: academyCoaches });
+      res.json({ coaches });
     } catch (error) {
       console.error("Get academy coaches error:", error);
       res.status(500).json({ error: "Failed to fetch academy coaches" });
@@ -406,7 +455,20 @@ function toDubaiTime(utcDate: Date): Date {
       if (!player?.academyId) {
         return res.status(404).json({ error: "Player or academy not found" });
       }
-      const academyId = player.academyId;
+      let academyId = player.academyId;
+
+      // Task #1037: cross-academy public coach. The slot reservation must be
+      // scoped to the coach's academy so it doesn't conflict with — and is
+      // visible to — the coach's own bookings.
+      const coachRecord = await storage.getCoach(coachId);
+      if (
+        coachRecord &&
+        coachRecord.academyId &&
+        coachRecord.academyId !== academyId &&
+        coachRecord.publicProfileEnabled !== false
+      ) {
+        academyId = coachRecord.academyId;
+      }
 
       // Atomically: clean up expired reservations for this slot, then try to claim it
       const result = await pool.query(`
@@ -471,6 +533,22 @@ function toDubaiTime(utcDate: Date): Date {
       }
       const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote, sessionId, isJoinRequest, courtBookingStatus, courtBookingNote, courtBookingUrl } = parsedBooking.data;
 
+      // Task #1037: Public Coach Profiles. If the player is booking a public
+      // coach from another academy, route the booking through the coach's
+      // academy so the coach can see/manage it.
+      let bookingAcademyId = player.academyId;
+      if (coachId) {
+        const coachRecord = await storage.getCoach(coachId);
+        if (
+          coachRecord &&
+          coachRecord.academyId &&
+          coachRecord.academyId !== player.academyId &&
+          coachRecord.publicProfileEnabled !== false
+        ) {
+          bookingAcademyId = coachRecord.academyId;
+        }
+      }
+
       // For join requests, validate the session exists and has spots
       if (isJoinRequest && sessionId) {
         const session = await storage.getSession(sessionId);
@@ -478,9 +556,19 @@ function toDubaiTime(utcDate: Date): Date {
           return res.status(404).json({ error: "Session not found" });
         }
         
-        // Check if session belongs to player's academy
+        // Same-academy joins keep the existing rule. Cross-academy joins
+        // (Task #1037 — Public Coach Profiles) are allowed ONLY when the
+        // session is owned by the very public coach the player picked,
+        // so a player cannot join arbitrary sessions in another academy
+        // just by knowing their IDs.
         if (session.academyId !== player.academyId) {
-          return res.status(403).json({ error: "Session not in your academy" });
+          const isCrossAcademyPublicCoachJoin =
+            !!coachId &&
+            session.academyId === bookingAcademyId &&
+            session.coachId === coachId;
+          if (!isCrossAcademyPublicCoachJoin) {
+            return res.status(403).json({ error: "Session not accessible" });
+          }
         }
         
         // Check if session has available spots
@@ -522,7 +610,7 @@ function toDubaiTime(utcDate: Date): Date {
           }
 
           const newRequests = await tx.insert(bookingRequests).values({
-            academyId: player.academyId,
+            academyId: bookingAcademyId,
             playerId,
             coachId: coachId || null,
             locationId: locationId || null,
@@ -763,24 +851,36 @@ function toDubaiTime(utcDate: Date): Date {
     try {
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
-      
+
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
       }
 
-      if (!academyId) {
-        return res.json({ sessions: [] });
+      const { date, sessionType, sport } = req.query;
+      const requestedCoachId = (req.query.coachId as string | undefined) || undefined;
+
+      // Task #1037: when the player is browsing a public coach (possibly from
+      // another academy), look up that coach's academy and pull joinable
+      // sessions from there as well. The coach must be publicly bookable.
+      let scopedAcademyId = academyId || "";
+      if (requestedCoachId) {
+        const targetCoach = await storage.getCoach(requestedCoachId);
+        if (targetCoach && targetCoach.publicProfileEnabled !== false && targetCoach.academyId) {
+          scopedAcademyId = targetCoach.academyId;
+        }
       }
 
-      const player = await storage.getPlayer(playerId, academyId);
+      if (!scopedAcademyId) {
+        return res.json([]);
+      }
+
+      const player = await storage.getPlayer(playerId, academyId || "");
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const { date, sessionType, sport } = req.query;
-      
-      // Get all future sessions for the academy
-      const allSessions = await storage.getSessionsByAcademy(academyId);
+      // Get all future sessions for the resolved academy
+      const allSessions = await storage.getSessionsByAcademy(scopedAcademyId);
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       

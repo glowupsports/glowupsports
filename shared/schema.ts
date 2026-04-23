@@ -500,6 +500,16 @@ export const coaches = pgTable("coaches", {
   openToOpportunities: boolean("open_to_opportunities").default(false), // accepting invites from other academies
   specializations: jsonb("specializations").$type<string[]>(), // technique, footwork, mental, fitness, competition, etc.
   languages: jsonb("languages").$type<string[]>(), // en, nl, es, fr, ar, etc.
+
+  // Public Profile (Task #1037 — Public Coach Profiles)
+  // When true, the coach is publicly discoverable in the worldwide coach directory
+  // and shows a public profile (bio, sports, certifications, sample reviews,
+  // open lessons, drop-in price). New coaches default to ON (opt-out at signup);
+  // existing coaches were backfilled to OFF (opt-in) so we never expose anyone
+  // publicly without explicit consent.
+  publicProfileEnabled: boolean("public_profile_enabled").default(true),
+  // Optional separate avatar used on the public profile (falls back to photoUrl).
+  publicAvatarUrl: text("public_avatar_url"),
   
   // Parent Dashboard PIN Protection
   parentDashboardPin: text("parent_dashboard_pin").default("1234"), // 4-digit PIN, default 1234

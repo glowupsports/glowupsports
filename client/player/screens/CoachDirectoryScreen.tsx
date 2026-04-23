@@ -161,6 +161,7 @@ function PremiumCoachCard({ coach, onPress, index }: { coach: CoachDirectoryEntr
 }
 
 type FilterTab = "all" | "academy" | "open";
+type ScopeFilter = "country" | "global";
 
 export default function CoachDirectoryScreen() {
   const insets = useSafeAreaInsets();
@@ -169,12 +170,21 @@ export default function CoachDirectoryScreen() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  // Task #1037: My country / Worldwide scope chips. Falls back to global when
+  // we don't know the player's country.
+  const userCountry = user?.country || user?.academyCountry || null;
+  const [scope, setScope] = useState<ScopeFilter>(userCountry ? "country" : "global");
 
   const { data: coachesData, isLoading } = useQuery<{ coaches: CoachDirectoryEntry[] }>({
-    queryKey: ["/api/coaches/directory", activeTab === "open" ? "open" : "all"],
+    queryKey: ["/api/coaches/directory", "public", activeTab, scope, userCountry],
     queryFn: async () => {
       const params = new URLSearchParams();
+      params.set("public", "true");
       if (activeTab === "open") params.set("openToOpportunities", "true");
+      if (scope === "country" && userCountry) {
+        params.set("scope", "country");
+        params.set("country", userCountry);
+      }
       const response = await apiFetch(`/api/coaches/directory?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to load coaches");
       return response.json();
@@ -255,6 +265,33 @@ export default function CoachDirectoryScreen() {
           </View>
         </View>
         
+        {/* Task #1037: country / worldwide scope chips */}
+        <View style={styles.scopeRow}>
+          <Pressable
+            style={[styles.scopeChip, scope === "country" && styles.scopeChipActive, !userCountry && styles.scopeChipDisabled]}
+            disabled={!userCountry}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setScope("country");
+            }}
+          >
+            <Ionicons name="location" size={14} color={scope === "country" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+            <Text style={[styles.scopeChipText, scope === "country" && styles.scopeChipTextActive]}>
+              {userCountry ? `My country (${userCountry})` : "My country"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.scopeChip, scope === "global" && styles.scopeChipActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setScope("global");
+            }}
+          >
+            <Ionicons name="globe-outline" size={14} color={scope === "global" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+            <Text style={[styles.scopeChipText, scope === "global" && styles.scopeChipTextActive]}>Worldwide</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.tabsContainer}>
           {tabs.map((tab) => (
             <Pressable
@@ -378,6 +415,36 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: Colors.dark.text,
+  },
+  scopeRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  scopeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Backgrounds.card,
+  },
+  scopeChipActive: {
+    backgroundColor: GlowColors.primary,
+  },
+  scopeChipDisabled: {
+    opacity: 0.5,
+  },
+  scopeChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  scopeChipTextActive: {
+    color: Colors.dark.buttonText,
+    fontWeight: "600",
   },
   tabsContainer: {
     flexDirection: "row",
