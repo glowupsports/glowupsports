@@ -49,6 +49,7 @@ type Region = { latitude: number; longitude: number; latitudeDelta: number; long
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiFetch } from "@/lib/query-client";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 type FilterKey = "all" | "academies" | "lessons" | "matches" | "tournaments";
 type PinType = "academy" | "lesson" | "match" | "tournament";
@@ -111,6 +112,41 @@ const WORLD_REGION: Region = {
   latitudeDelta: 170,
   longitudeDelta: 360,
 };
+
+function parseDefaultCenter(value: unknown): { lat: number; lng: number; source: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const lat = Number(v.lat);
+  const lng = Number(v.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const source = typeof v.source === "string" ? v.source : "";
+  return { lat, lng, source };
+}
+
+function sanitizePin(value: unknown): MapPin | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const lat = Number(v.lat);
+  const lng = Number(v.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const type = v.type;
+  if (typeof type !== "string" || !Object.prototype.hasOwnProperty.call(PIN_COLORS, type)) return null;
+  const id = typeof v.id === "string" ? v.id : v.id != null ? String(v.id) : "";
+  if (!id) return null;
+  const meta: PinMeta =
+    v.meta && typeof v.meta === "object" ? (v.meta as PinMeta) : {};
+  return {
+    id,
+    type: type as PinType,
+    lat,
+    lng,
+    title: typeof v.title === "string" ? v.title : "",
+    subtitle: typeof v.subtitle === "string" ? v.subtitle : undefined,
+    country: typeof v.country === "string" ? v.country : null,
+    city: typeof v.city === "string" ? v.city : null,
+    meta,
+  };
+}
 
 function bboxFromRegion(r: Region): string {
   const minLat = r.latitude - r.latitudeDelta / 2;
@@ -213,7 +249,50 @@ function PinDot({ color, size = 18, count }: { color: string; size?: number; cou
   );
 }
 
+function InlineMapErrorState({ onRetry, message }: { onRetry: () => void; message?: string }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.root, { paddingTop: insets.top + Spacing.xl, alignItems: "center", justifyContent: "center", padding: Spacing.lg }]}>
+      <Ionicons name="map-outline" size={36} color={Colors.dark.textMuted} />
+      <Text style={[styles.empty, { marginTop: Spacing.md }]}>
+        {message || "Couldn't load map"}
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        style={{
+          marginTop: Spacing.lg,
+          paddingHorizontal: Spacing.lg,
+          paddingVertical: Spacing.md,
+          backgroundColor: Colors.dark.primary,
+          borderRadius: BorderRadius.md,
+        }}
+      >
+        <Text style={{ color: "#0E1117", fontWeight: "700" }}>Retry</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function DiscoveryMapScreen() {
+  const [boundaryKey, setBoundaryKey] = useState(0);
+  return (
+    <ErrorBoundary
+      key={boundaryKey}
+      FallbackComponent={({ resetError }) => (
+        <InlineMapErrorState
+          onRetry={() => {
+            resetError();
+            setBoundaryKey((k) => k + 1);
+          }}
+        />
+      )}
+    >
+      <DiscoveryMapScreenInner />
+    </ErrorBoundary>
+  );
+}
+
+function DiscoveryMapScreenInner() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<DiscoveryMapNav>>();
   const route = useRoute<RouteProp<DiscoveryMapNav, "DiscoveryMap">>();
@@ -229,41 +308,62 @@ export default function DiscoveryMapScreen() {
 
   const [centeredFromFallback, setCenteredFromFallback] = useState(false);
 
-  // Initial centering: try device location → (later) player country centroid → world
+  // Initial centering: try device location → (later) player country centroid → world.
+  // Each Location.* call is wrapped so a rejection (denied permission, missing
+  // services, slow/failed GPS) is logged but cannot crash the screen mount.
   useEffect(() => {
     let cancelled = false;
+    const tryCall = async <T,>(label: string, p: Promise<T>): Promise<T | null> => {
+      try {
+        return await p;
+      } catch (e) {
+        console.warn(`[DiscoveryMap] ${label} failed:`, e);
+        return null;
+      }
+    };
     const init = async () => {
       if (Platform.OS === "web") return;
-      try {
-        const perm = await Location.getForegroundPermissionsAsync();
-        let granted = perm.granted;
-        if (!granted && perm.canAskAgain) {
-          const req = await Location.requestForegroundPermissionsAsync();
-          granted = req.granted;
-          if (!req.granted && !req.canAskAgain) setPermissionDenied(true);
-        } else if (!granted) {
-          setPermissionDenied(true);
+      const perm = await tryCall(
+        "getForegroundPermissionsAsync",
+        Location.getForegroundPermissionsAsync(),
+      );
+      let granted = !!perm?.granted;
+      if (!granted && perm?.canAskAgain !== false) {
+        const req = await tryCall(
+          "requestForegroundPermissionsAsync",
+          Location.requestForegroundPermissionsAsync(),
+        );
+        granted = !!req?.granted;
+        if (!req?.granted && req?.canAskAgain === false) {
+          if (!cancelled) setPermissionDenied(true);
         }
-        if (granted) {
-          const loc = await Location.getLastKnownPositionAsync({}) ||
-            await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          if (cancelled || !loc) return;
-          const { latitude, longitude } = loc.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
-          const next: Region = {
-            latitude,
-            longitude,
-            latitudeDelta: 0.4,
-            longitudeDelta: 0.4,
-          };
-          setRegion(next);
-          setDebouncedRegion(next);
-          mapRef.current?.animateToRegion(next, 600);
-          setCenteredFromFallback(true);
-        }
-      } catch {
-        // fall through — defaultCenter from API will be used below
+      } else if (!granted) {
+        if (!cancelled) setPermissionDenied(true);
       }
+      if (!granted) return;
+      const loc =
+        (await tryCall(
+          "getLastKnownPositionAsync",
+          Location.getLastKnownPositionAsync({}),
+        )) ||
+        (await tryCall(
+          "getCurrentPositionAsync",
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        ));
+      if (cancelled || !loc?.coords) return;
+      const { latitude, longitude } = loc.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      setUserLocation({ lat: latitude, lng: longitude });
+      const next: Region = {
+        latitude,
+        longitude,
+        latitudeDelta: 0.4,
+        longitudeDelta: 0.4,
+      };
+      setRegion(next);
+      setDebouncedRegion(next);
+      mapRef.current?.animateToRegion(next, 600);
+      setCenteredFromFallback(true);
     };
     init();
     return () => { cancelled = true; };
@@ -287,16 +387,36 @@ export default function DiscoveryMapScreen() {
     Platform.OS === "web" ? "world" : bboxFromRegion(debouncedRegion),
   ], [types, debouncedRegion]);
 
-  const { data, isLoading, isFetching } = useQuery<MapApiResponse>({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery<MapApiResponse>({
     queryKey,
     queryFn: async () => {
       const params = new URLSearchParams({ types });
       if (Platform.OS !== "web") params.set("bbox", bboxFromRegion(debouncedRegion));
       const resp = await apiFetch(`/api/discovery/map?${params.toString()}`);
       if (!resp.ok) throw new Error("Failed to load map data");
-      return resp.json();
+      let json: unknown;
+      try {
+        json = await resp.json();
+      } catch (e) {
+        console.warn("[DiscoveryMap] failed to parse JSON response:", e);
+        json = {};
+      }
+      // Defensive default: never let missing/oddly-shaped fields blow up
+      // downstream clustering/render code.
+      const root: Record<string, unknown> =
+        typeof json === "object" && json !== null ? (json as Record<string, unknown>) : {};
+      const rawPins = root.pins;
+      const safePins = Array.isArray(rawPins) ? (rawPins as MapPin[]) : [];
+      const safeDefaultCenter = parseDefaultCenter(root.defaultCenter);
+      const rawCount = typeof root.count === "number" ? root.count : Number(root.count);
+      return {
+        pins: safePins,
+        count: Number.isFinite(rawCount) ? rawCount : safePins.length,
+        defaultCenter: safeDefaultCenter,
+      };
     },
     staleTime: 30_000,
+    retry: 1,
   });
 
   // Apply server-provided defaultCenter (player country centroid) when device
@@ -319,7 +439,17 @@ export default function DiscoveryMapScreen() {
     setCenteredFromFallback(true);
   }, [data?.defaultCenter, userLocation, centeredFromFallback]);
 
-  const pins: MapPin[] = data?.pins ?? [];
+  // Final pin sanitization: strip anything missing finite lat/lng, an id, or
+  // a known type so a single bad row from the API can't crash clustering.
+  const pins: MapPin[] = useMemo(() => {
+    const raw: unknown[] = Array.isArray(data?.pins) ? (data!.pins as unknown[]) : [];
+    const out: MapPin[] = [];
+    for (const item of raw) {
+      const pin = sanitizePin(item);
+      if (pin) out.push(pin);
+    }
+    return out;
+  }, [data?.pins]);
   const clusterLevel = clusterLevelForZoom(region.latitudeDelta);
   const grid = gridSizeForLevel(clusterLevel);
   const { clusters, singles } = useMemo(
@@ -400,6 +530,22 @@ export default function DiscoveryMapScreen() {
           </View>
           {isLoading ? (
             <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
+          ) : isError ? (
+            <View style={{ alignItems: "center", marginTop: Spacing.xl }}>
+              <Text style={styles.empty}>Couldn't load map data.</Text>
+              <Pressable
+                onPress={() => refetch()}
+                style={{
+                  marginTop: Spacing.md,
+                  paddingHorizontal: Spacing.lg,
+                  paddingVertical: Spacing.sm,
+                  backgroundColor: Colors.dark.primary,
+                  borderRadius: BorderRadius.md,
+                }}
+              >
+                <Text style={{ color: "#0E1117", fontWeight: "700" }}>Retry</Text>
+              </Pressable>
+            </View>
           ) : pins.length === 0 ? (
             <Text style={styles.empty}>Nothing to show yet.</Text>
           ) : (
@@ -462,7 +608,12 @@ export default function DiscoveryMapScreen() {
         {permissionDenied ? (
           <Pressable
             style={styles.permBanner}
-            onPress={() => Linking.openSettings().catch(() => {})}
+            onPress={() => {
+              if (Platform.OS === "web") return;
+              Linking.openSettings().catch((e) => {
+                console.warn("[DiscoveryMap] openSettings failed:", e);
+              });
+            }}
           >
             <Ionicons name="location-outline" size={14} color="#fff" />
             <Text style={styles.permBannerText}>Enable location to center the map on you</Text>
@@ -483,6 +634,16 @@ export default function DiscoveryMapScreen() {
         <View style={[styles.loadingBadge, { top: headerTop + 60 }]} pointerEvents="none">
           <ActivityIndicator size="small" color="#fff" />
         </View>
+      ) : null}
+
+      {isError ? (
+        <Pressable
+          onPress={() => refetch()}
+          style={[styles.permBanner, { position: "absolute", top: headerTop + 60, alignSelf: "center" }]}
+        >
+          <Ionicons name="alert-circle-outline" size={14} color="#fff" />
+          <Text style={styles.permBannerText}>Couldn't load map data. Tap to retry.</Text>
+        </Pressable>
       ) : null}
 
       {userLocation ? (
