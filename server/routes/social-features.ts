@@ -3934,23 +3934,43 @@ const socialPostUpload = multer({
             .filter((v): v is string => !!v),
         );
 
-        // Existing connections (any status — pending/declined/accepted).
+        // Existing connections. We split them into three buckets:
+        //   - excludedConn: people we should NOT surface in the rail. That is
+        //     anyone we're already friends with (status=accepted), anyone who
+        //     sent US a request that's still pending (we'd handle those from
+        //     the friends list / public profile, not this small horizontal
+        //     CTA), and anyone we previously declined or who declined us.
+        //   - pendingSentSet: requests we sent that are still pending — we
+        //     keep these in the rail so the card can show a "Pending"
+        //     disabled state instead of an actionable "Add Friend" button.
         const conns = await db
           .select({
             p1: playerConnections.player1Id,
             p2: playerConnections.player2Id,
+            status: playerConnections.status,
           })
           .from(playerConnections)
           .where(
             sql`${playerConnections.player1Id} = ${playerId} OR ${playerConnections.player2Id} = ${playerId}`,
           );
-        const connectedSet = new Set<string>();
+        const excludedConn = new Set<string>();
+        const pendingSentSet = new Set<string>();
         for (const c of conns) {
-          if (c.p1 && c.p1 !== playerId) connectedSet.add(c.p1);
-          if (c.p2 && c.p2 !== playerId) connectedSet.add(c.p2);
+          const otherId = c.p1 === playerId ? c.p2 : c.p1;
+          if (!otherId || otherId === playerId) continue;
+          const isRequester = c.p1 === playerId;
+          if (c.status === "pending" && isRequester) {
+            // We sent this request — keep the player in the rail and tag as
+            // pending. The card's "Add Friend" button will render disabled.
+            pendingSentSet.add(otherId);
+          } else {
+            // Friends, incoming pending requests, and declined connections
+            // are all hidden from the discovery rail.
+            excludedConn.add(otherId);
+          }
         }
 
-        const exclude = new Set<string>([playerId, ...playedSet, ...connectedSet]);
+        const exclude = new Set<string>([playerId, ...playedSet, ...excludedConn]);
         const excludeArr = Array.from(exclude);
 
         // Restrict to players whose user account is verified/active and
@@ -4087,7 +4107,16 @@ const socialPostUpload = multer({
           bucket = stripHidden(recent.rows as DiscoveryRow[]).slice(0, limitVal);
         }
 
-        res.json({ players: bucket });
+        // Tag each row with the caller's connection status. Today this is
+        // either "pending" (when the caller already sent a friend request
+        // that's still outstanding) or "none". The rail uses this to render
+        // a disabled "Pending" button without an extra round-trip.
+        const playersWithStatus = bucket.map((p) => ({
+          ...p,
+          connectionStatus: pendingSentSet.has(p.id) ? "pending" : "none",
+        }));
+
+        res.json({ players: playersWithStatus });
       } catch (error) {
         console.error("[Discovery] Error:", error);
         res.status(500).json({ error: "Failed to load discovery" });
