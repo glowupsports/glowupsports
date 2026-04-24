@@ -24,6 +24,8 @@ import { defaultAcademyTheme } from "@shared/theme";
 import MyThemeEditor from "@/player/components/MyThemeEditor";
 import { LanguageSelectorModal } from "@/components/LanguageSelectorModal";
 import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
+import { PinSetupModal } from "@/components/PinSetupModal";
+import { PinRecoveryModal } from "@/components/PinRecoveryModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
@@ -38,7 +40,7 @@ interface SettingItem {
 export default function PlayerSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { logout, loginWithToken } = useAuth();
+  const { logout, loginWithToken, user } = useAuth();
   const { isRegistered } = usePushNotifications();
   const queryClient = useQueryClient();
   const { refreshFamily } = useFamily();
@@ -57,6 +59,17 @@ export default function PlayerSettingsScreen() {
   const [joinCode, setJoinCode] = useState("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [showPinRecovery, setShowPinRecovery] = useState(false);
+
+  const { data: pinStatus, refetch: refetchPinStatus } = useQuery<{
+    hasPin: boolean;
+    isCreator: boolean;
+    pinSetAt: string | null;
+  }>({
+    queryKey: ["/api/account/pin/status"],
+    retry: false,
+  });
 
   const { data: aiProStatus, refetch: refetchAiPro } = useQuery<{
     isPro: boolean;
@@ -490,6 +503,24 @@ export default function PlayerSettingsScreen() {
       type: "link",
       onPress: () => (navigation.getParent() as any)?.navigate("CompanyContactDashboard"),
     },
+    {
+      id: "account-pin",
+      icon: "keypad",
+      label: pinStatus?.hasPin ? "Change Account PIN" : "Set Account PIN",
+      type: "link",
+      onPress: () => setShowPinSetup(true),
+    },
+    ...(pinStatus?.hasPin
+      ? [
+          {
+            id: "forgot-pin",
+            icon: "help-buoy",
+            label: "Forgot PIN — email me a reset link",
+            type: "link" as const,
+            onPress: () => setShowPinRecovery(true),
+          },
+        ]
+      : []),
     {
       id: "privacy",
       icon: "lock-closed",
@@ -1094,6 +1125,23 @@ export default function PlayerSettingsScreen() {
           setShowUpgradeModal(false);
           refetchAiPro();
         }}
+      />
+
+      <PinSetupModal
+        visible={showPinSetup}
+        hasExistingPin={!!pinStatus?.hasPin}
+        callerEmail={user?.email || null}
+        onClose={() => setShowPinSetup(false)}
+        onComplete={() => {
+          setShowPinSetup(false);
+          refetchPinStatus();
+        }}
+      />
+
+      <PinRecoveryModal
+        visible={showPinRecovery}
+        defaultEmail={user?.email || undefined}
+        onClose={() => setShowPinRecovery(false)}
       />
     </View>
   );

@@ -59,7 +59,7 @@ interface AuthContextType {
   academy: Academy | null;
   isGuest: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
-  loginWithToken: (token: string, user: AuthUser) => Promise<void>;
+  loginWithToken: (token: string, user: AuthUser, refreshToken?: string) => Promise<void>;
   loginWithApple: (identityToken: string, appleUser: string, email?: string | null) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser; linkedToExisting?: boolean }>;
   registerWithApple: (data: {
     identityToken: string;
@@ -277,9 +277,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithToken = async (token: string, user: AuthUser): Promise<void> => {
+  const loginWithToken = async (token: string, user: AuthUser, refreshToken?: string): Promise<void> => {
     queryClient.clear();
-    await saveAuthState(token, user);
+    await saveAuthState(token, user, refreshToken);
     setAuthToken(token);
     await fetchUserData(token, true);
     setIsAuthenticated(true);

@@ -7568,6 +7568,40 @@ export const insertSpectatorLinkSchema = createInsertSchema(spectatorLinks).omit
 export type InsertSpectatorLink = z.infer<typeof insertSpectatorLinkSchema>;
 export type SpectatorLink = typeof spectatorLinks.$inferSelect;
 
+// ==================== ACCOUNT PINS (Family B — per-account 4-digit PIN) ====================
+// Each player optionally has a 4-digit PIN guarding profile-switch into their
+// account. Family creators are PIN-mandatory; added members are PIN-optional
+// (the inviter chooses default at invite time). Brute-force is throttled via
+// failedAttempts + lockedUntil.
+export const accountPins = pgTable("account_pins", {
+  playerId: varchar("player_id")
+    .primaryKey()
+    .references(() => players.id, { onDelete: "cascade" }),
+  pinHash: text("pin_hash").notNull(),
+  pinSetAt: timestamp("pin_set_at").defaultNow().notNull(),
+  pinRecoveryEmail: text("pin_recovery_email"), // defaults to user.email at write time
+  failedAttempts: integer("failed_attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AccountPin = typeof accountPins.$inferSelect;
+
+// Single-use, 15-minute magic-link tokens for "Forgot PIN" recovery.
+export const accountPinRecovery = pgTable("account_pin_recovery", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  byTokenHash: index("account_pin_recovery_token_idx").on(t.tokenHash),
+  byPlayer: index("account_pin_recovery_player_idx").on(t.playerId),
+}));
+
+export type AccountPinRecovery = typeof accountPinRecovery.$inferSelect;
+
 // ==================== AI PROGRESS ENGINE ====================
 
 // Per-session AI digest: what was practised, what went well, one focus area

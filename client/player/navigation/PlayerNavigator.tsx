@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text, AppState } from "react-native";
-import { secureGet, secureDelete, clearAuthState } from "@/lib/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -128,7 +127,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
-import { FamilyProvider, useFamily } from "@/player/context/FamilyContext";
+import { FamilyProvider } from "@/player/context/FamilyContext";
 import { apiFetch, getApiUrl } from "@/lib/query-client";
 
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
@@ -138,100 +137,10 @@ import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const FAMILY_SWITCH_KEY = "family_switch";
 
-interface FamilySwitchInfo {
-  originalToken?: string;
-  originalPlayerId?: string;
-  switchedPlayerName: string;
-  hasOwnAccount: boolean;
-}
-
-function FamilySwitchBackBanner() {
-  const { user, loginWithToken } = useAuth();
-  const { setActivePlayer } = useFamily();
-  // Mounted as a sibling of PlayerStackNavigator, so useNavigation() can't see PlayerTabs.
-  // Use the global navigationRef registered in App.tsx (via TabNavigationContext).
-  const { getNavigation } = useTabNavigation();
-  const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const [switchInfo, setSwitchInfo] = useState<FamilySwitchInfo | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const raw = await secureGet(FAMILY_SWITCH_KEY);
-        setSwitchInfo(raw ? JSON.parse(raw) : null);
-      } catch {
-        setSwitchInfo(null);
-      }
-    };
-    check();
-  }, []);
-
-  const handleSwitchBack = async () => {
-    if (!switchInfo || loading) return;
-    setLoading(true);
-    try {
-      await secureDelete(FAMILY_SWITCH_KEY);
-      if (switchInfo.hasOwnAccount && switchInfo.originalToken) {
-        // Full clean logout before restoring original account — removes child's refresh token and cache.
-        await clearAuthState();
-        queryClient.clear();
-        const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
-          headers: { Authorization: `Bearer ${switchInfo.originalToken}` },
-        });
-        const meData = await meResp.json();
-        if (!meData?.user) {
-          throw new Error("Could not restore original account session");
-        }
-        await loginWithToken(switchInfo.originalToken, meData.user);
-      } else {
-        const restoreId = switchInfo.originalPlayerId || user?.playerId;
-        if (restoreId) setActivePlayer(restoreId);
-      }
-      setSwitchInfo(null);
-      const navRef = getNavigation();
-      if (navRef?.isReady?.()) {
-        navRef.reset({
-          index: 0,
-          routes: [
-            {
-              name: "Player",
-              state: { index: 0, routes: [{ name: "PlayerTabs" }] },
-            },
-          ],
-        } as never);
-      }
-    } catch (e) {
-      console.error("[FamilySwitch] Switch back error:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!switchInfo) return null;
-
-  return (
-    <Pressable
-      style={[styles.switchBanner, { paddingTop: insets.top > 0 ? insets.top : Spacing.sm }]}
-      onPress={handleSwitchBack}
-      disabled={loading}
-    >
-      <Ionicons name="people" size={14} color={Colors.dark.buttonText} />
-      <Text style={styles.switchBannerText} numberOfLines={1}>
-        Viewing as {switchInfo.switchedPlayerName}
-      </Text>
-      <View style={styles.switchBannerChip}>
-        {loading
-          ? <ActivityIndicator size="small" color={Colors.dark.buttonText} />
-          : <Text style={styles.switchBannerChipText}>Switch Back</Text>
-        }
-      </View>
-    </Pressable>
-  );
-}
+// Family B — the legacy "view-as" banner has been removed. Profile-switching
+// now goes through a real auth-swap (POST /api/family/switch + reboot). We
+// retain the storage key only as a transient reboot-redirect signal.
 
 export { usePlayerDrawer };
 
@@ -1911,7 +1820,6 @@ export default function PlayerNavigator() {
                 <FamilyProvider playerId={playerId}>
                   <PlayerLevelProvider playerId={playerId}>
                     <PlayerThemedRoot>
-                      <FamilySwitchBackBanner />
                       <PlayerStackNavigator />
                     </PlayerThemedRoot>
                   </PlayerLevelProvider>
@@ -1930,34 +1838,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
-  },
-  switchBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: GlowColors.primary,
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
-    gap: Spacing.xs,
-    zIndex: 100,
-  },
-  switchBannerText: {
-    flex: 1,
-    fontSize: FontSizes.xs,
-    fontWeight: "600",
-    color: Colors.dark.buttonText,
-  },
-  switchBannerChip: {
-    backgroundColor: "rgba(0,0,0,0.15)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 12,
-    minWidth: 80,
-    alignItems: "center",
-  },
-  switchBannerChipText: {
-    fontSize: FontSizes.xs,
-    fontWeight: "700",
-    color: Colors.dark.buttonText,
   },
   tabsContainer: {
     flex: 1,

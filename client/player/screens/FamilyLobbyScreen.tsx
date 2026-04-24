@@ -28,8 +28,15 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { getAuthToken, secureSet, clearAuthState } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
+import { PinPadModal } from "@/components/PinPadModal";
+import { PinRecoveryModal } from "@/components/PinRecoveryModal";
+import { callFamilySwitch, applySwitchResult } from "@/lib/familySwitch";
+import { reloadAppAsync } from "expo";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+// Retained as a transient reboot-redirect signal. The legacy "view as" banner
+// has been removed but a few code paths still want to know "the user just
+// switched accounts" during the reboot window, so we keep the storage key.
 export const FAMILY_SWITCH_KEY = "family_switch";
 
 function parseApiError(error: any, fallback: string): string {
@@ -248,6 +255,9 @@ export default function FamilyLobbyScreen() {
   const { familyData, isLoading, refreshFamily, isParent, isFamilyMember } = useFamily();
   const { user, loginWithToken } = useAuth();
   const [switching, setSwitching] = useState(false);
+  const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinRecoveryOpen, setPinRecoveryOpen] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
@@ -599,42 +609,71 @@ export default function FamilyLobbyScreen() {
     } catch (_) {}
   };
 
+  // Family B — real auth-swap. If the target has a PIN we open the PIN pad
+  // and retry the switch with the entered PIN. On success we apply the new
+  // token and reboot via reloadAppAsync so every provider rehydrates from
+  // scratch under the new identity.
+  const performSwitch = async (member: FamilyMember, pin?: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const outcome = await callFamilySwitch(member.id, pin ? { pin } : {});
+    if (outcome.ok) {
+      await applySwitchResult(outcome, queryClient);
+      // Persist a transient signal so the booted app can show a "Hi {name}"
+      // welcome banner once on next mount. Cleared by whoever consumes it.
+      try {
+        await secureSet(
+          FAMILY_SWITCH_KEY,
+          JSON.stringify({ switchedPlayerName: member.name, at: Date.now() })
+        );
+      } catch (_) {}
+      try {
+        await reloadAppAsync();
+      } catch {
+        // Web / fallback: drive AuthContext + reset navigation.
+        await loginWithToken(outcome.token, outcome.user, outcome.refreshToken);
+        navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
+      }
+      return { ok: true as const };
+    }
+    return outcome;
+  };
+
   const handleSelectChild = async (member: FamilyMember) => {
     if (switching) return;
     setSwitching(true);
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const switchRes = await apiRequest("POST", `/api/family/switch/${member.id}`, undefined);
-      const result: { token: string; playerName: string; hasOwnAccount: boolean } = await switchRes.json();
-
-      if (!result.token) {
-        throw new Error("No token returned from server");
+      const outcome = await performSwitch(member);
+      if (outcome.ok) return;
+      if ("pinRequired" in outcome && outcome.pinRequired) {
+        // Hand off to the PIN-pad modal; it will re-enter performSwitch with the PIN.
+        setPinTarget(member);
+        if ("locked" in outcome && outcome.locked) {
+          setPinError(outcome.message || "Too many wrong attempts. Try again later.");
+        }
+        return;
       }
-
-      const originalToken = getAuthToken();
-      await secureSet(
-        FAMILY_SWITCH_KEY,
-        JSON.stringify({ originalToken, switchedPlayerName: member.name, hasOwnAccount: true })
-      );
-      // Full clean logout before switching — clears old refresh token, auth keys, and cache.
-      // We do NOT call context logout() to avoid flashing the login screen.
-      await clearAuthState();
-      queryClient.clear();
-      const meResp = await fetch(new URL("/api/me", getApiUrl()).toString(), {
-        headers: { Authorization: `Bearer ${result.token}` },
-      });
-      const meData = await meResp.json();
-      if (!meData?.user) {
-        throw new Error("Could not load profile for this family member");
-      }
-      await loginWithToken(result.token, meData.user);
-
-      navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
+      Alert.alert("Switch Failed", outcome.message || "Could not switch to this account. Please try again.");
     } catch (error: any) {
       Alert.alert("Switch Failed", parseApiError(error, "Could not switch to this account. Please try again."));
     } finally {
       setSwitching(false);
     }
+  };
+
+  const handlePinSubmit = async (pin: string): Promise<string | null> => {
+    if (!pinTarget) return "No account selected";
+    const outcome = await performSwitch(pinTarget, pin);
+    if (outcome.ok) {
+      setPinTarget(null);
+      return null;
+    }
+    if ("locked" in outcome && outcome.locked) {
+      return outcome.message || "Too many attempts. Try again later.";
+    }
+    if ("attemptsLeft" in outcome && typeof outcome.attemptsLeft === "number") {
+      return `Incorrect PIN — ${outcome.attemptsLeft} attempt${outcome.attemptsLeft === 1 ? "" : "s"} left`;
+    }
+    return outcome.message || "Incorrect PIN";
   };
 
   const handlePayAll = () => {
@@ -921,6 +960,25 @@ export default function FamilyLobbyScreen() {
             [{ text: "OK" }]
           );
         }}
+      />
+
+      <PinPadModal
+        visible={!!pinTarget && !pinRecoveryOpen}
+        title={pinTarget ? `Enter ${pinTarget.name}'s PIN` : "Enter PIN"}
+        subtitle="Switching to this account is protected by a 4-digit PIN."
+        onSubmit={handlePinSubmit}
+        onClose={() => {
+          setPinTarget(null);
+          setPinError(null);
+        }}
+        onForgotPin={() => setPinRecoveryOpen(true)}
+        errorMessage={pinError}
+      />
+
+      <PinRecoveryModal
+        visible={!!pinTarget && pinRecoveryOpen}
+        targetPlayerId={pinTarget?.id}
+        onClose={() => setPinRecoveryOpen(false)}
       />
 
       <Modal visible={showControls} transparent animationType="slide">

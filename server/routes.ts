@@ -240,6 +240,7 @@ import coachCalendarRouter from "./routes/coach-calendar";
 import playerAuthRouter from "./routes/player-auth";
 import familyRouter from "./routes/family";
 import spectatorLinksRouter from "./routes/spectator-links";
+import accountPinRouter from "./routes/account-pin";
 import adminSetupRouter from "./routes/admin-setup";
 import playerCreditsRouter from "./routes/player-credits";
 import creditsV2Router from "./routes/credits-v2";
@@ -579,6 +580,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // viewers like grandparents). Mounts both authenticated /api/family/spectator*
   // endpoints AND the public GET /spectate/:token web page (no auth).
   app.use(spectatorLinksRouter);
+  // Family B — per-account PIN management + elevation token endpoint
+  app.use(accountPinRouter);
   app.use(adminSetupRouter);
   app.use(playerCreditsRouter);
   app.use(creditsV2Router);

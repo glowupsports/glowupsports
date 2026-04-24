@@ -52,7 +52,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema, familyInviteCodes, familyGroups, familyMembers,
   } from "@shared/schema";
-  import { hashPassword, generateToken } from "../auth";
+  import { hashPassword, generateToken, generateRefreshToken } from "../auth";
+  import { verifyAccountPin, playerHasPin } from "./account-pin";
   import * as Sentry from "@sentry/node";
   const router = Router();
   
@@ -973,6 +974,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   );
 
 // POST /api/family/switch/:playerId — switch into a family member's account
+//
+// Family B: now PIN-aware. If the target has a PIN set, the caller must
+// provide it in the body OR be within the 60-second grace window from a
+// recent switch into a target they were just on. Brute-force is throttled
+// inside verifyAccountPin (5-attempt lockout).
+//
+// Grace tracking is in-memory keyed by the caller's userId — survives within
+// a single server process, which is enough for the "switch out + back in"
+// muscle-memory case described in the task.
+const SWITCH_GRACE_MS = 60 * 1000;
+type SwitchHistoryEntry = { fromPlayerId: string; toPlayerId: string; at: number };
+const switchHistoryByUser = new Map<string, SwitchHistoryEntry>();
+
 router.post(
   "/api/family/switch/:playerId",
   authMiddleware,
@@ -980,42 +994,57 @@ router.post(
     try {
       const tokenUser = req.user!;
       const targetPlayerId = req.params.playerId;
+      const submittedPin: string | undefined =
+        typeof req.body?.pin === "string" ? req.body.pin : undefined;
 
-      // Get caller's player record
       const freshUser = await storage.getUserById(tokenUser.userId);
       if (!freshUser || !freshUser.playerId) {
         return res.status(403).json({ error: "Player profile required" });
       }
 
       const callerPlayer = await storage.getPlayer(freshUser.playerId);
-      if (!callerPlayer || !callerPlayer.email) {
+      if (!callerPlayer) {
         return res.status(403).json({ error: "Account not found" });
       }
 
-      // Build caller's family member IDs (same logic as /api/family/status)
-      const byEmail = await db
-        .select({ id: players.id })
-        .from(players)
-        .where(eq(players.email, callerPlayer.email));
+      // Build caller's family using BOTH the symmetric family_groups model
+      // (canonical) AND the legacy email/parentEmail edges (for accounts that
+      // haven't migrated yet).
+      const familyIds = new Set<string>();
+      familyIds.add(freshUser.playerId);
 
-      const byParentEmail = await db
-        .select({ id: players.id })
-        .from(players)
-        .where(eq(players.parentEmail, callerPlayer.email));
+      const callerGroups = await db
+        .select({ familyGroupId: familyMembers.familyGroupId })
+        .from(familyMembers)
+        .where(eq(familyMembers.playerId, freshUser.playerId));
+      if (callerGroups.length > 0) {
+        const groupIds = callerGroups.map((g) => g.familyGroupId);
+        const peers = await db
+          .select({ playerId: familyMembers.playerId })
+          .from(familyMembers)
+          .where(inArray(familyMembers.familyGroupId, groupIds));
+        for (const p of peers) familyIds.add(p.playerId);
+      }
 
-      const familyIds = new Set<string>([
-        ...byEmail.map(p => p.id),
-        ...byParentEmail.map(p => p.id),
-      ]);
+      if (callerPlayer.email) {
+        const byEmail = await db
+          .select({ id: players.id })
+          .from(players)
+          .where(eq(players.email, callerPlayer.email));
+        const byParentEmail = await db
+          .select({ id: players.id })
+          .from(players)
+          .where(eq(players.parentEmail, callerPlayer.email));
+        for (const p of byEmail) familyIds.add(p.id);
+        for (const p of byParentEmail) familyIds.add(p.id);
+      }
 
-      // Also add siblings if caller is a child
       if (callerPlayer.parentEmail) {
         const siblings = await db
           .select({ id: players.id })
           .from(players)
-          .where(eq(players.parentEmail, callerPlayer.parentEmail!));
+          .where(eq(players.parentEmail, callerPlayer.parentEmail));
         for (const s of siblings) familyIds.add(s.id);
-
         const parentPlayers = await db
           .select({ id: players.id })
           .from(players)
@@ -1023,62 +1052,127 @@ router.post(
         for (const p of parentPlayers) familyIds.add(p.id);
       }
 
-      // Always include the caller's own ID
-      familyIds.add(freshUser.playerId);
-
       if (!familyIds.has(targetPlayerId)) {
         return res.status(403).json({ error: "Player is not in your family" });
       }
 
-      // Get target player info
       const targetPlayer = await storage.getPlayer(targetPlayerId);
       if (!targetPlayer) {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Check if target player has their own user account
+      // PIN gate: only required if (a) target has a PIN AND (b) the caller is
+      // not within the 60-second grace window of a switch they just made
+      // out of this same target.
+      const targetHasPin = await playerHasPin(targetPlayerId);
+      let usedGrace = false;
+      if (targetHasPin && targetPlayerId !== freshUser.playerId) {
+        const lastSwitch = switchHistoryByUser.get(tokenUser.userId);
+        const inGrace =
+          !!lastSwitch &&
+          lastSwitch.toPlayerId === freshUser.playerId &&
+          lastSwitch.fromPlayerId === targetPlayerId &&
+          Date.now() - lastSwitch.at < SWITCH_GRACE_MS;
+
+        if (inGrace) {
+          usedGrace = true;
+        } else {
+          if (!submittedPin) {
+            return res.status(401).json({ error: "PIN required", pinRequired: true });
+          }
+          const verify = await verifyAccountPin(targetPlayerId, submittedPin);
+          if (!verify.ok) {
+            if ("locked" in verify && verify.locked) {
+              return res.status(429).json({
+                error: "Too many wrong attempts. Try again in a few minutes.",
+                retryAfter: verify.retryAfter,
+                locked: true,
+              });
+            }
+            return res.status(401).json({
+              error: "Incorrect PIN",
+              pinRequired: true,
+              attemptsLeft: "attemptsLeft" in verify ? verify.attemptsLeft : 0,
+            });
+          }
+        }
+      }
+
+      // Find the target's user account (real or none).
       const [targetUser] = await db
         .select({ id: users.id, role: users.role, playerId: users.playerId, coachId: users.coachId })
         .from(users)
         .where(and(eq(users.playerId, targetPlayerId), eq(users.deleted, false)))
         .limit(1);
 
+      let token: string;
+      let refreshToken: string;
+      let userPayload: any;
       if (targetUser) {
-        // Issue a real token for this user account
-        const token = generateToken({
+        const payload = {
           userId: targetUser.id,
+          email: targetPlayer.email || "",
           role: targetUser.role || "player",
           playerId: targetUser.playerId,
           coachId: targetUser.coachId,
           academyId: targetPlayer.academyId,
-        });
-
-        return res.json({
-          token,
-          playerName: targetPlayer.name,
-          hasOwnAccount: true,
-        });
+        };
+        token = generateToken(payload);
+        refreshToken = generateRefreshToken(payload);
+        userPayload = {
+          id: targetUser.id,
+          email: targetPlayer.email || "",
+          role: targetUser.role || "player",
+          playerId: targetUser.playerId,
+          coachId: targetUser.coachId,
+          academyId: targetPlayer.academyId,
+        };
+      } else {
+        // No dedicated user account — synthetic token bound to target playerId
+        // (familySwitch marker tells auth middleware to honour playerId).
+        const payload = {
+          userId: tokenUser.userId,
+          email: callerPlayer.email || "",
+          role: "player",
+          playerId: targetPlayerId,
+          coachId: null,
+          academyId: targetPlayer.academyId,
+          familySwitch: true,
+        };
+        token = generateToken(payload);
+        refreshToken = generateRefreshToken(payload);
+        userPayload = {
+          id: tokenUser.userId,
+          email: callerPlayer.email || "",
+          role: "player",
+          playerId: targetPlayerId,
+          coachId: null,
+          academyId: targetPlayer.academyId,
+        };
       }
 
-      // No dedicated user account — generate a player-scoped token using the
-      // caller's user record but bound to the target player.  This lets the
-      // client do a full clean-login instead of using the X-Active-Player-Id
-      // header override, giving the family member a proper independent session.
-      // The familySwitch marker tells authMiddlewareWithFreshData to honour the
-      // token's playerId instead of falling back to the user's stored playerId.
-      const syntheticToken = generateToken({
-        userId: tokenUser.userId,
-        role: "player",
-        playerId: targetPlayerId,
-        coachId: null,
-        academyId: targetPlayer.academyId,
-        familySwitch: true,
+      // Record the switch so the reverse direction can use the 60s grace.
+      switchHistoryByUser.set(tokenUser.userId, {
+        fromPlayerId: freshUser.playerId,
+        toPlayerId: targetPlayerId,
+        at: Date.now(),
+      });
+      // Also record under the (potentially new) userId for the target so it
+      // works regardless of which userId the next request is authenticated as.
+      const targetUserId = targetUser?.id || tokenUser.userId;
+      switchHistoryByUser.set(targetUserId, {
+        fromPlayerId: freshUser.playerId,
+        toPlayerId: targetPlayerId,
+        at: Date.now(),
       });
 
       return res.json({
-        token: syntheticToken,
+        token,
+        refreshToken,
+        user: userPayload,
         playerName: targetPlayer.name,
         hasOwnAccount: true,
+        usedGrace,
       });
     } catch (error) {
       console.error("Error switching family account:", error);

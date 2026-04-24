@@ -48,6 +48,8 @@ import { queryClient } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
+import { AutoLockOverlay } from "@/components/AutoLockOverlay";
+import { useAuth } from "@/coach/context/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpdateController } from "@/components/UpdateController";
 import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
@@ -144,6 +146,21 @@ const linking: LinkingOptions<any> = {
   },
 };
 
+function AutoLockHost() {
+  // Mounted inside NavigationContainer (so useNavigationState works) and
+  // inside AuthProvider (so we can read the current user). The overlay
+  // suppresses itself on Login / FamilyLobby / etc.
+  const { user, isAuthenticated } = useAuth();
+  return (
+    <AutoLockOverlay
+      enabled={isAuthenticated}
+      playerId={user?.playerId || null}
+      playerEmail={user?.email || null}
+      playerName={(user as any)?.firstName || (user as any)?.name || null}
+    />
+  );
+}
+
 function NavigationContainerWithRef() {
   const navigationRef = useNavigationContainerRef();
   const { registerNavigation } = useTabNavigation();
@@ -158,6 +175,7 @@ function NavigationContainerWithRef() {
   return (
     <NavigationContainer ref={navigationRef} onReady={handleReady} linking={linking}>
       <RootStackNavigator navigationRef={navReady ? navigationRef : null} />
+      <AutoLockHost />
     </NavigationContainer>
   );
 }

@@ -28,6 +28,7 @@ import { eq, and, inArray, isNull } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { resolveOrCreateFamilyForCaller, addPlayerToFamily } from "../lib/family-groups";
 import { syncFamilyChatGroup } from "../storage";
+import { playerHasPin, verifyElevationToken } from "./account-pin";
 
 const router = Router();
 
@@ -149,6 +150,33 @@ router.post("/api/family/members/invite", authMiddleware, async (req: Authentica
     const callerPlayer = await storage.getPlayer(freshUser.playerId);
     if (!callerPlayer) {
       return res.status(403).json({ error: "Account not found" });
+    }
+
+    // Family B: light spam protection — if the caller has a PIN, require a
+    // fresh PIN-elevation token (5-min TTL) before minting an invite. Callers
+    // without a PIN are accepted as-is (legacy behaviour, e.g. brand-new
+    // accounts before they've set one).
+    const callerHasPin = await playerHasPin(callerPlayer.id);
+    if (callerHasPin) {
+      const elevationHeader =
+        (req.headers["x-pin-elevation"] as string | undefined) ||
+        (req.headers["X-PIN-Elevation"] as unknown as string | undefined);
+      const elevationToken =
+        elevationHeader || (typeof req.body?.elevationToken === "string" ? req.body.elevationToken : undefined);
+      if (!elevationToken) {
+        return res.status(401).json({
+          error: "PIN required",
+          pinRequired: true,
+          message: "Confirm your PIN to send an invite.",
+        });
+      }
+      const verified = verifyElevationToken(elevationToken);
+      if (!verified || verified.playerId !== callerPlayer.id) {
+        return res.status(401).json({
+          error: "Elevation expired or invalid. Please re-enter your PIN.",
+          pinRequired: true,
+        });
+      }
     }
 
     // Ensure the caller has a family (auto-create if Free-Player).
