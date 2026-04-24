@@ -25,6 +25,8 @@ import {
   familyGroups,
   familyMembers,
   familyInviteCodes,
+  familyMemberSpendLimits,
+  playerNotifications,
   sessions,
   sessionPlayers,
   locations,
@@ -45,6 +47,19 @@ import {
   getGraduationStatus,
   isAccountGraduated,
 } from "../lib/account-graduation";
+import {
+  SPEND_CATEGORIES,
+  type SpendCategory,
+  isSpendCategory,
+  CATEGORY_LABELS,
+  centsToDollars,
+  dollarsToCents,
+  buildFamilyStatement,
+  currentMonthWindow,
+  monthWindowFromLabel,
+  setSpendLimit,
+  getFamilyMemberPlayerIds,
+} from "../lib/family-wallet";
 
 const router = Router();
 
@@ -1144,5 +1159,375 @@ router.post(
     }
   },
 );
+
+// ===========================================================================
+// Task #1136 — Family Wallet (single payment + per-member spend limits)
+// ===========================================================================
+// Endpoints:
+//   GET    /api/family/me/wallet                  → wallet config + caps
+//   PUT    /api/family/me/wallet/limits           → set/clear per-member caps
+//   POST   /api/family/me/wallet/setup-intent     → Stripe Checkout (setup)
+//   DELETE /api/family/me/wallet/payment-method   → unlink the family card
+//   GET    /api/family/me/statement?month=YYYY-MM → per-member spend statement
+//
+// Notification policy: any limit change pushes a row into player_notifications
+// for every other family member (the actor is excluded). The change is NOT
+// gated by role — symmetric family model — so the audit trail tells everyone
+// who changed what to whom.
+
+async function notifyFamilyOfLimitChange(opts: {
+  familyGroupId: string;
+  actorPlayerId: string;
+  actorName: string | null;
+  targetPlayerId: string;
+  targetName: string | null;
+  category: SpendCategory;
+  newCapCents: number | null;
+  currency: string;
+}) {
+  const { familyGroupId, actorPlayerId, actorName, targetPlayerId, targetName, category, newCapCents, currency } = opts;
+  const otherIds = (await getFamilyMemberPlayerIds(familyGroupId)).filter((id) => id !== actorPlayerId);
+  if (otherIds.length === 0) return;
+  const capLabel = newCapCents == null
+    ? "no limit"
+    : `${currency} ${centsToDollars(newCapCents).toFixed(2)}`;
+  const subject = targetPlayerId === actorPlayerId
+    ? "your"
+    : `${targetName || "a family member"}'s`;
+  const body = `${subject} ${CATEGORY_LABELS[category]} monthly limit changed to ${capLabel} by ${actorName || "a family member"}.`;
+  const rows = otherIds.map((playerId) => ({
+    playerId,
+    title: "Family wallet updated",
+    body,
+    type: "family_wallet_limit_changed",
+    data: {
+      familyGroupId,
+      targetPlayerId,
+      category,
+      newCapCents,
+      currency,
+      actorPlayerId,
+    },
+  }));
+  try {
+    await db.insert(playerNotifications).values(rows);
+  } catch (err) {
+    console.error("[family/wallet] failed to write limit-change notifications:", err);
+  }
+}
+
+router.get("/api/family/me/wallet", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser?.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+    const [group] = await db.select().from(familyGroups).where(eq(familyGroups.id, groupId));
+    if (!group) return res.status(500).json({ error: "Family group missing" });
+
+    const memberRows = await db
+      .select({
+        playerId: familyMembers.playerId,
+        name: players.name,
+        avatarUrl: players.profilePhotoUrl,
+      })
+      .from(familyMembers)
+      .leftJoin(players, eq(players.id, familyMembers.playerId))
+      .where(eq(familyMembers.familyGroupId, groupId));
+
+    const limitRows = await db
+      .select()
+      .from(familyMemberSpendLimits)
+      .where(eq(familyMemberSpendLimits.familyGroupId, groupId));
+
+    // Group caps by member.
+    const capsByPlayer = new Map<string, Record<SpendCategory, number | null>>();
+    for (const m of memberRows) {
+      capsByPlayer.set(m.playerId, {
+        court_bookings: null,
+        glow_market: null,
+        tournament_fees: null,
+      });
+    }
+    for (const row of limitRows) {
+      if (!isSpendCategory(row.category)) continue;
+      const map = capsByPlayer.get(row.playerId);
+      if (map) map[row.category] = row.monthlyCapCents;
+    }
+
+    res.json({
+      familyGroupId: groupId,
+      paymentMethod: group.stripePaymentMethodId
+        ? {
+            brand: group.paymentMethodBrand,
+            last4: group.paymentMethodLast4,
+          }
+        : null,
+      categories: SPEND_CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] })),
+      members: memberRows.map((m) => ({
+        playerId: m.playerId,
+        name: m.name ?? "Player",
+        avatarUrl: m.avatarUrl ?? null,
+        limits: capsByPlayer.get(m.playerId) ?? {
+          court_bookings: null,
+          glow_market: null,
+          tournament_fees: null,
+        },
+      })),
+    });
+  } catch (err) {
+    console.error("[family/me/wallet] error:", err);
+    res.status(500).json({ error: "Failed to load family wallet" });
+  }
+});
+
+router.put("/api/family/me/wallet/limits", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser?.playerId) return res.status(403).json({ error: "Player profile required" });
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const { playerId: targetPlayerId, category, monthlyCap } = req.body || {};
+    if (!targetPlayerId || typeof targetPlayerId !== "string") {
+      return res.status(400).json({ error: "playerId is required" });
+    }
+    if (!isSpendCategory(category)) {
+      return res.status(400).json({ error: "Invalid category" });
+    }
+    // monthlyCap is in major units (e.g. AED). null/undefined → remove cap.
+    let monthlyCapCents: number | null = null;
+    if (monthlyCap != null && monthlyCap !== "") {
+      const n = Number(monthlyCap);
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ error: "monthlyCap must be a non-negative number" });
+      }
+      monthlyCapCents = dollarsToCents(n);
+    }
+
+    // Caller must be a member of the same family as targetPlayerId.
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+    const [targetMembership] = await db
+      .select()
+      .from(familyMembers)
+      .where(and(eq(familyMembers.familyGroupId, groupId), eq(familyMembers.playerId, targetPlayerId)));
+    if (!targetMembership) {
+      return res.status(403).json({ error: "Target player is not in your family" });
+    }
+
+    await setSpendLimit({
+      familyGroupId: groupId,
+      playerId: targetPlayerId,
+      category,
+      monthlyCapCents,
+      updatedByPlayerId: callerPlayer.id,
+    });
+
+    const targetPlayer = await storage.getPlayer(targetPlayerId);
+    notifyFamilyOfLimitChange({
+      familyGroupId: groupId,
+      actorPlayerId: callerPlayer.id,
+      actorName: callerPlayer.name ?? null,
+      targetPlayerId,
+      targetName: targetPlayer?.name ?? null,
+      category,
+      newCapCents: monthlyCapCents,
+      currency: "AED",
+    }).catch((e) => console.error("[family/wallet] notify failed:", e));
+
+    res.json({ success: true, monthlyCapCents });
+  } catch (err) {
+    console.error("[family/me/wallet/limits] error:", err);
+    res.status(500).json({ error: "Failed to update limit" });
+  }
+});
+
+router.post("/api/family/me/wallet/setup-intent", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser?.playerId) return res.status(403).json({ error: "Player profile required" });
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+    const [group] = await db.select().from(familyGroups).where(eq(familyGroups.id, groupId));
+    if (!group) return res.status(500).json({ error: "Family group missing" });
+
+    const { getUncachableStripeClient } = await import("../stripeClient");
+    const stripe = await getUncachableStripeClient();
+
+    // Create the family-level Stripe customer the first time we set up a card.
+    let customerId = group.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: callerPlayer.email || undefined,
+        name: group.name || `Family ${groupId.slice(0, 8)}`,
+        metadata: {
+          familyGroupId: groupId,
+          createdByPlayerId: callerPlayer.id,
+        },
+      });
+      customerId = customer.id;
+      await db
+        .update(familyGroups)
+        .set({ stripeCustomerId: customerId })
+        .where(eq(familyGroups.id, groupId));
+    }
+
+    const forwardedProto = req.header("x-forwarded-proto") || req.protocol || "https";
+    const forwardedHost = req.header("x-forwarded-host") || req.get("host") || "localhost";
+    const baseUrl = `${forwardedProto}://${forwardedHost}`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "setup",
+      customer: customerId,
+      payment_method_types: ["card"],
+      success_url: `${baseUrl}/?family_wallet_setup=success`,
+      cancel_url: `${baseUrl}/?family_wallet_setup=cancelled`,
+      metadata: {
+        type: "family_wallet_setup",
+        familyGroupId: groupId,
+        actorPlayerId: callerPlayer.id,
+      },
+    });
+
+    res.json({ checkoutUrl: session.url });
+  } catch (err) {
+    console.error("[family/me/wallet/setup-intent] error:", err);
+    res.status(500).json({ error: "Failed to start payment setup" });
+  }
+});
+
+router.delete("/api/family/me/wallet/payment-method", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser?.playerId) return res.status(403).json({ error: "Player profile required" });
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+    const [group] = await db.select().from(familyGroups).where(eq(familyGroups.id, groupId));
+    if (!group) return res.status(500).json({ error: "Family group missing" });
+
+    if (group.stripePaymentMethodId) {
+      try {
+        const { getUncachableStripeClient } = await import("../stripeClient");
+        const stripe = await getUncachableStripeClient();
+        await stripe.paymentMethods.detach(group.stripePaymentMethodId);
+      } catch (detachErr) {
+        // Already detached / missing — log and continue clearing our row.
+        console.warn("[family/wallet] detach failed (continuing):", detachErr);
+      }
+    }
+
+    await db
+      .update(familyGroups)
+      .set({ stripePaymentMethodId: null, paymentMethodBrand: null, paymentMethodLast4: null })
+      .where(eq(familyGroups.id, groupId));
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[family/me/wallet/payment-method DELETE] error:", err);
+    res.status(500).json({ error: "Failed to remove payment method" });
+  }
+});
+
+// Stripe Customer Portal — opens the family's invoice/receipt history in a
+// hosted Stripe page. Returns `{ url }`; the client opens it in WebBrowser.
+// Requires an existing Stripe customer (i.e. the family must have completed
+// the SetupIntent flow at least once).
+router.post("/api/family/me/wallet/billing-portal", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser?.playerId) return res.status(403).json({ error: "Player profile required" });
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+    const [group] = await db.select().from(familyGroups).where(eq(familyGroups.id, groupId));
+    if (!group) return res.status(404).json({ error: "Family group missing" });
+    if (!group.stripeCustomerId) {
+      return res.status(400).json({ error: "Add a payment method before viewing invoices.", code: "no_customer" });
+    }
+
+    const { getUncachableStripeClient } = await import("../stripeClient");
+    const stripe = await getUncachableStripeClient();
+
+    const forwardedProto = req.header("x-forwarded-proto") || req.protocol || "https";
+    const forwardedHost = req.header("x-forwarded-host") || req.get("host") || "localhost";
+    const baseUrl = `${forwardedProto}://${forwardedHost}`;
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: group.stripeCustomerId,
+      return_url: `${baseUrl}/?family_wallet=portal_done`,
+    });
+    res.json({ url: portalSession.url });
+  } catch (err: any) {
+    console.error("[family/me/wallet/billing-portal] error:", err);
+    // Stripe returns 400 with "No configuration provided" until the test-mode
+    // Customer Portal config is published — surface that distinctly so the
+    // UI can show a helpful hint instead of a generic 500.
+    const message = err?.raw?.message || err?.message || "Failed to open billing portal";
+    if (typeof message === "string" && /No configuration provided/i.test(message)) {
+      return res.status(503).json({
+        error: "Billing portal isn't set up yet. Please contact support to enable invoices.",
+        code: "portal_not_configured",
+      });
+    }
+    res.status(500).json({ error: "Failed to open billing portal" });
+  }
+});
+
+router.get("/api/family/me/statement", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser?.playerId) return res.status(403).json({ error: "Player profile required" });
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+
+    const monthParam = typeof req.query.month === "string" ? req.query.month : null;
+    const window = monthParam ? monthWindowFromLabel(monthParam) : currentMonthWindow();
+    if (!window) return res.status(400).json({ error: "Invalid month (expected YYYY-MM)" });
+
+    const statement = await buildFamilyStatement(groupId, window.start, window.end);
+
+    res.json({
+      familyGroupId: groupId,
+      month: window.label,
+      currency: "AED",
+      members: statement.members.map((m) => ({
+        playerId: m.playerId,
+        playerName: m.playerName,
+        byCategory: {
+          court_bookings: centsToDollars(m.byCategory.court_bookings),
+          glow_market: centsToDollars(m.byCategory.glow_market),
+          tournament_fees: centsToDollars(m.byCategory.tournament_fees),
+        },
+        total: centsToDollars(m.totalCents),
+      })),
+      totals: {
+        court_bookings: centsToDollars(statement.byCategory.court_bookings),
+        glow_market: centsToDollars(statement.byCategory.glow_market),
+        tournament_fees: centsToDollars(statement.byCategory.tournament_fees),
+        grandTotal: centsToDollars(statement.totalCents),
+      },
+    });
+  } catch (err) {
+    console.error("[family/me/statement] error:", err);
+    res.status(500).json({ error: "Failed to load statement" });
+  }
+});
 
 export default router;

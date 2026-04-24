@@ -11,6 +11,7 @@ import {
 } from '../shared/schema';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { sendPushNotification, getCoachPushTokens } from './pushNotifications';
+import { familyGroups } from '../shared/schema';
 
 interface DropInLessonMetadata {
   type: 'drop_in_lesson';
@@ -99,6 +100,15 @@ export class WebhookHandlers {
         const dropInLessonMeta = parseDropInLessonMetadata(metadata);
         if (dropInLessonMeta) {
           await WebhookHandlers.fulfillDropInLesson(checkoutSession, dropInLessonMeta);
+        }
+
+        // Task #1136 — Family Wallet SetupIntent fulfilled. Persist the
+        // resulting payment_method id + brand/last4 onto family_groups so
+        // future checkouts can reuse it via the "Pay with family card"
+        // toggle. Idempotent: a re-delivered webhook simply overwrites
+        // with the same values.
+        if (metadata.type === 'family_wallet_setup' && metadata.familyGroupId) {
+          await WebhookHandlers.fulfillFamilyWalletSetup(checkoutSession, metadata.familyGroupId);
         }
       }
     } catch (err: unknown) {
@@ -383,6 +393,70 @@ export class WebhookHandlers {
       }
     } catch (err) {
       console.error('[DropInLesson] Fulfillment failed:', err);
+    }
+  }
+
+  /**
+   * Task #1136 — Family Wallet SetupIntent fulfilled. Persist the resulting
+   * payment_method id + brand/last4 onto family_groups so subsequent
+   * checkouts can opt into the family card.
+   *
+   * Idempotent: re-delivered webhooks simply overwrite with the same values.
+   * If the SetupIntent failed for any reason (no payment_method attached),
+   * we log and skip — the user will see "no card configured" in the UI and
+   * can retry the SetupIntent flow.
+   */
+  static async fulfillFamilyWalletSetup(
+    checkoutSession: Stripe.Checkout.Session,
+    familyGroupId: string,
+  ): Promise<void> {
+    try {
+      const stripe = await getUncachableStripeClient();
+      const setupIntentId = typeof checkoutSession.setup_intent === 'string'
+        ? checkoutSession.setup_intent
+        : checkoutSession.setup_intent?.id;
+      if (!setupIntentId) {
+        console.warn('[FamilyWalletSetup] No setup_intent on checkout session', checkoutSession.id);
+        return;
+      }
+      const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+      const paymentMethodId = typeof setupIntent.payment_method === 'string'
+        ? setupIntent.payment_method
+        : setupIntent.payment_method?.id;
+      if (!paymentMethodId) {
+        console.warn('[FamilyWalletSetup] No payment_method on setup_intent', setupIntentId);
+        return;
+      }
+      const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+      const brand = paymentMethod.card?.brand ?? null;
+      const last4 = paymentMethod.card?.last4 ?? null;
+
+      // If a previous payment method was attached, detach it so we don't
+      // accumulate stale cards on the customer.
+      const [existing] = await db
+        .select({ id: familyGroups.id, prevPm: familyGroups.stripePaymentMethodId })
+        .from(familyGroups)
+        .where(eq(familyGroups.id, familyGroupId))
+        .limit(1);
+      if (existing?.prevPm && existing.prevPm !== paymentMethodId) {
+        try {
+          await stripe.paymentMethods.detach(existing.prevPm);
+        } catch (detachErr) {
+          console.warn('[FamilyWalletSetup] failed to detach previous PM (non-fatal):', detachErr);
+        }
+      }
+
+      await db
+        .update(familyGroups)
+        .set({
+          stripePaymentMethodId: paymentMethodId,
+          paymentMethodBrand: brand,
+          paymentMethodLast4: last4,
+        })
+        .where(eq(familyGroups.id, familyGroupId));
+      console.log(`[FamilyWalletSetup] family ${familyGroupId} paymentMethod=${paymentMethodId}`);
+    } catch (err) {
+      console.error('[FamilyWalletSetup] failed:', err);
     }
   }
 }

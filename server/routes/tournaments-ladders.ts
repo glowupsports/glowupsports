@@ -346,12 +346,82 @@ router.post("/api/player/tournaments/:id/register", authMiddleware, async (req: 
     const hasFee = tournament.entryFee && Number(tournament.entryFee) > 0;
     const participantStatus = (isExternalPlayer && hasFee) ? "pending_payment" : "registered";
 
-    const [participant] = await db.insert(tournamentParticipants).values({
-      tournamentId: id,
-      playerId,
-      category: category || null,
-      status: participantStatus,
-    }).returning();
+    // Task #1136 — Family Wallet ATOMIC guard. The insert is co-located
+    // with the cap check inside one DB transaction holding a
+    // per-(family, member, tournament_fees, month) advisory lock, so two
+    // concurrent registrations for the same player can't both slip past
+    // the cap. The participant row counts toward the monthly spend the
+    // moment the tx commits.
+    const fee = hasFee ? Number(tournament.entryFee) : 0;
+    let participant: typeof tournamentParticipants.$inferSelect | undefined;
+    if (hasFee) {
+      const { withSpendLimitTransaction, dollarsToCents, chargeFamilyWalletOffSession, getFamilyWalletForPlayer } =
+        await import("../lib/family-wallet");
+      const guarded = await withSpendLimitTransaction(
+        {
+          playerId,
+          category: "tournament_fees",
+          attemptCents: dollarsToCents(fee),
+          currency: "AED",
+        },
+        async (tx) => {
+          const [row] = await tx.insert(tournamentParticipants).values({
+            tournamentId: id,
+            playerId,
+            category: category || null,
+            status: participantStatus,
+          }).returning();
+          return row;
+        },
+      );
+      if (!guarded.ok) {
+        return res
+          .status(guarded.status || 402)
+          .json({ error: guarded.reason, code: "family_wallet_blocked", details: guarded.details });
+      }
+      participant = guarded.result;
+
+      // If the family wallet has a saved card AND the caller hasn't opted
+      // out, charge it off-session. On success → registered (already done);
+      // on failure → withdraw the row so the cap reservation is released.
+      const useFamilyWallet = req.body?.useFamilyWallet !== false;
+      if (useFamilyWallet) {
+        const wallet = await getFamilyWalletForPlayer(playerId);
+        if (wallet?.stripeCustomerId && wallet?.stripePaymentMethodId) {
+          const charge = await chargeFamilyWalletOffSession({
+            playerId,
+            amountCents: dollarsToCents(fee),
+            currency: "AED",
+            description: `Tournament entry — ${tournament.name || tournament.id}`,
+            metadata: { tournamentId: id, participantId: participant!.id },
+          });
+          if (!charge.ok) {
+            await db.update(tournamentParticipants)
+              .set({ status: "withdrawn" })
+              .where(eq(tournamentParticipants.id, participant!.id));
+            return res.status(402).json({
+              error: charge.message,
+              code: charge.code === "authentication_required"
+                ? "family_wallet_sca_required"
+                : "family_wallet_charge_failed",
+              clientSecret: (charge as any).clientSecret,
+            });
+          }
+          await db.update(tournamentParticipants)
+            .set({ status: "registered" })
+            .where(eq(tournamentParticipants.id, participant!.id));
+          participant = { ...participant!, status: "registered" };
+        }
+      }
+    } else {
+      const [row] = await db.insert(tournamentParticipants).values({
+        tournamentId: id,
+        playerId,
+        category: category || null,
+        status: participantStatus,
+      }).returning();
+      participant = row;
+    }
 
     res.status(201).json(participant);
   } catch (error) {

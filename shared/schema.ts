@@ -7521,6 +7521,17 @@ export const familyGroups = pgTable("family_groups", {
   createdByPlayerId: varchar("created_by_player_id").references(() => players.id),
   name: text("name"), // optional display name, currently unused but reserved
   archivedAt: timestamp("archived_at"), // soft-delete when last member leaves
+  // Task #1136 — Family Wallet. A single Stripe payment method, attached to a
+  // family-level Stripe customer, that any family member's checkout can opt
+  // into via the "Pay with family card" toggle. The customer is created on
+  // first SetupIntent; the payment method id is filled by the
+  // `family_wallet_setup` checkout webhook.
+  stripeCustomerId: text("stripe_customer_id"),
+  stripePaymentMethodId: text("stripe_payment_method_id"),
+  // Last-4 + brand cached so the UI can render the card without a Stripe
+  // round-trip on every render.
+  paymentMethodBrand: text("payment_method_brand"),
+  paymentMethodLast4: text("payment_method_last4"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -7542,6 +7553,33 @@ export const familyMembers = pgTable("family_members", {
 
 export type FamilyGroup = typeof familyGroups.$inferSelect;
 export type FamilyMemberRow = typeof familyMembers.$inferSelect;
+
+// ==================== FAMILY MEMBER SPEND LIMITS (Task #1136) ====================
+// Per-member monthly spend caps for the family wallet. One row per
+// (familyGroupId, playerId, category). Categories are a fixed enum so the
+// pre-checkout middleware can lookup limits via a constant key. A missing row
+// means "no limit" (the default). All amounts are stored as integer cents to
+// match Stripe's amount semantics and avoid floating-point drift.
+export const familyMemberSpendLimits = pgTable("family_member_spend_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyGroupId: varchar("family_group_id").references(() => familyGroups.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  // 'court_bookings' | 'glow_market' | 'tournament_fees'
+  category: text("category").notNull(),
+  monthlyCapCents: integer("monthly_cap_cents").notNull(),
+  // Updated whenever the cap row is created/changed; used in the audit
+  // notification body. The monthly window itself is always
+  // first-of-month (UTC) → next first-of-month, NOT relative to this column.
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedByPlayerId: varchar("updated_by_player_id").references(() => players.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("family_member_spend_limits_unique").on(table.familyGroupId, table.playerId, table.category),
+  index("family_member_spend_limits_by_player_idx").on(table.playerId),
+]);
+
+export type FamilyMemberSpendLimit = typeof familyMemberSpendLimits.$inferSelect;
+export type InsertFamilyMemberSpendLimit = typeof familyMemberSpendLimits.$inferInsert;
 
 // ==================== FAMILY INVITE CODES ====================
 

@@ -1194,31 +1194,117 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
     const orderNumber = `GUS-${year}-${String(nextSeq).padStart(4, "0")}`;
     const total = subtotal;
 
-    // Auto-confirm when provider is assigned (explicit choice or auto-assigned)
-    const orderStatus = providerId ? "confirmed" : "pending";
+    // Task #1136 — Family Wallet ATOMIC guard. The order INSERT (and its
+    // line items) live inside one DB transaction holding the
+    // per-(family, member, glow_market, month) advisory lock so concurrent
+    // checkouts can't both squeak past the cap. The order row counts toward
+    // monthly spend the moment the tx commits.
+    const playerIdForGuard = req.user!.playerId!;
+    const orderStatus = providerId ? "confirmed" : "pending"; // Auto-confirm when provider assigned
+    let order: typeof shopOrders.$inferSelect | undefined;
 
-    const [order] = await db.insert(shopOrders).values({
-      academyId,
-      playerId: req.user!.playerId!,
-      userId: req.user!.userId,
-      orderNumber,
-      subtotal: subtotal.toFixed(2),
-      total: total.toFixed(2),
-      contactName,
-      contactPhone,
-      contactEmail,
-      notes,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-      preferredProviderId: preferredProviderId || null,
-      assignedProviderId: providerId || null,
-      status: orderStatus,
-    }).returning();
+    if (total > 0) {
+      const { withSpendLimitTransaction, dollarsToCents } = await import("./lib/family-wallet");
+      const guarded = await withSpendLimitTransaction(
+        {
+          playerId: playerIdForGuard,
+          category: "glow_market",
+          attemptCents: dollarsToCents(total),
+          currency: "AED",
+        },
+        async (tx) => {
+          const [row] = await tx.insert(shopOrders).values({
+            academyId,
+            playerId: playerIdForGuard,
+            userId: req.user!.userId,
+            orderNumber,
+            subtotal: subtotal.toFixed(2),
+            total: total.toFixed(2),
+            contactName,
+            contactPhone,
+            contactEmail,
+            notes,
+            scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+            preferredProviderId: preferredProviderId || null,
+            assignedProviderId: providerId || null,
+            status: orderStatus,
+          }).returning();
+          for (const item of orderItems) {
+            await tx.insert(shopOrderItems).values({
+              orderId: row.id,
+              ...item,
+            });
+          }
+          return row;
+        },
+      );
+      if (!guarded.ok) {
+        return res
+          .status(guarded.status || 402)
+          .json({ error: guarded.reason, code: "family_wallet_blocked", details: guarded.details });
+      }
+      order = guarded.result;
 
-    for (const item of orderItems) {
-      await db.insert(shopOrderItems).values({
-        orderId: order.id,
-        ...item,
-      });
+      // Charge the family card off-session (default ON when configured).
+      const useFamilyWallet = req.body?.useFamilyWallet !== false;
+      if (useFamilyWallet) {
+        const { chargeFamilyWalletOffSession, getFamilyWalletForPlayer, dollarsToCents: d2c } =
+          await import("./lib/family-wallet");
+        const wallet = await getFamilyWalletForPlayer(playerIdForGuard);
+        if (wallet?.stripeCustomerId && wallet?.stripePaymentMethodId) {
+          const charge = await chargeFamilyWalletOffSession({
+            playerId: playerIdForGuard,
+            amountCents: d2c(total),
+            currency: "AED",
+            description: `Glow Market — ${order!.orderNumber}`,
+            metadata: { orderId: order!.id, orderNumber: order!.orderNumber },
+          });
+          if (!charge.ok) {
+            await db.update(shopOrders)
+              .set({ status: "cancelled", paymentStatus: "failed" })
+              .where(eq(shopOrders.id, order!.id));
+            return res.status(402).json({
+              error: charge.message,
+              code: charge.code === "authentication_required"
+                ? "family_wallet_sca_required"
+                : "family_wallet_charge_failed",
+              clientSecret: (charge as any).clientSecret,
+            });
+          }
+          await db.update(shopOrders)
+            .set({
+              paymentStatus: "paid",
+              paymentMethod: "stripe",
+              stripePaymentIntentId: charge.paymentIntentId,
+            })
+            .where(eq(shopOrders.id, order!.id));
+          order = { ...order!, paymentStatus: "paid", paymentMethod: "stripe", stripePaymentIntentId: charge.paymentIntentId };
+        }
+      }
+    } else {
+      const [row] = await db.insert(shopOrders).values({
+        academyId,
+        playerId: playerIdForGuard,
+        userId: req.user!.userId,
+        orderNumber,
+        subtotal: subtotal.toFixed(2),
+        total: total.toFixed(2),
+        contactName,
+        contactPhone,
+        contactEmail,
+        notes,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        preferredProviderId: preferredProviderId || null,
+        assignedProviderId: providerId || null,
+        status: orderStatus,
+      }).returning();
+      for (const item of orderItems) {
+        await db.insert(shopOrderItems).values({
+          orderId: row.id,
+          ...item,
+        });
+      }
+      order = row;
     }
 
     // Bootstrap provider-player chat when order is auto-confirmed at creation time.

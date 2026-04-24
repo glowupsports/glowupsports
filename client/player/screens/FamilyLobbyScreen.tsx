@@ -17,6 +17,7 @@ import * as Clipboard from "expo-clipboard";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as WebBrowser from "expo-web-browser";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -601,6 +602,7 @@ export default function FamilyLobbyScreen() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinRecoveryOpen, setPinRecoveryOpen] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [showWallet, setShowWallet] = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [addChildTab, setAddChildTab] = useState<"email" | "code" | "enter">("email");
@@ -632,7 +634,6 @@ export default function FamilyLobbyScreen() {
   const [pinElevation, setPinElevation] = useState<{ token: string; expiresAt: number } | null>(null);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState<string | null>(null);
   const [pinVerifying, setPinVerifying] = useState(false);
   const [pinPendingAction, setPinPendingAction] = useState<
     | { kind: "generate"; playerId: string }
@@ -1061,7 +1062,7 @@ export default function FamilyLobbyScreen() {
     return (
       <View style={[styles.container, styles.loading, { paddingTop: insets.top, paddingHorizontal: Spacing.xl }]}>
         <Ionicons name="people-outline" size={64} color={Colors.dark.textMuted} />
-        <Text style={[styles.loadingText, { marginTop: Spacing.lg, fontSize: FontSizes.lg, fontWeight: "700", color: Colors.dark.textPrimary }]}>
+        <Text style={[styles.loadingText, { marginTop: Spacing.lg, fontSize: FontSizes.lg, fontWeight: "700", color: Colors.dark.text }]}>
           Family Lobby is empty
         </Text>
         <Text
@@ -1085,7 +1086,7 @@ export default function FamilyLobbyScreen() {
                 paddingHorizontal: Spacing.xl,
                 paddingVertical: Spacing.md,
                 backgroundColor: Colors.dark.primary,
-                borderRadius: BorderRadius.medium,
+                borderRadius: BorderRadius.md,
                 alignItems: "center",
                 flexDirection: "row",
                 justifyContent: "center",
@@ -1110,9 +1111,9 @@ export default function FamilyLobbyScreen() {
               paddingHorizontal: Spacing.xl,
               paddingVertical: Spacing.md,
               backgroundColor: "transparent",
-              borderRadius: BorderRadius.medium,
+              borderRadius: BorderRadius.md,
               borderWidth: 1,
-              borderColor: Colors.dark.panelBorder,
+              borderColor: Colors.dark.border,
               alignItems: "center",
               flexDirection: "row",
               justifyContent: "center",
@@ -1125,8 +1126,8 @@ export default function FamilyLobbyScreen() {
             accessibilityRole="button"
             accessibilityLabel="Try again"
           >
-            <Ionicons name="refresh" size={18} color={Colors.dark.textPrimary} />
-            <Text style={{ color: Colors.dark.textPrimary, fontSize: FontSizes.md, fontWeight: "600" }}>
+            <Ionicons name="refresh" size={18} color={Colors.dark.text} />
+            <Text style={{ color: Colors.dark.text, fontSize: FontSizes.md, fontWeight: "600" }}>
               Try Again
             </Text>
           </Pressable>
@@ -1264,6 +1265,22 @@ export default function FamilyLobbyScreen() {
         {todayQuery.data?.carpoolPairs?.map((pair, idx) => (
           <CarpoolCard key={`carpool-${idx}-${pair.locationName ?? pair.courtName ?? "x"}`} pair={pair} />
         ))}
+
+        {isFamilyMember || isParent ? (
+          <Pressable
+            style={styles.parentalControlsButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowWallet(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open family wallet"
+          >
+            <Ionicons name="wallet" size={20} color="#00BCD4" />
+            <Text style={styles.parentalControlsText}>Family Wallet</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.cardsGrid}>
           {sortedMembers.map((member, index) => (
@@ -1754,9 +1771,453 @@ export default function FamilyLobbyScreen() {
           </View>
         </View>
       </Modal>
+
+      <FamilyWalletModal
+        visible={showWallet}
+        onClose={() => setShowWallet(false)}
+      />
     </View>
   );
 }
+
+// ===========================================================================
+// Task #1136 — Family Wallet modal: payment method + per-member spend caps +
+// "this month" statement. Symmetric model: any family member can edit.
+// ===========================================================================
+
+type WalletCategory = "court_bookings" | "glow_market" | "tournament_fees";
+
+interface WalletResponse {
+  familyGroupId: string;
+  paymentMethod: { brand: string | null; last4: string | null } | null;
+  categories: { key: WalletCategory; label: string }[];
+  members: Array<{
+    playerId: string;
+    name: string;
+    avatarUrl: string | null;
+    limits: Record<WalletCategory, number | null>;
+  }>;
+}
+
+interface StatementResponse {
+  familyGroupId: string;
+  month: string;
+  currency: string;
+  members: Array<{
+    playerId: string;
+    playerName: string;
+    byCategory: Record<WalletCategory, number>;
+    total: number;
+  }>;
+  totals: {
+    court_bookings: number;
+    glow_market: number;
+    tournament_fees: number;
+    grandTotal: number;
+  };
+}
+
+function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+
+  // Wallet config: payment method + per-member limits.
+  const wallet = useQuery<WalletResponse>({
+    queryKey: ["/api/family/me/wallet"],
+    enabled: visible,
+  });
+
+  // Statement: this month's per-member spend.
+  const statement = useQuery<StatementResponse>({
+    queryKey: ["/api/family/me/statement"],
+    enabled: visible,
+  });
+
+  // Stripe Checkout (mode=setup) — opens hosted UI to add the family card.
+  const setupIntent = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/family/me/wallet/setup-intent");
+      return res.json() as Promise<{ checkoutUrl: string }>;
+    },
+    onSuccess: async (data) => {
+      if (!data.checkoutUrl) {
+        Alert.alert("Setup failed", "Could not start the payment setup. Please try again.");
+        return;
+      }
+      try {
+        await WebBrowser.openBrowserAsync(data.checkoutUrl, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        });
+      } catch {
+        Alert.alert("Setup failed", "Could not open the payment page.");
+      }
+      // The webhook persists the card; refresh to pick it up.
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/family/me/wallet"] });
+      }, 1500);
+    },
+    onError: (e: any) => {
+      Alert.alert("Setup failed", parseApiError(e, "Could not start payment setup"));
+    },
+  });
+
+  const removeCard = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", "/api/family/me/wallet/payment-method");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/family/me/wallet"] });
+    },
+    onError: (e: any) => {
+      Alert.alert("Could not remove card", parseApiError(e, "Please try again."));
+    },
+  });
+
+  // Stripe Customer Portal — opens hosted invoice/receipt history.
+  const billingPortal = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/family/me/wallet/billing-portal");
+      return res.json() as Promise<{ url: string }>;
+    },
+    onSuccess: async (data) => {
+      if (!data?.url) {
+        Alert.alert("Couldn't open invoices", "Please try again.");
+        return;
+      }
+      try {
+        await WebBrowser.openBrowserAsync(data.url, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        });
+      } catch {
+        Alert.alert("Couldn't open invoices", "Could not open the billing page.");
+      }
+    },
+    onError: (e: any) => {
+      Alert.alert("Couldn't open invoices", parseApiError(e, "Please try again."));
+    },
+  });
+
+  const setLimit = useMutation({
+    mutationFn: async (vars: { playerId: string; category: WalletCategory; monthlyCap: number | null }) => {
+      await apiRequest("PUT", "/api/family/me/wallet/limits", vars);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/family/me/wallet"] });
+    },
+    onError: (e: any) => {
+      Alert.alert("Could not save limit", parseApiError(e, "Please try again."));
+    },
+  });
+
+  // Local edit buffers, keyed by `${playerId}:${category}`.
+  const [edits, setEdits] = useState<Record<string, string>>({});
+
+  const handleSave = (playerId: string, category: WalletCategory) => {
+    const key = `${playerId}:${category}`;
+    const raw = (edits[key] ?? "").trim();
+    let monthlyCap: number | null = null;
+    if (raw !== "") {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        Alert.alert("Invalid amount", "Enter a non-negative number, or leave blank for no limit.");
+        return;
+      }
+      monthlyCap = n;
+    }
+    setLimit.mutate(
+      { playerId, category, monthlyCap },
+      {
+        onSuccess: () => {
+          setEdits((e) => {
+            const next = { ...e };
+            delete next[key];
+            return next;
+          });
+        },
+      },
+    );
+  };
+
+  const cardLabel = wallet.data?.paymentMethod
+    ? `${wallet.data.paymentMethod.brand?.toUpperCase() ?? "CARD"} •••• ${wallet.data.paymentMethod.last4 ?? "----"}`
+    : "No card on file";
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={walletStyles.overlay}>
+        <View style={walletStyles.container}>
+          <View style={walletStyles.header}>
+            <View style={walletStyles.titleRow}>
+              <Ionicons name="wallet" size={24} color="#00BCD4" />
+              <Text style={walletStyles.title}>Family Wallet</Text>
+            </View>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close family wallet">
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={walletStyles.body}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Payment method */}
+            <Text style={walletStyles.sectionTitle}>Payment method</Text>
+            <View style={walletStyles.card}>
+              <View style={walletStyles.cardRow}>
+                <Ionicons
+                  name={wallet.data?.paymentMethod ? "card" : "card-outline"}
+                  size={22}
+                  color={Colors.dark.text}
+                />
+                <Text style={walletStyles.cardLabel}>{cardLabel}</Text>
+              </View>
+              <View style={walletStyles.cardActions}>
+                <Pressable
+                  style={[walletStyles.actionBtn, walletStyles.actionPrimary]}
+                  onPress={() => setupIntent.mutate()}
+                  disabled={setupIntent.isPending}
+                >
+                  {setupIntent.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  ) : (
+                    <Text style={walletStyles.actionPrimaryText}>
+                      {wallet.data?.paymentMethod ? "Update card" : "Add card"}
+                    </Text>
+                  )}
+                </Pressable>
+                {wallet.data?.paymentMethod ? (
+                  <Pressable
+                    style={[walletStyles.actionBtn, walletStyles.actionSecondary]}
+                    onPress={() => removeCard.mutate()}
+                    disabled={removeCard.isPending}
+                  >
+                    {removeCard.isPending ? (
+                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                    ) : (
+                      <Text style={walletStyles.actionSecondaryText}>Remove</Text>
+                    )}
+                  </Pressable>
+                ) : null}
+              </View>
+              {wallet.data?.paymentMethod ? (
+                <Pressable
+                  style={walletStyles.linkRow}
+                  onPress={() => billingPortal.mutate()}
+                  disabled={billingPortal.isPending}
+                  accessibilityRole="link"
+                  accessibilityLabel="View family invoices and receipts"
+                >
+                  {billingPortal.isPending ? (
+                    <ActivityIndicator size="small" color="#00BCD4" />
+                  ) : (
+                    <>
+                      <Ionicons name="receipt-outline" size={18} color="#00BCD4" />
+                      <Text style={walletStyles.linkText}>View invoices &amp; receipts</Text>
+                      <Ionicons name="open-outline" size={16} color="#00BCD4" />
+                    </>
+                  )}
+                </Pressable>
+              ) : null}
+              <Text style={walletStyles.cardHint}>
+                One card pays for everyone in your family. Per-member caps still apply.
+              </Text>
+            </View>
+
+            {/* Per-member spend limits */}
+            <Text style={walletStyles.sectionTitle}>Monthly spend limits</Text>
+            {wallet.isLoading ? (
+              <ActivityIndicator color={Colors.dark.text} />
+            ) : wallet.data?.members.length === 0 ? (
+              <Text style={walletStyles.muted}>No family members yet.</Text>
+            ) : (
+              wallet.data?.members.map((m) => (
+                <View key={m.playerId} style={walletStyles.card}>
+                  <Text style={walletStyles.memberName}>{m.name}</Text>
+                  {wallet.data!.categories.map((cat) => {
+                    const key = `${m.playerId}:${cat.key}`;
+                    const currentCents = m.limits[cat.key];
+                    const placeholder = currentCents == null ? "No limit" : (currentCents / 100).toFixed(2);
+                    const draft = edits[key];
+                    const dirty = draft !== undefined;
+                    const saving = setLimit.isPending && setLimit.variables?.playerId === m.playerId && setLimit.variables?.category === cat.key;
+                    return (
+                      <View key={cat.key} style={walletStyles.limitRow}>
+                        <Text style={walletStyles.limitLabel}>{cat.label}</Text>
+                        <View style={walletStyles.limitInputRow}>
+                          <Text style={walletStyles.currency}>AED</Text>
+                          <TextInput
+                            style={walletStyles.limitInput}
+                            value={draft ?? ""}
+                            onChangeText={(v) => setEdits((e) => ({ ...e, [key]: v }))}
+                            placeholder={placeholder}
+                            placeholderTextColor={Colors.dark.textMuted}
+                            keyboardType="numeric"
+                            inputMode="decimal"
+                          />
+                          {dirty ? (
+                            <Pressable
+                              style={walletStyles.saveBtn}
+                              onPress={() => handleSave(m.playerId, cat.key)}
+                              disabled={saving}
+                            >
+                              {saving ? (
+                                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                              ) : (
+                                <Text style={walletStyles.saveBtnText}>Save</Text>
+                              )}
+                            </Pressable>
+                          ) : currentCents != null ? (
+                            <Pressable
+                              style={walletStyles.clearBtn}
+                              onPress={() =>
+                                setLimit.mutate({ playerId: m.playerId, category: cat.key, monthlyCap: null })
+                              }
+                              accessibilityLabel={`Remove ${cat.label} limit for ${m.name}`}
+                            >
+                              <Ionicons name="close" size={18} color={Colors.dark.textMuted} />
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))
+            )}
+
+            {/* Statement */}
+            <Text style={walletStyles.sectionTitle}>This month</Text>
+            {statement.isLoading ? (
+              <ActivityIndicator color={Colors.dark.text} />
+            ) : statement.data ? (
+              <View style={walletStyles.card}>
+                <Text style={walletStyles.muted}>Month: {statement.data.month}</Text>
+                {statement.data.members.map((m) => (
+                  <View key={m.playerId} style={walletStyles.statementRow}>
+                    <Text style={walletStyles.statementName}>{m.playerName || "Player"}</Text>
+                    <Text style={walletStyles.statementAmount}>
+                      {statement.data!.currency} {m.total.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+                <View style={[walletStyles.statementRow, walletStyles.statementTotal]}>
+                  <Text style={[walletStyles.statementName, walletStyles.statementTotalText]}>Total</Text>
+                  <Text style={[walletStyles.statementAmount, walletStyles.statementTotalText]}>
+                    {statement.data.currency} {statement.data.totals.grandTotal.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const walletStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+    maxHeight: "92%",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  title: { fontSize: FontSizes.lg, fontWeight: "700", color: Colors.dark.text },
+  body: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing.xl * 2 },
+  sectionTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  card: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  cardRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  cardLabel: { color: Colors.dark.text, fontSize: FontSizes.md, fontWeight: "600" },
+  cardActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.xs },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionPrimary: { backgroundColor: "#00BCD4" },
+  actionPrimaryText: { color: Colors.dark.buttonText, fontWeight: "700" },
+  actionSecondary: { backgroundColor: Colors.dark.backgroundSecondary, borderWidth: 1, borderColor: Colors.dark.border },
+  actionSecondaryText: { color: Colors.dark.text, fontWeight: "600" },
+  cardHint: { color: Colors.dark.textMuted, fontSize: FontSizes.sm, marginTop: Spacing.xs },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  linkText: { color: "#00BCD4", fontWeight: "600", fontSize: FontSizes.sm },
+  memberName: { color: Colors.dark.text, fontSize: FontSizes.md, fontWeight: "700", marginBottom: Spacing.xs },
+  limitRow: { gap: Spacing.xs, marginTop: Spacing.xs },
+  limitLabel: { color: Colors.dark.textMuted, fontSize: FontSizes.sm },
+  limitInputRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  currency: { color: Colors.dark.textMuted, fontSize: FontSizes.sm, width: 36 },
+  limitInput: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    color: Colors.dark.text,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    fontSize: FontSizes.md,
+  },
+  saveBtn: {
+    backgroundColor: "#00BCD4",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  saveBtnText: { color: Colors.dark.buttonText, fontWeight: "700" },
+  clearBtn: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  muted: { color: Colors.dark.textMuted, fontSize: FontSizes.sm },
+  statementRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.xs,
+  },
+  statementName: { color: Colors.dark.text, fontSize: FontSizes.md },
+  statementAmount: { color: Colors.dark.text, fontSize: FontSizes.md, fontVariant: ["tabular-nums"] },
+  statementTotal: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+  },
+  statementTotalText: { fontWeight: "700" },
+});
 
 const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
@@ -2253,7 +2714,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.text,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     textAlign: "center",
@@ -2275,7 +2736,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   pinModalBtn: {
     flex: 1,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2377,7 +2838,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.lg,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     padding: 4,
   },
   tab: {
@@ -2387,7 +2848,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.small,
+    borderRadius: BorderRadius.sm,
   },
   tabActive: {
     backgroundColor: Colors.dark.backgroundDefault,
@@ -2410,7 +2871,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   emailInput: {
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     fontSize: FontSizes.md,
     color: Colors.dark.text,
@@ -2419,7 +2880,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   addButton: {
     backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: "center",
     justifyContent: "center",
@@ -2429,7 +2890,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   spectatorMemberCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
@@ -2452,7 +2913,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xs,
@@ -2488,7 +2949,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   spectatorIconBtn: {
     width: 34,
     height: 34,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -2499,7 +2960,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     paddingVertical: Spacing.sm,
     marginTop: Spacing.sm,
   },

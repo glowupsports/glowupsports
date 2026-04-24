@@ -23,6 +23,7 @@ import {
   coachTimeBlocks,
   courtAvailability,
   courtAvailabilitySnapshots,
+  courtBookings,
   courts,
   bookingInvites,
   bookingInviteGuests,
@@ -2536,9 +2537,42 @@ router.post(
           .json({ error: "Academy members should use the regular join flow." });
       }
 
-      // Create Stripe Checkout session
+      // Task #1136 — Family Wallet pre-checkout guard. Best-effort up-front
+      // refusal so the user doesn't waste time clicking through to Stripe
+      // for an order they can't afford. The webhook handler that
+      // materialises the booking row re-enforces the cap atomically (see
+      // server/webhookHandlers.ts) so a concurrent race past this check is
+      // still refused.
+      {
+        const { assertWithinSpendLimit, dollarsToCents } = await import(
+          "../lib/family-wallet"
+        );
+        const guard = await assertWithinSpendLimit(
+          playerId,
+          "court_bookings",
+          dollarsToCents(dropInPrice),
+          "AED",
+        );
+        if (!guard.ok) {
+          return res
+            .status(guard.status || 402)
+            .json({ error: guard.reason, code: "family_wallet_blocked", details: guard.details });
+        }
+      }
+
+      // Create Stripe Checkout session. When the family has a saved card
+      // we pass `customer: family.stripeCustomerId` so the saved card
+      // appears as the default payment option (and the charge is
+      // attributed to the family customer for invoicing).
       const { getUncachableStripeClient } = await import("../stripeClient");
       const stripe = await getUncachableStripeClient();
+      const useFamilyWallet = req.body?.useFamilyWallet !== false;
+      let familyStripeCustomerId: string | null = null;
+      if (useFamilyWallet) {
+        const { getFamilyWalletForPlayer } = await import("../lib/family-wallet");
+        const wallet = await getFamilyWalletForPlayer(playerId);
+        familyStripeCustomerId = wallet?.stripeCustomerId || null;
+      }
 
       const forwardedProto =
         req.header("x-forwarded-proto") || req.protocol || "https";
@@ -2568,8 +2602,13 @@ router.post(
           type: "drop_in_session",
           sessionId,
           playerId,
+          // Webhook handler reads `family_wallet` to know whether to
+          // re-assert the cap atomically against the family group.
+          family_wallet: familyStripeCustomerId ? "1" : "0",
         },
-        customer_email: player.email || undefined,
+        ...(familyStripeCustomerId
+          ? { customer: familyStripeCustomerId }
+          : { customer_email: player.email || undefined }),
       });
 
       return res.json({
@@ -2819,8 +2858,35 @@ router.post(
         return res.status(409).json({ error: "That slot is no longer available. Please pick another time." });
       }
 
+      // Task #1136 — Family Wallet pre-checkout guard. Best-effort up-front
+      // refusal; the webhook handler that materialises the booking row
+      // re-enforces the cap atomically (see server/webhookHandlers.ts).
+      {
+        const { assertWithinSpendLimit, dollarsToCents } = await import(
+          "../lib/family-wallet"
+        );
+        const guard = await assertWithinSpendLimit(
+          playerId,
+          "court_bookings",
+          dollarsToCents(price),
+          currency,
+        );
+        if (!guard.ok) {
+          return res
+            .status(guard.status || 402)
+            .json({ error: guard.reason, code: "family_wallet_blocked", details: guard.details });
+        }
+      }
+
       const { getUncachableStripeClient } = await import("../stripeClient");
       const stripe = await getUncachableStripeClient();
+      const useFamilyWallet = req.body?.useFamilyWallet !== false;
+      let familyStripeCustomerId: string | null = null;
+      if (useFamilyWallet) {
+        const { getFamilyWalletForPlayer } = await import("../lib/family-wallet");
+        const wallet = await getFamilyWalletForPlayer(playerId);
+        familyStripeCustomerId = wallet?.stripeCustomerId || null;
+      }
 
       const forwardedProto = req.header("x-forwarded-proto") || req.protocol || "https";
       const forwardedHost = req.header("x-forwarded-host") || req.get("host") || "localhost";
@@ -2853,7 +2919,9 @@ router.post(
         ],
         success_url: `${baseUrl}/?drop_in_lesson_success=true&coach_id=${coachId}`,
         cancel_url: `${baseUrl}/?drop_in_lesson_cancelled=true`,
-        customer_email: player.email || undefined,
+        ...(familyStripeCustomerId
+          ? { customer: familyStripeCustomerId }
+          : { customer_email: player.email || undefined }),
         metadata: {
           // Same metadata `type` keeps webhook handler signatures unchanged
           // — `bookingType` distinguishes the two flows on materialisation.
@@ -2872,6 +2940,9 @@ router.post(
           playerNote: (playerNote || "").slice(0, 500),
           price: String(price),
           currency,
+          // Webhook handler reads `family_wallet` to know whether to
+          // re-assert the cap atomically against the family group.
+          family_wallet: familyStripeCustomerId ? "1" : "0",
         },
       });
 
@@ -7414,23 +7485,103 @@ router.post(
       // Determine booking type
       const bookingType = court.visibility === "public" ? "public" : "academy";
 
-      // Create booking
-      const booking = await storage.createCourtBooking({
-        courtId,
-        userId,
-        playerId: playerId || null,
-        academyId: court.academyId,
-        date,
-        startTime,
-        endTime,
-        durationMinutes,
-        bookingType,
-        price: price.toFixed(2),
-        currency: court.currency || "AED",
-        paymentStatus: price === 0 ? "free" : "pending",
-        status: court.requiresApproval ? "pending" : "confirmed",
-        notes: notes ? sanitizeMessage(notes) : null,
-      });
+      // Task #1136 — Family Wallet ATOMIC guard + family-card off-session
+      // charge. The booking INSERT lives inside the same DB tx as the cap
+      // check + per-(family,member,court_bookings,month) advisory lock so
+      // concurrent bookings can't both squeak past the cap. After the tx
+      // commits, if the family has a saved card and the caller hasn't
+      // opted out (`useFamilyWallet !== false`), we charge it off-session
+      // and flip paymentStatus to paid (or cancel the booking on failure
+      // so the cap reservation is released).
+      let booking: typeof courtBookings.$inferSelect;
+      const useFamilyWallet = req.body?.useFamilyWallet !== false;
+      if (playerId && price > 0) {
+        const { withSpendLimitTransaction, dollarsToCents } = await import(
+          "../lib/family-wallet"
+        );
+        const guarded = await withSpendLimitTransaction(
+          {
+            playerId,
+            category: "court_bookings",
+            attemptCents: dollarsToCents(price),
+            currency: court.currency || "AED",
+          },
+          async (tx) => {
+            const [row] = await tx.insert(courtBookings).values({
+              courtId,
+              userId,
+              playerId: playerId || null,
+              academyId: court.academyId,
+              date,
+              startTime,
+              endTime,
+              durationMinutes,
+              bookingType,
+              price: price.toFixed(2),
+              currency: court.currency || "AED",
+              paymentStatus: "pending",
+              status: court.requiresApproval ? "pending" : "confirmed",
+              confirmedAt: court.requiresApproval ? null : new Date(),
+              notes: notes ? sanitizeMessage(notes) : null,
+            }).returning();
+            return row;
+          },
+        );
+        if (!guarded.ok) {
+          return res
+            .status(guarded.status || 402)
+            .json({ error: guarded.reason, code: "family_wallet_blocked", details: guarded.details });
+        }
+        booking = guarded.result;
+
+        if (useFamilyWallet) {
+          const { chargeFamilyWalletOffSession, getFamilyWalletForPlayer, dollarsToCents: d2c } =
+            await import("../lib/family-wallet");
+          const wallet = await getFamilyWalletForPlayer(playerId);
+          if (wallet?.stripeCustomerId && wallet?.stripePaymentMethodId) {
+            const charge = await chargeFamilyWalletOffSession({
+              playerId,
+              amountCents: d2c(price),
+              currency: court.currency || "AED",
+              description: `Court booking — ${court.name || court.id} · ${date} ${startTime}`,
+              metadata: { courtId, bookingId: booking.id, date, startTime },
+            });
+            if (!charge.ok) {
+              await db.update(courtBookings)
+                .set({ status: "cancelled", paymentStatus: "failed", cancelledAt: new Date(), cancelReason: "family_wallet_charge_failed" })
+                .where(eq(courtBookings.id, booking.id));
+              return res.status(402).json({
+                error: charge.message,
+                code: charge.code === "authentication_required"
+                  ? "family_wallet_sca_required"
+                  : "family_wallet_charge_failed",
+                clientSecret: (charge as any).clientSecret,
+              });
+            }
+            await db.update(courtBookings)
+              .set({ paymentStatus: "paid" })
+              .where(eq(courtBookings.id, booking.id));
+            booking = { ...booking, paymentStatus: "paid" };
+          }
+        }
+      } else {
+        booking = await storage.createCourtBooking({
+          courtId,
+          userId,
+          playerId: playerId || null,
+          academyId: court.academyId,
+          date,
+          startTime,
+          endTime,
+          durationMinutes,
+          bookingType,
+          price: price.toFixed(2),
+          currency: court.currency || "AED",
+          paymentStatus: price === 0 ? "free" : "pending",
+          status: court.requiresApproval ? "pending" : "confirmed",
+          notes: notes ? sanitizeMessage(notes) : null,
+        });
+      }
 
       // Mark time slot as booked
       await storage.updateCourtAvailabilityStatus(

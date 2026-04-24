@@ -4093,6 +4093,8 @@ const socialPostUpload = multer({
         res.status(500).json({ error: "Failed to load discovery" });
       }
     },
+  );
+
   // =====================================================================
   // Phase 2 — notification preferences, unseen counter, mention search
   // =====================================================================
